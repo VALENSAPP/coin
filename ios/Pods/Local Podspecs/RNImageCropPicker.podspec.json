@@ -1,0 +1,80 @@
+{
+  "name": "RNImageCropPicker",
+  "version": "0.50.1",
+  "summary": "Select single or multiple images, with cropping option",
+  "requires_arc": true,
+  "license": "MIT",
+  "homepage": "n/a",
+  "authors": {
+    "ivpusic": ""
+  },
+  "source": {
+    "git": "https://github.com/ivpusic/react-native-image-crop-picker",
+    "tag": "v0.50.1"
+  },
+  "source_files": "ios/src/*.{h,m,mm}",
+  "platforms": {
+    "ios": "8.0"
+  },
+  "dependencies": {
+    "React-Core": [],
+    "React-RCTImage": [],
+    "TOCropViewController": [
+      "~> 2.7.4"
+    ],
+    "React-RCTFabric": [],
+    "ReactCodegen": [],
+    "RCTRequired": [],
+    "RCTTypeSafety": [],
+    "ReactCommon/turbomodule/bridging": [],
+    "ReactCommon/turbomodule/core": [],
+    "React-NativeModulesApple": [],
+    "Yoga": [],
+    "React-Fabric": [],
+    "React-graphics": [],
+    "React-utils": [],
+    "React-featureflags": [],
+    "React-debug": [],
+    "React-ImageManager": [],
+    "React-rendererdebug": [],
+    "React-jsi": [],
+    "React-renderercss": [],
+    "hermes-engine": [],
+    "React-hermes": [],
+    "glog": [],
+    "boost": [],
+    "DoubleConversion": [],
+    "fast_float": [],
+    "fmt": [],
+    "RCT-Folly": [],
+    "SocketRocket": [],
+    "RCT-Folly/Fabric": []
+  },
+  "resource_bundles": {
+    "RNImageCropPickerPrivacyInfo": [
+      "ios/PrivacyInfo.xcprivacy"
+    ]
+  },
+  "compiler_flags": "-DRCT_NEW_ARCH_ENABLED=1",
+  "pod_target_xcconfig": {
+    "HEADER_SEARCH_PATHS": "\"$(PODS_ROOT)/Headers/Private/Yoga\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers/react/renderer/graphics/platform/ios\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-Fabric/React_Fabric.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-Fabric/React_Fabric.framework/Headers/react/renderer/components/view/platform/cxx\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-FabricImage/React_FabricImage.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers/react/nativemodule/core\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-NativeModulesApple/React_NativeModulesApple.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-RCTFabric/RCTFabric.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-utils/React_utils.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-featureflags/React_featureflags.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-debug/React_debug.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-ImageManager/React_ImageManager.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-rendererdebug/React_rendererdebug.framework/Headers\" \"${PODS_CONFIGURATION_BUILD_DIR}/React-renderercss/React_renderercss.framework/Headers\"",
+    "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED=1 ",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED"
+  },
+  "subspecs": [
+    {
+      "name": "QBImagePickerController",
+      "source_files": "ios/QBImagePicker/QBImagePicker/*.{h,m}",
+      "exclude_files": "ios/QBImagePicker/QBImagePicker/QBImagePicker.h",
+      "resource_bundles": {
+        "QBImagePicker": "ios/QBImagePicker/QBImagePicker/*.{lproj,storyboard}"
+      },
+      "requires_arc": true,
+      "frameworks": [
+        "Photos",
+        "PhotosUI"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>103724590021-256b5bh4tqesq7gulu0hj4oomr7a4h1c.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.103724590021-256b5bh4tqesq7gulu0hj4oomr7a4h1c</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>103724590021-b617961sp2muir3t01ed1obe7pg9erts.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyChxfcOo2yGTfEeHGKZEMH9WY5qk1JaEiE</string>
+	<key>GCM_SENDER_ID</key>
+	<string>103724590021</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.valens.app</string>
+	<key>PROJECT_ID</key>
+	<string>valenscrypto</string>
+	<key>STORAGE_BUCKET</key>
+	<string>valenscrypto.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:103724590021:ios:82410dc4bf08f2d8e321ac</string>
+</dict>
+</plist>

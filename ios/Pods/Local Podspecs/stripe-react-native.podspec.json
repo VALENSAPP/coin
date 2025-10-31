@@ -1,0 +1,124 @@
+{
+  "name": "stripe-react-native",
+  "version": "0.51.0",
+  "summary": "Stripe SDK for React Native",
+  "homepage": "https://github.com/stripe/stripe-react-native/#readme",
+  "license": "MIT",
+  "authors": "Stripe",
+  "platforms": {
+    "ios": "13.0"
+  },
+  "source": {
+    "git": "https://github.com/stripe/stripe-react-native.git",
+    "tag": "0.51.0"
+  },
+  "source_files": "ios/**/*.{h,m,mm,swift}",
+  "exclude_files": [
+    "ios/Tests/",
+    "ios/NewArch/"
+  ],
+  "private_header_files": [
+    "ios/StripeSdk.h",
+    "ios/StripeSwiftInterop.h"
+  ],
+  "header_dir": "stripe_react_native",
+  "pod_target_xcconfig": {
+    "USE_HEADERMAP": "YES",
+    "DEFINES_MODULE": "YES",
+    "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
+    "SWIFT_COMPILATION_MODE": "wholemodule",
+    "HEADER_SEARCH_PATHS": [
+      "\"$(PODS_ROOT)/Headers/Private/Yoga\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers/react/renderer/graphics/platform/ios\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-Fabric/React_Fabric.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-Fabric/React_Fabric.framework/Headers/react/renderer/components/view/platform/cxx\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-FabricImage/React_FabricImage.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers/react/nativemodule/core\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-NativeModulesApple/React_NativeModulesApple.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-RCTFabric/RCTFabric.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-utils/React_utils.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-featureflags/React_featureflags.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-debug/React_debug.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-ImageManager/React_ImageManager.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-rendererdebug/React_rendererdebug.framework/Headers\"",
+      "\"${PODS_CONFIGURATION_BUILD_DIR}/React-renderercss/React_renderercss.framework/Headers\"",
+      "$(PODS_ROOT)/glog",
+      "$(PODS_ROOT)/boost",
+      "$(PODS_ROOT)/DoubleConversion",
+      "$(PODS_ROOT)/fast_float/include",
+      "$(PODS_ROOT)/fmt/include",
+      "$(PODS_ROOT)/SocketRocket",
+      "$(PODS_ROOT)/RCT-Folly"
+    ],
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED=1 ",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED"
+  },
+  "dependencies": {
+    "React-Core": [],
+    "Stripe": [
+      "~> 24.20.0"
+    ],
+    "StripePaymentSheet": [
+      "~> 24.20.0"
+    ],
+    "StripePayments": [
+      "~> 24.20.0"
+    ],
+    "StripePaymentsUI": [
+      "~> 24.20.0"
+    ],
+    "StripeApplePay": [
+      "~> 24.20.0"
+    ],
+    "StripeFinancialConnections": [
+      "~> 24.20.0"
+    ],
+    "React-RCTFabric": [],
+    "ReactCodegen": [],
+    "RCTRequired": [],
+    "RCTTypeSafety": [],
+    "ReactCommon/turbomodule/bridging": [],
+    "ReactCommon/turbomodule/core": [],
+    "React-NativeModulesApple": [],
+    "Yoga": [],
+    "React-Fabric": [],
+    "React-graphics": [],
+    "React-utils": [],
+    "React-featureflags": [],
+    "React-debug": [],
+    "React-ImageManager": [],
+    "React-rendererdebug": [],
+    "React-jsi": [],
+    "React-renderercss": [],
+    "hermes-engine": [],
+    "React-hermes": [],
+    "glog": [],
+    "boost": [],
+    "DoubleConversion": [],
+    "fast_float": [],
+    "fmt": [],
+    "RCT-Folly": [],
+    "SocketRocket": [],
+    "RCT-Folly/Fabric": []
+  },
+  "compiler_flags": "-DRCT_NEW_ARCH_ENABLED=1",
+  "testspecs": [
+    {
+      "name": "Tests",
+      "test_type": "unit",
+      "platforms": {
+        "ios": "15.1"
+      },
+      "source_files": "ios/Tests/**/*.{m,swift}"
+    }
+  ],
+  "subspecs": [
+    {
+      "name": "NewArch",
+      "source_files": "ios/NewArch/**/*.{h,m,mm}",
+      "private_header_files": "**/*.h"
+    }
+  ]
+}

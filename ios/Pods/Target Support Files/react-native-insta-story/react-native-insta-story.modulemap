@@ -1,0 +1,6 @@
+framework module react_native_insta_story {
+  umbrella header "react-native-insta-story-umbrella.h"
+
+  export *
+  module * { export * }
+}

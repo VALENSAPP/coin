@@ -1,0 +1,6 @@
+framework module react_native_color_matrix_image_filters {
+  umbrella header "react-native-color-matrix-image-filters-umbrella.h"
+
+  export *
+  module * { export * }
+}

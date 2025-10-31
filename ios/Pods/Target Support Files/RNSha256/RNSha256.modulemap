@@ -1,0 +1,6 @@
+framework module RNSha256 {
+  umbrella header "RNSha256-umbrella.h"
+
+  export *
+  module * { export * }
+}
