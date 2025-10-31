@@ -1,4 +1,4 @@
-// themes.js
+// themes.js color for application
 const Colors = {
   backgroundColor: '#fff',
   primaryColor: '#1671f9ff',
