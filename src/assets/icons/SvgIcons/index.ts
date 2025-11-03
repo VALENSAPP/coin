@@ -13,8 +13,16 @@ import ProfileReelIcon from './profileReels.svg';
 import LockKey from './lockKey.svg';
 import AppleLogo from './apple_logo.svg'
 import WhiteDragonfly from './whiteDragonfly.svg'
+import BlueDragonfly from './blueDragonfly.svg'
+import GoldDragonfly from './goldDragonfly.svg'
+import GoldLavenderDragonfly from './goldLavenderDragonfly.svg'
+import LavenderDragonfly from './lavenderDragonfly.svg'
+import LilacDragonfly from './lilacDragonfly.svg'
+import SoftGrayDragonfly from './softgrayDragonfly.svg'
+import WhiteSmokeDragonfly from './whitesmokeDragonfly.svg'
 
 export {
     Google, Twitter, Eyeopen, Eyeclosed, Metamask, Reels, Chat, ReelWhite, Thread, LogoIcon, Dragonfly,
-    ProfileReelIcon, LockKey, AppleLogo, WhiteDragonfly
+    ProfileReelIcon, LockKey, AppleLogo, WhiteDragonfly, BlueDragonfly, GoldDragonfly,GoldLavenderDragonfly,
+    LavenderDragonfly, LilacDragonfly, SoftGrayDragonfly, WhiteSmokeDragonfly
 };

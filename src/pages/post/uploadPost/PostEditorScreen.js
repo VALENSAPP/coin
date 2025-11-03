@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { createPost } from '../../../services/post';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -29,16 +30,27 @@ const PostEditorScreen = () => {
   const { images = [], currentFilter = 'none', metadata = {}, imageEdits, postType } = route.params || {};
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
+  const [profile, setProfile] = useState(null);
+
   const toast = useToast();
-  console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType });
+  console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType, });
 
+  useEffect(() => {
+    const loadProfileType = async () => {
+      const type = await AsyncStorage.getItem('profile');
+      console.log('Loaded profile type:', type);
+      setProfile(type);
+    };
+    loadProfileType();
+  }, []);
   const handlePost = async () => {
-    if (postType == 'crowdfunding') {
-
+    // if user is business profile, only navigate to CreateMission
+    if (profile == 'company') {
       if (link && !isValidLink(link)) {
         showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
         return;
       }
+      
 
       navigation.navigate('CreateMission', {
         images,
@@ -46,42 +58,53 @@ const PostEditorScreen = () => {
         link
       });
     }
+
+
     else {
+      if (postType == 'crowdfunding') {
+        if (link && !isValidLink(link)) {
+          showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
+          return;
+        }
+
+        navigation.navigate('CreateMission', {
+          images,
+          caption,
+          link
+        });
+      }
+
       dispatch(showLoader());
       const payload = {
-        // text: caption.trim(),
         caption: caption.trim(),
-        // hashtag: [],        
-        // location: '',      
-        // music: '',          
-        // taggedPeople: [],  
         media: images.map(img => ({
           uri: img.processedUri || img.uri,
           type: img.type,
           name: (img.processedUri || img.uri).split('/').pop()
+
         })),
         type: 'normal',
       };
 
       try {
-        const response = await createPost(payload)
-        console.log('rrrrrrrrrrrrrrrrrrrrrrrr', response);
+        const response = await createPost(payload);
+        console.log('Post creation response:', response);
 
         if (response.statusCode == 200) {
           showToastMessage(toast, 'success', 'Post created successfully');
           navigation.navigate('HomeMain');
-        }
-        else {
+        } else {
           showToastMessage(toast, 'danger', 'Please try again');
         }
       } catch (err) {
         console.error('Post creation error:', err);
-        showToastMessage(toast, 'success', err.response.message);
+        showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
       } finally {
         dispatch(hideLoader());
       }
     }
   };
+
 
   const isValidLink = (text) => {
     const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})([\/\w .-]*)*\/?$/i;

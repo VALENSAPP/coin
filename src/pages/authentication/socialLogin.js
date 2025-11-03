@@ -135,7 +135,7 @@ export const signInWithFirebase = async idToken => {
 };
 
 export async function twitterOAuthLogin(dispatch, toast, navigation) {
-  console.log('enter', TWITTER_CLIENT_ID)
+  console.log('enter', REDIRECT_URI)
   const state = uuidv4();
   const codeChallenge = state;
   codeVerifierRef.current = codeChallenge;
@@ -143,7 +143,8 @@ export async function twitterOAuthLogin(dispatch, toast, navigation) {
   const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(
     REDIRECT_URI
   )}&scope=tweet.read%20users.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
-
+  console.log('authUrl--------------------------------', authUrl);
+  
   try {
     const isAvailable = await InAppBrowser.isAvailable();
     if (isAvailable) {
@@ -180,7 +181,11 @@ export async function twitterOAuthLogin(dispatch, toast, navigation) {
 const getProfileData = async (dispatch, navigation) => {
   try {
     dispatch(showLoader());
+    console.log('hiiiiiiiiiiiiiiiiiiiiiii');
+    
     const id = await AsyncStorage.getItem('userId');
+    console.log('22222222222222222222', id);
+
     if (id) {
       const response = await getProfile(id);
       console.log('reeeeeeeeeeeeeeeeee', response)
@@ -219,10 +224,10 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
     if (
       response && (response.statusCode == 200 || response.statusCode == 201)
     ) {
-      await AsyncStorage.setItem('userId', response.data.user.id)
-      showToastMessage(toast, 'success', response.data.message);
+      await AsyncStorage.setItem('userId', response.data.id)
+      // showToastMessage(toast, 'success', response.data.message);
       await handleLoginSuccess(
-        response.data.user.access_token,
+        response.data.access_token,
         dispatch,
         navigation,
         getProfileData
