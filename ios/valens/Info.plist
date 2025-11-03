@@ -99,5 +99,22 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSMotionUsageDescription</key>
+	<string>This app requires access to motion data to improve app functionality.</string>
+
+	<key>NSAppleMusicUsageDescription</key>
+	<string>This app requires access to your media library to support audio-related features.</string>
+
+	<key>NSCalendarsUsageDescription</key>
+	<string>This app requires access to your calendar to support related functionality.</string>
+
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app requires speech recognition to enable voice-related features.</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app requires microphone access to support audio and voice features.</string>
+
+	<key>NSContactsUsageDescription</key>
+	<string>This app requires access to contacts to support communication-related features.</string>
 </dict>
 </plist>
