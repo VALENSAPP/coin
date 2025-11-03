@@ -6,5 +6,11 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- <key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:www.valenciacorp.com</string>
+	</array>
+	<key>com.apple.developer.associated-domains.mdm-managed</key>
+	<true/> -->
 </dict>
 </plist>
