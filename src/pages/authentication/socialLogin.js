@@ -181,14 +181,9 @@ export async function twitterOAuthLogin(dispatch, toast, navigation) {
 const getProfileData = async (dispatch, navigation) => {
   try {
     dispatch(showLoader());
-    console.log('hiiiiiiiiiiiiiiiiiiiiiii');
-    
     const id = await AsyncStorage.getItem('userId');
-    console.log('22222222222222222222', id);
-
     if (id) {
       const response = await getProfile(id);
-      console.log('reeeeeeeeeeeeeeeeee', response)
       if (response.statusCode === 200 && response.data.bio == null) {
         navigation.navigate('CreateProfile')
       }

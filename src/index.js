@@ -11,6 +11,20 @@ import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
 
+const linking = {
+  prefixes: [
+    'https://www.valenciacorp.com', // Universal Link
+    'com.valens://',                // fallback custom scheme
+  ],
+  config: {
+    screens: {
+      Home: '',
+      Callback: 'callback',
+      Wallet: 'wallet',
+    },
+  },
+};
+
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const dispatch = useDispatch();
@@ -63,11 +77,11 @@ export default function Main() {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -78,7 +92,7 @@ export default function Main() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <MainStack />
     </NavigationContainer>
   );
