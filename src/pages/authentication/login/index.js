@@ -48,19 +48,23 @@ export default function LoginScreen() {
   const styles = createStyles();
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    getProfileData();
-  }, []);
+  // useEffect(() => {
+  //   getProfileData();
+  // }, []);
 
   const getProfileData = async (type, userid) => {
     try {
       dispatch(showLoader());
       const storedId = await AsyncStorage.getItem('userId');
       const id = type === 'fromlogin' ? userid : storedId;
-
       if (id) {
         const response = await getProfile(id);
         if (response.statusCode === 200 && response.data.bio == null) {
+
+          const profile = response.data.profile
+         if (profile) {
+            await AsyncStorage.setItem('profile', profile);
+          }
           navigation.navigate('CreateProfile');
         } else {
           await AsyncStorage.setItem('isLoggedIn', 'true');

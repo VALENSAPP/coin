@@ -112,7 +112,7 @@ export default function WalletScreen({ route }) {
       formData.append('phoneNumber', '');
 
       const response = await EditProfile(formData);
-      const code = response.statusCode;
+     const code = response.statusCode;
 
       if (code === 200) {
         setModalType('success');
