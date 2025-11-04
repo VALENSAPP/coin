@@ -39,7 +39,7 @@ import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 
-export default function Posts({ postData = [], onRefresh }) {
+export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   // All state hooks first - maintain consistent order
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [list, setList] = useState(postData);
@@ -243,6 +243,7 @@ export default function Posts({ postData = [], onRefresh }) {
           boughtBy: finalBoughtBy,
           follow: isFollowing || item.isFollow || false,
           userTokenAddress: tokenAddress || null,
+          profile: item.profile || 'user',
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers]);
@@ -516,6 +517,7 @@ export default function Posts({ postData = [], onRefresh }) {
         next.delete(key);
         return next;
       });
+      onRefresh();
     }
   }
 
@@ -724,7 +726,7 @@ export default function Posts({ postData = [], onRefresh }) {
       // Request more records than displayed to check if there are more available
       const limit = 15;
       const res = await getSuggestedUsers(limit, page);
-      
+
       const raw = res?.data?.suggestedUsers ?? res?.suggestedUsers ?? [];
       const me = currentUserId ? String(currentUserId) : null;
       const cleansed = raw
@@ -742,7 +744,7 @@ export default function Posts({ postData = [], onRefresh }) {
         setSuggestAllUsers(cleansed);
         setSuggestPage(1);
       }
-      
+
       // If we got fewer records than requested, there are no more
       // Also check if we got any records at all
       const hasMore = cleansed.length >= limit;
@@ -802,6 +804,8 @@ export default function Posts({ postData = [], onRefresh }) {
             onDismiss={handleDismissSuggestion}
             onSeeMore={handleSeeMoreSuggestions}
             hasMore={suggestHasMore}
+            isBusinessProfile={isBusinessProfile}
+            executeFollowAction={executeFollowAction}
           />
         );
       }
@@ -819,6 +823,8 @@ export default function Posts({ postData = [], onRefresh }) {
           onToggleSave={() => handleToggleSave(item.id)}
           onComment={() => handleComment(item.id, item.UserId)}
           onOptions={() => openOptionsModal(item.id)}
+          isBusinessProfile={isBusinessProfile}
+          executeFollowAction={executeFollowAction}
         />
       );
     },

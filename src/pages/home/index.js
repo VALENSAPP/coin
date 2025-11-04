@@ -76,6 +76,8 @@ export default function HomeScreen() {
       dispatch(showLoader());
       const response = await getposts();
       if (response?.statusCode === 200) {
+        console.log('response in get post--------',response);
+        
         setPosts(response.data);
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -236,7 +238,7 @@ export default function HomeScreen() {
             />
           }
         >
-          <Posts postData={posts} onRefresh={onRefresh} />
+          <Posts postData={posts} onRefresh={onRefresh} isBusinessProfile={isBusinessProfile}/>
         </ScrollView>
       </View>
 
