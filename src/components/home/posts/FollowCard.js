@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,23 @@ export default function FollowCard({
   loading,
   onToggle,
   onClose,
+  isBusinessProfile,
+  executeFollowAction,
+  item
 }) {
+  const [currentUserId, setCurrentUserId] = useState(null);
   const navigation = useNavigation();
   const handleUserProfile = userId => {
     navigation.navigate('UsersProfile', { userId });
   };
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setCurrentUserId(id);
+    };
+    fetchUserId();
+  }, []);
 
   return (
     <View style={styles.card}>
@@ -50,14 +62,23 @@ export default function FollowCard({
       {/* Follow Button */}
       <TouchableOpacity
         style={[styles.followButton, isFollowing && styles.unfollowButton]}
-        onPress={onToggle}
+        onPress={() => {
+          if (!isBusinessProfile && item.UserId !== currentUserId) {
+            if (item.profile === 'company') {
+              executeFollowAction(item.UserId, !item.follow);
+            } else {
+              onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+            }
+          }
+        }}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
           <Text style={styles.followText}>
-            {isFollowing ? 'Vallowing' : 'Vallow'}
+            {isBusinessProfile ? "Support" :
+              isFollowing ? 'Vallowing' : 'Vallow'}
           </Text>
         )}
       </TouchableOpacity>

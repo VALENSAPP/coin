@@ -490,8 +490,8 @@ export default function CreateProfile() {
     };
 
     // Navigate to KYC verification instead of Wallet
-    navigation.navigate('kycverify', { profileData, serverProfile });
-    //  navigation.navigate('Wallet', { profileData, serverProfile });
+    // navigation.navigate('kycverify', { profileData, serverProfile });
+     navigation.navigate('Wallet', { profileData, serverProfile });
   };
 
   return (
