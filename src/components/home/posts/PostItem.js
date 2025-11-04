@@ -137,8 +137,10 @@ export default function PostItem({
   onComment,
   onOptions,
   followingBusy = false,
+  isBusinessProfile,
+  executeFollowAction
 }) {
-  // console.log('Rendering PostItem for post ID:', item);
+  console.log('Rendering PostItem for post ID:', item);
 
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -367,7 +369,13 @@ export default function PostItem({
             ]}
             disabled={followingBusy}
             onPress={() => {
-              item.UserId != userId && onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress)
+              if (!isBusinessProfile && item.UserId !== userId) {
+                if (item.profile === 'company') {
+                  executeFollowAction(item.UserId, !item.follow);
+                } else {
+                  onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+                }
+              }
             }}
           >
             {followingBusy ? (
@@ -377,7 +385,10 @@ export default function PostItem({
                 styles.followButtonText,
                 item.follow && styles.followingButtonText
               ]}>
-                {item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'}
+                {
+                  isBusinessProfile ? "Support" :
+                    item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'
+                }
               </Text>
             )}
           </TouchableOpacity>

@@ -16,7 +16,7 @@ import ProfilePersonData from '../../components/profile/ProfilePersonalData';
 import HighlightStories from '../../components/profile/HighLightStories';
 import ProfileTabs from '../../components/profile/ProfileTabNavigation';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
+import { follow, getPostByUser, getUserCredentials, getUserDashboard, unfollow } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
@@ -121,6 +121,49 @@ const Usersprofile = () => {
       setFollowBusy(false);
     }
   };
+
+  const executeFollowAction = async (isFollowing) => {
+    console.log('isFollowing----->>>>>>>>>>>>>>>>>>>',isFollowing);
+    
+    if (!targetUserId) return;
+    const key = String(targetUserId);
+
+    try {
+      const res = isFollowing
+        ? await follow(targetUserId)
+        : await unfollow(targetUserId);
+
+      const ok = res?.statusCode === 200 && (res?.success ?? true);
+
+      if (!ok) {
+        setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
+        showToastMessage(
+          toast,
+          'danger',
+          res?.data?.message || res?.message || 'Unable to update follow',
+        );
+      } else {
+        const serverVal = res?.data?.following;
+        if (typeof serverVal === 'boolean') {
+          setIsFollowing(prev => ({ ...prev, [key]: serverVal }));
+        }
+        showToastMessage(
+          toast,
+          'success',
+          isFollowing ? 'Successfully Vallowed!' : 'Unfollowed',
+        );
+      }
+    } catch (e) {
+      setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
+      showToastMessage(
+        toast,
+        'danger',
+        e?.response?.data?.message || 'Something went wrong',
+      );
+    } finally {
+      setFollowBusy(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {

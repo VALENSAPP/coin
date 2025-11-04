@@ -18,6 +18,8 @@ export default function Suggestion({
   onSeeMore,
   hasMore,
   isLoading = false,
+  isBusinessProfile,
+  executeFollowAction
 }) {
   const data = hasMore
     ? [...users, { id: '__see_more__', username: 'See more' }]
@@ -66,6 +68,9 @@ export default function Suggestion({
               loading={busyIds.has(String(item.id))}
               onToggle={() => onToggleFollow(item.id, !following)}
               onClose={() => onDismiss(item.id)}
+              item={item}
+              isBusinessProfile={isBusinessProfile}
+              executeFollowAction={executeFollowAction}
             />
           );
         }}
