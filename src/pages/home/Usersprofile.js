@@ -147,11 +147,11 @@ const Usersprofile = () => {
         if (typeof serverVal === 'boolean') {
           setIsFollowing(prev => ({ ...prev, [key]: serverVal }));
         }
-        showToastMessage(
-          toast,
-          'success',
-          isFollowing ? 'Successfully Vallowed!' : 'Unfollowed',
-        );
+        // showToastMessage(
+        //   toast,
+        //   'success',
+        //   isFollowing ? 'Successfully Vallowed!' : 'Unfollowed',
+        // );
       }
     } catch (e) {
       setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
