@@ -116,5 +116,12 @@
 
 	<key>NSContactsUsageDescription</key>
 	<string>This app requires access to contacts to support communication-related features.</string>
+
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>This app uses Bluetooth to connect to nearby devices and improve your experience.</string>
+
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app requires location access to enable continuous location-based features.</string>
+
 </dict>
 </plist>
