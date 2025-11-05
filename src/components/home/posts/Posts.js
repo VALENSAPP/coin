@@ -498,11 +498,11 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
         if (typeof serverVal === 'boolean') {
           setFollowingByUserId(prev => ({ ...prev, [key]: serverVal }));
         }
-        showToastMessage(
-          toast,
-          'success',
-          shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
-        );
+        // showToastMessage(
+        //   toast,
+        //   'success',
+        //   shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
+        // );
       }
     } catch (e) {
       setFollowingByUserId(prev => ({ ...prev, [key]: !shouldFollow }));
