@@ -19,8 +19,6 @@ export default function PostScreen({ navigation }) {
   const route = useRoute();
   const fromIcon = route?.params?.fromIcon;
 
-  console.log('fromIcon--------->>>>>>>>>>>>>>>>>>>>', fromIcon);
-
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
     const existingUris = new Set(existingGallery.map(img => img.uri));
     const selectedUris = new Set(selectedItems.map(item => item.uri));

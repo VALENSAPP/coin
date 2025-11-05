@@ -32,12 +32,14 @@ const ProfilePersonData = ({
   followBusy = false,
   targetUserId,
   purchaseSheetRef,
-  onStoryUploaded // Callback to refresh stories after upload
+  onStoryUploaded, // Callback to refresh stories after upload
+  userData,
+  executeFollowAction
 }) => {
 
   useEffect(() => {
     console.log(
-      { displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId },
+      { userData },
       'ProfilePersonData props'
     );
   }, [displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId]);
@@ -59,6 +61,7 @@ const ProfilePersonData = ({
   const [composerList, setComposerList] = useState([]);
   const [data, setData] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
 
@@ -194,7 +197,7 @@ const ProfilePersonData = ({
           ? asset.duration * 1000
           : 15000
         : 5000;
-    
+
     // If single item, set it directly
     if (response?.assets?.length === 1) {
       setComposerList([{ type, uri: asset.uri, duration }]);
@@ -230,7 +233,7 @@ const ProfilePersonData = ({
 
       if (response?.success) {
         showToastMessage(toast, 'success', 'Story Uploaded Successfully');
-        
+
         // Call the callback to refresh stories if provided
         if (onStoryUploaded) {
           onStoryUploaded();
@@ -378,7 +381,7 @@ const ProfilePersonData = ({
 
   useFocusEffect(
     useCallback(() => {
-      if (fromUsersProfile) return;
+      // if (fromUsersProfile) return;
       let isActive = true;
 
       const fetchProfile = async () => {
@@ -392,9 +395,15 @@ const ProfilePersonData = ({
           if (!isActive) return;
 
           if (response.statusCode === 200 && response.data) {
-            setData(response.data);
-            if (response.data.image) {
-              setProfileImage(response.data.image);
+            console.log('response in fetchProfile useFocusEffect:', response);
+            if (!fromUsersProfile) {
+              setData(response.data);
+              if (response.data.image) {
+                setProfileImage(response.data.image);
+              }
+            }
+            if (response?.data?.profile === 'company') {
+              setIsBusinessProfile(true);
             }
           }
         } catch (err) {
@@ -545,17 +554,29 @@ const ProfilePersonData = ({
               {fromUsersProfile ? (
                 <>
                   <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
-                    <LinearGradient
-                      colors={['#513189bd', '#e54ba0']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.editbuttons}
-                    >
-                      <Text style={styles.buttonText}>Buy</Text>
-                    </LinearGradient>
+                    {
+                      !isBusinessProfile && (
+                        userData?.profile !== 'company' && (
+                          <LinearGradient
+                            colors={['#513189bd', '#e54ba0']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.editbuttons}
+                          >
+                            <Text style={styles.buttonText}>Buy</Text>
+                          </LinearGradient>
+                        )
+                      )
+                    }
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={onToggleFollow}
+                    onPress={
+                      isBusinessProfile
+                        ? undefined
+                        : (userData?.profile == 'company'
+                          ? executeFollowAction
+                          : onToggleFollow)
+                    }
                     disabled={followBusy || isFollowing === null}
                   >
                     <LinearGradient
@@ -565,7 +586,7 @@ const ProfilePersonData = ({
                       style={styles.editbuttons}
                     >
                       <Text style={styles.buttonText}>
-                        {isFollowing ? 'Vallowing' : 'Vallow'}
+                        {isBusinessProfile ? 'Support' : isFollowing ? 'Vallowing' : 'Vallow'}
                         {followBusy ? '...' : ''}
                       </Text>
                     </LinearGradient>
@@ -720,7 +741,7 @@ const ProfilePersonData = ({
         visible={tradeModalVisible}
         onClose={() => setTradeModalVisible(false)}
       />
-      
+
       {/* Story Composer Modal */}
       <StoryComposer
         modalVisible={composerVisible}
