@@ -140,8 +140,6 @@ export default function PostItem({
   isBusinessProfile,
   executeFollowAction
 }) {
-  console.log('Rendering PostItem for post ID:', item);
-
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
 

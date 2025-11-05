@@ -32,7 +32,7 @@ const Usersprofile = () => {
   const [userDashboard, setUserDashboard] = useState();
   const [userData, setUserData] = useState();
   const [refreshing, setRefreshing] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
@@ -81,6 +81,8 @@ const Usersprofile = () => {
 
       // Handle user data
       if (userRes?.statusCode === 200) {
+        console.log('userres for postres------->>>>>>>>>>>>>>>>>>',userRes.data);
+        
         setUserData(userRes.data?.user || userRes.data);
         setIsFollowing(userRes.data?.isFollow);
       } else {
@@ -122,14 +124,14 @@ const Usersprofile = () => {
     }
   };
 
-  const executeFollowAction = async (isFollowing) => {
+  const executeFollowAction = async () => {
     console.log('isFollowing----->>>>>>>>>>>>>>>>>>>',isFollowing);
     
     if (!targetUserId) return;
     const key = String(targetUserId);
 
     try {
-      const res = isFollowing
+      const res = !isFollowing
         ? await follow(targetUserId)
         : await unfollow(targetUserId);
 
@@ -162,6 +164,7 @@ const Usersprofile = () => {
       );
     } finally {
       setFollowBusy(false);
+      onRefresh();
     }
   }
 
@@ -232,6 +235,8 @@ const Usersprofile = () => {
           followBusy={followBusy}
           targetUserId={targetUserId}
           purchaseSheetRef={purchaseSheetRef}
+          userData={userData}
+          executeFollowAction={executeFollowAction}
         />
 
         <View>

@@ -1,17 +1,46 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { getCreditsLeft } from '../../services/wallet';
+import { showToastMessage } from '../displaytoastmessage';
+import { useToast } from 'react-native-toast-notifications';
 
 const PostTypeModal = ({ visible, onClose, onSelect }) => {
+  const [creditsLeft, setCreditsLeft] = useState(null);
   const sheetRef = useRef(null);
+  const dispatch = useDispatch();
+  const toast = useToast();
 
   useEffect(() => {
+    fetchCreditsLeft();
     if (visible) {
       sheetRef.current?.open();
     } else {
       sheetRef.current?.close();
     }
   }, [visible]);
+
+  const fetchCreditsLeft = async () => {
+    try {
+      dispatch(showLoader());
+      const response = await getCreditsLeft();
+      if (response?.statusCode === 200) {
+        setCreditsLeft(response.data.hitLeft);
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
+      }
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ?? 'Something went wrong',
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
 
   return (
     <RBSheet
@@ -38,7 +67,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             onClose();
           }}
         >
-          <Text style={styles.optionText}>💸 Mission Post</Text>
+          <Text style={styles.optionText}>💸 Mission Post (Credits Left - {creditsLeft})</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
