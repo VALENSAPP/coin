@@ -1,5 +1,5 @@
 // CreatorCoinScreen.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,18 +14,70 @@ import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import UnverifiedProfileModal from '../../components/modals/Unverifiedmodal';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { showToastMessage } from '../../components/displaytoastmessage';
+import { getUserCredentials } from '../../services/post';
+import { useDispatch } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isFirstDayOfMonth } from 'date-fns';
 
 export default function CreatorCoin() {
   const [visible3, setVisible3] = useState(false);
   const [activeTab, setActiveTab] = useState('1D');
+  const [data, setData] = useState();
   const navigation = useNavigation();
   const toast = useToast();
   const userId = '';
+  const dispatch = useDispatch();
   const copyToClipboard = () => {
     Clipboard.setString(userId);
     showToastMessage(toast, 'success', 'Copied to clipboard ✅');
     // Alert.alert("Copied!", `User ID $ copied to clipboard.`);
   };
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const fetchAllData = async () => {
+    const id = await AsyncStorage.getItem('userId');
+    try {
+      dispatch(showLoader());
+
+      // Run both API calls in parallel
+      const [profileResponse] = await Promise.all([
+        getUserCredentials(id)
+      ]);
+
+      // Handle profile response
+      if (profileResponse?.statusCode === 200) {
+        let userDataToSet;
+        if (profileResponse.data && profileResponse.data.user) {
+          userDataToSet = profileResponse.data.user;
+        } else if (profileResponse.data) {
+          userDataToSet = profileResponse.data;
+        } else {
+          userDataToSet = profileResponse;
+        }
+        setData(userDataToSet);
+        console.log('User profile:', userDataToSet.profile);
+      } else {
+        showToastMessage(toast, 'danger', profileResponse.data.message);
+      }
+
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ?? 'Something went wrong',
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
+  const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const avatarUri = typeof data?.image === 'string' && data?.image.length ? data?.image : PLACEHOLDER_AVATAR;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,7 +97,7 @@ export default function CreatorCoin() {
         <View style={styles.priceSection}>
           <View style={styles.username}>
             <View style={styles.userRow}>
-              <Text style={styles.coinName}>$johncena</Text>
+              <Text style={styles.coinName}>${data?.userName}</Text>
               <TouchableOpacity
                 onPress={() => {
                   setVisible3(true);
@@ -60,7 +112,7 @@ export default function CreatorCoin() {
           <TouchableOpacity>
             <Image
               source={{
-                uri: 'https://images.unsplash.com/photo-1752159140408-906317c0fa6c?q=80&w=435&auto=format&fit=crop',
+                uri: avatarUri,
               }}
               style={styles.avatar}
             />

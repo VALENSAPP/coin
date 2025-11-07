@@ -290,7 +290,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
           <View style={styles.tokenIconContainer}>
             <Icon name="diamond" size={32} color="#5a2d82" />
           </View>
-          <Text style={styles.tokenTitle}>Buy Tokens</Text>
+          <Text style={styles.tokenTitle}>Support Tokens</Text>
           <Text style={styles.tokenSubtitle}>
             Current rate: ${formatCurrency(tokenRate)} per token
           </Text>
