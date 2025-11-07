@@ -168,7 +168,7 @@ const ProfileScreen = () => {
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
-          executeFollowAction={executeFollowAction}
+          // executeFollowAction={executeFollowAction}
         />
         <View>
           <HighlightStories />
