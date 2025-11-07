@@ -612,14 +612,16 @@ const ProfilePersonData = ({
                     {
                       !isBusinessProfile && (
                         userData?.profile !== 'company' && (
-                          <LinearGradient
-                            colors={['#513189bd', '#e54ba0']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.editbuttons}
-                          >
-                            <Text style={styles.buttonText}>Buy</Text>
-                          </LinearGradient>
+                          isFollowing && (
+                            <LinearGradient
+                              colors={['#513189bd', '#e54ba0']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.editbuttons}
+                            >
+                              <Text style={styles.buttonText}>Buy</Text>
+                            </LinearGradient>
+                          )
                         )
                       )
                     }
