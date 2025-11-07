@@ -46,34 +46,35 @@ export default function OTPScreen() {
       showToastMessage(toast, 'danger', 'Please enter a 6-digit code.');
       return;
     }
-    Keyboard.dismiss();
-    setLoading(true);
-    dispatch(showLoader());
+    navigation.navigate('CreateNewPassword', { email, otp });
+    // Keyboard.dismiss();
+    // setLoading(true);
+    // dispatch(showLoader());
 
-    try {
-      if (type === 'signup') {
-        // navigation.navigate('Login');
-        handleLogin();
-      } else {
-        navigation.navigate('CreateNewPassword', { email, otp });
-      }
-      // const response = await verifyOtp({ email, otp });
-      // if (response && response.statusCode == 200) {
-      //   showToastMessage(toast, 'success', response.data.message);
-      // } else {
-      //   showToastMessage(toast, 'danger', response.message);
-      //   setOtp('');
-      // }
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.data?.message || 'Verification failed',
-      );
-    } finally {
-      setLoading(false);
-      dispatch(hideLoader());
-    }
+    // try {
+    //   if (type === 'signup') {
+    //     // navigation.navigate('Login');
+    //     handleLogin();
+    //   } else {
+    //     const response = await verifyOtp({ email, otp });
+    //     if (response && response.statusCode == 200) {
+    //       showToastMessage(toast, 'success', response.data.message);
+    //       navigation.navigate('CreateNewPassword', { email, otp });
+    //     } else {
+    //       showToastMessage(toast, 'danger', response.message);
+    //       setOtp('');
+    //     }
+    //   }
+    // } catch (error) {
+    //   showToastMessage(
+    //     toast,
+    //     'danger',
+    //     error?.data?.message || 'Verification failed',
+    //   );
+    // } finally {
+    //   setLoading(false);
+    //   dispatch(hideLoader());
+    // }
   };
 
   const handleResend = async () => {
@@ -230,6 +231,7 @@ export default function OTPScreen() {
                   tintColor="#5a2d82"
                   offTintColor="#E5E7EB"
                   inputCount={6}
+                  // keyboardType="default" 
                 />
               </View>
 
