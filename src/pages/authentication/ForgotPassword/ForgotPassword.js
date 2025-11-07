@@ -18,6 +18,7 @@ import { useToast } from 'react-native-toast-notifications';
 import CustomButton from '../../../components/customButton/customButton';
 import { LogoIcon } from '../../../assets/icons';
 import { AuthHeader } from '../../../components/auth';
+import { showToastMessage } from '../../../components/displaytoastmessage';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const { width, height } = Dimensions.get('window');
@@ -35,29 +36,29 @@ const ForgetPassword = () => {
   };
 
   const handleContinue = async () => {
-    navigation.navigate('OTPScreen', { email });
-    // if (!EMAIL_REGEX.test(email.trim())) {
-    //   setError('Please enter a valid email address');
-    //   return;
-    // }
-    // Keyboard.dismiss()
-    // dispatch(showLoader());
-    // try {
-    //   const response = await forgotPassword({
-    //     email,
-    //   });
-    //   console.log(response, 'response');
-    //   if (response &&  response.statusCode == 200) {
-    //     showToastMessage(toast, 'success', response.data.message);
-    //     setError('');
-    //   }else{
-    //      showToastMessage(toast, 'danger', response.message);
-    //   }
-    // } catch (error) {
-    //   showToastMessage(toast, 'danger', 'An unexpected error occurred.');
-    // } finally {
-    //   dispatch(hideLoader());
-    // }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    Keyboard.dismiss()
+    dispatch(showLoader());
+    try {
+      const response = await forgotPassword({
+        email,
+      });
+      console.log(response, 'response');
+      if (response &&  response.statusCode == 200) {
+        showToastMessage(toast, 'success', response.data.message);
+        navigation.navigate('OTPScreen', { email });
+        setError('');
+      }else{
+         showToastMessage(toast, 'danger', response.message);
+      }
+    } catch (error) {
+      showToastMessage(toast, 'danger', 'An unexpected error occurred.');
+    } finally {
+      dispatch(hideLoader());
+    }
   };
 
   return (

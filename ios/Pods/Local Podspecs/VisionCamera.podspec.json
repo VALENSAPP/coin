@@ -1,6 +1,6 @@
 {
   "name": "VisionCamera",
-  "version": "4.7.1",
+  "version": "4.7.2",
   "summary": "A powerful, high-performance React Native Camera library.",
   "description": "A powerful, high-performance React Native Camera library.",
   "homepage": "https://react-native-vision-camera.com/",
@@ -11,7 +11,7 @@
   },
   "source": {
     "git": "https://github.com/mrousavy/react-native-vision-camera.git",
-    "tag": "4.7.1"
+    "tag": "4.7.2"
   },
   "pod_target_xcconfig": {
     "GCC_PREPROCESSOR_DEFINITIONS": "$(inherited) VISION_CAMERA_ENABLE_FRAME_PROCESSORS=false",
