@@ -297,3 +297,16 @@ Image
 ChatFile
 Vision
 Full Page
+
+# iOS Build & Cache
+ios/DerivedData/
+*.xcindex
+*.mdb
+*.ipa
+*.apk
+*.aab
+ios/build/
+ios/Pods/Target Support Files/*
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/DerivedData/
