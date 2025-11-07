@@ -13,12 +13,24 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
-import { WhiteDragonfly, Thread } from '../../assets/icons';
+import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly } from '../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
+
+export function getDragonflyIcon(followers, isBusiness = false) {
+  if (isBusiness) return BlueDragonfly;
+
+  if (followers <= 50) return WhiteDragonfly;
+  if (followers <= 10000) return SoftGrayDragonfly;
+  if (followers <= 500000) return LilacDragonfly;
+  if (followers <= 1000000) return GoldDragonfly;
+  if (followers >= 10000000) return GoldLavenderDragonfly;
+
+  return WhiteDragonfly;
+}
 
 const ProfilePersonData = ({
   displayName,
@@ -440,6 +452,8 @@ const ProfilePersonData = ({
     }
   };
 
+  const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isBusinessProfile);
+
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>
       <View style={styles.container}>
@@ -465,7 +479,7 @@ const ProfilePersonData = ({
               )}
               <View style={styles.userRow}>
                 <Text style={styles.headerText}>{Userdata.Username}</Text>
-                <WhiteDragonfly width={22} height={22} style={styles.icon} />
+                <DragonflyIcon width={22} height={22} style={styles.icon} />
                 {!fromUsersProfile && (
                   <Ionicons
                     name="chevron-down"
