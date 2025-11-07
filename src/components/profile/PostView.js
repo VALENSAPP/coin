@@ -487,7 +487,7 @@ export default function PostView({ postData = [] }) {
         username: item.userName ?? 'Unknown',
         avatar:
           item.userImage == null
-            ? 'https://randomuser.me/api/portraits/men/4.jpg'
+            ? 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
             : formatUrl(item.userImage),
         media: (item.images || []).map(url => ({
           type: getMediaType(url),

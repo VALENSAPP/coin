@@ -19,6 +19,7 @@ import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
+import { getUserCredentials } from '../../services/post';
 
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return BlueDragonfly;
@@ -61,6 +62,7 @@ const ProfilePersonData = ({
 
   useEffect(() => {
     setProfileImage(profilepic || null);
+    fetchAllData();
   }, [profilepic]);
 
   const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -74,6 +76,9 @@ const ProfilePersonData = ({
   const [data, setData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [userProfile, setUserProfile] = useState('');
+  // console.log('item----------------followers------------', item);
+  const isCompanyProfile = userProfile === 'company';
   const dispatch = useDispatch();
   const toast = useToast();
 
@@ -86,6 +91,42 @@ const ProfilePersonData = ({
     Followers: dashboard?.totalFollowers ?? 'NA',
     Followings: dashboard?.totalFollowing ?? 'NA',
     userId: userId,
+  };
+
+  const fetchAllData = async () => {
+    try {
+      dispatch(showLoader());
+
+      // Run both API calls in parallel
+      const [profileResponse] = await Promise.all([
+        getUserCredentials(userData.id)
+      ]);
+
+      // Handle profile response
+      if (profileResponse?.statusCode === 200) {
+        let userDataToSet;
+        if (profileResponse.data && profileResponse.data.user) {
+          userDataToSet = profileResponse.data.user;
+        } else if (profileResponse.data) {
+          userDataToSet = profileResponse.data;
+        } else {
+          userDataToSet = profileResponse;
+        }
+        setUserProfile(userDataToSet.profile || '');
+        console.log('User profile:', userDataToSet.profile);
+      } else {
+        showToastMessage(toast, 'danger', profileResponse.data.message);
+      }
+
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ?? 'Something went wrong',
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
   };
 
   const requestCameraPermission = async () => {
@@ -452,7 +493,7 @@ const ProfilePersonData = ({
     }
   };
 
-  const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isBusinessProfile);
+  const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>

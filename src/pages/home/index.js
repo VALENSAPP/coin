@@ -30,7 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../services/createProfile';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SIDEBAR_WIDTH = 80;
+const SIDEBAR_WIDTH = 90;
 
 export default function HomeScreen() {
   const styles = createStyles();
