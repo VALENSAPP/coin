@@ -17,7 +17,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
-import { forgotPassword } from '../../../services/authentication';
+import { forgotPassword, resetPassword } from '../../../services/authentication';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { LogoIcon } from '../../../assets/icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -70,26 +70,27 @@ const NewPasswordScreen = () => {
     if (!validate()) return;
 
     Keyboard.dismiss();
-    // dispatch(showLoader());
-    navigation.navigate('Login');
-    // try {
-    //   const newPassword = password;
-    //   const response = await forgotPassword({ email, otp, newPassword });
-
-    //   if (response.statusCode == 200 && response) {
-    //     showToastMessage(toast, 'success', response.data.message);
-    //   } else {
-    //     showToastMessage(toast, 'danger', response.message);
-    //   }
-    // } catch (error) {
-    //   showToastMessage(
-    //     toast,
-    //     'danger',
-    //     error?.message || 'Reset failed.'
-    //   );
-    // } finally {
-    //   dispatch(hideLoader());
-    // }
+    dispatch(showLoader());
+    try {
+      const newPassword = password;
+      const response = await resetPassword({ email, otp, newPassword });
+        console.log('response in reset password', response);
+        
+      if (response.statusCode == 200 && response) {
+        showToastMessage(toast, 'success', response.data.message);
+        navigation.navigate('Login');
+      } else {
+        showToastMessage(toast, 'danger', response.message);
+      }
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.message || 'Reset failed.'
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
   };
 
   return (
