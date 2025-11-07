@@ -27,7 +27,7 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
-import { getUserCredentials } from '../../../services/post';
+import { getUserCredentials, getUserDashboard } from '../../../services/post';
 
 const { width } = Dimensions.get('window');
 
@@ -148,9 +148,11 @@ export default function PostItem({
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
+  const [totalFollowers, setTotalFollowers] = useState(0);
+  const [userProfile, setUserProfile] = useState('');
   // console.log('item----------------followers------------', item);
-
-  const DragonflyIcon = getDragonflyIcon(10000, isBusinessProfile);
+  const isCompanyProfile = userProfile === 'company';
+  const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
@@ -167,21 +169,43 @@ export default function PostItem({
       setUserId(id);
     };
     fetchUserId();
-    fetchData();
+    fetchAllData(); // Call a combined function
   }, []);
 
-  const fetchData = async () => {
+  // Combine both API calls to manage loader properly
+  const fetchAllData = async () => {
     try {
       dispatch(showLoader());
-      const response = await getUserCredentials(item.UserId);
-      console.log('reeeeeeeeeeeeeeeeee',response);
-      
-      if (response?.statusCode === 200) {
-        console.log('response.data getUserCredentials--------', response.data);
-        console.log('response in get getUserCredentials--------', response.data?.user?.Followers || response?.data?.Followers);
+
+      // Run both API calls in parallel
+      const [dashboardResponse, profileResponse] = await Promise.all([
+        getUserDashboard(item.UserId),
+        getUserCredentials(item.UserId)
+      ]);
+
+      // Handle dashboard response
+      if (dashboardResponse?.statusCode === 200) {
+        setTotalFollowers(dashboardResponse.data.dashboardData.totalFollowers);
       } else {
-        showToastMessage(toast, 'danger', response.data.message);
+        showToastMessage(toast, 'danger', dashboardResponse.data.message);
       }
+
+      // Handle profile response
+      if (profileResponse?.statusCode === 200) {
+        let userDataToSet;
+        if (profileResponse.data && profileResponse.data.user) {
+          userDataToSet = profileResponse.data.user;
+        } else if (profileResponse.data) {
+          userDataToSet = profileResponse.data;
+        } else {
+          userDataToSet = profileResponse;
+        }
+        setUserProfile(userDataToSet.profile || '');
+        console.log('User profile:', userDataToSet.profile);
+      } else {
+        showToastMessage(toast, 'danger', profileResponse.data.message);
+      }
+
     } catch (error) {
       showToastMessage(
         toast,
