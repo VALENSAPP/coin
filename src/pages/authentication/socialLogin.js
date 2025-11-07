@@ -40,7 +40,7 @@ if (Platform.OS == 'ios') {
 }
 
 
-export const onGoogleButtonPress = async (dispatch, navigation, toast) => {
+export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) => {
   try {
     await GoogleSignin.signOut();
 
@@ -60,7 +60,7 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast) => {
       // await signInWithFirebase(idTokenFromUser);
       console.log("idTokenFromUser--------------",idTokenFromUser)
       if (idToken) {
-        signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation)
+        signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation, profile)
       }
     }
   } catch (error) {
@@ -78,7 +78,7 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast) => {
   }
 };
 
-export const onAppleButtonPress = async (dispatch, navigation, toast) => {
+export const onAppleButtonPress = async (dispatch, navigation, toast, profile) => {
   try {
     dispatch(showLoader());
     const appleAuthRequestResponse = await appleAuth.performRequest({
@@ -109,7 +109,7 @@ export const onAppleButtonPress = async (dispatch, navigation, toast) => {
       const idToken = await user.getIdToken();
       console.log('idtokennnnnnnn',idToken);
       
-      //  signupReference('APPLE', idToken, toast, dispatch, navigation)
+      signupReference('APPLE', idToken, toast, dispatch, navigation, profile)
     }
   } catch (error) {
     console.error('Apple login error:', error);
@@ -134,7 +134,7 @@ export const signInWithFirebase = async idToken => {
   }
 };
 
-export async function twitterOAuthLogin(dispatch, toast, navigation) {
+export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
   console.log('enter', REDIRECT_URI)
   const state = uuidv4();
   const codeChallenge = state;
@@ -143,8 +143,7 @@ export async function twitterOAuthLogin(dispatch, toast, navigation) {
   const authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(
     REDIRECT_URI
   )}&scope=tweet.read%20users.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain`;
-  console.log('authUrl--------------------------------', authUrl);
-  
+
   try {
     const isAvailable = await InAppBrowser.isAvailable();
     if (isAvailable) {
@@ -164,7 +163,7 @@ export async function twitterOAuthLogin(dispatch, toast, navigation) {
           const code = codeMatch[1];
           console.log('Authorization code:', code);
           await
-            exchangeCodeForToken(code, dispatch, toast, navigation);
+            exchangeCodeForToken(code, dispatch, toast, navigation, profile);
         } else {
           showToastMessage(toast, 'danger', 'Authorization code not found');
         }
@@ -199,7 +198,7 @@ const getProfileData = async (dispatch, navigation) => {
   }
 }
 
-export const signupReference = async (type, idtoken, toast, dispatch, navigation,profile) => {
+export const signupReference = async (type, idtoken, toast, dispatch, navigation, profile) => {
   try {
     const payload = {
       registrationType: type,
@@ -210,6 +209,8 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
       payload.googleId = idtoken;
     } else if (type === "WALLET") {
       payload.walletAddress = idtoken;
+    } else if (type === "APPLE") {
+      payload.appleId = idtoken;
     } else {
       payload.twitterId = idtoken
     }
@@ -280,7 +281,7 @@ export const MetasmaskLogin = async (toast, navigation, dispatch) => {
   }
 };
 
-export const exchangeCodeForToken = async (code, dispatch, toast, navigation) => {
+export const exchangeCodeForToken = async (code, dispatch, toast, navigation, profile) => {
   try {
     const data = new URLSearchParams({
       client_id: TWITTER_CLIENT_ID,
@@ -304,7 +305,7 @@ export const exchangeCodeForToken = async (code, dispatch, toast, navigation) =>
     console.log('Access token:', accessToken);
 
     if (accessToken) {
-      await signupReference('TWITTER', accessToken, toast, dispatch, navigation);
+      await signupReference('TWITTER', accessToken, toast, dispatch, navigation, profile);
     } else {
       showToastMessage(toast, 'danger', 'Twitter access token not found');
     }
