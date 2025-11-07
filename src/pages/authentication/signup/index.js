@@ -40,7 +40,6 @@ export default function SignupScreen() {
   const dispatch = useDispatch();
   const profile = isChecked ? 'company' : 'user';
 
-
   const validate = () => {
     const errs = {};
 
@@ -121,7 +120,7 @@ export default function SignupScreen() {
   const handlAppleLogin = async () => {
     dispatch(showLoader());
     try {
-      await onAppleButtonPress(dispatch, navigation, toast);
+      await onAppleButtonPress(dispatch, navigation, toast, profile);
     } catch (error) {
       // Error is handled in onGoogleButtonPress, but you can add more here
     } finally {
