@@ -22,6 +22,12 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
 import { ActivityIndicator } from 'react-native';
+import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
+import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
+import { showToastMessage } from '../../displaytoastmessage';
+import { useDispatch } from 'react-redux';
+import { useToast } from 'react-native-toast-notifications';
+import { getUserCredentials } from '../../../services/post';
 
 const { width } = Dimensions.get('window');
 
@@ -142,6 +148,9 @@ export default function PostItem({
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
+  // console.log('item----------------followers------------', item);
+
+  const DragonflyIcon = getDragonflyIcon(10000, isBusinessProfile);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
@@ -149,13 +158,40 @@ export default function PostItem({
   const navigation = useNavigation();
   const [userId, setUserId] = useState(null);
   const shareRef = useRef(null);
+  const dispatch = useDispatch();
+  const toast = useToast();
+
   useEffect(() => {
     const fetchUserId = async () => {
       const id = await AsyncStorage.getItem('userId');
       setUserId(id);
     };
     fetchUserId();
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      dispatch(showLoader());
+      const response = await getUserCredentials(item.UserId);
+      console.log('reeeeeeeeeeeeeeeeee',response);
+      
+      if (response?.statusCode === 200) {
+        console.log('response.data getUserCredentials--------', response.data);
+        console.log('response in get getUserCredentials--------', response.data?.user?.Followers || response?.data?.Followers);
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
+      }
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ?? 'Something went wrong',
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
 
   const handleUserProfile = (id) => {
     if (userId === id) {
@@ -278,7 +314,7 @@ export default function PostItem({
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
               <Text style={styles.username}>{item.username}</Text>
-              <WhiteDragonfly width={22} height={22} style={styles.dragonflyIcon} />
+              <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
             </View>
           </TouchableOpacity>
 
@@ -428,7 +464,7 @@ export default function PostItem({
         <View style={styles.captionSection}>
           <View style={styles.userRow}>
             <Text style={styles.captionUsername}>{item.username} </Text>
-            <WhiteDragonfly width={20} height={20} style={styles.dragonflyIcon} />
+            <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
           </View>
           <Text style={styles.captionText}>{item.caption}</Text>
         </View>
