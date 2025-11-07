@@ -26,6 +26,10 @@ export const forgotPassword = async (data) => {
     return axiosinstance.post('/user/forgot-password', data);
 }
 
+export const resetPassword = async (data) => {
+    return axiosinstance.post('/user/reset-password', data);
+}
+
 export const verifyOtp = async (data) => {
     return axiosinstance.post('/user/verify-otp', data);
 }
