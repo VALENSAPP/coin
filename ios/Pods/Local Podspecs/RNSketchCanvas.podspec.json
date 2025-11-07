@@ -1,6 +1,6 @@
 {
   "name": "RNSketchCanvas",
-  "version": "2.3.0",
+  "version": "2.4.1",
   "summary": "react-native-sketch-canvas allows you to draw / sketch on both iOS and Android devices and sync the drawing data between users. Of course you can save as image.",
   "homepage": "https://github.com/sourcetoad/react-native-sketch-canvas",
   "license": "MIT",
@@ -10,7 +10,7 @@
   },
   "source": {
     "git": "https://github.com/sourcetoad/react-native-sketch-canvas",
-    "tag": "2.3.0"
+    "tag": "2.4.1"
   },
   "resource_bundles": {
     "RNSketchCanvas_PrivacyInfo": "ios/PrivacyInfo.xcprivacy"
