@@ -1,6 +1,6 @@
 {
   "name": "react-native-cameraroll",
-  "version": "7.10.1",
+  "version": "7.10.2",
   "summary": "React Native Camera Roll for iOS & Android",
   "license": "MIT",
   "authors": "Bartol Karuza <bartol.k@gmail.com>",
@@ -10,7 +10,7 @@
   },
   "source": {
     "git": "https://github.com/react-native-community/react-native-cameraroll.git",
-    "tag": "v7.10.1"
+    "tag": "v7.10.2"
   },
   "source_files": "ios/**/*.{h,m,mm}",
   "resource_bundles": {
