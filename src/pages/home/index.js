@@ -30,7 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../services/createProfile';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SIDEBAR_WIDTH = 90;
+const SIDEBAR_WIDTH = 110;
 
 export default function HomeScreen() {
   const styles = createStyles();
@@ -285,7 +285,7 @@ const sidebarStyles = StyleSheet.create({
   sidebar: {
     position: 'absolute',
     right: 0,
-    top: Platform.OS == 'android' ? 40 : 50,
+    top: Platform.OS == 'android' ? 40 : 57,
     bottom: 0,
     width: SIDEBAR_WIDTH,
     backgroundColor: 'rgba(248, 242, 253, 0.98)',

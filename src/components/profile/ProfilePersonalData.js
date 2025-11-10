@@ -119,11 +119,13 @@ const ProfilePersonData = ({
       }
 
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      console.log('in catch errorrrrrrrrrrrrrrr');
+      
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message
+      // );
     } finally {
       dispatch(hideLoader());
     }
