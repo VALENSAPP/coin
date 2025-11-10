@@ -20,6 +20,7 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Currency mapping by country code
 const CURRENCY_MAP = {
@@ -242,6 +243,7 @@ const CreateMission = () => {
 
     // Remove commas from amount before sending
     const numericAmount = parseFloat(values.raiseAmount.replace(/,/g, ''));
+    const profileType = await AsyncStorage.getItem('profile');
 
     const payload = {
       caption: caption.trim(),
@@ -251,7 +253,7 @@ const CreateMission = () => {
         name: (img.processedUri || img.uri).split('/').pop()
       })),
       link: link ? link.trim() : '',
-      type: 'crowdfunding',
+      type: profileType === 'company' ? 'support' : 'crowdfunding',
       raiseAmount: numericAmount,
       // currency: values.currency,
       start_time: formatDateTime(values.startTime),

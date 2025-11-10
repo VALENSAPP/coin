@@ -278,6 +278,24 @@ const GlobalDrawerNavigator = () => {
         })}
       />
       <Drawer.Screen
+        name="DrawerSubscription"
+        component={DummyComponent}
+        options={{ 
+          drawerLabel: 'Subscriptions',
+          headerShown: false,
+        }}
+        listeners={({ navigation }) => ({
+          drawerItemPress: (e) => {
+            e.preventDefault();
+            navigation.closeDrawer();
+            // navigation.navigate('MainApp', {
+            //   screen: 'wallet',
+            //   params: { screen: 'Creators' }
+            // });
+          },
+        })}
+      />
+      <Drawer.Screen
         name="DrawerSettings"
         component={DummyComponent}
         options={{ 
