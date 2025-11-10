@@ -6,21 +6,34 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getCreditsLeft } from '../../services/wallet';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PostTypeModal = ({ visible, onClose, onSelect }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     fetchCreditsLeft();
+    loadProfileType();
     if (visible) {
       sheetRef.current?.open();
     } else {
       sheetRef.current?.close();
     }
   }, [visible]);
+
+
+
+  const loadProfileType = async () => {
+    const type = await AsyncStorage.getItem('profile');
+    console.log('Loaded profile type:', type);
+    setProfile(type);
+  };
+
+
 
   const fetchCreditsLeft = async () => {
     try {
@@ -67,7 +80,9 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             onClose();
           }}
         >
-          <Text style={styles.optionText}>💸 Mission Post (Credits Left - {creditsLeft})</Text>
+          <Text style={styles.optionText}>
+            {profile === 'company' ? '💸 Support' : '💸 Mission Post'} (Credits Left - {creditsLeft ?? 0})
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
