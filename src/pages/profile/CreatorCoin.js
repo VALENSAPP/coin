@@ -23,14 +23,13 @@ import { isFirstDayOfMonth } from 'date-fns';
 
 export default function CreatorCoin() {
   const [visible3, setVisible3] = useState(false);
-  const [activeTab, setActiveTab] = useState('1D');
   const [data, setData] = useState();
   const navigation = useNavigation();
   const toast = useToast();
   const userId = '';
   const dispatch = useDispatch();
   const copyToClipboard = () => {
-    Clipboard.setString(userId);
+    Clipboard.setString(data?.walletAddress);
     showToastMessage(toast, 'success', 'Copied to clipboard ✅');
     // Alert.alert("Copied!", `User ID $ copied to clipboard.`);
   };
@@ -103,7 +102,7 @@ export default function CreatorCoin() {
                   setVisible3(true);
                 }}
               >
-                <Text style={styles.unverified}>Unverified</Text>
+                {/* <Text style={styles.unverified}>Unverified</Text> */}
               </TouchableOpacity>
             </View>
 
@@ -119,28 +118,19 @@ export default function CreatorCoin() {
           </TouchableOpacity>
         </View>
 
-        {/* Chart Placeholder */}
-        <View style={styles.chartBox}>
-          <Text style={styles.chartText}>📈 No trades yet</Text>
-        </View>
-
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          {['1H', '1D', 'W', 'M', 'All'].map((tab, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.tabButton, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text
-                style={
-                  activeTab === tab ? styles.activeTabText : styles.tabText
-                }
-              >
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Balance */}
+        <View style={styles.balanceBox}>
+          <Image
+            source={{
+              uri: avatarUri,
+            }}
+            style={styles.balanceAvatar}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.balanceTitle}>Your balance</Text>
+            <Text style={styles.balanceValue}>1,908,352</Text>
+          </View>
+          {/* <Text style={styles.balanceAmount}>$0</Text> */}
         </View>
 
         {/* Stats */}
@@ -159,21 +149,6 @@ export default function CreatorCoin() {
           </View>
         </View>
 
-        {/* Balance */}
-        <View style={styles.balanceBox}>
-          <Image
-            source={{
-              uri: 'https://images.unsplash.com/photo-1752159140408-906317c0fa6c?q=80&w=435&auto=format&fit=crop',
-            }}
-            style={styles.balanceAvatar}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.balanceTitle}>Your balance</Text>
-            <Text style={styles.balanceValue}>1,908,352</Text>
-          </View>
-          <Text style={styles.balanceAmount}>$0</Text>
-        </View>
-
         {/* Buttons */}
         <View style={styles.wrapper}>
           <ScrollView
@@ -181,10 +156,6 @@ export default function CreatorCoin() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.buttonRow}
           >
-            <TouchableOpacity style={styles.smallBtn}>
-              <Ionicons name="logo-snapchat" size={15} color="#000" />
-              <Text style={styles.smallBtnText}>DexScreener</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.smallBtn} onPress={copyToClipboard}>
               <Text style={styles.smallBtnText}>Copy address</Text>
               <Ionicons name="copy-outline" size={15} color="#000" />
@@ -204,7 +175,7 @@ export default function CreatorCoin() {
         <View style={styles.detailsBox}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Total supply</Text>
-            <Text style={styles.detailValue}>1,000,000,000</Text>
+            <Text style={styles.detailValue}>1,00,000</Text>
           </View>
 
           <View style={styles.detailRow1}>
@@ -213,20 +184,20 @@ export default function CreatorCoin() {
               onPress={copyToClipboard}
               style={styles.adressCopy}
             >
-              <Text style={styles.detailValue}>0x3a8b...3a55</Text>
-              <Ionicons name="copy-outline" size={15} color="#000" />
+              <Text style={styles.detailValue}>{data?.walletAddress.trim().slice(0, 12) + '....'}</Text>
+              {/* <Ionicons name="copy-outline" size={15} color="#000" /> */}
             </TouchableOpacity>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Created</Text>
-            <Text style={styles.detailValue}>07/30/2025, 11:06 AM</Text>
+            <Text style={styles.detailValue}>{new Date(data?.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
           </View>
         </View>
       </ScrollView>
 
       {/* Trade Button */}
       <TouchableOpacity style={styles.tradeButton}>
-        <Text style={styles.tradeText}>Trade</Text>
+        <Text style={styles.tradeText}>Withdraw</Text>
       </TouchableOpacity>
       <UnverifiedProfileModal visible3={visible3} setVisible3={setVisible3} />
     </SafeAreaView>
@@ -290,24 +261,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  activeTab: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-  },
   tabText: {
     fontSize: 14,
     color: '#666',
   },
-  activeTabText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 20,
-    marginTop: 20,
+    // paddingVertical: 20,
+    marginTop: 15,
   },
   statLabel: { fontSize: 14, color: 'gray', textAlign: 'center' },
   statValue: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
@@ -318,24 +280,19 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     marginHorizontal: 15,
-    marginTop: 10,
+    marginTop: -15,
   },
   balanceAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
   balanceTitle: { fontSize: 14, color: 'gray' },
   balanceValue: { fontSize: 16, fontWeight: '600', color: 'black' },
   balanceAmount: { fontSize: 14, fontWeight: '600', color: 'black' },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 15,
-    marginLeft: 15,
-  },
   smallBtn: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 2,
     backgroundColor: '#f8f2fd',
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    // paddingVertical: 8,
     borderRadius: 20,
   },
   smallBtnText: {
@@ -376,7 +333,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   tradeButton: {
-    backgroundColor: '#07c24bff',
+    backgroundColor: '#5a2d82',
     marginHorizontal: 15,
     paddingVertical: 14,
     borderRadius: 10,
@@ -395,11 +352,13 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     paddingVertical: 10,
-    gap: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 40,
   },
   wrapper: {
     marginVertical: 10,
-    marginLeft: 15,
-    marginRight: 15,
+    alignItems: 'center',
   },
 });

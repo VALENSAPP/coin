@@ -49,6 +49,11 @@ import CreatorsScreen from '../pages/wallet/CreatorsScreen';
 import SettingsScreen from '../pages/wallet/SettingScreen';
 import ChangePassword from '../pages/wallet/ChangePassword';
 import WalletComponent from '../pages/wallet/WalletScreen';
+import ProfileSettingsScreen from '../pages/wallet/ProfileSettings';
+import VerificationStatusScreen from '../pages/wallet/VerificationStatus';
+import PrivacySettingsScreen from '../pages/wallet/PrivacySettings';
+import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
+import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -99,7 +104,7 @@ export default function MainTabNavigator() {
   const WalletStack = useMemo(() => {
     return ({ route }) => {
       const initialScreen = route?.params?.screen || 'Dashboard';
-      
+
       return (
         <Stack.Navigator
           initialRouteName={initialScreen}
@@ -136,79 +141,99 @@ export default function MainTabNavigator() {
             headerTitleAlign: 'center',
           })}
         >
-        {/* Original Wallet Screens */}
-        <Stack.Screen
-          name="WalletMain"
-          component={WalletComponent}
-          options={{ headerTitle: 'Wallet' }}
-        />
-        <Stack.Screen
-          name="DepositeCash"
-          component={DepositeCash}
-          options={{
-            headerTitle: 'Deposit',
-            headerTitleAlign: 'center'
-          }}
-        />
-        <Stack.Screen
-          name="CashOut"
-          component={CashOut}
-          options={{
-            headerTitle: 'Cash Out',
-            headerTitleAlign: 'center'
-          }}
-        />
-        <Stack.Screen
-          name="SendCoin"
-          component={SendCoins}
-          options={{
-            headerTitle: 'Send',
-            headerTitleAlign: 'center',
-          }}
-        />
+          {/* Original Wallet Screens */}
+          <Stack.Screen
+            name="WalletMain"
+            component={WalletComponent}
+            options={{ headerTitle: 'Wallet' }}
+          />
+          <Stack.Screen
+            name="DepositeCash"
+            component={DepositeCash}
+            options={{
+              headerTitle: 'Deposit',
+              headerTitleAlign: 'center'
+            }}
+          />
+          <Stack.Screen
+            name="CashOut"
+            component={CashOut}
+            options={{
+              headerTitle: 'Cash Out',
+              headerTitleAlign: 'center'
+            }}
+          />
+          <Stack.Screen
+            name="SendCoin"
+            component={SendCoins}
+            options={{
+              headerTitle: 'Send',
+              headerTitleAlign: 'center',
+            }}
+          />
 
-        {/* Drawer Wallet Screens - All accessible from drawer */}
-        <Stack.Screen
-          name="Dashboard"
-          component={WalletDashboardScreen}
-          options={{ headerTitle: 'Dashboard' }}
-        />
-        <Stack.Screen
-          name="Portfolio"
-          component={PortfolioScreen}
-          options={{ headerTitle: 'Portfolio' }}
-        />
-        <Stack.Screen
-          name="Market"
-          component={MarketScreen}
-          options={{ headerTitle: 'Market' }}
-        />
-        <Stack.Screen
-          name="Activity"
-          component={ActivityScreen}
-          options={{ headerTitle: 'Activity' }}
-        />
-        <Stack.Screen
-          name="Creators"
-          component={CreatorsScreen}
-          options={{ headerTitle: 'Creators' }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ headerTitle: 'Settings' }}
-        />
-        <Stack.Screen
-          name="ChangePassword"
-          component={ChangePassword}
-          options={{ headerTitle: 'Change Password' }}
-        />
-        <Stack.Screen
-          name="CreatorProfile"
-          component={Usersprofile}
-          options={{ headerShown: false }}
-        />
-      </Stack.Navigator>
+          {/* Drawer Wallet Screens - All accessible from drawer */}
+          <Stack.Screen
+            name="Dashboard"
+            component={WalletDashboardScreen}
+            options={{ headerTitle: 'Dashboard' }}
+          />
+          <Stack.Screen
+            name="Portfolio"
+            component={PortfolioScreen}
+            options={{ headerTitle: 'Portfolio' }}
+          />
+          <Stack.Screen
+            name="Market"
+            component={MarketScreen}
+            options={{ headerTitle: 'Market' }}
+          />
+          <Stack.Screen
+            name="Activity"
+            component={ActivityScreen}
+            options={{ headerTitle: 'Activity' }}
+          />
+          <Stack.Screen
+            name="Creators"
+            component={CreatorsScreen}
+            options={{ headerTitle: 'Creators' }}
+          />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{ headerTitle: 'Settings' }}
+          />
+          <Stack.Screen
+            name="ChangePassword"
+            component={ChangePassword}
+            options={{ headerTitle: 'Change Password' }}
+          />
+          <Stack.Screen
+            name="CreatorProfile"
+            component={Usersprofile}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="VerificationStatus"
+            component={VerificationStatusScreen}
+            options={{ headerTitle: 'Verification Status' }}
+          />
+          <Stack.Screen
+            name="PrivacySettings"
+            component={PrivacySettingsScreen}
+            options={{ headerTitle: 'Privacy Settings' }}
+          />
+          <Stack.Screen
+            name="TwoFactorAuth"
+            component={TwoFactorAuthScreen}
+            options={{ headerTitle: 'Two-Factor Auth' }}
+          />
+          <Stack.Screen
+            name="LoginHistory"
+            component={LoginHistoryScreen}
+            options={{ headerTitle: 'Login History' }}
+          />
+        </Stack.Navigator>
       );
     };
   }, []);

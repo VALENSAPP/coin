@@ -101,7 +101,7 @@ export default function HomeScreen() {
 
       const response = await getProfile(id);
       if (response.statusCode === 200 && response.data) {
-        console.log('profile data response------------>>>>>>>>>>>', response?.data?.profile);
+        await AsyncStorage.setItem('profile', response.data.profile || '');
         if (response?.data?.profile === 'company') {
           setIsBusinessProfile(true);
         }
