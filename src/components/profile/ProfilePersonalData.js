@@ -113,19 +113,12 @@ const ProfilePersonData = ({
           userDataToSet = profileResponse;
         }
         setUserProfile(userDataToSet.profile || '');
-        console.log('User profile:', userDataToSet.profile);
+        // console.log('User profile:', userDataToSet.profile);
       } else {
         showToastMessage(toast, 'danger', profileResponse.data.message);
       }
-
     } catch (error) {
-      console.log('in catch errorrrrrrrrrrrrrrr');
-      
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message
-      // );
+      console.error('Error fetching data:', error);
     } finally {
       dispatch(hideLoader());
     }

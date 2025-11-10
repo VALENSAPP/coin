@@ -18,23 +18,34 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
+import { getProfile } from '../../services/createProfile';
 
 export const SettingsScreen = ({ navigation }) => {
   const [autoInvest, setAutoInvest] = useState(true);
   const [priceAlerts, setPriceAlerts] = useState(false);
   const [userData, setUserData] = useState();
+  const [profileData, setProfileData] = useState();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const dispatch = useDispatch();
   const toast = useToast();
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchUserCreds();
+      const fetchData = async () => {
+        const id = await AsyncStorage.getItem('userId');
+        if (!id) return;
+
+        await Promise.all([
+          fetchUserCreds(id),
+          fetchProfile(id),
+        ]);
+      };
+
+      fetchData();
     }, [])
   );
 
-  const fetchUserCreds = async () => {
-    const id = await AsyncStorage.getItem('userId');
+  const fetchUserCreds = async (id) => {
     try {
       dispatch(showLoader());
       const response = await getUserCredentials(id);
@@ -50,21 +61,17 @@ export const SettingsScreen = ({ navigation }) => {
         }
 
         if (userDataToSet?.image) {
-          let formattedImageUrl = userDataToSet.image;
-          formattedImageUrl = formattedImageUrl.trim();
+          let formattedImageUrl = userDataToSet.image.trim();
 
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
             console.log('Image URL is already absolute:', formattedImageUrl);
           } else if (formattedImageUrl.startsWith('/')) {
             formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
-            console.log('Converted relative URL to absolute:', formattedImageUrl);
           } else {
             formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
-            console.log('Converted path to absolute URL:', formattedImageUrl);
           }
 
           userDataToSet.image = formattedImageUrl;
-          console.log('Final formatted image URL:', formattedImageUrl);
         }
 
         console.log(userDataToSet, 'this is response from getUserDashboard in wallet');
@@ -83,13 +90,43 @@ export const SettingsScreen = ({ navigation }) => {
     }
   };
 
+  const fetchProfile = async (id) => {
+    try {
+      dispatch(showLoader());
+      const response = await getProfile(id);
+      if (response.statusCode === 200 && response.data) {
+        console.log('response in fetchProfile useFocusEffect:', response);
+        setProfileData(response.data);
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
+      }
+    } catch (err) {
+      console.log('Error in fetchProfile:', err);
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
   const settingsSections = [
     {
       title: 'Account',
       items: [
-        { label: 'Profile Settings', icon: 'person', action: () => { } },
-        { label: 'Verification Status', icon: 'shield-checkmark', action: () => { }, status: 'Dragonfly Verified' },
-        { label: 'Privacy Settings', icon: 'lock-closed', action: () => { } },
+        {
+          label: 'Profile Settings', icon: 'person', action: () => {
+            navigation.navigate('ProfileMain',
+              {
+                screen: 'EditProfile',
+                params:
+                {
+                  userdata: profileData,
+                  returnTo: 'wallet',
+                  returnScreen: 'Settings'
+                }
+              })
+          }
+        },
+        { label: 'Verification Status', icon: 'shield-checkmark', action: () => navigation.navigate('VerificationStatus'), status: 'Dragonfly Verified' },
+        { label: 'Privacy Settings', icon: 'lock-closed', action: () => { navigation.navigate('PrivacySettings') } },
       ]
     },
     {
@@ -103,15 +140,15 @@ export const SettingsScreen = ({ navigation }) => {
     {
       title: 'Security',
       items: [
-        { label: 'Two-Factor Auth', icon: 'shield', action: () => { }, status: 'Enabled' },
+        { label: 'Two-Factor Auth', icon: 'shield', action: () => { navigation.navigate('TwoFactorAuth') }, status: 'Enabled' },
         { label: 'Change Password', icon: 'key', action: () => navigation.navigate('ChangePassword') },
-        { label: 'Login History', icon: 'time', action: () => { } },
+        { label: 'Login History', icon: 'time', action: () => { navigation.navigate('LoginHistory') } },
       ]
     }
   ];
 
   const renderSettingItem = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.settingItem}
       onPress={item.action}
       disabled={item.toggle}
