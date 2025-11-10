@@ -76,8 +76,8 @@ export default function HomeScreen() {
       dispatch(showLoader());
       const response = await getposts();
       if (response?.statusCode === 200) {
-        console.log('response in get post--------',response);
-        
+        console.log('response in get post--------', response);
+
         setPosts(response.data);
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -101,6 +101,7 @@ export default function HomeScreen() {
 
       const response = await getProfile(id);
       if (response.statusCode === 200 && response.data) {
+        await AsyncStorage.setItem('profile', response.data.profile || '');
         console.log('profile data response------------>>>>>>>>>>>', response?.data?.profile);
         if (response?.data?.profile === 'company') {
           setIsBusinessProfile(true);
@@ -238,7 +239,7 @@ export default function HomeScreen() {
             />
           }
         >
-          <Posts postData={posts} onRefresh={onRefresh} isBusinessProfile={isBusinessProfile}/>
+          <Posts postData={posts} onRefresh={onRefresh} isBusinessProfile={isBusinessProfile} />
         </ScrollView>
       </View>
 
