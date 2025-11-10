@@ -6,15 +6,18 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getCreditsLeft } from '../../services/wallet';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PostTypeModal = ({ visible, onClose, onSelect }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
+  const [profile, setProfile] = useState(null);
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
 
   useEffect(() => {
     fetchCreditsLeft();
+    loadProfileType();
     if (visible) {
       sheetRef.current?.open();
     } else {
@@ -42,6 +45,11 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
     }
   };
 
+  const loadProfileType = async () => {
+    const type = await AsyncStorage.getItem('profile');
+    setProfile(type);
+  };
+
   return (
     <RBSheet
       ref={sheetRef}
@@ -58,7 +66,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
       }}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Choose Post Type</Text>
+        <Text style={styles.title}>Choose Mint Type</Text>
 
         <TouchableOpacity
           style={styles.optionBtn}
@@ -67,7 +75,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             onClose();
           }}
         >
-          <Text style={styles.optionText}>💸 Mission Post (Credits Left - {creditsLeft})</Text>
+          <Text style={styles.optionText}>{profile === 'company' ? '💸 Support' : '💸 Mission Mint'} (Credits Left - {creditsLeft ?? 0})</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -77,7 +85,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             onClose();
           }}
         >
-          <Text style={styles.optionText}>📝 Regular Post</Text>
+          <Text style={styles.optionText}>📝 Regular Mint</Text>
         </TouchableOpacity>
       </View>
     </RBSheet>

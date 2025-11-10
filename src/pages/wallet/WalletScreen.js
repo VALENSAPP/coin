@@ -35,6 +35,7 @@ import { getCreditsLeft } from "../../services/wallet";
 import { createCheckoutSession } from "../../services/stirpe";
 import TokenSellModal from "../../components/modals/TokenSellModal";
 import InAppBrowser from "react-native-inappbrowser-reborn";
+import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -54,6 +55,7 @@ export default function WalletComponent() {
     const [topCreators, setTopCreators] = useState([]); // State for top creators
     const [holdingsData, setHoldingsData] = useState([]); // State for holdings data
     const [tokenAddress, setTokenAddress] = useState(null);
+    const [showCreditModal, setShowCreditModal] = useState(false);
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const toast = useToast();
@@ -203,53 +205,6 @@ export default function WalletComponent() {
         }
     };
 
-    const createStripeSubscription = async () => {
-        dispatch(showLoader());
-        try {
-            const response = await createCheckoutSession();
-
-            if (response?.statusCode === 200 && response?.data?.url) {
-                const url = response.data.url;
-
-                if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(url, {
-                        // Customization options
-                        dismissButtonStyle: 'close',
-                        preferredBarTintColor: '#ffffff',
-                        preferredControlTintColor: '#000000',
-                        readerMode: false,
-                        animated: true,
-                        modalPresentationStyle: 'fullScreen',
-                        modalTransitionStyle: 'coverVertical',
-                        enableBarCollapsing: false,
-                        showTitle: true,
-                        toolbarColor: '#ffffff',
-                        secondaryToolbarColor: '#f0f0f0',
-                    });
-                } else {
-                    // Fallback if in-app browser isn’t available
-                    await Linking.openURL(url);
-                }
-            } else {
-                showToastMessage(
-                    toast,
-                    'danger',
-                    response?.error ||
-                    response?.message ||
-                    'Failed to create payment session. Please try again.'
-                );
-            }
-        } catch (error) {
-            showToastMessage(
-                toast,
-                'danger',
-                'Network error. Please check your internet connection and try again.'
-            );
-        } finally {
-            dispatch(hideLoader());
-        }
-    };
-
     const handleFollowUnfollow = (selectedCreator, currentlyFollowing) => {
         console.log(selectedCreator, 'selectedCreator');
 
@@ -261,21 +216,6 @@ export default function WalletComponent() {
         else {
             setTimeout(() => sellSheetRef.current?.open?.(), 0)
         }
-    };
-
-    const handleBuyCredits = () => {
-        Alert.alert(
-            'Buy Post Credits',
-            'Purchase 5 additional post credits?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Purchase', onPress: () => {
-                        createStripeSubscription()
-                    }
-                }
-            ]
-        );
     };
 
     const copyToClipboard = () => {
@@ -298,317 +238,334 @@ export default function WalletComponent() {
         fetchDashboardData();
         fetchCreditsLeft();
         fetchTopCreators();
-}, []);
+    }, []);
 
-const CreatorDashboard = ({ creator }) => (
-    <View style={styles.creatorDashboard}>
-        <View style={styles.creatorHeader}>
-            <View style={styles.creatorInfo}>
-                <View style={styles.creatorAvatar}>
-                    <Text style={styles.avatarText}>
-                        {creator.vendorName ? creator.vendorName.charAt(0) : 'U'}
-                    </Text>
-                </View>
-                <View>
-                    <View style={styles.nameRow}>
-                        <Text style={styles.creatorName}>
-                            {creator.vendorName || 'Unknown Creator'}
+    const CreatorDashboard = ({ creator }) => (
+        <View style={styles.creatorDashboard}>
+            <View style={styles.creatorHeader}>
+                <View style={styles.creatorInfo}>
+                    <View style={styles.creatorAvatar}>
+                        <Text style={styles.avatarText}>
+                            {creator.vendorName ? creator.vendorName.charAt(0) : 'U'}
                         </Text>
                     </View>
-                    <Text style={styles.creatorUsername}>
-                        {creator.tokenAddress ? `${creator.tokenAddress.slice(0, 10)}...` : ''}
-                    </Text>
-                </View>
-            </View>
-        </View>
-
-        <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                    ${creator.tokenPrice?.toFixed(4) || '0.00'}
-                </Text>
-                <Text style={styles.statLabel}>Current Price</Text>
-            </View>
-            <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                    ${creator.totalTokenAmount?.toFixed(2) || '0.00'}
-                </Text>
-                <Text style={styles.statLabel}>Total Value</Text>
-            </View>
-            <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                    {creator.tokenAmount || 0}
-                </Text>
-                <Text style={styles.statLabel}>Tokens Held</Text>
-            </View>
-        </View>
-
-        <View style={styles.tradeButtons}>
-            <TouchableOpacity
-                style={[styles.tradeBtn, styles.buyBtn]}
-                onPress={() => handleFollowUnfollow(creator, false)}
-            >
-                <Text style={styles.tradeBtnText}>Buy (Follow)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-                style={[styles.tradeBtn, styles.sellBtn]}
-                onPress={() => handleFollowUnfollow(creator, true)}
-            >
-                <Text style={[styles.tradeBtnText, styles.sellBtnText]}>Sell (Unfollow)</Text>
-            </TouchableOpacity>
-        </View>
-    </View>
-);
-
-const CoinsList = ({ navigation }) => {
-    const filteredList = topCreators.filter(item =>
-        (item.username?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-        (item.tokenAddress?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    );
-
-    return (
-        <View style={{ flex: 1, backgroundColor: '#f8f2fd' }}>
-            <Text style={styles.subHeader}>{filteredList.length} creators</Text>
-            <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text>
-
-            <FlatList
-                data={filteredList}
-                keyExtractor={(item, index) => item.vendorId || index.toString()}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={styles.coinItem}
-                        onPress={() => {
-                            setSelectedCreator(item);
-                        }}
-                    >
-                        <View style={styles.coinAvatar}>
-                            <Text style={styles.avatarText}>
-                                {item.username ? item.username.charAt(0) : 'U'}
+                    <View>
+                        <View style={styles.nameRow}>
+                            <Text style={styles.creatorName}>
+                                {creator.vendorName || 'Unknown Creator'}
                             </Text>
                         </View>
-                        <View style={{ flex: 1 }}>
-                            <View style={styles.nameRow}>
-                                <Text style={styles.coinName}>
-                                    {item.username || 'Unknown'}
+                        <Text style={styles.creatorUsername}>
+                            {creator.tokenAddress ? `${creator.tokenAddress.slice(0, 10)}...` : ''}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                        ${creator.tokenPrice?.toFixed(4) || '0.00'}
+                    </Text>
+                    <Text style={styles.statLabel}>Current Price</Text>
+                </View>
+                <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                        ${creator.totalTokenAmount?.toFixed(2) || '0.00'}
+                    </Text>
+                    <Text style={styles.statLabel}>Total Value</Text>
+                </View>
+                <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                        {creator.tokenAmount || 0}
+                    </Text>
+                    <Text style={styles.statLabel}>Tokens Held</Text>
+                </View>
+            </View>
+
+            <View style={styles.tradeButtons}>
+                <TouchableOpacity
+                    style={[styles.tradeBtn, styles.buyBtn]}
+                    onPress={() => handleFollowUnfollow(creator, false)}
+                >
+                    <Text style={styles.tradeBtnText}>Buy (Follow)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tradeBtn, styles.sellBtn]}
+                    onPress={() => handleFollowUnfollow(creator, true)}
+                >
+                    <Text style={[styles.tradeBtnText, styles.sellBtnText]}>Sell (Unfollow)</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    const CoinsList = ({ navigation }) => {
+        const filteredList = topCreators.filter(item =>
+            (item.username?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+            (item.tokenAddress?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+        );
+
+        return (
+            <View style={{ flex: 1, backgroundColor: '#f8f2fd' }}>
+                <Text style={styles.subHeader}>{filteredList.length} creators</Text>
+                <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text>
+
+                <FlatList
+                    data={filteredList}
+                    keyExtractor={(item, index) => item.vendorId || index.toString()}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.coinItem}
+                            onPress={() => {
+                                setSelectedCreator(item);
+                            }}
+                        >
+                            <View style={styles.coinAvatar}>
+                                <Text style={styles.avatarText}>
+                                    {item.username ? item.username.charAt(0) : 'U'}
                                 </Text>
                             </View>
-                            {/* <Text style={styles.creatorUsername}>
+                            <View style={{ flex: 1 }}>
+                                <View style={styles.nameRow}>
+                                    <Text style={styles.coinName}>
+                                        {item.username || 'Unknown'}
+                                    </Text>
+                                </View>
+                                {/* <Text style={styles.creatorUsername}>
                                     {item.tokenAddress ? `${item.tokenAddress.slice(0, 15)}...` : ''}
                                 </Text>
                                 <Text style={styles.marketCapText}>
                                     Tokens: {item.tokenAmount || 0}
                                 </Text> */}
-                        </View>
+                            </View>
 
-                        <View style={styles.priceSection}>
-                            <Text style={styles.price}>
-                                ${item.purchaseTokenPrice?.toFixed(4) || '0.00'}
-                            </Text>
-                            <TouchableOpacity
-                                style={[styles.followBtn, styles.followBtnActive]}
-                                onPress={() => { setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}
-                            >
-                                <Text style={[styles.followBtnText, styles.followBtnActiveText]}>
-                                    Buy
+                            <View style={styles.priceSection}>
+                                <Text style={styles.price}>
+                                    ${item.purchaseTokenPrice?.toFixed(4) || '0.00'}
                                 </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </TouchableOpacity>
-                )}
-                ListEmptyComponent={() => (
-                    <View style={{ padding: 20, alignItems: 'center' }}>
-                        <Text style={{ color: '#666', fontSize: 16 }}>
-                            No creators found
-                        </Text>
-                    </View>
-                )}
-            />
-        </View>
-    );
-};
-
-const MyHoldings = () => {
-    return (
-        <View style={{ flex: 1, backgroundColor: '#f8f2fd', }}>
-            <Text style={styles.subHeader}>{holdingsData.length} holdings</Text>
-            <Text style={styles.note}>Your current creator investments</Text>
-
-            <FlatList
-                data={holdingsData}
-                keyExtractor={(item, index) => item.vendorId || index.toString()}
-                renderItem={({ item }) => (
-                    <View style={styles.holdingItem}>
-                        <CreatorDashboard creator={item} />
-                    </View>
-                )}
-                ListEmptyComponent={() => (
-                    <View style={{ padding: 20, alignItems: 'center' }}>
-                        <Text style={{ color: '#666', fontSize: 16 }}>
-                            You don't have any holdings yet
-                        </Text>
-                        <Text style={{ color: '#999', fontSize: 14, marginTop: 8 }}>
-                            Start following creators to build your portfolio
-                        </Text>
-                    </View>
-                )}
-            />
-        </View>
-    );
-};
-
-const Tab = createMaterialTopTabNavigator();
-
-return (
-    <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 10, marginTop: Platform.OS == "ios" ? 20 : 0 }}
-            showsVerticalScrollIndicator={false}>
-            <View style={{ paddingHorizontal: 15 }}>
-                {/* Profile Section */}
-                <View style={styles.profileSection}>
-                    <View>
-                        <View style={styles.nameRow}>
-                            <Text style={styles.username}>{userData?.displayName}</Text>
-                            {userVerificationStatus.verified && (
-                                <Ionicons name="checkmark-circle" size={20} color="#5a2d82" />
-                            )}
-                        </View>
-                        {userVerificationStatus.verified && (
-                            <Text style={styles.verificationBadge}>{userVerificationStatus.level}</Text>
-                        )}
-                        <View style={styles.idRow}>
-                            <Text style={styles.walletAddress}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
-                            <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>
-                                <Ionicons name="copy-outline" size={15} color="#000" />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                    <Image
-                        source={{
-                            uri: profileImage ? profileImage : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                        }}
-                        style={styles.profileImage}
-                    />
-                </View>
-
-                {/* Holdings Box */}
-                <View style={styles.holdingsBox}>
-                    <Text style={styles.holdingsText}>Total value of holdings</Text>
-                    <Text style={styles.holdingsAmount}>{portfolioValue || '$ 0.00'}</Text>
-                </View>
-
-                {/* Credits Section */}
-                <View style={styles.creditsBox}>
-                    <View style={styles.creditsInfo}>
-                        <MaterialCommunityIcons name="credit-card-outline" size={24} color="#5a2d82" />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={styles.creditsTitle}>Post Credits</Text>
-                            <Text style={styles.creditsCount}>
-                                {creditsLeft} / 5 remaining
+                                <TouchableOpacity
+                                    style={[styles.followBtn, styles.followBtnActive]}
+                                    onPress={() => { setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}
+                                >
+                                    <Text style={[styles.followBtnText, styles.followBtnActiveText]}>
+                                        Buy
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={() => (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Text style={{ color: '#666', fontSize: 16 }}>
+                                No creators found
                             </Text>
                         </View>
-                    </View>
-                    <TouchableOpacity style={styles.buyCreditsBtn} onPress={handleBuyCredits}>
-                        <Text style={styles.buyCreditsText}>Buy Credits</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </ScrollView>
-
-        {/* Tabs */}
-        <View style={{ flex: 1, minHeight: 350 }}>
-            <Tab.Navigator
-                screenOptions={{
-                    tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: '#5a2d82' },
-                    tabBarStyle: { backgroundColor: '#f8f2fd' },
-                    tabBarIndicatorStyle: { backgroundColor: '#5a2d82', height: 3, borderRadius: 2 },
-                }}
-            >
-                <Tab.Screen
-                    name="Discover"
-                    children={() => (
-                        <CoinsList
-                            navigation={navigation}
-                        />
                     )}
                 />
-                <Tab.Screen
-                    name="Holdings"
-                    component={MyHoldings}
+            </View>
+        );
+    };
+
+    const MyHoldings = () => {
+        return (
+            <View style={{ flex: 1, backgroundColor: '#f8f2fd', }}>
+                <Text style={styles.subHeader}>{holdingsData.length} holdings</Text>
+                <Text style={styles.note}>Your current creator investments</Text>
+
+                <FlatList
+                    data={holdingsData}
+                    keyExtractor={(item, index) => item.vendorId || index.toString()}
+                    renderItem={({ item }) => (
+                        <View style={styles.holdingItem}>
+                            <CreatorDashboard creator={item} />
+                        </View>
+                    )}
+                    ListEmptyComponent={() => (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Text style={{ color: '#666', fontSize: 16 }}>
+                                You don't have any holdings yet
+                            </Text>
+                            <Text style={{ color: '#999', fontSize: 14, marginTop: 8 }}>
+                                Start following creators to build your portfolio
+                            </Text>
+                        </View>
+                    )}
                 />
-            </Tab.Navigator>
-        </View>
+            </View>
+        );
+    };
 
-        {/* Token Purchase Modal */}
-        <RBSheet
-            ref={purchaseSheetRef}
-            height={500}
-            openDuration={250}
-            draggable={true}
-            closeOnPressMask={true}
-            customModalProps={{ statusBarTranslucent: true }}
-            onOpen={() => setPurchaseAutoFocus(true)}
-            onClose={() => {
-                Keyboard.dismiss();
-                setPurchaseAutoFocus(false);
-                setSelectedCreator(null);
-            }}
-            customStyles={{
-                container: {
-                    borderTopLeftRadius: 30,
-                    borderTopRightRadius: 30,
-                    backgroundColor: '#f8f2fd',
-                    bottom: -30,
-                },
-                draggableIcon: {
-                    backgroundColor: '#ccc',
-                    width: 60,
-                },
-            }}
-        >
-            <TokenPurchaseModal
-                onClose={handleTokenModalClose}
-                onPurchase={handleTokenPurchase}
-                hasFollowing={true}
-                autoFocus={purchaseAutoFocus}
-                vendorid={selectedCreator?.vendorId || ''}
-            />
-        </RBSheet>
+    const handleBuyCredits = () => {
+        if (creditsLeft >= 5) {
+            showToastMessage(toast, 'danger', 'You already have maximum credits.');
+        } else {
+            setShowCreditModal(true);
+        }
+    };
 
-        {/* Token Sell Modal */}
-        <RBSheet
-            ref={sellSheetRef}
-            height={550}
-            openDuration={250}
-            draggable={true}
-            closeOnPressMask={true}
-            customModalProps={{ statusBarTranslucent: true }}
-            onOpen={() => setPurchaseAutoFocus(true)}
-            onClose={() => {
-                Keyboard.dismiss();
-                setPurchaseAutoFocus(false);
-                setSelectedCreator(null);
-            }}
-            customStyles={{
-                container: {
-                    borderTopLeftRadius: 30,
-                    borderTopRightRadius: 30,
-                    backgroundColor: '#f8f2fd',
-                    bottom: -30,
-                },
-                draggableIcon: {
-                    backgroundColor: '#ccc',
-                    width: 60,
-                },
-            }}
-        >
-            <TokenSellModal
-                onSell={handleTokenSell}
-                userId={selectedCreator?.vendorId || ''}
-                tokenAddress={tokenAddress}
+    const Tab = createMaterialTopTabNavigator();
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 10, marginTop: Platform.OS == "ios" ? 20 : 0 }}
+                showsVerticalScrollIndicator={false}>
+                <View style={{ paddingHorizontal: 15 }}>
+                    {/* Profile Section */}
+                    <View style={styles.profileSection}>
+                        <View>
+                            <View style={styles.nameRow}>
+                                <Text style={styles.username}>{userData?.displayName}</Text>
+                                {userVerificationStatus.verified && (
+                                    <Ionicons name="checkmark-circle" size={20} color="#5a2d82" />
+                                )}
+                            </View>
+                            {userVerificationStatus.verified && (
+                                <Text style={styles.verificationBadge}>{userVerificationStatus.level}</Text>
+                            )}
+                            <View style={styles.idRow}>
+                                <Text style={styles.walletAddress}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
+                                <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>
+                                    <Ionicons name="copy-outline" size={15} color="#000" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <Image
+                            source={{
+                                uri: profileImage ? profileImage : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                            }}
+                            style={styles.profileImage}
+                        />
+                    </View>
+
+                    {/* Holdings Box */}
+                    <View style={styles.holdingsBox}>
+                        <Text style={styles.holdingsText}>Total value of holdings</Text>
+                        <Text style={styles.holdingsAmount}>{portfolioValue || '$ 0.00'}</Text>
+                    </View>
+
+                    {/* Credits Section */}
+                    <View style={styles.creditsBox}>
+                        <View style={styles.creditsInfo}>
+                            <MaterialCommunityIcons name="credit-card-outline" size={24} color="#5a2d82" />
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={styles.creditsTitle}>Post Credits</Text>
+                                <Text style={styles.creditsCount}>
+                                    {creditsLeft} / 5 remaining
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={styles.buyCreditsBtn} onPress={handleBuyCredits}>
+                            <Text style={styles.buyCreditsText}>Buy Credits</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
+
+            {/* Tabs */}
+            <View style={{ flex: 1, minHeight: 350 }}>
+                <Tab.Navigator
+                    screenOptions={{
+                        tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: '#5a2d82' },
+                        tabBarStyle: { backgroundColor: '#f8f2fd' },
+                        tabBarIndicatorStyle: { backgroundColor: '#5a2d82', height: 3, borderRadius: 2 },
+                    }}
+                >
+                    <Tab.Screen
+                        name="Discover"
+                        children={() => (
+                            <CoinsList
+                                navigation={navigation}
+                            />
+                        )}
+                    />
+                    <Tab.Screen
+                        name="Holdings"
+                        component={MyHoldings}
+                    />
+                </Tab.Navigator>
+            </View>
+
+            {/* Token Purchase Modal */}
+            <RBSheet
+                ref={purchaseSheetRef}
+                height={500}
+                openDuration={250}
+                draggable={true}
+                closeOnPressMask={true}
+                customModalProps={{ statusBarTranslucent: true }}
+                onOpen={() => setPurchaseAutoFocus(true)}
+                onClose={() => {
+                    Keyboard.dismiss();
+                    setPurchaseAutoFocus(false);
+                    setSelectedCreator(null);
+                }}
+                customStyles={{
+                    container: {
+                        borderTopLeftRadius: 30,
+                        borderTopRightRadius: 30,
+                        backgroundColor: '#f8f2fd',
+                        bottom: -30,
+                    },
+                    draggableIcon: {
+                        backgroundColor: '#ccc',
+                        width: 60,
+                    },
+                }}
+            >
+                <TokenPurchaseModal
+                    onClose={handleTokenModalClose}
+                    onPurchase={handleTokenPurchase}
+                    hasFollowing={true}
+                    autoFocus={purchaseAutoFocus}
+                    vendorid={selectedCreator?.vendorId || ''}
+                />
+            </RBSheet>
+
+            {/* Token Sell Modal */}
+            <RBSheet
+                ref={sellSheetRef}
+                height={550}
+                openDuration={250}
+                draggable={true}
+                closeOnPressMask={true}
+                customModalProps={{ statusBarTranslucent: true }}
+                onOpen={() => setPurchaseAutoFocus(true)}
+                onClose={() => {
+                    Keyboard.dismiss();
+                    setPurchaseAutoFocus(false);
+                    setSelectedCreator(null);
+                }}
+                customStyles={{
+                    container: {
+                        borderTopLeftRadius: 30,
+                        borderTopRightRadius: 30,
+                        backgroundColor: '#f8f2fd',
+                        bottom: -30,
+                    },
+                    draggableIcon: {
+                        backgroundColor: '#ccc',
+                        width: 60,
+                    },
+                }}
+            >
+                <TokenSellModal
+                    onSell={handleTokenSell}
+                    userId={selectedCreator?.vendorId || ''}
+                    tokenAddress={tokenAddress}
+                />
+            </RBSheet>
+            <CreditPurchaseModal
+                visible={showCreditModal}
+                onClose={() => setShowCreditModal(false)}
+                onPurchaseComplete={() => {
+                    fetchCreditsLeft();
+                    setShowCreditModal(false);
+                }}
+                currentCredits={creditsLeft}
             />
-        </RBSheet>
-    </SafeAreaView>
-);
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
