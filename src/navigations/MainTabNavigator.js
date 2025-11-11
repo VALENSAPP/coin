@@ -54,6 +54,7 @@ import VerificationStatusScreen from '../pages/wallet/VerificationStatus';
 import PrivacySettingsScreen from '../pages/wallet/PrivacySettings';
 import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
+import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -232,6 +233,11 @@ export default function MainTabNavigator() {
             name="LoginHistory"
             component={LoginHistoryScreen}
             options={{ headerTitle: 'Login History' }}
+          />
+          <Stack.Screen
+            name="SubscriptionSetup"
+            component={SubventionSetupScreen}
+            options={{ headerTitle: 'Subvention Program Setup' }}
           />
         </Stack.Navigator>
       );

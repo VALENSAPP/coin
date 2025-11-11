@@ -503,7 +503,7 @@ export default function PostScreen({ navigation }) {
         >
           <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Post</Text>
+        <Text style={styles.headerTitle}>New Mint</Text>
         <TouchableOpacity
           onPress={handleShare}
           style={[styles.headerShareBtn, { opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     color: '#5a2d82',
     flex: 1,
     textAlign: 'center',
-    marginLeft: -30,
+    // marginLeft: -30,
   },
   headerShareBtn: {
     paddingHorizontal: 12,

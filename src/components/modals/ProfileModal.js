@@ -7,17 +7,32 @@ import {
   Animated,
   Dimensions,
   PanResponder,
-  Image
+  Image,
+  Alert,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Feather from 'react-native-vector-icons/Feather';
 import { Reels } from '../../assets/icons';
 import { useNavigation } from '@react-navigation/native';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { PostStory } from '../../services/stories';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
+import StoryComposer from '../home/story.js/StoryComposer';
+
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-const ProfileModal = ({ modalVisible, setModalVisible }) => {
-  const navigation = useNavigation()
+const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
+  const navigation = useNavigation();
+  const toast = useToast();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  
+  // Story composer state
+  const [composerVisible, setComposerVisible] = useState(false);
+  const [composerList, setComposerList] = useState([]);
+
   useEffect(() => {
     if (modalVisible) {
       showModal();
@@ -44,32 +59,182 @@ const ProfileModal = ({ modalVisible, setModalVisible }) => {
     });
   };
 
-  const handleNavigation = (type) =>{
-  switch (type){
-    case 'mint': //post//
-      //  navigation.navigate('PostUpload');
-       navigation.navigate('Add');
-       break;
-    case 'Flips'://reels//
-      navigation.navigate('');
-       break;
-    case 'ai':
-      navigation.navigate('');
-      break;
-    case 'drops'://Story//
-      navigation.navigate('');
-      break;
-    case 'drops highlights'://storyHightlight//
-      navigation.navigate('');
-      break;
-    case 'live':
-      navigation.navigate('');
-      break;
-     
-   default:
-   break
-  }
-  }
+  const requestCameraPermission = async () => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'This app needs access to your camera to take photos.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  };
+
+  const openCamera = async () => {
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Camera permission is required to take photos.',
+      );
+      return;
+    }
+    const options = {
+      mediaType: 'mixed',
+      includeBase64: false,
+      maxHeight: 2000,
+      maxWidth: 2000,
+      includeExtra: true,
+      presentationStyle: 'fullScreen',
+    };
+    launchCamera(options, response => {
+      if (response?.didCancel) return;
+      if (response?.errorCode) {
+        Alert.alert(
+          'Camera error',
+          response.errorMessage || response.errorCode,
+        );
+        return;
+      }
+      handleMediaSelected(response);
+    });
+  };
+
+  const openGallery = () => {
+    const options = {
+      mediaType: 'mixed',
+      selectionLimit: 10,
+      includeBase64: false,
+      maxHeight: 2000,
+      maxWidth: 2000,
+    };
+    launchImageLibrary(options, response => {
+      if (response?.didCancel || response?.errorCode) return;
+      const assets = response?.assets || [];
+      if (!assets.length) return;
+
+      const list = assets.map(a => ({
+        uri: a.uri,
+        type: a.type?.startsWith('video') ? 'video' : 'image',
+        duration: a.duration ? a.duration * 1000 : undefined,
+      }));
+      setComposerList(list);
+      setComposerVisible(true);
+    });
+  };
+
+  const handleMediaSelected = response => {
+    const asset = response?.assets?.[0];
+    if (!asset || !asset.uri) {
+      Alert.alert('Oops', 'Could not read the selected media.');
+      return;
+    }
+    const type = asset.type?.startsWith('video') ? 'video' : 'image';
+    const list = [{
+      uri: asset.uri,
+      type: type,
+      duration: type === 'video' 
+        ? (asset.duration ? asset.duration * 1000 : 15000)
+        : 5000,
+    }];
+    setComposerList(list);
+    setComposerVisible(true);
+  };
+
+  const handleAddStory = () => {
+    // Close the modal first
+    hideModal();
+    
+    // Small delay to ensure modal animation completes
+    setTimeout(() => {
+      Alert.alert('Add Story', 'Choose how to add your story', [
+        { text: 'Camera', onPress: () => openCamera() },
+        { text: 'Gallery', onPress: () => openGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }, 300);
+  };
+
+  const handleComposerDone = async (processedArray) => {
+    try {
+      setComposerVisible(false);
+
+      // Prepare FormData for API call
+      const formData = new FormData();
+
+      // Add caption (optional)
+      formData.append('caption', '');
+
+      // Add media files
+      processedArray.forEach((item, index) => {
+        const fileUri = item.processedUri || item.original.uri;
+        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
+        const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
+
+        formData.append('media', {
+          uri: fileUri,
+          type: fileType,
+          name: fileName,
+        });
+      });
+
+      // Call API to upload story
+      const response = await PostStory(formData);
+
+      if (response?.success) {
+        showToastMessage(toast, 'success', 'Story Uploaded Successfully');
+        
+        // Notify parent component to refresh stories
+        if (onStoryUploaded) {
+          onStoryUploaded();
+        }
+      } else {
+        showToastMessage(toast, 'danger', 'Failed to upload story please try again');
+      }
+    } catch (error) {
+      console.error('Error uploading story:', error);
+      showToastMessage(toast, 'danger', 'Something Went Wrong! Please try again');
+    }
+  };
+
+  const handleNavigation = (type) => {
+    switch (type) {
+      case 'mint': // post
+        navigation.navigate('Add');
+        hideModal();
+        break;
+      case 'Flips': // reels
+        navigation.navigate('');
+        hideModal();
+        break;
+      case 'ai':
+        navigation.navigate('');
+        hideModal();
+        break;
+      case 'drops': // Story
+        handleAddStory();
+        break;
+      case 'drops highlights': // storyHighlight
+        navigation.navigate('');
+        hideModal();
+        break;
+      case 'live':
+        navigation.navigate('');
+        hideModal();
+        break;
+      default:
+        break;
+    }
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -94,66 +259,69 @@ const ProfileModal = ({ modalVisible, setModalVisible }) => {
     }),
   ).current;
 
-  useEffect(() => {
-    if (modalVisible) {
-      showModal();
-    }
-  }, [modalVisible]);
-
   return (
-    <Modal transparent visible={modalVisible} animationType="none">
-      <View style={styles.overlay}>
-        <TouchableOpacity
-          style={{ flex: 1 }}
-          activeOpacity={1}
-          onPress={hideModal}
-        />
-        <Animated.View
-          style={[styles.modalContainer, { transform: [{ translateY }] }]}
-          {...panResponder.panHandlers}
-        >
-          <View style={styles.dragHandle} />
+    <>
+      <Modal transparent visible={modalVisible} animationType="none">
+        <View style={styles.overlay}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={hideModal}
+          />
+          <Animated.View
+            style={[styles.modalContainer, { transform: [{ translateY }] }]}
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.dragHandle} />
 
-          <Text style={styles.title}>Create</Text>
+            <Text style={styles.title}>Create</Text>
 
-          <View style={styles.list}>
-            <TouchableOpacity style={styles.button} onPress={() => handleNavigation('Flips')}>
-              <Reels width={20} height={20} />
-              <Text style={styles.lText}>Flips</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => handleNavigation('mint')}>
-              <Feather name="grid" size={20} color="#111100" />
-              <Text style={styles.lText}>mint</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops')}>
-              {/* <Feather name="circle" size={20} color="#111100" /> */}
-              <Image
-                source={require('../../assets/icons/pngicons/user-interface_14983775.png')}
-                style={{ width: 20, height: 20 }}
-                resizeMode="contain"
-              />
-              <Text style={styles.lText}>drops</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops highlights')}>
-              <Feather name="circle" size={20} color="#111100" />
-              <Text style={styles.lText}>drops highlights</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => handleNavigation('live')}>
-              <Image
-                source={require('../../assets/icons/pngicons/live.png')}
-                style={{ width: 20, height: 20 }}
-                resizeMode="contain"
-              />
-              <Text style={styles.lText}>Live</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => handleNavigation('ai')}>
-              <Feather name="star" size={20} color="#111100" />
-              <Text style={styles.lText}>AI</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+            <View style={styles.list}>
+              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('Flips')}>
+                <Reels width={20} height={20} />
+                <Text style={styles.lText}>Flips</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('mint')}>
+                <Feather name="grid" size={20} color="#111100" />
+                <Text style={styles.lText}>mint</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops')}>
+                <Image
+                  source={require('../../assets/icons/pngicons/user-interface_14983775.png')}
+                  style={{ width: 20, height: 20 }}
+                  resizeMode="contain"
+                />
+                <Text style={styles.lText}>drops</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops highlights')}>
+                <Feather name="circle" size={20} color="#111100" />
+                <Text style={styles.lText}>drops highlights</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('live')}>
+                <Image
+                  source={require('../../assets/icons/pngicons/live.png')}
+                  style={{ width: 20, height: 20 }}
+                  resizeMode="contain"
+                />
+                <Text style={styles.lText}>Live</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('ai')}>
+                <Feather name="star" size={20} color="#111100" />
+                <Text style={styles.lText}>AI</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+ 
+      {/* Story Composer Modal */}
+      <StoryComposer
+        modalVisible={composerVisible}
+        mediaList={composerList}
+        onCancel={() => setComposerVisible(false)}
+        onDone={handleComposerDone}
+      />
+    </>
   );
 };
 

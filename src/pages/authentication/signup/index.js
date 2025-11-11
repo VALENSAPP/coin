@@ -84,13 +84,12 @@ export default function SignupScreen() {
         userName,
         profile,
       });
-      console.log(signupResponse);
       if (
         signupResponse &&
         (signupResponse.statusCode == 200 || signupResponse.statusCode == 201)
       ) {
         dispatch(hideLoader());
-        showToastMessage(toast, 'success', signupResponse?.data.message);
+        showToastMessage(toast, 'success', 'OTP sent to your email.');
         navigation.navigate('OTPScreen', { email, password, type: 'signup' });
         setPassword('');
         setEmail(''), setUsername('');

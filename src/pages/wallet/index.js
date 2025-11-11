@@ -356,7 +356,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           id: index + 1,
           name: `@${creator.username || 'unknown'}`,
           vendorId: creator.vendorId,
-          price: `$${creator.purchaseTokenPrice || '0.00'}`
+          followers: `${creator.followerCount || '0'}` + ' Vallowers',
         }));
 
         setTopCreators(formattedCreators.slice(0, 5)); // Limit to top 5
@@ -611,7 +611,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           <Text style={styles.creatorName}>{item.name}</Text>
           {/* {item.verified && <Ionicons name="checkmark-circle" size={14} color="#5a2d82" />} */}
         </View>
-        <Text style={styles.creatorPrice}>{item.price}</Text>
+        <Text style={styles.creatorPrice}>{item.followers}</Text>
       </View>
     </TouchableOpacity>
   );
