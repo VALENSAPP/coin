@@ -287,11 +287,11 @@ const GlobalDrawerNavigator = () => {
         listeners={({ navigation }) => ({
           drawerItemPress: (e) => {
             e.preventDefault();
-            navigation.closeDrawer();
-            // navigation.navigate('MainApp', {
-            //   screen: 'wallet',
-            //   params: { screen: 'Creators' }
-            // });
+            // navigation.closeDrawer();
+            navigation.navigate('MainApp', {
+              screen: 'wallet',
+              params: { screen: 'SubscriptionSetup' }
+            });
           },
         })}
       />

@@ -1191,6 +1191,8 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
       const resp = await getUserCredentials(viewerId);
       if (resp?.statusCode === 200) {
         const raw = resp?.data?.image;
+        console.log('innnnnnn load profile data----------',raw);
+        
         dispatch(setProfileImg(raw));
       }
     } catch (e) {

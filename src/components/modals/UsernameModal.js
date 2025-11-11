@@ -26,7 +26,7 @@ const UsernameModal = ({ visible, onClose }) => {
     <RBSheet
       ref={sheetRef}
       draggable
-      height={400}
+      height={300}
       onClose={onClose} // Add this line - crucial for resetting state
       customModalProps={{
         statusBarTranslucent: true,
@@ -71,11 +71,11 @@ const UsernameModal = ({ visible, onClose }) => {
           </View>
 
           {/* Options */}
-          <TouchableOpacity style={styles.optionRow} onPress={() => { }}>
+          {/* <TouchableOpacity style={styles.optionRow} onPress={() => { }}>
             <Feather name="slack" size={20} color="#111100" style={styles.optionIcon} />
             <Text style={styles.optionText}>Dexscreener</Text>
             <Feather name="external-link" size={18} color="#788587" style={styles.optionRightIcon} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity style={styles.optionRow} onPress={() => { }}>
             <Ionicons name="person-circle-outline" size={20} color="#111100" style={styles.optionIcon} />
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   topButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: -12,
   },
   topButton: {
     flex: 1,

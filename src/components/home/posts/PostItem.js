@@ -12,6 +12,7 @@ import {
 import {
   PanGestureHandler,
   PinchGestureHandler,
+  TapGestureHandler,
   State,
 } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -32,102 +33,200 @@ import { getUserCredentials, getUserDashboard } from '../../../services/post';
 const { width } = Dimensions.get('window');
 
 /* -----------------------------------------
- * ZoomableImage: pinch to zoom + pan when zoomed
+ * InstagramZoomableImage: In-feed gesture detector
+ * - Pinch begins: open fullscreen viewer (for true edge-to-edge pan/zoom)
+ * - Double-tap: open fullscreen viewer
  * ---------------------------------------- */
-function ZoomableImage({ uri, onZoomChange }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const lastScale = useRef(1);
-  const panX = useRef(new Animated.Value(0)).current;
-  const panY = useRef(new Animated.Value(0)).current;
-  const lastPanX = useRef(0);
-  const lastPanY = useRef(0);
-  const [isZoomed, setIsZoomed] = useState(false);
-
+function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }) {
   const pinchRef = useRef();
-  const panRef = useRef();
+  const hasOpenedRef = useRef(false);
+  const MIN_SCALE_TO_OPEN = 0.8;
 
-  const onPinchEvent = Animated.event([{ nativeEvent: { scale: scale } }], { useNativeDriver: true });
-
-  const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED) {
-      let newScale = lastScale.current * nativeEvent.scale;
-      newScale = Math.max(1, Math.min(3, newScale));
-      lastScale.current = newScale;
-
-      Animated.spring(scale, { toValue: newScale, useNativeDriver: true, friction: 5 }).start();
-
-      if (newScale === 1) {
-        Animated.spring(panX, { toValue: 0, useNativeDriver: true }).start();
-        Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
-        lastPanX.current = 0;
-        lastPanY.current = 0;
-        setIsZoomed(false);
-        onZoomChange?.(false);
-      } else {
-        setIsZoomed(true);
-        onZoomChange?.(true);
-      }
+  const onPinchEvent = (e) => {
+    const { scale = 1, numberOfPointers = 0, state } = e.nativeEvent || {};
+    if (!hasOpenedRef.current && numberOfPointers >= 2 && scale > MIN_SCALE_TO_OPEN) {
+      hasOpenedRef.current = true;
+      onZoomChange?.(true);
+      onOpenViewer?.(uri);
     }
   };
 
-  const onPanEvent = Animated.event(
-    [{ nativeEvent: { translationX: panX, translationY: panY } }],
-    { useNativeDriver: true }
-  );
+  const onPinchStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.BEGAN || nativeEvent.state === State.ACTIVE) {
+      // Wait for threshold in onPinchEvent; do nothing here
+    }
+    if (nativeEvent.oldState === State.ACTIVE) {
+      onZoomChange?.(false);
+      hasOpenedRef.current = false;
+    }
+  };
 
-  const onPanStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.END) {
-      const currentScale = lastScale.current;
-      const boundX = ((width * currentScale) - width) / 2;
-      const boundY = ((340 * currentScale) - 340) / 2;
-
-      let finalX = lastPanX.current + nativeEvent.translationX;
-      let finalY = lastPanY.current + nativeEvent.translationY;
-
-      finalX = Math.max(-boundX, Math.min(boundX, finalX));
-      finalY = Math.max(-boundY, Math.min(boundY, finalY));
-
-      lastPanX.current = finalX;
-      lastPanY.current = finalY;
-
-      Animated.spring(panX, { toValue: finalX, useNativeDriver: true }).start();
-      Animated.spring(panY, { toValue: finalY, useNativeDriver: true }).start();
+  const onDoubleTapStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.ACTIVE) {
+      onDoubleTap?.(uri);
     }
   };
 
   return (
     <PinchGestureHandler
       ref={pinchRef}
-      simultaneousHandlers={panRef}
       onGestureEvent={onPinchEvent}
       onHandlerStateChange={onPinchStateChange}
     >
       <Animated.View style={{ flex: 1 }}>
-        <PanGestureHandler
-          ref={panRef}
-          enabled={isZoomed}
-          simultaneousHandlers={pinchRef}
-          onGestureEvent={onPanEvent}
-          onHandlerStateChange={onPanStateChange}
-        >
+        <TapGestureHandler numberOfTaps={2} onHandlerStateChange={onDoubleTapStateChange}>
           <Animated.View style={{ flex: 1 }}>
-            <Animated.Image
+            <Image
               source={{ uri }}
               resizeMode="cover"
-              style={{
-                width: width,
-                height: 340,
-                transform: [
-                  { translateX: Animated.add(panX, new Animated.Value(0)) },
-                  { translateY: Animated.add(panY, new Animated.Value(0)) },
-                  { scale: scale },
-                ],
-              }}
+              style={{ width, height: 340 }}
             />
           </Animated.View>
-        </PanGestureHandler>
+        </TapGestureHandler>
       </Animated.View>
     </PinchGestureHandler>
+  );
+}
+
+/* -----------------------------------------
+ * InlineFullscreenViewer: Absolute overlay in same screen (no modal)
+ * - Pinch to zoom, pan freely across entire screen
+ * - Double-tap or scale≈1 on release closes
+ * ---------------------------------------- */
+function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
+  if (!visible) return null;
+  const screen = Dimensions.get('window');
+  const pinchScale = useRef(new Animated.Value(1)).current;
+  const panX = useRef(new Animated.Value(0)).current;
+  const panY = useRef(new Animated.Value(0)).current;
+  const focalX = useRef(new Animated.Value(0)).current;
+  const focalY = useRef(new Animated.Value(0)).current;
+  const panOffsetX = useRef(0);
+  const panOffsetY = useRef(0);
+
+  const pinchRef = useRef();
+  const panRef = useRef();
+
+  const clampedScale = pinchScale.interpolate({
+    inputRange: [1, 4],
+    outputRange: [1, 4],
+    extrapolate: 'clamp',
+  });
+
+  const onPinchEvent = Animated.event(
+    [{ nativeEvent: { scale: pinchScale, focalX: focalX, focalY: focalY } }],
+    { useNativeDriver: false }
+  );
+
+  const onPanEvent = Animated.event(
+    [{ nativeEvent: { translationX: panX, translationY: panY } }],
+    { useNativeDriver: false }
+  );
+
+  const onPanStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.BEGAN) {
+      panX.setOffset(panOffsetX.current);
+      panY.setOffset(panOffsetY.current);
+      panX.setValue(0);
+      panY.setValue(0);
+    }
+    if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED || nativeEvent.oldState === State.ACTIVE) {
+      panOffsetX.current = panOffsetX.current + (nativeEvent.translationX || 0);
+      panOffsetY.current = panOffsetY.current + (nativeEvent.translationY || 0);
+      panX.setOffset(panOffsetX.current);
+      panY.setOffset(panOffsetY.current);
+      panX.setValue(0);
+      panY.setValue(0);
+    }
+  };
+
+  const resetTransform = (cb) => {
+    Animated.parallel([
+      Animated.spring(pinchScale, { toValue: 1, useNativeDriver: false }),
+      Animated.spring(panX, { toValue: 0, useNativeDriver: false }),
+      Animated.spring(panY, { toValue: 0, useNativeDriver: false }),
+    ]).start(cb);
+  };
+
+  const onPinchStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.oldState === State.ACTIVE) {
+      // On lift from pinch, always spring back to original and close
+      panOffsetX.current = 0;
+      panOffsetY.current = 0;
+      panX.setOffset(0);
+      panY.setOffset(0);
+      resetTransform(onRequestClose);
+    }
+  };
+
+  const onDoubleTapStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.ACTIVE) {
+      resetTransform(onRequestClose);
+    }
+  };
+
+  return (
+    <View
+      pointerEvents="auto"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 2000,
+        // transparent backdrop to keep same screen feel
+        backgroundColor: 'transparent',
+      }}
+    >
+      <PinchGestureHandler
+        ref={pinchRef}
+        simultaneousHandlers={panRef}
+        onGestureEvent={onPinchEvent}
+        onHandlerStateChange={onPinchStateChange}
+      >
+        <Animated.View style={{ flex: 1 }}>
+          <PanGestureHandler
+            ref={panRef}
+            simultaneousHandlers={pinchRef}
+            onGestureEvent={onPanEvent}
+            onHandlerStateChange={({ nativeEvent }) => {
+              onPanStateChange({ nativeEvent });
+              if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED || nativeEvent.oldState === State.ACTIVE) {
+                // On lift from pan, always spring back to original and close
+                panOffsetX.current = 0;
+                panOffsetY.current = 0;
+                panX.setOffset(0);
+                panY.setOffset(0);
+                resetTransform(onRequestClose);
+              }
+            }}
+          >
+            <TapGestureHandler numberOfTaps={2} onHandlerStateChange={onDoubleTapStateChange}>
+              <Animated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Animated.Image
+                  source={{ uri }}
+                  resizeMode="contain"
+                  style={{
+                    width: screen.width,
+                    height: screen.height,
+                    transform: [
+                      { translateX: panX },
+                      { translateY: panY },
+                      { translateX: focalX },
+                      { translateY: focalY },
+                      { scale: clampedScale },
+                      { translateX: Animated.multiply(focalX, -1) },
+                      { translateY: Animated.multiply(focalY, -1) },
+                    ],
+                  }}
+                />
+              </Animated.View>
+            </TapGestureHandler>
+          </PanGestureHandler>
+        </Animated.View>
+      </PinchGestureHandler>
+    </View>
   );
 }
 
@@ -150,13 +249,15 @@ export default function PostItem({
   const listRef = useRef(null);
   const [totalFollowers, setTotalFollowers] = useState(0);
   const [userProfile, setUserProfile] = useState('');
-  // console.log('item----------------followers------------', item);
   const isCompanyProfile = userProfile === 'company';
   const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [isZooming, setIsZooming] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUri, setViewerUri] = useState(null);
   const navigation = useNavigation();
   const [userId, setUserId] = useState(null);
   const shareRef = useRef(null);
@@ -169,28 +270,24 @@ export default function PostItem({
       setUserId(id);
     };
     fetchUserId();
-    fetchAllData(); // Call a combined function
+    fetchAllData();
   }, []);
 
-  // Combine both API calls to manage loader properly
   const fetchAllData = async () => {
     try {
       dispatch(showLoader());
 
-      // Run both API calls in parallel
       const [dashboardResponse, profileResponse] = await Promise.all([
         getUserDashboard(item.UserId),
         getUserCredentials(item.UserId)
       ]);
 
-      // Handle dashboard response
       if (dashboardResponse?.statusCode === 200) {
         setTotalFollowers(dashboardResponse.data.dashboardData.totalFollowers);
       } else {
         showToastMessage(toast, 'danger', dashboardResponse.data.message);
       }
 
-      // Handle profile response
       if (profileResponse?.statusCode === 200) {
         let userDataToSet;
         if (profileResponse.data && profileResponse.data.user) {
@@ -237,18 +334,7 @@ export default function PostItem({
     return exts.some((ext) => lower.endsWith(`.${ext}`));
   };
 
-  const buyerList = (item.boughtBy || item.buyers) || [
-    // { id: '1', username: 'Alice', avatar: 'https://placekitten.com/40/40' },
-    // { id: '2', username: 'Bob', avatar: 'https://placekitten.com/41/41' },
-    // { id: '3', username: 'Charlie', avatar: 'https://placekitten.com/42/42' },
-  ];
-
-  // Add this debug log
-  // console.log(`PostItem ${item.id} buyerList:`, {
-  //   count: buyerList.length,
-  //   firstBuyer: buyerList[0]?.username,
-  //   allBuyers: buyerList.map(b => b.username)
-  // });
+  const buyerList = (item.boughtBy || item.buyers) || [];
 
   const animateHeart = () => {
     Animated.sequence([
@@ -262,7 +348,6 @@ export default function PostItem({
     animateHeart();
   };
 
-  // video pause/play based on index
   useEffect(() => {
     if (!item.media || item.media.length <= 0) return;
     setVideoStates(() => {
@@ -313,9 +398,22 @@ export default function PostItem({
             </View>
           </>
         ) : (
-          <ZoomableImage
+          <InstagramZoomableImage
             uri={mediaItem.url}
-            onZoomChange={(zoomed) => setScrollEnabled(!zoomed)}
+            onZoomChange={(zoomed) => {
+              setIsZooming(zoomed);
+              setScrollEnabled(!zoomed);
+            }}
+            onDoubleTap={(uri) => {
+              setViewerUri(uri);
+              setViewerOpen(true);
+              setScrollEnabled(false);
+            }}
+            onOpenViewer={(uri) => {
+              setViewerUri(uri);
+              setViewerOpen(true);
+              setScrollEnabled(false);
+            }}
           />
         )}
       </View>
@@ -324,9 +422,17 @@ export default function PostItem({
 
   return (
     <View style={styles.wrapper}>
-      {/* Enhanced Post Card */}
-      <View style={styles.postCard}>
-        {/* Enhanced Header */}
+      {isZooming && (
+        <View
+          pointerEvents="none"
+          style={styles.zoomBackdrop}
+        />
+      )}
+      
+      <View style={[
+        styles.postCard,
+        isZooming && { overflow: 'visible', zIndex: 1000, elevation: 30 }
+      ]}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
             <Image
@@ -355,8 +461,10 @@ export default function PostItem({
           </TouchableOpacity>
         </View>
 
-        {/* Enhanced Media Wrapper */}
-        <View style={styles.mediaWrapper}>
+        <View style={[
+          styles.mediaWrapper,
+          isZooming && { overflow: 'visible', zIndex: 1001, elevation: 31 }
+        ]}>
           <FlatList
             ref={listRef}
             data={item.media || []}
@@ -395,7 +503,6 @@ export default function PostItem({
           )}
         </View>
 
-        {/* Enhanced Actions Row */}
         <View style={styles.actionsSection}>
           <View style={styles.leftActions}>
             <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
@@ -452,7 +559,6 @@ export default function PostItem({
           </TouchableOpacity>
         </View>
 
-        {/* Enhanced Buyers Section */}
         <View style={styles.buyersSection}>
           {
             item.UserId != userId &&
@@ -484,7 +590,6 @@ export default function PostItem({
           }
         </View>
 
-        {/* Enhanced Caption Section */}
         <View style={styles.captionSection}>
           <View style={styles.userRow}>
             <Text style={styles.captionUsername}>{item.username} </Text>
@@ -494,8 +599,23 @@ export default function PostItem({
         </View>
       </View>
 
-      {/* Share Modal */}
       <ShareModal ref={shareRef} post={item} />
+
+      {viewerOpen && (
+        <View
+          pointerEvents="none"
+          style={styles.zoomBackdrop}
+        />
+      )}
+
+      <InlineFullscreenViewer
+        uri={viewerUri}
+        visible={viewerOpen}
+        onRequestClose={() => {
+          setViewerOpen(false);
+          setScrollEnabled(true);
+        }}
+      />
     </View>
   );
 }
@@ -504,12 +624,19 @@ const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: '#f8f2fd',
     paddingBottom: 8,
+    position: 'relative',
   },
-
-  // Enhanced Post Card
+  zoomBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 999,
+  },
   postCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 16,
     shadowColor: '#000',
@@ -519,8 +646,6 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: 'hidden',
   },
-
-  // Enhanced Header
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -571,8 +696,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F9FAFB',
   },
-
-  // Enhanced Media
   mediaWrapper: {
     position: 'relative',
     width: '100%',
@@ -648,8 +771,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginHorizontal: 3,
   },
-
-  // Enhanced Actions
   actionsSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -698,8 +819,6 @@ const styles = StyleSheet.create({
   followingButtonText: {
     color: '#5a2d82',
   },
-
-  // Enhanced Buyers Section
   buyersSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -736,8 +855,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5a2d82',
   },
-
-  // Enhanced Caption
   captionSection: {
     paddingHorizontal: 16,
     paddingBottom: 16,

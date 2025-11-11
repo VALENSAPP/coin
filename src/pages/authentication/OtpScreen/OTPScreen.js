@@ -46,7 +46,14 @@ export default function OTPScreen() {
       showToastMessage(toast, 'danger', 'Please enter a 6-digit code.');
       return;
     }
-    navigation.navigate('CreateNewPassword', { email, otp });
+    {
+      if (type === 'signup') {
+        // navigation.navigate('Login');
+        handleLogin();
+      } else {
+        navigation.navigate('CreateNewPassword', { email, otp });
+      }
+    }
     // Keyboard.dismiss();
     // setLoading(true);
     // dispatch(showLoader());
@@ -231,7 +238,7 @@ export default function OTPScreen() {
                   tintColor="#5a2d82"
                   offTintColor="#E5E7EB"
                   inputCount={6}
-                  // keyboardType="default" 
+                // keyboardType="default" 
                 />
               </View>
 

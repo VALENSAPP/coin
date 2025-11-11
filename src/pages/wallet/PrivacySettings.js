@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,23 +7,81 @@ import {
     StatusBar,
     TouchableOpacity,
     Switch,
+    Alert,
 } from 'react-native';
 import styles from './Style';
+import { useDispatch } from 'react-redux';
+import { useToast } from 'react-native-toast-notifications';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { userProfileStatusSet } from '../../services/wallet';
+import { showToastMessage } from '../../components/displaytoastmessage';
 
 const PrivacySettingsScreen = () => {
+    const dispatch = useDispatch();
+    const toast = useToast();
+
+    const [privacySettings, setPrivacySettings] = useState({
+        profileVisibility: 'public',
+    });
+
+    const updateProfileStatus = async (status) => {
+        dispatch(showLoader());
+        try {
+            const dataToSend = { profileStatus: status };
+            const resp = await userProfileStatusSet(dataToSend);
+            if (resp?.statusCode === 200) {
+                setPrivacySettings({ ...privacySettings, profileVisibility: status });
+                showToastMessage(toast, 'success', 'Privacy settings updated successfully');
+            } else {
+                showToastMessage(toast, 'danger', resp?.message || 'Failed to update settings');
+            }
+        } catch (e) {
+            showToastMessage(toast, 'An error occurred while updating settings', 'danger');
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
+
+    const handleProfileVisibilityChange = (visibility) => {
+        updateProfileStatus(visibility);
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'Are you sure you want to delete your account? This action cannot be undone.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                        // Implement delete account logic here
+                        showToastMessage(toast, 'Account deletion requested', 'info');
+                    },
+                },
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
-                <View style={[styles.section, {  marginTop: 20}]}>
+                <View style={[styles.section, { marginTop: 20 }]}>
                     <Text style={styles.sectionTitle}>Profile Visibility</Text>
                     <View style={styles.radioGroup}>
                         <TouchableOpacity
                             style={styles.radioItem}
-                            // onPress={() => setPrivacySettings({ ...privacySettings, profileVisibility: 'public' })}
+                            onPress={() => handleProfileVisibilityChange('public')}
                         >
                             <View style={styles.radio}>
-                                {/* {privacySettings.profileVisibility === 'public' && <View style={styles.radioSelected} />} */}
+                                {privacySettings.profileVisibility === 'public' && (
+                                    <View style={styles.radioSelected} />
+                                )}
                             </View>
                             <View>
                                 <Text style={styles.radioTitle}>Public</Text>
@@ -32,10 +90,12 @@ const PrivacySettingsScreen = () => {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.radioItem}
-                            // onPress={() => setPrivacySettings({ ...privacySettings, profileVisibility: 'private' })}
+                            onPress={() => handleProfileVisibilityChange('private')}
                         >
                             <View style={styles.radio}>
-                                {/* {privacySettings.profileVisibility === 'private' && <View style={styles.radioSelected} />} */}
+                                {privacySettings.profileVisibility === 'private' && (
+                                    <View style={styles.radioSelected} />
+                                )}
                             </View>
                             <View>
                                 <Text style={styles.radioTitle}>Private</Text>
@@ -45,42 +105,17 @@ const PrivacySettingsScreen = () => {
                     </View>
                 </View>
 
-                {/* <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Information Visibility</Text>
-                    <View style={styles.toggleItem}>
-                        <View>
-                            <Text style={styles.toggleTitle}>Show Email Address</Text>
-                            <Text style={styles.toggleSubtitle}>Display email on profile</Text>
-                        </View>
-                        <Switch
-                            // value={privacySettings.showEmail}
-                            // onValueChange={(value) => setPrivacySettings({ ...privacySettings, showEmail: value })}
-                            trackColor={{ false: '#E5E5EA', true: '#5B21B6' }}
-                            thumbColor="#FFFFFF"
-                        />
-                    </View>
-                    <View style={styles.toggleItem}>
-                        <View>
-                            <Text style={styles.toggleTitle}>Show Investments</Text>
-                            <Text style={styles.toggleSubtitle}>Display portfolio publicly</Text>
-                        </View>
-                        <Switch
-                            // value={privacySettings.showInvestments}
-                            // onValueChange={(value) => setPrivacySettings({ ...privacySettings, showInvestments: value })}
-                            trackColor={{ false: '#E5E5EA', true: '#5B21B6' }}
-                            thumbColor="#FFFFFF"
-                        />
-                    </View>
-                </View> */}
-
                 <View style={styles.section}>
-                    <TouchableOpacity style={styles.dangerButton}>
+                    <TouchableOpacity
+                        style={styles.dangerButton}
+                        onPress={handleDeleteAccount}
+                    >
                         <Text style={styles.dangerButtonText}>Delete Account</Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
         </SafeAreaView>
-    )
+    );
 };
 
 export default PrivacySettingsScreen;
