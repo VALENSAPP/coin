@@ -72,6 +72,7 @@ const InstagramPostCreator = () => {
   const route = useRoute();
   const routeImages = route.params?.selectedMedia || [];
   const postType = route.params?.postType || 'regular'; // 'regular' or 'crowdfunding'
+  const fromIcon = route.params?.fromIcon;
   const [selectedImages, setSelectedImages] = useState(routeImages);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
@@ -762,6 +763,7 @@ const InstagramPostCreator = () => {
         images: processedImages,
         imageEdits: imageEdits,
         postType: postType,
+        fromIcon: fromIcon
       });
 
     } catch (error) {

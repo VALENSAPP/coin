@@ -28,7 +28,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   const navigation = useNavigation();
   const toast = useToast();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  
+
   // Story composer state
   const [composerVisible, setComposerVisible] = useState(false);
   const [composerList, setComposerList] = useState([]);
@@ -142,7 +142,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
     const list = [{
       uri: asset.uri,
       type: type,
-      duration: type === 'video' 
+      duration: type === 'video'
         ? (asset.duration ? asset.duration * 1000 : 15000)
         : 5000,
     }];
@@ -153,7 +153,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   const handleAddStory = () => {
     // Close the modal first
     hideModal();
-    
+
     // Small delay to ensure modal animation completes
     setTimeout(() => {
       Alert.alert('Add Story', 'Choose how to add your story', [
@@ -192,7 +192,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
       if (response?.success) {
         showToastMessage(toast, 'success', 'Story Uploaded Successfully');
-        
+
         // Notify parent component to refresh stories
         if (onStoryUploaded) {
           onStoryUploaded();
@@ -213,8 +213,10 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         hideModal();
         break;
       case 'Flips': // reels
-        navigation.navigate('');
-        hideModal();
+        navigation.navigate('Add', {
+          screen: 'Add',
+          params: { fromIcon: 'Flips' },
+        });
         break;
       case 'ai':
         navigation.navigate('');
@@ -283,7 +285,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.button} onPress={() => handleNavigation('mint')}>
                 <Feather name="grid" size={20} color="#111100" />
-                <Text style={styles.lText}>mint</Text>
+                <Text style={styles.lText}>New Mint</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops')}>
                 <Image
@@ -313,7 +315,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
           </Animated.View>
         </View>
       </Modal>
- 
+
       {/* Story Composer Modal */}
       <StoryComposer
         modalVisible={composerVisible}

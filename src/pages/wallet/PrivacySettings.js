@@ -13,8 +13,10 @@ import styles from './Style';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { userProfileStatusSet } from '../../services/wallet';
+import { userAccountDelete, userProfileStatusSet } from '../../services/wallet';
 import { showToastMessage } from '../../components/displaytoastmessage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loggedOut } from '../../redux/actions/LoginAction';
 
 const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
@@ -36,7 +38,7 @@ const PrivacySettingsScreen = () => {
                 showToastMessage(toast, 'danger', resp?.message || 'Failed to update settings');
             }
         } catch (e) {
-            showToastMessage(toast, 'An error occurred while updating settings', 'danger');
+            showToastMessage(toast, 'danger', 'An error occurred while updating settings');
         } finally {
             dispatch(hideLoader());
         }
@@ -60,11 +62,36 @@ const PrivacySettingsScreen = () => {
                     style: 'destructive',
                     onPress: () => {
                         // Implement delete account logic here
-                        showToastMessage(toast, 'Account deletion requested', 'info');
+                        handleOnDelete();
                     },
                 },
             ]
         );
+    };
+
+    const handleOnDelete = async () => {
+        dispatch(showLoader());
+        try {
+            const resp = await userAccountDelete();
+            if (resp?.statusCode === 200) {
+                AsyncStorage.setItem('isLoggedIn', 'false');
+                AsyncStorage.removeItem('token');
+                AsyncStorage.removeItem('firebaseToken');
+                AsyncStorage.removeItem('userId');
+                AsyncStorage.removeItem('username');
+                AsyncStorage.removeItem('email');
+                AsyncStorage.removeItem('walletAddress');
+                AsyncStorage.removeItem('walletPrivateKey');
+                AsyncStorage.removeItem('walletMnemonic');
+                dispatch(loggedOut());
+            } else {
+                showToastMessage(toast, 'danger', resp?.message || 'Failed to delete account');
+            }
+        } catch (e) {
+            showToastMessage(toast, 'danger', 'An error occurred while deleting account');
+        } finally {
+            dispatch(hideLoader());
+        }
     };
 
     return (

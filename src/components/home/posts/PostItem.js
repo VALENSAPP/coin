@@ -8,6 +8,7 @@ import {
   Animated,
   StyleSheet,
   Dimensions,
+  Linking
 } from 'react-native';
 import {
   PanGestureHandler,
@@ -357,6 +358,17 @@ export default function PostItem({
     });
   }, [currentIndex, item.media]);
 
+  const mockDonationData = {
+    raisedAmount: item.raiseAmount ?? 0,     // Use value from API or fallback to 0
+    goalAmount: item.goalAmount ?? 100000000,    // Temporary until API provides
+  };
+  const postData = { ...item, ...mockDonationData };
+
+  const progressPercent =
+    postData.goalAmount > 0
+      ? (postData.raisedAmount / postData.goalAmount) * 100
+      : 0;
+
   const onMomentumEnd = (e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
@@ -428,7 +440,7 @@ export default function PostItem({
           style={styles.zoomBackdrop}
         />
       )}
-      
+
       <View style={[
         styles.postCard,
         isZooming && { overflow: 'visible', zIndex: 1000, elevation: 30 }
@@ -596,6 +608,24 @@ export default function PostItem({
             <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
           </View>
           <Text style={styles.captionText}>{item.caption}</Text>
+          {item.link ? (
+            <Text
+              style={styles.linkText}
+              onPress={() => Linking.openURL(item.link)}
+            >
+              Link -  {item.link}
+            </Text>
+          ) : null}
+
+          {postData.raisedAmount &&
+            <>
+              <View style={styles.progressContainer}>
+                <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+              </View>
+              <Text style={styles.progressLabel}>
+                ${postData.raisedAmount} raised of ${postData.goalAmount}
+              </Text>
+            </>}
         </View>
       </View>
 
@@ -871,5 +901,29 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 20,
     marginTop: 4,
+  },
+  progressContainer: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 3,
+  },
+  progressFill: {
+    backgroundColor: '#5A2D82',
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  linkText: {
+    color: '#5A2D82',
+    fontWeight: '600',
+    marginTop: 6,
+    textDecorationLine: 'underline',
+    fontSize: 14,
   },
 });

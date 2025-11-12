@@ -31,19 +31,25 @@ const SubventionSetupScreen = () => {
     const [composerList, setComposerList] = useState([]);
 
     const contentTabs = [
-        { id: 'posts', label: 'Posts', icon: '📝' },
-        { id: 'reels', label: 'Reels', icon: '🎬' },
-        { id: 'stories', label: 'Stories', icon: '⭐' },
+        { id: 'posts', label: 'New Mint', icon: '📝' },
+        { id: 'reels', label: 'Flips', icon: '🎬' },
+        { id: 'stories', label: 'Drops', icon: '⭐' },
         { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
     ];
 
     const handlePriceChange = (text) => {
-        const numValue = parseInt(text) || 0;
-        if (numValue >= 9 && numValue <= 100) {
+        // Allow empty string or any numeric input while typing
+        if (text === '' || /^\d+$/.test(text)) {
             setPrice(text);
-        } else if (numValue < 9) {
+        }
+    };
+
+    const handlePriceBlur = () => {
+        // Apply min/max validation only when user finishes editing
+        const numValue = parseInt(price) || 0;
+        if (numValue < 9) {
             setPrice('9');
-        } else {
+        } else if (numValue > 100) {
             setPrice('100');
         }
     };
@@ -288,6 +294,7 @@ const SubventionSetupScreen = () => {
                             style={styles.priceInput}
                             value={price}
                             onChangeText={handlePriceChange}
+                            onBlur={handlePriceBlur}
                             keyboardType="numeric"
                             maxLength={3}
                         />
