@@ -80,7 +80,7 @@ export default function PostScreen({ navigation }) {
 
   const showPermissionDeniedAlert = (type = 'gallery') => {
     const title = type === 'gallery' ? 'Photo Library Permission Required' : 'Camera Permission Required';
-    const message = type === 'gallery' 
+    const message = type === 'gallery'
       ? 'Please grant photo library access in Settings to select photos and videos.'
       : 'Please grant camera access in Settings to take photos and videos.';
 
@@ -104,77 +104,95 @@ export default function PostScreen({ navigation }) {
     const remainingSlots = 10 - (selectedMedia?.length || 0);
 
     ImagePicker.openPicker({
-      mediaType: 'any',
-      multiple: true,
-      maxFiles: remainingSlots > 0 ? remainingSlots : 1,
+      mediaType: postType === 'flip' ? 'video' : 'any',
+      multiple: postType !== 'flip', // single video in flip mode
+      maxFiles: postType === 'flip' ? 1 : remainingSlots > 0 ? remainingSlots : 1,
       includeBase64: false,
       compressImageQuality: 0.8,
       cropping: false,
     })
       .then((response) => {
-        if (response && response.length > 0) {
-          const newAssets = response.map(asset => ({
-            uri: asset.path,
-            type: asset.mime,
-            fileName: asset.filename || `image_${Date.now()}.jpg`,
-            duration: asset.duration || 0,
-            width: asset.width,
-            height: asset.height,
-            isCropped: false,
-          }));
+        if (!response) return;
 
-          const currentSelection = selectedMedia || [];
-          const filteredNewAssets = newAssets.filter(newAsset =>
-            !currentSelection.some(existing => existing.uri === newAsset.uri)
-          );
+        const assets = Array.isArray(response) ? response : [response];
 
-          const totalSelection = [...currentSelection, ...filteredNewAssets];
+        // 🧠 For Flip posts: validate duration
+        let validAssets = assets;
+        if (postType === 'flip') {
+          validAssets = assets.filter((asset) => {
+            const durationMs = asset?.duration ?? 0;
+            const durationSec = durationMs > 1000 ? durationMs / 1000 : durationMs;
 
-          if (totalSelection.length <= 10) {
-            setSelectedMedia(totalSelection);
-          } else {
-            const limitedSelection = totalSelection.slice(0, 10);
-            setSelectedMedia(limitedSelection);
-            Alert.alert('Selection Limit', 'Only first 10 items were selected due to limit.');
-          }
+            if (durationSec < 15) {
+              Alert.alert('Short Video', 'Please select a video of at least 15 seconds.');
+              return false;
+            } else if (durationSec > 60) {
+              Alert.alert('Long Video', 'Please select a video shorter than 60 seconds.');
+              return false;
+            }
+            return true;
+          });
 
-          if (galleryImages.length === 0) {
-            const sampleRecentImages = [
-              ...newAssets,
-              ...Array.from({ length: 8 }, (_, i) => ({
-                ...newAssets[0],
-                uri: `${newAssets[0].uri}_sample_${i}`,
-                fileName: `sample_${i}.jpg`,
-              }))
-            ];
-
-            const updatedGalleryImages = mergeGalleryImages(
-              sampleRecentImages,
-              [],
-              totalSelection.length <= 10 ? totalSelection : limitedSelection
-            );
-            setGalleryImages(updatedGalleryImages);
-          } else {
-            const updatedGalleryImages = mergeGalleryImages(
-              newAssets,
-              galleryImages,
-              totalSelection.length <= 10 ? totalSelection : limitedSelection
-            );
-            setGalleryImages(updatedGalleryImages);
-          }
+          if (validAssets.length === 0) return;
         }
+
+        // ✅ Create new asset objects
+        const newAssets = validAssets.map((asset) => ({
+          uri: asset.path,
+          type: asset.mime,
+          fileName:
+            asset.filename || `video_${Date.now()}.${asset.mime?.includes('video') ? 'mp4' : 'jpg'}`,
+          duration: asset.duration || 0,
+          width: asset.width,
+          height: asset.height,
+          isCropped: false,
+        }));
+
+        // ✅ Merge with existing selection
+        const currentSelection = selectedMedia || [];
+        const filteredNewAssets = newAssets.filter(
+          (newAsset) => !currentSelection.some((existing) => existing.uri === newAsset.uri)
+        );
+        const totalSelection = [...currentSelection, ...filteredNewAssets];
+
+        if (totalSelection.length > 10) {
+          setSelectedMedia(totalSelection.slice(0, 10));
+          Alert.alert('Selection Limit', 'Only first 10 items were selected due to limit.');
+        } else {
+          setSelectedMedia(totalSelection);
+        }
+
+        // ✅ Update gallery
+        const sampleImages = [
+          ...newAssets,
+          ...Array.from({ length: 8 }, (_, i) => ({
+            ...newAssets[0],
+            uri: `${newAssets[0].uri}_sample_${i}`,
+            fileName: `sample_${i}.jpg`,
+          })),
+        ];
+
+        const updatedGalleryImages = mergeGalleryImages(
+          sampleImages,
+          galleryImages,
+          totalSelection.length <= 10 ? totalSelection : totalSelection.slice(0, 10)
+        );
+
+        setGalleryImages(updatedGalleryImages);
       })
       .catch((error) => {
         console.log('Gallery error:', error);
-        
+
         if (error.code === 'E_PICKER_CANCELLED') {
-          if ((!selectedMedia || selectedMedia.length === 0) && navigation && navigation.goBack) {
+          if ((!selectedMedia || selectedMedia.length === 0) && navigation?.goBack) {
             navigation.goBack();
           } else if (selectedMedia.length === 0) {
             Alert.alert('No media selected', 'You must select photos or videos to create a post.');
           }
-        } else if (error.code === 'E_NO_LIBRARY_PERMISSION' || error.message?.includes('permission')) {
-          // Permission was denied
+        } else if (
+          error.code === 'E_NO_LIBRARY_PERMISSION' ||
+          error.message?.includes('permission')
+        ) {
           showPermissionDeniedAlert('gallery');
         } else {
           Alert.alert('Error', error.message || 'Could not open gallery.');
@@ -187,6 +205,11 @@ export default function PostScreen({ navigation }) {
 
     if (remainingSlots <= 0) {
       Alert.alert('Selection Limit', 'You have already selected the maximum number of items (10).');
+      return;
+    }
+    if (postType === 'flip') {
+      // Only allow video capture in Flip mode
+      captureMedia('video');
       return;
     }
 
@@ -213,83 +236,91 @@ export default function PostScreen({ navigation }) {
 
   const captureMedia = (mediaType) => {
     const options = {
-      mediaType: mediaType,
+      mediaType,
       includeBase64: false,
       compressImageQuality: 0.8,
       cropping: false,
     };
 
+    // Optional upper recording time limit
     if (mediaType === 'video') {
-      options.durationLimit = 60;
+      options.durationLimit = postType === 'flip' ? 60 : 300; // 60s for flips, 5min otherwise
     }
 
     ImagePicker.openCamera(options)
       .then((response) => {
-        if (response) {
-          const newAsset = {
-            uri: response.path,
-            type: response.mime,
-            fileName: response.filename || `${mediaType}_${Date.now()}.${mediaType === 'photo' ? 'jpg' : 'mp4'}`,
-            duration: response.duration || 0,
-            width: response.width,
-            height: response.height,
-            isCropped: false,
-          };
+        if (!response) return;
 
-          const currentSelection = selectedMedia || [];
-          const totalSelection = [...currentSelection, newAsset];
+        // 🧠 Duration validation for Flip-type videos
+        if (mediaType === 'video' && postType === 'flip') {
+          const duration = response?.duration || 0; // milliseconds or seconds depending on platform
 
-          if (totalSelection.length <= 10) {
-            setSelectedMedia(totalSelection);
-          } else {
-            Alert.alert('Selection Limit', 'Cannot add more items. Maximum limit is 10.');
+          // Sometimes ImagePicker returns duration in seconds — normalize to seconds
+          const durationSec = duration > 1000 ? duration / 1000 : duration;
+
+          if (durationSec < 15) {
+            Alert.alert('Short Video', 'Please record at least 15 seconds.');
             return;
           }
 
-          if (galleryImages.length === 0) {
-            const sampleRecentImages = [
-              newAsset,
-              ...Array.from({ length: 8 }, (_, i) => ({
-                ...newAsset,
-                uri: `${newAsset.uri}_sample_${i}`,
-                fileName: `sample_${i}.jpg`,
-              }))
-            ];
-
-            const updatedGalleryImages = mergeGalleryImages(
-              sampleRecentImages,
-              [],
-              totalSelection
-            );
-            setGalleryImages(updatedGalleryImages);
-          } else {
-            const updatedGalleryImages = mergeGalleryImages(
-              [newAsset],
-              galleryImages,
-              totalSelection
-            );
-            setGalleryImages(updatedGalleryImages);
+          if (durationSec > 60) {
+            Alert.alert('Long Video', 'Please record less than 60 seconds.');
+            return;
           }
         }
-      })
-      .catch((error) => {
-        console.log('Camera error:', error);
-        
-        if (error.code === 'E_PICKER_CANCELLED') {
+
+        // ✅ Create new asset object
+        const newAsset = {
+          uri: response.path,
+          type: response.mime,
+          fileName:
+            response.filename ||
+            `${mediaType}_${Date.now()}.${mediaType === 'photo' ? 'jpg' : 'mp4'
+            }`,
+          duration: response.duration || 0,
+          width: response.width,
+          height: response.height,
+          isCropped: false,
+        };
+
+        // ✅ Handle selection logic
+        const currentSelection = selectedMedia || [];
+        const totalSelection = [...currentSelection, newAsset];
+
+        if (totalSelection.length > 10) {
+          Alert.alert('Selection Limit', 'Cannot add more items. Maximum limit is 10.');
           return;
-        } else if (error.code === 'E_NO_CAMERA_PERMISSION' || error.message?.includes('permission')) {
-          // Permission was denied
-          showPermissionDeniedAlert('camera');
-        } else {
-          Alert.alert('Error', error.message || 'Could not open camera.');
         }
+
+        setSelectedMedia(totalSelection);
+
+        // ✅ Sample images for preview UI (optional)
+        if (galleryImages.length === 0) {
+          const sampleRecentImages = [
+            newAsset,
+            ...Array.from({ length: 8 }, (_, i) => ({
+              ...newAsset,
+              uri: `${newAsset.uri}_sample_${i}`,
+              fileName: `sample_${i}.jpg`,
+            })),
+          ];
+          setGalleryImages(sampleRecentImages);
+        }
+      })
+      .catch((err) => {
+        console.log('Camera cancelled or error:', err);
       });
   };
 
   useFocusEffect(
     useCallback(() => {
-      setShowTypeModal(true);
-    }, [])
+      if (fromIcon === 'Flips') {
+        setShowTypeModal(false);
+        setPostType('flip');
+      } else {
+        setShowTypeModal(true);
+      }
+    }, [fromIcon])
   );
 
   useFocusEffect(
@@ -333,7 +364,7 @@ export default function PostScreen({ navigation }) {
       Alert.alert('No media selected', 'Please select at least one photo or video to share.');
       return;
     }
-    navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType });
+    navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: fromIcon });
   };
 
   const renderGridItem = (asset, index) => {

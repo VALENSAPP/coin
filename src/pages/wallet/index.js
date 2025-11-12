@@ -63,7 +63,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
       timeout = setTimeout(() => {
         // reset layout for both sheets
         purchaseSheetRef.current?.updateLayout?.({ height: 500 });
-        commentSheetRef.current?.updateLayout?.({ height: 500 });
       }, 300); // wait until keyboard animation is done
     };
 
@@ -191,11 +190,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -211,11 +210,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -239,11 +238,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -304,11 +303,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching activity overview:', error);
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
       setPriceHistory([]);
       setSelectedPrice(0);
     } finally {
@@ -334,11 +333,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -357,18 +356,18 @@ export const WalletDashboardScreen = ({ navigation }) => {
           name: `@${creator.username || 'unknown'}`,
           vendorId: creator.vendorId,
           followers: `${creator.followerCount || '0'}` + ' Vallowers',
+          tokenStatus: creator.currentTokenStatus,
         }));
-
         setTopCreators(formattedCreators.slice(0, 5)); // Limit to top 5
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -446,11 +445,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
         showToastMessage(toast, 'danger', response.data.message);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Something went wrong',
-      );
+      // showToastMessage(
+      //   toast,
+      //   'danger',
+      //   error?.response?.message ?? 'Something went wrong',
+      // );
     } finally {
       dispatch(hideLoader());
     }
@@ -602,16 +601,28 @@ export const WalletDashboardScreen = ({ navigation }) => {
   );
 
   const renderCreator = ({ item }) => (
-    <TouchableOpacity style={styles.creatorItem} onPress={() => { setPendingFollowUserId(item.vendorId), setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}>
+    <TouchableOpacity
+      style={styles.creatorItem}
+      onPress={() => {
+        setPendingFollowUserId(item.vendorId);
+        setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
+      }}
+    >
       <View style={styles.creatorAvatar}>
         <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
       </View>
       <View style={styles.creatorInfo}>
-        <View style={styles.creatorNameRow}>
-          <Text style={styles.creatorName}>{item.name}</Text>
-          {/* {item.verified && <Ionicons name="checkmark-circle" size={14} color="#5a2d82" />} */}
-        </View>
+        <Text style={styles.creatorName}>{item.name}</Text>
         <Text style={styles.creatorPrice}>{item.followers}</Text>
+      </View>
+      {/* Arrow indicator at the end */}
+      <View style={styles.arrowContainer}>
+        {item.tokenStatus === 'high' && (
+          <Ionicons name="arrow-up" size={20} color="#22c55e" />
+        )}
+        {item.tokenStatus === 'low' && (
+          <Ionicons name="arrow-down" size={20} color="#ef4444" />
+        )}
       </View>
     </TouchableOpacity>
   );

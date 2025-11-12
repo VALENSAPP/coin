@@ -244,6 +244,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           follow: isFollowing || item.isFollow || false,
           userTokenAddress: tokenAddress || null,
           profile: item.profile || 'user',
+          raiseAmount: item.raiseAmount || 0,
+          goalAmount: item.goalAmount || 100000,
+          link: item.link || null,
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers]);
@@ -825,6 +828,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           onOptions={() => openOptionsModal(item.id)}
           isBusinessProfile={isBusinessProfile}
           executeFollowAction={executeFollowAction}
+          raiseAmount={item.raiseAmount}
+          goalAmount={item.goalAmount || 100000000}
+          link={item.link || null}
         />
       );
     },

@@ -15,3 +15,7 @@ export const authLoginHistory = async (data) => {
 export const userProfileStatusSet = async (data) => {
   return axiosInstance.post('/user/profileStatusSet', data);
 }
+
+export const userAccountDelete = async () => {
+  return axiosInstance.post('/user/accountDelete');
+}

@@ -237,7 +237,7 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="SubscriptionSetup"
             component={SubventionSetupScreen}
-            options={{ headerTitle: 'Subvention Program Setup' }}
+            options={{ headerTitle: 'Subscription Program Setup' }}
           />
         </Stack.Navigator>
       );

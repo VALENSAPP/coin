@@ -27,7 +27,7 @@ const PostEditorScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
-  const { images = [], currentFilter = 'none', metadata = {}, imageEdits, postType } = route.params || {};
+  const { images = [], currentFilter = 'none', metadata = {}, imageEdits, postType, fromIcon } = route.params || {};
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
   const [profile, setProfile] = useState(null);
@@ -83,7 +83,7 @@ const PostEditorScreen = () => {
           name: (img.processedUri || img.uri).split('/').pop()
 
         })),
-        type: 'normal',
+       type: fromIcon == 'Flips'? 'reel' : 'normal',
       };
 
       try {
