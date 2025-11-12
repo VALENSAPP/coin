@@ -213,6 +213,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         hideModal();
         break;
       case 'Flips': // reels
+        setModalVisible(false);
         navigation.navigate('Add', {
           screen: 'Add',
           params: { fromIcon: 'Flips' },

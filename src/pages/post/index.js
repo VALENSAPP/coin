@@ -534,7 +534,7 @@ export default function PostScreen({ navigation }) {
         >
           <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Mint</Text>
+        <Text style={styles.headerTitle}>{ fromIcon === 'Flips' ? 'New Flip' : 'New Mint' }</Text>
         <TouchableOpacity
           onPress={handleShare}
           style={[styles.headerShareBtn, { opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}

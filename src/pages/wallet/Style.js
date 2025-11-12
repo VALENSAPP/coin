@@ -8,7 +8,7 @@ export default StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f8f2fd',
-        paddingBottom: 40,
+        paddingBottom: 50,
     },
     header: {
         flexDirection: 'row',
