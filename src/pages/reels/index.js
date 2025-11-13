@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,67 +23,16 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import CommentSection from '../../components/comments/CommentSection';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CustomMarquee from '../../components/customMarquee/CustomMarquee';
+import { getAllReels } from '../../services/reels';
+import { likePost } from '../../services/post';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { showToastMessage } from '../../components/displaytoastmessage';
+import { useToast } from 'react-native-toast-notifications';
+import { useDispatch } from 'react-redux';
+import CommentSheet from '../../components/home/posts/CommentSheet';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// HD Video URLs and trending content
-const mockReels = [
-  {
-    id: '1',
-    video: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    user: 'adventure_soul',
-    avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
-    caption: 'Mountain peak vibes ⛰️ Nothing beats this feeling! #adventure #mountains #nature',
-    music: 'Trending - Mountain Vibes Mix',
-    likes: 567000,
-    comments: 1240,
-    shares: 298,
-    isLiked: false,
-    isFollowing: true,
-    views: '890K',
-    duration: 20000,
-    verified: false,
-    likedBy: ['sarah_adventures', '12,567 others'],
-    isRemixable: true,
-  },
-  {
-    id: '2',
-    video: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    user: 'fitness_king_2024',
-    avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
-    caption: 'Beast mode activated! 💪 Who else is crushing their fitness goals? #fitness #motivation #gym #beastmode',
-    music: 'Trending - Workout Beast Mode',
-    likes: 445000,
-    comments: 678,
-    shares: 156,
-    isLiked: false,
-    isFollowing: false,
-    views: '623K',
-    duration: 30000,
-    verified: true,
-    likedBy: ['gym_motivation', '8,445 others'],
-    isRemixable: true,
-  },
-  {
-    id: '3',
-    video: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    user: 'food_paradise_',
-    avatar: 'https://randomuser.me/api/portraits/women/4.jpg',
-    caption: 'Late night cooking session 🍳 This recipe is going viral! Try it and tag me 👨‍🍳 #cooking #food #viral',
-    music: 'Trending - Cooking Vibes',
-    likes: 1200000,
-    comments: 2340,
-    shares: 567,
-    isLiked: true,
-    isFollowing: false,
-    views: '2.1M',
-    duration: 25000,
-    verified: false,
-    likedBy: ['chef_master', '23,400 others'],
-    isRemixable: true,
-  },
-];
 
 // Music Templates Data
 const musicTemplates = [
@@ -146,12 +95,20 @@ const mockComments = {
   ],
 };
 
-export default function ReelsScreen() {
+export default function FlipsScreen() {
   const isFocused = useIsFocused();
+  const toast = useToast();
+  const dispatch = useDispatch();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [reels, setReels] = useState(mockReels);
+  const [reels, setReels] = useState([]);
   const [muted, setMuted] = useState({});
   const [paused, setPaused] = useState({});
+
+  // Dynamic interaction states - similar to Posts screen
+  const [liked, setLiked] = useState({});
+  const [likesCount, setLikesCount] = useState({});
+  const [commentsCount, setCommentsCount] = useState({});
+  const [likingIds, setLikingIds] = useState(new Set());
 
   // Animation states
   const [heartAnimatingId, setHeartAnimatingId] = useState(null);
@@ -172,6 +129,9 @@ export default function ReelsScreen() {
   const musicTemplatesSheetRef = useRef();
   const [videoProgress, setVideoProgress] = useState({});
   const [isBuffering, setIsBuffering] = useState({});
+
+  const [commentPostId, setCommentPostId] = useState(null);
+  const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
 
   // Progress bar animation
   useEffect(() => {
@@ -195,6 +155,81 @@ export default function ReelsScreen() {
     }
   }, [isFocused]);
 
+  useEffect(() => {
+    fetchAllReels();
+  }, []);
+
+  const fetchAllReels = async () => {
+    try {
+      dispatch(showLoader());
+      const response = await getAllReels();
+      if (response?.statusCode === 200) {
+        console.log('response in get reels--------', response);
+        // Transform API response to match app structure
+        const transformedReels = response.data.map((item, index) => ({
+          id: item.id,
+          video: item.images?.[0] || '', // First image is the video URL
+          user: item.userName || 'Unknown User',
+          avatar: item.userImage || 'https://randomuser.me/api/portraits/men/1.jpg',
+          caption: item.caption || item.text || 'No caption',
+          music: item.music || 'Original Audio',
+          likes: item.likeCount || 0,
+          comments: item.commentCount || 0,
+          shares: item.shareCount || 0,
+          isLiked: item.isLike || false,
+          isFollowing: item.isFollow || false,
+          views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
+          duration: 30000, // Default duration
+          verified: false,
+          likedBy: [`${item.likeCount || 0} others`],
+          isRemixable: true,
+          isSaved: item.isSaved || false,
+          isHide: item.isHide || false,
+          userId: item.userId,
+          hashtag: item.hashtag || [],
+          location: item.location || null,
+          taggedPeople: item.taggedPeople || [],
+        }));
+
+        // Update reels with API data, keep mock data if API returns empty
+        if (transformedReels.length > 0) {
+          setReels(transformedReels);
+        }
+      } else {
+        showToastMessage(toast, 'danger', response?.data?.message || 'Failed to fetch reels');
+      }
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message ?? 'Something went wrong',
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
+  // Initialize likes and comments count from reels data
+  useEffect(() => {
+    if (Array.isArray(reels) && reels.length) {
+      const seededLiked = {};
+      const seededLikesCount = {};
+      const seededCommentsCount = {};
+
+      for (const reel of reels) {
+        if (reel?.id) {
+          seededLiked[reel.id] = !!reel.isLiked;
+          seededLikesCount[reel.id] = reel.likes || 0;
+          seededCommentsCount[reel.id] = reel.comments || 0;
+        }
+      }
+
+      setLiked(seededLiked);
+      setLikesCount(seededLikesCount);
+      setCommentsCount(seededCommentsCount);
+    }
+  }, [reels]);
+
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
       setCurrentIndex(viewableItems[0].index);
@@ -204,19 +239,71 @@ export default function ReelsScreen() {
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 80 });
 
   // Handlers
-  const handleLike = (id) => {
-    setReels(prev =>
-      prev.map(reel =>
-        reel.id === id
-          ? {
-            ...reel,
-            isLiked: !reel.isLiked,
-            likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1,
+  const handleLike = useCallback(
+    async (id) => {
+      if (!id) return;
+      if (likingIds.has(id)) return;
+
+      const wasLiked = !!liked[id];
+      const prevCount = likesCount[id] ?? 0;
+
+      // Optimistic update
+      setLiked(prev => ({ ...prev, [id]: !wasLiked }));
+      setLikesCount(prev => ({
+        ...prev,
+        [id]: wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1,
+      }));
+
+      setLikingIds(prev => new Set(prev).add(id));
+
+      try {
+        const res = await likePost(id);
+        const ok = res?.statusCode === 200 && res?.success;
+
+        if (ok) {
+          const serverLiked = !!res?.data?.liked;
+          const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
+
+          setLiked(prev => ({ ...prev, [id]: serverLiked }));
+          if (serverCount !== undefined) {
+            setLikesCount(prev => ({ ...prev, [id]: serverCount }));
           }
-          : reel,
-      ),
-    );
-  };
+
+          // Optional: Uncomment to show toast on like/unlike
+          // showToastMessage(
+          //   toast,
+          //   'success',
+          //   res?.data?.message || (serverLiked ? 'Reel liked' : 'Reel unliked'),
+          // );
+        } else {
+          // Revert on failure
+          setLiked(prev => ({ ...prev, [id]: wasLiked }));
+          setLikesCount(prev => ({ ...prev, [id]: prevCount }));
+          showToastMessage(
+            toast,
+            'danger',
+            res?.data?.message || 'Failed to toggle like',
+          );
+        }
+      } catch (e) {
+        // Revert on error
+        setLiked(prev => ({ ...prev, [id]: wasLiked }));
+        setLikesCount(prev => ({ ...prev, [id]: prevCount }));
+        showToastMessage(
+          toast,
+          'danger',
+          e?.response?.data?.message || 'Something went wrong',
+        );
+      } finally {
+        setLikingIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [liked, likesCount, likingIds, toast],
+  );
 
   const switchFollowing = (id) => {
     const updated = reels.map(item =>
@@ -224,8 +311,6 @@ export default function ReelsScreen() {
     );
     setReels(updated);
   };
-
-
 
   const animateHeart = (id) => {
     setHeartAnimatingId(id);
@@ -249,7 +334,10 @@ export default function ReelsScreen() {
   const handleDoubleTap = (id) => {
     const now = Date.now();
     if (lastTap && now - lastTap < 300) {
-      handleLike(id);
+      // Only like if not already liked
+      if (!liked[id]) {
+        handleLike(id);
+      }
       animateHeart(id);
     } else {
       handlePause(id);
@@ -258,9 +346,22 @@ export default function ReelsScreen() {
   };
 
   const handleComment = (postId) => {
+    setCommentPostId(postId);
     setSelectedReelId(postId);
     commentSheetRef.current?.open();
   };
+
+  const handleCommentClose = useCallback(() => {
+    commentSheetRef.current?.close();
+    setCommentPostId(null);
+  }, []);
+
+  const handleCommentCountUpdate = useCallback((postId, newCount) => {
+    setCommentsCount(prev => ({
+      ...prev,
+      [postId]: Math.max(0, newCount),
+    }));
+  }, []);
 
   const handlePause = (id) => {
     setPaused(prev => ({ ...prev, [id]: !prev[id] }));
@@ -413,11 +514,11 @@ export default function ReelsScreen() {
           onPress={() => handleLike(item.id)}
         >
           <Icon
-            name={item.isLiked ? 'heart' : 'heart-outline'}
+            name={liked[item.id] ? 'heart' : 'heart-outline'}
             size={32}
-            color={item.isLiked ? '#ff3040' : '#fff'}
+            color={liked[item.id] ? '#ff3040' : '#fff'}
           />
-          <Text style={styles.actionLabel}>{formatCount(item.likes)}</Text>
+          <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -425,7 +526,7 @@ export default function ReelsScreen() {
           onPress={() => handleComment(item.id)}
         >
           <Icon name="chatbubble-outline" size={30} color="#fff" />
-          <Text style={styles.actionLabel}>{formatCount(item.comments)}</Text>
+          <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -482,7 +583,7 @@ export default function ReelsScreen() {
                   speed={3}
                   loop={true}
                   delay={1000}
-                  style={{ width: 100,maxWidth:300 }}
+                  style={{ width: 100, maxWidth: 300 }}
                   textStyle={{ fontSize: 13, color: 'white' }}
                 >
                   alainrobertofficial music text that might be long here
@@ -504,8 +605,14 @@ export default function ReelsScreen() {
         {/* Liked by section */}
         <TouchableOpacity style={styles.likedBySection}>
           <Text style={styles.likedByText}>
-            ❤️ Liked by <Text style={styles.likedByBold}>{item.likedBy[0]}</Text> and{' '}
-            <Text style={styles.likedByBold}>{item.likedBy[1]}</Text>
+            ❤️ Liked by{' '}
+            <Text style={styles.likedByBold}>
+              {item.likes === 0
+                ? 'no one yet'
+                : item.likes === 1
+                  ? '1 person'
+                  : `${item.likes} others`}
+            </Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -574,22 +681,30 @@ export default function ReelsScreen() {
       {/* Comments Bottom Sheet */}
       <RBSheet
         ref={commentSheetRef}
-        height={SCREEN_HEIGHT * 0.5}
+        height={500}
         openDuration={250}
+        draggable={true}
+        closeOnPressMask={true}
+        customModalProps={{ statusBarTranslucent: true }}
+        onClose={() => { Keyboard.dismiss(); setCommentPostId(null); }}
         customStyles={{
           container: {
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            backgroundColor: '#fff',
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
+            backgroundColor: '#f8f2fd',
+            bottom: -20,
+          },
+          draggableIcon: {
+            backgroundColor: '#ccc',
+            width: 60,
           },
         }}
-        closeOnDragDown={true}
-        closeOnPressMask={true}
       >
-        <CommentSection
-          initialComments={commentsData[selectedReelId] || []}
-          onClose={() => commentSheetRef.current?.close()}
-          postId={selectedReelId}
+        <CommentSheet
+          postId={commentPostId}
+          onClose={handleCommentClose}
+          onCommentCountUpdate={handleCommentCountUpdate}
+          postOwnerId={commentPostOwnerId}
         />
       </RBSheet>
 

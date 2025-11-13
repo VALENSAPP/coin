@@ -94,7 +94,7 @@ const PostEditorScreen = () => {
           showToastMessage(toast, 'success', 'Post created successfully');
           navigation.navigate('HomeMain');
         } else {
-          showToastMessage(toast, 'danger', 'Please try again');
+          showToastMessage(toast, 'danger', response.message || 'Please try again');
         }
       } catch (err) {
         console.error('Post creation error:', err);
@@ -118,7 +118,7 @@ const PostEditorScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.title}>New Post</Text>
+        <Text style={styles.title}>{ fromIcon == 'Flips' ? 'New Flip' : 'New Post' }</Text>
         <Text></Text>
       </View>
 

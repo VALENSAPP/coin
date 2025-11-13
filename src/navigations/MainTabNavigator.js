@@ -55,6 +55,7 @@ import PrivacySettingsScreen from '../pages/wallet/PrivacySettings';
 import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
+import FlipsScreen from '../pages/reels';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -97,6 +98,11 @@ export default function MainTabNavigator() {
         <Stack.Screen name="notificationEnable" component={Notification} options={{ headerShown: false }} />
         <Stack.Screen name="HidePosts" component={HidePosts} options={{ headerShown: false }} />
         <Stack.Screen name="subscription" component={subscription} options={{ headerShown: false }} />
+        <Stack.Screen name="FlipsScreen" component={FlipsScreen} options={{
+          headerShown: false,
+          presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
+          animation: 'slide_from_bottom', // Optional: adds nice animation
+        }} />
       </Stack.Navigator>
     );
   }, []);

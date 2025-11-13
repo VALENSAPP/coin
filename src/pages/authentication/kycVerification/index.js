@@ -28,8 +28,6 @@ import { useDispatch } from 'react-redux';
 import { kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-// Import your KYC API service here
-// import { submitKYC } from '../../../services/kycService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,20 +54,27 @@ export default function KYCVerification({ route }) {
     const [modalType, setModalType] = useState('submitting'); // 'submitting', 'success', 'error'
     const [modalMessage, setModalMessage] = useState('');
     const [isRetrying, setIsRetrying] = useState(false);
+    const [showProgressModal, setShowProgressModal] = useState(false);
+    const [progressValue] = useState(new Animated.Value(0));
+    const [progressPercent, setProgressPercent] = useState(0);
 
     const isFirstMount = useRef(true);
     const isFocused = useIsFocused();
+    const progressTimerRef = useRef(null);
+    const progressAnimationRef = useRef(null);
+    const percentUpdateInterval = useRef(null);
 
     // Monitor app state
     useEffect(() => {
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (nextAppState === 'active' && isFocused && !isFirstMount.current) {
-                fetchKycStatus();
+                startProgressBarAndFetch();
             }
         });
 
         return () => {
             subscription.remove();
+            cleanupProgress();
         };
     }, [isFocused]);
 
@@ -95,6 +100,71 @@ export default function KYCVerification({ route }) {
     };
 
     const validateDocumentType = (v) => (!v ? 'Document type is required' : '');
+
+    const cleanupProgress = () => {
+        if (progressTimerRef.current) {
+            clearTimeout(progressTimerRef.current);
+            progressTimerRef.current = null;
+        }
+        if (progressAnimationRef.current) {
+            progressAnimationRef.current.stop();
+            progressAnimationRef.current = null;
+        }
+        if (percentUpdateInterval.current) {
+            clearInterval(percentUpdateInterval.current);
+            percentUpdateInterval.current = null;
+        }
+    };
+
+    const startProgressBarAndFetch = () => {
+        setShowProgressModal(true);
+        progressValue.setValue(0);
+        setProgressPercent(0);
+
+        // Update percentage every 100ms for smooth animation
+        let elapsed = 0;
+        const totalDuration = 120000; // 2 minutes
+        const updateInterval = 100;
+
+        const percentInterval = setInterval(() => {
+            elapsed += updateInterval;
+            const percent = Math.min(Math.round((elapsed / totalDuration) * 100), 100);
+            setProgressPercent(percent);
+
+            if (elapsed >= totalDuration) {
+                clearInterval(percentInterval);
+            }
+        }, updateInterval);
+
+        // Store interval reference for cleanup
+        percentUpdateInterval.current = percentInterval;
+
+        // Animate progress bar over 2 minutes (120000ms)
+        progressAnimationRef.current = Animated.timing(progressValue, {
+            toValue: 1,
+            duration: totalDuration,
+            easing: Easing.linear,
+            useNativeDriver: false,
+        });
+
+        progressAnimationRef.current.start();
+
+        // Call fetchKycStatus after 2 minutes
+        progressTimerRef.current = setTimeout(() => {
+            setShowProgressModal(false);
+            progressValue.setValue(0);
+            setProgressPercent(0);
+            clearInterval(percentInterval);
+            fetchKycStatus();
+        }, totalDuration);
+    };
+
+    const cancelProgress = () => {
+        cleanupProgress();
+        setShowProgressModal(false);
+        progressValue.setValue(0);
+        setProgressPercent(0);
+    };
 
     const isValid =
         !validateFirstName(firstName) &&
@@ -149,38 +219,13 @@ export default function KYCVerification({ route }) {
                         fetchKycStatus();
                     }
                 } else {
-                    // Fallback if in-app browser isn’t available
+                    // Fallback if in-app browser isn't available
                     await Linking.openURL(url);
                 }
 
             } else {
                 showToastMessage(toast, 'danger', response.message || 'Please try again');
             }
-
-            // Replace this with your actual KYC API call
-            // const response = await submitKYC(kycData);
-
-            // Simulating API call for demonstration
-            // await new Promise(resolve => setTimeout(resolve, 2000));
-            // const response = { statusCode: 200, message: 'KYC submitted successfully' };
-
-            // if (response.statusCode === 200) {
-            //     setModalType('success');
-            //     setModalMessage('KYC verification submitted successfully!');
-
-            //     // Navigate to Wallet after 3 seconds
-            //     setTimeout(() => {
-            //         setShowModal(false);
-            //         navigation.navigate('Wallet', { profileData, serverProfile });
-            //     }, 3000);
-
-            // } else if (response.statusCode === 500) {
-            //     setModalType('error');
-            //     setModalMessage('Server error. Please try again.');
-            // } else {
-            //     setModalType('error');
-            //     setModalMessage(response.message || 'Failed to submit KYC. Please try again.');
-            // }
         } catch (err) {
             setModalType('error');
             setModalMessage(err?.response?.data?.message || 'Network error. Please check your connection.');
@@ -291,9 +336,6 @@ export default function KYCVerification({ route }) {
             return;
         }
 
-        // Show modal and submit KYC
-        // setShowModal(true);
-        // setModalType('submitting');
         setTimeout(handleSubmitKYC, 500);
     };
 
@@ -557,6 +599,77 @@ export default function KYCVerification({ route }) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
                         {renderModalContent()}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Progress Modal */}
+            <Modal
+                visible={showProgressModal}
+                transparent
+                animationType="fade"
+                statusBarTranslucent
+                onRequestClose={cancelProgress}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        {/* Circular Progress Indicator */}
+                        <View style={styles.circularProgressContainer}>
+                            <Animated.View
+                                style={[
+                                    styles.circularProgress,
+                                    {
+                                        transform: [
+                                            {
+                                                rotate: progressValue.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: ['0deg', '360deg'],
+                                                }),
+                                            },
+                                        ],
+                                    },
+                                ]}
+                            >
+                                <View style={styles.circularProgressInner}>
+                                    <Icon name="shield-off" size={32} color="#4F46E5" />
+                                </View>
+                            </Animated.View>
+
+                            {/* Percentage Display */}
+                            <View style={styles.percentageContainer}>
+                                <Text style={styles.percentageText}>{progressPercent}%</Text>
+                            </View>
+                        </View>
+
+                        <Text style={styles.modalTitle}>Processing KYC</Text>
+                        <Text style={styles.modalMessage}>
+                            Please wait while we verify your information...
+                        </Text>
+                        <Text style={styles.estimatedTime}>
+                            Estimated time: {Math.ceil((120000 - (progressPercent * 1200)) / 1000)}s remaining
+                        </Text>
+
+                        {/* Linear Progress Bar */}
+                        <View style={styles.progressBarContainer}>
+                            <Animated.View
+                                style={[
+                                    styles.progressBarFill,
+                                    {
+                                        width: progressValue.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: ['0%', '100%'],
+                                        }),
+                                    },
+                                ]}
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.modalButton, styles.cancelButton]}
+                            onPress={cancelProgress}
+                        >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -896,4 +1009,69 @@ const styles = StyleSheet.create({
     successDotActive: {
         backgroundColor: '#10b981',
     },
+    circularProgressContainer: {
+        width: 120,
+        height: 120,
+        marginBottom: 24,
+        position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    circularProgress: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 6,
+        borderColor: '#E5E7EB',
+        borderTopColor: '#4F46E5',
+        borderRightColor: '#4F46E5',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    circularProgressInner: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#F5F3FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    percentageContainer: {
+        position: 'absolute',
+        bottom: -8,
+        backgroundColor: '#4F46E5',
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    percentageText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFF',
+    },
+    estimatedTime: {
+        fontSize: 13,
+        color: '#9CA3AF',
+        marginTop: 8,
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    progressBarContainer: {
+        width: '100%',
+        height: 8,
+        backgroundColor: '#E5E7EB',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginVertical: 20,
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#4F46E5',
+        borderRadius: 4,
+    },  
 });
