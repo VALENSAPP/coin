@@ -14,7 +14,7 @@ import {
   FlatList,
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import { EditProfile, checkDisplayName } from '../../../services/createProfile';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
@@ -28,6 +28,8 @@ const ProfileEditScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const userdata = route.params?.userdata;
+  const returnTo = route.params?.returnTo;
+  const returnScreen = route.params?.returnScreen;
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -228,6 +230,14 @@ const ProfileEditScreen = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={handleBack}
+          style={{ marginLeft: 15 }}
+        >
+          <Icon name="arrow-left" size={24} color="#5a2d82" />
+        </TouchableOpacity>
+      ),
       headerRight: () => (
         <TouchableOpacity
           onPress={handleSaveAll}
@@ -245,7 +255,29 @@ const ProfileEditScreen = () => {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, loading, isFormValid, handleSaveAll]);
+  }, [navigation, loading, isFormValid, handleSaveAll, returnTo, returnScreen]);
+
+  const handleBack = () => {
+    if (returnTo === 'wallet' && returnScreen) {
+      // Navigate back to wallet stack's specific screen
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'wallet',
+              state: {
+                routes: [{ name: returnScreen }],
+                index: 0
+              }
+            }
+          ]
+        })
+      );
+    } else {
+      navigation.goBack();
+    }
+  };
 
   const pickImageFromGallery = () => {
     const options = {
@@ -371,6 +403,11 @@ const ProfileEditScreen = () => {
         showToastMessage(toast, 'success', res.data.message);
         // Update original display name after successful save
         setOriginalDisplayName(name.trim());
+
+        setTimeout(() => {
+          handleBack();
+        }, 500);
+
       } else {
         showToastMessage(toast, 'danger', res.data.message);
       }
