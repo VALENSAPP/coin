@@ -133,3 +133,6 @@ export async function sharePost(body) {
   return axiosInstance.post('post/sharepost', body)
 }
 
+export async function GetAllReels(){
+  return axiosInstance.get('/post/getAllReel')
+}

@@ -1191,6 +1191,8 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
       const resp = await getUserCredentials(viewerId);
       if (resp?.statusCode === 200) {
         const raw = resp?.data?.image;
+        console.log('innnnnnn load profile data----------',raw);
+        
         dispatch(setProfileImg(raw));
       }
     } catch (e) {
@@ -1702,7 +1704,7 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
         <HexAvatar
           uri={item.isUser ? (profileImage || item.image) : item.image}
           isUser={!!item.isUser}
-          size={sidebarMode ? 65 : 73}
+          size={sidebarMode ? 72 : 79}
           borderWidth={item.isUser ? 3 : 2}
           borderColor={item.isUser ? '#4da3ff' : '#000'}
         />

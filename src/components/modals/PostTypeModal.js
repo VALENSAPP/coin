@@ -10,10 +10,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PostTypeModal = ({ visible, onClose, onSelect }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
+  const [profile, setProfile] = useState(null);
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
-  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     fetchCreditsLeft();
@@ -55,6 +55,8 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
     }
   };
 
+
+
   return (
     <RBSheet
       ref={sheetRef}
@@ -71,7 +73,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
       }}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Choose Post Type</Text>
+        <Text style={styles.title}>Choose Mint Type</Text>
 
         <TouchableOpacity
           style={styles.optionBtn}
@@ -80,9 +82,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             onClose();
           }}
         >
-          <Text style={styles.optionText}>
-            {profile === 'company' ? '💸 Support' : '💸 Mission Post'} (Credits Left - {creditsLeft ?? 0})
-          </Text>
+          <Text style={styles.optionText}>{profile === 'company' ? '💸 Support' : '💸 Mission Mint'} (Credits Left - {creditsLeft ?? 0})</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -92,7 +92,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             onClose();
           }}
         >
-          <Text style={styles.optionText}>📝 Regular Post</Text>
+          <Text style={styles.optionText}>📝 Regular Mint</Text>
         </TouchableOpacity>
       </View>
     </RBSheet>
