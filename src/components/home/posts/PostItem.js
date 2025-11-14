@@ -259,8 +259,9 @@ export default function PostItem({
   const [isZooming, setIsZooming] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUri, setViewerUri] = useState(null);
-  const navigation = useNavigation();
   const [userId, setUserId] = useState(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const navigation = useNavigation();
   const shareRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
@@ -389,7 +390,7 @@ export default function PostItem({
               resizeMode="cover"
               repeat
               paused={isPaused}
-              muted={false}
+              muted={isMuted || isPaused}
               controls={false}
               onError={() => { }}
             />
@@ -403,6 +404,16 @@ export default function PostItem({
                   <Icon name="play" size={34} color="#fff" />
                 </View>
               )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.speakerButton}
+              onPress={() => setIsMuted((prev) => !prev)}
+            >
+              <Icon
+                name={isMuted ? 'volume-mute' : 'volume-high'}
+                size={20}
+                color="#fff"
+              />
             </TouchableOpacity>
 
             <View style={styles.videoIndicator}>
@@ -925,5 +936,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textDecorationLine: 'underline',
     fontSize: 14,
+  },
+  speakerButton: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });

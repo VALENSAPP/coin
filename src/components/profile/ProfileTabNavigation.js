@@ -1,5 +1,6 @@
-import React, { memo, useCallback, useRef, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { useNavigation } from '@react-navigation/native';
 import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
 import TaggedScreen from '../profile/TaggedScreen';
@@ -11,9 +12,21 @@ import SubscribeModal from '../modals/SubscriptionModal';
 
 const Tab = createMaterialTopTabNavigator();
 
-const ProfileTabs = memo(({ post }) => {
+// Dummy component that triggers navigation to full screen
+const ReelsTabHandler = () => {
+  const navigation = useNavigation();
+
+  React.useEffect(() => {
+    // Navigate to FlipsScreen in full screen when this tab is focused
+    navigation.navigate('FlipsScreen'); // Replace 'FlipsScreen' with your actual route name
+  }, [navigation]);
+
+  return null; // Return nothing as we're navigating away
+};
+
+const ProfileTabs = memo(({ post, displayName }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false); // 👈 track if user already subscribed
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
@@ -23,7 +36,6 @@ const ProfileTabs = memo(({ post }) => {
 
   // ✅ subscription confirmation handler
   const handleSubscription = () => {
-    // Call your subscription API or logic here
     console.log('User subscribed successfully!');
     setIsSubscribed(true);
   };
@@ -33,19 +45,12 @@ const ProfileTabs = memo(({ post }) => {
     useFocusEffect(
       useCallback(() => {
         if (!isSubscribed) {
-          // show modal if not subscribed
           setShowSubscribeModal(true);
         }
       }, [isSubscribed])
     );
 
-    // Only show content if subscribed
-    return isSubscribed ? (
-      <ReelsScreen {...props} />
-    ) : (
-      // Optional: show a placeholder while modal is visible
-      <></>
-    );
+    return isSubscribed ? <ReelsScreen {...props} /> : <></>;
   };
 
   return (
@@ -92,9 +97,10 @@ const ProfileTabs = memo(({ post }) => {
           {renderPostsScreen}
         </Tab.Screen>
 
+        {/* ✅ Reels tab now navigates to full screen */}
         <Tab.Screen
           name="Reels"
-          component={ReelsScreen}
+          component={ReelsTabHandler}
           options={{
             tabBarIcon: ({ focused }) => (
               <ProfileReelIcon
@@ -104,6 +110,12 @@ const ProfileTabs = memo(({ post }) => {
               />
             ),
           }}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault(); // Prevent default tab behavior
+              navigation.navigate('FlipsScreen'); // Navigate to full screen
+            },
+          })}
         />
 
         {/* ✅ Private Content with Subscription Modal */}
@@ -143,8 +155,8 @@ const ProfileTabs = memo(({ post }) => {
         membershipPrice={19.99}
         onPaymentDone={(info) => {
           console.log('Payment info:', info);
-          // call API or navigate
         }}
+        displayName={displayName}
       />
     </>
   );

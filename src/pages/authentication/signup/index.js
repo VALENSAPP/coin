@@ -89,7 +89,7 @@ export default function SignupScreen() {
         (signupResponse.statusCode == 200 || signupResponse.statusCode == 201)
       ) {
         dispatch(hideLoader());
-        showToastMessage(toast, 'success', 'OTP sent to your email.');
+        // showToastMessage(toast, 'success', 'OTP sent to your email.');
         navigation.navigate('OTPScreen', { email, password, type: 'signup' });
         setPassword('');
         setEmail(''), setUsername('');
