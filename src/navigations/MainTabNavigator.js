@@ -1,5 +1,5 @@
 // src/navigations/MainTabNavigator.js
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute, useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -56,13 +56,24 @@ import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import FlipsScreen from '../pages/reels';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 export default function MainTabNavigator() {
+  const [profile, setProfile] = React.useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const navigation = useNavigation();
+
+  useEffect(() => {
+    loadProfileType();
+  }, []);
+
+  const loadProfileType = async () => {
+    const type = await AsyncStorage.getItem('profile');
+    setProfile(type);
+  };
 
   const HomeStack = useMemo(() => {
     return () => (
@@ -264,7 +275,7 @@ export default function MainTabNavigator() {
   // Memoize tab bar styles
   const defaultTabBarStyle = useMemo(() => ({
     display: 'flex',
-    backgroundColor: '#f8f2fd',
+    backgroundColor: profile === 'company' ? '#fcfbfaff' : '#f8f2fd',
     borderTopWidth: 1.5,
     borderTopColor: '#dbdbdb',
     height: 50,

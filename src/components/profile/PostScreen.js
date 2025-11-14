@@ -50,7 +50,7 @@ const PostImage = memo(({ item, index, onPress }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ postCheck }) => {
+const PostScreen = memo(({ postCheck, userData }) => {
   const [posts, setPosts] = useState(postCheck);
   const navigation = useNavigation();
 
@@ -108,7 +108,7 @@ const PostScreen = memo(({ postCheck }) => {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, {backgroundColor: userData?.profile === 'company' ? '#fcfbfaff' : '#f8f2fd'}]}>
       <FlatList
         data={posts}
         renderItem={renderItem}
@@ -139,8 +139,7 @@ export default PostScreen;
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
-    backgroundColor: '#f8f2fd',
+    flex: 1
   },
   listContent: {
     padding: SPACING,

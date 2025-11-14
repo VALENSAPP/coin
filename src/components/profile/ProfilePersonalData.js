@@ -22,7 +22,7 @@ import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 
 export function getDragonflyIcon(followers, isBusiness = false) {
-  if (isBusiness) return BlueDragonfly;
+  if (isBusiness) return GoldLavenderDragonfly;
 
   if (followers <= 50) return WhiteDragonfly;
   if (followers <= 10000) return SoftGrayDragonfly;
@@ -414,7 +414,7 @@ const ProfilePersonData = ({
         showToastMessage(toast, 'danger', res.data.message);
       }
     } catch (err) {
-      showToastMessage(toast, 'danger', err.response?.data?.message || 'Error saving profile');
+      // showToastMessage(toast, 'danger', err.response?.data?.message || 'Error saving profile');
     } finally {
       dispatch(hideLoader());
     }
@@ -492,7 +492,7 @@ const ProfilePersonData = ({
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: userData?.profile === 'company' ? '#fcfbfaff' : '#f8f2fd' }]}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.usernameRow}>
@@ -514,7 +514,7 @@ const ProfilePersonData = ({
                 </TouchableOpacity>
               )}
               <View style={styles.userRow}>
-                <Text style={styles.headerText}>{Userdata.Username}</Text>
+                <Text style={[styles.headerText, { color: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}>{Userdata.Username}</Text>
                 <DragonflyIcon width={22} height={22} style={styles.icon} />
                 {!fromUsersProfile && (
                   <Ionicons
@@ -583,12 +583,12 @@ const ProfilePersonData = ({
               >
                 <Image
                   source={{ uri: avatarUri }}
-                  style={styles.image}
+                  style={[styles.image, { borderColor: isCompanyProfile ? '#D3B683' : '#5a2d82' }]}
                   resizeMode="cover"
                 />
                 {!fromUsersProfile && (
                   <TouchableOpacity
-                    style={styles.addbutton}
+                    style={[styles.addbutton, { backgroundColor: isCompanyProfile ? '#D3B683' : '#5a2d82', shadowColor: isCompanyProfile ? '#D3B683' : '#5a2d82' }]}
                     onPress={handleProfileImagePress}
                   >
                     <Ionicons name="add" size={15} color="white" />
@@ -609,10 +609,14 @@ const ProfilePersonData = ({
                         userData?.profile !== 'company' && (
                           isFollowing && (
                             <LinearGradient
-                              colors={['#513189bd', '#e54ba0']}
+                              colors={
+                                userData?.profile === 'company'
+                                  ? ['#D3B683', '#e54ba0']
+                                  : ['#513189bd', '#e54ba0']
+                              }
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 0 }}
-                              style={styles.editbuttons}
+                              style={[styles.editbuttons, { shadowColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}
                             >
                               <Text style={styles.buttonText}>Buy</Text>
                             </LinearGradient>
@@ -632,10 +636,14 @@ const ProfilePersonData = ({
                     disabled={followBusy || isFollowing === null}
                   >
                     <LinearGradient
-                      colors={['#513189bd', '#e54ba0']}
+                      colors={
+                        userData?.profile === 'company'
+                          ? ['#D3B683', '#e54ba0']
+                          : ['#513189bd', '#e54ba0']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.editbuttons}
+                      style={[styles.editbuttons, { shadowColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}
                     >
                       <Text style={styles.buttonText}>
                         {isBusinessProfile ? 'Support' : isFollowing ? 'Vallowing' : 'Vallow'}
@@ -647,10 +655,14 @@ const ProfilePersonData = ({
                     onPress={() => UserMessageNavigation()}
                   >
                     <LinearGradient
-                      colors={['#513189bd', '#e54ba0']}
+                      colors={
+                        userData?.profile === 'company'
+                          ? ['#D3B683', '#e54ba0']
+                          : ['#513189bd', '#e54ba0']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.editbuttons}
+                      style={[styles.editbuttons, { shadowColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}
                     >
                       <Text style={styles.buttonText}>
                         Message
@@ -662,10 +674,14 @@ const ProfilePersonData = ({
                 <>
                   <TouchableOpacity onPress={() => handleNavigate()}>
                     <LinearGradient
-                      colors={['#513189bd', '#e54ba0']}
+                      colors={
+                        userData?.profile === 'company'
+                          ? ['#D3B683', '#e54ba0']
+                          : ['#513189bd', '#e54ba0']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.editbuttons}
+                      style={[styles.editbuttons, { shadowColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}
                     >
                       <Text style={styles.buttonText}>Edit Profile</Text>
                     </LinearGradient>
@@ -679,10 +695,14 @@ const ProfilePersonData = ({
                     }
                   >
                     <LinearGradient
-                      colors={['#513189bd', '#e54ba0']}
+                      colors={
+                        userData?.profile === 'company'
+                          ? ['#D3B683', '#e54ba0']
+                          : ['#513189bd', '#e54ba0']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.editbuttons}
+                      style={[styles.editbuttons, { shadowColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}
                     >
                       <Ionicons
                         name="person-add-sharp"
@@ -694,10 +714,14 @@ const ProfilePersonData = ({
                   </TouchableOpacity>
                   <TouchableOpacity>
                     <LinearGradient
-                      colors={['#513189bd', '#e54ba0']}
+                      colors={
+                        userData?.profile === 'company'
+                          ? ['#D3B683', '#e54ba0']
+                          : ['#513189bd', '#e54ba0']
+                      }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.editbuttons}
+                      style={[styles.editbuttons, { shadowColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}
                     >
                       <Text style={styles.buttonText}>Support</Text>
                     </LinearGradient>
@@ -716,7 +740,7 @@ const ProfilePersonData = ({
         <View style={styles.statsRow}>
           <TouchableOpacity style={styles.statItem}>
             <Ionicons name="add-circle-outline" size={16} color="#444" />
-            <Text style={styles.statText}> Mint: {Userdata.totalPost}</Text>
+            <Text style={[styles.statText, { color: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}> Mint: {Userdata.totalPost}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.statItem}
@@ -743,7 +767,7 @@ const ProfilePersonData = ({
             }}
           >
             <FontAwesome name="user" size={16} color="#444" />
-            <Text style={styles.statText}>
+            <Text style={[styles.statText, { color: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}>
               {' '}
               Vallowers: {Userdata.Followers}
             </Text>
@@ -772,7 +796,7 @@ const ProfilePersonData = ({
             }}
           >
             <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
-            <Text style={styles.statText}>
+            <Text style={[styles.statText, { color: userData?.profile === 'company' ? '#D3B683' : '#5a2d82' }]}>
               {' '}
               Vallowing: {Userdata.Followings}
             </Text>
@@ -810,7 +834,6 @@ export default ProfilePersonData;
 const styles = StyleSheet.create({
   container: {
     padding: 12,
-    backgroundColor: '#f8f2fd',
     borderRadius: 16,
   },
 
@@ -837,7 +860,6 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#5a2d82',
     marginRight: 5,
   },
   icon: {
@@ -872,14 +894,12 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 45,
     borderWidth: 2,
-    borderColor: '#5a2d82',
     backgroundColor: '#fff',
   },
   addbutton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#5a2d82',
     borderRadius: 20,
     width: 26,
     height: 26,
@@ -887,7 +907,6 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
@@ -913,7 +932,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
@@ -952,7 +970,6 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#5a2d82',
     marginLeft: 4,
   },
 });

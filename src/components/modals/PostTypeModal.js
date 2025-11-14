@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 
-const PostTypeModal = ({ visible, onClose, onSelect }) => {
+const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
   const [profile, setProfile] = useState(null);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
@@ -59,14 +59,14 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
       setShowBuyCreditsModal(true);
     } else {
       onSelect('crowdfunding');
-      onClose();
+      setShowTypeModal(false);
     }
   };
 
   const handleBuyCredits = () => {
     // TODO: Navigate to buy credits screen or handle purchase flow
     setShowBuyCreditsModal(false);
-    onClose();
+    setShowTypeModal(false);
     navigation.navigate('MainApp', {
       screen: 'wallet',
       params: { screen: 'WalletMain' }
@@ -81,7 +81,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
         ref={sheetRef}
         height={260}
         draggable={false}
-        onClose={onClose}
+        onClose={() => setShowTypeModal(false)}
         customStyles={{
           container: {
             borderTopLeftRadius: 16,
@@ -95,7 +95,16 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
         closeOnPressBack={false}
       >
         <View style={styles.container}>
-          <Text style={styles.title}>Choose Mint Type</Text>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Icon name="close-outline" size={28} color="#000" />
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Choose Mint Type</Text>
+
+            {/* For spacing balance */}
+            <View style={{ width: 28 }} />
+          </View>
 
           <TouchableOpacity
             style={[
@@ -117,7 +126,7 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             style={styles.optionBtn}
             onPress={() => {
               onSelect('regular');
-              onClose();
+              setShowTypeModal(false);
             }}
           >
             <Text style={styles.optionText}>📝 Regular Mint</Text>
@@ -143,23 +152,23 @@ const PostTypeModal = ({ visible, onClose, onSelect }) => {
             </View>
 
             <Text style={styles.modalTitle}>No Credits Available</Text>
-            <Text style={styles.modalMessage}>
-              You need credits to create a {profile === 'company' ? 'Support' : 'Mission Mint'}.
-              Purchase credits to continue.
-            </Text>
+              <Text style={styles.modalMessage}>
+                You need credits to create a {profile === 'company' ? 'Support' : 'Mission Mint'}.
+                Purchase credits to continue.
+              </Text>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.buyButton}
-                onPress={handleBuyCredits}
-              >
-                <Icon name="cart-outline" size={20} color="#fff" />
-                <Text style={styles.buyButtonText}>Buy Credits</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.buyButton}
+                  onPress={handleBuyCredits}
+                >
+                  <Icon name="cart-outline" size={20} color="#fff" />
+                  <Text style={styles.buyButtonText}>Buy Credits</Text>
+                </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setShowBuyCreditsModal(false)}
+                onPress={() => { setShowBuyCreditsModal(false); navigation.goBack(); }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -282,4 +291,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    // marginBottom: 15,
+  },
+  closeBtn: {
+    // padding: 4,
+    marginTop: -30,
+  },
+
 });
