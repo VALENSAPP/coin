@@ -9,13 +9,23 @@ import {
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { showToastMessage } from '../displaytoastmessage';
+import { getUserCredentials } from '../../services/post';
+import { useDispatch } from 'react-redux';
+import { useToast } from 'react-native-toast-notifications';
+import { getDragonflyIcon } from '../profile/ProfilePersonalData';
+import { getUserSubscription } from '../../services/wallet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SubscribeFlowModal = ({
     visible,
     onClose,
     membershipPrice = 19.99,
     onPaymentDone,
-    displayName
+    displayName,
+    userData,
+    dashboard
 }) => {
     const step1Ref = useRef(null);
     const step2Ref = useRef(null);
@@ -26,8 +36,14 @@ const SubscribeFlowModal = ({
         expiry: '',
         cvv: '',
     });
+    const [userProfile, setUserProfile] = useState('');
+    const toast = useToast();
+    const dispatch = useDispatch();
+    const isCompanyProfile = userProfile === 'company';
 
     useEffect(() => {
+        fetchAllData();
+        fetchSubscriptionAmount();
         if (visible) step1Ref.current?.open();
         else {
             step1Ref.current?.close();
@@ -41,13 +57,13 @@ const SubscribeFlowModal = ({
     };
 
     const handleStep1Close = () => {
-  // If user clicked “Yes, I’m In”, open next step
-  if (visible) {
-    setTimeout(() => step2Ref.current?.open(), 200);
-  } else {
-    onClose?.();
-  }
-};
+        // If user clicked “Yes, I’m In”, open next step
+        if (visible) {
+            setTimeout(() => step2Ref.current?.open(), 200);
+        } else {
+            onClose?.();
+        }
+    };
 
     const handlePayment = () => {
         if (!acceptedTerms) {
@@ -59,6 +75,59 @@ const SubscribeFlowModal = ({
         onClose?.();
     };
 
+    const fetchAllData = async () => {
+        try {
+            dispatch(showLoader());
+
+            // Run both API calls in parallel
+            const [profileResponse] = await Promise.all([
+                getUserCredentials(userData.id)
+            ]);
+
+            // Handle profile response
+            if (profileResponse?.statusCode === 200) {
+                let userDataToSet;
+                if (profileResponse.data && profileResponse.data.user) {
+                    userDataToSet = profileResponse.data.user;
+                } else if (profileResponse.data) {
+                    userDataToSet = profileResponse.data;
+                } else {
+                    userDataToSet = profileResponse;
+                }
+                setUserProfile(userDataToSet.profile || '');
+                // console.log('User profile:', userDataToSet.profile);
+            } else {
+                // showToastMessage(toast, 'danger', profileResponse.data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
+
+    const fetchSubscriptionAmount = async () => {
+        try {
+            dispatch(showLoader());
+            const id = await AsyncStorage.getItem('userId');
+            // Run both API calls in parallel
+            const response = await getUserSubscription(id);
+            console.log('getUserSubscription:-----------------', response);
+
+            // Handle profile response
+            if (response?.statusCode === 200) {
+            } else {
+                showToastMessage(toast, 'danger', response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
+
+    const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile);
+
     return (
         <>
             {/* Step 1: Confirmation */}
@@ -66,12 +135,15 @@ const SubscribeFlowModal = ({
                 ref={step1Ref}
                 height={380}
                 closeOnPressMask
-                onClose={handleStep1Close} 
+                onClose={handleStep1Close}
                 customStyles={{
                     container: styles.sheetContainer,
                 }}>
                 <View style={styles.container}>
-                    <Text style={styles.header}>{displayName} </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
+                        <Text style={styles.header}>{displayName} </Text>
+                        <DragonflyIcon width={22} height={22} />
+                    </View>
                     <Text style={styles.subHeader}>You’re about to Subscribe!</Text>
                     <Text style={styles.bodyText}>
                         Unlock exclusive posts, private drops, and direct access to this

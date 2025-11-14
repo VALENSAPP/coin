@@ -52,10 +52,12 @@ export default function WalletComponent() {
     const [portfolioValue, setPortfolioValue] = useState();
     const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
     const [creditsLeft, setCreditsLeft] = useState(0);
+    const [postCounts, setPostCounts] = useState(0);
     const [topCreators, setTopCreators] = useState([]); // State for top creators
     const [holdingsData, setHoldingsData] = useState([]); // State for holdings data
     const [tokenAddress, setTokenAddress] = useState(null);
     const [showCreditModal, setShowCreditModal] = useState(false);
+    const [profile, setProfile] = useState(null);
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const toast = useToast();
@@ -65,6 +67,7 @@ export default function WalletComponent() {
 
     useFocusEffect(
         React.useCallback(() => {
+            loadProfileType();
             fetchUserCreds();
             fetchDashboardData();
             fetchCreditsLeft();
@@ -88,6 +91,11 @@ export default function WalletComponent() {
             if (timeout) clearTimeout(timeout);
         };
     }, []);
+
+    const loadProfileType = async () => {
+        const type = await AsyncStorage.getItem('profile');
+        setProfile(type);
+    };
 
     const fetchUserCreds = async () => {
         const id = await AsyncStorage.getItem('userId');
@@ -129,11 +137,11 @@ export default function WalletComponent() {
                 showToastMessage(toast, 'danger', response.data.message);
             }
         } catch (error) {
-            showToastMessage(
-                toast,
-                'danger',
-                error?.response?.message ?? 'Something went wrong',
-            );
+            // showToastMessage(
+            //     toast,
+            //     'danger',
+            //     error?.response?.message ?? 'Something went wrong',
+            // );
         } finally {
             dispatch(hideLoader());
         }
@@ -154,11 +162,11 @@ export default function WalletComponent() {
                 showToastMessage(toast, 'danger', response.data.message);
             }
         } catch (error) {
-            showToastMessage(
-                toast,
-                'danger',
-                error?.response?.message ?? 'Something went wrong',
-            );
+            // showToastMessage(
+            //     toast,
+            //     'danger',
+            //     error?.response?.message ?? 'Something went wrong',
+            // );
         } finally {
             dispatch(hideLoader());
         }
@@ -168,17 +176,19 @@ export default function WalletComponent() {
         try {
             dispatch(showLoader());
             const response = await getCreditsLeft();
+            console.log('Credits Left Response:', response);
             if (response?.statusCode === 200) {
                 setCreditsLeft(response.data.hitLeft);
+                setPostCounts(response.data.postCount);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
             }
         } catch (error) {
-            showToastMessage(
-                toast,
-                'danger',
-                error?.response?.message ?? 'Something went wrong',
-            );
+            // showToastMessage(
+            //     toast,
+            //     'danger',
+            //     error?.response?.message ?? 'Something went wrong',
+            // );
         } finally {
             dispatch(hideLoader());
         }
@@ -195,11 +205,11 @@ export default function WalletComponent() {
                 showToastMessage(toast, 'danger', response?.message || 'Failed to fetch creators');
             }
         } catch (error) {
-            showToastMessage(
-                toast,
-                'danger',
-                error?.response?.message ?? 'Something went wrong',
-            );
+            // showToastMessage(
+            //     toast,
+            //     'danger',
+            //     error?.response?.message ?? 'Something went wrong',
+            // );
         } finally {
             dispatch(hideLoader());
         }
@@ -397,10 +407,26 @@ export default function WalletComponent() {
     };
 
     const handleBuyCredits = () => {
-        if (creditsLeft >= 5) {
-            showToastMessage(toast, 'danger', 'You already have maximum credits.');
+        if (profile === 'company') {
+            if (postCounts >= 7) {
+                showToastMessage(toast, 'danger', 'You already have maximum credits.');
+            } else {
+                if (creditsLeft >= 5) {
+                    showToastMessage(toast, 'danger', 'You already have maximum credits.');
+                } else {
+                    setShowCreditModal(true);
+                }
+            }
         } else {
-            setShowCreditModal(true);
+            if (postCounts >= 5) {
+                showToastMessage(toast, 'danger', 'You already have maximum credits.');
+            } else {
+                if (creditsLeft >= 5) {
+                    showToastMessage(toast, 'danger', 'You already have maximum credits.');
+                } else {
+                    setShowCreditModal(true);
+                }
+            }
         }
     };
 

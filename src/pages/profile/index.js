@@ -54,7 +54,7 @@ const ProfileScreen = () => {
         showToastMessage(
           toast,
           'danger',
-          postsRes?.data?.message || 'Failed to fetch posts'
+         'Failed to fetch posts'
         );
       }
 
@@ -106,7 +106,7 @@ const ProfileScreen = () => {
         showToastMessage(
           toast,
           'danger',
-          userRes?.data?.message || 'Failed to fetch profile'
+          'Failed to fetch profile'
         );
       }
 
@@ -117,7 +117,7 @@ const ProfileScreen = () => {
         showToastMessage(
           toast,
           'danger',
-          dashRes?.data?.message || 'Failed to fetch dashboard'
+         'Failed to fetch dashboard'
         );
       }
     } catch (error) {
@@ -150,14 +150,14 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: userData?.profile == 'company' ? '#fcfbfaff' : '#f8f2fd' }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#783eb9a9']}
+            onRefresh={onRefresh} 
+            colors={userData?.profile == 'company' ? ['#D3B683'] : ['#7c3aed']}
           />
         }
       >
@@ -171,9 +171,9 @@ const ProfileScreen = () => {
           // executeFollowAction={executeFollowAction}
         />
         <View>
-          <HighlightStories />
+          <HighlightStories userData={userData}/>
         </View>
-        <ProfileTabs post={posts} displayName={userData?.userName}/>
+        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard}/>
       </ScrollView>
     </SafeAreaView>
   );
@@ -184,7 +184,6 @@ export default ProfileScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingBottom: 20,
   },
   scrollContainer: {

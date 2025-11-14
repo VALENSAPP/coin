@@ -26,8 +26,6 @@ import { useToast } from 'react-native-toast-notifications';
 import { getCreditsLeft } from '../../services/wallet';
 import { getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createCheckoutSession } from '../../services/stirpe';
-import InAppBrowser from 'react-native-inappbrowser-reborn';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
@@ -248,21 +246,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
   };
 
-  const handleBuyCredits = () => {
-    Alert.alert(
-      'Buy Post Credits',
-      'Purchase 5 additional post credits?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Purchase', onPress: () => {
-            createStripeSubscription()
-          }
-        }
-      ]
-    );
-  };
-
   const fetchActivityOverview = async () => {
     const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
 
@@ -455,53 +438,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
   };
 
-  const createStripeSubscription = async () => {
-    dispatch(showLoader());
-    try {
-      const response = await createCheckoutSession();
-
-      if (response?.statusCode === 200 && response?.data?.url) {
-        const url = response.data.url;
-
-        if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(url, {
-            // Customization options
-            dismissButtonStyle: 'close',
-            preferredBarTintColor: '#ffffff',
-            preferredControlTintColor: '#000000',
-            readerMode: false,
-            animated: true,
-            modalPresentationStyle: 'fullScreen',
-            modalTransitionStyle: 'coverVertical',
-            enableBarCollapsing: false,
-            showTitle: true,
-            toolbarColor: '#ffffff',
-            secondaryToolbarColor: '#f0f0f0',
-          });
-        } else {
-          // Fallback if in-app browser isn’t available
-          await Linking.openURL(url);
-        }
-      } else {
-        showToastMessage(
-          toast,
-          'danger',
-          response?.error ||
-          response?.message ||
-          'Failed to create payment session. Please try again.'
-        );
-      }
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        'Network error. Please check your internet connection and try again.'
-      );
-    } finally {
-      dispatch(hideLoader());
-    }
-  }
-
   const handleTokenModalClose = () => {
     purchaseSheetRef.current?.close?.();
     setPendingFollowUserId(null);
@@ -533,12 +469,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const isClickable = isCreditsCard && item.currentCredits < 1;
 
     return (
-      <TouchableOpacity
+      <View
         style={[
           styles.kpiCard,
           isClickable && styles.kpiCardClickable // Optional: add visual feedback
         ]}
-        onPress={isClickable ? handleBuyCredits : null}
+        // onPress={isClickable ? handleBuyCredits : null}
         activeOpacity={isClickable ? 0.7 : 1}
         disabled={!isClickable}
       >
@@ -550,7 +486,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         {/* {isClickable && (
           <Text style={styles.clickableHint}>Tap to buy more</Text>
         )} */}
-      </TouchableOpacity>
+      </View>
     );
   };
 
