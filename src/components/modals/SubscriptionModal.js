@@ -15,6 +15,7 @@ const SubscribeFlowModal = ({
     onClose,
     membershipPrice = 19.99,
     onPaymentDone,
+    displayName
 }) => {
     const step1Ref = useRef(null);
     const step2Ref = useRef(null);
@@ -70,7 +71,7 @@ const SubscribeFlowModal = ({
                     container: styles.sheetContainer,
                 }}>
                 <View style={styles.container}>
-                    <Text style={styles.header}>💜 Valens Dragonfly</Text>
+                    <Text style={styles.header}>{displayName} </Text>
                     <Text style={styles.subHeader}>You’re about to Subscribe!</Text>
                     <Text style={styles.bodyText}>
                         Unlock exclusive posts, private drops, and direct access to this
@@ -98,12 +99,12 @@ const SubscribeFlowModal = ({
             {/* Step 2: Payment */}
             <RBSheet
                 ref={step2Ref}
-                height={380}
+                height={445}
                 closeOnPressMask
                 customStyles={{
                     container: styles.sheetContainer,
                 }}>
-                <ScrollView style={styles.container}>
+                <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
                     <Text style={styles.header}>💳 Add Card</Text>
                     <Text style={styles.paymentNote}>
                         We are fully compliant with Payment Card Industry Data Security

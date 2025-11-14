@@ -173,7 +173,7 @@ const ProfileScreen = () => {
         <View>
           <HighlightStories />
         </View>
-        <ProfileTabs post={posts} />
+        <ProfileTabs post={posts} displayName={userData?.userName}/>
       </ScrollView>
     </SafeAreaView>
   );

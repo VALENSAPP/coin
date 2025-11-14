@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
-import { login, sendEmailotp, verifyOtp } from '../../../services/authentication';
+import { login, sendEmailotp, verifyEmailOtp, verifyOtp } from '../../../services/authentication';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import CustomButton from '../../../components/customButton/customButton';
 import { LogoIcon } from '../../../assets/icons';
@@ -41,47 +41,58 @@ export default function OTPScreen() {
   const dispatch = useDispatch();
   const { email, password, type } = route.params || {};
 
+  useEffect(() => {
+    handleResend();
+  }, []);
+
   const handleConfirm = async () => {
     if (otp.length !== 6) {
       showToastMessage(toast, 'danger', 'Please enter a 6-digit code.');
       return;
     }
-    {
-      if (type === 'signup') {
-        // navigation.navigate('Login');
-        handleLogin();
-      } else {
-        navigation.navigate('CreateNewPassword', { email, otp });
-      }
-    }
-    // Keyboard.dismiss();
-    // setLoading(true);
-    // dispatch(showLoader());
-
-    // try {
+    // {
     //   if (type === 'signup') {
     //     // navigation.navigate('Login');
     //     handleLogin();
     //   } else {
-    //     const response = await verifyOtp({ email, otp });
-    //     if (response && response.statusCode == 200) {
-    //       showToastMessage(toast, 'success', response.data.message);
-    //       navigation.navigate('CreateNewPassword', { email, otp });
-    //     } else {
-    //       showToastMessage(toast, 'danger', response.message);
-    //       setOtp('');
-    //     }
+    //     navigation.navigate('CreateNewPassword', { email, otp });
     //   }
-    // } catch (error) {
-    //   showToastMessage(
-    //     toast,
-    //     'danger',
-    //     error?.data?.message || 'Verification failed',
-    //   );
-    // } finally {
-    //   setLoading(false);
-    //   dispatch(hideLoader());
     // }
+    Keyboard.dismiss();
+    setLoading(true);
+    dispatch(showLoader());
+
+    try {
+      if (type === 'signup') {
+        const response = await verifyEmailOtp({ email, otp });
+        if (response && response.statusCode == 200) {
+          showToastMessage(toast, 'success', response.data.message);
+          handleLogin();
+        } else {
+          showToastMessage(toast, 'danger', response.message);
+          setOtp('');
+        }
+
+      } else {
+        const response = await verifyOtp({ email, otp });
+        if (response && response.statusCode == 200) {
+          showToastMessage(toast, 'success', response.data.message);
+          navigation.navigate('CreateNewPassword', { email, otp });
+        } else {
+          showToastMessage(toast, 'danger', response.message);
+          setOtp('');
+        }
+      }
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.data?.message || 'Verification failed',
+      );
+    } finally {
+      setLoading(false);
+      dispatch(hideLoader());
+    }
   };
 
   const handleResend = async () => {
