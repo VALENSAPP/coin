@@ -63,6 +63,10 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const [followingIds, setFollowingIds] = useState(new Set());
   const [tokenAddress, setTokenAddress] = useState(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [currentlyVisiblePostId, setCurrentlyVisiblePostId] = useState(null);
+  const [screenFocused, setScreenFocused] = useState(true);
+  const [playingPostId, setPlayingPostId] = useState(null);
+  const playingDebounceRef = useRef(null);
 
   // -------- Token Purchase Modal States --------
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
@@ -102,6 +106,23 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     return () => {
       hideSub.remove();
       if (timeout) clearTimeout(timeout);
+    };
+  }, []);
+
+  // Track screen focus - pause all videos when screen loses focus
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      return () => {
+        setScreenFocused(false);
+      };
+    }, [])
+  );
+
+  // Clear debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (playingDebounceRef.current) clearTimeout(playingDebounceRef.current);
     };
   }, []);
 
@@ -788,6 +809,51 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     setSuggestHasMore(totalVisible < suggestAllUsers.length);
   }, [suggestPage, suggestAllUsers]);
 
+    const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }) => {
+      if (!viewableItems || viewableItems.length === 0) {
+        setCurrentlyVisiblePostId(null);
+        return;
+      }
+      // Find the most visible post (excluding suggestions)
+      let mostVisiblePost = null;
+      let highestPercentage = 0;
+      console.log(mostVisiblePost,'get id heree')
+
+      console.log(viewableItems,"ddddddddddddddViewableitemssssss>>>>>>>>")
+
+      for (const item of viewableItems) {
+        // Skip suggestions
+        if (item.item?.__type === 'suggestions') continue;
+
+        // Only consider items that are actually viewable
+        if (item.isViewable && item.item?.id) {
+          // Get the percentage visible (if available, otherwise use 100)
+          const percentage = item.percentVisible ?? 100;
+
+          if (percentage > highestPercentage) {
+            highestPercentage = percentage;
+            mostVisiblePost = item.item.id;
+          }
+        }
+      }
+
+      // Only update if the most visible post changed
+      if (mostVisiblePost !== currentlyVisiblePostId) {
+        setCurrentlyVisiblePostId(mostVisiblePost);
+
+        // Debounce setting the actual playing post to avoid rapid toggles while scrolling
+        if (playingDebounceRef.current) clearTimeout(playingDebounceRef.current);
+        setPlayingPostId(null);
+        playingDebounceRef.current = setTimeout(() => {
+          setPlayingPostId(mostVisiblePost);
+          playingDebounceRef.current = null;
+        }, 250);
+      }
+    },
+    [currentlyVisiblePostId]
+  );
+
   const feedItems = useMemo(() => {
     const posts = mappedPosts;
     if (posts.length <= 2 || visibleSuggestions.length === 0) return posts;
@@ -812,7 +878,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           />
         );
       }
-
+      const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
       return (
         <PostItem
           item={item}
@@ -831,6 +897,10 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           raiseAmount={item.raiseAmount}
           goalAmount={item.goalAmount || 100000000}
           link={item.link || null}
+          isVisible={isPostVisible}
+          screenFocused={screenFocused}
+          playingPostId={playingPostId}
+          currentlyVisiblePostId={currentlyVisiblePostId}
         />
       );
     },
@@ -844,11 +914,13 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       handleComment,
       openOptionsModal,
       handleToggleFollow,
+      screenFocused,
       followingBusy,
       visibleSuggestions,
       handleDismissSuggestion,
       handleSeeMoreSuggestions,
       suggestHasMore,
+      currentlyVisiblePostId
     ],
   );
 
@@ -866,9 +938,21 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={21}
-        initialNumToRender={5}
+        maxToRenderPerBatch={2}
+        windowSize={5}
+        initialNumToRender={1}
+        viewabilityConfig={{
+          itemVisiblePercentThreshold: 50,
+          minimumViewTime: 100,
+          waitForInteraction: false,
+        }}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        scrollEventThrottle={16}
+        getItemLayout={(data, index) => ({
+          length: 540,
+          offset: 540 * index,
+          index,
+        })}
       />
 
       {/* Options Modal */}

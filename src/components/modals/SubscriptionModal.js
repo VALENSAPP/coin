@@ -117,7 +117,7 @@ const SubscribeFlowModal = ({
             // Handle profile response
             if (response?.statusCode === 200) {
             } else {
-                showToastMessage(toast, 'danger', response.data);
+                // showToastMessage(toast, 'danger', response.data);
             }
         } catch (error) {
             console.error('Error fetching data:', error);

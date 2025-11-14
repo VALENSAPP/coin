@@ -39,6 +39,7 @@ const SearchScreen = () => {
   const [playingIndex, setPlayingIndex] = useState(null);
   const [previewPost, setPreviewPost] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [isGrid, setIsGrid] = useState(false);
 
   const searchTimeoutRef = useRef(null);
 
@@ -64,6 +65,7 @@ const SearchScreen = () => {
       const res = await getAllUser({ userName: searchQuery });
       if (res.statusCode === 200 || res.status === 200) {
         setFilteredUsers(res?.data?.users ?? []);
+        console.log(res, 'responsse user profile')
       } else {
         setFilteredUsers([]);
       }
@@ -71,7 +73,7 @@ const SearchScreen = () => {
       console.error('Search error:', err);
       setFilteredUsers([]);
     } finally {
-      dispatch(hideLoader());
+      // dispatch(hideLoader());
     }
   }, [dispatch]);
 
@@ -192,37 +194,45 @@ const SearchScreen = () => {
   /** 👤 Navigate to user profile */
   const handleUserProfile = (id) => {
     if (userId === id) {
-      navigation.navigate('ProfileMain', { screen: 'Profile' });
+      navigation.navigate('ProfileStack', { screen: 'FlipsScreen' });
     } else {
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
-        params: { userId: id }
+      navigation.navigate('ProfileStack', {
+        screen: 'FlipsScreen',
+        // params: { userId: id }
       });
     }
   };
 
   /** 🎬 Handle post press (image or video) */
-  const handlePostPress = (item) => {
-  const postUserId = item?.userId || item?.createdBy?._id || item?.user?._id;
+  const handlePostPress = (item, isVideo) => {
+    const postId = item.id;
+    console.log(item, 'chck get post id')
+    console.log(isVideo, 'isVideo--------------->>>>>>>>>')
 
-  if (!postUserId) {
-    console.warn('No user ID found in post:', item);
-    return;
-  }
+    // if (!postId) {
+    //   console.warn('No user ID found in post:', item);
+    //   return;
+    // }
 
-  if (postUserId === userId) {
-    // 🔹 If it's the logged-in user's post → go to personal profile
-    navigation.navigate('ProfileMain', { screen: 'Profile' });
-  } else {
-    console.log(userId,'useridd?>>>>>>>>>>>>>>>.')
-    navigation.navigate('HomeMain', {
-      screen: 'UsersProfile',
-      params: { userId: postUserId },
+    if (isVideo) {
+      navigation.navigate('ProfileMain', {
+        screen: 'FlipsScreen',
+        params: {
+          item: item
+        }
+      });
+    }
+    else {
+     navigation.navigate('ProfileMain', {
+      screen: 'PostView',
+      params: {
+        postData: [item],
+        startIndex: 0,
+      },
     });
-  }
-};
+    }
+  };
 
-  /** 📺 Auto play/pause for videos */
   const viewabilityConfig = {
     itemVisiblePercentThreshold: 50
   };
@@ -292,11 +302,11 @@ const SearchScreen = () => {
       <TouchableOpacity
         key={`${post?.id || index}_${columnIndex}`}
         activeOpacity={0.8}
-        onPress={() => handlePostPress(post)}
+        onPress={() => handlePostPress(post, isVideo)}
         onLongPress={() => openPreview(post)}
         delayLongPress={220}
         style={[
-          localStyles.masonryItem,
+          styles.masonryItem,
           {
             position: 'absolute',
             left,
@@ -310,26 +320,82 @@ const SearchScreen = () => {
           <View style={{ position: 'relative', width: '100%', height: '100%' }}>
             <Video
               source={{ uri: imageUrl }}
-              style={localStyles.media}
+              style={styles.media}
               resizeMode="cover"
               repeat
               paused={playingIndex !== index}
               muted={true}
             />
-            <View style={localStyles.videoIconOverlay}>
+            <View style={styles.videoIconOverlay}>
               <Icon name="play-circle" size={20} color="#fff" />
             </View>
           </View>
         ) : (
           <Image
             source={{ uri: imageUrl }}
-            style={localStyles.media}
+            style={styles.media}
             resizeMode="cover"
           />
         )}
       </TouchableOpacity>
     );
   }, [playingIndex, handlePostPress, openPreview]);
+
+  /** 👥 Render empty state for search results */
+  const renderEmptyState = useCallback(() => {
+    return (
+      <View style={styles.emptyContainer}>
+        <Icon name="search-outline" size={60} color="#ddd" />
+        <Text style={styles.emptyTitle}>No users found</Text>
+        <Text style={styles.emptySubtitle}>Try searching for a different user</Text>
+      </View>
+    );
+  }, []);
+
+  /** 👤 Render list  for user search results */
+  const renderListItem = useCallback(({ item }) => {
+    console.log(item, "profileitemmm====>>>>>>>>>>>>>>>>>>>>")
+    return (
+      <TouchableOpacity
+        style={styles.userListItem}
+        onPress={() => handleUserProfile(item.id)}
+        activeOpacity={0.7}
+      >
+        <Image
+          source={{ uri: normalizeImageUrl(item?.image ? item?.image : <Text style={{ color: "red", fontSize: 20 }}>No data found</Text>) }}
+          style={styles.userAvatar}
+        />
+        <View style={styles.userInfo}>
+          <Text style={styles.userName} numberOfLines={1}>{item?.name || item?.userName}</Text>
+          <Text style={styles.userHandle} numberOfLines={1}>@{item?.userName}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [handleUserProfile]);
+
+  /** 📊 Render grid item for user search results */
+  const renderGridItem = useCallback(({ item }) => {
+    return (
+      <TouchableOpacity
+        style={styles.userGridItem}
+        onPress={() => handleUserProfile(item.id)}
+        activeOpacity={0.7}
+      >
+        <Image
+          source={{ uri: normalizeImageUrl(item?.profilePicture || item?.avatar) }}
+          style={styles.userGridAvatar}
+        />
+        <Text style={styles.userGridName} numberOfLines={1}>{item?.name || item?.userName}</Text>
+      </TouchableOpacity>
+    );
+  }, [handleUserProfile]);
+
+  /** 📋 Render list header */
+  const renderListHeader = useCallback(() => {
+    return (
+      <Text style={styles.sectionTitle}>Search Results</Text>
+    );
+  }, []);
 
   return (
     <>
@@ -354,33 +420,60 @@ const SearchScreen = () => {
             )}
           </View>
 
-          {/* 🔲 Masonry Grid of posts */}
-          {posts.length > 0 ? (
-            <View style={localStyles.masonryWrapper}>
-              <FlatList
-                data={masonryItems}
-                renderItem={({ item }) => renderMasonryItem(item)}
-                keyExtractor={(item, idx) =>
-                  item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`
-                }
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={[
-                  localStyles.masonryContainer,
-                  { height: masonryLayout.maxHeight }
-                ]}
-                removeClippedSubviews={true}
-                initialNumToRender={12}
-                windowSize={10}
-                viewabilityConfig={viewabilityConfig}
-                onViewableItemsChanged={handleViewableItemsChanged}
-              />
+          {searchText.trim().length > 0 ? (
+            <View style={styles.resultsContainer}>
+              {filteredUsers.length > 0 ? (
+                <FlatList
+                  data={filteredUsers}
+                  keyExtractor={(item, idx) => String(item.id ?? idx)}
+                  renderItem={isGrid ? renderGridItem : renderListItem}
+                  showsVerticalScrollIndicator={false}
+                  ListHeaderComponent={renderListHeader}
+                  contentContainerStyle={styles.listContent}
+                  numColumns={isGrid ? 2 : 1}
+                  key={isGrid ? 'grid' : 'list'}
+                  columnWrapperStyle={isGrid ? styles.gridRow : null}
+                  initialNumToRender={10}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                  removeClippedSubviews={Platform.OS === 'android'}
+                />
+              ) : (
+                renderEmptyState()
+              )}
             </View>
-          ) : (
-            <View style={localStyles.emptyContainer}>
-              <Icon name="images-outline" size={60} color="#ddd" />
-              <Text style={localStyles.emptyTitle}>No posts available</Text>
-            </View>
-          )}
+          ) : null}
+
+
+          {/* 🔲 Masonry Grid of posts — Show by default when no search is active */}
+          {searchText.trim().length === 0 ? (
+            posts.length > 0 ? (
+              <View style={styles.masonryWrapper}>
+                <FlatList
+                  data={masonryItems}
+                  renderItem={({ item }) => renderMasonryItem(item)}
+                  keyExtractor={(item, idx) =>
+                    item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`
+                  }
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={[
+                    styles.masonryContainer,
+                    { height: masonryLayout.maxHeight }
+                  ]}
+                  removeClippedSubviews={true}
+                  initialNumToRender={12}
+                  windowSize={10}
+                  viewabilityConfig={viewabilityConfig}
+                  onViewableItemsChanged={handleViewableItemsChanged}
+                />
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Icon name="images-outline" size={60} color="#ddd" />
+                <Text style={styles.emptyTitle}>No posts available</Text>
+              </View>
+            )
+          ) : null}
         </View>
       </TouchableWithoutFeedback>
 
@@ -392,18 +485,18 @@ const SearchScreen = () => {
           onRequestClose={closePreview}
           onDismiss={closePreview}
         >
-          <View style={localStyles.previewOverlay}>
+          <View style={styles.previewOverlay}>
             <TouchableWithoutFeedback onPress={closePreview}>
-              <View style={localStyles.previewBackdrop} />
+              <View style={styles.previewBackdrop} />
             </TouchableWithoutFeedback>
 
-            <View style={localStyles.previewContent}>
-              <View style={localStyles.previewMediaWrapper}>
+            <View style={styles.previewContent}>
+              <View style={styles.previewMediaWrapper}>
                 {previewMediaUrl ? (
                   previewIsVideo ? (
                     <Video
                       source={{ uri: previewMediaUrl }}
-                      style={localStyles.previewMedia}
+                      style={styles.previewMedia}
                       resizeMode="cover"
                       repeat
                       controls
@@ -413,21 +506,21 @@ const SearchScreen = () => {
                   ) : (
                     <Image
                       source={{ uri: previewMediaUrl }}
-                      style={localStyles.previewMedia}
+                      style={styles.previewMedia}
                       resizeMode="cover"
                     />
                   )
                 ) : (
-                  <View style={localStyles.previewFallback}>
-                    <Text style={localStyles.previewFallbackText}>Preview unavailable</Text>
+                  <View style={styles.previewFallback}>
+                    <Text style={styles.previewFallbackText}>Preview unavailable</Text>
                   </View>
                 )}
               </View>
 
-              {/* <TouchableOpacity style={localStyles.previewCloseButton} onPress={closePreview}>
+              {/* <TouchableOpacity style={styles.previewCloseButton} onPress={closePreview}>
                 {/* <Icon name="close" size={26} color="#fff" /> */}
               {/* </TouchableOpacity>  */}
-            </View> 
+            </View>
           </View>
         </Modal>
       ) : null}
@@ -435,100 +528,101 @@ const SearchScreen = () => {
   );
 };
 
-const localStyles = StyleSheet.create({
-  masonryWrapper: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    marginLeft: -12, // Offset container padding
-    marginRight: -12, // Offset container padding
-  },
-  masonryContainer: {
-    position: 'relative',
-    width: SCREEN_WIDTH,
-    paddingBottom: 10,
-  },
-  previewOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewBackdrop: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-  },
-  previewContent: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewMediaWrapper: {
-    width: SCREEN_WIDTH * 0.92,
-    maxHeight: SCREEN_HEIGHT * 0.85,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-  },
-  previewMedia: {
-    width: '100%',
-    height: SCREEN_HEIGHT * 0.75,
-  },
-  previewFallback: {
-    width: '100%',
-    height: SCREEN_HEIGHT * 0.75,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#222',
-  },
-  previewFallbackText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  previewCloseButton: {
-    position: 'absolute',
-    top: 40,
-    right: 24,
-    zIndex: 2,
-  },
-  masonryItem: {
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-  },
-  gridItem: {
-    margin: 1,
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-    width: (SCREEN_WIDTH - 32 - 6) / 3,
-    height: (SCREEN_WIDTH - 32 - 6) / 3,
-  },
-  media: {
-    width: '100%',
-    height: '100%',
-  },
-  videoIconOverlay: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 4,
-    padding: 4,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 10,
-  },
-});
+// const localStyles = StyleSheet.create({
+//   masonryWrapper: {
+//     flex: 1,
+//     width: SCREEN_WIDTH,
+//     marginLeft: -12, // Offset container padding
+//     marginRight: -12, // Offset container padding
+//   },
+//   masonryContainer: {
+//     position: 'relative',
+//     width: SCREEN_WIDTH,
+//     paddingBottom: 10,
+//   },
+//   previewOverlay: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   previewBackdrop: {
+//     position: 'absolute',
+//     top: 0,
+//     bottom: 0,
+//     left: 0,
+//     right: 0,
+//     backgroundColor: 'rgba(0,0,0,0.85)',
+//   },
+//   previewContent: {
+//     width: '100%',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   previewMediaWrapper: {
+//     width: SCREEN_WIDTH * 0.92,
+//     maxHeight: SCREEN_HEIGHT * 0.85,
+//     borderRadius: 18,
+//     overflow: 'hidden',
+//     backgroundColor: '#000',
+//   },
+//   previewMedia: {
+//     width: '100%',
+//     height: SCREEN_HEIGHT * 0.75,
+//   },
+//   previewFallback: {
+//     width: '100%',
+//     height: SCREEN_HEIGHT * 0.75,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     backgroundColor: '#222',
+//   },
+//   previewFallbackText: {
+//     color: '#fff',
+//     fontSize: 16,
+//   },
+//   previewCloseButton: {
+//     position: 'absolute',
+//     top: 40,
+//     right: 24,
+//     zIndex: 2,
+//   },
+//   masonryItem: {
+//     borderRadius: 2,
+//     overflow: 'hidden',
+//     backgroundColor: '#f0f0f0',
+//   },
+//   gridItem: {
+//     margin: 1,
+//     borderRadius: 2,
+//     overflow: 'hidden',
+//     backgroundColor: '#f0f0f0',
+//     width: (SCREEN_WIDTH - 32 - 6) / 3,
+//     height: (SCREEN_WIDTH - 32 - 6) / 3,
+//   },
+//   media: {
+//     width: '100%',
+//     height: '100%',
+//   },
+//   videoIconOverlay: {
+//     position: 'absolute',
+//     top: 6,
+//     right: 6,
+//     backgroundColor: 'rgba(0,0,0,0.5)',
+//     borderRadius: 4,
+//     padding: 4,
+//   },
+//   emptyContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     paddingTop: 100,
+//   },
+//   emptyTitle: {
+//     fontSize: 16,
+//     color: '#666',
+//     marginTop: 10,
+//   },
+
+// });
 
 export default SearchScreen;
