@@ -68,7 +68,7 @@ export default function MainTabNavigator() {
 
   useEffect(() => {
     loadProfileType();
-  }, []);
+  }, [profile]);
 
   const loadProfileType = async () => {
     const type = await AsyncStorage.getItem('profile');
@@ -275,7 +275,7 @@ export default function MainTabNavigator() {
   // Memoize tab bar styles
   const defaultTabBarStyle = useMemo(() => ({
     display: 'flex',
-    backgroundColor: profile === 'company' ? '#fcfbfaff' : '#f8f2fd',
+    backgroundColor: profile == 'company' ? '#fcfbfaff' : '#f8f2fd',
     borderTopWidth: 1.5,
     borderTopColor: '#dbdbdb',
     height: 50,

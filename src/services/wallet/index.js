@@ -33,9 +33,13 @@ export const setUserSubscription = async (data, id) => {
 }
 
 export const getUserSubscription = async (id) => {
-  return axiosInstance.get('/user/subscription/' + id);
+  return axiosInstance.get('/user/subscription/' + id); //by subscription ID
 }
 
 export const deleteUserSubscription = async (id) => {
   return axiosInstance.delete('/user/subscription/' + id);
+}
+
+export const getSubscriptionByUserID = async (id) => {
+  return axiosInstance.get('/user/getSubscriptionByUserID/' + id);
 }

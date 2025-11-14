@@ -115,7 +115,7 @@ const ProfilePersonData = ({
         setUserProfile(userDataToSet.profile || '');
         // console.log('User profile:', userDataToSet.profile);
       } else {
-        showToastMessage(toast, 'danger', profileResponse.data.message);
+        // showToastMessage(toast, 'danger', profileResponse.data.message);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -411,7 +411,7 @@ const ProfilePersonData = ({
         dispatch(setProfileImg(img));
         showToastMessage(toast, 'success', res.data.message);
       } else {
-        showToastMessage(toast, 'danger', res.data.message);
+        // showToastMessage(toast, 'danger', res.data.message);
       }
     } catch (err) {
       // showToastMessage(toast, 'danger', err.response?.data?.message || 'Error saving profile');
