@@ -3,13 +3,15 @@ import loaderReducer from '../reducers/LoaderReducer';
 import loginReducer from '../reducers/LoginReducer';
 import profileImgReducer from '../reducers/ProfileImgReducer';
 import drawerReducer from '../reducers/GlobalDrawerReducer';
+import userProfileReducer from '../reducers/UserProfileReducer';
 
 const store = configureStore({
   reducer: {
     loader: loaderReducer,
     login: loginReducer,
     profileImage: profileImgReducer,
-    drawer: drawerReducer
+    drawer: drawerReducer,
+    userProfile: userProfileReducer,
   },
 });
 

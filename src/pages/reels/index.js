@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useIsFocused, useRoute } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -100,6 +100,7 @@ export default function FlipsScreen() {
   const route = useRoute();
   const toast = useToast();
   const dispatch = useDispatch();
+  const navigation = useNavigation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reels, setReels] = useState([]);
   const [muted, setMuted] = useState({});
@@ -159,7 +160,7 @@ export default function FlipsScreen() {
   useEffect(() => {
     // Get reel from params if exists
     const paramReel = route.params?.item;
-    
+
     if (paramReel) {
       // Transform param reel to match app structure
       const transformedParamReel = {
@@ -186,11 +187,11 @@ export default function FlipsScreen() {
         location: paramReel.location || null,
         taggedPeople: paramReel.taggedPeople || [],
       };
-      
+
       // Set param reel as first item
       setReels([transformedParamReel]);
     }
-    
+
     // Fetch all reels (will be appended after param reel)
     fetchAllReels(paramReel);
   }, []);
@@ -276,6 +277,17 @@ export default function FlipsScreen() {
       setCommentsCount(seededCommentsCount);
     }
   }, [reels]);
+
+  const handleBackPress = useCallback(() => {
+    const returnTo = route.params?.returnTo;
+    const returnParams = route.params?.returnParams;
+
+    if (returnTo) {
+      navigation.navigate(returnTo, returnParams);
+    } else {
+      navigation.goBack();
+    }
+  }, [navigation, route.params]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
@@ -536,10 +548,16 @@ export default function FlipsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
+          onPress={handleBackPress}
+          style={styles.buttons}
+        >
+          <Icon name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.headerLeft}
           onPress={() => setDropdownVisible(v => !v)}
         >
-          <Text style={styles.logo}>Reels</Text>
+          <Text style={styles.logo}>Flips</Text>
           <Icon name="chevron-down" size={18} color="#fff" style={styles.chevronIcon} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerIconButton}>

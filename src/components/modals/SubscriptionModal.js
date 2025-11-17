@@ -6,6 +6,7 @@ import {
     TextInput,
     StyleSheet,
     ScrollView,
+    Linking,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -15,8 +16,10 @@ import { getUserCredentials } from '../../services/post';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getDragonflyIcon } from '../profile/ProfilePersonalData';
-import { getUserSubscription } from '../../services/wallet';
+import { getSubscriptionByUserID, getUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FanPageSubscription } from '../../services/stirpe';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const SubscribeFlowModal = ({
     visible,
@@ -40,9 +43,12 @@ const SubscribeFlowModal = ({
     const toast = useToast();
     const dispatch = useDispatch();
     const isCompanyProfile = userProfile === 'company';
+    const [subscriptionAmount, setSubscriptionAmount] = useState(null);
 
     useEffect(() => {
         fetchAllData();
+        fetchSubscriptionByUserId();
+        GetSubscription();
         fetchSubscriptionAmount();
         if (visible) step1Ref.current?.open();
         else {
@@ -64,6 +70,95 @@ const SubscribeFlowModal = ({
             onClose?.();
         }
     };
+
+    const fetchSubscriptionByUserId = async () => {
+        try {
+            const id = await AsyncStorage.getItem('userId');
+            dispatch(showLoader());
+            const response = await getSubscriptionByUserID(id);
+            console.log('getSubscriptionByUserID response:', response);
+
+            if (response?.statusCode === 200) {
+                const subscriptions = response?.data?.subscriptions;
+                if (subscriptions && subscriptions.length > 0) {
+                    const amount = subscriptions[0].subscriptionAmount;
+                    console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
+                    setSubscriptionAmount(amount);
+                    setPrice(amount)
+                } else {
+                    console.log("No subscriptions found");
+                    setSubscriptionAmount(null);
+                }
+            } else {
+                showToastMessage(toast, 'danger', response.data.message);
+            }
+
+        } catch (error) {
+            console.error('Error saving subscription:', error);
+            showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+        }
+        finally {
+            dispatch(hideLoader());
+        }
+    };
+
+
+    const GetSubscription = async () => {
+        dispatch(showLoader());
+
+        try {
+            const response = await FanPageSubscription();
+
+            console.log("Subscription Response:", response);
+
+            if (response?.status === 200 && response?.data?.url) {
+                const url = response.data.url;
+
+                // Check if InAppBrowser is available
+                if (await InAppBrowser.isAvailable()) {
+                    await InAppBrowser.open(url, {
+                        dismissButtonStyle: 'close',
+                        preferredBarTintColor: '#ffffff',
+                        preferredControlTintColor: '#000000',
+                        readerMode: false,
+                        animated: true,
+                        modalPresentationStyle: 'fullScreen',
+                        modalTransitionStyle: 'coverVertical',
+                        enableBarCollapsing: false,
+                        showTitle: true,
+                        toolbarColor: '#ffffff',
+                        secondaryToolbarColor: '#f0f0f0',
+                    });
+
+                    // Callback if you have one
+                    if (onPurchaseComplete) {
+                        onPurchaseComplete();
+                    }
+                } else {
+                    // If InAppBrowser is not available, fallback to Linking
+                    await Linking.openURL(url);
+                }
+
+            } else {
+                showToastMessage(
+                    toast,
+                    'danger',
+                    response?.message || 'Failed to open subscription. Please try again.'
+                );
+            }
+        } catch (error) {
+            console.log("Subscription Error:", error);
+            showToastMessage(
+                toast,
+                'danger',
+                'Network error. Please check your internet connection and try again.'
+            );
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
+
+
 
     const handlePayment = () => {
         if (!acceptedTerms) {
@@ -171,59 +266,65 @@ const SubscribeFlowModal = ({
             {/* Step 2: Payment */}
             <RBSheet
                 ref={step2Ref}
-                height={445}
+                height={250}
                 closeOnPressMask
                 customStyles={{
                     container: styles.sheetContainer,
                 }}>
-                <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.header}>💳 Add Card</Text>
-                    <Text style={styles.paymentNote}>
-                        We are fully compliant with Payment Card Industry Data Security
-                        Standards.
-                    </Text>
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Name on Card"
-                        value={cardInfo.name}
-                        onChangeText={t => setCardInfo({ ...cardInfo, name: t })}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Card Number"
-                        keyboardType="number-pad"
-                        value={cardInfo.number}
-                        onChangeText={t => setCardInfo({ ...cardInfo, number: t })}
-                    />
-                    <View style={styles.row}>
-                        <TextInput
-                            style={[styles.input, { flex: 1, marginRight: 8 }]}
-                            placeholder="MM/YY"
-                            value={cardInfo.expiry}
-                            onChangeText={t => setCardInfo({ ...cardInfo, expiry: t })}
-                        />
-                        <TextInput
-                            style={[styles.input, { flex: 1, marginLeft: 8 }]}
-                            placeholder="CVV"
-                            secureTextEntry
-                            keyboardType="number-pad"
-                            value={cardInfo.cvv}
-                            onChangeText={t => setCardInfo({ ...cardInfo, cvv: t })}
-                        />
-                    </View>
-
+                <ScrollView
+                    style={styles.container}
+                    showsVerticalScrollIndicator={false}
+                    scrollEnabled={true}
+                    nestedScrollEnabled={true}
+                >
                     <View style={styles.priceBox}>
                         <Text style={styles.priceLabel}>Membership</Text>
                         <Text style={styles.priceValue}>
-                            ${membershipPrice.toFixed(2)} / month
+                            ${subscriptionAmount} / month
                         </Text>
                     </View>
 
-                    {/* ✅ Custom Checkbox */}
+                    <View style={styles.termsContainer}>
+                        <ScrollView
+                            style={{ maxHeight: 240 }}
+                            showsVerticalScrollIndicator={true}
+                            nestedScrollEnabled={true}
+                            onScrollBeginDrag={() => {
+                                // Disable parent scroll when user starts scrolling terms
+                            }}
+                            onScrollEndDrag={() => {
+                                // Re-enable parent scroll when done
+                            }}
+                        >
+                            <Text style={styles.termsContent}>
+                                {`VALENS SUBSCRIBER TERMS & AGREEMENT\n
+For Members Purchasing a Creator's Subscription Plan\n
+By subscribing to a creator on Valens ("Plan Owner"), you ("Subscriber") agree to the following terms, in addition to the Valens Terms of Use, Master Subscription Policy, Privacy Policy, and Payout/Payment Policies.\n
+1. SUBSCRIPTION ACCESS\n
+By purchasing a subscription, you gain access to the creator's private channel, exclusive posts, content, messages, perks, and benefits defined by the creator. Your subscription is personal and non-transferable.\n
+2. MONTHLY BILLING & AUTO-RENEWAL\n
+You authorize Valens Technologies Inc. to charge your selected payment method monthly, automatically renew your subscription every billing cycle, and continue charging until you cancel. Prices may range from $9.99 to $100.00 USD per month.\n
+3. CANCELLATION POLICY\n
+Cancel anytime via Settings → Subscriptions → Manage. You will retain access until the end of your paid period. No refunds or partial credits are issued.\n
+4. NO REFUNDS\n
+All subscription payments are final, including partial months, unused time, accidental purchases, early cancellations, or creator content changes.\n
+5. CONTENT PROTECTION\n
+You may NOT screenshot, screen record, print, download, copy, redistribute, or share paid content. After 3 unauthorized attempts, your account may be blocked for review.\n
+6. SUBSCRIBER CONDUCT\n
+You must not harass creators, request prohibited content, engage in fraud, or violate privacy or intellectual property rights. Violations may result in restrictions, bans, loss of access, or legal action.\n
+7. RISK DISCLOSURE\n
+Creators manage their own content. Valens is not responsible for frequency, type of content, or communication between creators and subscribers.\n
+8. BILLING AUTHORIZATION\n
+By confirming, you authorize automated monthly payments through Valens payment partners.\n
+9. AGREEMENT\n
+By clicking "Agree & Subscribe," you confirm you have read and accept these terms and understand this is a recurring monthly payment.\n`}
+                            </Text>
+                        </ScrollView>
+                    </View>
+
                     <TouchableOpacity
                         style={styles.checkboxRow}
-                        activeOpacity={0.7}
+                        activeOpacity={0.5}
                         onPress={() => setAcceptedTerms(!acceptedTerms)}>
                         <Ionicons
                             name={
@@ -238,12 +339,13 @@ const SubscribeFlowModal = ({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.btn, styles.doneBtn]}
-                        onPress={handlePayment}>
+                        style={[styles.btn, styles.doneBtn, { opacity: acceptedTerms ? 1 : 0.4 }]}
+                        onPress={GetSubscription}>
                         <Text style={styles.doneText}>✅ Done — Complete Payment</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </RBSheet>
+
         </>
     );
 };
@@ -361,5 +463,19 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    termsContent: {
+        color: '#444',
+        fontSize: 13,
+        lineHeight: 20,
+        textAlign: 'left',
+    },
+    termsContainer: {
+        marginVertical: 10,
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        padding: 10,
     },
 });

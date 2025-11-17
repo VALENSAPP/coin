@@ -35,6 +35,7 @@ import { getProfile } from '../../../services/createProfile';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import TextGradient from '../../../assets/textgradient/TextGradient';
 import { AuthHeader } from '../../../components/auth';
+import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 
 const { width, height } = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ export default function LoginScreen() {
           const profile = response.data.profile
          if (profile) {
             await AsyncStorage.setItem('profile', profile);
+            dispatch(setUserProfile(profile));
           }
           navigation.navigate('CreateProfile');
         } else {
