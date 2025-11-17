@@ -26,6 +26,8 @@ import { signup } from '../../../services/authentication';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthHeader } from '../../../components/auth';
+import DeviceInfo from "react-native-device-info";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
@@ -39,6 +41,16 @@ export default function SignupScreen() {
   const styles = createStyles();
   const dispatch = useDispatch();
   const profile = isChecked ? 'company' : 'user';
+
+  useEffect(() => {
+    const loadDeviceId = async () => {
+      const DeviceId = await DeviceInfo.getDeviceName();
+      await AsyncStorage.setItem("device_id", DeviceId);
+      console.log("Saved Device ID:", DeviceId);
+    };
+
+    loadDeviceId();
+  }, []);
 
   const validate = () => {
     const errs = {};

@@ -271,50 +271,86 @@ export default function PostItem({
   const dispatch = useDispatch();
   const toast = useToast();
 
+  if (!item || !item.id) {
+    console.warn('PostItem received invalid item:', item);
+    return null;
+  }
+  const safeMedia = item.media || [];
+
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setUserId(id);
+      } catch (error) {
+        console.error('Error fetching userId:', error);
+      }
     };
+
     fetchUserId();
-    fetchAllData();
-  }, []);
+
+    // Only fetch if we have a valid UserId
+    if (item?.UserId) {
+      fetchAllData();
+    }
+  }, [item?.UserId]); // ← ADDED DEPENDENCY
+
+  // ===========================================
+  // 4. FIX: Improve fetchAllData error handling
+  // ===========================================
 
   const fetchAllData = async () => {
+    if (!item?.UserId) {
+      console.warn('No UserId available for fetching data');
+      return;
+    }
+
     try {
       dispatch(showLoader());
 
-      const [dashboardResponse, profileResponse] = await Promise.all([
+      const [dashboardResponse, profileResponse] = await Promise.allSettled([
         getUserDashboard(item.UserId),
         getUserCredentials(item.UserId)
       ]);
 
-      if (dashboardResponse?.statusCode === 200) {
-        setTotalFollowers(dashboardResponse.data.dashboardData.totalFollowers);
+      // Handle dashboard response
+      if (dashboardResponse.status === 'fulfilled') {
+        const data = dashboardResponse.value;
+        if (data?.statusCode === 200) {
+          setTotalFollowers(data.data?.dashboardData?.totalFollowers || 0);
+        } else {
+          console.warn('Dashboard fetch failed:', data?.data?.message);
+        }
       } else {
-        showToastMessage(toast, 'danger', dashboardResponse.data.message);
+        console.error('Dashboard fetch rejected:', dashboardResponse.reason);
       }
 
-      if (profileResponse?.statusCode === 200) {
-        let userDataToSet;
-        if (profileResponse.data && profileResponse.data.user) {
-          userDataToSet = profileResponse.data.user;
-        } else if (profileResponse.data) {
-          userDataToSet = profileResponse.data;
+      // Handle profile response
+      if (profileResponse.status === 'fulfilled') {
+        const data = profileResponse.value;
+        if (data?.statusCode === 200) {
+          let userDataToSet;
+          if (data.data && data.data.user) {
+            userDataToSet = data.data.user;
+          } else if (data.data) {
+            userDataToSet = data.data;
+          } else {
+            userDataToSet = data;
+          }
+          setUserProfile(userDataToSet.profile || '');
         } else {
-          userDataToSet = profileResponse;
+          console.warn('Profile fetch failed:', data?.data?.message);
         }
-        setUserProfile(userDataToSet.profile || '');
-        console.log('User profile:', userDataToSet.profile);
       } else {
-        showToastMessage(toast, 'danger', profileResponse.data.message);
+        console.error('Profile fetch rejected:', profileResponse.reason);
       }
 
     } catch (error) {
+      console.error('Error in fetchAllData:', error);
       showToastMessage(
         toast,
         'danger',
-        error?.response?.message ?? 'Something went wrong',
+        error?.response?.message ?? 'Failed to load user data',
       );
     } finally {
       dispatch(hideLoader());
@@ -341,7 +377,11 @@ export default function PostItem({
     return exts.some((ext) => lower.endsWith(`.${ext}`));
   };
 
-  const buyerList = (item.boughtBy || item.buyers) || [];
+  const buyerList = Array.isArray(item.boughtBy)
+    ? item.boughtBy
+    : Array.isArray(item.buyers)
+      ? item.buyers
+      : [];
 
   const animateHeart = () => {
     Animated.sequence([
@@ -357,86 +397,38 @@ export default function PostItem({
 
   useEffect(() => {
     if (!item.media || item.media.length <= 0) return;
-    setVideoStates(() => {
-      const next = {};
-      item.media.forEach((_, idx) => { next[idx] = idx !== currentIndex; });
-      return next;
+
+    // Only update video states, don't create infinite loop
+    const nextStates = {};
+
+    item.media.forEach((_, idx) => {
+      // Video should be paused unless ALL conditions are met:
+      const shouldPause = !(
+        idx === currentIndex &&           // Is current slide
+        isVisible &&                      // Post is visible
+        screenFocused &&                  // Screen is focused
+        String(playingPostId) === String(item.id) // This post is playing
+      );
+
+      nextStates[idx] = shouldPause;
     });
-  }, [currentIndex, item.media]);
 
-  useEffect(() => {
-    if (!isVisible) {
-      // Stop all videos immediately
-      setVideoStates(() => {
-        const paused = {};
-        (item.media || []).forEach((_, idx) => {
-          paused[idx] = true;
-        });
-        return paused;
-      });
-
-      // Pause all video refs directly
-      Object.values(videoRefsMap.current).forEach(ref => {
-        if (ref) {
-          ref.pause?.();
-        }
-      });
-
-      setCurrentIndex(0);
-      setIsMuted(true);
-    }
-  }, [isVisible, item.media]);
-
-  // Pause/resume based on the global playingPostId from parent
-  useEffect(() => {
-    if (String(playingPostId) !== String(item.id)) {
-      // if this post is not the playing one, pause everything
-      Object.values(videoRefsMap.current).forEach(ref => {
-        if (ref) ref.pause?.();
-      });
-      setVideoStates({});
-    } else {
-      // if this post becomes the playing one, ensure current index is unpaused
-      setVideoStates(() => {
-        const next = {};
-        (item.media || []).forEach((_, idx) => { next[idx] = idx !== currentIndex; });
-        return next;
-      });
-    }
-  }, [playingPostId, item.id, currentIndex]);
-  // Stop videos when screen loses focus
-  useEffect(() => {
-    if (!screenFocused) {
-      // Pause all videos when screen loses focus
-      setVideoStates(() => {
-        const paused = {};
-        (item.media || []).forEach((_, idx) => {
-          paused[idx] = true;
-        });
-        return paused;
-      });
-
-      Object.values(videoRefsMap.current).forEach(ref => {
-        if (ref) {
-          ref.pause?.();
-        }
-      });
-    }
-  }, [screenFocused, item.media]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    if (!item.media || item.media.length <= 0) return;
-
-    setVideoStates(() => {
-      const next = {};
-      item.media.forEach((_, idx) => {
-        // Only the current index video can play if post is visible
-        next[idx] = !(idx === currentIndex && isVisible && screenFocused);
-      });
-      return next;
+    // Only update if states actually changed to prevent loops
+    setVideoStates(prev => {
+      const hasChanged = Object.keys(nextStates).some(
+        key => prev[key] !== nextStates[key]
+      );
+      return hasChanged ? nextStates : prev;
     });
-  }, [currentIndex, item.media, isVisible, screenFocused]);
+
+    // Directly pause video refs that should be paused
+    Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+      const ref = videoRefsMap.current[idx];
+      if (ref && shouldPause) {
+        ref.pause?.();
+      }
+    });
+  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, item.media]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -477,11 +469,13 @@ export default function PostItem({
 
   const renderMedia = ({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? true; // Default to paused
+    const isPaused = videoStates[index] ?? true;
+
+    // FIX: Was comparing playingPostId to itself!
     const shouldPlay =
       screenFocused &&
-      String(playingPostId) === String(playingPostId) &&
-      String(currentlyVisiblePostId) === String(playingPostId) &&
+      String(playingPostId) === String(item.id) && // ← FIXED: Compare to item.id
+      String(currentlyVisiblePostId) === String(item.id) && // ← FIXED
       isVisible &&
       index === currentIndex &&
       !isPaused &&
@@ -502,7 +496,9 @@ export default function PostItem({
               paused={!shouldPlay}
               muted={isMuted || isPaused}
               controls={false}
-              onError={() => { }}
+              onError={(error) => {
+                console.log('Video error:', error);
+              }}
               playWhenInactive={false}
               progressUpdateInterval={500}
             />
@@ -510,7 +506,6 @@ export default function PostItem({
               style={[styles.videoOverlay, !isPaused && styles.videoOverlayTransparent]}
               activeOpacity={0.7}
               onPress={() => {
-                // Only toggle if this post is visible
                 if (isVisible && screenFocused) {
                   setVideoStates((prev) => ({
                     ...prev,
@@ -748,7 +743,7 @@ export default function PostItem({
             </Text>
           ) : null}
 
-         {postData.raisedAmount !== undefined && postData.raisedAmount > 0 &&
+          {postData.raisedAmount !== undefined && postData.raisedAmount > 0 &&
             <>
               <View style={styles.progressSection}>
                 <View style={styles.progressBarWrapper}>
