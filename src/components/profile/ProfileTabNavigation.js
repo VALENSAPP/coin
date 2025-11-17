@@ -24,14 +24,14 @@ const ReelsTabHandler = () => {
   return null; // Return nothing as we're navigating away
 };
 
-const ProfileTabs = memo(({ post, displayName }) => {
+const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
-    (navProps) => <PostsScreen {...navProps} postCheck={post} />,
-    [post],
+    (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData}/>,
+    [post, userData],
   );
 
   // ✅ subscription confirmation handler
@@ -70,7 +70,7 @@ const ProfileTabs = memo(({ post, displayName }) => {
             shadowRadius: 4,
           },
           tabBarIndicatorStyle: {
-            backgroundColor: '#5a2d82',
+            backgroundColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82',
             height: 3,
             borderRadius: 2,
           },
@@ -89,7 +89,7 @@ const ProfileTabs = memo(({ post, displayName }) => {
               <Ionicons
                 name={focused ? 'grid' : 'grid-outline'}
                 size={24}
-                color={focused ? '#5a2d82' : '#6b7280'}
+                color={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
               />
             ),
           }}
@@ -104,7 +104,7 @@ const ProfileTabs = memo(({ post, displayName }) => {
           options={{
             tabBarIcon: ({ focused }) => (
               <ProfileReelIcon
-                fill={focused ? '#5a2d82' : '#6b7280'}
+                fill={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
                 height={24}
                 width={24}
               />
@@ -125,7 +125,7 @@ const ProfileTabs = memo(({ post, displayName }) => {
           options={{
             tabBarIcon: ({ focused }) => (
               <LockKey
-                fill={focused ? '#5a2d82' : '#6b7280'}
+                fill={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
                 height={24}
                 width={24}
               />
@@ -141,7 +141,7 @@ const ProfileTabs = memo(({ post, displayName }) => {
               <MaterialCommunityIcons
                 name={focused ? 'lightning-bolt' : 'lightning-bolt-outline'}
                 size={24}
-                color={focused ? '#5a2d82' : '#6b7280'}
+                color={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
               />
             ),
           }}
@@ -157,6 +157,8 @@ const ProfileTabs = memo(({ post, displayName }) => {
           console.log('Payment info:', info);
         }}
         displayName={displayName}
+        userData={userData}
+        dashboard={dashboard}
       />
     </>
   );

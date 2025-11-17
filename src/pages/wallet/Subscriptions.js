@@ -1,5 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -17,6 +17,10 @@ import { PostStory } from '../../services/stories';
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../../components/home/story.js/StoryComposer';
 import { showToastMessage } from '../../components/displaytoastmessage';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -25,10 +29,12 @@ const SubventionSetupScreen = () => {
     const [printAttempts, setPrintAttempts] = useState(0);
     const navigation = useNavigation();
     const toast = useToast();
+    const dispatch = useDispatch();
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
+    const [subscriptionAmount, setSubscriptionAmount] = useState(null);
 
     const contentTabs = [
         { id: 'posts', label: 'New Mint', icon: '📝' },
@@ -37,9 +43,45 @@ const SubventionSetupScreen = () => {
         { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
     ];
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchSubscriptionByUserId();
+        }, [])
+    );
+
+    const fetchSubscriptionByUserId = async () => {
+        try {
+            const id = await AsyncStorage.getItem('userId');
+            dispatch(showLoader());
+            const response = await getSubscriptionByUserID(id);
+            console.log('getSubscriptionByUserID response:', response);
+
+            if (response?.statusCode === 200) {
+                const subscriptions = response?.data?.subscriptions;
+                if (subscriptions && subscriptions.length > 0) {
+                    const amount = subscriptions[0].subscriptionAmount;
+                    console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
+                    setSubscriptionAmount(amount);
+                    setPrice(amount)
+                } else {
+                    console.log("No subscriptions found");
+                    setSubscriptionAmount(null);
+                }
+            } else {
+                showToastMessage(toast, 'danger', response.data.message);
+            }
+
+        } catch (error) {
+            console.error('Error saving subscription:', error);
+            showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+        }
+        finally {
+            dispatch(hideLoader());
+        }
+    };
+
     const handlePriceChange = (text) => {
-        // Allow empty string or any numeric input while typing
-        if (text === '' || /^\d+$/.test(text)) {
+        if (text === '' || /^\d*\.?\d{0,2}$/.test(text)) {
             setPrice(text);
         }
     };
@@ -280,6 +322,37 @@ const SubventionSetupScreen = () => {
         </Modal>
     );
 
+    const handleSaveSubscription = async () => {
+        try {
+            const subscriptionAmount = parseFloat(price) || 0;
+            if (subscriptionAmount < 9 || subscriptionAmount > 100) {
+                showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
+                return;
+            }
+            const id = await AsyncStorage.getItem('userId');
+            const dataToSend = {
+                subscriptionAmount: subscriptionAmount,
+                status: "ACTIVE",
+                isDelete: 0
+            };
+            dispatch(showLoader());
+            const response = await setUserSubscription(dataToSend, id);
+            console.log('setUserSubscription response:', response);
+            if (response?.statusCode === 200) {
+                showToastMessage(toast, 'success', 'Subscription saved successfully');
+            } else {
+                showToastMessage(toast, 'danger', response.data.message);
+            }
+
+        } catch (error) {
+            console.error('Error saving subscription:', error);
+            showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+        }
+        finally {
+            dispatch(hideLoader());
+        }
+    };
+
     return (
         <>
             <ScrollView style={styles.container}>
@@ -296,7 +369,7 @@ const SubventionSetupScreen = () => {
                             onChangeText={handlePriceChange}
                             onBlur={handlePriceBlur}
                             keyboardType="numeric"
-                            maxLength={3}
+                        // maxLength={3}
                         />
                         <Text style={styles.perMonth}>/month</Text>
                     </View>
@@ -382,7 +455,7 @@ const SubventionSetupScreen = () => {
                     </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.saveButton}>
+                <TouchableOpacity style={styles.saveButton} onPress={handleSaveSubscription}>
                     <Text style={styles.saveButtonText}>Save & Activate Program</Text>
                 </TouchableOpacity>
 
