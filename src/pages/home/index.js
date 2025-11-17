@@ -29,6 +29,7 @@ import TextGradient from '../../assets/textgradient/TextGradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../services/createProfile';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
+import { setUserProfile } from '../../redux/actions/UserProfileAction';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 110;
@@ -103,6 +104,7 @@ export default function HomeScreen() {
       const response = await getProfile(id);
       if (response.statusCode === 200 && response.data) {
         await AsyncStorage.setItem('profile', response.data.profile || '');
+         dispatch(setUserProfile(response.data.profile));
         
         const raw = response?.data?.image;
         console.log('getProfilegetProfilegetProfile response--------',raw);
