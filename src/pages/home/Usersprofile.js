@@ -211,7 +211,7 @@ const Usersprofile = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: userData?.profile == 'company' ? '#fcfbfaff' : '#f8f2fd' }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={
@@ -240,10 +240,10 @@ const Usersprofile = () => {
         />
 
         <View>
-          <HighlightStories />
+          <HighlightStories userData={userData}/>
         </View>
 
-        <ProfileTabs post={posts} />
+        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard}/>
       </ScrollView>
 
       {/* Token Purchase Modal */}
@@ -316,7 +316,6 @@ export default Usersprofile;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingBottom: 20,
   },
   scrollContainer: {

@@ -38,8 +38,17 @@ export default function PostView({ postData = [] }) {
 
   // Extract params including the source screen info
   const { postData: navPosts, startIndex, fromScreen } = route.params || {};
-  const posts =
-    Array.isArray(navPosts) && navPosts.length ? navPosts : postData;
+  const posts = useMemo(() => {
+    if (Array.isArray(navPosts) && navPosts.length) {
+      return navPosts;
+    } else if (navPosts && typeof navPosts === 'object') {
+      // Single post object - convert to array
+      return [navPosts];
+    } else if (Array.isArray(postData) && postData.length) {
+      return postData;
+    }
+    return [];
+  }, [navPosts, postData]);
 
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
@@ -82,8 +91,8 @@ export default function PostView({ postData = [] }) {
     //     screen: 'Home'
     //   });
     // } else {
-      // Otherwise, use goBack as fallback
-      navigation.goBack();
+    // Otherwise, use goBack as fallback
+    navigation.goBack();
     // }
   }, [navigation, fromScreen]);
 

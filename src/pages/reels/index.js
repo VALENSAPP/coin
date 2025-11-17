@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -97,6 +97,7 @@ const mockComments = {
 
 export default function FlipsScreen() {
   const isFocused = useIsFocused();
+  const route = useRoute();
   const toast = useToast();
   const dispatch = useDispatch();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -156,10 +157,45 @@ export default function FlipsScreen() {
   }, [isFocused]);
 
   useEffect(() => {
-    fetchAllReels();
+    // Get reel from params if exists
+    const paramReel = route.params?.item;
+    
+    if (paramReel) {
+      // Transform param reel to match app structure
+      const transformedParamReel = {
+        id: paramReel.id || `param_${Date.now()}`,
+        video: paramReel.images?.[0] || paramReel.video || '',
+        user: paramReel.userName || 'Unknown User',
+        avatar: paramReel.userImage || 'https://randomuser.me/api/portraits/men/1.jpg',
+        caption: paramReel.caption || paramReel.text || 'No caption',
+        music: paramReel.music || 'Original Audio',
+        likes: paramReel.likeCount || 0,
+        comments: paramReel.commentCount || 0,
+        shares: paramReel.shareCount || 0,
+        isLiked: paramReel.isLike || false,
+        isFollowing: paramReel.isFollow || false,
+        views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
+        duration: 30000,
+        verified: false,
+        likedBy: [`${paramReel.likeCount || 0} others`],
+        isRemixable: true,
+        isSaved: paramReel.isSaved || false,
+        isHide: paramReel.isHide || false,
+        userId: paramReel.userId,
+        hashtag: paramReel.hashtag || [],
+        location: paramReel.location || null,
+        taggedPeople: paramReel.taggedPeople || [],
+      };
+      
+      // Set param reel as first item
+      setReels([transformedParamReel]);
+    }
+    
+    // Fetch all reels (will be appended after param reel)
+    fetchAllReels(paramReel);
   }, []);
 
-  const fetchAllReels = async () => {
+  const fetchAllReels = async (paramReel) => {
     try {
       dispatch(showLoader());
       const response = await getAllReels();
@@ -168,7 +204,7 @@ export default function FlipsScreen() {
         // Transform API response to match app structure
         const transformedReels = response.data.map((item, index) => ({
           id: item.id,
-          video: item.images?.[0] || '', // First image is the video URL
+          video: item.images?.[0] || '',
           user: item.userName || 'Unknown User',
           avatar: item.userImage || 'https://randomuser.me/api/portraits/men/1.jpg',
           caption: item.caption || item.text || 'No caption',
@@ -179,7 +215,7 @@ export default function FlipsScreen() {
           isLiked: item.isLike || false,
           isFollowing: item.isFollow || false,
           views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
-          duration: 30000, // Default duration
+          duration: 30000,
           verified: false,
           likedBy: [`${item.likeCount || 0} others`],
           isRemixable: true,
@@ -191,9 +227,20 @@ export default function FlipsScreen() {
           taggedPeople: item.taggedPeople || [],
         }));
 
-        // Update reels with API data, keep mock data if API returns empty
-        if (transformedReels.length > 0) {
-          setReels(transformedReels);
+        // If param reel exists, append API reels after it
+        if (paramReel) {
+          setReels(prevReels => {
+            // Filter out the param reel from API data if it exists (to avoid duplicates)
+            const filteredApiReels = transformedReels.filter(
+              apiReel => apiReel.id !== prevReels[0]?.id
+            );
+            return [...prevReels, ...filteredApiReels];
+          });
+        } else {
+          // No param reel, just set API data
+          if (transformedReels.length > 0) {
+            setReels(transformedReels);
+          }
         }
       } else {
         showToastMessage(toast, 'danger', response?.data?.message || 'Failed to fetch reels');
@@ -268,13 +315,6 @@ export default function FlipsScreen() {
           if (serverCount !== undefined) {
             setLikesCount(prev => ({ ...prev, [id]: serverCount }));
           }
-
-          // Optional: Uncomment to show toast on like/unlike
-          // showToastMessage(
-          //   toast,
-          //   'success',
-          //   res?.data?.message || (serverLiked ? 'Reel liked' : 'Reel unliked'),
-          // );
         } else {
           // Revert on failure
           setLiked(prev => ({ ...prev, [id]: wasLiked }));
@@ -586,7 +626,7 @@ export default function FlipsScreen() {
                   style={{ width: 100, maxWidth: 300 }}
                   textStyle={{ fontSize: 13, color: 'white' }}
                 >
-                  alainrobertofficial music text that might be long here
+                  {item.music}
                 </CustomMarquee>
 
               </View>
@@ -1323,7 +1363,6 @@ const styles = StyleSheet.create({
     width: 100,
   },
   musicIcon: {
-    //  paddingLeft:5
     marginTop: 4
   }
 });

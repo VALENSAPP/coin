@@ -244,10 +244,15 @@ export default function PostItem({
   onOptions,
   followingBusy = false,
   isBusinessProfile,
-  executeFollowAction
+  executeFollowAction,
+  isVisible = false,
+  screenFocused = true,
+  playingPostId,
+  currentlyVisiblePostId,
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
+  const videoRefsMap = useRef({});
   const [totalFollowers, setTotalFollowers] = useState(0);
   const [userProfile, setUserProfile] = useState('');
   const isCompanyProfile = userProfile === 'company';
@@ -359,9 +364,96 @@ export default function PostItem({
     });
   }, [currentIndex, item.media]);
 
+  useEffect(() => {
+    if (!isVisible) {
+      // Stop all videos immediately
+      setVideoStates(() => {
+        const paused = {};
+        (item.media || []).forEach((_, idx) => {
+          paused[idx] = true;
+        });
+        return paused;
+      });
+
+      // Pause all video refs directly
+      Object.values(videoRefsMap.current).forEach(ref => {
+        if (ref) {
+          ref.pause?.();
+        }
+      });
+
+      setCurrentIndex(0);
+      setIsMuted(true);
+    }
+  }, [isVisible, item.media]);
+
+  // Pause/resume based on the global playingPostId from parent
+  useEffect(() => {
+    if (String(playingPostId) !== String(item.id)) {
+      // if this post is not the playing one, pause everything
+      Object.values(videoRefsMap.current).forEach(ref => {
+        if (ref) ref.pause?.();
+      });
+      setVideoStates({});
+    } else {
+      // if this post becomes the playing one, ensure current index is unpaused
+      setVideoStates(() => {
+        const next = {};
+        (item.media || []).forEach((_, idx) => { next[idx] = idx !== currentIndex; });
+        return next;
+      });
+    }
+  }, [playingPostId, item.id, currentIndex]);
+  // Stop videos when screen loses focus
+  useEffect(() => {
+    if (!screenFocused) {
+      // Pause all videos when screen loses focus
+      setVideoStates(() => {
+        const paused = {};
+        (item.media || []).forEach((_, idx) => {
+          paused[idx] = true;
+        });
+        return paused;
+      });
+
+      Object.values(videoRefsMap.current).forEach(ref => {
+        if (ref) {
+          ref.pause?.();
+        }
+      });
+    }
+  }, [screenFocused, item.media]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    if (!item.media || item.media.length <= 0) return;
+
+    setVideoStates(() => {
+      const next = {};
+      item.media.forEach((_, idx) => {
+        // Only the current index video can play if post is visible
+        next[idx] = !(idx === currentIndex && isVisible && screenFocused);
+      });
+      return next;
+    });
+  }, [currentIndex, item.media, isVisible, screenFocused]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(videoRefsMap.current).forEach(ref => {
+        if (ref) {
+          ref.pause?.();
+        }
+      });
+      videoRefsMap.current = {};
+    };
+  }, []);
+
   const mockDonationData = {
     raisedAmount: item.raiseAmount ?? 0,     // Use value from API or fallback to 0
     goalAmount: item.goalAmount ?? 100000000,    // Temporary until API provides
+    daysLeft: item.daysLeft ?? 0,
   };
   const postData = { ...item, ...mockDonationData };
 
@@ -369,6 +461,13 @@ export default function PostItem({
     postData.goalAmount > 0
       ? (postData.raisedAmount / postData.goalAmount) * 100
       : 0;
+
+  const getProgressBarColor = () => {
+    if (progressPercent >= 75) return '#5A2D82'; // Green
+    if (progressPercent >= 50) return '#5A2D82'; // Blue
+    if (progressPercent >= 25) return '#FF9800'; // Orange
+    return '#F44336'; // Red
+  };
 
   const onMomentumEnd = (e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
@@ -378,26 +477,47 @@ export default function PostItem({
 
   const renderMedia = ({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? (index !== currentIndex);
+    const isPaused = videoStates[index] ?? true; // Default to paused
+    const shouldPlay =
+      screenFocused &&
+      String(playingPostId) === String(playingPostId) &&
+      String(currentlyVisiblePostId) === String(playingPostId) &&
+      isVisible &&
+      index === currentIndex &&
+      !isPaused &&
+      !isZooming;
 
     return (
       <View style={styles.mediaContainer}>
         {isVideo ? (
           <>
             <Video
+              ref={(ref) => {
+                if (ref) videoRefsMap.current[index] = ref;
+              }}
               source={{ uri: mediaItem.url }}
               style={styles.postMedia}
               resizeMode="cover"
               repeat
-              paused={isPaused}
+              paused={!shouldPlay}
               muted={isMuted || isPaused}
               controls={false}
               onError={() => { }}
+              playWhenInactive={false}
+              progressUpdateInterval={500}
             />
             <TouchableOpacity
               style={[styles.videoOverlay, !isPaused && styles.videoOverlayTransparent]}
               activeOpacity={0.7}
-              onPress={() => setVideoStates((prev) => ({ ...prev, [index]: !prev[index] }))}
+              onPress={() => {
+                // Only toggle if this post is visible
+                if (isVisible && screenFocused) {
+                  setVideoStates((prev) => ({
+                    ...prev,
+                    [index]: !prev[index]
+                  }));
+                }
+              }}
             >
               {isPaused && (
                 <View style={styles.playButtonContainer}>
@@ -628,14 +748,48 @@ export default function PostItem({
             </Text>
           ) : null}
 
-          {postData.raisedAmount &&
+         {postData.raisedAmount !== undefined && postData.raisedAmount > 0 &&
             <>
-              <View style={styles.progressContainer}>
-                <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+              <View style={styles.progressSection}>
+                <View style={styles.progressBarWrapper}>
+                  <View style={styles.progressBarBackground}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        {
+                          width: `${Math.min(progressPercent, 100)}%`,
+                          backgroundColor: getProgressBarColor()
+                        }
+                      ]}
+                    />
+                  </View>
+
+                  <View style={styles.progressStatsContainer}>
+                    <View style={styles.statAtStart}>
+                      <Text style={styles.statValueSmall}>
+                        {Math.min(progressPercent, 100).toFixed(1)}%
+                      </Text>
+                      <Text style={styles.statLabelSmall}>FUNDED</Text>
+                    </View>
+
+                    {/* Amount at CENTER */}
+                    <View style={styles.statAtCenter}>
+                      <Text style={styles.statValueSmall}>
+                        ${(postData.raisedAmount / 1000).toFixed(0)}K
+                      </Text>
+                      <Text style={styles.statLabelSmall}>RAISED</Text>
+                    </View>
+
+                    {/* Days Left at END (right) */}
+                    <View style={styles.statAtEnd}>
+                      <Text style={styles.statValueSmall}>
+                        {postData.daysLeft || 0}
+                      </Text>
+                      <Text style={styles.statLabelSmall}>DAYS LEFT</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.progressLabel}>
-                ${postData.raisedAmount} raised of ${postData.goalAmount}
-              </Text>
             </>}
         </View>
       </View>
@@ -920,22 +1074,53 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 3,
   },
-  progressFill: {
-    backgroundColor: '#5A2D82',
+  progressSection: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  progressBarWrapper: {
+    position: 'relative',
+  },
+  progressBarBackground: {
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    overflow: 'hidden',
+    marginBottom: 50,
+  },
+  progressBarFill: {
     height: '100%',
-    borderRadius: 4,
   },
-  progressLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+  progressStatsContainer: {
+    position: 'absolute',
+    top: 12,
+    left: 0,
+    right: 0,
+    height: 48,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
   },
-  linkText: {
-    color: '#5A2D82',
-    fontWeight: '600',
-    marginTop: 6,
-    textDecorationLine: 'underline',
-    fontSize: 14,
+  statAtStart: {
+    alignItems: 'flex-start',
+  },
+  statAtCenter: {
+    alignItems: 'center',
+  },
+  statAtEnd: {
+    alignItems: 'flex-end',
+  },
+  statValueSmall: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 2,
+  },
+  statLabelSmall: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#666',
+    letterSpacing: 0.3,
   },
   speakerButton: {
     position: 'absolute',
@@ -947,5 +1132,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  linkText: {
+    color: '#5A2D82',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
