@@ -132,13 +132,22 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       if (!list || list.length === 0) return;
 
       const followingPromises = list.map(async (item) => {
+        // Add safety check
+        if (!item || !item.userId) {
+          return {
+            userId: null,
+            isFollowing: false,
+            tokenAddress: null,
+            image: null
+          };
+        }
+
         try {
           const res = await apiFollowing(item.userId);
           const rows = res?.data?.data ?? res?.data ?? [];
 
-          // Check if current user is following this user
           const followingRow = Array.isArray(rows)
-            ? rows.find(r => r.followingId === item.userId)
+            ? rows.find(r => r?.followingId === item.userId)
             : null;
 
           const isFollowing = !!followingRow;
@@ -153,6 +162,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           };
         } catch (e) {
           console.log('Error checking follow status for user:', item.userId, e);
+          // Return safe default instead of throwing
           return {
             userId: item.userId,
             isFollowing: false,
@@ -163,18 +173,24 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       });
 
       try {
-        const results = await Promise.all(followingPromises);
+        // Use Promise.allSettled instead of Promise.all
+        const results = await Promise.allSettled(followingPromises);
         const followingMap = {};
+
         results.forEach(result => {
-          followingMap[result.userId] = {
-            isFollowing: result.isFollowing,
-            tokenAddress: result.tokenAddress,
-            image: result.image
-          };
+          if (result.status === 'fulfilled' && result.value?.userId) {
+            followingMap[result.value.userId] = {
+              isFollowing: result.value.isFollowing,
+              tokenAddress: result.value.tokenAddress,
+              image: result.value.image
+            };
+          }
         });
+
         setUserFollowStatus(followingMap);
       } catch (error) {
         console.log('Error fetching following statuses:', error);
+        setUserFollowStatus({});
       }
     };
 
@@ -185,51 +201,58 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   useEffect(() => {
     const fetchPostFollowers = async () => {
       if (!list || list.length === 0) return;
+
       const followersPromises = list.map(async (item) => {
+        if (!item || !item.userId) {
+          return { userId: null, followers: [] };
+        }
+
         try {
-          // Call apiFollowers to get people who follow this user
           const res = await apiFollowers(item.userId);
-          // Try different possible response structures
           let followersData = res?.data?.data || res?.data || [];
-          // Extract the "follower" users (people who follow this user)
-          const transformedFollowers = Array.isArray(followersData)
-            ? followersData
-              .filter(f => {
-                const hasFollower = f.status === 'ACCEPTED' && f.follower;
-                return hasFollower;
-              })
-              .map(f => {
-                const follower = {
-                  id: f.follower.id || f.followerId,
-                  username: f.follower.userName || f.follower.displayName ||
-                    (f.follower.email ? f.follower.email.split('@')[0] : 'User'),
-                  avatar: f.follower.image || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-                };
-                return follower;
-              })
-            : [];
+
+          if (!Array.isArray(followersData)) {
+            console.warn('Non-array followers data:', followersData);
+            return { userId: item.userId, followers: [] };
+          }
+
+          const transformedFollowers = followersData
+            .filter(f => f?.status === 'ACCEPTED' && f?.follower)
+            .map(f => {
+              const follower = f.follower;
+              return {
+                id: follower?.id || f.followerId,
+                username: follower?.userName || follower?.displayName ||
+                  (follower?.email ? follower.email.split('@')[0] : 'User'),
+                avatar: follower?.image || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+              };
+            });
+
           return {
             userId: item.userId,
             followers: transformedFollowers
           };
         } catch (e) {
           console.error('Error fetching followers for user:', item.userId, e);
-          return {
-            userId: item.userId,
-            followers: []
-          };
+          return { userId: item.userId, followers: [] };
         }
       });
 
       try {
-        const results = await Promise.all(followersPromises);
+        // Use Promise.allSettled instead of Promise.all
+        const results = await Promise.allSettled(followersPromises);
         const followersMap = {};
+
         results.forEach(result => {
-          followersMap[result.userId] = result.followers;
+          if (result.status === 'fulfilled' && result.value?.userId) {
+            followersMap[result.value.userId] = result.value.followers;
+          }
         });
+
         setPostFollowers(followersMap);
       } catch (error) {
         console.error('Error fetching post followers:', error);
+        setPostFollowers({});
       }
     };
 
@@ -673,19 +696,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     ],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      setList(postData || []);
-    }, [postData])
-  );
-
-  useEffect(() => {
-    (async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setCurrentUserId(id ? String(id) : null);
-    })();
-  }, []);
-
   useEffect(() => {
     if (Array.isArray(list) && list.length) {
       const seededSaved = {};
@@ -723,54 +733,62 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
   useEffect(() => {
     (async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setCurrentUserId(id ? String(id) : null);
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setCurrentUserId(id ? String(id) : null);
+      } catch (error) {
+        console.error('Error fetching userId:', error);
+        setCurrentUserId(null);
+      }
     })();
   }, []);
 
   const normalizeUser = useCallback(
-    u => ({
-      id: String(u.id),
-      username:
-        u.userName ||
-        u.displayName ||
-        (u.email ? u.email.split('@')[0] : 'User'),
-      avatar: u.image || u.avatar || null,
-      isFollow:
-        typeof u.isFollow === 'boolean'
-          ? u.isFollow
-          : followingByUserId[String(u.id)] ?? false,
-    }),
-    [followingByUserId],
+    u => {
+      if (!u) return null;
+      return {
+        id: String(u.id),
+        username:
+          u.userName ||
+          u.displayName ||
+          (u.email ? u.email.split('@')[0] : 'User'),
+        avatar: u.image || u.avatar || null,
+        isFollow: typeof u.isFollow === 'boolean' ? u.isFollow : false,
+      };
+    },
+    [], // EMPTY DEPS
   );
 
   const loadSuggestions = useCallback(async (page = 1, isLoadMore = false) => {
     try {
       setIsLoadingSuggestions(true);
-      // Request more records than displayed to check if there are more available
       const limit = 15;
       const res = await getSuggestedUsers(limit, page);
 
       const raw = res?.data?.suggestedUsers ?? res?.suggestedUsers ?? [];
+
+      if (!Array.isArray(raw)) {
+        console.warn('Suggestions not an array:', raw);
+        if (!isLoadMore) {
+          setSuggestAllUsers([]);
+          setSuggestHasMore(false);
+        }
+        return;
+      }
+
       const me = currentUserId ? String(currentUserId) : null;
       const cleansed = raw
-        .filter(u => !me || String(u.id) !== me)
-        .map(normalizeUser);
+        .filter(u => u && (!me || String(u.id) !== me))
+        .map(normalizeUser)
+        .filter(Boolean); // Remove null results
 
       if (isLoadMore) {
-        // Append new users to existing list
-        setSuggestAllUsers(prev => {
-          const updated = [...prev, ...cleansed];
-          return updated;
-        });
+        setSuggestAllUsers(prev => [...prev, ...cleansed]);
       } else {
-        // Initial load
         setSuggestAllUsers(cleansed);
         setSuggestPage(1);
       }
 
-      // If we got fewer records than requested, there are no more
-      // Also check if we got any records at all
       const hasMore = cleansed.length >= limit;
       setSuggestHasMore(hasMore);
     } catch (e) {
@@ -785,8 +803,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   }, [currentUserId, normalizeUser]);
 
   useEffect(() => {
-    loadSuggestions();
-  }, [loadSuggestions]);
+    loadSuggestions(1, false);
+  }, []);
 
   const visibleSuggestions = useMemo(() => {
     const count = suggestPage * SUGGEST_PAGE_SIZE;
@@ -809,7 +827,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     setSuggestHasMore(totalVisible < suggestAllUsers.length);
   }, [suggestPage, suggestAllUsers]);
 
-    const handleViewableItemsChanged = useCallback(
+  const handleViewableItemsChanged = useCallback(
     ({ viewableItems }) => {
       if (!viewableItems || viewableItems.length === 0) {
         setCurrentlyVisiblePostId(null);
@@ -818,9 +836,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       // Find the most visible post (excluding suggestions)
       let mostVisiblePost = null;
       let highestPercentage = 0;
-      console.log(mostVisiblePost,'get id heree')
+      console.log(mostVisiblePost, 'get id heree')
 
-      console.log(viewableItems,"ddddddddddddddViewableitemssssss>>>>>>>>")
+      console.log(viewableItems, "ddddddddddddddViewableitemssssss>>>>>>>>")
 
       for (const item of viewableItems) {
         // Skip suggestions
@@ -864,7 +882,10 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
   const renderItem = useCallback(
     ({ item }) => {
-      if (item?.__type === 'suggestions') {
+      // Add safety check
+      if (!item) return null;
+
+      if (item.__type === 'suggestions') {
         return (
           <Suggestion
             users={visibleSuggestions}
@@ -878,7 +899,15 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           />
         );
       }
+
+      // Add safety check for item.id
+      if (!item.id) {
+        console.warn('Post item missing id:', item);
+        return null;
+      }
+
       const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
+
       return (
         <PostItem
           item={item}
@@ -920,157 +949,166 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       handleDismissSuggestion,
       handleSeeMoreSuggestions,
       suggestHasMore,
-      currentlyVisiblePostId
+      currentlyVisiblePostId,
+      playingPostId,
     ],
   );
 
-  return (
-    <View style={styles.container}>
-      {/* Posts List */}
-      <FlatList
-        data={feedItems}
-        keyExtractor={(item, index) =>
-          item?.__type === 'suggestions'
-            ? `suggestions-${index}`
-            : item.id?.toString()
-        }
-        showsVerticalScrollIndicator={false}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={2}
-        windowSize={5}
-        initialNumToRender={1}
-        viewabilityConfig={{
-          itemVisiblePercentThreshold: 50,
-          minimumViewTime: 100,
-          waitForInteraction: false,
-        }}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        scrollEventThrottle={16}
-        getItemLayout={(data, index) => ({
-          length: 540,
-          offset: 540 * index,
-          index,
-        })}
-      />
+  const safeRender = () => {
+    try {
+      return (
+        <View style={styles.container}>
+          {/* Posts List */}
+          <FlatList
+            data={feedItems}
+            keyExtractor={(item, index) =>
+              item?.__type === 'suggestions'
+                ? `suggestions-${index}`
+                : item.id?.toString()
+            }
+            showsVerticalScrollIndicator={false}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={2}
+            windowSize={5}
+            initialNumToRender={1}
+            viewabilityConfig={{
+              itemVisiblePercentThreshold: 50,
+              minimumViewTime: 100,
+              waitForInteraction: false,
+            }}
+            onViewableItemsChanged={handleViewableItemsChanged}
+            scrollEventThrottle={16}
+          />
 
-      {/* Options Modal */}
-      <OptionsModal
-        visible={modalVisible}
-        onClose={closeOptionsModal}
-        fromHome={true}
-        onSelect={onOptionsSelect}
-        postId={modalPostId ?? ''}
-        isSaved={!!(modalPostId && saved[modalPostId])}
-        canDelete={!!canDelete}
-        isHidden={!!(modalPostId && hiddenById[modalPostId])}
-        hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
-      />
+          {/* Options Modal */}
+          <OptionsModal
+            visible={modalVisible}
+            onClose={closeOptionsModal}
+            fromHome={true}
+            onSelect={onOptionsSelect}
+            postId={modalPostId ?? ''}
+            isSaved={!!(modalPostId && saved[modalPostId])}
+            canDelete={!!canDelete}
+            isHidden={!!(modalPostId && hiddenById[modalPostId])}
+            hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
+          />
 
-      {/* Token Purchase Modal */}
-      <RBSheet
-        ref={purchaseSheetRef}
-        height={500}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        onOpen={() => setPurchaseAutoFocus(true)}
-        onClose={() => {
-          Keyboard.dismiss();
-          setPurchaseAutoFocus(false);
-          setPendingFollowUserId(null);
-          setPendingFollowAction(null);
-        }}
-        customStyles={{
-          container: {
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            backgroundColor: '#f8f2fd',
-            bottom: -30,
-          },
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
-        }}
-      >
-        <TokenPurchaseModal
-          onClose={handleTokenModalClose}
-          onPurchase={handleTokenPurchase}
-          hasFollowing={true}
-          autoFocus={purchaseAutoFocus}
-          vendorid={pendingFollowUserId}
-        />
-      </RBSheet>
+          {/* Token Purchase Modal */}
+          <RBSheet
+            ref={purchaseSheetRef}
+            height={500}
+            openDuration={250}
+            draggable={true}
+            closeOnPressMask={true}
+            customModalProps={{ statusBarTranslucent: true }}
+            onOpen={() => setPurchaseAutoFocus(true)}
+            onClose={() => {
+              Keyboard.dismiss();
+              setPurchaseAutoFocus(false);
+              setPendingFollowUserId(null);
+              setPendingFollowAction(null);
+            }}
+            customStyles={{
+              container: {
+                borderTopLeftRadius: 30,
+                borderTopRightRadius: 30,
+                backgroundColor: '#f8f2fd',
+                bottom: -30,
+              },
+              draggableIcon: {
+                backgroundColor: '#ccc',
+                width: 60,
+              },
+            }}
+          >
+            <TokenPurchaseModal
+              onClose={handleTokenModalClose}
+              onPurchase={handleTokenPurchase}
+              hasFollowing={true}
+              autoFocus={purchaseAutoFocus}
+              vendorid={pendingFollowUserId}
+            />
+          </RBSheet>
 
-      {/* Token Sell Modal */}
-      <RBSheet
-        ref={sellSheetRef}
-        height={550}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        onOpen={() => setPurchaseAutoFocus(true)}
-        onClose={() => {
-          Keyboard.dismiss();
-          setPurchaseAutoFocus(false);
-          setPendingFollowUserId(null);
-          setPendingFollowAction(null);
-        }}
-        customStyles={{
-          container: {
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            backgroundColor: '#f8f2fd',
-            bottom: -30,
-          },
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
-        }}
-      >
-        <TokenSellModal
-          onSell={handleTokenSell}
-          userId={pendingFollowUserId}
-          tokenAddress={tokenAddress}
-        />
-      </RBSheet>
+          {/* Token Sell Modal */}
+          <RBSheet
+            ref={sellSheetRef}
+            height={550}
+            openDuration={250}
+            draggable={true}
+            closeOnPressMask={true}
+            customModalProps={{ statusBarTranslucent: true }}
+            onOpen={() => setPurchaseAutoFocus(true)}
+            onClose={() => {
+              Keyboard.dismiss();
+              setPurchaseAutoFocus(false);
+              setPendingFollowUserId(null);
+              setPendingFollowAction(null);
+            }}
+            customStyles={{
+              container: {
+                borderTopLeftRadius: 30,
+                borderTopRightRadius: 30,
+                backgroundColor: '#f8f2fd',
+                bottom: -30,
+              },
+              draggableIcon: {
+                backgroundColor: '#ccc',
+                width: 60,
+              },
+            }}
+          >
+            <TokenSellModal
+              onSell={handleTokenSell}
+              userId={pendingFollowUserId}
+              tokenAddress={tokenAddress}
+            />
+          </RBSheet>
 
-      {/* Comment Sheet */}
-      <RBSheet
-        ref={commentSheetRef}
-        height={500}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        onClose={() => { Keyboard.dismiss(); setCommentPostId(null); }}
-        customStyles={{
-          container: {
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
-            backgroundColor: '#f8f2fd',
-            bottom: -20,
-          },
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
-        }}
-      >
-        <CommentSheet
-          postId={commentPostId}
-          onClose={handleCommentClose}
-          onCommentCountUpdate={handleCommentCountUpdate}
-          postOwnerId={commentPostOwnerId}
-        />
-      </RBSheet>
-    </View>
-  );
+          {/* Comment Sheet */}
+          <RBSheet
+            ref={commentSheetRef}
+            height={500}
+            openDuration={250}
+            draggable={true}
+            closeOnPressMask={true}
+            customModalProps={{ statusBarTranslucent: true }}
+            onClose={() => { Keyboard.dismiss(); setCommentPostId(null); }}
+            customStyles={{
+              container: {
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                backgroundColor: '#f8f2fd',
+                bottom: -20,
+              },
+              draggableIcon: {
+                backgroundColor: '#ccc',
+                width: 60,
+              },
+            }}
+          >
+            <CommentSheet
+              postId={commentPostId}
+              onClose={handleCommentClose}
+              onCommentCountUpdate={handleCommentCountUpdate}
+              postOwnerId={commentPostOwnerId}
+            />
+          </RBSheet>
+        </View>
+      );
+    } catch (error) {
+      console.error('Render error in Posts:', error);
+      return (
+        <View style={styles.container}>
+          <Text>Error loading posts. Please refresh.</Text>
+        </View>
+      );
+    }
+  };
+
+  return safeRender();
 }
 
 // ---------------- STYLES ----------------

@@ -21,12 +21,16 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
+    const [subscriptionId, setSubscriptionId] = useState(null);
     const [selectedTab, setSelectedTab] = useState('posts');
     const [showPrintWarning, setShowPrintWarning] = useState(false);
     const [printAttempts, setPrintAttempts] = useState(0);
+    const [hasExistingSubscription, setHasExistingSubscription] = useState(false);
+    const [isChecked, setIsChecked] = useState(false);
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
@@ -60,20 +64,27 @@ const SubventionSetupScreen = () => {
                 const subscriptions = response?.data?.subscriptions;
                 if (subscriptions && subscriptions.length > 0) {
                     const amount = subscriptions[0].subscriptionAmount;
+                    const subId = subscriptions[0].id;
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
                     setSubscriptionAmount(amount);
-                    setPrice(amount)
+                    setSubscriptionId(subId);
+                    setPrice(amount.toString());
+                    setHasExistingSubscription(true);
                 } else {
                     console.log("No subscriptions found");
                     setSubscriptionAmount(null);
+                    setSubscriptionId(null);
+                    setHasExistingSubscription(false);
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
+                setHasExistingSubscription(false);
             }
 
         } catch (error) {
-            console.error('Error saving subscription:', error);
+            console.error('Error fetching subscription:', error);
             showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+            setHasExistingSubscription(false);
         }
         finally {
             dispatch(hideLoader());
@@ -88,11 +99,13 @@ const SubventionSetupScreen = () => {
 
     const handlePriceBlur = () => {
         // Apply min/max validation only when user finishes editing
-        const numValue = parseInt(price) || 0;
+        const numValue = parseFloat(price) || 0;
         if (numValue < 9) {
             setPrice('9');
         } else if (numValue > 100) {
             setPrice('100');
+        } else {
+            setPrice(numValue.toString());
         }
     };
 
@@ -329,26 +342,45 @@ const SubventionSetupScreen = () => {
                 showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
                 return;
             }
-            const id = await AsyncStorage.getItem('userId');
-            const dataToSend = {
-                subscriptionAmount: subscriptionAmount,
-                status: "ACTIVE",
-                isDelete: 0
-            };
+
             dispatch(showLoader());
-            const response = await setUserSubscription(dataToSend, id);
-            console.log('setUserSubscription response:', response);
-            if (response?.statusCode === 200) {
-                showToastMessage(toast, 'success', 'Subscription saved successfully');
+
+            let response;
+
+            // Check if there's existing subscription data
+            if (hasExistingSubscription && subscriptionId) {
+                const dataToSend = {
+                    subscriptionAmount: subscriptionAmount,
+                    status: "ACTIVE",
+                    isDelete: 0
+                };
+                // Update existing subscription
+                console.log('Updating existing subscription with ID:', subscriptionId);
+                response = await setUserSubscription(dataToSend, subscriptionId);
             } else {
-                showToastMessage(toast, 'danger', response.data.message);
+                const dataToSend = {
+                    subscriptionAmount: subscriptionAmount,
+                    status: "ACTIVE"
+                };
+                // Create new subscription
+                console.log('Creating new subscription');
+                response = await setPrivateSubscription(dataToSend);
+            }
+
+            console.log('Subscription response:', response);
+
+            if (response?.statusCode === 200) {
+                showToastMessage(toast, 'success', hasExistingSubscription ? 'Subscription updated successfully' : 'Subscription created successfully');
+                // Refresh subscription data
+                await fetchSubscriptionByUserId();
+            } else {
+                showToastMessage(toast, 'danger', response?.data?.message || 'Failed to save subscription');
             }
 
         } catch (error) {
             console.error('Error saving subscription:', error);
             showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
-        }
-        finally {
+        } finally {
             dispatch(hideLoader());
         }
     };
@@ -369,7 +401,6 @@ const SubventionSetupScreen = () => {
                             onChangeText={handlePriceChange}
                             onBlur={handlePriceBlur}
                             keyboardType="numeric"
-                        // maxLength={3}
                         />
                         <Text style={styles.perMonth}>/month</Text>
                     </View>
@@ -455,8 +486,125 @@ const SubventionSetupScreen = () => {
                     </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.saveButton} onPress={handleSaveSubscription}>
-                    <Text style={styles.saveButtonText}>Save & Activate Program</Text>
+                <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+                    <Text style={styles.heading}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
+
+                    <Text style={styles.sectionTitle}>1. Overview</Text>
+                    <Text style={styles.text}>
+                        This Master Subscription Policy applies to all users participating in the Valens
+                        subscription ecosystem, including Plan Owners and Subscribers. By activating or subscribing,
+                        users agree to this policy, including Valens Terms of Use, Privacy Policy, and Payout Policy.
+                    </Text>
+
+                    {/* PART A */}
+                    <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
+
+                    <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
+                    <Text style={styles.text}>
+                        When you activate a subscription plan, you become a Plan Owner. You may create private
+                        channels, define perks, and set monthly subscription prices between $9.99 USD and $100.00 USD.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>3. Platform Fees</Text>
+                    <Text style={styles.subSection}>3.1 Monthly Maintenance Fee</Text>
+                    <Text style={styles.text}>
+                        Valens charges $19.99 USD/month for hosting and operating your subscription channel.
+                    </Text>
+
+                    <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
+                    <Text style={styles.text}>A 5% withdrawal fee applies to every payout request.</Text>
+
+                    <Text style={styles.subSection}>3.3 Billing Authorization</Text>
+                    <Text style={styles.text}>
+                        By enabling your plan, you authorize Valens to charge maintenance fees and deduct payout
+                        withdrawal fees automatically.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
+                    <Text style={styles.text}>
+                        Earnings are visible in the Creator Dashboard. Payouts follow the Payout Policy. KYC
+                        verification is required. You must report earnings to tax authorities.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>5. Content Responsibilities</Text>
+                    <Text style={styles.text}>
+                        All private content must follow Valens guidelines. Illegal, harmful, abusive, or fraudulent
+                        content is prohibited.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
+                    <Text style={styles.text}>
+                        Valens may restrict monetization, freeze payouts, remove content, or disable plans upon
+                        violations.
+                    </Text>
+
+                    {/* PART B */}
+                    <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
+
+                    <Text style={styles.sectionTitle}>7. Subscription Access</Text>
+                    <Text style={styles.text}>
+                        Subscribers gain access to exclusive private content and perks. Access is non-transferable.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>8. Monthly Billing & Auto-Renewal</Text>
+                    <Text style={styles.text}>
+                        By subscribing, you authorize Valens to bill you monthly until cancellation.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>9. Cancellation</Text>
+                    <Text style={styles.text}>
+                        You may cancel anytime. Access remains until the end of the billing period. No partial refunds.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>10. No Refunds</Text>
+                    <Text style={styles.text}>
+                        All subscription payments are final and non-refundable, including unused periods.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>11. Content Protection</Text>
+                    <Text style={styles.text}>
+                        Subscribers may NOT screenshot, record, download, print, or share subscription content.
+                        Violations may result in a security block.
+                    </Text>
+
+                    {/* PART C */}
+                    <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
+
+                    <Text style={styles.sectionTitle}>12. Safety & Compliance</Text>
+                    <Text style={styles.text}>
+                        All interactions must comply with Valens Community Guidelines and legal requirements.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>13. Platform Rights</Text>
+                    <Text style={styles.text}>
+                        Valens may update fees, freeze suspicious activity, restrict payouts, or suspend programs.
+                    </Text>
+
+                    <Text style={styles.sectionTitle}>14. Agreement to Terms</Text>
+                    <Text style={styles.text}>
+                        By using subscription features, you agree to this policy and authorize Valens to manage
+                        charges and fees.
+                    </Text>
+
+                    <View style={{ marginTop: 15 }} />
+
+                    <TouchableOpacity
+                        style={styles.checkboxRow}
+                        onPress={() => setIsChecked(!isChecked)}
+                    >
+                        <Ionicons
+                            name={isChecked ? "checkbox-outline" : "square-outline"}
+                            size={26}
+                            color="#5a2d82"
+                        />
+                        <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+
+                <TouchableOpacity style={[styles.saveButton, !isChecked && { opacity: 0.5 }]} onPress={handleSaveSubscription} disabled={!isChecked}>
+                    <Text style={styles.saveButtonText}>
+                        {hasExistingSubscription ? 'Update Subscription' : 'Save & Activate Program'}
+                    </Text>
                 </TouchableOpacity>
 
                 <PrintWarningModal />
@@ -622,8 +770,10 @@ const styles = StyleSheet.create({
     },
     saveButton: {
         backgroundColor: '#7c3aed',
-        margin: 16,
-        padding: 18,
+        marginLeft: 16,
+        marginRight: 16,
+        paddingHorizontal: 18,
+        paddingVertical: 13,
         borderRadius: 12,
         alignItems: 'center',
         marginBottom: 40,
@@ -709,6 +859,54 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#dc2626',
         fontWeight: '600',
+    },
+    // term and condition style
+    content: {
+        paddingLeft: 15,
+        paddingRight: 15,
+    },
+    heading: {
+        fontSize: 22,
+        fontWeight: '700',
+        marginBottom: 15,
+        color: '#000000',
+        textAlign: 'center',
+    },
+    partTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginTop: 10,
+        marginBottom: 10,
+        color: '#000000',
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        marginTop: 7,
+        marginBottom: 5,
+        color: '#000000',
+    },
+    subSection: {
+        fontSize: 15,
+        fontWeight: '600',
+        marginTop: 5,
+        color: '#000000',
+        marginBottom: 1,
+    },
+    text: {
+        fontSize: 14,
+        color: '#000000',
+        lineHeight: 18,
+    },
+    checkboxRow: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+
+    checkboxLabel: {
+        marginLeft: 10,
+        fontSize: 16,
+        color: "#333",
     },
 });
 
