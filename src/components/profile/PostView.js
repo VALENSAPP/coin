@@ -84,17 +84,15 @@ export default function PostView({ postData = [] }) {
 
   // ─── Handle Back Button Press ────────────────────────────────
   const handleBackPress = useCallback(() => {
-    // if (fromScreen) {
-    //   // If we know where we came from, navigate there specifically
-    //   // navigation.navigate(fromScreen);
-    //   navigation.getParent()?.navigate('HomeMain', {
-    //     screen: 'Home'
-    //   });
-    // } else {
-    // Otherwise, use goBack as fallback
-    navigation.goBack();
-    // }
-  }, [navigation, fromScreen]);
+    const returnTo = route.params?.returnTo;
+    const returnParams = route.params?.returnParams;
+
+    if (returnTo) {
+      navigation.navigate(returnTo, returnParams);
+    } else {
+      navigation.goBack();
+    }
+  }, [navigation, route.params]);
 
   const getMediaType = url => {
     if (!url || typeof url !== 'string') return 'image';

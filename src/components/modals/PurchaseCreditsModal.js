@@ -3,11 +3,12 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { createCheckoutSession } from '../../services/stirpe';
+import { buyCreditHits, createCheckoutSession } from '../../services/stirpe';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0 }) => {
   const [creditsToBuy, setCreditsToBuy] = useState(1);
@@ -37,10 +38,18 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   const createStripeSubscription = async () => {
+    console.log('Creating Stripe checkout session for', creditsToBuy, 'credits');
     dispatch(showLoader());
     try {
-      const response = await createCheckoutSession();
-
+      const id = await AsyncStorage.getItem('userId');
+      const pricePerCredit = 1.99;
+      const dataToSend = {
+        amount: creditsToBuy * pricePerCredit,
+        hitCount: creditsToBuy,
+        userId: id
+      };
+      const response = await buyCreditHits(dataToSend);
+      console.log('Response from buyCreditHits:', response);
       if (response?.statusCode === 200 && response?.data?.url) {
         const url = response.data.url;
 
@@ -58,7 +67,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
             toolbarColor: '#ffffff',
             secondaryToolbarColor: '#f0f0f0',
           });
-          
+
           // Call the callback after successful payment flow
           if (onPurchaseComplete) {
             onPurchaseComplete();
@@ -93,8 +102,8 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         'Confirm Purchase',
         `Purchase ${creditsToBuy} additional post credit${creditsToBuy > 1 ? 's' : ''}?`,
         [
-          { 
-            text: 'Cancel', 
+          {
+            text: 'Cancel',
             style: 'cancel',
             onPress: () => {
               if (onClose) onClose();
@@ -134,7 +143,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
     >
       <View style={styles.container}>
         <Text style={styles.title}>Buy Mint Credits</Text>
-        
+
         <View style={styles.currentCreditsContainer}>
           <Text style={styles.currentCreditsLabel}>Current Credits:</Text>
           <Text style={styles.currentCreditsValue}>{currentCredits} / 5</Text>
@@ -143,8 +152,8 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         <Text style={styles.subtitle}>Select amount to purchase:</Text>
 
         <View style={styles.selectorContainer}>
-          <TouchableOpacity 
-            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled]} 
+          <TouchableOpacity
+            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled]}
             onPress={decreaseCredits}
             disabled={creditsToBuy === 1}
           >
@@ -156,8 +165,8 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
             <Text style={styles.creditsLabel}>credit{creditsToBuy > 1 ? 's' : ''}</Text>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.adjustBtn, creditsToBuy === 5 && styles.adjustBtnDisabled]} 
+          <TouchableOpacity
+            style={[styles.adjustBtn, creditsToBuy === 5 && styles.adjustBtnDisabled]}
             onPress={increaseCredits}
             disabled={creditsToBuy === 5}
           >
@@ -183,13 +192,13 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 export default CreditPurchaseModal;
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
     alignItems: 'center',
   },
-  title: { 
-    fontSize: 20, 
-    fontWeight: '700', 
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
     color: '#5a2d82',
     marginBottom: 15,
   },
@@ -243,8 +252,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
-  adjustText: { 
-    fontSize: 24, 
+  adjustText: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
   },
@@ -252,8 +261,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 40,
   },
-  amountText: { 
-    fontSize: 32, 
+  amountText: {
+    fontSize: 32,
     fontWeight: '700',
     color: '#5a2d82',
   },
@@ -273,13 +282,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  buyBtnText: { 
-    color: '#fff', 
-    fontWeight: '600', 
+  buyBtnText: {
+    color: '#fff',
+    fontWeight: '600',
     fontSize: 16,
   },
-  cancelText: { 
-    color: '#666', 
+  cancelText: {
+    color: '#666',
     marginTop: 5,
     fontSize: 14,
   },
