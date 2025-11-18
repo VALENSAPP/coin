@@ -18,7 +18,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getAllUser } from '../../services/users';
 import { getposts } from '../../services/home';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -31,6 +31,7 @@ const SearchScreen = () => {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigation = useNavigation();
+  const route = useRoute();
 
   const [userId, setUserId] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -205,31 +206,26 @@ const SearchScreen = () => {
 
   /** 🎬 Handle post press (image or video) */
   const handlePostPress = (item, isVideo) => {
-    const postId = item.id;
-    console.log(item, 'chck get post id')
-    console.log(isVideo, 'isVideo--------------->>>>>>>>>')
-
-    // if (!postId) {
-    //   console.warn('No user ID found in post:', item);
-    //   return;
-    // }
-
     if (isVideo) {
       navigation.navigate('ProfileMain', {
         screen: 'FlipsScreen',
         params: {
-          item: item
+          item: item,
+          returnTo: route.name, 
+          returnParams: route.params,
         }
       });
     }
     else {
-     navigation.navigate('ProfileMain', {
-      screen: 'PostView',
-      params: {
-        postData: [item],
-        startIndex: 0,
-      },
-    });
+      navigation.navigate('ProfileMain', {
+        screen: 'PostView',
+        params: {
+          postData: [item],
+          startIndex: 0,
+          returnTo: route.name, 
+          returnParams: route.params,
+        },
+      });
     }
   };
 
@@ -354,7 +350,6 @@ const SearchScreen = () => {
 
   /** 👤 Render list  for user search results */
   const renderListItem = useCallback(({ item }) => {
-    console.log(item, "profileitemmm====>>>>>>>>>>>>>>>>>>>>")
     return (
       <TouchableOpacity
         style={styles.userListItem}
