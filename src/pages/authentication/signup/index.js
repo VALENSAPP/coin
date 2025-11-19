@@ -47,7 +47,7 @@ export default function SignupScreen() {
   useEffect(() => {
     const loadDeviceId = async () => {
       const DeviceId = await DeviceInfo.getDeviceName();
-      await AsyncStorage.setItem("device_id", DeviceId);
+      // await AsyncStorage.setItem("device_id", DeviceId);
       console.log("Saved Device ID:", DeviceId);
     };
 
