@@ -36,6 +36,7 @@ import { loggedIn } from '../../../redux/actions/LoginAction';
 import TextGradient from '../../../assets/textgradient/TextGradient';
 import { AuthHeader } from '../../../components/auth';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
+import DeviceInfo from 'react-native-device-info';
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,6 +81,17 @@ export default function LoginScreen() {
       dispatch(hideLoader());
     }
   };
+
+  useEffect(() => {
+    const loadDeviceId = async () => {
+      const DeviceId = await DeviceInfo.getDeviceName();
+      // await AsyncStorage.setItem("device_id", DeviceId);
+      console.log("Saved Device ID:", DeviceId);
+    };
+
+    loadDeviceId();
+  }, []);
+
 
   const handleGoogleLogin = async () => {
     dispatch(showLoader());
