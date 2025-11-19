@@ -57,6 +57,7 @@ import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '../theme/useApptheme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -65,6 +66,7 @@ export default function MainTabNavigator() {
   const [profile, setProfile] = React.useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const navigation = useNavigation();
+  const { bgStyle, textStyle, bg, text } = useAppTheme();
 
   useEffect(() => {
     loadProfileType();
@@ -95,7 +97,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Settings" component={Settings} />
         <Stack.Screen name="FollowersFollowingScreen" component={FollowersFollowingScreen} />
-        <Stack.Screen name="EditProfile" component={ProfileEditScreen} options={{ headerShown: true, headerStyle: { backgroundColor: '#f8f2fd' }, }} />
+        <Stack.Screen name="EditProfile" component={ProfileEditScreen} options={{ headerShown: true, headerStyle: [bgStyle], }} />
         <Stack.Screen name="PostUpload" component={PostUploadPage} options={{ headerShown: false }} />
         <Stack.Screen name="PostEditor" component={PostEditorScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SelectedPost" component={InstagramPostCreator} options={{ headerShown: false }} />
@@ -128,11 +130,10 @@ export default function MainTabNavigator() {
           initialRouteName={initialScreen}
           screenOptions={({ navigation }) => ({
             headerShown: true,
-            headerStyle: {
-              backgroundColor: '#f8f2fd',
+            headerStyle: [{
               elevation: 0,
               shadowOpacity: 0,
-            },
+            }, bgStyle],
             headerTitleStyle: {
               fontWeight: 'bold',
               color: '#111',
@@ -143,7 +144,7 @@ export default function MainTabNavigator() {
                 onPress={() => navigation.openDrawer()}
                 style={{ marginLeft: 15 }}
               >
-                <Ionicons name="menu" size={28} color="#5a2d82" />
+                <Ionicons name="menu" size={28} color={text} />
               </TouchableOpacity>
             ),
             headerTitle: () => (
@@ -275,7 +276,7 @@ export default function MainTabNavigator() {
   // Memoize tab bar styles
   const defaultTabBarStyle = useMemo(() => ({
     display: 'flex',
-    backgroundColor: profile == 'company' ? '#fcfbfaff' : '#f8f2fd',
+    backgroundColor: bg,
     borderTopWidth: 1.5,
     borderTopColor: '#dbdbdb',
     height: 50,

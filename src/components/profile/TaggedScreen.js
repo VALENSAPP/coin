@@ -1,10 +1,13 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native'; 
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const TaggedScreen = memo(() => {
+  const { bgStyle, textStyle } = useAppTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, bgStyle]}>
       <Ionicons name="person-outline" size={80} color='#666' style={styles.icon}/>
       <Text style={styles.message}>
         Photos and videos show here where you were tagged.
@@ -20,7 +23,6 @@ const styles = StyleSheet.create({
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    backgroundColor: '#f8f2fd', 
     marginTop: -30,
     paddingHorizontal: 20,
   },

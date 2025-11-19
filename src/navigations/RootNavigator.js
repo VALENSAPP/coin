@@ -40,6 +40,7 @@ import { hideLoader, showLoader } from '../redux/actions/LoaderAction';
 import WalletComponent from '../pages/wallet/WalletScreen';
 import KYCVerification from '../pages/authentication/kycVerification';
 import Usersprofile from '../pages/home/Usersprofile';
+import { useAppTheme } from '../theme/useApptheme';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -47,16 +48,16 @@ const Drawer = createDrawerNavigator();
 // Custom Drawer Content Component
 const CustomDrawerContent = (props) => {
   const navigation = useNavigation();
-  
+  const { bgStyle, textStyle, text } = useAppTheme();
+
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       {/* Drawer Header */}
-      <View style={{
+      <View style={[{
         padding: 15,
-        backgroundColor: '#f8f2fd',
         borderBottomWidth: 1,
         borderBottomColor: '#ddd'
-      }}>
+      }, bgStyle]}>
         <TouchableOpacity onPress={() => {
           props.navigation.closeDrawer();
           navigation.navigate('MainApp', {
@@ -75,7 +76,7 @@ const CustomDrawerContent = (props) => {
         <Text style={{
           fontSize: 15,
           fontWeight: 'bold',
-          color: '#5a2d82',
+          color: text,
           marginVertical: 5,
           marginTop: 8
         }}>
@@ -84,12 +85,12 @@ const CustomDrawerContent = (props) => {
       </View>
 
       {/* Drawer Items with Custom Navigation */}
-      <DrawerItemList 
+      <DrawerItemList
         {...props}
         onItemPress={({ route, preventDefault }) => {
           preventDefault();
           props.navigation.closeDrawer();
-          
+
           // Navigate to wallet tab with specific screen
           if (route.name !== 'MainApp') {
             navigation.navigate('MainApp', {
@@ -132,24 +133,22 @@ const DummyComponent = () => null;
 
 // Global Drawer Navigator (wraps everything)
 const GlobalDrawerNavigator = () => {
+  const { bgStyle, textStyle, text } = useAppTheme();
   return (
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerShown: true,
-        headerStyle: {
-          backgroundColor: '#f8f2fd',
-        },
+        headerStyle: bgStyle,
         headerTintColor: '#000',
-        drawerStyle: {
+        drawerStyle: [{
           width: 280,
-          backgroundColor: '#f8f2fd',
-        },
+        }, bgStyle],
         drawerLabelStyle: {
           fontSize: 15,
           fontWeight: '600',
         },
-        drawerActiveBackgroundColor: '#5a2d82',
+        drawerActiveBackgroundColor: text,
         drawerActiveTintColor: '#fff',
         drawerInactiveTintColor: '#000',
         drawerPosition: 'left',
@@ -172,7 +171,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerDashboard"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Dashboard',
           headerShown: false,
         }}
@@ -190,7 +189,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerPortfolio"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Portfolio',
           headerShown: false,
         }}
@@ -208,7 +207,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerWallet"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Wallet',
           headerShown: false,
         }}
@@ -226,7 +225,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerMarket"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Market',
           headerShown: false,
         }}
@@ -244,7 +243,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerActivity"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Activity',
           headerShown: false,
         }}
@@ -262,7 +261,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerCreators"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Creators',
           headerShown: false,
         }}
@@ -280,7 +279,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerSubscription"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Subscriptions',
           headerShown: false,
         }}
@@ -298,7 +297,7 @@ const GlobalDrawerNavigator = () => {
       <Drawer.Screen
         name="DrawerSettings"
         component={DummyComponent}
-        options={{ 
+        options={{
           drawerLabel: 'Settings',
           headerShown: false,
         }}

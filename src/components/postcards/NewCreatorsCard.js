@@ -1,9 +1,12 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const NewCreatorsCard = ({ profileImage, name, username, time }) => {
+    const { bgStyle, textStyle } = useAppTheme();
+
     return (
-        <View style={styles.cardContainer}>
+        <View style={[styles.cardContainer, bgStyle]}>
             {/* Profile Image */}
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
 
@@ -39,7 +42,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#f8f2fd',
         padding: 12,
         borderRadius: 12,
         marginBottom: 10,

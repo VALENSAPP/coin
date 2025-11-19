@@ -20,6 +20,7 @@ import { getUserCredentials } from '../../services/post';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isFirstDayOfMonth } from 'date-fns';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export default function CreatorCoin() {
   const [visible3, setVisible3] = useState(false);
@@ -28,6 +29,8 @@ export default function CreatorCoin() {
   const toast = useToast();
   const userId = '';
   const dispatch = useDispatch();
+  const { bgStyle, textStyle, text } = useAppTheme();
+
   const copyToClipboard = () => {
     Clipboard.setString(data?.walletAddress);
     showToastMessage(toast, 'success', 'Copied to clipboard ✅');
@@ -79,7 +82,7 @@ export default function CreatorCoin() {
   const avatarUri = typeof data?.image === 'string' && data?.image.length ? data?.image : PLACEHOLDER_AVATAR;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="black" />
@@ -119,7 +122,7 @@ export default function CreatorCoin() {
         </View>
 
         {/* Balance */}
-        <View style={styles.balanceBox}>
+        <View style={[styles.balanceBox, bgStyle]}>
           <Image
             source={{
               uri: avatarUri,
@@ -156,29 +159,29 @@ export default function CreatorCoin() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.buttonRow}
           >
-            <TouchableOpacity style={styles.smallBtn} onPress={copyToClipboard}>
+            <TouchableOpacity style={[styles.smallBtn, bgStyle]} onPress={copyToClipboard}>
               <Text style={styles.smallBtnText}>Copy address</Text>
               <Ionicons name="copy-outline" size={15} color="#000" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.smallBtn}>
+            <TouchableOpacity style={[styles.smallBtn, bgStyle]}>
               <Ionicons name="remove-circle-outline" size={15} color="#000" />
               <Text style={styles.smallBtnText}>Basescan</Text>
             </TouchableOpacity>
 
-            {/* {/* <TouchableOpacity style={styles.smallBtn}>
+            {/* {/* <TouchableOpacity style={[styles.smallBtn, bgStyle]}>
               <Ionicons name="globe-outline" size={15} color="#000" />
               <Text style={styles.smallBtnText}>Username</Text>
             </TouchableOpacity> */}
           </ScrollView>
         </View>
 
-        <View style={styles.detailsBox}>
-          <View style={styles.detailRow}>
+        <View style={[styles.detailsBox, bgStyle]}>
+          <View style={[styles.detailRow, bgStyle]}>
             <Text style={styles.detailLabel}>Total supply</Text>
             <Text style={styles.detailValue}>1,00,000</Text>
           </View>
 
-          <View style={styles.detailRow1}>
+          <View style={[styles.detailRow1, bgStyle]}>
             <Text style={styles.detailLabel}>Contract address</Text>
             <TouchableOpacity
               onPress={copyToClipboard}
@@ -196,7 +199,7 @@ export default function CreatorCoin() {
       </ScrollView>
 
       {/* Trade Button */}
-      <TouchableOpacity style={styles.tradeButton}>
+      <TouchableOpacity style={[styles.tradeButton, {backgroundColor: text}]}>
         <Text style={styles.tradeText}>Withdraw</Text>
       </TouchableOpacity>
       <UnverifiedProfileModal visible3={visible3} setVisible3={setVisible3} />
@@ -205,7 +208,7 @@ export default function CreatorCoin() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1},
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -276,7 +279,6 @@ const styles = StyleSheet.create({
   balanceBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f2fd',
     padding: 15,
     borderRadius: 12,
     marginHorizontal: 15,
@@ -290,7 +292,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#f8f2fd',
     paddingHorizontal: 15,
     // paddingVertical: 8,
     borderRadius: 20,
@@ -302,7 +303,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   detailsBox: {
-    backgroundColor: '#f8f2fd',
     gap: 5,
     padding: 10,
     borderRadius: 20,
@@ -313,7 +313,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginVertical: 6,
     borderRadius: 15,
-    backgroundColor: '#f8f2fd',
     paddingHorizontal: 10,
   },
   detailRow1: {
@@ -321,7 +320,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginVertical: 6,
     borderRadius: 15,
-    backgroundColor: '#f8f2fd',
     paddingHorizontal: 10,
     paddingVertical: 15,
   },
@@ -333,7 +331,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   tradeButton: {
-    backgroundColor: '#5a2d82',
     marginHorizontal: 15,
     paddingVertical: 14,
     borderRadius: 10,

@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getAllConversations } from '../../../services/chatMessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 
 // Fallback icon component
@@ -69,6 +70,7 @@ export default function ChatMessages() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
    const inputRef = useRef(null);
+   const { bgStyle, textStyle, text } = useAppTheme();
 
   // Get current user ID on mount
   useEffect(() => {
@@ -242,7 +244,7 @@ export default function ChatMessages() {
           <View style={styles.noteTail} />
         </View>
       ) : <View style={{ height: NOTE_CARD_HEIGHT + 6 }} />}
-      <View style={[styles.avatarBorder, item.isUser && styles.userBorder]}>
+      <View style={[styles.avatarBorder, item.isUser && styles.userBorder, {borderColor: text}]}>
         <SafeImage source={{ uri: item.avatar || ONLINE_PLACEHOLDER }} style={styles.avatar} />
       </View>
       <Text style={styles.storyUsername} numberOfLines={1}>{item.username}</Text>
@@ -250,7 +252,7 @@ export default function ChatMessages() {
   );
 
   const renderChatItem = ({ item }) => (
-    <TouchableOpacity style={styles.chatItem} onPress={() => handleUserChat(item)}>
+    <TouchableOpacity style={[styles.chatItem, bgStyle, {shadowColor: text}]} onPress={() => handleUserChat(item)}>
       <View style={styles.avatarContainer}>
         <View style={styles.storyNoRing}>
           <SafeImage source={{ uri: item.avatar || ONLINE_PLACEHOLDER }} style={styles.chatAvatar} />
@@ -259,7 +261,7 @@ export default function ChatMessages() {
       </View>
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
-          <Text style={[styles.username, item.unreadCount > 0 && styles.unreadMessage]}>{item.username}</Text>
+          <Text style={[styles.username, item.unreadCount > 0 && styles.unreadMessage, textStyle]}>{item.username}</Text>
           <Text style={styles.timestamp}>{item.timestamp}</Text>
         </View>
         <View style={styles.messageRow}>
@@ -278,13 +280,13 @@ export default function ChatMessages() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, bgStyle, {shadowColor: text}]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <SafeIcon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{USERNAME}</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{USERNAME}</Text>
         <View style={{ flex: 1 }} />
         <TouchableOpacity>
           <SafeIcon name="create-outline" size={24} color="#000" />
@@ -295,10 +297,10 @@ export default function ChatMessages() {
       <TouchableOpacity
         activeOpacity={1}
         onPress={() => inputRef.current?.focus()}
-        style={styles.searchContainer}
+        style={[styles.searchContainer, {shadowColor: text}]}
       >
         <View style={styles.searchWrapper}>
-          <SafeIcon name="search" size={20} color="#5a2d82" style={styles.searchIcon} />
+          <SafeIcon name="search" size={20} color={text} style={[styles.searchIcon, textStyle]} />
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
@@ -312,7 +314,7 @@ export default function ChatMessages() {
 
       {/* Messages/Requests Row */}
       <View style={styles.messagesRow}>
-        <Text style={styles.messagesTitle}>Messages</Text>
+        <Text style={[styles.messagesTitle, textStyle]}>Messages</Text>
         <TouchableOpacity>
           {/* <Text style={styles.requestsLink}>Requests</Text> */}
         </TouchableOpacity>
@@ -326,12 +328,12 @@ export default function ChatMessages() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading conversations...</Text>
+            <Text style={[styles.loadingText, textStyle]}>Loading conversations...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
+            <TouchableOpacity style={[styles.retryButton, {backgroundColor: text}]} onPress={fetchConversations}>
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -359,8 +361,7 @@ export default function ChatMessages() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f8f2fd',
+    flex: 1
   },
 
   // Header
@@ -371,8 +372,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
-    backgroundColor: '#f8f2fd',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
@@ -380,7 +379,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#5a2d82',
     textAlign: 'center',
     flex: 1,
   },
@@ -395,7 +393,6 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     paddingHorizontal: 12,
     height: 42,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -406,7 +403,6 @@ const styles = StyleSheet.create({
   searchIcon: {
     marginRight: 8,
     // marginTop: 10,
-    color: '#5a2d82',
   },
   searchInput: {
     fontSize: 15,
@@ -419,7 +415,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
-    backgroundColor: '#f8f2fd',
   },
   storyItem: {
     width: 76,
@@ -435,7 +430,6 @@ const styles = StyleSheet.create({
   },
   avatarBorder: {
     borderWidth: 2,
-    borderColor: '#5a2d82',
     borderRadius: AVATAR_BORDER / 2,
     padding: 2,
     marginBottom: 4,
@@ -496,11 +490,9 @@ const styles = StyleSheet.create({
   messagesTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#5a2d82',
   },
   requestsLink: {
     fontSize: 15,
-    color: '#5a2d82',
     fontWeight: '700',
   },
 
@@ -510,11 +502,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: '#f8f2fd',
     marginBottom: 8,
     borderRadius: 12,
     marginHorizontal: 12,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
@@ -561,7 +551,6 @@ const styles = StyleSheet.create({
   },
   unreadMessage: {
     fontWeight: '700',
-    color: '#5a2d82',
   },
   timestamp: {
     fontSize: 12,
@@ -590,7 +579,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#5a2d82',
     fontWeight: '500',
   },
   errorContainer: {
@@ -607,7 +595,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#5a2d82',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,

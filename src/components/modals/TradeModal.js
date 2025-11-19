@@ -12,6 +12,7 @@ import {
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PagerView from 'react-native-pager-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const TradeModal = ({ visible, onClose }) => {
     const rbSheetRef = useRef(null);
@@ -22,6 +23,7 @@ const TradeModal = ({ visible, onClose }) => {
     const sellBalance = 1900000;
     const isDisabled = !buyAmount || parseInt(buyAmount) === 0;
     const isSellDisabled = !sellAmount || parseInt(sellAmount) === 0;
+    const { bgStyle, textStyle } = useAppTheme();
 
     useEffect(() => {
         if (visible) {
@@ -54,18 +56,16 @@ const TradeModal = ({ visible, onClose }) => {
                 statusBarTranslucent: true,
             }}
             customStyles={{
-                container: {
+                container: [{
                     borderTopLeftRadius: 20,
                     borderTopRightRadius: 20,
-                    backgroundColor: '#f8f2fd',
-
-                },
+                }, bgStyle],
                 draggableIcon: {
                     width: 80,
                     backgroundColor: '#ccc',
                 },
             }}>
-            <View style={styles.modalContainer}>
+            <View style={[styles.modalContainer, bgStyle]}>
                 <View style={styles.tabHeader}>
                     <TouchableOpacity onPress={() => handleTabPress(0)} style={styles.tab}>
                         <Text style={[styles.tabText, page === 0 && styles.activeTabText]}>
@@ -90,7 +90,7 @@ const TradeModal = ({ visible, onClose }) => {
                     {/* Buy Page */}
                     <View key="1" style={styles.page}>
                         <ScrollView contentContainerStyle={styles.content}>
-                            <View style={styles.inputRow}>
+                            <View style={[styles.inputRow, bgStyle]}>
                                 <TextInput
                                     style={styles.amountInput}
                                     value={buyAmount}
@@ -113,7 +113,7 @@ const TradeModal = ({ visible, onClose }) => {
                                 {['111', '1,111', '11,111', 'Max'].map((label, index) => (
                                     <TouchableOpacity
                                         key={index}
-                                        style={styles.quickButton}
+                                        style={[styles.quickButton, bgStyle]}
                                         disabled={isDisabled}
                                     >
                                         <Text
@@ -129,7 +129,7 @@ const TradeModal = ({ visible, onClose }) => {
                             </View>
 
                             <TextInput
-                                style={styles.commentInput}
+                                style={[styles.commentInput, bgStyle]}
                                 placeholder="Add a comment..."
                                 placeholderTextColor="#999"
                             />
@@ -153,7 +153,7 @@ const TradeModal = ({ visible, onClose }) => {
                     {/* Sell Page */}
                     <View key="2" style={styles.page}>
                         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                            <View style={styles.inputRow}>
+                            <View style={[styles.inputRow, bgStyle]}>
                                 <TextInput
                                     style={styles.amountInput}
                                     value={sellAmount}
@@ -179,7 +179,7 @@ const TradeModal = ({ visible, onClose }) => {
                                 {[25, 50, 75, 100].map((percent) => (
                                     <TouchableOpacity
                                         key={percent}
-                                        style={styles.quickButton}
+                                        style={[styles.quickButton, bgStyle]}
                                         onPress={() => handlePercentagePress(percent)}
                                     >
                                         <Text style={styles.quickButtonText}>{percent}%</Text>
@@ -197,7 +197,7 @@ const TradeModal = ({ visible, onClose }) => {
                             </Text>
 
                             <TextInput
-                                style={styles.commentInput}
+                                style={[styles.commentInput, bgStyle]}
                                 placeholder="Add a comment..."
                                 placeholderTextColor="#999"
                             />
@@ -229,7 +229,6 @@ const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
         paddingTop: 10,
-            backgroundColor: '#f8f2fd',
     },
     tabHeader: {
         flexDirection: 'row',
@@ -272,7 +271,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: '#f8f2fd',
         borderRadius: 12,
     },
     amountInput: {
@@ -326,7 +324,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#e0e0e0',
-        backgroundColor: '#f8f2fd',
     },
     quickButtonText: {
         fontSize: 14,
@@ -336,7 +333,6 @@ const styles = StyleSheet.create({
         color: '#aaa',
     },
     commentInput: {
-        backgroundColor: '#f8f2fd',
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 15,

@@ -10,9 +10,11 @@ import {
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const UsernameModal = ({ visible, onClose }) => {
   const sheetRef = useRef();
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     if (visible) {
@@ -33,11 +35,10 @@ const UsernameModal = ({ visible, onClose }) => {
       }}
       
       customStyles={{
-        container: {
+        container: [{
           borderTopLeftRadius: 10,
           borderTopRightRadius: 10,
-          backgroundColor: '#f8f2fd',
-        },
+        }, bgStyle],
         draggableIcon: {
           width: 80,
         },
@@ -47,14 +48,14 @@ const UsernameModal = ({ visible, onClose }) => {
         activeOpacity={1}
         onPress={onClose}
       >
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, bgStyle]}>
           {/* Drag handle */}
           {/* <View style={styles.dragHandle} /> */}
 
           {/* Top buttons */}
           <View style={styles.topButtonsRow}>
             <TouchableOpacity
-              style={styles.topButton}
+              style={[styles.topButton, bgStyle]}
               onPress={() => Alert.alert('Copy Link')}
             >
               <Ionicons name="copy-outline" size={20} color="#111100" />
@@ -62,7 +63,7 @@ const UsernameModal = ({ visible, onClose }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.topButton}
+              style={[styles.topButton, bgStyle]}
               onPress={() => Alert.alert('Send')}
             >
               <Feather name="send" size={20} color="#111100" />
@@ -77,13 +78,13 @@ const UsernameModal = ({ visible, onClose }) => {
             <Feather name="external-link" size={18} color="#788587" style={styles.optionRightIcon} />
           </TouchableOpacity> */}
 
-          <TouchableOpacity style={styles.optionRow} onPress={() => { }}>
+          <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={() => { }}>
             <Ionicons name="person-circle-outline" size={20} color="#111100" style={styles.optionIcon} />
             <Text style={styles.optionText}>Creator contract address</Text>
             <Ionicons name="copy-outline" size={18} color="#788587" style={styles.optionRightIcon} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionRow} onPress={() => { }}>
+          <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={() => { }}>
             <Ionicons name="wallet-outline" size={20} color="#111100" style={styles.optionIcon} />
             <Text style={styles.optionText}>Base wallet address</Text>
             <Ionicons name="copy-outline" size={18} color="#788587" style={styles.optionRightIcon} />
@@ -103,7 +104,6 @@ const styles = StyleSheet.create({
     // justifyContent: 'flex-end',
   },
   modalContainer: {
-     backgroundColor: '#f8f2fd',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 16,
@@ -127,7 +127,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8f2fd',
     paddingVertical: 25,
     borderRadius: 20,
     marginHorizontal: 4,
@@ -142,7 +141,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8f2fd',
     paddingVertical: 16,
     paddingHorizontal: 12,
     borderRadius: 20,

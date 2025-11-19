@@ -14,6 +14,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +23,8 @@ const Subscription = () => {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const navigation = useNavigation();
+  const { bgStyle, textStyle } = useAppTheme();
+
   useEffect(() => {
     loadSubscriptionData();
   }, []);
@@ -215,7 +218,7 @@ const Subscription = () => {
       </View>
       </LinearGradient>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.scrollContainer, bgStyle]} showsVerticalScrollIndicator={false}>
       {/* Status Card */}
         <View style={styles.statusCard}>
           <LinearGradient
@@ -460,7 +463,6 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    backgroundColor: '#f8f2fd'
   },
   loadingContainer: {
     flex: 1,

@@ -1,16 +1,19 @@
 import { StyleSheet, Dimensions } from "react-native";
+import { useAppTheme } from "../../../theme/useApptheme";
 
 const { width, height } = Dimensions.get('window');
 
 const createStyles = () => {
+  const { bg, text } = useAppTheme();
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
     },
     contentContainer: {
       flexGrow: 1,
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
     },
     
     // Form wrapper styles
@@ -102,17 +105,17 @@ const createStyles = () => {
     },
     forgotPasswordText: {
       fontSize: 14,
-      color: '#5a2d82', // Using the darker purple for consistency
+      color: text, // Using the darker purple for consistency
       fontWeight: '600',
     },
     loginButtonGradient: {
       height: 52,
-      backgroundColor: '#5a2d82', // Using the darker purple for the button
+      backgroundColor: text, // Using the darker purple for the button
       borderRadius: 16,
       marginBottom: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#5a2d82',
+      shadowColor: text,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -206,7 +209,7 @@ const createStyles = () => {
     socialSectionTitle: {
       fontSize: 18,
       fontWeight: '600',
-      color: '#5a2d82',
+      color: text,
       textAlign: 'center',
     },
 
@@ -220,7 +223,7 @@ const createStyles = () => {
       fontWeight: '400',
     },
     signupLink: {
-      color: '#5a2d82', // Using consistent purple color
+      color: text, // Using consistent purple color
       fontWeight: '700',
     },
 
@@ -303,7 +306,7 @@ const createStyles = () => {
       fontWeight: '600',
     },
     socialBtnText2: {
-      color: '#f8f2fd',
+      color: bg,
       fontSize: 16,
       fontWeight: '600',
     },
@@ -313,7 +316,7 @@ const createStyles = () => {
       fontWeight: '600',
     },
     instagramBtn: {
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
       color: '#3897f0',
       borderWidth: 1,
       borderColor: '#3897f0',
@@ -322,7 +325,7 @@ const createStyles = () => {
       backgroundColor: 'black',
     },
     metamaskBtn: {
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
       marginTop: 10,
       width: '100%',
       borderWidth: 1,

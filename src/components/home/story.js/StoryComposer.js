@@ -27,6 +27,7 @@ import {
   Contrast,
   Brightness,
 } from 'react-native-color-matrix-image-filters';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CANVAS_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT * 0.75);
@@ -146,6 +147,7 @@ export default function StoryComposer({
   const [overlayDragActive, setOverlayDragActive] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [activeTab, setActiveTab] = useState('filters');
+  const { bgStyle, textStyle, bg } = useAppTheme();
 
   const canvasRefs = useRef({}); // for captureRef
 
@@ -269,7 +271,7 @@ export default function StoryComposer({
       onRequestClose={onCancel}
       presentationStyle="fullScreen"
     >
-      <View style={styles.container}>
+      <View style={[styles.container, bgStyle]}>
         {/* Top bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={onCancel} style={styles.topBtn}>
@@ -390,7 +392,7 @@ export default function StoryComposer({
           ))}
         </ScrollView>
 
-        <View style={styles.tabs}>
+        <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
           <Tab
             icon="color-filter-outline"
             label="Filters"
@@ -448,79 +450,79 @@ export default function StoryComposer({
           />
         )} */}
 
-      {activeTab === 'stickers' && (
-  <View style={[styles.bottomTools, { height: 60 }]}>
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 12, alignItems: 'center' }}
-    >
-      {['😀','😂','😍','🔥','👍','👏','😮','😎','🥳','🤍','💙','✨','🌈','💥','🍕','🎉'].map(e => (
-        <TouchableOpacity
-          key={e}
-          onPress={() => addSticker(e)}
-          style={styles.stickerPick}
-        >
-          <Text style={{ fontSize: 26 }}>{e}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  </View>
-)}
+        {activeTab === 'stickers' && (
+          <View style={[styles.bottomTools, { height: 60 }, bgStyle]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 12, alignItems: 'center' }}
+            >
+              {['😀', '😂', '😍', '🔥', '👍', '👏', '😮', '😎', '🥳', '🤍', '💙', '✨', '🌈', '💥', '🍕', '🎉'].map(e => (
+                <TouchableOpacity
+                  key={e}
+                  onPress={() => addSticker(e)}
+                  style={[styles.stickerPick, bgStyle]}
+                >
+                  <Text style={{ fontSize: 26 }}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
 
         {/* text tools */}
         {activeTab === 'text' && (
-        <View style={styles.bottomTools}>
-          <View style={styles.textRow}>
-            <TextInput
-              placeholder="Add text…"
-              placeholderTextColor="#aaa"
-              style={[styles.textInput, textFont, { color: textColor }]}
-              value={draftText}
-              onChangeText={setDraftText}
-            />
-            <TouchableOpacity style={styles.addBtn} onPress={addText}>
-              <Text style={styles.addBtnLabel}>Add</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 12 }}
-          >
-            {DEFAULT_FONTS.map(f => (
-              <TouchableOpacity
-                key={f.name}
-                onPress={() => setTextFont(f.style)}
-                style={styles.fontChip}
-              >
-                <Text style={[{ color: '#000' }, f.style]}>{f.name}</Text>
-              </TouchableOpacity>
-            ))}
-            {[
-              '#ffffff',
-              '#ff4d4f',
-              '#40a9ff',
-              '#52c41a',
-              '#faad14',
-              '#b37feb',
-              '#000000',
-            ].map(c => (
-              <TouchableOpacity
-                key={c}
-                onPress={() => setTextColor(c)}
-                style={[
-                  styles.colorDot,
-                  { backgroundColor: c, borderColor: '#fff' },
-                ]}
+          <View style={styles.bottomTools}>
+            <View style={styles.textRow}>
+              <TextInput
+                placeholder="Add text…"
+                placeholderTextColor="#aaa"
+                style={[styles.textInput, textFont, { color: textColor }]}
+                value={draftText}
+                onChangeText={setDraftText}
               />
-            ))}
-          </ScrollView>
-        </View>
+              <TouchableOpacity style={styles.addBtn} onPress={addText}>
+                <Text style={[styles.addBtnLabel, {color: bg}]}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 12 }}
+            >
+              {DEFAULT_FONTS.map(f => (
+                <TouchableOpacity
+                  key={f.name}
+                  onPress={() => setTextFont(f.style)}
+                  style={[styles.fontChip, bgStyle]}
+                >
+                  <Text style={[{ color: '#000' }, f.style]}>{f.name}</Text>
+                </TouchableOpacity>
+              ))}
+              {[
+                '#ffffff',
+                '#ff4d4f',
+                '#40a9ff',
+                '#52c41a',
+                '#faad14',
+                '#b37feb',
+                '#000000',
+              ].map(c => (
+                <TouchableOpacity
+                  key={c}
+                  onPress={() => setTextColor(c)}
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: c, borderColor: '#fff' },
+                  ]}
+                />
+              ))}
+            </ScrollView>
+          </View>
         )}
-        
+
       </View>
     </Modal>
   );
@@ -536,7 +538,7 @@ const Tab = ({ icon, label, tabKey, active, onPress }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1 },
 
   topBar: {
     paddingTop: Platform.OS === 'ios' ? 50 : 16,
@@ -612,8 +614,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#f8f2fd',
-    backgroundColor: '#f8f2fd',
   },
   tabBtn: { alignItems: 'center', gap: 2 },
   tabLabel: { color: '#fff', fontSize: 11 },
@@ -638,14 +638,12 @@ const styles = StyleSheet.create({
   bottomTools: {
     paddingTop: 6,
     paddingBottom: 10,
-    backgroundColor: '#f8f2fd',
   },
   stickerPick: {
     width: 48,
     height: 48,
     borderRadius: 24,
     marginRight: 10,
-    backgroundColor: '#f8f2fd',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -670,12 +668,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  addBtnLabel: { color: '#f8f2fd', fontWeight: '700' },
+  addBtnLabel: { fontWeight: '700' },
 
   fontChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#f8f2fd1a',
     borderRadius: 10,
     marginRight: 8,
   },

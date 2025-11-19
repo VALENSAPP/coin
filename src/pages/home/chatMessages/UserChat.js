@@ -30,6 +30,7 @@ import ImageViewing from 'react-native-image-viewing';
 import Video from 'react-native-video';
 import FileViewer from 'react-native-file-viewer';
 import { pick } from '@react-native-documents/picker';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -106,6 +107,7 @@ const UserChat = ({ route, navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
+  const { bgStyle, textStyle, bg, text } = useAppTheme();
 
   // Validate required params on mount
   useEffect(() => {
@@ -527,6 +529,7 @@ const UserChat = ({ route, navigation }) => {
                     styles.messageBubble,
                     isUser ? styles.userBubble : styles.botBubble,
                     item.isTemp && styles.tempMessage,
+                    {backgroundColor: text}
                   ]}
                 >
                   <Text
@@ -590,7 +593,7 @@ const UserChat = ({ route, navigation }) => {
                   }
                 }}
               >
-                <LinearGradient colors={['#5a2d82', '#5a2d82']} style={styles.fileIcon}>
+                <LinearGradient colors={[text, text]} style={styles.fileIcon}>
                   <Text style={styles.fileIconText}>📄</Text>
                 </LinearGradient>
                 <View style={styles.fileDetails}>
@@ -658,7 +661,7 @@ const UserChat = ({ route, navigation }) => {
 
         <View style={styles.attachmentOptions}>
           <TouchableOpacity 
-            style={styles.attachmentOption} 
+            style={[styles.attachmentOption, bgStyle]} 
             onPress={() => handleAttachment('camera')}
           >
             <LinearGradient colors={['#ff6b6b', '#ee5a52']} style={styles.optionIconContainer}>
@@ -671,7 +674,7 @@ const UserChat = ({ route, navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.attachmentOption} 
+            style={[styles.attachmentOption, bgStyle]} 
             onPress={() => handleAttachment('gallery')}
           >
             <LinearGradient colors={['#a8edea', '#fed6e3']} style={styles.optionIconContainer}>
@@ -684,10 +687,10 @@ const UserChat = ({ route, navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.attachmentOption} 
+            style={[styles.attachmentOption, bgStyle]} 
             onPress={() => handleAttachment('document')}
           >
-            <LinearGradient colors={['#5a2d82', '#5a2d82']} style={styles.optionIconContainer}>
+            <LinearGradient colors={[text, text]} style={styles.optionIconContainer}>
               <Text style={styles.optionIcon}>📄</Text>
             </LinearGradient>
             <View style={styles.optionContent}>
@@ -722,9 +725,9 @@ const UserChat = ({ route, navigation }) => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading chat...</Text>
+      <SafeAreaView style={[styles.safeArea, bgStyle]}>
+        <View style={[styles.loadingContainer, bgStyle]}>
+          <Text style={[styles.loadingText, textStyle]}>Loading chat...</Text>
         </View>
       </SafeAreaView>
     );
@@ -732,14 +735,14 @@ const UserChat = ({ route, navigation }) => {
 
   if (!targetUserId) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Invalid chat session</Text>
+      <SafeAreaView style={[styles.safeArea, bgStyle]}>
+        <View style={[styles.loadingContainer, bgStyle]}>
+          <Text style={[styles.loadingText, textStyle]}>Invalid chat session</Text>
           <TouchableOpacity 
-            style={styles.backButton} 
+            style={[styles.backButton, {shadowColor: text}]} 
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={[styles.backButtonText, textStyle]}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -747,8 +750,8 @@ const UserChat = ({ route, navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor="#f8f2fd" barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <StatusBar backgroundColor={bg} barStyle="dark-content" />
       
       <KeyboardAvoidingView 
         style={styles.keyboardAvoidingView}
@@ -756,13 +759,13 @@ const UserChat = ({ route, navigation }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.container}>
-            <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }]}>
+          <View style={[styles.container, bgStyle]}>
+            <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
               {/* Header */}
-              <View style={styles.headerGradient}>
+              <View style={[styles.headerGradient, bgStyle]}>
                 <View style={styles.headerContent}>
                   <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <SafeIcon name="arrow-back" size={24} color="#5a2d82" />
+                    <SafeIcon name="arrow-back" size={24} color={text} />
                   </TouchableOpacity>
 
                   <View style={styles.logoContainer}>
@@ -787,7 +790,7 @@ const UserChat = ({ route, navigation }) => {
                 ]}>
                   {/* Header row inside card */}
                   <View style={styles.chatHeaderRow}>
-                    <View style={styles.profileImage}> 
+                    <View style={[styles.profileImage, {backgroundColor: text}]}> 
                       <View style={styles.profileGradient}>
                         {user?.image ? (
                           <Image 
@@ -870,7 +873,7 @@ const UserChat = ({ route, navigation }) => {
                           setTimeout(() => sheetRef.current?.open(), 100);
                         }}
                       >
-                        <LinearGradient colors={['#5a2d82', '#5a2d82']} style={styles.attachButtonGradient}>
+                        <LinearGradient colors={[text, text]} style={styles.attachButtonGradient}>
                           <Text style={styles.attachIcon}>+</Text>
                         </LinearGradient>
                       </TouchableOpacity>
@@ -904,7 +907,7 @@ const UserChat = ({ route, navigation }) => {
                       <LinearGradient
                         colors={
                           (inputText.trim() && !isSending) 
-                            ? ['#5a2d82', '#5a2d82'] 
+                            ? [text, text] 
                             : ['#d1d5db', '#9ca3af']
                         }
                         style={styles.sendButtonGradient}
@@ -948,43 +951,36 @@ export default UserChat;
 // Complete updated styles with all fixes
 const createStyles = () => ({
   safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f2fd',
+    flex: 1
   },
   keyboardAvoidingView: {
     flex: 1,
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f2fd',
     padding: 20,
   },
   loadingText: {
     fontSize: 16,
-    color: '#5a2d82',
     fontWeight: '500',
     marginBottom: 20,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#5a2d82',
     fontWeight: '600',
   },
 
   /* Header */
   headerGradient: {
     height: SCREEN_HEIGHT * 0.20,
-    backgroundColor: '#f8f2fd',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1002,7 +998,6 @@ const createStyles = () => ({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 12,
     padding: 10,
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1052,7 +1047,6 @@ const createStyles = () => ({
     height: 32,
     borderRadius: 16,
     marginRight: 12,
-    backgroundColor: '#5a2d82',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -1146,7 +1140,6 @@ const createStyles = () => ({
     minWidth: 50,
   },
   userBubble: {
-    backgroundColor: '#5a2d82',
     borderBottomRightRadius: 6,
   },
   botBubble: {
@@ -1425,7 +1418,6 @@ const createStyles = () => ({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#f8f2fd',
   },
   optionIconContainer: {
     width: 48,

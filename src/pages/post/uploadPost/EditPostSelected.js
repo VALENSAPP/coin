@@ -35,6 +35,7 @@ import {
   Contrast,
   Brightness,
 } from 'react-native-color-matrix-image-filters';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const fonts = [
   { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
@@ -104,6 +105,7 @@ const InstagramPostCreator = () => {
   const [videoPaused, setVideoPaused] = useState({});
   const [videoMuted, setVideoMuted] = useState(true);
   const videoRefs = useRef({});
+  const { bgStyle, textStyle } = useAppTheme();
 
   // Add refs for capturing filtered images
   const imageViewRefs = useRef({});
@@ -1414,7 +1416,7 @@ const InstagramPostCreator = () => {
   };
 
   const renderEditingTabs = () => (
-    <View style={styles.editingSection}>
+    <View style={[styles.editingSection, bgStyle]}>
       <View style={styles.tabContainer}>
         {[
           { title: 'Text', icon: 'text-outline', disabled: isCurrentMediaVideo() },
@@ -1644,7 +1646,7 @@ const InstagramPostCreator = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={handleBack}>
@@ -1665,7 +1667,6 @@ const InstagramPostCreator = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   header: {
     flexDirection: 'row',
@@ -1887,7 +1888,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   editingSection: {
-  backgroundColor: '#f8f2fd',
     paddingTop: 12,
   },
   tabContainer: {

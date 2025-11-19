@@ -9,6 +9,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -37,6 +38,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
 
 
 
+  const { textStyle, text } = useAppTheme();
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
@@ -89,7 +91,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
             shadowRadius: 4,
           },
           tabBarIndicatorStyle: {
-            backgroundColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82',
+            backgroundColor: text,
             height: 3,
             borderRadius: 2,
           },
@@ -108,7 +110,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
               <Ionicons
                 name={focused ? 'grid' : 'grid-outline'}
                 size={24}
-                color={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                color={focused ? (text) : '#6b7280'}
               />
             ),
           }}
@@ -129,7 +131,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
           options={{
             tabBarIcon: ({ focused }) => (
               <ProfileReelIcon
-                fill={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                fill={focused ? (text) : '#6b7280'}
                 height={24}
                 width={24}
               />
@@ -156,7 +158,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
           options={{
             tabBarIcon: ({ focused }) => (
               <LockKey
-                fill={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                fill={focused ? (text) : '#6b7280'}
                 height={24}
                 width={24}
               />
@@ -197,7 +199,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
               <MaterialCommunityIcons
                 name={focused ? 'lightning-bolt' : 'lightning-bolt-outline'}
                 size={24}
-                color={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                color={focused ? (text) : '#6b7280'}
               />
             ),
           }}

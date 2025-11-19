@@ -4,19 +4,20 @@ import Clipboard from "@react-native-clipboard/clipboard";
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useAppTheme } from '../../theme/useApptheme';
 
 const DepositeCash = () => {
   const userId = '0xf8652b01';
+  const { bgStyle, textStyle, text } = useAppTheme();
   const navigation = useNavigation();
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: 'Deposit Cash',
-      headerStyle: {
-        backgroundColor: '#f8f2fd',
+      headerStyle: [{
         elevation: 0,
         shadowOpacity: 0,
-      },
+      }, bgStyle],
       headerTitleStyle: {
         fontWeight: 'bold',
         color: '#111',
@@ -30,13 +31,13 @@ const DepositeCash = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Smart Wallet</Text>
+    <SafeAreaView style={[styles.container, bgStyle]}>
+      <Text style={[styles.header, textStyle]}>Smart Wallet</Text>
       <Text style={styles.subText}>
         Use your wallet address to deposit or manage funds securely.
       </Text>
 
-      <View style={styles.clipboardBox}>
+      <View style={[styles.clipboardBox, {shadowColor: text}]}>
         <Text style={styles.walletAddress}>{userId}</Text>
         <TouchableOpacity onPress={copyToClipboard} style={styles.copyBtn}>
           <Ionicons
@@ -47,12 +48,12 @@ const DepositeCash = () => {
         </TouchableOpacity>
       </View>
 
-      <Text style={[styles.header, { marginTop: 30 }]}>Deposit ETH</Text>
+      <Text style={[styles.header, textStyle, { marginTop: 30 }]}>Deposit ETH</Text>
       <Text style={styles.subText}>
         Connect your wallet to start depositing ETH quickly and securely.
       </Text>
 
-      <TouchableOpacity style={styles.primaryBtn}>
+      <TouchableOpacity style={[styles.primaryBtn, {backgroundColor: text, shadowColor: text}]}>
         <Text style={styles.primaryBtnText}>Connect Wallet</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -64,14 +65,12 @@ export default DepositeCash;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     padding: 20,
     paddingTop: 30,
   },
   header: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#5a2d82',
     marginBottom: 8,
   },
   subText: {
@@ -85,7 +84,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 15,
     marginBottom: 20,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -108,13 +106,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryBtn: {
-    backgroundColor: '#5a2d82',
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,

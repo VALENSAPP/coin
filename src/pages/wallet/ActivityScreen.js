@@ -13,11 +13,13 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { getRecentActivities } from '../../services/tokens';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export const ActivityScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const [activeFilter, setActiveFilter] = useState('All');
   const [activities, setActivities] = useState([]);
+  const { bgStyle, textStyle, text } = useAppTheme();
   const filters = ['All', 'Supporters', 'Follows'];
 
   const formatTime = (timestamp) => {
@@ -159,7 +161,7 @@ export const ActivityScreen = ({ navigation }) => {
 
 
   const renderActivity = ({ item }) => (
-    <View style={styles.activityDetailItem}>
+    <View style={[styles.activityDetailItem, {shadowColor: text}]}>
       <View style={[styles.activityIcon, {
         backgroundColor: item.type === 'buy' ? '#10b981' :
           item.type === 'sell' ? '#ef4444' :
@@ -180,7 +182,7 @@ export const ActivityScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* <View style={styles.header}>
           <Text style={styles.headerTitle}>Activity</Text>
@@ -191,7 +193,7 @@ export const ActivityScreen = ({ navigation }) => {
           {filters.map(filter => (
             <TouchableOpacity
               key={filter}
-              style={[styles.filterButton, activeFilter === filter && styles.filterButtonActive]}
+              style={[styles.filterButton, activeFilter === filter && {backgroundColor: text, borderColor: text}]}
               onPress={() => setActiveFilter(filter)}
             >
               <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
@@ -202,7 +204,7 @@ export const ActivityScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Recent Activity</Text>
           <FlatList
             data={activities}
             renderItem={renderActivity}
@@ -218,7 +220,6 @@ export const ActivityScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingTop: 20,
     paddingBottom: 40,
     marginBottom: Platform.OS == "ios" ? 50 : 0
@@ -244,7 +245,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#5a2d82',
     marginBottom: 12,
   },
 
@@ -256,7 +256,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
     borderRadius: 12,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
@@ -302,10 +301,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#5a2d82',
-    borderColor: '#5a2d82',
   },
   filterText: {
     fontSize: 14,

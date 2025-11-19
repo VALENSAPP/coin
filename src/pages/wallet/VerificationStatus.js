@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserCredentials } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const VerificationStatusScreen = () => {
     const [data, setData] = useState(null);
@@ -23,6 +24,7 @@ const VerificationStatusScreen = () => {
     const dispatch = useDispatch();
     const toast = useToast();
     const allVerified = Object.values(verificationData).every(v => v === true);
+    const { bgStyle, textStyle } = useAppTheme();
 
     useEffect(() => {
         loadProfileData();
@@ -53,7 +55,7 @@ const VerificationStatusScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
                 <View style={styles.verificationCard}>

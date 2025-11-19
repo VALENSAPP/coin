@@ -36,6 +36,7 @@ import { createCheckoutSession } from "../../services/stirpe";
 import TokenSellModal from "../../components/modals/TokenSellModal";
 import InAppBrowser from "react-native-inappbrowser-reborn";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
+import { useAppTheme } from "../../theme/useApptheme";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -64,6 +65,7 @@ export default function WalletComponent() {
     const purchaseSheetRef = useRef(null);
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -251,10 +253,10 @@ export default function WalletComponent() {
     }, []);
 
     const CreatorDashboard = ({ creator }) => (
-        <View style={styles.creatorDashboard}>
+        <View style={[styles.creatorDashboard, {shadowColor: text}]}>
             <View style={styles.creatorHeader}>
                 <View style={styles.creatorInfo}>
-                    <View style={styles.creatorAvatar}>
+                    <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
                         <Text style={styles.avatarText}>
                             {creator.vendorName ? creator.vendorName.charAt(0) : 'U'}
                         </Text>
@@ -274,19 +276,19 @@ export default function WalletComponent() {
 
             <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
+                    <Text style={[styles.statValue, textStyle]}>
                         ${creator.tokenPrice?.toFixed(4) || '0.00'}
                     </Text>
                     <Text style={styles.statLabel}>Current Price</Text>
                 </View>
                 <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
+                    <Text style={[styles.statValue, textStyle]}>
                         ${creator.totalTokenAmount?.toFixed(2) || '0.00'}
                     </Text>
                     <Text style={styles.statLabel}>Total Value</Text>
                 </View>
                 <View style={styles.statItem}>
-                    <Text style={styles.statValue}>
+                    <Text style={[styles.statValue, textStyle]}>
                         {creator.tokenAmount || 0}
                     </Text>
                     <Text style={styles.statLabel}>Tokens Held</Text>
@@ -295,13 +297,13 @@ export default function WalletComponent() {
 
             <View style={styles.tradeButtons}>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, styles.buyBtn]}
+                    style={[styles.tradeBtn, {backgroundColor: text}]}
                     onPress={() => handleFollowUnfollow(creator, false)}
                 >
                     <Text style={styles.tradeBtnText}>Buy (Follow)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, styles.sellBtn]}
+                    style={[styles.tradeBtn, styles.sellBtn, {bordercolor: text}, textStyle]}
                     onPress={() => handleFollowUnfollow(creator, true)}
                 >
                     <Text style={[styles.tradeBtnText, styles.sellBtnText]}>Sell (Unfollow)</Text>
@@ -317,8 +319,8 @@ export default function WalletComponent() {
         );
 
         return (
-            <View style={{ flex: 1, backgroundColor: '#f8f2fd' }}>
-                <Text style={styles.subHeader}>{filteredList.length} creators</Text>
+            <View style={[{ flex: 1 }]}>
+                <Text style={[styles.subHeader, {shadowColor: text}]}>{filteredList.length} creators</Text>
                 <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text>
 
                 <FlatList
@@ -326,12 +328,12 @@ export default function WalletComponent() {
                     keyExtractor={(item, index) => item.vendorId || index.toString()}
                     renderItem={({ item }) => (
                         <TouchableOpacity
-                            style={styles.coinItem}
+                            style={[styles.coinItem, {shadowColor: text}]}
                             onPress={() => {
                                 setSelectedCreator(item);
                             }}
                         >
-                            <View style={styles.coinAvatar}>
+                            <View style={[styles.coinAvatar, {backgroundColor: text}]}>
                                 <Text style={styles.avatarText}>
                                     {item.username ? item.username.charAt(0) : 'U'}
                                 </Text>
@@ -351,11 +353,11 @@ export default function WalletComponent() {
                             </View>
 
                             <View style={styles.priceSection}>
-                                <Text style={styles.price}>
+                                <Text style={[styles.price, textStyle]}>
                                     ${item.purchaseTokenPrice?.toFixed(4) || '0.00'}
                                 </Text>
                                 <TouchableOpacity
-                                    style={[styles.followBtn, styles.followBtnActive]}
+                                    style={[styles.followBtn, {bordercolor: text, backgroundColor: text}]}
                                     onPress={() => { setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}
                                 >
                                     <Text style={[styles.followBtnText, styles.followBtnActiveText]}>
@@ -379,8 +381,8 @@ export default function WalletComponent() {
 
     const MyHoldings = () => {
         return (
-            <View style={{ flex: 1, backgroundColor: '#f8f2fd', }}>
-                <Text style={styles.subHeader}>{holdingsData.length} holdings</Text>
+            <View style={[{ flex: 1 }, bgStyle]}>
+                <Text style={[styles.subHeader, {shadowColor: text}]}>{holdingsData.length} holdings</Text>
                 <Text style={styles.note}>Your current creator investments</Text>
 
                 <FlatList
@@ -433,7 +435,7 @@ export default function WalletComponent() {
     const Tab = createMaterialTopTabNavigator();
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView contentContainerStyle={{ paddingBottom: 10, marginTop: Platform.OS == "ios" ? 20 : 0 }}
                 showsVerticalScrollIndicator={false}>
                 <View style={{ paddingHorizontal: 15 }}>
@@ -443,14 +445,14 @@ export default function WalletComponent() {
                             <View style={styles.nameRow}>
                                 <Text style={styles.username}>{userData?.displayName}</Text>
                                 {userVerificationStatus.verified && (
-                                    <Ionicons name="checkmark-circle" size={20} color="#5a2d82" />
+                                    <Ionicons name="checkmark-circle" size={20} color={text} />
                                 )}
                             </View>
                             {userVerificationStatus.verified && (
-                                <Text style={styles.verificationBadge}>{userVerificationStatus.level}</Text>
+                                <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text>
                             )}
                             <View style={styles.idRow}>
-                                <Text style={styles.walletAddress}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
+                                <Text style={[styles.walletAddress, textStyle]}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
                                 <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>
                                     <Ionicons name="copy-outline" size={15} color="#000" />
                                 </TouchableOpacity>
@@ -465,23 +467,23 @@ export default function WalletComponent() {
                     </View>
 
                     {/* Holdings Box */}
-                    <View style={styles.holdingsBox}>
+                    <View style={[styles.holdingsBox, {shadowColor: text}]}>
                         <Text style={styles.holdingsText}>Total value of holdings</Text>
-                        <Text style={styles.holdingsAmount}>{portfolioValue || '$ 0.00'}</Text>
+                        <Text style={[styles.holdingsAmount, textStyle]}>{portfolioValue || '$ 0.00'}</Text>
                     </View>
 
                     {/* Credits Section */}
-                    <View style={styles.creditsBox}>
+                    <View style={[styles.creditsBox, {shadowColor: text}]}>
                         <View style={styles.creditsInfo}>
-                            <MaterialCommunityIcons name="credit-card-outline" size={24} color="#5a2d82" />
+                            <MaterialCommunityIcons name="credit-card-outline" size={24} color={text} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
                                 <Text style={styles.creditsTitle}>Post Credits</Text>
-                                <Text style={styles.creditsCount}>
+                                <Text style={[styles.creditsCount, textStyle]}>
                                     {creditsLeft} / 5 remaining
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.buyCreditsBtn} onPress={handleBuyCredits}>
+                        <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}>
                             <Text style={styles.buyCreditsText}>Buy Credits</Text>
                         </TouchableOpacity>
                     </View>
@@ -492,9 +494,9 @@ export default function WalletComponent() {
             <View style={{ flex: 1, minHeight: 350 }}>
                 <Tab.Navigator
                     screenOptions={{
-                        tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: '#5a2d82' },
-                        tabBarStyle: { backgroundColor: '#f8f2fd' },
-                        tabBarIndicatorStyle: { backgroundColor: '#5a2d82', height: 3, borderRadius: 2 },
+                        tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: {text} },
+                        tabBarStyle: bgStyle,
+                        tabBarIndicatorStyle: { backgroundColor: {text}, height: 3, borderRadius: 2 },
                     }}
                 >
                     <Tab.Screen
@@ -527,12 +529,11 @@ export default function WalletComponent() {
                     setSelectedCreator(null);
                 }}
                 customStyles={{
-                    container: {
+                    container: [{
                         borderTopLeftRadius: 30,
                         borderTopRightRadius: 30,
-                        backgroundColor: '#f8f2fd',
                         bottom: -30,
-                    },
+                    }, bgStyle],
                     draggableIcon: {
                         backgroundColor: '#ccc',
                         width: 60,
@@ -563,12 +564,11 @@ export default function WalletComponent() {
                     setSelectedCreator(null);
                 }}
                 customStyles={{
-                    container: {
+                    container:[ {
                         borderTopLeftRadius: 30,
                         borderTopRightRadius: 30,
-                        backgroundColor: '#f8f2fd',
                         bottom: -30,
-                    },
+                    }, bgStyle],
                     draggableIcon: {
                         backgroundColor: '#ccc',
                         width: 60,
@@ -597,7 +597,6 @@ export default function WalletComponent() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         paddingTop: 20,
         paddingBottom: 50,
     },
@@ -621,13 +620,11 @@ const styles = StyleSheet.create({
     },
     verificationBadge: {
         fontSize: 12,
-        color: '#5a2d82',
         fontWeight: '600',
         marginTop: 2,
     },
     walletAddress: {
         fontSize: 16,
-        color: "#5a2d82"
     },
     idRow: {
         flexDirection: "row",
@@ -651,7 +648,6 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         borderRadius: 16,
         marginHorizontal: 8,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -663,7 +659,6 @@ const styles = StyleSheet.create({
     holdingsAmount: {
         fontSize: 34,
         fontWeight: "700",
-        color: '#5a2d82',
         paddingHorizontal: 20,
         textAlign: 'center'
     },
@@ -673,7 +668,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         // marginVertical: 10,
         marginHorizontal: 8,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -691,14 +685,12 @@ const styles = StyleSheet.create({
     creditsCount: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#5a2d82',
     },
     creditsRenewal: {
         fontSize: 12,
         color: '#666',
     },
     buyCreditsBtn: {
-        backgroundColor: '#5a2d82',
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
@@ -725,7 +717,6 @@ const styles = StyleSheet.create({
         marginTop: 10,
         paddingHorizontal: 12,
         borderRadius: 12,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.05,
         shadowRadius: 5,
         elevation: 2,
@@ -744,7 +735,6 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         marginHorizontal: 15,
         marginTop: 15,
-        color: '#5a2d82'
     },
     note: {
         fontSize: 13,
@@ -760,7 +750,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#ffffff',
         padding: 12,
         borderRadius: 16,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.05,
         shadowRadius: 5,
         elevation: 2,
@@ -768,7 +757,6 @@ const styles = StyleSheet.create({
     coinAvatar: {
         width: 44,
         height: 44,
-        backgroundColor: "#5a2d82",
         borderRadius: 22,
         marginRight: 12,
         justifyContent: 'center',
@@ -786,7 +774,6 @@ const styles = StyleSheet.create({
     },
     marketCapText: {
         fontSize: 11,
-        color: '#5a2d82',
         fontWeight: '600',
         marginTop: 1,
     },
@@ -802,7 +789,6 @@ const styles = StyleSheet.create({
     price: {
         fontSize: 14,
         fontWeight: "700",
-        color: '#5a2d82',
         marginBottom: 4,
     },
     followBtn: {
@@ -810,10 +796,6 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: '#5a2d82',
-    },
-    followBtnActive: {
-        backgroundColor: '#5a2d82',
     },
     unfollowBtn: {
         backgroundColor: '#fff',
@@ -825,9 +807,6 @@ const styles = StyleSheet.create({
     followBtnActiveText: {
         color: '#fff',
     },
-    unfollowBtnText: {
-        color: '#5a2d82',
-    },
     newTag: {
         backgroundColor: "#f3e9ff",
         borderRadius: 5,
@@ -838,11 +817,6 @@ const styles = StyleSheet.create({
     verifiedTag: {
         backgroundColor: '#e8f5e8',
     },
-    newText: {
-        fontSize: 10,
-        fontWeight: "700",
-        color: "#5a2d82"
-    },
     verifiedText: {
         color: '#2d8f2d',
     },
@@ -851,7 +825,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 16,
         marginVertical: 8,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -869,7 +842,6 @@ const styles = StyleSheet.create({
     creatorAvatar: {
         width: 50,
         height: 50,
-        backgroundColor: '#5a2d82',
         borderRadius: 25,
         marginRight: 12,
         justifyContent: 'center',
@@ -892,7 +864,6 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#5a2d82',
     },
     statLabel: {
         fontSize: 11,
@@ -909,21 +880,14 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
     },
-    buyBtn: {
-        backgroundColor: '#5a2d82',
-    },
     sellBtn: {
         backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#5a2d82',
     },
     tradeBtnText: {
         fontSize: 14,
         fontWeight: '600',
         color: '#fff',
-    },
-    sellBtnText: {
-        color: '#5a2d82',
     },
     holdingItem: {
         marginHorizontal: 15,

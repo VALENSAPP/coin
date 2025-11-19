@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LogoIcon } from '../../assets/icons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { height } = Dimensions.get('window');
 
@@ -15,15 +16,16 @@ const AuthHeader = ({
   titleSize = 30,
   subtitleSize = 14
 }) => {
+  const { bgStyle, textStyle, bg, text } = useAppTheme();
   return (
-    <View style={[styles.headerGradient, { height: headerHeight }]}>
+    <View style={[styles.headerGradient, { height: headerHeight }, bgStyle]}>
       <View style={styles.headerContent}>
         {showBackButton && (
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, {shadowColor: text}]}
             onPress={onBackPress}
           >
-            <Icon name="arrow-back" size={24} color="#5a2d82" />
+            <Icon name="arrow-back" size={24} color={text} />
           </TouchableOpacity>
         )}
 
@@ -32,11 +34,11 @@ const AuthHeader = ({
             <LogoIcon height={logoSize} width={logoSize} />
           </View>
           <View style={styles.brandContainer}>
-            <Text style={[styles.brandTitle, { fontSize: titleSize }]}>
+            <Text style={[styles.brandTitle, { fontSize: titleSize }, textStyle]}>
               {title}
             </Text>
             {subtitle && (
-              <Text style={[styles.tagline, { fontSize: subtitleSize }]}>
+              <Text style={[styles.tagline, { fontSize: subtitleSize }, textStyle]}>
                 {subtitle}
               </Text>
             )}
@@ -51,7 +53,6 @@ const AuthHeader = ({
 
 const styles = {
   headerGradient: {
-    backgroundColor: '#f8f2fd',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -69,7 +70,6 @@ const styles = {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
     padding: 10,
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -93,7 +93,6 @@ const styles = {
   },
   brandTitle: {
     fontWeight: '800',
-    color: '#5a2d82',
     letterSpacing: 1.5,
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
     textShadowOffset: { width: 0, height: 2 },
@@ -101,7 +100,6 @@ const styles = {
   },
   tagline: {
     fontWeight: '500',
-    color: '#5a2d82',
     opacity: 0.8,
     marginTop: 0,
     marginBottom:7,

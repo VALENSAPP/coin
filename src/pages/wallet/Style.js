@@ -3,11 +3,9 @@ import { StyleSheet } from "react-native";
 export default StyleSheet.create({
     wrapper: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
     },
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         paddingBottom: 50,
     },
     header: {
@@ -16,7 +14,6 @@ export default StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 15,
-        backgroundColor: '#f8f2fd',
     },
     backButton: {
         width: 40,

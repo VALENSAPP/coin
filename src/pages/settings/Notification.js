@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 // Fallback icon component to mirror ChatMessages UI reliability
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -51,6 +52,8 @@ const Notification = () => {
   const [permissionStatus, setPermissionStatus] = useState('undetermined');
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const navigation = useNavigation()
+  const { bgStyle, textStyle, bg, text } = useAppTheme();
+
   useEffect(() => {
     checkNotificationPermission();
   }, []);
@@ -63,13 +66,13 @@ const Notification = () => {
           const hasPermission = await PermissionsAndroid.check(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
           );
-          
+
           // If permission is denied, it could be:
           // 1. Never been requested (first time)
           // 2. Previously denied but can be requested again
           // 3. Permanently denied (blocked)
           // 4. Disabled in system settings
-          
+
           if (hasPermission) {
             setPermissionStatus('granted');
             setNotificationEnabled(true);
@@ -98,7 +101,7 @@ const Notification = () => {
     try {
       if (Platform.OS === 'android') {
         if (Platform.Version >= 33) {
-          
+
           const result = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
             {
@@ -109,7 +112,7 @@ const Notification = () => {
               buttonPositive: 'OK',
             }
           )
-          
+
           if (result === PermissionsAndroid.RESULTS.GRANTED) {
             setPermissionStatus('granted');
             setNotificationEnabled(true);
@@ -156,8 +159,8 @@ const Notification = () => {
       [
         { text: 'Try Again', onPress: () => requestNotificationPermission() },
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Open Settings', 
+        {
+          text: 'Open Settings',
           onPress: () => openAppSettings()
         }
       ]
@@ -170,8 +173,8 @@ const Notification = () => {
       'Notification permission has been permanently denied. Please enable notifications manually in your device settings.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Open Settings', 
+        {
+          text: 'Open Settings',
           onPress: () => openAppSettings()
         }
       ]
@@ -261,14 +264,14 @@ const Notification = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f2fd" />
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, bgStyle, { shadowColor: text }]}>
         <TouchableOpacity style={styles.backButton} onPress={goBack}>
           <SafeIcon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={[styles.headerTitle, textStyle]}>Notifications</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -281,6 +284,7 @@ const Notification = () => {
           <TouchableOpacity
             style={[
               styles.primaryButton,
+              { backgroundColor: text, shadowColor: text },
               (notificationEnabled && permissionStatus === 'granted') && styles.primaryButtonActive,
               permissionStatus === 'blocked' && styles.primaryButtonBlocked
             ]}
@@ -348,7 +352,6 @@ const Notification = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   header: {
     flexDirection: 'row',
@@ -357,8 +360,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
-    backgroundColor: '#f8f2fd',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
@@ -372,7 +373,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#5a2d82',
     textAlign: 'center',
     flex: 1,
   },
@@ -413,11 +413,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 52,
-    backgroundColor: '#5a2d82',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
