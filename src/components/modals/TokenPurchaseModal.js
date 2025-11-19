@@ -8,6 +8,7 @@ import { getTokenPrice, getUserTokenInfoByBlockChain, purchaseTokenWithUSD } fro
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,6 +25,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const amountInputRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { textStyle, text } = useAppTheme();
 
   const calculateBreakdown = (inputAmount) => {
     const baseAmount = parseFloat(inputAmount) || 0;
@@ -31,15 +33,6 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
     const followingFee = baseAmount * 0.05;
     const totalAmount = baseAmount + platformFee + followingFee;
     const tokens = Math.floor(baseAmount / tokenRate);
-
-    console.log('calculateBreakdown:', {
-      inputAmount,
-      baseAmount,
-      platformFee,
-      totalAmount,
-      tokenRate,
-      tokens
-    });
 
     return {
       baseAmount,
@@ -288,7 +281,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         {/* Token Info */}
         <View style={styles.tokenInfoSection}>
           <View style={styles.tokenIconContainer}>
-            <Icon name="diamond" size={32} color="#5a2d82" />
+            <Icon name="diamond" size={32} color={text} />
           </View>
           <Text style={styles.tokenTitle}>Support Tokens</Text>
           <Text style={styles.tokenSubtitle}>
@@ -299,8 +292,8 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         {/* Amount Input */}
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>Token Value Amount</Text>
-          <View style={[styles.inputGroup, activeInput === 'amount' && styles.inputGroupActive]}>
-            <Text style={styles.currencySymbol}>$</Text>
+          <View style={[styles.inputGroup, activeInput === 'amount' && styles.inputGroupActive, {borderColor: text, shadowColor: text}]}>
+            <Text style={[styles.currencySymbol, textStyle]}>$</Text>
             <TextInput
               ref={amountInputRef}
               style={styles.textInput}
@@ -321,9 +314,9 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         {/* Token Selector */}
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>Select Tokens</Text>
-          <View style={[styles.tokenSelector, activeInput === 'tokens' && styles.tokenSelectorActive]}>
+          <View style={[styles.tokenSelector, activeInput === 'tokens' && styles.tokenSelectorActive, {borderColor: text, shadowColor: text}]}>
             <TouchableOpacity
-              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled]}
+              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled, {backgroundColor: text}]}
               onPress={() => handleTokenChange(Math.max(0, selectedTokens - 1))}
               activeOpacity={0.7}
               disabled={isProcessingPurchase} // Disable during purchase
@@ -334,7 +327,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
             <Text style={styles.tokenCount}>{selectedTokens.toLocaleString()}</Text>
 
             <TouchableOpacity
-              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled]}
+              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled, {backgroundColor: text}]}
               onPress={() => handleTokenChange(selectedTokens + 1)}
               activeOpacity={0.7}
               disabled={isProcessingPurchase} // Disable during purchase
@@ -373,14 +366,14 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
               <Text style={[styles.calculationLabel, styles.totalLabel]}>
                 Total Payable Amount
               </Text>
-              <Text style={[styles.calculationValue, styles.totalValue]}>
+              <Text style={[styles.calculationValue, styles.totalValue, textStyle]}>
                 ${formatCurrency(currentBreakdown.totalAmount)}
               </Text>
             </View>
             <View style={styles.tokenResultRow}>
-              <Icon name="diamond" size={20} color="#5a2d82" style={styles.tokenIconSmall} />
+              <Icon name="diamond" size={20} color={text} style={styles.tokenIconSmall} />
               <Text style={styles.tokenResultLabel}>You'll receive</Text>
-              <Text style={styles.tokenResultValue}>
+              <Text style={[styles.tokenResultValue, textStyle]}>
                 {currentBreakdown.tokens.toLocaleString()} tokens
               </Text>
             </View>
@@ -389,8 +382,8 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
         {/* Info Section */}
         <View style={styles.infoSection}>
-          <View style={styles.infoBox}>
-            <Icon name="information-circle" size={20} color="#5a2d82" style={styles.infoIcon} />
+          <View style={[styles.infoBox, {borderLeftColor: text}]}>
+            <Icon name="information-circle" size={20} color={text} style={styles.infoIcon} />
             <View style={styles.infoTextContainer}>
               <Text style={styles.infoText}>
                 • Platform fee and Following fee is added to your token value amount
@@ -410,6 +403,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
           style={[
             styles.purchaseButton,
             isButtonDisabled && styles.purchaseButtonDisabled,
+            {backgroundColor: text, shadowColor: text}
           ]}
           onPress={handlePurchase}
           disabled={isButtonDisabled}
@@ -545,9 +539,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inputGroupActive: {
-    borderColor: '#5a2d82',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -556,7 +548,6 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#5a2d82',
     marginRight: 8,
   },
   textInput: {
@@ -578,9 +569,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   tokenSelectorActive: {
-    borderColor: '#5a2d82',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -590,7 +579,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#5a2d82',
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 12,
@@ -659,7 +647,6 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#5a2d82',
   },
   tokenResultRow: {
     flexDirection: 'row',
@@ -681,7 +668,6 @@ const styles = StyleSheet.create({
   tokenResultValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#5a2d82',
   },
 
   // Info Section
@@ -694,7 +680,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#5a2d82',
   },
   infoIcon: {
     marginRight: 12,
@@ -713,12 +698,10 @@ const styles = StyleSheet.create({
   // Purchase Button
   purchaseButton: {
     height: 52,
-    backgroundColor: '#5a2d82',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

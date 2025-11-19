@@ -180,6 +180,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
               'walletAddress',
               'walletPrivateKey',
               'walletMnemonic',
+              'profile'
             ]);
             await AsyncStorage.setItem('isLoggedIn', 'false');
             dispatch(loggedOut());

@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TradeModal from '../../components/modals/TradeModal';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export const MarketScreen = ({ navigation }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     const marketCreators = [
         { id: 1, name: '@alpha', price: '$0.91', change: '+12.4%', marketCap: '$2.1M', volume: '$124.5K', holders: 2341, verified: true },
@@ -25,25 +27,25 @@ export const MarketScreen = ({ navigation }) => {
     ];
 
     const renderMarketCreator = ({ item }) => (
-        <View style={styles.marketCreatorItem}>
+        <View style={[styles.marketCreatorItem, {shadowColor: text}]}>
             <View style={styles.creatorLeft}>
-                <View style={styles.creatorAvatar}>
+                <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
                     <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
                 </View>
                 <View>
                     <View style={styles.creatorNameRow}>
                         <Text style={styles.creatorName}>{item.name}</Text>
-                        {item.verified && <Ionicons name="checkmark-circle" size={14} color="#5a2d82" />}
+                        {item.verified && <Ionicons name="checkmark-circle" size={14} color={text} />}
                     </View>
-                    <Text style={styles.marketCapText}>MCap: {item.marketCap}</Text>
+                    <Text style={[styles.marketCapText, textStyle]}>MCap: {item.marketCap}</Text>
                     <Text style={styles.holdersText}>{item.holders} holders</Text>
                 </View>
             </View>
             <View style={styles.creatorRight}>
-                <Text style={styles.creatorPrice}>{item.price}</Text>
+                <Text style={[styles.creatorPrice, textStyle]}>{item.price}</Text>
                 <Text style={styles.creatorChange}>{item.change}</Text>
                 <View style={styles.marketActions}>
-                    <TouchableOpacity style={styles.buyButton} onPress={() => setTradeModalVisible(true)}>
+                    <TouchableOpacity style={[styles.buyButton, {backgroundColor: text}]} onPress={() => setTradeModalVisible(true)}>
                         <Text style={styles.buyButtonText}>Support</Text>
                     </TouchableOpacity>
                 </View>
@@ -52,7 +54,7 @@ export const MarketScreen = ({ navigation }) => {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* <View style={styles.header}>
                     <Text style={styles.headerTitle}>Market</Text>
@@ -61,17 +63,17 @@ export const MarketScreen = ({ navigation }) => {
 
                 {/* Market Stats */}
                 <View style={styles.marketStats}>
-                    <View style={styles.statCard}>
+                    <View style={[styles.statCard, {shadowColor: text}]}>
                         <Text style={styles.statValue}>$45.2M</Text>
                         <Text style={styles.statLabel}>Market Cap</Text>
                         <Text style={styles.statChange}>+8.3% (24h)</Text>
                     </View>
-                    <View style={styles.statCard}>
+                    <View style={[styles.statCard, {shadowColor: text}]}>
                         <Text style={styles.statValue}>$2.8M</Text>
                         <Text style={styles.statLabel}>Volume (24h)</Text>
                         <Text style={styles.statChange}>+12.5%</Text>
                     </View>
-                    <View style={styles.statCard}>
+                    <View style={[styles.statCard, {shadowColor: text}]}>
                         <Text style={styles.statValue}>1,234</Text>
                         <Text style={styles.statLabel}>Active Supporters</Text>
                         <Text style={styles.statChange}>Online now</Text>
@@ -79,7 +81,7 @@ export const MarketScreen = ({ navigation }) => {
                 </View>
 
                 {/* Search */}
-                <View style={styles.searchContainer}>
+                <View style={[styles.searchContainer, {shadowColor: text}]}>
                     <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
@@ -92,7 +94,7 @@ export const MarketScreen = ({ navigation }) => {
 
                 {/* Creators List */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>All Creators</Text>
+                    <Text style={[styles.sectionTitle, textStyle]}>All Creators</Text>
                     <Text style={styles.sectionSubtitle}>Follow = Buy | Unfollow = Sell easily</Text>
                     <FlatList
                         data={marketCreators}
@@ -113,7 +115,6 @@ export const MarketScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         paddingTop: 20,
         paddingBottom: 30,
     },
@@ -138,7 +139,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#5a2d82',
         marginBottom: 12,
     },
     sectionSubtitle: {
@@ -160,7 +160,6 @@ const styles = StyleSheet.create({
         padding: 16,
         flex: 1,
         marginHorizontal: 4,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -190,7 +189,6 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         paddingHorizontal: 16,
         borderRadius: 12,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -214,7 +212,6 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 8,
         borderRadius: 12,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.04,
         shadowRadius: 4,
         elevation: 1,
@@ -227,7 +224,6 @@ const styles = StyleSheet.create({
     creatorAvatar: {
         width: 40,
         height: 40,
-        backgroundColor: '#5a2d82',
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
@@ -251,7 +247,6 @@ const styles = StyleSheet.create({
     },
     marketCapText: {
         fontSize: 12,
-        color: '#5a2d82',
         fontWeight: '600',
     },
     holdersText: {
@@ -264,7 +259,6 @@ const styles = StyleSheet.create({
     creatorPrice: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#5a2d82',
     },
     creatorChange: {
         fontSize: 14,
@@ -276,7 +270,6 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     buyButton: {
-        backgroundColor: '#5a2d82',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 6,

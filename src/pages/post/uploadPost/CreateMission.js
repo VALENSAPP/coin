@@ -21,6 +21,7 @@ import * as Yup from 'yup';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 // Currency mapping by country code
 const CURRENCY_MAP = {
@@ -150,6 +151,7 @@ const CreateMission = () => {
   const dispatch = useDispatch();
   const route = useRoute();
   const toast = useToast();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   // Get user profile from Redux store (adjust the selector based on your store structure)
   const userProfile = useSelector(state => state.user?.profile || state.auth?.user);
@@ -279,7 +281,7 @@ const CreateMission = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -303,7 +305,7 @@ const CreateMission = () => {
         onSubmit={handlePost}>
         {({ handleBlur, handleSubmit, setFieldValue, setFieldTouched, values, errors, touched }) => (
           <>
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
               {/* Currency Selection */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Currency</Text>
@@ -419,7 +421,7 @@ const CreateMission = () => {
             <CustomButton
               title="Continue"
               onPress={handleSubmit}
-              style={[styles.socialBtn, styles.instagramBtn]}
+              style={[styles.socialBtn, styles.instagramBtn, {backgroundColor: text, borderColor: text}]}
               textStyle={styles.socialBtnText}
             />
           </>
@@ -430,7 +432,7 @@ const CreateMission = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1 },
   header: {
     height: 80,
     flexDirection: 'row',
@@ -441,7 +443,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
     paddingTop: 30
   },
-  content: { flex: 1, backgroundColor: '#f8f2fd', paddingHorizontal: 16, paddingTop: 10 },
+  content: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },
   title: { fontSize: 18, fontWeight: '600', color: '#000', textAlign: 'center' },
   inputContainer: { marginBottom: 18 },
   label: { fontSize: 14, color: '#000', marginBottom: 6, fontWeight: '500' },
@@ -527,10 +529,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   instagramBtn: {
-    backgroundColor: '#5a2d82',
     color: '#fff',
     borderWidth: 1,
-    borderColor: '#5a2d82',
     marginLeft: 20
   },
   countryPicker: {

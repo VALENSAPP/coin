@@ -1,14 +1,17 @@
 import { StyleSheet, Dimensions } from 'react-native';
+import { useAppTheme } from '../../../theme/useApptheme';
 const { width, height } = Dimensions.get('window');
 const createStyles = () => {
+  const { bg, text } = useAppTheme();
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
     },
     contentContainer: {
       flexGrow: 1,
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
     },
 
     // Form wrapper styles
@@ -99,11 +102,9 @@ const createStyles = () => {
     // Sign Up Button
     signupButton: {
       height: 52,
-      backgroundColor: '#5a2d82',
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#5a2d82',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -201,7 +202,6 @@ const createStyles = () => {
       fontWeight: '400',
     },
     loginLink: {
-      color: '#5a2d82',
       fontWeight: '700',
     },
     socialButtonsContainer: {
@@ -261,7 +261,6 @@ const createStyles = () => {
     socialSectionTitle: {
       fontSize: 18,
       fontWeight: '600',
-      color: '#5a2d82',
       textAlign: 'center',
     },
     checkboxContainer: {

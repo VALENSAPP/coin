@@ -22,6 +22,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useAppTheme } from '../../theme/useApptheme';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -34,6 +35,7 @@ const SubventionSetupScreen = () => {
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
+    const { bgStyle, text } = useAppTheme();
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
@@ -387,7 +389,7 @@ const SubventionSetupScreen = () => {
 
     return (
         <>
-            <ScrollView style={styles.container}>
+            <ScrollView style={[styles.container, bgStyle]}>
                 {/* Price Setup Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>💰 Subscription Price</Text>
@@ -595,7 +597,7 @@ const SubventionSetupScreen = () => {
                         <Ionicons
                             name={isChecked ? "checkbox-outline" : "square-outline"}
                             size={26}
-                            color="#5a2d82"
+                            color={text}
                         />
                         <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
                     </TouchableOpacity>
@@ -624,7 +626,6 @@ const SubventionSetupScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         marginBottom: 20,
     },
     section: {
