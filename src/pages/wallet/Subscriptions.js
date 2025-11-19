@@ -36,7 +36,7 @@ const SubventionSetupScreen = () => {
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
-    const { bgStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
@@ -495,7 +495,7 @@ const SubventionSetupScreen = () => {
                     </TouchableOpacity>
 
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                        <Text style={styles.heading}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
+                        <Text style={[styles.heading, textStyle]}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
 
                         <Text style={styles.sectionTitle}>1. Overview</Text>
                         <Text style={styles.text}>

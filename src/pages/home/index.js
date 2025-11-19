@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../services/createProfile';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 110;
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
+  const { bgStyle, text } = useAppTheme();
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -228,7 +230,7 @@ export default function HomeScreen() {
             <Icon
               name={sidebarVisible ? "chevron-forward" : "chevron-back"}
               size={24}
-              color="#513189bd"
+              color={text}
             />
           </TouchableOpacity>
         </View>
@@ -272,6 +274,7 @@ export default function HomeScreen() {
               {
                 transform: [{ translateX: sidebarAnim }],
               },
+              bgStyle
             ]}
           >
             <Stories
@@ -295,7 +298,6 @@ const sidebarStyles = StyleSheet.create({
     top: Platform.OS == 'android' ? 40 : 57,
     bottom: 0,
     width: SIDEBAR_WIDTH,
-    backgroundColor: 'rgba(248, 242, 253, 0.98)',
     borderLeftWidth: 1,
     borderLeftColor: '#dbdbdb',
     shadowColor: '#000',
