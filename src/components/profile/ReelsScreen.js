@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Image, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 const itemSize = width / 3 - 2;
@@ -13,10 +14,11 @@ const createPlaceholderColor = (id) => {
 
 const ReelsScreen = memo(() => {
   const navigation = useNavigation();
+  const { bgStyle, textStyle } = useAppTheme();
 
   const renderItem = useCallback(({ item, index }) => (
     <TouchableOpacity
-      style={styles.item}
+      style={[styles.item, bgStyle]}
       activeOpacity={0.8}
       onPress={() => {
         // Handle reel tap - you can add navigation logic here
@@ -38,7 +40,7 @@ const ReelsScreen = memo(() => {
   }), []);
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, bgStyle]}>
       <FlatList
         data={Array.from({ length: 6 }, (_, i) => ({ id: (i + 1).toString() }))}
         renderItem={renderItem}
@@ -63,14 +65,12 @@ export default ReelsScreen;
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
-    backgroundColor: '#f8f2fd',
+    flex: 1
   },
   item: {
     width: itemSize,
     height: itemSize,
     margin: 1,
-    backgroundColor: '#f8f2fd',
   },
   thumbnail: {
     width: '100%',

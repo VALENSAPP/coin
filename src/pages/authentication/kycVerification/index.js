@@ -28,6 +28,7 @@ import { useDispatch } from 'react-redux';
 import { kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,6 +64,8 @@ export default function KYCVerification({ route }) {
     const progressTimerRef = useRef(null);
     const progressAnimationRef = useRef(null);
     const percentUpdateInterval = useRef(null);
+
+    const { bgStyle, textStyle } = useAppTheme();
 
     // Monitor app state
     useEffect(() => {
@@ -452,6 +455,7 @@ export default function KYCVerification({ route }) {
                                 style={[
                                     styles.inputFull,
                                     errors.firstName && styles.inputErrorWrapper,
+                                    bgStyle,
                                 ]}
                                 value={firstName}
                                 onChangeText={txt => {
@@ -499,6 +503,7 @@ export default function KYCVerification({ route }) {
                                     styles.dropdownButton,
                                     errors.documentType && styles.inputErrorWrapper,
                                     showDropdown && styles.dropdownButtonActive,
+                                    bgStyle,
                                 ]}
                                 onPress={() => { Keyboard.dismiss(), setShowDropdown(!showDropdown) }}
                             >
@@ -680,7 +685,6 @@ export default function KYCVerification({ route }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
     },
     container: {
         flex: 1,
@@ -750,7 +754,6 @@ const styles = StyleSheet.create({
         borderColor: '#D1D5DB',
         borderRadius: 8,
         padding: 12,
-        backgroundColor: '#f8f2fd',
         fontSize: 14,
         minHeight: 48,
         color: '#1F2937',
@@ -774,7 +777,6 @@ const styles = StyleSheet.create({
         borderColor: '#D1D5DB',
         borderRadius: 8,
         padding: 12,
-        backgroundColor: '#f8f2fd',
         minHeight: 48,
     },
     dropdownButtonActive: {

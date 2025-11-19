@@ -30,6 +30,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import CommentSheet from '../../components/home/posts/CommentSheet';
+import { useAppTheme } from '../../theme/useApptheme';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -134,6 +135,7 @@ export default function FlipsScreen() {
 
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
+  const { bgStyle, textStyle } = useAppTheme();
 
   // Progress bar animation
   useEffect(() => {
@@ -746,12 +748,11 @@ export default function FlipsScreen() {
         customModalProps={{ statusBarTranslucent: true }}
         onClose={() => { Keyboard.dismiss(); setCommentPostId(null); }}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 18,
             borderTopRightRadius: 18,
-            backgroundColor: '#f8f2fd',
             bottom: -20,
-          },
+          }, bgStyle],
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,

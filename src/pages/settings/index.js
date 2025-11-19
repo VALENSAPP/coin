@@ -18,12 +18,14 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import createStyles from './Style';
 import data from '../../list.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const Settings = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const styles = createStyles();
   const refRBSheet = useRef();
+  const { bgStyle, textStyle, bg } = useAppTheme();
 
   // Handler functions for all menu items
   const handleAccountsCentrePress = () => {
@@ -265,6 +267,7 @@ const Settings = () => {
           AsyncStorage.removeItem('walletAddress');
           AsyncStorage.removeItem('walletPrivateKey');
           AsyncStorage.removeItem('walletMnemonic');
+          AsyncStorage.removeItem('profile');
           dispatch(loggedOut());
         },
       },
@@ -282,6 +285,7 @@ const Settings = () => {
           style: 'destructive',
           onPress: () => {
             AsyncStorage.setItem('isLoggedIn', 'false');
+            AsyncStorage.removeItem('profile');
             dispatch(loggedOut());
           },
         },
@@ -339,7 +343,7 @@ const Settings = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f2fd" />
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
       {/* Header */}
       <View style={styles.header}>

@@ -23,6 +23,7 @@ import { showToastMessage } from '../../displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const CommentItem = memo(({ item, onMorePress, currentUserId, postOwnerId }) => {
   const normalizeId = id => (id != null ? String(id).trim() : '');
@@ -83,6 +84,7 @@ export default function CommentSheet({
   const toast = useToast();
   const dispatch = useDispatch();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
+  const { bgStyle, textStyle } = useAppTheme();
 
   const fetchComments = useCallback(async () => {
     try {
@@ -319,7 +321,7 @@ export default function CommentSheet({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, bgStyle]}>
       <Text style={styles.title}>Comments ({comments.length})</Text>
 
       {loading ? (
@@ -348,7 +350,7 @@ export default function CommentSheet({
       )}
 
       {/* Input row */}
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, bgStyle]}>
         <Image
           source={{ uri: profileImage }}
           style={styles.inputAvatar}
@@ -434,7 +436,6 @@ export default function CommentSheet({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingHorizontal: 16,
@@ -499,7 +500,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    backgroundColor: '#f8f2fd',
   },
   inputAvatar: {
     width: 28,

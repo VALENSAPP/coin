@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -32,7 +33,7 @@ const PostImage = memo(({ item, index, onPress }) => {
   if (!imageUrl || imageError) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
-        <Text style={styles.placeholderText}>📷</Text>
+        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
       </View>
     );
   }
@@ -53,6 +54,7 @@ PostImage.displayName = 'PostImage';
 const PostScreen = memo(({ postCheck, userData }) => {
   const [posts, setPosts] = useState(postCheck);
   const navigation = useNavigation();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     if (postCheck !== posts) {
@@ -74,7 +76,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
       <TouchableOpacity
         style={[
           styles.imageContainer,
-          { marginLeft: index % numColumns === 0 ? 0 : SPACING },
+          { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
         ]}
         activeOpacity={0.95}
         onPress={() => openPosts(index)}
@@ -94,7 +96,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
 
   const renderEmptyComponent = useCallback(() => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>No posts yet</Text>
+      <Text style={[styles.emptyTitle, textStyle]}>No posts yet</Text>
       <Text style={styles.emptySubtitle}>Share your first moment</Text>
     </View>
   ), []);
@@ -108,7 +110,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
   }
 
   return (
-    <View style={[styles.screen, {backgroundColor: userData?.profile === 'company' ? '#fcfbfaff' : '#f8f2fd'}]}>
+    <View style={[styles.screen, bgStyle]}>
       <FlatList
         data={posts}
         renderItem={renderItem}
@@ -155,7 +157,6 @@ const styles = StyleSheet.create({
     borderRadius: 12, // rounded corners
     overflow: 'hidden',
     backgroundColor: '#fff',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.08,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -180,7 +181,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 22,
-    color: '#5a2d82',
     opacity: 0.6,
   },
 
@@ -194,7 +194,6 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#5a2d82', // purple headline
     marginBottom: 8,
     textAlign: 'center',
   },

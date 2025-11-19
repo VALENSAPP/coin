@@ -24,6 +24,7 @@ import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useRoute } from '@react-navigation/native';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 const AVATAR_SIZE = 128;
@@ -47,6 +48,7 @@ export default function CreateProfile() {
   const [isCheckingDisplayName, setIsCheckingDisplayName] = useState(false);
   const refRBSheet = useRef();
   const [imageMeta, setImageMeta] = useState(null);
+  const { bgStyle, textStyle, bg } = useAppTheme();
 
   const validateUsername = v => {
     if (!v) return 'Username is required';
@@ -326,6 +328,7 @@ export default function CreateProfile() {
             style={[
               styles.inputFull,
               errors.displayName && styles.inputErrorWrapper,
+              bgStyle,
               // displayNameStatus === 'approved' && styles.inputSuccessWrapper,
             ]}
             value={displayName}
@@ -495,7 +498,7 @@ export default function CreateProfile() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <KeyboardAwareScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -522,7 +525,7 @@ export default function CreateProfile() {
               />
             )}
             <TouchableOpacity style={styles.editButton} onPress={() => refRBSheet.current.open()}>
-              <Icon name="edit-2" size={16} color="#1F2937" backgroundColor='#f8f2fd' />
+              <Icon name="edit-2" size={16} color="#1F2937" backgroundColor={bg} />
             </TouchableOpacity>
           </View>
 
@@ -534,6 +537,7 @@ export default function CreateProfile() {
                 style={[
                   styles.inputWrapper,
                   errors.username && styles.inputErrorWrapper,
+                  bgStyle,
                 ]}
               >
                 <Text style={styles.prefix}>@</Text>
@@ -565,7 +569,7 @@ export default function CreateProfile() {
               <TextInput
                 placeholder="Something about yourself"
                 placeholderTextColor="#6B7280"
-                style={[styles.inputFull2, errors.bio && styles.inputErrorWrapper]}
+                style={[styles.inputFull2, errors.bio && styles.inputErrorWrapper, bgStyle]}
                 multiline
                 textAlignVertical="top"
                 value={bio}
@@ -690,7 +694,6 @@ export default function CreateProfile() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   container: {
     flex: 1,
@@ -753,7 +756,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 8,
-    backgroundColor: '#f8f2fd',
     minHeight: 48,
   },
   input: {
@@ -779,7 +781,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     paddingRight: 40,
-    backgroundColor: '#f8f2fd',
     fontSize: 14,
     minHeight: 48,
     color: '#1F2937',
@@ -852,7 +853,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     minHeight: 100,
-    backgroundColor: '#f8f2fd',
     fontSize: 14,
     color: '#1F2937',
   },

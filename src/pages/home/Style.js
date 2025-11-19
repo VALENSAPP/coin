@@ -1,10 +1,12 @@
 import { Platform, StyleSheet } from 'react-native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const createStyles = () => {
+  const { bg, text } = useAppTheme();
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
       bottom: 0,
       marginBottom: Platform.OS == "android" ? 60 : 25,
     },
@@ -52,7 +54,7 @@ const createStyles = () => {
     storiesContainer: {
       paddingVertical: 10,
       paddingHorizontal: 10,
-      backgroundColor: '#f8f2fd',
+      backgroundColor: bg,
       borderBottomWidth: 0.5,
       borderBottomColor: '#dbdbdb',
     },

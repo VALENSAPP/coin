@@ -23,6 +23,7 @@ import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const Usersprofile = () => {
   const route = useRoute();
@@ -41,6 +42,7 @@ const Usersprofile = () => {
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
+  const { bgStyle, textStyle } = useAppTheme();
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -211,7 +213,7 @@ const Usersprofile = () => {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: userData?.profile == 'company' ? '#fcfbfaff' : '#f8f2fd' }]}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={
@@ -257,12 +259,11 @@ const Usersprofile = () => {
         onOpen={() => setPurchaseAutoFocus(true)}
         onClose={handleModalClose}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 30,
             borderTopRightRadius: 30,
-            backgroundColor: '#f8f2fd',
             bottom: -30,
-          },
+          }, bgStyle],
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,
@@ -289,12 +290,11 @@ const Usersprofile = () => {
         onOpen={() => setPurchaseAutoFocus(true)}
         onClose={handleModalClose}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 30,
             borderTopRightRadius: 30,
-            backgroundColor: '#f8f2fd',
             bottom: -30,
-          },
+          }, bgStyle],
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,

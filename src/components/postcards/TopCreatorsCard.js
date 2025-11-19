@@ -1,10 +1,13 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const TopCreatorsCard = ({ rank, profileImage, name, username, amount, time }) => {
+  const { bgStyle, textStyle } = useAppTheme();
+
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, bgStyle]}>
       {/* Rank */}
       <View style={styles.rankContainer}>
         <Text style={styles.rankText}>{rank}</Text>
@@ -36,7 +39,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8f2fd',
     padding: 12,
     borderRadius: 12,
     marginBottom: 10,

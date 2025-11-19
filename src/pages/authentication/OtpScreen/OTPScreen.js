@@ -27,6 +27,7 @@ import { AuthHeader } from '../../../components/auth';
 import OTPTextInput from 'react-native-otp-textinput';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../../services/createProfile';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,6 +41,7 @@ export default function OTPScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const { email, password, type } = route.params || {};
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     handleResend();
@@ -191,11 +193,11 @@ export default function OTPScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'right', 'left']}>
+    <SafeAreaView style={[styles.safe, bgStyle]} edges={['top', 'right', 'left']}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAwareScrollView
-          style={styles.container}
-          contentContainerStyle={styles.contentContainer}
+          style={[styles.container, bgStyle]}
+          contentContainerStyle={[styles.contentContainer, bgStyle]}
           showsVerticalScrollIndicator={false}
           // KeyboardAware props that make it “just work”
           enableOnAndroid
@@ -224,11 +226,11 @@ export default function OTPScreen() {
               </View>
 
               <View style={styles.infoSection}>
-                <View style={styles.infoBox}>
+                <View style={[styles.infoBox, {borderLeftColor: text}]}>
                   <Icon
                     name="mail"
                     size={20}
-                    color="#5a2d82"
+                    color={text}
                     style={styles.infoIcon}
                   />
                   <Text style={styles.infoText}>
@@ -245,8 +247,8 @@ export default function OTPScreen() {
                   ref={otpInput}
                   handleTextChange={setOtp}
                   containerStyle={styles.otpContainer}
-                  textInputStyle={styles.otpInput}
-                  tintColor="#5a2d82"
+                  textInputStyle={[styles.otpInput, {shadowColor: text}]}
+                  tintColor={text}
                   offTintColor="#E5E7EB"
                   inputCount={6}
                 // keyboardType="default" 
@@ -258,6 +260,7 @@ export default function OTPScreen() {
                 style={[
                   styles.confirmButton,
                   (loading || otp.length !== 6) && styles.confirmButtonDisabled,
+                  {backgroundColor: text, shadowColor: text}
                 ]}
                 onPress={handleConfirm}
                 disabled={loading || otp.length !== 6}
@@ -281,11 +284,11 @@ export default function OTPScreen() {
                 >
                   {resendLoading ? (
                     <View style={styles.resendLoadingContainer}>
-                      <ActivityIndicator color="#5a2d82" size="small" />
-                      <Text style={styles.resendLoadingText}>Sending...</Text>
+                      <ActivityIndicator color={text} size="small" />
+                      <Text style={[styles.resendLoadingText, textStyle]}>Sending...</Text>
                     </View>
                   ) : (
-                    <Text style={styles.resendText}>Resend Code</Text>
+                    <Text style={[styles.resendText, textStyle]}>Resend Code</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -295,7 +298,7 @@ export default function OTPScreen() {
                 <Text style={styles.backToLoginText}>
                   Having trouble?{' '}
                   <Text
-                    style={styles.backToLoginLink}
+                    style={[styles.backToLoginLink, textStyle]}
                     onPress={() => navigation.navigate('Login')}
                   >
                     Back to Login
@@ -311,9 +314,9 @@ export default function OTPScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f8f2fd' },
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
-  contentContainer: { flexGrow: 1, backgroundColor: '#f8f2fd' },
+  safe: { flex: 1 },
+  container: { flex: 1 },
+  contentContainer: { flexGrow: 1 },
 
   formWrapper: {
     flex: 1,
@@ -362,7 +365,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#5a2d82',
   },
   infoIcon: { marginRight: 12, marginTop: 1 },
   infoText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 20 },
@@ -395,7 +397,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     textAlign: 'center',
     marginHorizontal: 4,
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -404,11 +405,9 @@ const styles = StyleSheet.create({
 
   confirmButton: {
     height: 52,
-    backgroundColor: '#5a2d82',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -440,7 +439,6 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 16,
-    color: '#5a2d82',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -450,7 +448,6 @@ const styles = StyleSheet.create({
   },
   resendLoadingText: {
     fontSize: 16,
-    color: '#5a2d82',
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -465,7 +462,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   backToLoginLink: {
-    color: '#5a2d82',
     fontWeight: '700',
   },
 });

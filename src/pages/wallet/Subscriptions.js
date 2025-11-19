@@ -22,6 +22,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useAppTheme } from '../../theme/useApptheme';
 import TermCondition from '../../components/modals/Term&Condition';
 
 const SubventionSetupScreen = () => {
@@ -35,12 +36,13 @@ const SubventionSetupScreen = () => {
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
+    const { bgStyle, text } = useAppTheme();
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
-        const [showModal, setShowModal] = useState(true);
+    const [showModal, setShowModal] = useState(true);
 
 
     const contentTabs = [
@@ -392,251 +394,250 @@ const SubventionSetupScreen = () => {
 
     return (
         <>
-        <View style={{flex:1,paddingBottom:20,}}>
-            <ScrollView style={styles.container}>
-                {/* Price Setup Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>💰 Subscription Price</Text>
-                    <Text style={styles.sectionSubtitle}>Set your monthly rate per subscriber</Text>
+            <View style={{ flex: 1, paddingBottom: 20, }}>
+                <ScrollView style={[styles.container, bgStyle]}>
+                    {/* Price Setup Section */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>💰 Subscription Price</Text>
+                        <Text style={styles.sectionSubtitle}>Set your monthly rate per subscriber</Text>
 
-                    <View style={styles.priceInputContainer}>
-                        <Text style={styles.currencySymbol}>$</Text>
-                        <TextInput
-                            style={styles.priceInput}
-                            value={price}
-                            onChangeText={handlePriceChange}
-                            onBlur={handlePriceBlur}
-                            keyboardType="numeric"
-                        />
-                        <Text style={styles.perMonth}>/month</Text>
+                        <View style={styles.priceInputContainer}>
+                            <Text style={styles.currencySymbol}>$</Text>
+                            <TextInput
+                                style={styles.priceInput}
+                                value={price}
+                                onChangeText={handlePriceChange}
+                                onBlur={handlePriceBlur}
+                                keyboardType="numeric"
+                            />
+                            <Text style={styles.perMonth}>/month</Text>
+                        </View>
+
+                        <View style={styles.priceRange}>
+                            <Text style={styles.rangeText}>Min: $9</Text>
+                            <Text style={styles.rangeText}>Max: $100</Text>
+                        </View>
                     </View>
 
-                    <View style={styles.priceRange}>
-                        <Text style={styles.rangeText}>Min: $9</Text>
-                        <Text style={styles.rangeText}>Max: $100</Text>
-                    </View>
-                </View>
+                    {/* Content Creation Section */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>📱 Create Content</Text>
+                        <Text style={styles.sectionSubtitle}>
+                            Full access to all content types
+                        </Text>
 
-                {/* Content Creation Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>📱 Create Content</Text>
-                    <Text style={styles.sectionSubtitle}>
-                        Full access to all content types
-                    </Text>
+                        <View style={styles.tabContainer}>
+                            {contentTabs.map(tab => (
+                                <TouchableOpacity
+                                    key={tab.id}
+                                    style={[
+                                        styles.tab,
+                                        selectedTab === tab.id && styles.tabActive
+                                    ]}
+                                    onPress={() => setSelectedTab(tab.id)}
+                                >
+                                    <Text style={styles.tabIcon}>{tab.icon}</Text>
+                                    <Text style={[
+                                        styles.tabLabel,
+                                        selectedTab === tab.id && styles.tabLabelActive
+                                    ]}>
+                                        {tab.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
-                    <View style={styles.tabContainer}>
-                        {contentTabs.map(tab => (
+                        {/* Content Creation Area */}
+                        <View style={styles.contentArea}>
+                            <Text style={styles.contentTitle}>
+                                Create {contentTabs.find(t => t.id === selectedTab)?.label}
+                            </Text>
                             <TouchableOpacity
-                                key={tab.id}
-                                style={[
-                                    styles.tab,
-                                    selectedTab === tab.id && styles.tabActive
-                                ]}
-                                onPress={() => setSelectedTab(tab.id)}
+                                style={styles.createButton}
+                                onPress={() => handleCreateContent(selectedTab)}
                             >
-                                <Text style={styles.tabIcon}>{tab.icon}</Text>
-                                <Text style={[
-                                    styles.tabLabel,
-                                    selectedTab === tab.id && styles.tabLabelActive
-                                ]}>
-                                    {tab.label}
+                                <Text style={styles.createButtonText}>
+                                    + New {contentTabs.find(t => t.id === selectedTab)?.label}
                                 </Text>
                             </TouchableOpacity>
-                        ))}
+                        </View>
                     </View>
 
-                    {/* Content Creation Area */}
-                    <View style={styles.contentArea}>
-                        <Text style={styles.contentTitle}>
-                            Create {contentTabs.find(t => t.id === selectedTab)?.label}
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.createButton}
-                            onPress={() => handleCreateContent(selectedTab)}
-                        >
-                            <Text style={styles.createButtonText}>
-                                + New {contentTabs.find(t => t.id === selectedTab)?.label}
-                            </Text>
-                        </TouchableOpacity>
+                    {/* Subscriber Protection Info */}
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>🔒 Content Protection</Text>
+                        <View style={styles.protectionItem}>
+                            <Text style={styles.protectionIcon}>🚫</Text>
+                            <Text style={styles.protectionText}>No prints allowed</Text>
+                        </View>
+                        <View style={styles.protectionItem}>
+                            <Text style={styles.protectionIcon}>🚫</Text>
+                            <Text style={styles.protectionText}>No downloads allowed</Text>
+                        </View>
+                        <View style={styles.protectionItem}>
+                            <Text style={styles.protectionIcon}>🚫</Text>
+                            <Text style={styles.protectionText}>No screenshots allowed</Text>
+                        </View>
+                        <View style={styles.protectionItem}>
+                            <Text style={styles.protectionIcon}>⚠️</Text>
+                            <Text style={styles.protectionText}>Auto-ban after 3 attempts</Text>
+                        </View>
                     </View>
-                </View>
 
-                {/* Subscriber Protection Info */}
-                <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>🔒 Content Protection</Text>
-                    <View style={styles.protectionItem}>
-                        <Text style={styles.protectionIcon}>🚫</Text>
-                        <Text style={styles.protectionText}>No prints allowed</Text>
-                    </View>
-                    <View style={styles.protectionItem}>
-                        <Text style={styles.protectionIcon}>🚫</Text>
-                        <Text style={styles.protectionText}>No downloads allowed</Text>
-                    </View>
-                    <View style={styles.protectionItem}>
-                        <Text style={styles.protectionIcon}>🚫</Text>
-                        <Text style={styles.protectionText}>No screenshots allowed</Text>
-                    </View>
-                    <View style={styles.protectionItem}>
-                        <Text style={styles.protectionIcon}>⚠️</Text>
-                        <Text style={styles.protectionText}>Auto-ban after 3 attempts</Text>
-                    </View>
-                </View>
-
-                {/* Demo Button */}
-                <TouchableOpacity
-                    style={styles.demoButton}
-                    onPress={handlePrintAttempt}
-                >
-                    <Text style={styles.demoButtonText}>
-                        🧪 Demo: Trigger Print Warning
-                    </Text>
-                </TouchableOpacity>
-
-                <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                    <Text style={styles.heading}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
-
-                    <Text style={styles.sectionTitle}>1. Overview</Text>
-                    <Text style={styles.text}>
-                        This Master Subscription Policy applies to all users participating in the Valens
-                        subscription ecosystem, including Plan Owners and Subscribers. By activating or subscribing,
-                        users agree to this policy, including Valens Terms of Use, Privacy Policy, and Payout Policy.
-                    </Text>
-
-                    {/* PART A */}
-                    <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
-
-                    <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
-                    <Text style={styles.text}>
-                        When you activate a subscription plan, you become a Plan Owner. You may create private
-                        channels, define perks, and set monthly subscription prices between $9.99 USD and $100.00 USD.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>3. Platform Fees</Text>
-                    <Text style={styles.subSection}>3.1 Monthly Maintenance Fee</Text>
-                    <Text style={styles.text}>
-                        Valens charges $19.99 USD/month for hosting and operating your subscription channel.
-                    </Text>
-
-                    <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
-                    <Text style={styles.text}>A 5% withdrawal fee applies to every payout request.</Text>
-
-                    <Text style={styles.subSection}>3.3 Billing Authorization</Text>
-                    <Text style={styles.text}>
-                        By enabling your plan, you authorize Valens to charge maintenance fees and deduct payout
-                        withdrawal fees automatically.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
-                    <Text style={styles.text}>
-                        Earnings are visible in the Creator Dashboard. Payouts follow the Payout Policy. KYC
-                        verification is required. You must report earnings to tax authorities.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>5. Content Responsibilities</Text>
-                    <Text style={styles.text}>
-                        All private content must follow Valens guidelines. Illegal, harmful, abusive, or fraudulent
-                        content is prohibited.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
-                    <Text style={styles.text}>
-                        Valens may restrict monetization, freeze payouts, remove content, or disable plans upon
-                        violations.
-                    </Text>
-
-                    {/* PART B */}
-                    <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
-
-                    <Text style={styles.sectionTitle}>7. Subscription Access</Text>
-                    <Text style={styles.text}>
-                        Subscribers gain access to exclusive private content and perks. Access is non-transferable.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>8. Monthly Billing & Auto-Renewal</Text>
-                    <Text style={styles.text}>
-                        By subscribing, you authorize Valens to bill you monthly until cancellation.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>9. Cancellation</Text>
-                    <Text style={styles.text}>
-                        You may cancel anytime. Access remains until the end of the billing period. No partial refunds.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>10. No Refunds</Text>
-                    <Text style={styles.text}>
-                        All subscription payments are final and non-refundable, including unused periods.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>11. Content Protection</Text>
-                    <Text style={styles.text}>
-                        Subscribers may NOT screenshot, record, download, print, or share subscription content.
-                        Violations may result in a security block.
-                    </Text>
-
-                    {/* PART C */}
-                    <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
-
-                    <Text style={styles.sectionTitle}>12. Safety & Compliance</Text>
-                    <Text style={styles.text}>
-                        All interactions must comply with Valens Community Guidelines and legal requirements.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>13. Platform Rights</Text>
-                    <Text style={styles.text}>
-                        Valens may update fees, freeze suspicious activity, restrict payouts, or suspend programs.
-                    </Text>
-
-                    <Text style={styles.sectionTitle}>14. Agreement to Terms</Text>
-                    <Text style={styles.text}>
-                        By using subscription features, you agree to this policy and authorize Valens to manage
-                        charges and fees.
-                    </Text>
-
-                    <View style={{ marginTop: 15 }} />
-
+                    {/* Demo Button */}
                     <TouchableOpacity
-                        style={styles.checkboxRow}
-                        onPress={() => setIsChecked(!isChecked)}
+                        style={styles.demoButton}
+                        onPress={handlePrintAttempt}
                     >
-                        <Ionicons
-                            name={isChecked ? "checkbox-outline" : "square-outline"}
-                            size={26}
-                            color="#5a2d82"
-                        />
-                        <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
+                        <Text style={styles.demoButtonText}>
+                            🧪 Demo: Trigger Print Warning
+                        </Text>
                     </TouchableOpacity>
+
+                    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+                        <Text style={styles.heading}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
+
+                        <Text style={styles.sectionTitle}>1. Overview</Text>
+                        <Text style={styles.text}>
+                            This Master Subscription Policy applies to all users participating in the Valens
+                            subscription ecosystem, including Plan Owners and Subscribers. By activating or subscribing,
+                            users agree to this policy, including Valens Terms of Use, Privacy Policy, and Payout Policy.
+                        </Text>
+
+                        {/* PART A */}
+                        <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
+
+                        <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
+                        <Text style={styles.text}>
+                            When you activate a subscription plan, you become a Plan Owner. You may create private
+                            channels, define perks, and set monthly subscription prices between $9.99 USD and $100.00 USD.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>3. Platform Fees</Text>
+                        <Text style={styles.subSection}>3.1 Monthly Maintenance Fee</Text>
+                        <Text style={styles.text}>
+                            Valens charges $19.99 USD/month for hosting and operating your subscription channel.
+                        </Text>
+
+                        <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
+                        <Text style={styles.text}>A 5% withdrawal fee applies to every payout request.</Text>
+
+                        <Text style={styles.subSection}>3.3 Billing Authorization</Text>
+                        <Text style={styles.text}>
+                            By enabling your plan, you authorize Valens to charge maintenance fees and deduct payout
+                            withdrawal fees automatically.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
+                        <Text style={styles.text}>
+                            Earnings are visible in the Creator Dashboard. Payouts follow the Payout Policy. KYC
+                            verification is required. You must report earnings to tax authorities.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>5. Content Responsibilities</Text>
+                        <Text style={styles.text}>
+                            All private content must follow Valens guidelines. Illegal, harmful, abusive, or fraudulent
+                            content is prohibited.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
+                        <Text style={styles.text}>
+                            Valens may restrict monetization, freeze payouts, remove content, or disable plans upon
+                            violations.
+                        </Text>
+
+                        {/* PART B */}
+                        <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
+
+                        <Text style={styles.sectionTitle}>7. Subscription Access</Text>
+                        <Text style={styles.text}>
+                            Subscribers gain access to exclusive private content and perks. Access is non-transferable.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>8. Monthly Billing & Auto-Renewal</Text>
+                        <Text style={styles.text}>
+                            By subscribing, you authorize Valens to bill you monthly until cancellation.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>9. Cancellation</Text>
+                        <Text style={styles.text}>
+                            You may cancel anytime. Access remains until the end of the billing period. No partial refunds.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>10. No Refunds</Text>
+                        <Text style={styles.text}>
+                            All subscription payments are final and non-refundable, including unused periods.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>11. Content Protection</Text>
+                        <Text style={styles.text}>
+                            Subscribers may NOT screenshot, record, download, print, or share subscription content.
+                            Violations may result in a security block.
+                        </Text>
+
+                        {/* PART C */}
+                        <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
+
+                        <Text style={styles.sectionTitle}>12. Safety & Compliance</Text>
+                        <Text style={styles.text}>
+                            All interactions must comply with Valens Community Guidelines and legal requirements.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>13. Platform Rights</Text>
+                        <Text style={styles.text}>
+                            Valens may update fees, freeze suspicious activity, restrict payouts, or suspend programs.
+                        </Text>
+
+                        <Text style={styles.sectionTitle}>14. Agreement to Terms</Text>
+                        <Text style={styles.text}>
+                            By using subscription features, you agree to this policy and authorize Valens to manage
+                            charges and fees.
+                        </Text>
+
+                        <View style={{ marginTop: 15 }} />
+
+                        <TouchableOpacity
+                            style={styles.checkboxRow}
+                            onPress={() => setIsChecked(!isChecked)}
+                        >
+                            <Ionicons
+                                name={isChecked ? "checkbox-outline" : "square-outline"}
+                                size={26}
+                                color={text}
+                            />
+                            <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+
+                    <TouchableOpacity style={[styles.saveButton, !isChecked && { opacity: 0.5 }]} onPress={handleSaveSubscription} disabled={!isChecked}>
+                        <Text style={styles.saveButtonText}>
+                            {hasExistingSubscription ? 'Update Subscription' : 'Save & Activate Program'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <PrintWarningModal />
                 </ScrollView>
 
-                <TouchableOpacity style={[styles.saveButton, !isChecked && { opacity: 0.5 }]} onPress={handleSaveSubscription} disabled={!isChecked}>
-                    <Text style={styles.saveButtonText}>
-                        {hasExistingSubscription ? 'Update Subscription' : 'Save & Activate Program'}
-                    </Text>
-                </TouchableOpacity>
-
-                <PrintWarningModal />
-            </ScrollView>
-
-            {/* Story Composer Modal */}
-            <StoryComposer
-                modalVisible={composerVisible}
-                mediaList={composerList}
-                onCancel={() => setComposerVisible(false)}
-                onDone={handleComposerDone}
-            />
-            <TermCondition
+                {/* Story Composer Modal */}
+                <StoryComposer
+                    modalVisible={composerVisible}
+                    mediaList={composerList}
+                    onCancel={() => setComposerVisible(false)}
+                    onDone={handleComposerDone}
+                />
+                <TermCondition
                     showModal={showModal}
                     setShowModal={setShowModal}
-                    onAccept={handleSaveSubscription} 
+                    onAccept={handleSaveSubscription}
                 />
-                </View>
+            </View>
         </>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        // flex: 1,
-        backgroundColor: '#f8f2fd',
+        flex: 1,
         marginBottom: 20,
     },
     section: {
