@@ -22,6 +22,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getSubscriptionByUserID, setPrivateSubscription, setUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
+import TermCondition from '../../components/modals/Term&Condition';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -39,6 +40,8 @@ const SubventionSetupScreen = () => {
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
+        const [showModal, setShowModal] = useState(true);
+
 
     const contentTabs = [
         { id: 'posts', label: 'New Mint', icon: '📝' },
@@ -70,11 +73,13 @@ const SubventionSetupScreen = () => {
                     setSubscriptionId(subId);
                     setPrice(amount.toString());
                     setHasExistingSubscription(true);
+                    setShowModal(false)
                 } else {
                     console.log("No subscriptions found");
                     setSubscriptionAmount(null);
                     setSubscriptionId(null);
                     setHasExistingSubscription(false);
+                    setShowModal(true)
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
@@ -387,6 +392,7 @@ const SubventionSetupScreen = () => {
 
     return (
         <>
+        <View style={{flex:1,paddingBottom:20,}}>
             <ScrollView style={styles.container}>
                 {/* Price Setup Section */}
                 <View style={styles.section}>
@@ -617,13 +623,19 @@ const SubventionSetupScreen = () => {
                 onCancel={() => setComposerVisible(false)}
                 onDone={handleComposerDone}
             />
+            <TermCondition
+                    showModal={showModal}
+                    setShowModal={setShowModal}
+                    onAccept={handleSaveSubscription} 
+                />
+                </View>
         </>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
+        // flex: 1,
         backgroundColor: '#f8f2fd',
         marginBottom: 20,
     },

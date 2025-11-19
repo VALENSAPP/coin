@@ -2722,6 +2722,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNDeviceInfo (15.0.1):
+    - React-Core
   - RNFBApp (22.4.0):
     - Firebase/CoreOnly (= 11.15.0)
     - React-Core
@@ -3510,6 +3512,7 @@ DEPENDENCIES:
   - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - "RNCMaskedView (from `../node_modules/@react-native-masked-view/masked-view`)"
   - "RNCPicker (from `../node_modules/@react-native-picker/picker`)"
+  - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
   - "RNFBAuth (from `../node_modules/@react-native-firebase/auth`)"
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
@@ -3744,6 +3747,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-masked-view/masked-view"
   RNCPicker:
     :path: "../node_modules/@react-native-picker/picker"
+  RNDeviceInfo:
+    :path: "../node_modules/react-native-device-info"
   RNFBApp:
     :path: "../node_modules/@react-native-firebase/app"
   RNFBAuth:
@@ -3897,6 +3902,7 @@ SPEC CHECKSUMS:
   RNCClipboard: 8e5237c79dafacea5b7adf4c3ab39a4236b5ef7e
   RNCMaskedView: 1d6aed6fc41e6f067d1859bb476da2e0b71874c5
   RNCPicker: 70473717e314b022ca3955af555e5b3b0d751761
+  RNDeviceInfo: 36d7f232bfe7c9b5c494cb7793230424ed32c388
   RNFBApp: 90cf0209fb8f0460ab069a7de857d7ec851c8476
   RNFBAuth: 7a28922f8ae64c5079211ca7af299c9842206839
   RNFBMessaging: 37dd861b8600ec2ae9a06ba42ae4285cb707a731

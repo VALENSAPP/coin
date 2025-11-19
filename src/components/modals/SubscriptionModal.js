@@ -95,7 +95,7 @@ const SubscribeFlowModal = ({
 
         } catch (error) {
             console.error('Error saving subscription:', error);
-            showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+            // showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
         }
         finally {
             dispatch(hideLoader());
@@ -140,11 +140,11 @@ const SubscribeFlowModal = ({
                 }
 
             } else {
-                showToastMessage(
-                    toast,
-                    'danger',
-                    response?.message || 'Failed to open subscription. Please try again.'
-                );
+                // showToastMessage(
+                //     toast,
+                //     'danger',
+                //     response?.message || 'Failed to open subscription. Please try again.'
+                // );
             }
         } catch (error) {
             console.log("Subscription Error:", error);
