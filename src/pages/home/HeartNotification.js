@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +25,7 @@ export default function Notifications() {
   // Track horizontal paging position
   const scrollX = useRef(new Animated.Value(0)).current;
   const currentIndexRef = useRef(0);
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const [notifications, setNotifications] = useState([
     {
@@ -241,12 +243,12 @@ export default function Notifications() {
     return (
       <View style={styles.emptyState}>
         <Text style={styles.emptyIcon}>{content.icon}</Text>
-        <Text style={styles.emptyTitle}>{content.title}</Text>
+        <Text style={[styles.emptyTitle, textStyle]}>{content.title}</Text>
         <Text style={styles.emptyMessage}>{content.subtitle}</Text>
 
         {content.showCreatePost && (
           <TouchableOpacity
-            style={styles.createPostButton}
+            style={[styles.createPostButton, {backgroundColor: text, shadowColor: text}]}
             activeOpacity={0.8}
             onPress={() => navigation.navigate('Add')}
           >
@@ -260,15 +262,15 @@ export default function Notifications() {
   const renderTabContent = (tabData) => {
     const renderItem = ({ item, index }) => (
       <TouchableOpacity
-        style={[styles.notificationItem, !item.isRead && styles.unreadItem]}
+        style={[styles.notificationItem, !item.isRead && bgStyle]}
         onPress={() => markAsRead(item.id)}
         activeOpacity={0.7}
       >
-        <View style={styles.notificationContent}>
+        <View style={[styles.notificationContent, {shadowColor: text}]}>
           <View style={styles.leftSection}>
             <View style={styles.avatarContainer}>
               <Image source={{ uri: item.avatar }} style={styles.avatar} />
-              <View style={styles.iconBadge}>
+              <View style={[styles.iconBadge, bgStyle]}>
                 <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
               </View>
             </View>
@@ -282,12 +284,12 @@ export default function Notifications() {
 
           <View style={styles.rightSection}>
             {item.image && (
-              <Image source={{ uri: item.image }} style={styles.nftImage} />
+              <Image source={{ uri: item.image }} style={[styles.nftImage, bgStyle]} />
             )}
             {item.price && (
-              <Text style={styles.priceText}>{item.price}</Text>
+              <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
             )}
-            {!item.isRead && <View style={styles.unreadDot} />}
+            {!item.isRead && <View style={[styles.unreadDot, {backgroundColor: text}]} />}
           </View>
         </View>
 
@@ -315,18 +317,18 @@ export default function Notifications() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, bgStyle, {shadowColor: text}]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={[styles.headerTitle, textStyle]}>Notifications</Text>
         </View>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
-            <Text style={styles.markAllText}>Mark all read</Text>
+          <TouchableOpacity onPress={markAllAsRead} style={[styles.markAllButton, {shadowColor: text}]}>
+            <Text style={[styles.markAllText, textStyle]}>Mark all read</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -344,14 +346,16 @@ export default function Notifications() {
               key={tab.key}
               style={[
                 styles.tab,
-                activeTab === tab.key && styles.activeTab
+                activeTab === tab.key && {backgroundColor: text},
+                {shadowColor: text}
               ]}
               onPress={() => switchToTab(tab.key)}
               activeOpacity={0.7}
             >
               <Text style={[
                 styles.tabText,
-                activeTab === tab.key && styles.activeTabText
+                activeTab === tab.key && styles.activeTabText,
+                textStyle
               ]}>
                 {tab.label}
               </Text>
@@ -402,7 +406,6 @@ export default function Notifications() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   header: {
     flexDirection: 'row',
@@ -412,8 +415,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
-    backgroundColor: '#f8f2fd',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
@@ -428,21 +429,18 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#5a2d82',
   },
   markAllButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: '#fff',
     borderRadius: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   markAllText: {
     fontSize: 13,
-    color: '#5a2d82',
     fontWeight: '700',
   },
   tabContainer: {
@@ -464,18 +462,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     marginRight: 8,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  activeTab: {
-    backgroundColor: '#5a2d82',
-  },
   tabText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5a2d82',
   },
   activeTabText: {
     color: '#fff',
@@ -529,9 +522,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  unreadItem: {
-    backgroundColor: '#f8f2fd',
-  },
   notificationContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -539,7 +529,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 12,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
@@ -568,7 +557,6 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#f8f2fd',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -604,20 +592,17 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 8,
-    backgroundColor: '#f8f2fd',
     marginBottom: 4,
   },
   priceText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#5a2d82',
     marginBottom: 4,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#5a2d82',
   },
   separator: {
     height: 10,
@@ -638,7 +623,6 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#5a2d82',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -650,12 +634,10 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   createPostButton: {
-    backgroundColor: '#5a2d82',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 25,
     elevation: 3,
-    shadowColor: '#5a2d82',
     shadowOffset: {
       width: 0,
       height: 2,

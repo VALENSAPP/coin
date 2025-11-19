@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import CameraView from './CameraView';
 import Video from 'react-native-video';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -44,6 +45,7 @@ const GalleryPickerScreen = () => {
   // Animation values for crop area
   const pan = useRef(new Animated.ValueXY()).current;
   const cropScale = useRef(new Animated.Value(1)).current;
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     if (tab === 'gallery') {
@@ -370,7 +372,7 @@ const GalleryPickerScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       {showCamera ? (
         <CameraView
           mode={cameraMode}
@@ -463,7 +465,7 @@ const GalleryPickerScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd',},
+  container: { flex: 1},
   topBar: {
     height: 56,
     flexDirection: 'row',

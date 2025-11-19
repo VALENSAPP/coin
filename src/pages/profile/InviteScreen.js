@@ -16,12 +16,14 @@ import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { useAppTheme } from '../../theme/useApptheme';
  
 const { width } = Dimensions.get('window');
  
 export default function InviteScreen() {
     const navigation = useNavigation();
     const route = useRoute();
+    const { bgStyle, textStyle } = useAppTheme();
  
     // Generate unique referral code for this user
     const userReferralCode = route?.params?.referralCode ?? 'ABC123';
@@ -61,7 +63,7 @@ export default function InviteScreen() {
     };
  
     return (
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={[styles.safe, bgStyle]}>
             <ScrollView contentContainerStyle={styles.container}>
                 {/* Back button */}
                 <View
@@ -120,7 +122,7 @@ export default function InviteScreen() {
                         <Text style={styles.shareText}>Share your link</Text>
                     </TouchableOpacity>
  
-                    <TouchableOpacity style={styles.iconButton} onPress={onCopyLink} activeOpacity={0.85}>
+                    <TouchableOpacity style={[styles.iconButton, bgStyle]} onPress={onCopyLink} activeOpacity={0.85}>
                         <Ionicons name="link-outline" size={22} color="#111" />
                     </TouchableOpacity>
                 </View>
@@ -141,7 +143,7 @@ export default function InviteScreen() {
 }
  
 const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: '#f8f2fd', marginTop: 20 },
+    safe: { flex: 1, marginTop: 20 },
     container: {
         alignItems: 'center',
         paddingHorizontal: 20,
@@ -218,7 +220,6 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: '#f8f2fd',
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 3,

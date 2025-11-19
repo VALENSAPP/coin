@@ -20,6 +20,7 @@ import { getSubscriptionByUserID, getUserSubscription } from '../../services/wal
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FanPageSubscription } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const SubscribeFlowModal = ({
     visible,
@@ -44,6 +45,7 @@ const SubscribeFlowModal = ({
     const dispatch = useDispatch();
     const isCompanyProfile = userProfile === 'company';
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     useEffect(() => {
         fetchAllData();
@@ -190,6 +192,7 @@ const SubscribeFlowModal = ({
                     userDataToSet = profileResponse;
                 }
                 setUserProfile(userDataToSet.profile || '');
+                await AsyncStorage.setItem('profile', userDataToSet.profile);
                 // console.log('User profile:', userDataToSet.profile);
             } else {
                 // showToastMessage(toast, 'danger', profileResponse.data.message);
@@ -232,11 +235,11 @@ const SubscribeFlowModal = ({
                 closeOnPressMask
                 onClose={handleStep1Close}
                 customStyles={{
-                    container: styles.sheetContainer,
+                    container: [styles.sheetContainer, bgStyle],
                 }}>
                 <View style={styles.container}>
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
-                        <Text style={styles.header}>{displayName} </Text>
+                        <Text style={[styles.header, textStyle]}>{displayName} </Text>
                         <DragonflyIcon width={22} height={22} />
                     </View>
                     <Text style={styles.subHeader}>You’re about to Subscribe!</Text>
@@ -247,10 +250,10 @@ const SubscribeFlowModal = ({
                         their journey and yours.
                     </Text>
 
-                    <Text style={styles.confirmText}>Confirm Subscription?</Text>
+                    <Text style={[styles.confirmText, textStyle]}>Confirm Subscription?</Text>
 
                     <TouchableOpacity
-                        style={[styles.btn, styles.confirmBtn]}
+                        style={[styles.btn, {backgroundColor: text}]}
                         onPress={handleConfirm}>
                         <Text style={styles.confirmTextBtn}>💜 Yes, I’m In</Text>
                     </TouchableOpacity>
@@ -258,7 +261,7 @@ const SubscribeFlowModal = ({
                     <TouchableOpacity
                         style={[styles.btn, styles.cancelBtn]}
                         onPress={onClose}>
-                        <Text style={styles.cancelTextBtn}>Not Now</Text>
+                        <Text style={[styles.cancelTextBtn, textStyle]}>Not Now</Text>
                     </TouchableOpacity>
                 </View>
             </RBSheet>
@@ -279,7 +282,7 @@ const SubscribeFlowModal = ({
                 >
                     <View style={styles.priceBox}>
                         <Text style={styles.priceLabel}>Membership</Text>
-                        <Text style={styles.priceValue}>
+                        <Text style={[styles.priceValue, textStyle]}>
                             ${subscriptionAmount} / month
                         </Text>
                     </View>
@@ -333,13 +336,13 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                                     : 'square-outline'
                             }
                             size={22}
-                            color={acceptedTerms ? '#5a2d82' : '#aaa'}
+                            color={acceptedTerms ? {text} : '#aaa'}
                         />
                         <Text style={styles.termsText}>I accept Terms & Conditions</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.btn, styles.doneBtn, { opacity: acceptedTerms ? 1 : 0.4 }]}
+                        style={[styles.btn, { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text }]}
                         onPress={GetSubscription}>
                         <Text style={styles.doneText}>✅ Done — Complete Payment</Text>
                     </TouchableOpacity>
@@ -356,7 +359,6 @@ const styles = StyleSheet.create({
     sheetContainer: {
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        backgroundColor: '#f8f2fd',
         padding: 20,
     },
     container: {
@@ -365,7 +367,6 @@ const styles = StyleSheet.create({
     header: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#5a2d82',
         textAlign: 'center',
         marginBottom: 6,
     },
@@ -386,7 +387,6 @@ const styles = StyleSheet.create({
     confirmText: {
         textAlign: 'center',
         fontWeight: '600',
-        color: '#5a2d82',
         marginBottom: 14,
     },
     btn: {
@@ -394,9 +394,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         marginBottom: 10,
-    },
-    confirmBtn: {
-        backgroundColor: '#5a2d82',
     },
     confirmTextBtn: {
         color: '#fff',
@@ -409,7 +406,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     cancelTextBtn: {
-        color: '#5a2d82',
         fontSize: 16,
         fontWeight: '600',
     },
@@ -445,7 +441,7 @@ const styles = StyleSheet.create({
         borderColor: '#ddd',
     },
     priceLabel: { fontSize: 15, color: '#555' },
-    priceValue: { fontSize: 16, fontWeight: '700', color: '#5a2d82' },
+    priceValue: { fontSize: 16, fontWeight: '700' },
     checkboxRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -455,9 +451,6 @@ const styles = StyleSheet.create({
         color: '#333',
         marginLeft: 8,
         fontSize: 14,
-    },
-    doneBtn: {
-        backgroundColor: '#5a2d82',
     },
     doneText: {
         color: '#fff',

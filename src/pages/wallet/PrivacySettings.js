@@ -17,10 +17,12 @@ import { userAccountDelete, userProfileStatusSet } from '../../services/wallet';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedOut } from '../../redux/actions/LoginAction';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
     const toast = useToast();
+    const { bgStyle, textStyle } = useAppTheme();
 
     const [privacySettings, setPrivacySettings] = useState({
         profileVisibility: 'public',
@@ -83,6 +85,7 @@ const PrivacySettingsScreen = () => {
                 AsyncStorage.removeItem('walletAddress');
                 AsyncStorage.removeItem('walletPrivateKey');
                 AsyncStorage.removeItem('walletMnemonic');
+                AsyncStorage.removeItem('profile');
                 dispatch(loggedOut());
             } else {
                 showToastMessage(toast, 'danger', resp?.message || 'Failed to delete account');
@@ -95,7 +98,7 @@ const PrivacySettingsScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
                 <View style={[styles.section, { marginTop: 20 }]}>

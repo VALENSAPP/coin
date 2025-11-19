@@ -20,6 +20,7 @@ import { useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedIn } from '../../../redux/actions/LoginAction';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -83,6 +84,7 @@ export default function WalletScreen({ route }) {
   const dispatch = useDispatch();
 
   const modalAnim = useModalAnimation(showModal);
+  const { bgStyle, textStyle } = useAppTheme();
 
   const handleCreateProfile = async () => {
     try {
@@ -224,7 +226,7 @@ export default function WalletScreen({ route }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <StepHeader currentStep={2} />
 
       {/* Single Modal for all states */}
@@ -260,7 +262,6 @@ export default function WalletScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
 
   modalOverlay: {

@@ -1,17 +1,20 @@
 import { StyleSheet } from 'react-native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const createStyles = () => {
+    const { bg } = useAppTheme();
+
     const styles = StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: '#f8f2fd',
+            backgroundColor: bg,
         },
         header: {
             flexDirection: 'row',
             alignItems: 'center',
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: '#f8f2fd',
+            backgroundColor: bg,
             borderBottomWidth: 1,
             borderBottomColor: '#e1e1e1',
         },
@@ -31,7 +34,7 @@ const createStyles = () => {
         },
         scrollView: {
             flex: 1,
-            backgroundColor: '#f8f2fd',
+            backgroundColor: bg,
         },
         section: {
             marginTop: 15,
@@ -77,7 +80,7 @@ const createStyles = () => {
             justifyContent: 'space-between',
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: '#f8f2fd',
+            backgroundColor: bg,
             borderBottomWidth: 0.5,
             borderBottomColor: '#f2f2f2',
         },
@@ -119,7 +122,7 @@ const createStyles = () => {
         actionItem: {
             paddingHorizontal: 16,
             paddingVertical: 16,
-            backgroundColor: '#f8f2fd',
+            backgroundColor: bg,
             borderBottomWidth: 0.5,
             borderBottomColor: '#f2f2f2',
         },

@@ -38,6 +38,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   // All state hooks first - maintain consistent order
@@ -89,6 +90,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const sellSheetRef = useRef(null);
   const toast = useToast();
   const dispatch = useDispatch();
+   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     let timeout;
@@ -957,7 +959,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const safeRender = () => {
     try {
       return (
-        <View style={styles.container}>
+        <View style={[styles.container, bgStyle]}>
           {/* Posts List */}
           <FlatList
             data={feedItems}
@@ -1011,12 +1013,11 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
               setPendingFollowAction(null);
             }}
             customStyles={{
-              container: {
+              container: [{
                 borderTopLeftRadius: 30,
                 borderTopRightRadius: 30,
-                backgroundColor: '#f8f2fd',
                 bottom: -30,
-              },
+              }, bgStyle],
               draggableIcon: {
                 backgroundColor: '#ccc',
                 width: 60,
@@ -1048,12 +1049,11 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
               setPendingFollowAction(null);
             }}
             customStyles={{
-              container: {
+              container: [{
                 borderTopLeftRadius: 30,
                 borderTopRightRadius: 30,
-                backgroundColor: '#f8f2fd',
                 bottom: -30,
-              },
+              }, bgStyle],
               draggableIcon: {
                 backgroundColor: '#ccc',
                 width: 60,
@@ -1077,12 +1077,11 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             customModalProps={{ statusBarTranslucent: true }}
             onClose={() => { Keyboard.dismiss(); setCommentPostId(null); }}
             customStyles={{
-              container: {
+              container: [{
                 borderTopLeftRadius: 18,
                 borderTopRightRadius: 18,
-                backgroundColor: '#f8f2fd',
                 bottom: -20,
-              },
+              }, bgStyle],
               draggableIcon: {
                 backgroundColor: '#ccc',
                 width: 60,
@@ -1115,7 +1114,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   listContent: {
     paddingTop: 0,

@@ -18,6 +18,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,6 +28,7 @@ const ShareProfile = ({ navigation }) => {
   const profile = userData?.user;
   const [username, setUsername] = useState('');
   const profileImage = useSelector(state => state.profileImage?.profileImg);
+  const { bgStyle, textStyle } = useAppTheme();
 
   const copyToClipboard = () => {
     Clipboard.setString(username);
@@ -131,7 +133,7 @@ const ShareProfile = ({ navigation }) => {
       {/* Main Content */}
       <View style={styles.content}>
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, bgStyle]}>
           <View style={styles.profileImageContainer}>
             <Image
               source={{ uri: profileImage || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }}
@@ -152,7 +154,7 @@ const ShareProfile = ({ navigation }) => {
 
         {/* QR Code Placeholder */}
         <View style={styles.qrContainer}>
-          <View style={styles.qrPlaceholder}>
+          <View style={[styles.qrPlaceholder, bgStyle]}>
             <Ionicons name="qr-code-outline" size={60} color="#666" />
             <Text style={styles.qrText}>QR Code</Text>
           </View>
@@ -232,7 +234,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileCard: {
-    backgroundColor: '#f8f2fd',
     borderRadius: 24,
     padding: 30,
     alignItems: 'center',
@@ -293,7 +294,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   qrPlaceholder: {
-    backgroundColor: '#f8f2fd',
     borderRadius: 16,
     width: 120,
     height: 120,

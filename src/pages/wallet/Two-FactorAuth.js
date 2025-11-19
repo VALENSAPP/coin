@@ -9,13 +9,15 @@ import {
     Switch,
 } from 'react-native';
 import styles from './Style';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const TwoFactorAuthScreen = () => {
     const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
     const [biometricEnabled, setBiometricEnabled] = React.useState(false);
+    const { bgStyle, textStyle } = useAppTheme();
     
     return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <StatusBar barStyle="dark-content" />
       <ScrollView style={styles.content}>
         <View style={styles.infoCard}>

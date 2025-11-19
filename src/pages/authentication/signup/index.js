@@ -28,6 +28,7 @@ import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcon
 import { AuthHeader } from '../../../components/auth';
 import DeviceInfo from "react-native-device-info";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
@@ -41,6 +42,7 @@ export default function SignupScreen() {
   const styles = createStyles();
   const dispatch = useDispatch();
   const profile = isChecked ? 'company' : 'user';
+  const { text } = useAppTheme();
 
   useEffect(() => {
     const loadDeviceId = async () => {
@@ -288,7 +290,7 @@ export default function SignupScreen() {
                   <MaterialDesignIcons
                     name={isChecked ? 'checkbox-marked' : 'checkbox-blank-outline'}
                     size={30}
-                    color={isChecked ? '#5a2d82' : 'gray'}
+                    color={isChecked ? text : 'gray'}
                   />
                   <Text style={styles.text}>
                     This is a business account

@@ -20,6 +20,7 @@ import { getAllSavedPosts } from '../../services/settings';
 import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const SavedPostsScreen = ({ navigation }) => {
   // Data
@@ -52,6 +53,7 @@ const SavedPostsScreen = ({ navigation }) => {
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
 
   const toast = useToast();
+  const { bgStyle, textStyle } = useAppTheme();
 
   // Helpers (unchanged UI)
   const getMediaType = (url) => {
@@ -400,7 +402,7 @@ const SavedPostsScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack()}>
           <Icon name="arrow-back" size={24} color="#262626" />
@@ -445,11 +447,10 @@ const SavedPostsScreen = ({ navigation }) => {
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 18,
             borderTopRightRadius: 18,
-            backgroundColor: '#f8f2fd',
-          },
+          }, bgStyle],
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,
@@ -471,7 +472,7 @@ const SavedPostsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1},
   header: {
     flexDirection: 'row',
     paddingHorizontal: 16,

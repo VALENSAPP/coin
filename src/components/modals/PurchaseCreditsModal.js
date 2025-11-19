@@ -9,12 +9,14 @@ import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0 }) => {
   const [creditsToBuy, setCreditsToBuy] = useState(1);
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     if (visible) {
@@ -128,13 +130,12 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       closeOnPressMask={true}
       onClose={onClose}
       customStyles={{
-        container: {
+        container: [{
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          backgroundColor: '#f8f2fd',
           paddingVertical: 20,
           paddingHorizontal: 25,
-        },
+        }, bgStyle],
         draggableIcon: {
           backgroundColor: '#ccc',
           width: 60,
@@ -142,18 +143,18 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       }}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Buy Mint Credits</Text>
+        <Text style={[styles.title, textStyle]}>Buy Mint Credits</Text>
 
-        <View style={styles.currentCreditsContainer}>
+        <View style={[styles.currentCreditsContainer, {shadowColor: text}]}>
           <Text style={styles.currentCreditsLabel}>Current Credits:</Text>
-          <Text style={styles.currentCreditsValue}>{currentCredits} / 5</Text>
+          <Text style={[styles.currentCreditsValue, textStyle]}>{currentCredits} / 5</Text>
         </View>
 
         <Text style={styles.subtitle}>Select amount to purchase:</Text>
 
         <View style={styles.selectorContainer}>
           <TouchableOpacity
-            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled]}
+            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled, {backgroundColor: text, shadowColor: text}]}
             onPress={decreaseCredits}
             disabled={creditsToBuy === 1}
           >
@@ -161,7 +162,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           </TouchableOpacity>
 
           <View style={styles.amountContainer}>
-            <Text style={styles.amountText}>{creditsToBuy}</Text>
+            <Text style={[styles.amountText, textStyle]}>{creditsToBuy}</Text>
             <Text style={styles.creditsLabel}>credit{creditsToBuy > 1 ? 's' : ''}</Text>
           </View>
 
@@ -175,7 +176,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         </View>
 
         <TouchableOpacity
-          style={styles.buyBtn}
+          style={[styles.buyBtn, { backgroundColor: text, shadowColor: text}]}
           onPress={handleConfirmPurchase}
         >
           <Text style={styles.buyBtnText}>Continue to Payment</Text>
@@ -199,7 +200,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#5a2d82',
     marginBottom: 15,
   },
   currentCreditsContainer: {
@@ -210,7 +210,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 20,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
@@ -223,7 +222,6 @@ const styles = StyleSheet.create({
   currentCreditsValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#5a2d82',
   },
   subtitle: {
     fontSize: 14,
@@ -236,13 +234,11 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   adjustBtn: {
-    backgroundColor: '#5a2d82',
     borderRadius: 50,
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
@@ -264,7 +260,6 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#5a2d82',
   },
   creditsLabel: {
     fontSize: 12,
@@ -272,12 +267,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buyBtn: {
-    backgroundColor: '#5a2d82',
     paddingVertical: 12,
     paddingHorizontal: 50,
     borderRadius: 10,
     marginBottom: 10,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,

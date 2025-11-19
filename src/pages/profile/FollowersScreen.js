@@ -23,6 +23,7 @@ import {
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const BRAND = '#4c2a88ab';
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -54,6 +55,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [userTokens, setUserTokens] = useState(1000);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const toast = useToast();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     (async () => {
@@ -177,16 +179,16 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         const isFollowingState = !!item.isFollowing;
 
         return (
-          <TouchableOpacity style={styles.userRow} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.userRow, { shadowColor: text }]} activeOpacity={0.7}>
             <Image
               source={{
                 uri: !imageError && item.avatar ? item.avatar : DEFAULT_AVATAR,
               }}
-              style={styles.avatar}
+              style={[styles.avatar, { borderColor: text }]}
               onError={() => setImageError(true)}
             />
             <View style={styles.userInfo}>
-              <Text style={styles.username}>{item.username}</Text>
+              <Text style={[styles.username, textStyle]}>{item.username}</Text>
               {!!item.fullName && (
                 <Text style={styles.fullName}>{item.fullName}</Text>
               )}
@@ -198,13 +200,13 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                   <TouchableOpacity
                     style={[
                       styles.followBtn,
-                      isFollowingState ? styles.following : styles.follow,
+                      isFollowingState ? (styles.following && { borderColor: text }) : (styles.follow && { backgroundColor: text }),
                     ]}
                     onPress={() => handleVallowingClick(item, tab)}
                   >
                     <Text
                       style={
-                        isFollowingState ? styles.followingText : styles.followText
+                        isFollowingState ? (styles.followingText && textStyle) : styles.followText
                       }
                     >
                       {isFollowingState ? 'Vallowing' : 'Vallow'}
@@ -221,13 +223,13 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     activeTab === 'followers' ? filteredFollowers : filteredFollowing;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
       <View style={styles.headerView}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.usernameHeader}>{headerUsername}</Text>
+        <Text style={[styles.usernameHeader, textStyle]}>{headerUsername}</Text>
       </View>
 
       {/* Tabs */}
@@ -235,13 +237,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === 'followers' && styles.tabBtnActive,
+            activeTab === 'followers' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
           ]}
           onPress={() => setActiveTab('followers')}
         >
           <Text
             style={[
               styles.tabText,
+              textStyle,
               activeTab === 'followers' && styles.tabTextActive,
             ]}
           >
@@ -258,6 +261,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           <Text
             style={[
               styles.tabText,
+              textStyle,
               activeTab === 'following' && styles.tabTextActive,
             ]}
           >
@@ -268,7 +272,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
       {/* Search */}
       <TextInput
-        style={styles.searchBar}
+        style={[styles.searchBar, { shadowColor: text }]}
         placeholder={
           activeTab === 'followers' ? 'Search vallowers' : 'Search vallowing'
         }
@@ -317,12 +321,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           setSelectedUser(null);
         }}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 30,
             borderTopRightRadius: 30,
-            backgroundColor: '#f8f2fd',
             bottom: -30,
-          },
+          }, bgStyle],
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,
@@ -344,7 +347,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingHorizontal: 16,
     paddingTop: 10,
   },
@@ -358,7 +360,6 @@ const styles = StyleSheet.create({
   usernameHeader: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#5a2d82',
     marginLeft: 12,
   },
 
@@ -378,8 +379,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabBtnActive: {
-    backgroundColor: '#5a2d82',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
@@ -387,7 +386,6 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#5a2d82',
   },
   tabTextActive: {
     color: '#fff',
@@ -402,7 +400,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1F2937',
     marginBottom: 14,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
@@ -417,7 +414,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 10,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
@@ -428,11 +424,10 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 14,
     borderWidth: 2,
-    borderColor: '#5a2d82',
     backgroundColor: '#f3f0f7',
   },
   userInfo: { flex: 1 },
-  username: { fontWeight: '700', fontSize: 16, color: '#5a2d82' },
+  username: { fontWeight: '700', fontSize: 16 },
   fullName: { color: '#6B7280', fontSize: 14 },
 
   // Follow button
@@ -444,13 +439,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  follow: {
-    backgroundColor: '#5a2d82',
-  },
   following: {
     backgroundColor: '#f3f0f7',
     borderWidth: 1.5,
-    borderColor: '#5a2d82',
   },
   followText: {
     color: '#fff',
@@ -458,7 +449,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   followingText: {
-    color: '#5a2d82',
     fontWeight: '700',
     fontSize: 14,
   },

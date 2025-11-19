@@ -14,11 +14,13 @@ import { useDispatch } from 'react-redux';
 import { authLoginHistory } from '../../services/wallet';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const LoginHistoryScreen = () => {
     const [loginHistory, setLoginHistory] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
+    const { bgStyle, textStyle } = useAppTheme();
 
     useEffect(() => {
         fetchLoginHistory();
@@ -86,7 +88,7 @@ const LoginHistoryScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
                 <View style={[styles.section, { marginTop: 20 }]}>

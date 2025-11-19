@@ -21,6 +21,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { userChangePassword } from '../../services/wallet';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
+import { useAppTheme } from '../../theme/useApptheme';
 
 // Validation Schema
 const validationSchema = Yup.object().shape({
@@ -44,6 +45,7 @@ const ChangePassword = () => {
     const [showOldPassword, setShowOldPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const { bgStyle, textStyle, text } = useAppTheme();
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const toast = useToast();
@@ -89,7 +91,7 @@ const ChangePassword = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             {/* Header */}
             {/* <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -111,7 +113,7 @@ const ChangePassword = () => {
                 onSubmit={handleChangePassword}>
                 {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
                     <>
-                        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                        <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
                             {/* Old Password */}
                             <View style={styles.inputContainer}>
                                 <Text style={styles.label}>Old Password</Text>
@@ -197,7 +199,7 @@ const ChangePassword = () => {
                         <CustomButton
                             title="Change Password"
                             onPress={handleSubmit}
-                            style={[styles.socialBtn, styles.submitBtn]}
+                            style={[styles.socialBtn, styles.submitBtn, {backgroundColor: text, borderColor: text}]}
                             textStyle={styles.socialBtnText}
                         />
                     </>
@@ -208,7 +210,7 @@ const ChangePassword = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8f2fd', paddingBottom: 50,
+    container: { flex: 1, paddingBottom: 50,
         marginBottom: Platform.OS == "ios" ? 70 : 0
      },
     header: {
@@ -223,7 +225,6 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         paddingHorizontal: 16,
         paddingTop: 20,
     },
@@ -282,10 +283,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     submitBtn: {
-        backgroundColor: '#5a2d82',
         color: '#fff',
         borderWidth: 1,
-        borderColor: '#5a2d82',
         marginLeft: 20,
     },
 });

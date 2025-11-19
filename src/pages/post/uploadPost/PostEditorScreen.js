@@ -20,6 +20,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -31,6 +32,7 @@ const PostEditorScreen = () => {
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
   const [profile, setProfile] = useState(null);
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const toast = useToast();
   console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType, });
@@ -50,7 +52,7 @@ const PostEditorScreen = () => {
         showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
         return;
       }
-      
+
 
       navigation.navigate('CreateMission', {
         images,
@@ -83,7 +85,7 @@ const PostEditorScreen = () => {
           name: (img.processedUri || img.uri).split('/').pop()
 
         })),
-       type: fromIcon == 'Flips'? 'reel' : 'normal',
+        type: fromIcon == 'Flips' ? 'reel' : 'normal',
       };
 
       try {
@@ -112,20 +114,20 @@ const PostEditorScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.title}>{ fromIcon == 'Flips' ? 'New Flip' : 'New Post' }</Text>
+        <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
         <Text></Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
         {/* Images Card with horizontal scroll */}
         {images.length > 0 && (
-          <View style={styles.imagesCard}>
+          <View style={[styles.imagesCard, bgStyle]}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -175,7 +177,7 @@ const PostEditorScreen = () => {
         <View style={styles.captionSection}>
           <Text style={styles.captionLabel}>Write a caption (optional)</Text>
           <TextInput
-            style={styles.captionInput}
+            style={[styles.captionInput, bgStyle]}
             placeholder="Write a caption (optional)"
             value={caption}
             onChangeText={setCaption}
@@ -190,7 +192,7 @@ const PostEditorScreen = () => {
             <View style={[styles.captionSection, { marginTop: -5 }]}>
               <Text style={styles.captionLabel}>Add a link (optional)</Text>
               <TextInput
-                style={styles.linkInput}
+                style={[styles.linkInput, bgStyle]}
                 placeholder="https://example.com"
                 value={link}
                 onChangeText={setLink}
@@ -205,7 +207,7 @@ const PostEditorScreen = () => {
       <CustomButton
         title="Continue"
         onPress={handlePost}
-        style={[styles.socialBtn, styles.instagramBtn]}
+        style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, bordercolor: text }]}
         textStyle={styles.socialBtnText}
       />
     </SafeAreaView>
@@ -213,7 +215,7 @@ const PostEditorScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1 },
   header: {
     height: 56,
     flexDirection: 'row',
@@ -226,10 +228,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '600', color: '#000', textAlign: 'center' },
   shareButton: { paddingHorizontal: 8, paddingVertical: 4 },
   postBtn: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
-  content: { flex: 1, backgroundColor: '#f8f2fd' },
+  content: { flex: 1 },
   imagesCard: {
     margin: 16,
-    backgroundColor: '#f8f2fd',
     borderRadius: 12,
     elevation: 3,
     shadowColor: '#000',
@@ -267,7 +268,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row'
   },
   indicator: {
-    backgroundColor: '#5a2d82',
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -285,7 +285,6 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 100,
     fontSize: 16,
-    backgroundColor: '#f8f2fd',
     color: '#000'
   },
   linkInput: {
@@ -294,14 +293,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    backgroundColor: '#f8f2fd',
     color: '#000'
   },
   instagramBtn: {
-    backgroundColor: '#5a2d82',
     color: '#fff',
     borderWidth: 1,
-    borderColor: '#5a2d82',
     marginLeft: 20
   },
   socialBtn: {

@@ -19,6 +19,7 @@ import CustomButton from '../../../components/customButton/customButton';
 import { LogoIcon } from '../../../assets/icons';
 import { AuthHeader } from '../../../components/auth';
 import { showToastMessage } from '../../../components/displaytoastmessage';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const { width, height } = Dimensions.get('window');
@@ -30,6 +31,7 @@ const ForgetPassword = () => {
   const dispatch = useDispatch();
   const [isEmailMode, setIsEmailMode] = useState(true);
   const toast = useToast();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const toggleMode = () => {
     setIsEmailMode(!isEmailMode);
@@ -63,8 +65,8 @@ const ForgetPassword = () => {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      style={[styles.container, bgStyle]}
+      contentContainerStyle={[styles.contentContainer, bgStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -112,11 +114,11 @@ const ForgetPassword = () => {
             </View>
 
             <View style={styles.infoSection}>
-              <View style={styles.infoBox}>
+              <View style={[styles.infoBox, {borderLeftColor: text}]}>
                 <Icon
                   name="information-circle"
                   size={20}
-                  color="#5a2d82"
+                  color={text}
                   style={styles.infoIcon}
                 />
                 <Text style={styles.infoText}>
@@ -136,7 +138,7 @@ const ForgetPassword = () => {
 
             {/* Continue Button */}
             <TouchableOpacity
-              style={styles.continueButton}
+              style={[styles.continueButton, {backgroundColor: text, shadowColor: text}]}
               onPress={handleContinue}
             >
               <Text style={styles.continueButtonText}>Continue</Text>
@@ -148,7 +150,7 @@ const ForgetPassword = () => {
             <Text style={styles.backToLoginText}>
               Remember your password?{' '}
               <Text
-                style={styles.backToLoginLink}
+                style={[styles.backToLoginLink, textStyle]}
                 onPress={() => navigation.goBack()}
               >
                 Back to Login
@@ -166,11 +168,9 @@ export default ForgetPassword;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   contentContainer: {
     flexGrow: 1,
-    backgroundColor: '#f8f2fd',
   },
 
   // Form wrapper styles
@@ -266,7 +266,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#5a2d82',
   },
   infoIcon: {
     marginRight: 12,
@@ -287,7 +286,6 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 14,
-    color: '#5a2d82',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -295,11 +293,9 @@ const styles = StyleSheet.create({
   // Continue Button
   continueButton: {
     height: 52,
-    backgroundColor: '#5a2d82',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -323,7 +319,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   backToLoginLink: {
-    color: '#5a2d82',
     fontWeight: '700',
   },
 });
