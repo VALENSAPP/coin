@@ -229,7 +229,7 @@ const SubscribeFlowModal = ({
             <RBSheet
                 ref={step1Ref}
                 height={380}
-                closeOnPressMask
+                closeOnPressMask={false}
                 onClose={handleStep1Close}
                 customStyles={{
                     container: styles.sheetContainer,
@@ -266,8 +266,8 @@ const SubscribeFlowModal = ({
             {/* Step 2: Payment */}
             <RBSheet
                 ref={step2Ref}
-                height={250}
-                closeOnPressMask
+                height={380}
+                closeOnPressMask={false}
                 customStyles={{
                     container: styles.sheetContainer,
                 }}>
@@ -342,6 +342,11 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                         style={[styles.btn, styles.doneBtn, { opacity: acceptedTerms ? 1 : 0.4 }]}
                         onPress={GetSubscription}>
                         <Text style={styles.doneText}>✅ Done — Complete Payment</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.btn, styles.cancelBtn]}
+                        onPress={onClose}>
+                        <Text style={styles.cancelTextBtn}>Not Now</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </RBSheet>
