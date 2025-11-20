@@ -29,6 +29,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const toast = useToast();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     let timeout;
@@ -472,6 +474,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       <View
         style={[
           styles.kpiCard,
+          { shadowColor: text },
           isClickable && styles.kpiCardClickable // Optional: add visual feedback
         ]}
         // onPress={isClickable ? handleBuyCredits : null}
@@ -544,12 +547,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
         setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
       }}
     >
-      <View style={styles.creatorAvatar}>
+      <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
         <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
       </View>
       <View style={styles.creatorInfo}>
         <Text style={styles.creatorName}>{item.name}</Text>
-        <Text style={styles.creatorPrice}>{item.followers}</Text>
+        <Text style={[styles.creatorPrice, textStyle]}>{item.followers}</Text>
       </View>
       {/* Arrow indicator at the end */}
       <View style={styles.arrowContainer}>
@@ -564,17 +567,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#5a2d82']}
-            tintColor="#5a2d82"
+            colors={[text]}
+            tintColor={text}
             title="Pull to refresh"
-            titleColor="#5a2d82"
+            titleColor={text}
           />
         }
       >
@@ -601,7 +604,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         {/* Activity Overview */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Activity Overview</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>Activity Overview</Text>
           </View>
 
           <View style={styles.periodSelector}>
@@ -610,7 +613,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 key={period}
                 style={[
                   styles.periodButton,
-                  activityPeriod === period && styles.periodButtonActive,
+                  activityPeriod === period && {backgroundColor: text},
                 ]}
                 onPress={() => setActivityPeriod(period)}
               >
@@ -627,15 +630,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </View>
 
           {/* Chart with LineGraph */}
-          <View style={styles.chartContainer}>
-            <Text style={styles.chartPrice}>${selectedPrice.toFixed(2)}</Text>
+          <View style={[styles.chartContainer, { shadowColor: text }]}>
+            <Text style={[styles.chartPrice, textStyle]}>${selectedPrice.toFixed(2)}</Text>
             <Text style={styles.chartLabel}>Portfolio Value</Text>
 
             {priceHistory.length > 0 ? (
               <LineChart.Provider data={priceHistory}>
                 <LineChart height={200} width={width - 72}>
-                  <LineChart.Path color="#5a2d82" width={3}>
-                    <LineChart.Gradient color="#5a2d82" />
+                  <LineChart.Path color={text} width={3}>
+                    <LineChart.Gradient color={text} />
                   </LineChart.Path>
                   <LineChart.CursorCrosshair
                     onActivated={() => hapticFeedback('impactLight')}
@@ -645,7 +648,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       {({ value }) => {
                         updatePriceTitle({ value });
                         return (
-                          <View style={styles.tooltipContainer}>
+                          <View style={[styles.tooltipContainer, {backgroundColor: text}]}>
                             <Text style={styles.tooltipText}>
                               ${value?.toFixed(2)}
                             </Text>
@@ -669,8 +672,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
         {/* Recent Activities */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { marginBottom: 5 }]}>Recent Activities</Text>
-          <View style={styles.activitiesContainer}>
+          <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>Recent Activities</Text>
+          <View style={[styles.activitiesContainer, { shadowColor: text }]}>
             {recentActivities.length > 0 ? (
               <FlatList
                 data={recentActivities}
@@ -688,8 +691,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
         {/* My Wallets */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { marginBottom: 5 }]}>My Wallets</Text>
-          <View style={styles.walletsContainer}>
+          <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>My Wallets</Text>
+          <View style={[styles.walletsContainer, { shadowColor: text }]}>
             <FlatList
               data={walletTransactions}
               renderItem={renderWallet}
@@ -704,8 +707,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
         {/* Top Creators */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { marginBottom: 5 }]}>Top Creators (Trending)</Text>
-          <View style={styles.creatorsContainer}>
+          <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>Top Creators (Trending)</Text>
+          <View style={[styles.creatorsContainer, { shadowColor: text }]}>
             {topCreators.length > 0 ? (
               <FlatList
                 data={topCreators}
@@ -736,12 +739,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
             setPendingFollowUserId(null);
           }}
           customStyles={{
-            container: {
+            container: [{
               borderTopLeftRadius: 30,
               borderTopRightRadius: 30,
-              backgroundColor: '#f8f2fd',
               bottom: -30,
-            },
+            }, bgStyle],
             draggableIcon: {
               backgroundColor: '#ccc',
               width: 60,
@@ -772,12 +774,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
             setPendingFollowUserId(null);
           }}
           customStyles={{
-            container: {
+            container: [{
               borderTopLeftRadius: 30,
               borderTopRightRadius: 30,
-              backgroundColor: '#f8f2fd',
               bottom: -30,
-            },
+            }, bgStyle],
             draggableIcon: {
               backgroundColor: '#ccc',
               width: 60,
@@ -799,7 +800,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingTop: 20,
     paddingBottom: 40,
     marginBottom: Platform.OS == "ios" ? 60 : 0
@@ -826,7 +826,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#5a2d82',
   },
   // KPI Cards
   kpiCard: {
@@ -834,7 +833,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -868,7 +866,6 @@ const styles = StyleSheet.create({
   activitiesContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -905,7 +902,6 @@ const styles = StyleSheet.create({
   walletsContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -957,7 +953,6 @@ const styles = StyleSheet.create({
   creatorsContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -972,7 +967,6 @@ const styles = StyleSheet.create({
   creatorAvatar: {
     width: 40,
     height: 40,
-    backgroundColor: '#5a2d82',
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1000,7 +994,6 @@ const styles = StyleSheet.create({
   creatorPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#5a2d82',
   },
   creatorChange: {
     fontSize: 14,
@@ -1012,7 +1005,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -1020,7 +1012,6 @@ const styles = StyleSheet.create({
   chartPrice: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#5a2d82',
     marginBottom: 4,
   },
   chartLabel: {
@@ -1029,7 +1020,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   tooltipContainer: {
-    backgroundColor: '#5a2d82',
     padding: 8,
     borderRadius: 8,
   },
@@ -1073,9 +1063,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     overflow: 'hidden',
-  },
-  periodButtonActive: {
-    backgroundColor: '#5a2d82',
   },
   periodText: {
     fontSize: 12,

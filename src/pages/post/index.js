@@ -5,6 +5,7 @@ import ImagePicker from 'react-native-image-crop-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import PostTypeModal from '../../components/modals/PostTypeModal';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 const gridItemSize = (width - 48) / 3;
@@ -18,6 +19,7 @@ export default function PostScreen({ navigation }) {
   const [shared, setShared] = useState(false);
   const route = useRoute();
   const fromIcon = route?.params?.fromIcon;
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
     const existingUris = new Set(existingGallery.map(img => img.uri));
@@ -378,7 +380,7 @@ export default function PostScreen({ navigation }) {
         style={[
           styles.gridItem,
           {
-            borderColor: isSelected ? '#5a2d82' : 'transparent',
+            borderColor: isSelected ? text : 'transparent',
             borderWidth: isSelected ? 3 : 2
           }
         ]}
@@ -399,7 +401,7 @@ export default function PostScreen({ navigation }) {
         )}
         {isSelected && (
           <View style={styles.selectedIndicator}>
-            <View style={styles.selectionNumber}>
+            <View style={[styles.selectionNumber, { backgroundColor: text }]}>
               <Text style={styles.selectionNumberText}>{selectionOrder}</Text>
             </View>
           </View>
@@ -416,7 +418,7 @@ export default function PostScreen({ navigation }) {
     if (currentSelection.length === 0) return null;
 
     return (
-      <View style={styles.selectedMediaSection}>
+      <View style={[styles.selectedMediaSection, bgStyle]}>
         <Text style={styles.selectedMediaTitle}>Selected Media</Text>
         <ScrollView
           horizontal
@@ -461,7 +463,7 @@ export default function PostScreen({ navigation }) {
               >
                 <Icon name="close-circle" size={20} color="#ff3040" />
               </TouchableOpacity>
-              <View style={styles.selectedOrderIndicator}>
+              <View style={[styles.selectedOrderIndicator, {backgroundColor: text}]}>
                 <Text style={styles.selectedOrderText}>{index + 1}</Text>
               </View>
             </View>
@@ -474,13 +476,13 @@ export default function PostScreen({ navigation }) {
   const renderInitialGalleryPrompt = () => (
     <View style={styles.galleryPrompt}>
       <TouchableOpacity style={styles.galleryButton} onPress={openGallery}>
-        <Icon name="images" size={60} color="#5a2d82" />
-        <Text style={styles.galleryButtonText}>Select from Gallery</Text>
+        <Icon name="images" size={60} color={text} />
+        <Text style={[styles.galleryButtonText, textStyle]}>Select from Gallery</Text>
         <Text style={styles.galleryButtonSubtext}>Choose photos and videos (up to 10)</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.galleryButton} onPress={openCamera}>
-        <Icon name="camera" size={60} color="#5a2d82" />
-        <Text style={styles.galleryButtonText}>Capture with Camera</Text>
+        <Icon name="camera" size={60} color={text} />
+        <Text style={[styles.galleryButtonText, textStyle]}>Capture with Camera</Text>
         <Text style={styles.galleryButtonSubtext}>Take photos or record videos (up to 10)</Text>
       </TouchableOpacity>
     </View>
@@ -489,8 +491,8 @@ export default function PostScreen({ navigation }) {
   const renderMainContent = () => (
     <>
       {selectedMedia && selectedMedia.length > 0 && (
-        <View style={styles.selectionCounter}>
-          <Text style={styles.selectionCounterText}>
+        <View style={[styles.selectionCounter, { shadowColor: text }]}>
+          <Text style={[styles.selectionCounterText, textStyle]}>
             {selectedMedia.length} item{selectedMedia.length > 1 ? 's' : ''} selected
             {selectedMedia.length < 10 && ` (${10 - selectedMedia.length} more available)`}
           </Text>
@@ -501,15 +503,15 @@ export default function PostScreen({ navigation }) {
 
       {selectedMedia && selectedMedia.length < 10 && (
         <View style={styles.addMoreSection}>
-          <TouchableOpacity style={styles.addMoreButton} onPress={openGallery}>
-            <Icon name="images" size={24} color="#5a2d82" />
-            <Text style={styles.addMoreText}>
+          <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text }]} onPress={openGallery}>
+            <Icon name="images" size={24} color={text} />
+            <Text style={[styles.addMoreText, textStyle]}>
               Add from Gallery
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.addMoreButton, { marginTop: 12 }]} onPress={openCamera}>
-            <Icon name="camera" size={24} color="#5a2d82" />
-            <Text style={styles.addMoreText}>
+          <TouchableOpacity style={[[styles.addMoreButton, { shadowColor: text }], { marginTop: 12 }]} onPress={openCamera}>
+            <Icon name="camera" size={24} color={text} />
+            <Text style={[styles.addMoreText, textStyle]}>
               Capture with Camera
             </Text>
           </TouchableOpacity>
@@ -524,8 +526,8 @@ export default function PostScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
+      <View style={[styles.headerRow, bgStyle, { shadowColor: text }]}>
         <TouchableOpacity
           onPress={() => {
             if (navigation && navigation.goBack) navigation.goBack();
@@ -534,10 +536,10 @@ export default function PostScreen({ navigation }) {
         >
           <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{fromIcon === 'Flips' ? 'New Flip' : 'New Mint'}</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{fromIcon === 'Flips' ? 'New Flip' : 'New Mint'}</Text>
         <TouchableOpacity
           onPress={handleShare}
-          style={[styles.headerShareBtn, { opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
+          style={[styles.headerShareBtn, { backgroundColor: text, shadowColor: text, opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
           disabled={!selectedMedia || selectedMedia.length === 0 || shared}
         >
           <Text style={styles.headerShareText}>Next</Text>
@@ -560,7 +562,6 @@ export default function PostScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   scrollView: {
     flex: 1,
@@ -574,8 +575,6 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
-    backgroundColor: '#f8f2fd',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
@@ -586,7 +585,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontWeight: 'bold',
     fontSize: 17,
-    color: '#5a2d82',
     flex: 1,
     textAlign: 'center',
     // marginLeft: -30,
@@ -595,11 +593,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#5a2d82',
     minWidth: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -617,7 +613,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -625,7 +620,6 @@ const styles = StyleSheet.create({
   selectionCounterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#5a2d82',
   },
   selectedMediaTitle: {
     fontSize: 16,
@@ -726,7 +720,6 @@ const styles = StyleSheet.create({
     width: '90%',
     minHeight: 48,
     borderRadius: 14,
-    backgroundColor: '#f8f2fd',
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
@@ -751,7 +744,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
     borderStyle: 'dashed',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -760,7 +752,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
-    color: '#5a2d82',
   },
   recentsSection: {
     paddingHorizontal: 16,
@@ -819,7 +810,6 @@ const styles = StyleSheet.create({
     right: 4,
   },
   selectionNumber: {
-    backgroundColor: '#5a2d82',
     borderRadius: 10,
     width: 20,
     height: 20,
@@ -864,7 +854,6 @@ const styles = StyleSheet.create({
   galleryButtonText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#5a2d82',
     marginTop: 16,
     marginBottom: 4,
   },
@@ -882,7 +871,6 @@ const styles = StyleSheet.create({
   },
   selectedMediaSection: {
     marginTop: 16,
-    backgroundColor: '#f8f2fd',
   },
   selectedGridItemHorizontal: {
     width: 170,
@@ -931,7 +919,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    backgroundColor: '#5a2d82',
     borderRadius: 10,
     width: 20,
     height: 20,

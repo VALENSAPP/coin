@@ -16,10 +16,12 @@ import { getTopCreators } from '../../services/tokens';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export const CreatorsScreen = ({ navigation }) => {
   const [creators, setCreators] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
   const toast = useToast();
 
@@ -60,8 +62,8 @@ export const CreatorsScreen = ({ navigation }) => {
   }, []);
 
   const renderCreator = ({ item }) => (
-    <View style={styles.creatorCard}>
-      <View style={styles.creatorCardHeader}>
+    <View style={[styles.creatorCard, {shadowColor: text}]}>
+      <View style={[styles.creatorCardHeader, { backgroundColor: text}]}>
         <View style={styles.creatorAvatar}>
           <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
         </View>
@@ -69,7 +71,7 @@ export const CreatorsScreen = ({ navigation }) => {
       <View style={styles.creatorCardContent}>
         <View style={styles.creatorNameRow}>
           <Text style={styles.creatorCardName}>{item.name}</Text>
-          {/* {item.verified && <Ionicons name="checkmark-circle" size={16} color="#5a2d82" />} */}
+          {/* {item.verified && <Ionicons name="checkmark-circle" size={16} color={text} />} */}
         </View>
         <Text style={styles.creatorBio}>{item.bio}</Text>
 
@@ -92,7 +94,7 @@ export const CreatorsScreen = ({ navigation }) => {
           {/* <TouchableOpacity style={styles.followButton}>
             <Text style={styles.followButtonText}>Vallow</Text>
           </TouchableOpacity> */}
-          <TouchableOpacity style={styles.viewProfileButton} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
+          <TouchableOpacity style={[styles.viewProfileButton, {backgroundColor: text}]} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
             <Text style={styles.viewProfileButtonText}>View Profile</Text>
           </TouchableOpacity>
         </View>
@@ -101,7 +103,7 @@ export const CreatorsScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* <View style={styles.header}>
           <Text style={styles.headerTitle}>Creators</Text> */}
@@ -112,7 +114,7 @@ export const CreatorsScreen = ({ navigation }) => {
         {/* </View> */}
 
         {loading ? (
-          <ActivityIndicator size="large" color="#5a2d82" />
+          <ActivityIndicator size="large" color={text} />
         ) : (
           <View style={styles.section}>
             <FlatList
@@ -133,7 +135,6 @@ export const CreatorsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingTop: 20,
     paddingBottom: 20,
     marginBottom: Platform.OS == "ios" ? 40 : 0
@@ -160,7 +161,6 @@ const styles = StyleSheet.create({
   createProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#5a2d82',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -178,7 +178,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     marginBottom: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -188,7 +187,6 @@ const styles = StyleSheet.create({
   },
   creatorCardHeader: {
     height: 80,
-    backgroundColor: '#5a2d82',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -253,7 +251,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   followButton: {
-    backgroundColor: '#5a2d82',
     paddingHorizontal: 10,
     // paddingVertical: 8,
     alignItems: 'center',
@@ -270,7 +267,6 @@ const styles = StyleSheet.create({
     // marginTop: '14%',
   },
   viewProfileButton: {
-    backgroundColor: '#5a2d82',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,

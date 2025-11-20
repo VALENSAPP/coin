@@ -1,7 +1,7 @@
 import { SET_USER_PROFILE } from "../actions/UserProfileAction";
 
 const initialState = {
-    userProfile: '',
+    userProfile: 'normal',
 };
 
 const userProfileReducer = (state = initialState, action) => {

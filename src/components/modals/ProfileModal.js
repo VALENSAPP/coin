@@ -21,6 +21,7 @@ import { PostStory } from '../../services/stories';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import StoryComposer from '../home/story.js/StoryComposer';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -32,6 +33,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   // Story composer state
   const [composerVisible, setComposerVisible] = useState(false);
   const [composerList, setComposerList] = useState([]);
+   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     if (modalVisible) {
@@ -272,7 +274,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
             onPress={hideModal}
           />
           <Animated.View
-            style={[styles.modalContainer, { transform: [{ translateY }] }]}
+            style={[styles.modalContainer, { transform: [{ translateY }] }, bgStyle]}
             {...panResponder.panHandlers}
           >
             <View style={styles.dragHandle} />
@@ -338,7 +340,6 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     height: 450,
-    backgroundColor: '#f8f2fd',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 15,

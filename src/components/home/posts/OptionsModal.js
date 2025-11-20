@@ -5,6 +5,7 @@ import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../../theme/useApptheme';
 export default function OptionsModal({
   visible,
   onClose,
@@ -17,6 +18,7 @@ export default function OptionsModal({
   hideBusy = false
 }) {
   const sheetRef = useRef();
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
@@ -36,12 +38,15 @@ export default function OptionsModal({
       onClose={onClose}
       customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
-        container: { borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: '#f8f2fd' },
-        draggableIcon: { width: 80 },
+        container: [
+          { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+          bgStyle
+        ],
+        draggableIcon: { width: 80 }, 
       }}>
       <ScrollView>
-        <View style={styles.mainContainer}>
-          <View style={styles.innerContainer}>
+        <View style={[styles.mainContainer, bgStyle]}>
+          <View style={[styles.innerContainer, bgStyle]}>
             <Pressable style={styles.innerRow} onPress={() => tap('copyAddress')}>
               <FontAwesomeIcon name="copy" size={20} color="#262626" />
               <Text style={styles.innerText}>Copy address</Text>
@@ -103,11 +108,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#f8f2fd',
   },
   innerContainer: {
     padding: 12,
-    backgroundColor: '#f8f2fd',
     width: '100%',
     // marginBottom: 5,
     borderRadius: 10,

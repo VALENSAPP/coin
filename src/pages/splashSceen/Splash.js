@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import Video from 'react-native-video';
 import TextGradient from '../../assets/textgradient/TextGradient';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const Splash = () => {
   const fullText = "We are all Valens";
   const [displayedText, setDisplayedText] = useState("");
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     let index = 0;
@@ -21,7 +23,7 @@ const Splash = () => {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, bgStyle]}>
       <Video
         source={require('../../assets/videos/newsplash.mp4')}
         style={styles.video}
@@ -53,7 +55,6 @@ const Splash = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   video: {
     flex: 1,

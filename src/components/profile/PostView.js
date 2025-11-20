@@ -30,6 +30,7 @@ import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export default function PostView({ postData = [] }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -74,6 +75,7 @@ export default function PostView({ postData = [] }) {
   const dispatch = useDispatch();
   const commentSheetRef = useRef();
   const flatListRef = useRef();
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     (async () => {
@@ -574,7 +576,7 @@ export default function PostView({ postData = [] }) {
 
   return (
     <>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, bgStyle]}>
         <View style={styles.headerSection}>
           <TouchableOpacity
             onPress={handleBackPress}
@@ -624,11 +626,10 @@ export default function PostView({ postData = [] }) {
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 18,
             borderTopRightRadius: 18,
-            backgroundColor: '#f8f2fd',
-          },
+          }, bgStyle],
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,
@@ -652,7 +653,6 @@ export default function PostView({ postData = [] }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
   },
   feedContainer: {
     // paddingBottom: 20,

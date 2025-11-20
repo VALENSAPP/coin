@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AuthHeader } from '../../components/auth';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { height } = Dimensions.get('window');
 
 export default function QuickBuy({ navigation }) {
   const [amount, setAmount] = useState('');
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   // digits only + strip leading zeros
   const normalized = useMemo(
@@ -35,8 +37,8 @@ export default function QuickBuy({ navigation }) {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      style={[styles.container, bgStyle]}
+      contentContainerStyle={[styles.contentContainer, bgStyle]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
@@ -92,11 +94,11 @@ export default function QuickBuy({ navigation }) {
 
             {/* Info box */}
             <View style={styles.infoSection}>
-              <View style={styles.infoBox}>
+              <View style={[styles.infoBox, { borderLeftColor: text }]}>
                 <Ionicons
                   name="information-circle"
                   size={20}
-                  color="#5a2d82"
+                  color={text}
                   style={styles.infoIcon}
                 />
                 <Text style={styles.infoText}>
@@ -111,7 +113,7 @@ export default function QuickBuy({ navigation }) {
               disabled={!canSave}
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSave }}
-              style={[styles.primaryButton, !canSave && styles.primaryButtonDisabled]}
+              style={[styles.primaryButton, !canSave && styles.primaryButtonDisabled, { backgroundColor: text, shadowColor: text }]}
             >
               <Text
                 style={[
@@ -131,8 +133,8 @@ export default function QuickBuy({ navigation }) {
 
 const styles = StyleSheet.create({
   // Page / theme
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
-  contentContainer: { flexGrow: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1 },
+  contentContainer: { flexGrow: 1 },
 
   // Card wrapper (same structure as Forgot Password)
   formWrapper: { flex: 1, marginTop: -20, paddingHorizontal: 7 },
@@ -226,7 +228,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#5a2d82',
   },
   infoIcon: { marginRight: 12, marginTop: 1 },
   infoText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 20 },
@@ -234,11 +235,9 @@ const styles = StyleSheet.create({
   // Primary button (matches Continue)
   primaryButton: {
     height: 52,
-    backgroundColor: '#5a2d82',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

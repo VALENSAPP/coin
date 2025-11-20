@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ const TopHoldersModal = ({ visible, onClose }) => {
   const [activeTab, setActiveTab] = useState(0); // Initialize with 0
   const sheetRef = useRef(null); // Separate ref for RBSheet
   const scrollViewRef = useRef(null); // Separate ref for ScrollView
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     if (visible && sheetRef.current) {
@@ -60,17 +62,16 @@ const TopHoldersModal = ({ visible, onClose }) => {
         statusBarTranslucent: true,
       }}
       customStyles={{
-        container: {
+        container: [{
           borderTopLeftRadius: 10,
           borderTopRightRadius: 10,
-           backgroundColor: '#f8f2fd',
-        },
+        }, bgStyle],
         draggableIcon: {
           width: 80,
         },
       }}>
       <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
+        <View style={bgStyle}>
           {/* Tabs */}
           <View style={styles.tabRow}>
             <TouchableOpacity style={styles.tab} onPress={() => handleTabPress(0)}>
@@ -112,11 +113,11 @@ const TopHoldersModal = ({ visible, onClose }) => {
               <View style={styles.holdersWrapper}>
                 {/* Top two boxes */}
                 <View style={styles.topBoxes}>
-                  <View style={styles.box}>
+                  <View style={[styles.box, bgStyle]}>
                     <Text style={styles.boxTitle}>Market</Text>
                     <Text style={styles.boxPercent}>50%</Text>
                   </View>
-                  <View style={styles.box}>
+                  <View style={[styles.box, bgStyle]}>
                     <Text style={styles.boxTitle}>User</Text>
                     <Text style={styles.boxPercent}>50%</Text>
                   </View>
@@ -147,9 +148,6 @@ export default TopHoldersModal;
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-  },
-  modalContainer: {
-     backgroundColor: '#f8f2fd',
   },
   dragHandle: {
     width: 40,
@@ -223,7 +221,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   box: {
-    backgroundColor: '#f8f2fd',
     flex: 1,
     marginHorizontal: 5,
     paddingVertical: 20,

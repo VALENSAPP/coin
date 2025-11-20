@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import HexAvatar from '../story.js/HexAvatar'; // Import your HexAvatar component
+import { useAppTheme } from '../../../theme/useApptheme';
 
 export default function FollowCard({
   userId,
@@ -25,6 +26,7 @@ export default function FollowCard({
 }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const navigation = useNavigation();
+  const { textStyle, text } = useAppTheme();
   
   const handleUserProfile = userId => {
     navigation.navigate('UsersProfile', { userId });
@@ -56,7 +58,7 @@ export default function FollowCard({
   ].join(' ');
 
   return (
-    <View style={[styles.cardContainer, { width: cardWidth, height: cardHeight }]}>
+    <View style={[styles.cardContainer, { width: cardWidth, height: cardHeight, shadowColor: text }]}>
       <Svg 
         width={cardWidth} 
         height={cardHeight} 
@@ -72,7 +74,7 @@ export default function FollowCard({
         <Polygon
           points={points}
           fill="#fff"
-          stroke="#5a2d82"
+          stroke={text}
           strokeWidth={2}
           strokeLinejoin="round"
         />
@@ -84,7 +86,7 @@ export default function FollowCard({
       >
         {/* Close Button */}
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeText}>✕</Text>
+          <Text style={[styles.closeText, textStyle]}>✕</Text>
         </TouchableOpacity>
 
         {/* Hexagonal Avatar */}
@@ -96,7 +98,7 @@ export default function FollowCard({
             uri={avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             size={90}
             borderWidth={3}
-            borderColor="#5a2d82"
+            borderColor={text}
           />
         </TouchableOpacity>
 
@@ -107,7 +109,7 @@ export default function FollowCard({
 
         {/* Follow Button */}
         <TouchableOpacity
-          style={[styles.followButton, isFollowing && styles.unfollowButton]}
+          style={[styles.followButton, isFollowing && styles.unfollowButton, {backgroundColor: text, shadowColor: text}]}
           onPress={() => {
             if (!isBusinessProfile && item.UserId !== currentUserId) {
               if (item.profile === 'company') {
@@ -139,7 +141,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     position: 'relative',
     // Shadow for the hexagon card
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.15,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -173,7 +174,6 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 14,
-    color: '#5a2d82',
     fontWeight: '600',
   },
   avatarContainer: {
@@ -191,12 +191,10 @@ const styles = StyleSheet.create({
     maxWidth: 120,
   },
   followButton: {
-    backgroundColor: '#5a2d82',
     paddingVertical: 7,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

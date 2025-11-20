@@ -3,19 +3,20 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { useNavigation } from '@react-navigation/native';
 import React, { useLayoutEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const CashOut = () => {
     const [address, setAddress] = useState('');
+    const { bgStyle, textStyle, text } = useAppTheme();
     const navigation = useNavigation();
 
     useLayoutEffect(() => {
         navigation.setOptions({
             title: 'Cash Out',
-            headerStyle: {
-                backgroundColor: '#f8f2fd',
+            headerStyle: [{
                 elevation: 0,
                 shadowOpacity: 0,
-            },
+            }, bgStyle],
             headerTitleStyle: {
                 fontWeight: 'bold',
                 color: '#111',
@@ -38,20 +39,20 @@ const CashOut = () => {
     }, [navigation, address]);
  
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <MaterialCommunityIcons
                 name="wallet"
                 size={72}
-                color="#5a2d82"
+                color={text}
                 style={styles.icon}
             />
 
-            <Text style={styles.header}>Cash Out Sparks Instantly</Text>
+            <Text style={[styles.header, textStyle]}>Cash Out Sparks Instantly</Text>
             <Text style={styles.subText}>
                 Link your wallet to convert the Sparks you've earned to Ethereum.
             </Text>
 
-            <View style={styles.inputBox}>
+            <View style={[styles.inputBox, {shadowColor: text}]}>
                 <Text style={styles.label}>Wallet Address</Text>
                 <TextInput
                     placeholder="Enter your wallet address"
@@ -62,7 +63,7 @@ const CashOut = () => {
                 />
             </View>
 
-            <TouchableOpacity style={styles.button}>
+            <TouchableOpacity style={[styles.button, {backgroundColor: text, shadowColor: text}]}>
                 <Text style={styles.buttonText}>Cash Out</Text>
             </TouchableOpacity>
         </SafeAreaView>
@@ -74,7 +75,6 @@ export default CashOut;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         alignItems: 'center',
         padding: 20,
         paddingTop: 40,
@@ -95,7 +95,6 @@ const styles = StyleSheet.create({
     header: {
         fontSize: 22,
         fontWeight: '700',
-        color: '#5a2d82',
         textAlign: 'center',
         marginBottom: 10,
     },
@@ -113,7 +112,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 16,
         padding: 12,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -135,12 +133,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     button: {
-        backgroundColor: '#5a2d82',
         paddingVertical: 14,
         paddingHorizontal: 50,
         borderRadius: 16,
         marginTop: 16,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 4,
