@@ -61,15 +61,19 @@ export default function LoginScreen() {
       const id = type === 'fromlogin' ? userid : storedId;
       if (id) {
         const response = await getProfile(id);
+        console.log('in profile response ----->>>>>>>>> ', response)
         if (response.statusCode === 200 && response.data.bio == null) {
 
           const profile = response.data.profile
-         if (profile) {
+          if (profile) {
             await AsyncStorage.setItem('profile', profile);
             dispatch(setUserProfile(profile));
           }
           navigation.navigate('CreateProfile');
         } else {
+          const profile = response?.data?.profile
+          await AsyncStorage.setItem('profile', profile);
+          dispatch(setUserProfile(profile));
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
         }

@@ -4,10 +4,10 @@ import { useSelector } from "react-redux";
 
 const ThemeContext = createContext();
 
-export const ThemeProvider = ({ children, activeProfile = "normal" }) => {
+export const ThemeProvider = ({ children, activeProfile}) => {
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const [theme, setTheme] = useState(
-    userProfile === "company" ? businessTheme : businessTheme
+    activeProfile === "company" ? businessTheme : normalTheme
   );
 
   // Call this when user switches profile

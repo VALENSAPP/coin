@@ -50,7 +50,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
   const handleModalClose = () => {
     setShowSubscribeModal(false);
 
-    setCurrentTabIndex(previousTabIndex``)
+    setCurrentTabIndex(previousTabIndex)
   };
 
 

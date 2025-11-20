@@ -29,6 +29,7 @@ const normalizeImageUrl = (url) => {
 const PostImage = memo(({ item, index, onPress }) => {
   const [imageError, setImageError] = useState(false);
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
+  const { bgStyle, textStyle, text } = useAppTheme();
   
   if (!imageUrl || imageError) {
     return (
