@@ -17,6 +17,7 @@ import ProfileTabs from '../../components/profile/ProfileTabNavigation';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const ProfileScreen = () => {
   const [posts, setPosts] = useState([]);
@@ -27,6 +28,7 @@ const ProfileScreen = () => {
 
   const toast = useToast();
   const dispatch = useDispatch();
+  const { bgStyle, textStyle } = useAppTheme();
 
   // Single function to fetch posts, profile info, and dashboard in parallel
   const fetchAllData = useCallback(async () => {
@@ -150,7 +152,7 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: userData?.profile == 'company' ? '#fcfbfaff' : '#f8f2fd' }]}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         refreshControl={

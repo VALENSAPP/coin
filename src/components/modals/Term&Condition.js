@@ -8,9 +8,11 @@ import {
     TouchableOpacity,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const TermCondition = ({ showModal, setShowModal,onAccept }) => {
     const [isChecked, setIsChecked] = useState(false);
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     return (
         <View style={{ flex: 1 }}>
@@ -25,7 +27,7 @@ const TermCondition = ({ showModal, setShowModal,onAccept }) => {
                             <Ionicons name="close" size={26} color="#000" />
                         </TouchableOpacity>
 
-                        <Text style={styles.heading}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
+                        <Text style={[styles.heading, textStyle]}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
                         {/* SCROLL CONTENT */}
                         <ScrollView
                             style={styles.scrollBox}
@@ -146,7 +148,7 @@ const TermCondition = ({ showModal, setShowModal,onAccept }) => {
                                 <Ionicons
                                     name={isChecked ? 'checkbox-outline' : 'square-outline'}
                                     size={26}
-                                    color="#5a2d82"
+                                    color={text}
                                 />
                                 <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
                             </TouchableOpacity>
@@ -154,7 +156,7 @@ const TermCondition = ({ showModal, setShowModal,onAccept }) => {
                                 <TouchableOpacity
                                     style={[
                                         styles.continueButton,
-                                        { opacity: isChecked ? 1 : 0.5 },
+                                        { opacity: isChecked ? 1 : 0.5, backgroundColor: text },
                                     ]}
                                     disabled={!isChecked}
                                     onPress={ async() => {
@@ -207,7 +209,6 @@ const styles = StyleSheet.create({
     heading: {
         fontSize: 22,
         fontWeight: '700',
-        color: '#5a2d82',
         textAlign: 'center',
         borderRadius:9,
         paddingTop:40,
@@ -256,7 +257,6 @@ const styles = StyleSheet.create({
     },
 
     continueButton: {
-        backgroundColor: '#5a2d82',
         paddingVertical: 12,
         width: '95%',
         borderRadius: 15,

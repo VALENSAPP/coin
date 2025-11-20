@@ -30,6 +30,7 @@ import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 
@@ -270,6 +271,7 @@ export default function PostItem({
   const shareRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -338,6 +340,7 @@ export default function PostItem({
             userDataToSet = data;
           }
           setUserProfile(userDataToSet.profile || '');
+          await AsyncStorage.setItem('profile', userDataToSet.profile);
         } else {
           console.warn('Profile fetch failed:', data?.data?.message);
         }
@@ -421,12 +424,20 @@ export default function PostItem({
       return hasChanged ? nextStates : prev;
     });
 
-    // Directly pause video refs that should be paused
-    Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-      const ref = videoRefsMap.current[idx];
-      if (ref && shouldPause) {
-        ref.pause?.();
-      }
+    // Use requestAnimationFrame to ensure refs are mounted before accessing
+    requestAnimationFrame(() => {
+      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+        const ref = videoRefsMap.current[idx];
+        // Check if ref exists AND has pause method before calling
+        if (ref && typeof ref.pause === 'function' && shouldPause) {
+          try {
+            ref.pause();
+          } catch (error) {
+            // Silently handle if video is already unmounted
+            console.debug('Video pause error (component may be unmounting):', error);
+          }
+        }
+      });
     });
   }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, item.media]);
 
@@ -559,7 +570,7 @@ export default function PostItem({
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, bgStyle]}>
       {isZooming && (
         <View
           pointerEvents="none"
@@ -587,8 +598,8 @@ export default function PostItem({
           </TouchableOpacity>
 
           <View style={styles.priceSection}>
-            <Icon name="triangle" size={20} color="#5a2d82" style={styles.triangleIcon} />
-            <Text style={styles.priceText}>$556</Text>
+            <Icon name="triangle" size={20} color={text} style={styles.triangleIcon} />
+            <Text style={[styles.priceText, textStyle]}>$556</Text>
           </View>
 
           <TouchableOpacity
@@ -668,7 +679,8 @@ export default function PostItem({
           <TouchableOpacity
             style={[
               styles.followButton,
-              item.follow && styles.followingButton
+              item.follow && styles.followingButton,
+              {backgroundColor: text, shadowColor: text}
             ]}
             disabled={followingBusy}
             onPress={() => {
@@ -682,11 +694,11 @@ export default function PostItem({
             }}
           >
             {followingBusy ? (
-              <ActivityIndicator size="small" color={item.follow ? '#5a2d82' : '#fff'} />
+              <ActivityIndicator size="small" color={item.follow ? {text} : '#fff'} />
             ) : (
               <Text style={[
                 styles.followButtonText,
-                item.follow && styles.followingButtonText
+                item.follow && textStyle
               ]}>
                 {
                   isBusinessProfile ? "Support" :
@@ -718,9 +730,9 @@ export default function PostItem({
 
               {buyerList.length > 0 &&
                 <Text style={styles.buyersText} numberOfLines={1} ellipsizeMode="tail">
-                  Vallowed by <Text style={styles.buyerName}>{buyerList[0]?.username || '—'}</Text>
+                  Vallowed by <Text style={[styles.buyerName, textStyle]}>{buyerList[0]?.username || '—'}</Text>
                   {buyerList.length > 1 && (
-                    <Text> and <Text style={styles.buyerName}>{formatNumber(buyerList.length - 1)} others</Text></Text>
+                    <Text> and <Text style={[styles.buyerName, textStyle]}>{formatNumber(buyerList.length - 1)} others</Text></Text>
                   )}
                 </Text>
               }
@@ -730,13 +742,13 @@ export default function PostItem({
 
         <View style={styles.captionSection}>
           <View style={styles.userRow}>
-            <Text style={styles.captionUsername}>{item.username} </Text>
+            <Text style={[styles.captionUsername, textStyle]}>{item.username} </Text>
             <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
           </View>
           <Text style={styles.captionText}>{item.caption}</Text>
           {item.link ? (
             <Text
-              style={styles.linkText}
+              style={[styles.linkText, textStyle]}
               onPress={() => Linking.openURL(item.link)}
             >
               Link -  {item.link}
@@ -812,7 +824,6 @@ export default function PostItem({
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#f8f2fd',
     paddingBottom: 8,
     position: 'relative',
   },
@@ -877,7 +888,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   priceText: {
-    color: '#5a2d82',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -986,11 +996,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   followButton: {
-    backgroundColor: '#5a2d82',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1005,9 +1013,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
-  },
-  followingButtonText: {
-    color: '#5a2d82',
   },
   buyersSection: {
     flexDirection: 'row',
@@ -1043,7 +1048,6 @@ const styles = StyleSheet.create({
   },
   buyerName: {
     fontWeight: '600',
-    color: '#5a2d82',
   },
   captionSection: {
     paddingHorizontal: 16,
@@ -1052,7 +1056,6 @@ const styles = StyleSheet.create({
   },
   captionUsername: {
     fontWeight: '700',
-    color: '#5a2d82',
     fontSize: 15,
   },
   captionText: {
@@ -1129,7 +1132,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   linkText: {
-    color: '#5A2D82',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

@@ -19,6 +19,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import { getProfile } from '../../services/createProfile';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export const SettingsScreen = ({ navigation }) => {
   const [autoInvest, setAutoInvest] = useState(true);
@@ -28,6 +29,7 @@ export const SettingsScreen = ({ navigation }) => {
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -154,13 +156,13 @@ export const SettingsScreen = ({ navigation }) => {
       disabled={item.toggle}
     >
       <View style={styles.settingLeft}>
-        <Ionicons name={item.icon} size={20} color="#5a2d82" />
+        <Ionicons name={item.icon} size={20} color={text} />
         <Text style={styles.settingLabel}>{item.label}</Text>
       </View>
       <View style={styles.settingRight}>
         {item.toggle ? (
           <TouchableOpacity
-            style={[styles.toggleButton, item.value && styles.toggleButtonActive]}
+            style={[styles.toggleButton, item.value && {backgroundColor: text}]}
             onPress={() => item.onToggle(!item.value)}
           >
             <View style={[styles.toggleSwitch, item.value && styles.toggleSwitchActive]} />
@@ -178,8 +180,8 @@ export const SettingsScreen = ({ navigation }) => {
 
   const renderSection = (section) => (
     <View key={section.title} style={styles.settingsSection}>
-      <Text style={styles.sectionTitle}>{section.title}</Text>
-      <View style={styles.settingsContainer}>
+      <Text style={[styles.sectionTitle, textStyle]}>{section.title}</Text>
+      <View style={[styles.settingsContainer, {shadowColor: text}]}>
         <FlatList
           data={section.items}
           renderItem={renderSettingItem}
@@ -191,7 +193,7 @@ export const SettingsScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* <View style={styles.header}>
           <Text style={styles.headerTitle}>Settings</Text>
@@ -199,7 +201,7 @@ export const SettingsScreen = ({ navigation }) => {
         </View> */}
 
         {/* User Info Card */}
-        <View style={styles.userInfoCard}>
+        <View style={[styles.userInfoCard, {shadowColor: text}]}>
           <Image
             source={{
               uri: profileImage ? profileImage : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
@@ -210,7 +212,7 @@ export const SettingsScreen = ({ navigation }) => {
             <Text style={styles.userName}>{userData?.displayName}</Text>
             <Text style={styles.userUsername}>@{userData?.userName}</Text>
             {/* <View style={styles.verificationBadge}>
-              <Ionicons name="checkmark-circle" size={14} color="#5a2d82" />
+              <Ionicons name="checkmark-circle" size={14} color={text} />
               <Text style={styles.verificationText}>Dragonfly Verified</Text>
             </View> */}
           </View>
@@ -226,7 +228,6 @@ export const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f2fd',
     paddingTop: 20,
     paddingBottom: 40,
     marginBottom: Platform.OS == "ios" ? 70 : 0
@@ -248,7 +249,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#5a2d82',
     marginBottom: 12,
   },
 
@@ -261,7 +261,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -270,7 +269,6 @@ const styles = StyleSheet.create({
   userAvatar: {
     width: 60,
     height: 60,
-    backgroundColor: '#5a2d82',
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
@@ -301,7 +299,6 @@ const styles = StyleSheet.create({
   },
   verificationText: {
     fontSize: 12,
-    color: '#5a2d82',
     fontWeight: '600',
     marginLeft: 4,
   },
@@ -314,7 +311,6 @@ const styles = StyleSheet.create({
   settingsContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
@@ -372,9 +368,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     paddingHorizontal: 2,
-  },
-  toggleButtonActive: {
-    backgroundColor: '#5a2d82',
   },
   toggleSwitch: {
     width: 20,

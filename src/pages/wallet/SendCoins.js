@@ -10,12 +10,14 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppTheme } from "../../theme/useApptheme";
 
 const SendCoins = () => {
     const navigation = useNavigation();
     const [search, setSearch] = useState("");
     const [amount, setAmount] = useState("");
     const [selectedRatio, setSelectedRatio] = useState(null);
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     const handleContinue = () => {
         if (!amount) {
@@ -31,30 +33,29 @@ const SendCoins = () => {
     useLayoutEffect(() => {
         navigation.setOptions({
             title: "Send",
-            headerStyle: {
-                backgroundColor: '#f8f2fd',
+            headerStyle: [{
                 elevation: 0,
                 shadowOpacity: 0,
-            },
+            }, bgStyle],
             headerTitleStyle: {
                 fontWeight: 'bold',
                 color: '#111',
             },
             headerLeft: () => (
-                <TouchableOpacity 
-                    onPress={() => navigation.goBack()} 
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
                     style={styles.headerBtn}
                 >
-                    <MaterialCommunityIcons 
-                        name="arrow-left" 
-                        size={24} 
-                        color="#0a0a0aff" 
+                    <MaterialCommunityIcons
+                        name="arrow-left"
+                        size={24}
+                        color="#0a0a0aff"
                     />
                 </TouchableOpacity>
             ),
             headerRight: () => (
-                <TouchableOpacity 
-                    onPress={handleContinue} 
+                <TouchableOpacity
+                    onPress={handleContinue}
                     style={styles.headerBtn}
                 >
                     <Text style={styles.doneText}>Done</Text>
@@ -64,8 +65,8 @@ const SendCoins = () => {
     }, [navigation, search, amount, selectedRatio]);
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.searchBar}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
+            <View style={[styles.searchBar, { shadowColor: text }]}>
                 <MaterialCommunityIcons name="magnify" size={22} color="#555" />
                 <TextInput
                     placeholder="Search recipient"
@@ -76,7 +77,7 @@ const SendCoins = () => {
                 />
             </View>
 
-            <View style={styles.amountRow}>
+            <View style={[styles.amountRow, { shadowColor: text }]}>
                 <Text style={styles.currencySymbol}>$</Text>
                 <TextInput
                     placeholder="0.00"
@@ -103,7 +104,7 @@ const SendCoins = () => {
                         key={ratio}
                         style={[
                             styles.ratioButton,
-                            selectedRatio === ratio && styles.ratioSelected,
+                            selectedRatio === ratio && { backgroundColor: text },
                         ]}
                         onPress={() => setSelectedRatio(ratio)}
                     >
@@ -119,7 +120,7 @@ const SendCoins = () => {
                 ))}
             </View>
 
-            <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
+            <TouchableOpacity style={[styles.continueBtn, {backgroundColor: text, shadowColor: text}]} onPress={handleContinue}>
                 <Text style={styles.continueText}>Continue</Text>
             </TouchableOpacity>
         </SafeAreaView>
@@ -131,7 +132,6 @@ export default SendCoins;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         padding: 15,
         paddingTop: 20,
     },
@@ -152,7 +152,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 10,
         marginBottom: 15,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -172,7 +171,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         height: 100,
         marginVertical: 20,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -206,9 +204,6 @@ const styles = StyleSheet.create({
         backgroundColor: "#eee",
         alignItems: "center",
     },
-    ratioSelected: {
-        backgroundColor: "#5a2d82",
-    },
     ratioText: {
         fontSize: 14,
         fontWeight: "600",
@@ -218,11 +213,9 @@ const styles = StyleSheet.create({
         color: "#fff",
     },
     continueBtn: {
-        backgroundColor: "#5a2d82",
         paddingVertical: 15,
         borderRadius: 16,
         alignItems: "center",
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 4,

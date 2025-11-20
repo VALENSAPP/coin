@@ -9,6 +9,7 @@ import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
@@ -18,6 +19,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigation = useNavigation();
+   const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     fetchCreditsLeft();
@@ -90,12 +92,11 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         draggable={false}
         onClose={() => setShowTypeModal(false)}
         customStyles={{
-          container: {
+          container: [{
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
-            backgroundColor: '#f8f2fd',
             padding: 20,
-          },
+          }, bgStyle],
         }}
         onRequestClose={() => { }}
         closeOnPressMask={false}
@@ -107,7 +108,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
               <Icon name="close-outline" size={28} color="#000" />
             </TouchableOpacity>
 
-            <Text style={styles.title}>Choose Mint Type</Text>
+            <Text style={[styles.title, textStyle]}>Choose Mint Type</Text>
 
             {/* For spacing balance */}
             <View style={{ width: 28 }} />
@@ -120,7 +121,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
             ]}
             onPress={handleCrowdfundingSelect}
           >
-            <Text style={styles.optionText}>
+            <Text style={[styles.optionText, textStyle]}>
               {profile === 'company' ? '💸 Support' : '💸 Mission Mint'}
               (Credits Left - {creditsLeft ?? 0})
             </Text>
@@ -136,7 +137,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
               setShowTypeModal(false);
             }}
           >
-            <Text style={styles.optionText}>📝 Regular Mint</Text>
+            <Text style={[styles.optionText, textStyle]}>📝 Regular Mint</Text>
           </TouchableOpacity>
         </View>
       </RBSheet>
@@ -155,7 +156,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Icon name="wallet-outline" size={50} color="#5a2d82" />
+              <Icon name="wallet-outline" size={50} color={text} />
             </View>
 
             <Text style={styles.modalTitle}>No Credits Available</Text>
@@ -166,7 +167,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
             <View style={styles.modalButtons}>
                 <TouchableOpacity
-                  style={styles.buyButton}
+                  style={[styles.buyButton, {backgroundColor: text, shadowColor: text}]}
                   onPress={handleBuyCredits}
                 >
                   <Icon name="cart-outline" size={20} color="#fff" />
@@ -174,10 +175,10 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
                 </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.cancelButton}
+                style={[styles.cancelButton, bgStyle]}
                 onPress={() => { setShowBuyCreditsModal(false); navigation.goBack(); }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, textStyle]}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -194,7 +195,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#5a2d82',
     marginBottom: 35,
     textAlign: 'center',
   },
@@ -214,7 +214,6 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#5a2d82',
   },
   noCreditsText: {
     fontSize: 12,
@@ -265,14 +264,12 @@ const styles = StyleSheet.create({
   },
   buyButton: {
     flexDirection: 'row',
-    backgroundColor: '#5a2d82',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -289,12 +286,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#f8f2fd',
     borderWidth: 1,
     borderColor: '#ddd',
   },
   cancelButtonText: {
-    color: '#5a2d82',
     fontSize: 16,
     fontWeight: '600',
   },

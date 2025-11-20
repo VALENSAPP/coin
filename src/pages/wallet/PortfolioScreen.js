@@ -17,6 +17,7 @@ import { getTotalTokenPurchase } from '../../services/tokens';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export const PortfolioScreen = ({ navigation }) => {
 
@@ -25,6 +26,7 @@ export const PortfolioScreen = ({ navigation }) => {
     const [holdingsData, setHoldingsdata] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
+    const { bgStyle, textStyle, text } = useAppTheme();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -57,15 +59,15 @@ export const PortfolioScreen = ({ navigation }) => {
     };
 
     const renderHolding = ({ item }) => (
-        <View style={styles.holdingItem}>
+        <View style={[styles.holdingItem, {shadowColor: text}]}>
             <View style={styles.holdingLeft}>
-                <View style={styles.creatorAvatar}>
+                <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
                     <Text style={styles.avatarText}>{item.vendorName.charAt(1).toUpperCase()}</Text>
                 </View>
                 <View>
                     <View style={styles.creatorNameRow}>
                         <Text style={styles.creatorName}>{item.vendorName}</Text>
-                        {item.verified && <Ionicons name="checkmark-circle" size={14} color="#5a2d82" />}
+                        {item.verified && <Ionicons name="checkmark-circle" size={14} color={text} />}
                     </View>
                     <Text style={styles.holdingAmount}>{item.tokenAmount} tokens</Text>
                 </View>
@@ -74,7 +76,7 @@ export const PortfolioScreen = ({ navigation }) => {
                 <Text style={styles.holdingValue}>{item.totalTokenAmount}</Text>
                 {/* <Text style={styles.holdingChange}>{item.change}</Text> */}
                 <View style={styles.holdingActions}>
-                    <TouchableOpacity style={styles.buyButton} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
+                    <TouchableOpacity style={[styles.buyButton, {backgroundColor: text}]} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
                         <Text style={styles.buyButtonText}>Support</Text>
                     </TouchableOpacity>
                 </View>
@@ -83,7 +85,7 @@ export const PortfolioScreen = ({ navigation }) => {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* <View style={styles.header}>
                     <Text style={styles.headerTitle}>Portfolio</Text>
@@ -92,7 +94,7 @@ export const PortfolioScreen = ({ navigation }) => {
 
                 {/* Portfolio Summary */}
                 <View style={styles.portfolioSummary}>
-                    <View style={styles.summaryCard}>
+                    <View style={[styles.summaryCard, {backgroundColor: text}]}>
                         <Text style={styles.summaryLabel}>Total Portfolio Value</Text>
                         <Text style={styles.summaryValue}>{portfolioValue}</Text>
                         {/* <Text style={styles.summaryChange}>+5.2% this month</Text> */}
@@ -112,7 +114,7 @@ export const PortfolioScreen = ({ navigation }) => {
 
                 {/* Holdings */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>My Holdings ({holdingsData.length})</Text>
+                    <Text style={[styles.sectionTitle, textStyle]}>My Holdings ({holdingsData.length})</Text>
                     <FlatList
                         data={holdingsData}
                         renderItem={renderHolding}
@@ -132,7 +134,6 @@ export const PortfolioScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f2fd',
         paddingTop: 20,
         paddingBottom: 40,
         marginBottom: Platform.OS == "ios" ? 50 : 0
@@ -159,7 +160,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#5a2d82',
         marginBottom: 12,
     },
 
@@ -170,7 +170,6 @@ const styles = StyleSheet.create({
         marginTop: Platform.OS == "ios" ? 20 : 0
     },
     summaryCard: {
-        backgroundColor: '#5a2d82',
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
@@ -196,12 +195,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     summaryItem: {
-        backgroundColor: '#5a2d82',
         borderRadius: 12,
         padding: 16,
         flex: 1,
         marginHorizontal: 4,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.06,
         shadowRadius: 6,
         elevation: 2,
@@ -216,7 +213,6 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 8,
         borderRadius: 12,
-        shadowColor: '#5a2d82',
         shadowOpacity: 0.04,
         shadowRadius: 4,
         elevation: 1,
@@ -229,7 +225,6 @@ const styles = StyleSheet.create({
     creatorAvatar: {
         width: 40,
         height: 40,
-        backgroundColor: '#5a2d82',
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
@@ -274,7 +269,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     buyButton: {
-        backgroundColor: '#5a2d82',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 6,

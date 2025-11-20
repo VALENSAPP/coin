@@ -1,7 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import React, { useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { hideLoader, showLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
+import { ThemeProvider } from './theme/ThemeContext';
 
 const linking = {
   prefixes: [
@@ -27,6 +28,7 @@ const linking = {
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
+  const userProfile = useSelector(state => state.userProfile.userProfile);
   const dispatch = useDispatch();
   const toast = useToast();
 
@@ -88,12 +90,18 @@ export default function Main() {
   };
 
   if (isLoading) {
-    return <Splash />;
+    return (
+      <ThemeProvider activeProfile={userProfile}>
+        <Splash />
+      </ThemeProvider>
+    )
   }
 
   return (
-    <NavigationContainer linking={linking}>
-      <MainStack />
-    </NavigationContainer>
+    <ThemeProvider activeProfile={userProfile}>
+      <NavigationContainer linking={linking}>
+        <MainStack />
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }

@@ -1,9 +1,11 @@
 import React, { useRef, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Image, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export default function CommentInput({ onSend, replyTo, onCancelReply }) {
   const [text, setText] = React.useState('');
+  const { bgStyle, textStyle } = useAppTheme();
   const inputRef = useRef();
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function CommentInput({ onSend, replyTo, onCancelReply }) {
   };
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, bgStyle]}>
       <Image source={{ uri: 'https://randomuser.me/api/portraits/men/7.jpg' }} style={styles.avatar} />
       <View style={{ flex: 1 }}>
         {replyTo && (
@@ -33,7 +35,7 @@ export default function CommentInput({ onSend, replyTo, onCancelReply }) {
         )}
         <TextInput
           ref={inputRef}
-          style={styles.input}
+          style={[styles.input, bgStyle]}
           placeholder="Add a comment..."
           value={text}
           onChangeText={setText}
@@ -50,10 +52,10 @@ export default function CommentInput({ onSend, replyTo, onCancelReply }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: '#eee', backgroundColor: '#f8f2fd',marginBottom:25 },
+  row: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: '#eee', marginBottom: 25 },
   avatar: { width: 32, height: 32, borderRadius: 16, marginRight: 10 },
-  input: { color: '#000', backgroundColor: '#f8f2fd', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, fontSize: 15, marginTop: 2 },
+  input: { color: '#000', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, fontSize: 15, marginTop: 2 },
   replyingToRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   replyingTo: { color: '#888', fontSize: 12, marginRight: 6 },
-  buttonSend:{marginBottom:5}
+  buttonSend: { marginBottom: 5 }
 }); 

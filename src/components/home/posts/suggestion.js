@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import FollowCard from './FollowCard';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 export default function Suggestion({
   users = [],
@@ -25,6 +26,7 @@ export default function Suggestion({
   const data = hasMore
     ? [...users, { id: '__see_more__', username: 'See more' }]
     : users;
+  const { textStyle, text } = useAppTheme();
 
   // Hexagon dimensions - MUST MATCH FollowCard exactly
   const cardWidth = 200;
@@ -42,11 +44,11 @@ export default function Suggestion({
     `${centerX + hexRadius * Math.cos(4 * Math.PI / 3)},${centerY + hexRadius * Math.sin(4 * Math.PI / 3)}`,
     `${centerX + hexRadius * Math.cos(5 * Math.PI / 3)},${centerY + hexRadius * Math.sin(5 * Math.PI / 3)}`,
   ].join(' ');
-    
+
   return (
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Suggested for you</Text>
+        <Text style={[styles.title, textStyle]}>Suggested for you</Text>
       </View>
 
       <FlatList
@@ -60,9 +62,9 @@ export default function Suggestion({
             return (
               <View style={[styles.seeMoreContainer, { width: cardWidth, height: cardHeight }]}>
                 {/* Hexagon Background */}
-                <Svg 
-                  width={cardWidth} 
-                  height={cardHeight} 
+                <Svg
+                  width={cardWidth}
+                  height={cardHeight}
                   style={styles.hexagonBackground}
                 >
                   <Defs>
@@ -74,7 +76,7 @@ export default function Suggestion({
                   <Polygon
                     points={points}
                     fill="#ffffff"
-                    stroke="#5a2d82"
+                    stroke={text}
                     strokeWidth={2}
                     strokeLinejoin="round"
                   />
@@ -88,15 +90,15 @@ export default function Suggestion({
                   activeOpacity={0.7}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#5a2d82" size="large" />
+                    <ActivityIndicator color={text} size="large" />
                   ) : (
-                    <Text style={styles.seeMoreText}>See more</Text>
+                    <Text style={[styles.seeMoreText, textStyle]}>See more</Text>
                   )}
                 </TouchableOpacity>
               </View>
             );
           }
-          
+
           const following =
             item.isFollow ?? item.isFollowing ?? item.following ?? false;
 
@@ -130,16 +132,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
-    color: '#5a2d82',
     fontSize: 18,
   },
-  
+
   // Hexagon "See More" card
   seeMoreContainer: {
     marginRight: 16,
     marginBottom: 20,
     position: 'relative',
-    // shadowColor: '#5a2d82',
     // shadowOpacity: 0.15,
     // shadowRadius: 10,
     // shadowOffset: { width: 0, height: 4 },
@@ -162,7 +162,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   seeMoreText: {
-    color: '#5a2d82',
     fontWeight: '700',
     fontSize: 18,
     letterSpacing: 0.5,

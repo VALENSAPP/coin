@@ -23,6 +23,7 @@ import { LogoIcon } from '../../../assets/icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthHeader } from '../../../components/auth';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,6 +37,7 @@ const NewPasswordScreen = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const { email, otp } = route.params || {};
 
@@ -97,8 +99,8 @@ const NewPasswordScreen = () => {
     // <SafeAreaView style={styles.safe} edges={['top', 'right', 'left']}>
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAwareScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        style={[styles.container, bgStyle]}
+        contentContainerStyle={[styles.contentContainer, bgStyle]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid
@@ -126,11 +128,11 @@ const NewPasswordScreen = () => {
             <View style={styles.inputContainer}>
               {/* Password Requirements Info */}
               <View style={styles.infoSection}>
-                <View style={styles.infoBox}>
+                <View style={[styles.infoBox, {borderLeftColor: text}]}>
                   <Ionicons
                     name="shield-checkmark"
                     size={20}
-                    color="#5a2d82"
+                    color={text}
                     style={styles.infoIcon}
                   />
                   <Text style={styles.infoText}>
@@ -225,7 +227,7 @@ const NewPasswordScreen = () => {
               </View>
 
               {/* Reset Password Button */}
-              <TouchableOpacity style={styles.resetButton} onPress={onReset}>
+              <TouchableOpacity style={[styles.resetButton, {backgroundColor: text, shadowColor: text}]} onPress={onReset}>
                 <Text style={styles.resetButtonText}>Reset Password</Text>
               </TouchableOpacity>
             </View>
@@ -235,7 +237,7 @@ const NewPasswordScreen = () => {
               <Text style={styles.backToLoginText}>
                 Remember your password?{' '}
                 <Text
-                  style={styles.backToLoginLink}
+                  style={[styles.backToLoginLink, textStyle]}
                   onPress={() => navigation.navigate('Login')}
                 >
                   Back to Login
@@ -251,14 +253,12 @@ const NewPasswordScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f8f2fd' },
+  safe: { flex: 1 },
   container: {
-    flex: 1,
-    backgroundColor: '#f8f2fd',
+    flex: 1
   },
   contentContainer: {
     flexGrow: 1,
-    backgroundColor: '#f8f2fd',
   },
 
   // Form wrapper styles
@@ -357,7 +357,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#5a2d82',
   },
   infoIcon: {
     marginRight: 12,
@@ -373,11 +372,9 @@ const styles = StyleSheet.create({
   // Reset Password Button
   resetButton: {
     height: 52,
-    backgroundColor: '#5a2d82',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#5a2d82',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -402,7 +399,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   backToLoginLink: {
-    color: '#5a2d82',
     fontWeight: '700',
   },
 });

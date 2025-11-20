@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
 import TaggedScreen from '../profile/TaggedScreen';
@@ -9,48 +9,69 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const Tab = createMaterialTopTabNavigator();
 
 // Dummy component that triggers navigation to full screen
 const ReelsTabHandler = () => {
-  const navigation = useNavigation();
+  // const navigation = useNavigation();
 
-  React.useEffect(() => {
-    // Navigate to FlipsScreen in full screen when this tab is focused
-    navigation.navigate('FlipsScreen'); // Replace 'FlipsScreen' with your actual route name
-  }, [navigation]);
+  // React.useEffect(() => {
+  //   // Navigate to FlipsScreen in full screen when this tab is focused
+  //   <ReelsScreen/>
+  //   // navigation.navigate('FlipsScreen'); s// Replace 'FlipsScreen' with your actual route name
+  // }, [navigation]);
 
-  return null; // Return nothing as we're navigating away
+  return <ReelsScreen />; // Return nothing as we're navigating away
 };
+
 
 const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [privateKey, setPrivatKey] = useState(0);
+  const [sctiveTab, setActiveTab] = useState('Posts');
+  const [currentTabIndex, setCurrentTabIndex] = useState(0);
+  const [previousTabIndex, setPreviousTabIndex] = useState(0);
+
+
+
+
+  const { textStyle, text } = useAppTheme();
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
-    (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData}/>,
+    (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData} />,
     [post, userData],
   );
+  const navigation = useNavigation();
 
-  // ✅ subscription confirmation handler
+  const handleModalClose = () => {
+    setShowSubscribeModal(false);
+
+    setCurrentTabIndex(previousTabIndex``)
+  };
+
+
+  // ✅ subscription conf'/irmation handler
   const handleSubscription = () => {
     console.log('User subscribed successfully!');
-    setIsSubscribed(true);
+    setIsSubscribed(false);
   };
 
   // ✅ wrapper component for PrivateContent
   const PrivateContentWrapper = (props) => {
-    useFocusEffect(
-      useCallback(() => {
+    const isFocused = useIsFocused
+    useCallback(() => {
+      if (isFocused) {
         if (!isSubscribed) {
           setShowSubscribeModal(true);
         }
-      }, [isSubscribed])
-    );
+      }
+    }, [isSubscribed])
 
-    return isSubscribed ? <ReelsScreen {...props} /> : <></>;
+    // return isSubscribed ? <ReelsScreen {...props} /> : <></>;
   };
 
   return (
@@ -70,7 +91,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
             shadowRadius: 4,
           },
           tabBarIndicatorStyle: {
-            backgroundColor: userData?.profile === 'company' ? '#D3B683' : '#5a2d82',
+            backgroundColor: text,
             height: 3,
             borderRadius: 2,
           },
@@ -89,9 +110,15 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
               <Ionicons
                 name={focused ? 'grid' : 'grid-outline'}
                 size={24}
-                color={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                color={focused ? (text) : '#6b7280'}
               />
             ),
+          }}
+          listeners={{
+            tabPress: () => {
+              setPreviousTabIndex(currentTabIndex);
+              setCurrentTabIndex(0);
+            }
           }}
         >
           {renderPostsScreen}
@@ -100,22 +127,28 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
         {/* ✅ Reels tab now navigates to full screen */}
         <Tab.Screen
           name="Reels"
-          component={ReelsTabHandler}
+          component={ReelsScreen}
           options={{
             tabBarIcon: ({ focused }) => (
               <ProfileReelIcon
-                fill={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                fill={focused ? (text) : '#6b7280'}
                 height={24}
                 width={24}
               />
             ),
           }}
-          listeners={({ navigation }) => ({
-            tabPress: (e) => {
-              e.preventDefault(); // Prevent default tab behavior
-              navigation.navigate('FlipsScreen'); // Navigate to full screen
-            },
-          })}
+          listeners={{
+            tabPress: () => {
+              setPreviousTabIndex(currentTabIndex);
+              setCurrentTabIndex(1);
+            }
+          }}
+        // listeners={({ navigation }) => ({
+        //   tabPress: (e) => {
+        //     e.preventDefault(); // Prevent default tab behavior
+        //     navigation.navigate('FlipsScreen'); // Navigate to full screen
+        //   },
+        // })}
         />
 
         {/* ✅ Private Content with Subscription Modal */}
@@ -125,13 +158,38 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
           options={{
             tabBarIcon: ({ focused }) => (
               <LockKey
-                fill={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                fill={focused ? (text) : '#6b7280'}
                 height={24}
                 width={24}
               />
             ),
           }}
+          listeners={{
+            tabPress: () => {
+              setPreviousTabIndex(currentTabIndex);
+              setCurrentTabIndex(2);
+              console.log('tab pree orr focudedd')
+              if (!isSubscribed) {
+                setPrivatKey(prev => prev + 1)
+                setShowSubscribeModal(false);
+                setTimeout(() => {
+                  setShowSubscribeModal(true)
+                }, 50)
+              }
+            },
+          }}
+          screenListeners={{
+            state: (e) => {
+              const index = e.data.state.index;
+              const routeName = e.data.state.routeNames[index];
+
+              setPreviousTab(currentTab);   // store last tab
+              setCurrentTab(routeName);     // update current tab
+            },
+          }}
+
         />
+
 
         <Tab.Screen
           name="Tagged"
@@ -141,9 +199,15 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
               <MaterialCommunityIcons
                 name={focused ? 'lightning-bolt' : 'lightning-bolt-outline'}
                 size={24}
-                color={focused ? (userData?.profile === 'company' ? '#D3B683' : '#5a2d82') : '#6b7280'}
+                color={focused ? (text) : '#6b7280'}
               />
             ),
+          }}
+          listeners={{
+            tabPress: () => {
+              setPreviousTabIndex(currentTabIndex);
+              setCurrentTabIndex(3);
+            }
           }}
         />
       </Tab.Navigator>
@@ -151,7 +215,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
       {/* ✅ Subscription Modal */}
       <SubscribeModal
         visible={showSubscribeModal}
-        onClose={() => setShowSubscribeModal(false)}
+        onClose={handleModalClose}
         membershipPrice={19.99}
         onPaymentDone={(info) => {
           console.log('Payment info:', info);

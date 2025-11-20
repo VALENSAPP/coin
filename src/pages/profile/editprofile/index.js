@@ -23,6 +23,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -51,6 +52,7 @@ const ProfileEditScreen = () => {
   const toast = useToast();
   const debounceRef = useRef(null);
   const dispatch = useDispatch();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const genderOptions = [
     { label: 'Male', value: 'MALE', icon: '👨' },
@@ -235,7 +237,7 @@ const ProfileEditScreen = () => {
           onPress={handleBack}
           style={{ marginLeft: 15 }}
         >
-          <Icon name="arrow-left" size={24} color="#5a2d82" />
+          <Icon name="arrow-left" size={24} color={text} />
         </TouchableOpacity>
       ),
       headerRight: () => (
@@ -250,7 +252,7 @@ const ProfileEditScreen = () => {
           {loading ? (
             <ActivityIndicator size="small" color="#0095F6" />
           ) : (
-            <Text style={styles.headerButtonText}>Save</Text>
+            <Text style={[styles.headerButtonText, textStyle]}>Save</Text>
           )}
         </TouchableOpacity>
       ),
@@ -476,7 +478,7 @@ const ProfileEditScreen = () => {
                   style={styles.suggestionChip}
                   onPress={() => selectSuggestion(item)}
                 >
-                  <Text style={styles.suggestionText}>{item}</Text>
+                  <Text style={[styles.suggestionText, textStyle]}>{item}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -488,8 +490,8 @@ const ProfileEditScreen = () => {
 
   return (
     <>
-      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.avatarContainer}>
+      <ScrollView style={[styles.container, bgStyle]} keyboardShouldPersistTaps="handled">
+        <View style={[styles.avatarContainer, bgStyle]}>
           <TouchableOpacity
             onPress={() => refRBSheet1.current.open()}
             style={styles.avatarTouchable}
@@ -501,13 +503,13 @@ const ProfileEditScreen = () => {
                     ? { uri: profileImage }
                     : require('../../../assets/icons/pngicons/person.png')
                 }
-                style={styles.profileImage}
+                style={[styles.profileImage, {borderColor: text}]}
               />
-              <View style={styles.cameraIcon} >
+              <View style={[styles.cameraIcon, {backgroundColor: text, shadowColor: text}]} >
                 <Text style={styles.cameraText}>📷</Text>
               </View>
             </View>
-            <Text style={styles.avatarText}>Change profile picture</Text>
+            <Text style={[styles.avatarText, textStyle]}>Change profile picture</Text>
           </TouchableOpacity>
         </View>
 
@@ -621,12 +623,12 @@ const ProfileEditScreen = () => {
             <Text
               style={[
                 styles.genderOptionText,
-                gender === opt.value && styles.genderOptionTextSelected,
+                gender === opt.value && styles.genderOptionTextSelected && textStyle,
               ]}
             >
               {opt.label}
             </Text>
-            {gender === opt.value && <Text style={styles.checkmark}>✓</Text>}
+            {gender === opt.value && <Text style={[styles.checkmark, textStyle]}>✓</Text>}
           </TouchableOpacity>
         ))}
       </RBSheet>
@@ -655,7 +657,7 @@ const ProfileEditScreen = () => {
 
           <View style={styles.optionsContainer}>
             <TouchableOpacity
-              style={styles.optionButton}
+              style={[styles.optionButton, {shadowColor: text}]}
               onPress={pickImageFromGallery}
             >
               <View style={styles.optionIconContainer}>
@@ -669,7 +671,7 @@ const ProfileEditScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.optionButton}
+              style={[styles.optionButton, {shadowColor: text}]}
               onPress={pickImageFromCamera}
             >
               <View style={styles.optionIconContainer}>
@@ -698,11 +700,11 @@ const ProfileEditScreen = () => {
 export default ProfileEditScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f2fd' },
+  container: { flex: 1 },
 
   // --- Header Save button
   headerButton: { marginRight: 16, paddingHorizontal: 8, paddingVertical: 4 },
-  headerButtonText: { color: '#5a2d82', fontSize: 16, fontWeight: '700' },
+  headerButtonText: { fontSize: 16, fontWeight: '700' },
 
   // --- Avatar
   avatarContainer: {
@@ -710,7 +712,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    backgroundColor: '#f8f2fd',
   },
   avatarTouchable: { alignItems: 'center' },
   imageWrapper: { position: 'relative' },
@@ -719,14 +720,12 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 55,
     borderWidth: 2,
-    borderColor: '#5a2d82',
     backgroundColor: '#fff',
   },
   cameraIcon: {
     position: 'absolute',
     bottom: 4,
     right: 4,
-    backgroundColor: '#5a2d82',
     borderRadius: 14,
     width: 28,
     height: 28,
@@ -734,7 +733,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
@@ -742,7 +740,6 @@ const styles = StyleSheet.create({
   cameraText: { fontSize: 12, color: '#fff' },
   avatarText: {
     marginTop: 10,
-    color: '#5a2d82',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -789,7 +786,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  suggestionText: { color: '#5a2d82', fontSize: 14, fontWeight: '500' },
+  suggestionText: { fontSize: 14, fontWeight: '500' },
 
   bioInput: { height: 90, textAlignVertical: 'top' },
   characterCount: { fontSize: 12, color: '#6B7280', textAlign: 'right', marginTop: 4 },
@@ -827,8 +824,8 @@ const styles = StyleSheet.create({
   genderOptionSelected: { backgroundColor: '#f3f0f7' },
   genderOptionIcon: { fontSize: 18, marginRight: 12 },
   genderOptionText: { fontSize: 16, color: '#374151', flex: 1 },
-  genderOptionTextSelected: { color: '#5a2d82', fontWeight: '600' },
-  checkmark: { fontSize: 16, color: '#5a2d82', fontWeight: '600' },
+  genderOptionTextSelected: { fontWeight: '600' },
+  checkmark: { fontSize: 16, fontWeight: '600' },
 
   // Bottom sheet
   bottomSheetContent: { flex: 1, marginHorizontal: 15, marginBottom: 30 },
@@ -846,7 +843,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    shadowColor: '#5a2d82',
     shadowOpacity: 0.06,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },

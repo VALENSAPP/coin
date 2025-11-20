@@ -14,6 +14,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.75;
@@ -25,6 +26,7 @@ const GlobalLeftDrawer = () => {
 
     const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
     const overlayAnim = useRef(new Animated.Value(0)).current;
+    const { bgStyle, textStyle, bg, text } = useAppTheme();
 
     useEffect(() => {
         if (isDrawerOpen) {
@@ -102,7 +104,7 @@ const GlobalLeftDrawer = () => {
     ).current;
 
     const menuItems = [
-        { icon: 'home', iconType: 'Ionicons', label: 'Dashboard', screen: 'Home', color: '#5a2d82' },
+        { icon: 'home', iconType: 'Ionicons', label: 'Dashboard', screen: 'Home', color: text },
         // { icon: 'wallet', iconType: 'Ionicons', label: 'Wallet', screen: 'wallet', color: '#e54ba0' },
         // {
         //     icon: 'chart-line',
@@ -192,7 +194,7 @@ const GlobalLeftDrawer = () => {
                 style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}
             >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, {backgroundColor: text}]}>
                     <View style={styles.headerContent}>
                         <Text style={styles.headerTitle}>Valens</Text>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
@@ -259,7 +261,6 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     header: {
-        backgroundColor: '#5a2d82',
         paddingTop: Platform.OS === 'ios' ? 50 : 20,
         paddingBottom: 20,
         paddingHorizontal: 20,
