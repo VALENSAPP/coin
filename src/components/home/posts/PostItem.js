@@ -1,21 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  FlatList,
-  Animated,
-  StyleSheet,
-  Dimensions,
-  Linking
-} from 'react-native';
-import {
-  PanGestureHandler,
-  PinchGestureHandler,
-  TapGestureHandler,
-  State,
-} from 'react-native-gesture-handler';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking } from 'react-native';
+import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
@@ -33,11 +18,7 @@ import { getUserCredentials, getUserDashboard } from '../../../services/post';
 
 const { width } = Dimensions.get('window');
 
-/* -----------------------------------------
- * InstagramZoomableImage: In-feed gesture detector
- * - Pinch begins: open fullscreen viewer (for true edge-to-edge pan/zoom)
- * - Double-tap: open fullscreen viewer
- * ---------------------------------------- */
+/* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }) {
   const pinchRef = useRef();
   const hasOpenedRef = useRef(false);
@@ -53,9 +34,6 @@ function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }
   };
 
   const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.BEGAN || nativeEvent.state === State.ACTIVE) {
-      // Wait for threshold in onPinchEvent; do nothing here
-    }
     if (nativeEvent.oldState === State.ACTIVE) {
       onZoomChange?.(false);
       hasOpenedRef.current = false;
@@ -74,28 +52,20 @@ function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }
       onGestureEvent={onPinchEvent}
       onHandlerStateChange={onPinchStateChange}
     >
-      <Animated.View style={{ flex: 1 }}>
-        <TapGestureHandler numberOfTaps={2} onHandlerStateChange={onDoubleTapStateChange}>
-          <Animated.View style={{ flex: 1 }}>
-            <Image
-              source={{ uri }}
-              resizeMode="cover"
-              style={{ width, height: 340 }}
-            />
-          </Animated.View>
-        </TapGestureHandler>
-      </Animated.View>
+      <TapGestureHandler
+        numberOfTaps={2}
+        onHandlerStateChange={onDoubleTapStateChange}
+      >
+        <Image source={{ uri }} style={styles.postMedia} resizeMode="cover" />
+      </TapGestureHandler>
     </PinchGestureHandler>
   );
 }
 
-/* -----------------------------------------
- * InlineFullscreenViewer: Absolute overlay in same screen (no modal)
- * - Pinch to zoom, pan freely across entire screen
- * - Double-tap or scale≈1 on release closes
- * ---------------------------------------- */
+/* ----------------------------------------- */
 function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
   if (!visible) return null;
+
   const screen = Dimensions.get('window');
   const pinchScale = useRef(new Animated.Value(1)).current;
   const panX = useRef(new Animated.Value(0)).current;
@@ -104,7 +74,6 @@ function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
   const focalY = useRef(new Animated.Value(0)).current;
   const panOffsetX = useRef(0);
   const panOffsetY = useRef(0);
-
   const pinchRef = useRef();
   const panRef = useRef();
 
@@ -151,7 +120,6 @@ function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
 
   const onPinchStateChange = ({ nativeEvent }) => {
     if (nativeEvent.oldState === State.ACTIVE) {
-      // On lift from pinch, always spring back to original and close
       panOffsetX.current = 0;
       panOffsetY.current = 0;
       panX.setOffset(0);
@@ -167,65 +135,46 @@ function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
   };
 
   return (
-    <View
-      pointerEvents="auto"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 2000,
-        // transparent backdrop to keep same screen feel
-        backgroundColor: 'transparent',
-      }}
-    >
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 9999 }]}>
       <PinchGestureHandler
         ref={pinchRef}
-        simultaneousHandlers={panRef}
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
       >
-        <Animated.View style={{ flex: 1 }}>
-          <PanGestureHandler
-            ref={panRef}
-            simultaneousHandlers={pinchRef}
-            onGestureEvent={onPanEvent}
-            onHandlerStateChange={({ nativeEvent }) => {
-              onPanStateChange({ nativeEvent });
-              if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED || nativeEvent.oldState === State.ACTIVE) {
-                // On lift from pan, always spring back to original and close
-                panOffsetX.current = 0;
-                panOffsetY.current = 0;
-                panX.setOffset(0);
-                panY.setOffset(0);
-                resetTransform(onRequestClose);
-              }
-            }}
+        <PanGestureHandler
+          ref={panRef}
+          simultaneousHandlers={pinchRef}
+          onGestureEvent={onPanEvent}
+          onHandlerStateChange={(e) => {
+            onPanStateChange({ nativeEvent: e.nativeEvent });
+            if (e.nativeEvent.state === State.END || e.nativeEvent.state === State.CANCELLED || e.nativeEvent.oldState === State.ACTIVE) {
+              panOffsetX.current = 0;
+              panOffsetY.current = 0;
+              panX.setOffset(0);
+              panY.setOffset(0);
+              resetTransform(onRequestClose);
+            }
+          }}
+        >
+          <TapGestureHandler
+            numberOfTaps={2}
+            onHandlerStateChange={onDoubleTapStateChange}
           >
-            <TapGestureHandler numberOfTaps={2} onHandlerStateChange={onDoubleTapStateChange}>
-              <Animated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Animated.Image
-                  source={{ uri }}
-                  resizeMode="contain"
-                  style={{
-                    width: screen.width,
-                    height: screen.height,
-                    transform: [
-                      { translateX: panX },
-                      { translateY: panY },
-                      { translateX: focalX },
-                      { translateY: focalY },
-                      { scale: clampedScale },
-                      { translateX: Animated.multiply(focalX, -1) },
-                      { translateY: Animated.multiply(focalY, -1) },
-                    ],
-                  }}
-                />
-              </Animated.View>
-            </TapGestureHandler>
-          </PanGestureHandler>
-        </Animated.View>
+            <Animated.Image
+              source={{ uri }}
+              style={{
+                width: screen.width,
+                height: screen.height,
+                transform: [
+                  { translateX: panX },
+                  { translateY: panY },
+                  { scale: clampedScale },
+                ],
+              }}
+              resizeMode="contain"
+            />
+          </TapGestureHandler>
+        </PanGestureHandler>
       </PinchGestureHandler>
     </View>
   );
@@ -266,6 +215,7 @@ export default function PostItem({
   const [viewerUri, setViewerUri] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
+
   const navigation = useNavigation();
   const shareRef = useRef(null);
   const dispatch = useDispatch();
@@ -275,7 +225,9 @@ export default function PostItem({
     console.warn('PostItem received invalid item:', item);
     return null;
   }
+
   const safeMedia = item.media || [];
+  const mediaLength = safeMedia.length;
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -286,18 +238,12 @@ export default function PostItem({
         console.error('Error fetching userId:', error);
       }
     };
-
     fetchUserId();
 
-    // Only fetch if we have a valid UserId
     if (item?.UserId) {
       fetchAllData();
     }
-  }, [item?.UserId]); // ← ADDED DEPENDENCY
-
-  // ===========================================
-  // 4. FIX: Improve fetchAllData error handling
-  // ===========================================
+  }, [item?.UserId]);
 
   const fetchAllData = async () => {
     if (!item?.UserId) {
@@ -307,13 +253,11 @@ export default function PostItem({
 
     try {
       dispatch(showLoader());
-
       const [dashboardResponse, profileResponse] = await Promise.allSettled([
         getUserDashboard(item.UserId),
         getUserCredentials(item.UserId)
       ]);
 
-      // Handle dashboard response
       if (dashboardResponse.status === 'fulfilled') {
         const data = dashboardResponse.value;
         if (data?.statusCode === 200) {
@@ -325,7 +269,6 @@ export default function PostItem({
         console.error('Dashboard fetch rejected:', dashboardResponse.reason);
       }
 
-      // Handle profile response
       if (profileResponse.status === 'fulfilled') {
         const data = profileResponse.value;
         if (data?.statusCode === 200) {
@@ -344,7 +287,6 @@ export default function PostItem({
       } else {
         console.error('Profile fetch rejected:', profileResponse.reason);
       }
-
     } catch (error) {
       console.error('Error in fetchAllData:', error);
       showToastMessage(
@@ -356,6 +298,61 @@ export default function PostItem({
       dispatch(hideLoader());
     }
   };
+
+  // FIX 1: Add safe pause function with null checks
+  const safeVideoPause = useCallback((index) => {
+    try {
+      const ref = videoRefsMap.current[index];
+      if (ref && typeof ref.pause === 'function') {
+        ref.pause();
+      }
+    } catch (error) {
+      console.warn(`Error pausing video at index ${index}:`, error);
+    }
+  }, []);
+
+  // FIX 2: Improved video state management with stable dependencies
+  useEffect(() => {
+    if (mediaLength <= 0) return;
+
+    const nextStates = {};
+    for (let idx = 0; idx < mediaLength; idx++) {
+      const shouldPause = !(
+        idx === currentIndex &&
+        isVisible &&
+        screenFocused &&
+        String(playingPostId) === String(item.id)
+      );
+      nextStates[idx] = shouldPause;
+    }
+
+    setVideoStates(prev => {
+      const hasChanged = Object.keys(nextStates).some(
+        key => prev[key] !== nextStates[key]
+      );
+      return hasChanged ? nextStates : prev;
+    });
+
+    // FIX 3: Use safe pause with timeout to ensure refs are ready
+    setTimeout(() => {
+      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+        if (shouldPause) {
+          safeVideoPause(parseInt(idx));
+        }
+      });
+    }, 100);
+
+  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
+
+  // FIX 4: Cleanup on unmount with safe pause
+  useEffect(() => {
+    return () => {
+      Object.keys(videoRefsMap.current).forEach(idx => {
+        safeVideoPause(parseInt(idx));
+      });
+      videoRefsMap.current = {};
+    };
+  }, [safeVideoPause]);
 
   const handleUserProfile = (id) => {
     if (userId === id) {
@@ -377,11 +374,7 @@ export default function PostItem({
     return exts.some((ext) => lower.endsWith(`.${ext}`));
   };
 
-  const buyerList = Array.isArray(item.boughtBy)
-    ? item.boughtBy
-    : Array.isArray(item.buyers)
-      ? item.buyers
-      : [];
+  const buyerList = Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [];
 
   const animateHeart = () => {
     Animated.sequence([
@@ -395,70 +388,20 @@ export default function PostItem({
     animateHeart();
   };
 
-  useEffect(() => {
-    if (!item.media || item.media.length <= 0) return;
-
-    // Only update video states, don't create infinite loop
-    const nextStates = {};
-
-    item.media.forEach((_, idx) => {
-      // Video should be paused unless ALL conditions are met:
-      const shouldPause = !(
-        idx === currentIndex &&           // Is current slide
-        isVisible &&                      // Post is visible
-        screenFocused &&                  // Screen is focused
-        String(playingPostId) === String(item.id) // This post is playing
-      );
-
-      nextStates[idx] = shouldPause;
-    });
-
-    // Only update if states actually changed to prevent loops
-    setVideoStates(prev => {
-      const hasChanged = Object.keys(nextStates).some(
-        key => prev[key] !== nextStates[key]
-      );
-      return hasChanged ? nextStates : prev;
-    });
-
-    // Directly pause video refs that should be paused
-    Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-      const ref = videoRefsMap.current[idx];
-      if (ref && shouldPause) {
-        ref.pause?.();
-      }
-    });
-  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, item.media]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(videoRefsMap.current).forEach(ref => {
-        if (ref) {
-          ref.pause?.();
-        }
-      });
-      videoRefsMap.current = {};
-    };
-  }, []);
-
   const mockDonationData = {
-    raisedAmount: item.raiseAmount ?? 0,     // Use value from API or fallback to 0
-    goalAmount: item.goalAmount ?? 100000000,    // Temporary until API provides
+    raisedAmount: item.raiseAmount ?? 0,
+    goalAmount: item.goalAmount ?? 100000000,
     daysLeft: item.daysLeft ?? 0,
   };
-  const postData = { ...item, ...mockDonationData };
 
-  const progressPercent =
-    postData.goalAmount > 0
-      ? (postData.raisedAmount / postData.goalAmount) * 100
-      : 0;
+  const postData = { ...item, ...mockDonationData };
+  const progressPercent = postData.goalAmount > 0 ? (postData.raisedAmount / postData.goalAmount) * 100 : 0;
 
   const getProgressBarColor = () => {
-    if (progressPercent >= 75) return '#5A2D82'; // Green
-    if (progressPercent >= 50) return '#5A2D82'; // Blue
-    if (progressPercent >= 25) return '#FF9800'; // Orange
-    return '#F44336'; // Red
+    if (progressPercent >= 75) return '#5A2D82';
+    if (progressPercent >= 50) return '#5A2D82';
+    if (progressPercent >= 25) return '#FF9800';
+    return '#F44336';
   };
 
   const onMomentumEnd = (e) => {
@@ -471,11 +414,10 @@ export default function PostItem({
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
     const isPaused = videoStates[index] ?? true;
 
-    // FIX: Was comparing playingPostId to itself!
-    const shouldPlay =
+    const shouldPlay = 
       screenFocused &&
-      String(playingPostId) === String(item.id) && // ← FIXED: Compare to item.id
-      String(currentlyVisiblePostId) === String(item.id) && // ← FIXED
+      String(playingPostId) === String(item.id) &&
+      String(currentlyVisiblePostId) === String(item.id) &&
       isVisible &&
       index === currentIndex &&
       !isPaused &&
@@ -487,7 +429,10 @@ export default function PostItem({
           <>
             <Video
               ref={(ref) => {
-                if (ref) videoRefsMap.current[index] = ref;
+                // FIX 5: Only set ref if it's valid
+                if (ref) {
+                  videoRefsMap.current[index] = ref;
+                }
               }}
               source={{ uri: mediaItem.url }}
               style={styles.postMedia}
@@ -503,8 +448,8 @@ export default function PostItem({
               progressUpdateInterval={500}
             />
             <TouchableOpacity
-              style={[styles.videoOverlay, !isPaused && styles.videoOverlayTransparent]}
-              activeOpacity={0.7}
+              style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
+              activeOpacity={1}
               onPress={() => {
                 if (isVisible && screenFocused) {
                   setVideoStates((prev) => ({
@@ -516,7 +461,7 @@ export default function PostItem({
             >
               {isPaused && (
                 <View style={styles.playButtonContainer}>
-                  <Icon name="play" size={34} color="#fff" />
+                  <Icon name="play" size={32} color="#fff" />
                 </View>
               )}
             </TouchableOpacity>
@@ -524,16 +469,8 @@ export default function PostItem({
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
             >
-              <Icon
-                name={isMuted ? 'volume-mute' : 'volume-high'}
-                size={20}
-                color="#fff"
-              />
+              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
             </TouchableOpacity>
-
-            <View style={styles.videoIndicator}>
-              <Icon name="videocam" size={14} color="#fff" />
-            </View>
           </>
         ) : (
           <InstagramZoomableImage
@@ -560,52 +497,37 @@ export default function PostItem({
 
   return (
     <View style={styles.wrapper}>
-      {isZooming && (
-        <View
-          pointerEvents="none"
-          style={styles.zoomBackdrop}
-        />
-      )}
+      {isZooming && <View style={styles.zoomBackdrop} pointerEvents="none" />}
 
-      <View style={[
-        styles.postCard,
-        isZooming && { overflow: 'visible', zIndex: 1000, elevation: 30 }
-      ]}>
+      <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
-            <Image
-              source={{ uri: item.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }}
-              style={styles.avatar}
-            />
+            <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
               <Text style={styles.username}>{item.username}</Text>
-              <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
+              <View style={styles.dragonflyIcon}>
+                <DragonflyIcon width={18} height={18} />
+              </View>
             </View>
           </TouchableOpacity>
 
           <View style={styles.priceSection}>
-            <Icon name="triangle" size={20} color="#5a2d82" style={styles.triangleIcon} />
+            <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} />
             <Text style={styles.priceText}>$556</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.moreButton}
-            onPress={() => onOptions?.(item.id, item.UserId)}
-          >
-            <Icon name="ellipsis-horizontal" size={24} color="#374151" />
+          <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
+            <Feather name="more-vertical" size={20} color="#374151" />
           </TouchableOpacity>
         </View>
 
-        <View style={[
-          styles.mediaWrapper,
-          isZooming && { overflow: 'visible', zIndex: 1001, elevation: 31 }
-        ]}>
+        <View style={styles.mediaWrapper}>
           <FlatList
             ref={listRef}
-            data={item.media || []}
+            data={safeMedia}
             keyExtractor={(_, i) => `media-${i}`}
             horizontal
             pagingEnabled
@@ -616,23 +538,31 @@ export default function PostItem({
             snapToInterval={width}
             snapToAlignment="start"
             disableIntervalMomentum={true}
-            getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+            getItemLayout={(_, index) => ({
+              length: width,
+              offset: width * index,
+              index
+            })}
             renderItem={renderMedia}
           />
 
           {item.media && item.media.length > 1 && (
             <>
               <View style={styles.mediaCounter}>
-                <Text style={styles.mediaCounterText}>{currentIndex + 1}/{item.media.length}</Text>
+                <Text style={styles.mediaCounterText}>
+                  {currentIndex + 1}/{item.media.length}
+                </Text>
               </View>
 
               <View style={styles.dotsContainer}>
                 {item.media.map((_, idx) => (
                   <View
-                    key={`dot-${idx}`}
+                    key={idx}
                     style={[
                       styles.dot,
-                      { backgroundColor: idx === currentIndex ? '#fff' : 'rgba(255,255,255,0.4)' },
+                      {
+                        backgroundColor: idx === currentIndex ? '#5a2d82' : 'rgba(255,255,255,0.5)',
+                      },
                     ]}
                   />
                 ))}
@@ -643,34 +573,25 @@ export default function PostItem({
 
         <View style={styles.actionsSection}>
           <View style={styles.leftActions}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+            <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
               <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                <Icon
-                  name={liked ? 'heart' : 'heart-outline'}
-                  size={26}
-                  color={liked ? '#EF4444' : '#374151'}
-                />
+                <Icon name={liked ? 'heart' : 'heart-outline'} size={26} color={liked ? '#ef4444' : '#374151'} />
               </Animated.View>
               <Text style={styles.actionCount}>{likesCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton} onPress={() => onComment?.()}>
-              <Icon name="chatbubble-outline" size={24} color="#374151" />
+            <TouchableOpacity onPress={() => onComment?.()} style={styles.actionButton}>
+              <Feather name="message-circle" size={24} color="#374151" />
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton} onPress={() => shareRef.current?.open?.()}>
-              <Feather name="share" size={22} color="#374151" />
+            <TouchableOpacity onPress={() => shareRef.current?.open?.()} style={styles.actionButton}>
+              <Feather name="send" size={24} color="#374151" />
               <Text style={styles.actionCount}>{item.sharesCount || 0}</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[
-              styles.followButton,
-              item.follow && styles.followingButton
-            ]}
-            disabled={followingBusy}
             onPress={() => {
               if (!isBusinessProfile && item.UserId !== userId) {
                 if (item.profile === 'company') {
@@ -680,132 +601,93 @@ export default function PostItem({
                 }
               }
             }}
+            style={[styles.followButton, item.follow && styles.followingButton]}
           >
             {followingBusy ? (
-              <ActivityIndicator size="small" color={item.follow ? '#5a2d82' : '#fff'} />
+              <ActivityIndicator size="small" color={item.follow ? '#5a2d82' : '#FFFFFF'} />
             ) : (
-              <Text style={[
-                styles.followButtonText,
-                item.follow && styles.followingButtonText
-              ]}>
-                {
-                  isBusinessProfile ? "Support" :
-                    item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'
-                }
+              <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
+                {isBusinessProfile ? "Support" : item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'}
               </Text>
             )}
           </TouchableOpacity>
         </View>
 
-        <View style={styles.buyersSection}>
-          {
-            item.UserId != userId &&
-            <>
-              <View style={styles.avatarsContainer}>
-                {buyerList.slice(0, 3).map((buyer, idx) => (
-                  <View
-                    key={buyer.id ?? `buyer-${idx}`}
-                    style={[styles.buyerAvatarWrapper, { marginLeft: idx === 0 ? 0 : -8, zIndex: 100 + idx }]}
-                  >
-                    <Image
-                      source={{ uri: buyer.avatar }}
-                      style={styles.buyerAvatar}
-                      resizeMode="cover"
-                    />
-                  </View>
-                ))}
-              </View>
-
-              {buyerList.length > 0 &&
-                <Text style={styles.buyersText} numberOfLines={1} ellipsizeMode="tail">
+        {item.UserId != userId && (
+          <>
+            {buyerList.length > 0 && (
+              <View style={styles.buyersSection}>
+                <View style={styles.avatarsContainer}>
+                  {buyerList.slice(0, 3).map((buyer, idx) => (
+                    <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
+                      <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.buyersText} numberOfLines={1}>
                   Vallowed by <Text style={styles.buyerName}>{buyerList[0]?.username || '—'}</Text>
-                  {buyerList.length > 1 && (
-                    <Text> and <Text style={styles.buyerName}>{formatNumber(buyerList.length - 1)} others</Text></Text>
-                  )}
+                  {buyerList.length > 1 && <Text> and {formatNumber(buyerList.length - 1)} others</Text>}
                 </Text>
-              }
-            </>
-          }
-        </View>
+              </View>
+            )}
+          </>
+        )}
 
         <View style={styles.captionSection}>
-          <View style={styles.userRow}>
+          <Text>
             <Text style={styles.captionUsername}>{item.username} </Text>
-            <DragonflyIcon width={22} height={22} style={styles.dragonflyIcon} />
-          </View>
-          <Text style={styles.captionText}>{item.caption}</Text>
+            <Text style={styles.captionText}>{item.caption}</Text>
+          </Text>
           {item.link ? (
-            <Text
-              style={styles.linkText}
-              onPress={() => Linking.openURL(item.link)}
-            >
-              Link -  {item.link}
-            </Text>
+            <TouchableOpacity onPress={() => Linking.openURL(item.link)}>
+              <Text style={styles.linkText}>Link - {item.link}</Text>
+            </TouchableOpacity>
           ) : null}
+        </View>
 
-          {postData.raisedAmount !== undefined && postData.raisedAmount > 0 &&
-            <>
-              <View style={styles.progressSection}>
-                <View style={styles.progressBarWrapper}>
-                  <View style={styles.progressBarBackground}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        {
-                          width: `${Math.min(progressPercent, 100)}%`,
-                          backgroundColor: getProgressBarColor()
-                        }
-                      ]}
-                    />
-                  </View>
+        {postData.raisedAmount !== undefined && postData.raisedAmount > 0 && (
+          <View style={styles.progressSection}>
+            <View style={styles.progressBarWrapper}>
+              <View style={styles.progressBarBackground}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: `${Math.min(progressPercent, 100)}%`,
+                      backgroundColor: getProgressBarColor(),
+                    },
+                  ]}
+                />
+              </View>
 
-                  <View style={styles.progressStatsContainer}>
-                    <View style={styles.statAtStart}>
-                      <Text style={styles.statValueSmall}>
-                        {Math.min(progressPercent, 100).toFixed(1)}%
-                      </Text>
-                      <Text style={styles.statLabelSmall}>FUNDED</Text>
-                    </View>
-
-                    {/* Amount at CENTER */}
-                    <View style={styles.statAtCenter}>
-                      <Text style={styles.statValueSmall}>
-                        ${(postData.raisedAmount / 1000).toFixed(0)}K
-                      </Text>
-                      <Text style={styles.statLabelSmall}>RAISED</Text>
-                    </View>
-
-                    {/* Days Left at END (right) */}
-                    <View style={styles.statAtEnd}>
-                      <Text style={styles.statValueSmall}>
-                        {postData.daysLeft || 0}
-                      </Text>
-                      <Text style={styles.statLabelSmall}>DAYS LEFT</Text>
-                    </View>
-                  </View>
+              <View style={styles.progressStatsContainer}>
+                <View style={styles.statAtStart}>
+                  <Text style={styles.statValueSmall}>{Math.min(progressPercent, 100).toFixed(1)}% FUNDED</Text>
+                </View>
+                <View style={styles.statAtCenter}>
+                  <Text style={styles.statValueSmall}>${(postData.raisedAmount / 1000).toFixed(0)}K RAISED</Text>
+                </View>
+                <View style={styles.statAtEnd}>
+                  <Text style={styles.statValueSmall}>{postData.daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-            </>}
-        </View>
+            </View>
+          </View>
+        )}
       </View>
 
-      <ShareModal ref={shareRef} post={item} />
-
       {viewerOpen && (
-        <View
-          pointerEvents="none"
-          style={styles.zoomBackdrop}
+        <InlineFullscreenViewer
+          uri={viewerUri}
+          visible={viewerOpen}
+          onRequestClose={() => {
+            setViewerOpen(false);
+            setScrollEnabled(true);
+          }}
         />
       )}
 
-      <InlineFullscreenViewer
-        uri={viewerUri}
-        visible={viewerOpen}
-        onRequestClose={() => {
-          setViewerOpen(false);
-          setScrollEnabled(true);
-        }}
-      />
+      <ShareModal ref={shareRef} url={item.link} />
     </View>
   );
 }

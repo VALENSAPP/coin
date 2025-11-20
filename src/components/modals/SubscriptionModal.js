@@ -84,7 +84,7 @@ const SubscribeFlowModal = ({
                     const amount = subscriptions[0].subscriptionAmount;
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
                     setSubscriptionAmount(amount);
-                    setPrice(amount)
+                    // setPrice(amount)
                 } else {
                     console.log("No subscriptions found");
                     setSubscriptionAmount(null);
