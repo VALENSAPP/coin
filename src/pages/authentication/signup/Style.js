@@ -105,10 +105,11 @@ const createStyles = () => {
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 6,
+      // shadowOffset: { width: 0, height: 4 },
+      // shadowOpacity: 0.3,
+      // shadowRadius: 8,
+      // elevation: 6,
+      backgroundColor: '#5a2d82',
       marginBottom: 24,
     },
     signupButtonText: {
@@ -203,6 +204,7 @@ const createStyles = () => {
     },
     loginLink: {
       fontWeight: '700',
+      color: '#5a2d82'
     },
     socialButtonsContainer: {
       flexDirection: 'row',

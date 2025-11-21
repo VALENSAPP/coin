@@ -15,6 +15,7 @@ import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width } = Dimensions.get('window');
 
@@ -220,6 +221,7 @@ export default function PostItem({
   const shareRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { text } = useAppTheme();
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -398,8 +400,8 @@ export default function PostItem({
   const progressPercent = postData.goalAmount > 0 ? (postData.raisedAmount / postData.goalAmount) * 100 : 0;
 
   const getProgressBarColor = () => {
-    if (progressPercent >= 75) return '#5A2D82';
-    if (progressPercent >= 50) return '#5A2D82';
+    if (progressPercent >= 75) return (item?.profile == "user" ? '#5a2d82' : '#D3B683');
+    if (progressPercent >= 50) return (item?.profile == "user" ? '#5a2d82' : '#D3B683');
     if (progressPercent >= 25) return '#FF9800';
     return '#F44336';
   };
@@ -516,7 +518,7 @@ export default function PostItem({
 
           <View style={styles.priceSection}>
             <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} />
-            <Text style={styles.priceText}>$556</Text>
+            <Text style={[styles.priceText, {color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}>$556</Text>
           </View>
 
           <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
@@ -561,7 +563,7 @@ export default function PostItem({
                     style={[
                       styles.dot,
                       {
-                        backgroundColor: idx === currentIndex ? '#5a2d82' : 'rgba(255,255,255,0.5)',
+                        backgroundColor: idx === currentIndex ? text : 'rgba(255,255,255,0.5)',
                       },
                     ]}
                   />
@@ -601,10 +603,10 @@ export default function PostItem({
                 }
               }
             }}
-            style={[styles.followButton, item.follow && styles.followingButton]}
+            style={[styles.followButton, item.follow && styles.followingButton, {backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}
           >
             {followingBusy ? (
-              <ActivityIndicator size="small" color={item.follow ? '#5a2d82' : '#FFFFFF'} />
+              <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
             ) : (
               <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
                 {isBusinessProfile ? "Support" : item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'}
@@ -625,8 +627,8 @@ export default function PostItem({
                   ))}
                 </View>
                 <Text style={styles.buyersText} numberOfLines={1}>
-                  Vallowed by <Text style={styles.buyerName}>{buyerList[0]?.username || '—'}</Text>
-                  {buyerList.length > 1 && <Text> and {formatNumber(buyerList.length - 1)} others</Text>}
+                  Vallowed by <Text style={[styles.buyerName,  {color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}>{buyerList[0]?.username || '—'}</Text>
+                  {buyerList.length > 1 && <Text style={{color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}}> and {formatNumber(buyerList.length - 1)} others</Text>}
                 </Text>
               </View>
             )}
@@ -635,7 +637,7 @@ export default function PostItem({
 
         <View style={styles.captionSection}>
           <Text>
-            <Text style={styles.captionUsername}>{item.username} </Text>
+            <Text style={[styles.captionUsername, {color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}>{item.username} </Text>
             <Text style={styles.captionText}>{item.caption}</Text>
           </Text>
           {item.link ? (
@@ -869,10 +871,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    // shadowOffset: { width: 0, height: 2 },
+    // // shadowOpacity: 0.2,
+    // shadowRadius: 4,
+    // elevation: 3,
   },
   followingButton: {
     backgroundColor: '#F3F4F6',

@@ -51,7 +51,7 @@ const ForgetPassword = () => {
       console.log(response, 'response');
       if (response &&  response.statusCode == 200) {
         showToastMessage(toast, 'success', response.data.message);
-        navigation.navigate('OTPScreen', { email });
+        navigation.navigate('OTPScreen', { email, type: 'forgotpassword' });
         setError('');
       }else{
          showToastMessage(toast, 'danger', response.message);
@@ -139,7 +139,7 @@ const ForgetPassword = () => {
             {/* Continue Button */}
             <TouchableOpacity
               style={[styles.continueButton, {backgroundColor: text, shadowColor: text}]}
-              onPress={handleContinue}
+              onPress={()=> handleContinue()}
             >
               <Text style={styles.continueButtonText}>Continue</Text>
             </TouchableOpacity>
