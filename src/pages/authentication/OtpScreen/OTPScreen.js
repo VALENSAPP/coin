@@ -43,9 +43,9 @@ export default function OTPScreen() {
   const { email, password, type } = route.params || {};
   const { bgStyle, textStyle, text } = useAppTheme();
 
-  useEffect(() => {
-    handleResend();
-  }, []);
+  // useEffect(() => {
+  //   handleResend();
+  // }, []);
 
   const handleConfirm = async () => {
     if (otp.length !== 6) {

@@ -75,7 +75,7 @@ const NewPasswordScreen = () => {
     dispatch(showLoader());
     try {
       const newPassword = password;
-      const response = await resetPassword({ email, otp, newPassword });
+      const response = await resetPassword({ email, newPassword });
         console.log('response in reset password', response);
         
       if (response.statusCode == 200 && response) {
@@ -397,6 +397,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     fontWeight: '400',
+    textAlign: 'center'
   },
   backToLoginLink: {
     fontWeight: '700',
