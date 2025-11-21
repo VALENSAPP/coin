@@ -190,8 +190,8 @@ const CreateMission = () => {
   };
 
   const formatDateTime = (date) => {
-    if (!date) return 'Select Date';
-    return new Date(date).toLocaleDateString();
+    if (!date) return null;
+    return new Date(date).toISOString();
   };
 
   const formatNumberWithCommas = (value) => {
