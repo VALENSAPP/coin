@@ -19,6 +19,7 @@ import createStyles from './Style';
 import data from '../../list.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme/useApptheme';
+import { setUserProfile } from '../../redux/actions/UserProfileAction';
 
 const Settings = () => {
   const dispatch = useDispatch();
@@ -258,6 +259,7 @@ const Settings = () => {
         text: 'Log Out',
         style: 'destructive',
         onPress: () => {
+          dispatch(setUserProfile('normal'))
           AsyncStorage.setItem('isLoggedIn', 'false');
           AsyncStorage.removeItem('token');
           AsyncStorage.removeItem('firebaseToken');
@@ -284,6 +286,7 @@ const Settings = () => {
           text: 'Log Out All',
           style: 'destructive',
           onPress: () => {
+            dispatch(setUserProfile('normal'))
             AsyncStorage.setItem('isLoggedIn', 'false');
             AsyncStorage.removeItem('profile');
             dispatch(loggedOut());

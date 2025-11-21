@@ -242,7 +242,7 @@ const SubscribeFlowModal = ({
                         <Text style={[styles.header, textStyle]}>{displayName} </Text>
                         <DragonflyIcon width={22} height={22} />
                     </View>
-                    <Text style={styles.subHeader}>You’re about to Subscribe!</Text>
+                    <Text style={[styles.subHeader, {color: text}]}>You’re about to Subscribe!</Text>
                     <Text style={styles.bodyText}>
                         Unlock exclusive posts, private drops, and direct access to this
                         creator’s Valens world.{'\n\n'}
@@ -255,7 +255,7 @@ const SubscribeFlowModal = ({
                     <TouchableOpacity
                         style={[styles.btn, {backgroundColor: text}]}
                         onPress={handleConfirm}>
-                        <Text style={styles.confirmTextBtn}>💜 Yes, I’m In</Text>
+                        <Text style={styles.confirmTextBtn}>Yes, I’m In</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -378,7 +378,6 @@ const styles = StyleSheet.create({
     subHeader: {
         fontSize: 17,
         fontWeight: '600',
-        color: '#8b4ec4',
         textAlign: 'center',
         marginBottom: 12,
     },
