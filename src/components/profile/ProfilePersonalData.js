@@ -101,7 +101,7 @@ const ProfilePersonData = ({
 
       // Run both API calls in parallel
       const [profileResponse] = await Promise.all([
-        getUserCredentials(userData.id)
+        getUserCredentials(userData?.id)
       ]);
 
       // Handle profile response
