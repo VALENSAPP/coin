@@ -873,7 +873,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+    backgroundColor:'#5a2d82'
   },
+  followingButtonText: {
+    color: '#5a2d82',
+  },
+ 
   followingButton: {
     backgroundColor: '#F3F4F6',
     borderWidth: 1,

@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAppTheme } from '../../theme/useApptheme';
 import TermCondition from '../../components/modals/Term&Condition';
+import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -42,7 +43,8 @@ const SubventionSetupScreen = () => {
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
-    const [showModal, setShowModal] = useState(true);
+    const [showModal, setShowModal] = useState(true); 
+        const [showActivationPopup, setShowActivationPopup] = useState(false); 
 
 
     const contentTabs = [
@@ -628,7 +630,15 @@ const SubventionSetupScreen = () => {
                 <TermCondition
                     showModal={showModal}
                     setShowModal={setShowModal}
-                    onAccept={handleSaveSubscription}
+                    onAccept={()=>{
+                        setShowModal(false);
+                        setShowActivationPopup(true)
+                        // handleSaveSubscription ();
+                    }}
+                />
+                <SubscriptionActivationPopup
+                visible={showActivationPopup}
+                onClose={()=>setShowActivationPopup(false)}
                 />
             </View>
         </>
@@ -637,7 +647,7 @@ const SubventionSetupScreen = () => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
+        // flex: 1,
         marginBottom: 20,
     },
     section: {

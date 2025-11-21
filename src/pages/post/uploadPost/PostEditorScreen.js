@@ -59,6 +59,7 @@ const PostEditorScreen = () => {
         caption,
         link
       });
+      return;
     }
 
 
@@ -74,6 +75,7 @@ const PostEditorScreen = () => {
           caption,
           link
         });
+        return;
       }
 
       dispatch(showLoader());
