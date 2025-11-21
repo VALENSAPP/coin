@@ -11,6 +11,7 @@ import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
+import { setUserProfile } from './redux/actions/UserProfileAction';
 
 const linking = {
   prefixes: [
@@ -33,6 +34,7 @@ export default function Main() {
   const toast = useToast();
 
   useEffect(() => {
+    dispatch(setUserProfile('normal'))
     fetchRefreshToken();
     const checkLogin = async () => {
       const loggedI = await AsyncStorage.getItem('isLoggedIn');
