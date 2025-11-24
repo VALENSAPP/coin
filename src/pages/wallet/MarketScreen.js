@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -13,23 +13,66 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TradeModal from '../../components/modals/TradeModal';
 import { useAppTheme } from '../../theme/useApptheme';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { getTopCreators } from '../../services/tokens';
+import { showToastMessage } from '../../components/displaytoastmessage';
+import { useDispatch } from 'react-redux';
+import { useToast } from 'react-native-toast-notifications';
 
 export const MarketScreen = ({ navigation }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
+    const [marketCreators, setMarketCreators] = useState('');
     const { bgStyle, textStyle, text } = useAppTheme();
+    const dispatch = useDispatch();
+    const toast = useToast();
 
-    const marketCreators = [
-        { id: 1, name: '@alpha', price: '$0.91', change: '+12.4%', marketCap: '$2.1M', volume: '$124.5K', holders: 2341, verified: true },
-        { id: 2, name: '@carol', price: '$0.77', change: '+9.8%', marketCap: '$1.8M', volume: '$98.2K', holders: 1923, verified: true },
-        { id: 3, name: '@lyra', price: '$0.72', change: '+7.1%', marketCap: '$1.5M', volume: '$87.3K', holders: 1654, verified: false },
-        { id: 4, name: '@jinx', price: '$0.69', change: '+6.3%', marketCap: '$1.2M', volume: '$76.8K', holders: 1432, verified: true },
-    ];
+    // const marketCreators = [
+    //     { id: 1, name: '@alpha', price: '$0.91', change: '+12.4%', marketCap: '$2.1M', volume: '$124.5K', holders: 2341, verified: true },
+    //     { id: 2, name: '@carol', price: '$0.77', change: '+9.8%', marketCap: '$1.8M', volume: '$98.2K', holders: 1923, verified: true },
+    //     { id: 3, name: '@lyra', price: '$0.72', change: '+7.1%', marketCap: '$1.5M', volume: '$87.3K', holders: 1654, verified: false },
+    //     { id: 4, name: '@jinx', price: '$0.69', change: '+6.3%', marketCap: '$1.2M', volume: '$76.8K', holders: 1432, verified: true },
+    // ];
+
+    const fetchTopCreators = async () => {
+        try {
+            dispatch(showLoader());
+            const response = await getTopCreators();
+            if (response?.statusCode === 200) {
+                console.log('response in fetch top creators--------------',response);
+                
+                const formattedCreators = response.data.map((creator, index) => ({
+                    id: index + 1,
+                    name: `@${creator.username || 'unknown'}`,
+                    vendorId: creator.vendorId,
+                    price: `$${Number(creator.purchaseTokenPrice).toFixed(4) || '0.0000'}`,
+                    followers: Math.floor(Math.random() * 3000), // Placeholder for now
+                }));
+
+                setMarketCreators(formattedCreators.slice(0, 10)); // Limit to 10 if needed
+            } else {
+                showToastMessage(toast, 'danger', response.data.message || 'Failed to fetch creators');
+            }
+        } catch (error) {
+            showToastMessage(
+                toast,
+                'danger',
+                error?.response?.message ?? 'Something went wrong while fetching creators',
+            );
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
+
+    useEffect(() => {
+        fetchTopCreators();
+    }, []);
+
 
     const renderMarketCreator = ({ item }) => (
-        <View style={[styles.marketCreatorItem, {shadowColor: text}]}>
+        <View style={[styles.marketCreatorItem, { shadowColor: text }]}>
             <View style={styles.creatorLeft}>
-                <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
+                <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
                     <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
                 </View>
                 <View>
@@ -37,18 +80,18 @@ export const MarketScreen = ({ navigation }) => {
                         <Text style={styles.creatorName}>{item.name}</Text>
                         {item.verified && <Ionicons name="checkmark-circle" size={14} color={text} />}
                     </View>
-                    <Text style={[styles.marketCapText, textStyle]}>MCap: {item.marketCap}</Text>
-                    <Text style={styles.holdersText}>{item.holders} holders</Text>
+                    {/* <Text style={[styles.marketCapText, textStyle]}>MCap: {item.marketCap}</Text> */}
+                    {/* <Text style={styles.holdersText}>{item.bio} holders</Text> */}
                 </View>
             </View>
             <View style={styles.creatorRight}>
                 <Text style={[styles.creatorPrice, textStyle]}>{item.price}</Text>
                 <Text style={styles.creatorChange}>{item.change}</Text>
-                <View style={styles.marketActions}>
-                    <TouchableOpacity style={[styles.buyButton, {backgroundColor: text}]} onPress={() => setTradeModalVisible(true)}>
+                {/* <View style={styles.marketActions}>
+                    <TouchableOpacity style={[styles.buyButton, { backgroundColor: text }]} onPress={() => setTradeModalVisible(true)}>
                         <Text style={styles.buyButtonText}>Support</Text>
                     </TouchableOpacity>
-                </View>
+                </View> */}
             </View>
         </View>
     );
@@ -63,17 +106,17 @@ export const MarketScreen = ({ navigation }) => {
 
                 {/* Market Stats */}
                 <View style={styles.marketStats}>
-                    <View style={[styles.statCard, {shadowColor: text}]}>
+                    <View style={[styles.statCard, { shadowColor: text }]}>
                         <Text style={styles.statValue}>$45.2M</Text>
                         <Text style={styles.statLabel}>Market Cap</Text>
                         <Text style={styles.statChange}>+8.3% (24h)</Text>
                     </View>
-                    <View style={[styles.statCard, {shadowColor: text}]}>
+                    <View style={[styles.statCard, { shadowColor: text }]}>
                         <Text style={styles.statValue}>$2.8M</Text>
                         <Text style={styles.statLabel}>Volume (24h)</Text>
                         <Text style={styles.statChange}>+12.5%</Text>
                     </View>
-                    <View style={[styles.statCard, {shadowColor: text}]}>
+                    <View style={[styles.statCard, { shadowColor: text }]}>
                         <Text style={styles.statValue}>1,234</Text>
                         <Text style={styles.statLabel}>Active Supporters</Text>
                         <Text style={styles.statChange}>Online now</Text>
@@ -81,7 +124,7 @@ export const MarketScreen = ({ navigation }) => {
                 </View>
 
                 {/* Search */}
-                <View style={[styles.searchContainer, {shadowColor: text}]}>
+                <View style={[styles.searchContainer, { shadowColor: text }]}>
                     <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}

@@ -43,3 +43,15 @@ export const deleteUserSubscription = async (id) => {
 export const getSubscriptionByUserID = async (id) => {
   return axiosInstance.get('/user/getSubscriptionByUserID/' + id);
 }
+
+export const enableTwoFactorAuth = async () => {
+  return axiosInstance.post('/user/enable-two-factor');
+}
+
+export const verifyTwoFactorAuth = async (data) => {
+  return axiosInstance.post('/user/verify-two-factor', data);
+}
+
+export const disableTwoFactorAuth = async (data) => {
+  return axiosInstance.get('/user/disable-two-factor', data);
+}
