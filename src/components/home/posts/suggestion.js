@@ -48,7 +48,7 @@ export default function Suggestion({
   return (
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title, textStyle]}>Suggested for you</Text>
+        <Text style={[styles.title]}>Suggested for you</Text>
       </View>
 
       <FlatList
@@ -132,6 +132,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
+    color: '#000',
     fontSize: 18,
   },
 

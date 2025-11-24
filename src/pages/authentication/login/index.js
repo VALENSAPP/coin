@@ -71,9 +71,9 @@ export default function LoginScreen() {
           }
           navigation.navigate('CreateProfile');
         } else {
-          const profile = response?.data?.profile
-          await AsyncStorage.setItem('profile', profile);
-          dispatch(setUserProfile(profile));
+          // const profile = response?.data?.profile
+          // await AsyncStorage.setItem('profile', profile);
+          // dispatch(setUserProfile(profile));
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
         }
