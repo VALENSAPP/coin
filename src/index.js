@@ -71,6 +71,8 @@ export default function Main() {
       const dataToSend = { refreshToken: oldToken };
       const response = await refreshToken(dataToSend);
       if (response?.statusCode === 200) {
+        console.log('response in refreshtoken------->>>>>>>>>>>>>>>',response);
+        
         await AsyncStorage.setItem('token', response.data.access_token);
         await AsyncStorage.setItem(
           'refreshToken',

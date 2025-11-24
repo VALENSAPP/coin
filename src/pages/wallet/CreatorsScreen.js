@@ -44,10 +44,11 @@ export const CreatorsScreen = ({ navigation }) => {
 
         setCreators(formattedCreators.slice(0, 10)); // Limit to 10 if needed
       } else {
-        showToastMessage('danger', response.data.message || 'Failed to fetch creators');
+        showToastMessage(toast, 'danger', response.data.message || 'Failed to fetch creators');
       }
     } catch (error) {
       showToastMessage(
+        toast, 
         'danger',
         error?.response?.message ?? 'Something went wrong while fetching creators',
       );

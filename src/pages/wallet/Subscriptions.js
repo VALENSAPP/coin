@@ -284,7 +284,10 @@ const SubventionSetupScreen = () => {
                 break;
             case 'reels':
                 // Navigate to create reel screen
-                Alert.alert('Create Reel', 'Opening reel creator...');
+                navigation.navigate('Add', {
+                    screen: 'Add',
+                    params: { fromIcon: 'Flips' },
+                });
                 // Example: navigation.navigate('CreateReel');
                 break;
             case 'stories':
@@ -292,9 +295,10 @@ const SubventionSetupScreen = () => {
                 handleAddStory();
                 break;
             case 'videos':
-                // Navigate to create video screen
-                Alert.alert('Create Video', 'Opening video creator (10min max)...');
-                // Example: navigation.navigate('CreateVideo', { maxDuration: 600 });
+                navigation.navigate('Add', {
+                    screen: 'Add',
+                    params: { fromIcon: 'Flips' },
+                });
                 break;
             default:
                 break;
@@ -633,7 +637,7 @@ const SubventionSetupScreen = () => {
                 <TermCondition
                     showModal={showModal}
                     setShowModal={setShowModal}
-                    onAccept={()=>{
+                    onAccept={() => {
                         setShowModal(false);
                         setShowActivationPopup(true)
                     }}
