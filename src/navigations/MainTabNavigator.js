@@ -58,6 +58,7 @@ import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../theme/useApptheme';
+import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -111,6 +112,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="notificationEnable" component={Notification} options={{ headerShown: false }} />
         <Stack.Screen name="HidePosts" component={HidePosts} options={{ headerShown: false }} />
         <Stack.Screen name="subscription" component={subscription} options={{ headerShown: false }} />
+        <Stack.Screen name="TermConditionScreen" component={TermConditionScreen} options={{ headerShown: false }} />
         <Stack.Screen name="FlipsScreen" component={FlipsScreen} options={{
           headerShown: false,
           presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import PostsScreen from '../profile/PostScreen';
@@ -10,6 +10,7 @@ import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { useAppTheme } from '../../theme/useApptheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -27,18 +28,23 @@ const ReelsTabHandler = () => {
 };
 
 
-const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
+const ProfileTabs = memo(({ post, displayName, userData, dashboard, targetUserId }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [privateKey, setPrivatKey] = useState(0);
   const [sctiveTab, setActiveTab] = useState('Posts');
   const [currentTabIndex, setCurrentTabIndex] = useState(0);
   const [previousTabIndex, setPreviousTabIndex] = useState(0);
-
-
+  const [loggedInUserId, setLoggedInUserId] = useState(null);
 
 
   const { textStyle, text } = useAppTheme();
+  useEffect(() => {
+    (async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setLoggedInUserId(id);
+    })();
+  }, []);
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
@@ -168,8 +174,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
             tabPress: () => {
               setPreviousTabIndex(currentTabIndex);
               setCurrentTabIndex(2);
-              console.log('tab pree orr focudedd')
-              if (!isSubscribed) {
+              if (loggedInUserId !== userData?.id && !isSubscribed) {
                 setPrivatKey(prev => prev + 1)
                 setShowSubscribeModal(false);
                 setTimeout(() => {
@@ -223,6 +228,7 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard }) => {
         displayName={displayName}
         userData={userData}
         dashboard={dashboard}
+        targetUserId={targetUserId}
       />
     </>
   );

@@ -199,7 +199,7 @@ const SearchScreen = () => {
     } else {
       navigation.navigate('ProfileStack', {
         screen: 'FlipsScreen',
-        // params: { userId: id }
+        params: { userId: id }
       });
     }
   };
