@@ -504,7 +504,7 @@ export default function PostItem({
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
-            <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
+            <Image source={{ uri: item.avatar }} style={styles.avatar} />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
