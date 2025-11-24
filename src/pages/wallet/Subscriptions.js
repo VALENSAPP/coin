@@ -43,7 +43,7 @@ const SubventionSetupScreen = () => {
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
-    const [showModal, setShowModal] = useState(true); 
+    const [showModal, setShowModal] = useState(false); 
         const [showActivationPopup, setShowActivationPopup] = useState(false); 
 
 
@@ -53,6 +53,7 @@ const SubventionSetupScreen = () => {
         { id: 'stories', label: 'Drops', icon: '⭐' },
         { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
     ];
+    
 
     useFocusEffect(
         useCallback(() => {
@@ -75,7 +76,7 @@ const SubventionSetupScreen = () => {
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
                     setSubscriptionAmount(amount);
                     setSubscriptionId(subId);
-                    setPrice(amount.toString());
+                  setPrice(Number(amount).toFixed(2));
                     setHasExistingSubscription(true);
                     setShowModal(false)
                 } else {
@@ -374,6 +375,7 @@ const SubventionSetupScreen = () => {
                 // Create new subscription
                 console.log('Creating new subscription');
                 response = await setPrivateSubscription(dataToSend);
+                setShowActivationPopup(false);
             }
 
             console.log('Subscription response:', response);
@@ -627,18 +629,19 @@ const SubventionSetupScreen = () => {
                     onCancel={() => setComposerVisible(false)}
                     onDone={handleComposerDone}
                 />
+
                 <TermCondition
                     showModal={showModal}
                     setShowModal={setShowModal}
                     onAccept={()=>{
                         setShowModal(false);
                         setShowActivationPopup(true)
-                        // handleSaveSubscription ();
                     }}
                 />
                 <SubscriptionActivationPopup
                 visible={showActivationPopup}
                 onClose={()=>setShowActivationPopup(false)}
+                 onConfirm={handleSaveSubscription}
                 />
             </View>
         </>

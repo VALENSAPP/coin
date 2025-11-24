@@ -1,3 +1,4 @@
+import { useNavigation } from "@react-navigation/native";
 import React from "react";
 import {
   View,
@@ -10,8 +11,11 @@ import {
 const SubscriptionActivationPopup = ({
   visible,
   onClose,
-  onAccept,
+  onConfirm
+
 }) => {
+
+  const navigation = useNavigation();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -20,7 +24,7 @@ const SubscriptionActivationPopup = ({
           <Text style={styles.title}>Become a Private Subscriber</Text>
 
           <Text style={styles.text}>
-            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90</Text> 
+            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90</Text>
             will be charged to activate your private subscriber account.
           </Text>
 
@@ -44,11 +48,17 @@ const SubscriptionActivationPopup = ({
           </Text>
 
           <View style={styles.row}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+              onClose();
+              navigation.navigate('MainApp', {
+                screen: 'wallet',
+                params: { screen: 'Dashboard' }
+              });
+            }}>
               <Text style={styles.cancelTxt}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.acceptBtn} onPress={onClose}>
+            <TouchableOpacity style={styles.acceptBtn} onPress={onConfirm}>
               <Text style={styles.acceptTxt}>Accept</Text>
             </TouchableOpacity>
           </View>

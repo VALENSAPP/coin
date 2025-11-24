@@ -245,7 +245,7 @@ const Usersprofile = () => {
           <HighlightStories userData={userData}/>
         </View>
 
-        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard}/>
+        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} targetUserId={targetUserId}/>
       </ScrollView>
 
       {/* Token Purchase Modal */}

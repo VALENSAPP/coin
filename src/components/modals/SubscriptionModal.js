@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FanPageSubscription } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useNavigation } from '@react-navigation/native';
 
 const SubscribeFlowModal = ({
     visible,
@@ -29,7 +30,8 @@ const SubscribeFlowModal = ({
     onPaymentDone,
     displayName,
     userData,
-    dashboard
+    dashboard,
+    targetUserId,
 }) => {
     const step1Ref = useRef(null);
     const step2Ref = useRef(null);
@@ -46,11 +48,13 @@ const SubscribeFlowModal = ({
     const isCompanyProfile = userProfile === 'company';
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
     const { bgStyle, textStyle, text } = useAppTheme();
-
+    const [fanId, setFanId] = useState();
+    const navigation = useNavigation();
+    console.log()
     useEffect(() => {
         fetchAllData();
-        fetchSubscriptionByUserId();
         GetSubscription();
+        fetchSubscriptionByUserId();
         fetchSubscriptionAmount();
         if (visible) step1Ref.current?.open();
         else {
@@ -75,10 +79,11 @@ const SubscribeFlowModal = ({
 
     const fetchSubscriptionByUserId = async () => {
         try {
-            const id = await AsyncStorage.getItem('userId');
+            const id = targetUserId;
             dispatch(showLoader());
             const response = await getSubscriptionByUserID(id);
             console.log('getSubscriptionByUserID response:', response);
+
 
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
@@ -86,6 +91,7 @@ const SubscribeFlowModal = ({
                     const amount = subscriptions[0].subscriptionAmount;
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
                     setSubscriptionAmount(amount);
+                    
                     // setPrice(amount)
                 } else {
                     console.log("No subscriptions found");
@@ -109,12 +115,21 @@ const SubscribeFlowModal = ({
         dispatch(showLoader());
 
         try {
-            const response = await FanPageSubscription();
+            const userId = await AsyncStorage.getItem('userId');
+
+            const payload = {
+                amount: subscriptionAmount,
+                buyUserId: targetUserId,
+                fanUserId: userId,
+            };
+
+            const response = await FanPageSubscription(payload);
 
             console.log("Subscription Response:", response);
 
-            if (response?.status === 200 && response?.data?.url) {
-                const url = response.data.url;
+            if (response?.statusCode === 200 & response?.data?.url) {
+                const url = response?.data?.url;
+                console.log('chcek respose off uerl came here or note',url);
 
                 // Check if InAppBrowser is available
                 if (await InAppBrowser.isAvailable()) {
@@ -133,20 +148,20 @@ const SubscribeFlowModal = ({
                     });
 
                     // Callback if you have one
-                    if (onPurchaseComplete) {
-                        onPurchaseComplete();
-                    }
+                    // if (onPurchaseComplete) {
+                    //     onPurchaseComplete();
+                    // }
                 } else {
                     // If InAppBrowser is not available, fallback to Linking
                     await Linking.openURL(url);
                 }
 
             } else {
-                // showToastMessage(
-                //     toast,
-                //     'danger',
-                //     response?.message || 'Failed to open subscription. Please try again.'
-                // );
+                showToastMessage(
+                    toast,
+                    'danger',
+                    response?.message || 'Failed to open subscription. Please try again.'
+                );
             }
         } catch (error) {
             console.log("Subscription Error:", error);
@@ -242,7 +257,7 @@ const SubscribeFlowModal = ({
                         <Text style={[styles.header, textStyle]}>{displayName} </Text>
                         <DragonflyIcon width={22} height={22} />
                     </View>
-                    <Text style={[styles.subHeader, {color: text}]}>You’re about to Subscribe!</Text>
+                    <Text style={[styles.subHeader, { color: text }]}>You’re about to Subscribe!</Text>
                     <Text style={styles.bodyText}>
                         Unlock exclusive posts, private drops, and direct access to this
                         creator’s Valens world.{'\n\n'}
@@ -253,7 +268,7 @@ const SubscribeFlowModal = ({
                     <Text style={[styles.confirmText, textStyle]}>Confirm Subscription?</Text>
 
                     <TouchableOpacity
-                        style={[styles.btn, {backgroundColor: text}]}
+                        style={[styles.btn, { backgroundColor: text }]}
                         onPress={handleConfirm}>
                         <Text style={styles.confirmTextBtn}>Yes, I’m In</Text>
                     </TouchableOpacity>
@@ -269,7 +284,7 @@ const SubscribeFlowModal = ({
             {/* Step 2: Payment */}
             <RBSheet
                 ref={step2Ref}
-                height={380}
+                height={280}
                 closeOnPressMask={false}
                 customStyles={{
                     container: styles.sheetContainer,
@@ -287,7 +302,7 @@ const SubscribeFlowModal = ({
                         </Text>
                     </View>
 
-                    <View style={styles.termsContainer}>
+                    {/* <View style={styles.termsContainer}>
                         <ScrollView
                             style={{ maxHeight: 240 }}
                             showsVerticalScrollIndicator={true}
@@ -323,12 +338,17 @@ By confirming, you authorize automated monthly payments through Valens payment p
 By clicking "Agree & Subscribe," you confirm you have read and accept these terms and understand this is a recurring monthly payment.\n`}
                             </Text>
                         </ScrollView>
-                    </View>
+                    </View> */}
 
                     <TouchableOpacity
                         style={styles.checkboxRow}
                         activeOpacity={0.5}
-                        onPress={() => setAcceptedTerms(!acceptedTerms)}>
+                        onPress={() => {
+                            setAcceptedTerms(!acceptedTerms)
+                            navigation.navigate('ProfileMain', {
+                                screen: 'TermConditionScreen'
+                            });
+                        }}>
                         <Ionicons
                             name={
                                 acceptedTerms
@@ -336,9 +356,9 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                                     : 'square-outline'
                             }
                             size={22}
-                            color={acceptedTerms ? {text} : '#aaa'}
+                            color={acceptedTerms ? { text } : '#aaa'}
                         />
-                        <Text style={styles.termsText}>I accept Terms & Conditions</Text>
+                        <Text style={[styles.termsText, { fontWeight: '700', textDecorationLine: 'underline' }]}>I accept Terms & Conditions</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
