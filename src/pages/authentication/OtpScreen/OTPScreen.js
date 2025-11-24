@@ -43,15 +43,13 @@ export default function OTPScreen() {
   const { email, password, type } = route.params || {};
   const { bgStyle, textStyle, text } = useAppTheme();
 
-  // useEffect(() => {
-  //   handleResend();
-  // }, []);
+  useEffect(() => {
+    if (type === 'signup') {
+      handleResend();
+    }
+  }, []);
 
   const handleConfirm = async () => {
-    if (otp.length !== 6) {
-      showToastMessage(toast, 'danger', 'Please enter a 6-digit code.');
-      return;
-    }
     // {
     //   if (type === 'signup') {
     //     // navigation.navigate('Login');
@@ -226,7 +224,7 @@ export default function OTPScreen() {
               </View>
 
               <View style={styles.infoSection}>
-                <View style={[styles.infoBox, {borderLeftColor: text}]}>
+                <View style={[styles.infoBox, { borderLeftColor: text }]}>
                   <Icon
                     name="mail"
                     size={20}
@@ -247,7 +245,7 @@ export default function OTPScreen() {
                   ref={otpInput}
                   handleTextChange={setOtp}
                   containerStyle={styles.otpContainer}
-                  textInputStyle={[styles.otpInput, {shadowColor: text}]}
+                  textInputStyle={[styles.otpInput, { shadowColor: text }]}
                   tintColor={text}
                   offTintColor="#E5E7EB"
                   inputCount={6}
@@ -260,9 +258,15 @@ export default function OTPScreen() {
                 style={[
                   styles.confirmButton,
                   (loading || otp.length !== 6) && styles.confirmButtonDisabled,
-                  {backgroundColor: text, shadowColor: text}
+                  { backgroundColor: text, shadowColor: text }
                 ]}
-                onPress={handleConfirm}
+                onPress={() => {
+                  if (otp.length !== 6) {
+                    showToastMessage(toast, 'danger', 'Please enter a 6-digit code.');
+                    return;
+                  }
+                  handleConfirm();
+                }}
                 disabled={loading || otp.length !== 6}
               >
                 {loading ? (

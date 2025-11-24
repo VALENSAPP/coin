@@ -15,6 +15,26 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Add queries for otpauth and app store links -->
+    <queries>
+        <!-- For otpauth:// URLs (authenticator apps) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="otpauth" />
+        </intent>
+        
+        <!-- For opening Google Play Store -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="market" />
+        </intent>
+        
+        <!-- For opening URLs (app store fallback) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
     <application
       android:name=".MainApplication"
@@ -38,15 +58,15 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
 
-      <intent-filter >
-          <action android:name="android.intent.action.VIEW" />
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
  
-          <category android:name="android.intent.category.DEFAULT" />
-          <category android:name="android.intent.category.BROWSABLE" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
  
-           <!-- <data android:scheme="com.valens" /> -->
+            <!-- <data android:scheme="com.valens" /> -->
             <data android:scheme="com.valens" android:host="callback" />
-      </intent-filter>
+        </intent-filter>
       </activity>
       
     </application>
