@@ -56,8 +56,9 @@ export default function KYCVerification({ route }) {
     const [modalMessage, setModalMessage] = useState('');
     const [isRetrying, setIsRetrying] = useState(false);
     const [showProgressModal, setShowProgressModal] = useState(false);
-    const [progressValue] = useState(new Animated.Value(0));
+    const progressValue = useRef(new Animated.Value(0)).current;
     const [progressPercent, setProgressPercent] = useState(0);
+    const [hasOpenedBrowser, setHasOpenedBrowser] = useState(false);
 
     const isFirstMount = useRef(true);
     const isFocused = useIsFocused();
@@ -70,7 +71,8 @@ export default function KYCVerification({ route }) {
     // Monitor app state
     useEffect(() => {
         const subscription = AppState.addEventListener('change', nextAppState => {
-            if (nextAppState === 'active' && isFocused && !isFirstMount.current) {
+            if (nextAppState === 'active' && isFocused && hasOpenedBrowser) {
+                setHasOpenedBrowser(false);
                 startProgressBarAndFetch();
             }
         });
@@ -79,7 +81,7 @@ export default function KYCVerification({ route }) {
             subscription.remove();
             cleanupProgress();
         };
-    }, [isFocused]);
+    }, [isFocused, hasOpenedBrowser]);
 
     // Also check on focus (but skip first time)
     useFocusEffect(
@@ -120,46 +122,56 @@ export default function KYCVerification({ route }) {
     };
 
     const startProgressBarAndFetch = () => {
-        setShowProgressModal(true);
+        console.log('startProgressBarAndFetch called');
+
+        // Clean up any existing timers/animations FIRST
+        cleanupProgress();
+
+        // Reset animation value
         progressValue.setValue(0);
         setProgressPercent(0);
+        setShowProgressModal(true);
 
-        // Update percentage every 100ms for smooth animation
-        let elapsed = 0;
-        const totalDuration = 120000; // 2 minutes
-        const updateInterval = 100;
+        // Small delay to ensure modal is rendered before starting animation
+        setTimeout(() => {
+            // Update percentage every 100ms for smooth animation
+            let elapsed = 0;
+            const totalDuration = 120000; // 2 minutes
+            const updateInterval = 100;
 
-        const percentInterval = setInterval(() => {
-            elapsed += updateInterval;
-            const percent = Math.min(Math.round((elapsed / totalDuration) * 100), 100);
-            setProgressPercent(percent);
+            const percentInterval = setInterval(() => {
+                elapsed += updateInterval;
+                const percent = Math.min(Math.round((elapsed / totalDuration) * 100), 100);
+                setProgressPercent(percent);
 
-            if (elapsed >= totalDuration) {
-                clearInterval(percentInterval);
-            }
-        }, updateInterval);
+                if (elapsed >= totalDuration) {
+                    clearInterval(percentInterval);
+                }
+            }, updateInterval);
 
-        // Store interval reference for cleanup
-        percentUpdateInterval.current = percentInterval;
+            // Store interval reference for cleanup
+            percentUpdateInterval.current = percentInterval;
 
-        // Animate progress bar over 2 minutes (120000ms)
-        progressAnimationRef.current = Animated.timing(progressValue, {
-            toValue: 1,
-            duration: totalDuration,
-            easing: Easing.linear,
-            useNativeDriver: false,
-        });
+            // Animate progress bar over 2 minutes (120000ms)
+            progressAnimationRef.current = Animated.timing(progressValue, {
+                toValue: 1,
+                duration: totalDuration,
+                easing: Easing.linear,
+                useNativeDriver: false,
+            });
 
-        progressAnimationRef.current.start();
+            progressAnimationRef.current.start((result) => {
+                console.log('Animation completed, finished:', result.finished);
+            });
 
-        // Call fetchKycStatus after 2 minutes
-        progressTimerRef.current = setTimeout(() => {
-            setShowProgressModal(false);
-            progressValue.setValue(0);
-            setProgressPercent(0);
-            clearInterval(percentInterval);
-            fetchKycStatus();
-        }, totalDuration);
+            // Call fetchKycStatus after 2 minutes
+            progressTimerRef.current = setTimeout(() => {
+                setShowProgressModal(false);
+                progressValue.setValue(0);
+                setProgressPercent(0);
+                fetchKycStatus();
+            }, totalDuration);
+        }, 100); // 100ms delay
     };
 
     const cancelProgress = () => {
@@ -217,15 +229,15 @@ export default function KYCVerification({ route }) {
                         secondaryToolbarColor: '#f0f0f0',
                     });
 
-                    // Browser was closed - check KYC status
+                    // Browser was closed - start progress bar and then fetch KYC status
                     if (result.type === 'dismiss' || result.type === 'cancel') {
-                        fetchKycStatus();
+                        startProgressBarAndFetch(); // Changed from fetchKycStatus()
                     }
                 } else {
                     // Fallback if in-app browser isn't available
                     await Linking.openURL(url);
                 }
-
+                setHasOpenedBrowser(true);
             } else {
                 showToastMessage(toast, 'danger', response.message || 'Please try again');
             }
@@ -455,7 +467,7 @@ export default function KYCVerification({ route }) {
                                 style={[
                                     styles.inputFull,
                                     errors.firstName && styles.inputErrorWrapper,
-                                    bgStyle,
+                                    // bgStyle,
                                 ]}
                                 value={firstName}
                                 onChangeText={txt => {
@@ -480,6 +492,7 @@ export default function KYCVerification({ route }) {
                                 style={[
                                     styles.inputFull,
                                     errors.lastName && styles.inputErrorWrapper,
+                                    // bgStyle,
                                 ]}
                                 value={lastName}
                                 onChangeText={txt => {
@@ -503,7 +516,7 @@ export default function KYCVerification({ route }) {
                                     styles.dropdownButton,
                                     errors.documentType && styles.inputErrorWrapper,
                                     showDropdown && styles.dropdownButtonActive,
-                                    bgStyle,
+                                    // bgStyle,
                                 ]}
                                 onPress={() => { Keyboard.dismiss(), setShowDropdown(!showDropdown) }}
                             >
@@ -620,25 +633,29 @@ export default function KYCVerification({ route }) {
                     <View style={styles.modalContainer}>
                         {/* Circular Progress Indicator */}
                         <View style={styles.circularProgressContainer}>
-                            <Animated.View
-                                style={[
-                                    styles.circularProgress,
-                                    {
-                                        transform: [
-                                            {
-                                                rotate: progressValue.interpolate({
-                                                    inputRange: [0, 1],
-                                                    outputRange: ['0deg', '360deg'],
-                                                }),
-                                            },
-                                        ],
-                                    },
-                                ]}
-                            >
-                                <View style={styles.circularProgressInner}>
+                            <View style={styles.wrapper}>
+                                {/* ROTATING BORDER */}
+                                <Animated.View
+                                    style={[
+                                        styles.rotatingBorder,
+                                        {
+                                            transform: [
+                                                {
+                                                    rotate: progressValue.interpolate({
+                                                        inputRange: [0, 1],
+                                                        outputRange: ['0deg', '360deg'],
+                                                    }),
+                                                },
+                                            ],
+                                        },
+                                    ]}
+                                />
+
+                                {/* Static Icon */}
+                                <View style={styles.centerIcon}>
                                     <Icon name="shield-off" size={32} color="#4F46E5" />
                                 </View>
-                            </Animated.View>
+                            </View>
 
                             {/* Percentage Display */}
                             <View style={styles.percentageContainer}>
@@ -754,9 +771,11 @@ const styles = StyleSheet.create({
         borderColor: '#D1D5DB',
         borderRadius: 8,
         padding: 12,
+        paddingLeft: 12, // extra assurance
         fontSize: 14,
         minHeight: 48,
         color: '#1F2937',
+        textAlign: 'left',
     },
     inputErrorWrapper: {
         borderColor: '#DC2626',
@@ -1019,22 +1038,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    circularProgress: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        borderWidth: 6,
-        borderColor: '#E5E7EB',
-        borderTopColor: '#4F46E5',
-        borderRightColor: '#4F46E5',
+    wrapper: {
+        width: 90,
+        height: 90,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    circularProgressInner: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#F5F3FF',
+    rotatingBorder: {
+        position: 'absolute',
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        // 🔵 This creates only TOP part visible (like a moving arc)
+        borderWidth: 6,
+        borderColor: 'transparent',
+        borderTopColor: '#4F46E5',     // Only top is blue
+    },
+    centerIcon: {
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -1075,5 +1095,5 @@ const styles = StyleSheet.create({
         height: '100%',
         backgroundColor: '#4F46E5',
         borderRadius: 4,
-    },  
+    },
 });

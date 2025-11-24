@@ -30,7 +30,7 @@ const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 export default function FollowersFollowingScreen({ navigation, route }) {
   const initialTab = route?.params?.tab;
-  console.log(route?.params?.params.userName, 'checkTab');
+  // console.log(route?.params?.params.userName, 'checkTab');
 
   const headerUsername =
     route?.params?.params.userName ||
