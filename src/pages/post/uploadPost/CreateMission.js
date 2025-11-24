@@ -194,6 +194,16 @@ const CreateMission = () => {
     return new Date(date).toISOString();
   };
 
+  const formatDateDisplay = (dateString) => {
+    const date = dateString ? new Date(dateString) : new Date();
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+
+    return `${day}-${month}-${year}`;
+  };
+
   const formatNumberWithCommas = (value) => {
     if (!value) return '';
     // Remove non-numeric characters except decimal point
@@ -366,7 +376,7 @@ const CreateMission = () => {
                 <TouchableOpacity
                   style={[styles.dateButton, touched.startTime && errors.startTime && styles.inputError]}
                   onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}>
-                  <Text style={styles.dateText}>{formatDateTime(values.startTime)}</Text>
+                  <Text style={styles.dateText}>{formatDateDisplay(values.startTime)}</Text>
                   <Icon name="calendar-outline" size={20} color="#666" />
                 </TouchableOpacity>
                 {touched.startTime && errors.startTime && (
@@ -380,7 +390,7 @@ const CreateMission = () => {
                 <TouchableOpacity
                   style={[styles.dateButton, touched.endTime && errors.endTime && styles.inputError]}
                   onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}>
-                  <Text style={styles.dateText}>{formatDateTime(values.endTime)}</Text>
+                  <Text style={styles.dateText}>{formatDateDisplay(values.endTime)}</Text>
                   <Icon name="calendar-outline" size={20} color="#666" />
                 </TouchableOpacity>
                 {touched.endTime && errors.endTime && (
