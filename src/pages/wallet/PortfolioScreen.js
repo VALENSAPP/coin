@@ -45,7 +45,7 @@ export const PortfolioScreen = ({ navigation }) => {
                 setPortfolioValue(`$ ${totalPortfolioValue.toFixed(4)}`);
                 setHoldingsdata(response.data);
             } else {
-                showToastMessage(toast, 'danger', response.data.message);
+                showToastMessage(toast, 'danger', response.message);
             }
         } catch (error) {
             showToastMessage(

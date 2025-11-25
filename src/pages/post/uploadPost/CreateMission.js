@@ -235,60 +235,86 @@ const CreateMission = () => {
     setShowCountryPicker(false);
   };
 
-  const handlePost = async (values, { setFieldError, setFieldTouched }) => {
-    // Mark all fields as touched to show errors
-    setFieldTouched('raiseAmount', true);
-    setFieldTouched('startTime', true);
-    setFieldTouched('endTime', true);
-    setFieldTouched('currency', true);
+  const handlePost = async (values, { setFieldError, setFieldTouched, validateForm }) => {
+  // Mark all fields as touched first
+  setFieldTouched('raiseAmount', true, false);
+  setFieldTouched('startTime', true, false);
+  setFieldTouched('endTime', true, false);
+  setFieldTouched('currency', true, false);
+  
+  // Manually validate and set errors for null dates
+  let hasErrors = false;
+  
+  if (!values.raiseAmount) {
+    setFieldError('raiseAmount', 'Raise amount is required');
+    hasErrors = true;
+  }
+  
+  if (!values.startTime) {
+    setFieldError('startTime', 'Start date is required');
+    hasErrors = true;
+  }
+  
+  if (!values.endTime) {
+    setFieldError('endTime', 'End date is required');
+    hasErrors = true;
+  } else if (values.startTime && values.endTime && values.endTime <= values.startTime) {
+    setFieldError('endTime', 'End date must be after start date');
+    hasErrors = true;
+  }
+  
+  if (!values.currency) {
+    setFieldError('currency', 'Currency is required');
+    hasErrors = true;
+  }
+  
+  // Stop here if there are any errors
+  if (hasErrors) {
+    return;
+  }
+  
+  // Validate amount format
+  const numericValue = parseFloat(values.raiseAmount.replace(/,/g, ''));
+  if (isNaN(numericValue) || numericValue <= 0) {
+    setFieldError('raiseAmount', 'Please enter a valid amount');
+    return;
+  }
+  
+  dispatch(showLoader());
 
-    // Check if all required fields are present
-    if (!values.raiseAmount || !values.startTime || !values.endTime || !values.currency) {
-      if (!values.raiseAmount) setFieldError('raiseAmount', 'Raise amount is required');
-      if (!values.startTime) setFieldError('startTime', 'Start date is required');
-      if (!values.endTime) setFieldError('endTime', 'End date is required');
-      if (!values.currency) setFieldError('currency', 'Currency is required');
-      return;
-    }
+  const profileType = await AsyncStorage.getItem('profile');
 
-    dispatch(showLoader());
-
-    // Remove commas from amount before sending
-    const numericAmount = parseFloat(values.raiseAmount.replace(/,/g, ''));
-    const profileType = await AsyncStorage.getItem('profile');
-
-    const payload = {
-      caption: caption.trim(),
-      media: images.map(img => ({
-        uri: img.processedUri || img.uri,
-        type: img.type,
-        name: (img.processedUri || img.uri).split('/').pop()
-      })),
-      link: link ? link.trim() : '',
-      type: profileType === 'company' ? 'support' : 'crowdfunding',
-      raiseAmount: numericAmount,
-      // currency: values.currency,
-      start_time: formatDateTime(values.startTime),
-      end_time: formatDateTime(values.endTime)
-    };
-
-    try {
-      const response = await createPost(payload);
-      console.log('crdateeeee post respo se', response);
-
-      if (response.statusCode == 200) {
-        showToastMessage(toast, 'success', 'Post created successfully');
-        navigation.navigate('HomeMain');
-      } else {
-        showToastMessage(toast, 'danger', response.message || 'Please try again');
-      }
-    } catch (err) {
-      console.error('Post creation error:', err);
-      showToastMessage(toast, 'danger', err.response?.message || 'An error occurred');
-    } finally {
-      dispatch(hideLoader());
-    }
+  const payload = {
+    caption: caption.trim(),
+    media: images.map(img => ({
+      uri: img.processedUri || img.uri,
+      type: img.type,
+      name: (img.processedUri || img.uri).split('/').pop()
+    })),
+    link: link ? link.trim() : '',
+    type: profileType === 'company' ? 'support' : 'crowdfunding',
+    raiseAmount: numericValue,
+    start_time: formatDateTime(values.startTime),
+    end_time: formatDateTime(values.endTime)
   };
+
+  try {
+    const response = await createPost(payload);
+    console.log('create post response', response);
+
+    if (response.statusCode == 200) {
+      showToastMessage(toast, 'success', 'Post created successfully');
+      navigation.navigate('HomeMain');
+    } else {
+      showToastMessage(toast, 'danger', response.message || 'Please try again');
+    }
+  } catch (err) {
+    console.error('Post creation error:', err);
+    showToastMessage(toast, 'danger', err.response?.message || 'An error occurred');
+  } finally {
+    dispatch(hideLoader());
+  }
+};
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -374,11 +400,16 @@ const CreateMission = () => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Start Date</Text>
                 <TouchableOpacity
-                  style={[styles.dateButton, touched.startTime && errors.startTime && styles.inputError]}
-                  onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}>
-                  <Text style={styles.dateText}>{formatDateDisplay(values.startTime)}</Text>
-                  <Icon name="calendar-outline" size={20} color="#666" />
-                </TouchableOpacity>
+  style={[
+    styles.dateButton, 
+    touched.startTime && errors.startTime && styles.inputError
+  ]}
+  onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}>
+  <Text style={[styles.dateText, !values.startTime && styles.placeholderText]}>
+    {values.startTime ? formatDateDisplay(values.startTime) : 'Select start date'}
+  </Text>
+  <Icon name="calendar-outline" size={20} color="#666" />
+</TouchableOpacity>
                 {touched.startTime && errors.startTime && (
                   <Text style={styles.errorText}>{errors.startTime}</Text>
                 )}
@@ -388,11 +419,16 @@ const CreateMission = () => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>End Date</Text>
                 <TouchableOpacity
-                  style={[styles.dateButton, touched.endTime && errors.endTime && styles.inputError]}
-                  onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}>
-                  <Text style={styles.dateText}>{formatDateDisplay(values.endTime)}</Text>
-                  <Icon name="calendar-outline" size={20} color="#666" />
-                </TouchableOpacity>
+  style={[
+    styles.dateButton, 
+    touched.endTime && errors.endTime && styles.inputError
+  ]}
+  onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}>
+  <Text style={[styles.dateText, !values.endTime && styles.placeholderText]}>
+    {values.endTime ? formatDateDisplay(values.endTime) : 'Select end date'}
+  </Text>
+  <Icon name="calendar-outline" size={20} color="#666" />
+</TouchableOpacity>
                 {touched.endTime && errors.endTime && (
                   <Text style={styles.errorText}>{errors.endTime}</Text>
                 )}
@@ -546,6 +582,9 @@ const styles = StyleSheet.create({
   countryPicker: {
     display: 'none',
   },
+  placeholderText: {
+  color: '#999',
+},
 });
 
 export default CreateMission;

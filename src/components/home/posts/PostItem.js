@@ -16,6 +16,7 @@ import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
+import MissionSupportScreen from '../../modals/DonationModal';
 
 const { width } = Dimensions.get('window');
 
@@ -216,6 +217,7 @@ export default function PostItem({
   const [viewerUri, setViewerUri] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [donation, setDonation] = useState(false)
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -593,26 +595,33 @@ export default function PostItem({
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={() => {
-              if (!isBusinessProfile && item.UserId !== userId) {
-                if (item.profile === 'company') {
-                  executeFollowAction(item.UserId, !item.follow);
-                } else {
-                  onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+          {item.UserId !== userId && (
+            <TouchableOpacity
+              onPress={() => {
+                if (!isBusinessProfile && item.UserId !== userId) {
+                  if (item.profile === 'company') {
+                    executeFollowAction(item.UserId, !item.follow);
+                  } else {
+                    onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+                  }
                 }
-              }
-            }}
-            style={[styles.followButton, item.follow && styles.followingButton, { backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}
-          >
-            {followingBusy ? (
-              <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
-            ) : (
-              <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                {isBusinessProfile ? "Support" : item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'}
-              </Text>
-            )}
-          </TouchableOpacity>
+              }}
+              style={[
+                styles.followButton,
+                item.follow && styles.followingButton,
+                { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
+              ]}
+            >
+              {followingBusy ? (
+                <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
+              ) : (
+                <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
+                  {isBusinessProfile ? "Support" : item.follow ? 'Vallowing' : 'Vallow'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
         </View>
 
         {item.UserId != userId && (
@@ -675,6 +684,7 @@ export default function PostItem({
               </View>
               <TouchableOpacity
                 onPress={() => {
+                  setDonation(true);
                 }}
                 style={[{
                   backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683', width: '25%', left: '74%', marginBottom: 5, marginTop: -10, paddingVertical: 8,
@@ -682,7 +692,7 @@ export default function PostItem({
                 }]}
               >
                 <Text style={styles.followButtonText}>
-                  Donation
+                  Donate
                 </Text>
               </TouchableOpacity>
             </View>
@@ -700,7 +710,7 @@ export default function PostItem({
           }}
         />
       )}
-
+      <MissionSupportScreen visible={donation} onClose={() => setDonation(false)} />
       <ShareModal ref={shareRef} url={item.link} />
     </View>
   );

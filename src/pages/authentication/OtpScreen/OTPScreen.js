@@ -175,9 +175,22 @@ export default function OTPScreen() {
 
       if (id) {
         const response = await getProfile(id);
-        if (response.statusCode === 200 && response.data.bio == null) {
+        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted"))
+        {
+          showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+          return;
+        }
+        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED"){
+          showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
           navigation.navigate('CreateProfile');
-        } else {
+        }
+        else if (response.statusCode === 200 && response.data.kyc == false) {
+          navigation.navigate('CreateProfile');
+        }
+        else if (response.statusCode === 200 && response.data.bio == null) {
+          navigation.navigate('CreateProfile');
+        } 
+        else {
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
         }

@@ -58,7 +58,7 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) 
       const idTokenFromUser = await user.getIdToken();
       AsyncStorage.setItem('firebaseToken', idTokenFromUser);
       // await signInWithFirebase(idTokenFromUser);
-      console.log("idTokenFromUser--------------",idTokenFromUser)
+      console.log("idTokenFromUser--------------", idTokenFromUser)
       if (idToken) {
         signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation, profile)
       }
@@ -91,7 +91,7 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
     if (!identityToken) throw new Error('No identity token returned from Apple');
 
     const appleCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
-    
+
     const userCredential = await auth().signInWithCredential(appleCredential);
     console.log('appleCredential------>>>>>>>>>', userCredential);
 
@@ -107,8 +107,8 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
       });
 
       const idToken = await user.getIdToken();
-      console.log('idtokennnnnnnn',idToken);
-      
+      console.log('idtokennnnnnnn', idToken);
+
       signupReference('APPLE', idToken, toast, dispatch, navigation, profile)
     }
   } catch (error) {
@@ -183,7 +183,19 @@ const getProfileData = async (dispatch, navigation) => {
     const id = await AsyncStorage.getItem('userId');
     if (id) {
       const response = await getProfile(id);
-      if (response.statusCode === 200 && response.data.bio == null) {
+      console.log('profile status-----------------', response)
+      if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
+        showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+        return;
+      }
+      else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
+        showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
+        navigation.navigate('CreateProfile');
+      }
+      else if (response.statusCode === 200 && response.data.kyc == false) {
+        navigation.navigate('CreateProfile')
+      }
+      else if (response.statusCode === 200 && response.data.bio == null) {
         navigation.navigate('CreateProfile')
       }
       else {
@@ -220,14 +232,19 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
     if (
       response && (response.statusCode == 200 || response.statusCode == 201)
     ) {
-      await AsyncStorage.setItem('userId', response.data.id)
-      // showToastMessage(toast, 'success', response.data.message);
-      await handleLoginSuccess(
-        response.data.access_token,
-        dispatch,
-        navigation,
-        getProfileData
-      );
+      if (response.data.error == true) {
+        showToastMessage(toast, 'danger', response.data.msg);
+      }
+      else {
+        await AsyncStorage.setItem('userId', response.data.id)
+        // showToastMessage(toast, 'success', response.data.message);
+        await handleLoginSuccess(
+          response.data.access_token,
+          dispatch,
+          navigation,
+          getProfileData
+        );
+      }
     } else {
       showToastMessage(toast, 'danger', response.message);
     }

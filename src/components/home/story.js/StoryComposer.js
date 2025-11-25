@@ -14,10 +14,10 @@ import {
   FlatList,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
-import ImageZoom from 'react-native-image-pan-zoom';
 import { captureRef } from 'react-native-view-shot';
 
 import {
@@ -30,12 +30,11 @@ import {
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT * 0.75);
 
 const FILTERS = [
-  { key: 'none', label: 'Original', Comp: React.Fragment },
-  { key: 'grayscale', label: 'Grayscale', Comp: Grayscale },
-  { key: 'sepia', label: 'Sepia', Comp: Sepia },
+  { key: 'none', label: 'Original', Comp: ({ children }) => <>{children}</> },
+  { key: 'grayscale', label: 'Grayscale', Comp: (p) => <Grayscale {...p} /> },
+  { key: 'sepia', label: 'Sepia', Comp: (p) => <Sepia {...p} /> },
   {
     key: 'saturate',
     label: 'Saturate',
@@ -76,7 +75,6 @@ const Draggable = ({
   onStart,
   onEnd,
   children,
-  allowMultiTouchRelease,
 }) => {
   const pan = useRef(
     new Animated.ValueXY({ x: initialX, y: initialY }),
@@ -84,7 +82,6 @@ const Draggable = ({
 
   const responder = useRef(
     PanResponder.create({
-      // only single-finger should start drag
       onStartShouldSetPanResponder: e => e.nativeEvent.touches.length === 1,
       onMoveShouldSetPanResponder: (e, g) =>
         e.nativeEvent.touches.length === 1 &&
@@ -96,18 +93,9 @@ const Draggable = ({
         pan.setValue({ x: 0, y: 0 });
       },
 
-      onPanResponderMove: (e, g) => {
-        // If second finger appears mid-drag, allow termination so zoom can take over
-        if (allowMultiTouchRelease && e.nativeEvent.touches.length > 1) return;
-        Animated.event([null, { dx: pan.x, dy: pan.y }], {
-          useNativeDriver: false,
-        })(e, g);
-      },
-
-      onPanResponderTerminationRequest: e => {
-        // If pinch begins (2+ touches), release this responder
-        return e.nativeEvent.touches.length > 1;
-      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
 
       onPanResponderRelease: () => {
         pan.flattenOffset();
@@ -142,25 +130,22 @@ export default function StoryComposer({
   const [stickersPerIndex, setStickersPerIndex] = useState({});
   const [textsPerIndex, setTextsPerIndex] = useState({});
   const [draftText, setDraftText] = useState('');
-  const [textColor, setTextColor] = useState('#000');
+  const [textColor, setTextColor] = useState('#fff');
   const [textFont, setTextFont] = useState(DEFAULT_FONTS[0].style);
-  const [overlayDragActive, setOverlayDragActive] = useState(false);
-  const [zoomScale, setZoomScale] = useState(1);
   const [activeTab, setActiveTab] = useState('filters');
   const { bgStyle, textStyle, bg } = useAppTheme();
 
-  const canvasRefs = useRef({}); // for captureRef
+  const canvasRefs = useRef({});
 
   useEffect(() => {
     if (!modalVisible) return;
-    // initialize defaults for each media item
     const f = {},
       s = {},
       t = {};
     mediaList.forEach((_, i) => {
-      f[i] = f[i] || 'none';
-      s[i] = s[i] || [];
-      t[i] = t[i] || [];
+      f[i] = 'none';
+      s[i] = [];
+      t[i] = [];
     });
     setFilterPerIndex(f);
     setStickersPerIndex(s);
@@ -170,8 +155,16 @@ export default function StoryComposer({
 
   const currentMedia = mediaList[index];
   const currentFilterKey = filterPerIndex[index] || 'none';
-  const FilterComp =
-    FILTERS.find(f => f.key === currentFilterKey)?.Comp || React.Fragment;
+  const FilterComp = FILTERS.find(f => f.key === currentFilterKey)?.Comp || (({ children }) => <>{children}</>);
+
+  const selectFilter = filterKey => {
+    console.log('Selecting filter:', filterKey);
+    setFilterPerIndex(prev => {
+      const updated = { ...prev, [index]: filterKey };
+      console.log('Updated filters:', updated);
+      return updated;
+    });
+  };
 
   const addSticker = emoji => {
     setStickersPerIndex(prev => {
@@ -214,6 +207,7 @@ export default function StoryComposer({
       return next;
     });
   };
+  
   const setTextPos = (id, x, y) => {
     setTextsPerIndex(prev => {
       const next = { ...prev };
@@ -231,8 +225,6 @@ export default function StoryComposer({
         const m = mediaList[i];
         const isVid = isVideo(m);
 
-        // If image: capture the canvas with filter+overlays baked in
-        // If video: we can't bake with view-shot; return passthrough + overlays metadata
         let processedUri = m.uri;
         if (!isVid) {
           const ref = canvasRefs.current[i];
@@ -283,7 +275,7 @@ export default function StoryComposer({
           </TouchableOpacity>
         </View>
 
-        {/* Canvas */}
+        {/* Canvas - Full Screen */}
         <View
           style={styles.canvasOuter}
           ref={ref => {
@@ -291,40 +283,27 @@ export default function StoryComposer({
           }}
           collapsable={false}
         >
-          {/* Base media with pinch zoom (only for images) */}
           {currentMedia && !isVideo(currentMedia) ? (
-            <ImageZoom
-              cropWidth={CANVAS_SIZE}
-              cropHeight={CANVAS_SIZE}
-              imageWidth={CANVAS_SIZE}
-              imageHeight={CANVAS_SIZE}
-              minScale={0.5}
-              maxScale={4}
-              pinchToZoom={!overlayDragActive}
-              enableDoubleClickZoom={!overlayDragActive}
-              onMove={({ scale }) => setZoomScale(scale)}
-            >
-              <View style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}>
-                <FilterComp>
-                  <Image
-                    source={{ uri: currentMedia.uri }}
-                    style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
-                    resizeMode="cover"
-                  />
-                </FilterComp>
-              </View>
-            </ImageZoom>
-          ) : (
+            <View style={styles.imageContainer}>
+              <FilterComp>
+                <Image
+                  source={{ uri: currentMedia.uri }}
+                  style={styles.fullScreenImage}
+                  resizeMode="cover"
+                />
+              </FilterComp>
+            </View>
+          ) : currentMedia ? (
             <View style={styles.videoWrap}>
               <Video
-                source={{ uri: currentMedia?.uri }}
-                style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
+                source={{ uri: currentMedia.uri }}
+                style={styles.fullScreenVideo}
                 resizeMode="cover"
                 repeat
                 muted
               />
             </View>
-          )}
+          ) : null}
 
           {/* Stickers */}
           {(stickersPerIndex[index] || []).map(s => (
@@ -333,12 +312,7 @@ export default function StoryComposer({
               id={s.id}
               initialX={s.x}
               initialY={s.y}
-              onStart={() => setOverlayDragActive(true)}
-              onEnd={(x, y) => {
-                setOverlayDragActive(false);
-                setStickerPos(s.id, x, y);
-              }}
-              allowMultiTouchRelease
+              onEnd={(x, y) => setStickerPos(s.id, x, y)}
             >
               <Text style={styles.sticker}>{s.emoji}</Text>
             </Draggable>
@@ -351,12 +325,7 @@ export default function StoryComposer({
               id={t.id}
               initialX={t.x}
               initialY={t.y}
-              onStart={() => setOverlayDragActive(true)}
-              onEnd={(x, y) => {
-                setOverlayDragActive(false);
-                setTextPos(t.id, x, y);
-              }}
-              allowMultiTouchRelease
+              onEnd={(x, y) => setTextPos(t.id, x, y)}
             >
               <Text
                 style={[
@@ -371,26 +340,27 @@ export default function StoryComposer({
         </View>
 
         {/* Thumbnails / pager */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.thumbBar}
-        >
-          {mediaList.map((m, i) => (
-            <TouchableOpacity
-              key={`thumb_${i}`}
-              onPress={() => setIndex(i)}
-              style={[styles.thumb, index === i && styles.activeThumb]}
-            >
-              <Image source={{ uri: m.uri }} style={styles.thumbImg} />
-              {isVideo(m) && (
-                <View style={styles.videoBadge}>
-                  <Icon name="videocam" size={12} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {mediaList.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.thumbBar}>
+            {mediaList.map((m, i) => (
+              <TouchableOpacity
+                key={`thumb_${i}`}
+                onPress={() => setIndex(i)}
+                style={[styles.thumb, index === i && styles.activeThumb]}
+              >
+                <Image source={{ uri: m.uri }} style={styles.thumbImg} />
+                {isVideo(m) && (
+                  <View style={styles.videoBadge}>
+                    <Icon name="videocam" size={12} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
           <Tab
@@ -416,89 +386,95 @@ export default function StoryComposer({
           />
         </View>
 
+        {/* Filters panel */}
         {/* {activeTab === 'filters' && (
-          <FlatList
-            data={FILTERS}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={f => f.key}
-            contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 8 }}
-            style={{ backgroundColor: '#f8f2fd' }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() =>
-                  setFilterPerIndex(prev => ({ ...prev, [index]: item.key }))
-                }
-                style={[
-                  styles.filterChip,
-                  (filterPerIndex[index] || 'none') === item.key &&
-                    styles.filterChipActive,
-                ]}
-              >
-                <View style={styles.filterThumb}>
-                  <item.Comp>
-                    <Image
-                      source={{ uri: currentMedia?.uri }}
-                      style={styles.filterThumbImg}
-                      resizeMode="cover"
-                    />
-                  </item.Comp>
-                </View>
-                <Text style={styles.filterLabel}>{item.label}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        )} */}
-
-        {activeTab === 'stickers' && (
-          <View style={[styles.bottomTools, { height: 60 }, bgStyle]}>
+          <View style={[styles.bottomTools, bgStyle]}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 12, alignItems: 'center' }}
+              contentContainerStyle={styles.filterScrollContent}
+            >
+              {FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  onPress={() => selectFilter(f.key)}
+                  style={[
+                    styles.filterChip,
+                    currentFilterKey === f.key && styles.filterChipActive,
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.filterLabel,
+                      currentFilterKey === f.key && styles.filterLabelActive,
+                    ]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )} */}
+
+        {/* Stickers panel */}
+        {activeTab === 'stickers' && (
+          <View style={[styles.bottomTools, bgStyle]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.stickerScrollContent}
             >
               {['😀', '😂', '😍', '🔥', '👍', '👏', '😮', '😎', '🥳', '🤍', '💙', '✨', '🌈', '💥', '🍕', '🎉'].map(e => (
                 <TouchableOpacity
                   key={e}
                   onPress={() => addSticker(e)}
-                  style={[styles.stickerPick, bgStyle]}
+                  style={styles.stickerPick}
+                  activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 26 }}>{e}</Text>
+                  <Text style={styles.stickerEmoji}>{e}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         )}
 
-
-        {/* text tools */}
+        {/* Text tools */}
         {activeTab === 'text' && (
-          <View style={styles.bottomTools}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={[styles.bottomTools, bgStyle]}
+          >
             <View style={styles.textRow}>
               <TextInput
                 placeholder="Add text…"
                 placeholderTextColor="#aaa"
-                style={[styles.textInput, textFont, { color: textColor }]}
+                style={[styles.textInput, textStyle, textFont, { color: textColor }]}
                 value={draftText}
                 onChangeText={setDraftText}
               />
-              <TouchableOpacity style={styles.addBtn} onPress={addText}>
-                <Text style={[styles.addBtnLabel, {color: bg}]}>Add</Text>
+              <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
+                <Text style={styles.addBtnLabel}>Add</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 12 }}
+              contentContainerStyle={styles.textOptionsScroll}
             >
               {DEFAULT_FONTS.map(f => (
                 <TouchableOpacity
                   key={f.name}
                   onPress={() => setTextFont(f.style)}
-                  style={[styles.fontChip, bgStyle]}
+                  style={[
+                    styles.fontChip,
+                    textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
+                  ]}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[{ color: '#000' }, f.style]}>{f.name}</Text>
+                  <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
                 </TouchableOpacity>
               ))}
               {[
@@ -515,12 +491,14 @@ export default function StoryComposer({
                   onPress={() => setTextColor(c)}
                   style={[
                     styles.colorDot,
-                    { backgroundColor: c, borderColor: '#fff' },
+                    { backgroundColor: c },
+                    textColor === c && styles.colorDotActive,
                   ]}
+                  activeOpacity={0.7}
                 />
               ))}
             </ScrollView>
-          </View>
+          </KeyboardAvoidingView>
         )}
 
       </View>
@@ -529,9 +507,9 @@ export default function StoryComposer({
 }
 
 const Tab = ({ icon, label, tabKey, active, onPress }) => (
-  <TouchableOpacity style={styles.tabBtn} onPress={() => onPress(tabKey)}>
-    <Icon name={icon} size={18} color={active ? '#4da3ff' : '#000'} />
-    <Text style={[styles.tabLabel, { color: active ? '#4da3ff' : '#000' }]}>
+  <TouchableOpacity style={styles.tabBtn} onPress={() => onPress(tabKey)} activeOpacity={0.7}>
+    <Icon name={icon} size={18} color={active ? '#4da3ff' : '#666'} />
+    <Text style={[styles.tabLabel, { color: active ? '#4da3ff' : '#666' }]}>
       {label}
     </Text>
   </TouchableOpacity>
@@ -546,6 +524,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 10,
   },
   topBtn: { padding: 8 },
   topTitle: { color: '#000', fontSize: 16, fontWeight: '700' },
@@ -558,16 +537,30 @@ const styles = StyleSheet.create({
   nextText: { color: '#fff', fontWeight: '700' },
 
   canvasOuter: {
-    alignSelf: 'center',
-    width: CANVAS_SIZE,
-    height: CANVAS_SIZE,
+    flex: 1,
+    width: SCREEN_WIDTH,
     backgroundColor: '#000',
   },
+  
+  imageContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+  
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+  
   videoWrap: {
-    width: CANVAS_SIZE,
-    height: CANVAS_SIZE,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
     overflow: 'hidden',
-    borderRadius: 4,
+  },
+  
+  fullScreenVideo: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
 
   overlayItem: { position: 'absolute' },
@@ -587,7 +580,13 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
 
-  thumbBar: { paddingVertical: 8 },
+  thumbBar: {
+    position: 'absolute',
+    bottom: 75,
+    paddingVertical: 8,
+    width: '100%',
+    zIndex: 5,
+  },
   thumb: {
     width: 56,
     height: 56,
@@ -610,34 +609,59 @@ const styles = StyleSheet.create({
   },
 
   tabs: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
+    backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth,
+    zIndex: 20,
   },
   tabBtn: { alignItems: 'center', gap: 2 },
-  tabLabel: { color: '#fff', fontSize: 11 },
-
-  filterChip: {
-    width: 84,
-    alignItems: 'center',
-    marginRight: 10,
-    paddingVertical: 8,
-  },
-  filterChipActive: { transform: [{ scale: 1.03 }] },
-  filterThumb: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#111',
-  },
-  filterThumbImg: { width: '100%', height: '100%' },
-  filterLabel: { marginTop: 6, color: '#fff', fontSize: 12 },
+  tabLabel: { fontSize: 11 },
 
   bottomTools: {
-    paddingTop: 6,
-    paddingBottom: 10,
+    position: 'absolute',
+    bottom: 55,
+    width: '100%',
+    paddingTop: 10,
+    paddingBottom: 30,
+    zIndex: 15,
+    // maxHeight: 750,
+  },
+
+  // Filters
+  filterScrollContent: {
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#4da3ff',
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  filterLabelActive: {
+    color: '#fff',
+  },
+
+  // Stickers
+  stickerScrollContent: {
+    paddingHorizontal: 12,
+    alignItems: 'center',
   },
   stickerPick: {
     width: 48,
@@ -646,21 +670,27 @@ const styles = StyleSheet.create({
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(128,128,128,0.2)',
+  },
+  stickerEmoji: {
+    fontSize: 28,
   },
 
+  // Text
   textRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
-    marginTop: 10,
+    marginBottom: 10,
   },
   textInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(128,128,128,0.15)',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    fontSize: 15,
   },
   addBtn: {
     backgroundColor: '#4da3ff',
@@ -668,19 +698,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  addBtnLabel: { fontWeight: '700' },
+  addBtnLabel: { 
+    fontWeight: '700',
+    color: '#fff',
+  },
 
+  textOptionsScroll: {
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    paddingBottom: 30
+  },
   fontChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     marginRight: 8,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+  },
+  fontChipActive: {
+    backgroundColor: '#4da3ff',
+  },
+  fontChipText: {
+    color: '#333',
+    fontSize: 13,
   },
   colorDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     marginRight: 8,
     borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorDotActive: {
+    borderColor: '#4da3ff',
+    borderWidth: 3,
   },
 });

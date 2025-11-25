@@ -62,7 +62,15 @@ export default function LoginScreen() {
       if (id) {
         const response = await getProfile(id);
         console.log('in profile response ----->>>>>>>>> ', response)
-        if (response.statusCode === 200 && response.data.bio == null) {
+        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
+          showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+          return;
+        }
+        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
+          showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
+          navigation.navigate('CreateProfile');
+        }
+        else if (response.statusCode === 200 && response.data.kyc == false) {
 
           const profile = response.data.profile
           if (profile) {
@@ -70,7 +78,17 @@ export default function LoginScreen() {
             dispatch(setUserProfile(profile));
           }
           navigation.navigate('CreateProfile');
-        } else {
+        }
+        else if (response.statusCode === 200 && response.data.bio == null) {
+
+          const profile = response.data.profile
+          if (profile) {
+            await AsyncStorage.setItem('profile', profile);
+            dispatch(setUserProfile(profile));
+          }
+          navigation.navigate('CreateProfile');
+        }
+        else {
           // const profile = response?.data?.profile
           // await AsyncStorage.setItem('profile', profile);
           // dispatch(setUserProfile(profile));
@@ -171,8 +189,9 @@ export default function LoginScreen() {
       });
       if (response && response.statusCode == 200) {
         console.log('login response ===================>', response);
-
-        showToastMessage(toast, 'success', response.data.message);
+        if (response.data.user.kyc == true) {
+          showToastMessage(toast, 'success', response.data.message);
+        }
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
         await AsyncStorage.setItem(
