@@ -58,6 +58,7 @@ import SubventionSetupScreen from '../pages/wallet/Subscriptions';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../theme/useApptheme';
+import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -116,6 +117,7 @@ export default function MainTabNavigator() {
           presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
           animation: 'slide_from_bottom', // Optional: adds nice animation
         }} />
+        <Stack.Screen name="TermConditionScreen" component={TermConditionScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }, []);

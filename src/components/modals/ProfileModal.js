@@ -158,7 +158,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
     // Small delay to ensure modal animation completes
     setTimeout(() => {
-      Alert.alert('Add Story', 'Choose how to add your story', [
+      Alert.alert('Add Drops', 'Choose how to add your drops', [
         { text: 'Camera', onPress: () => openCamera() },
         { text: 'Gallery', onPress: () => openGallery() },
         { text: 'Cancel', style: 'cancel' },
