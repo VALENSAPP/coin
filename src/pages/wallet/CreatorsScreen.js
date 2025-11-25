@@ -74,13 +74,13 @@ export const CreatorsScreen = ({ navigation }) => {
           <Text style={styles.creatorCardName}>{item.name}</Text>
           {/* {item.verified && <Ionicons name="checkmark-circle" size={16} color={text} />} */}
         </View>
-        <Text style={styles.creatorBio}>{item.bio}</Text>
+        {/* <Text style={styles.creatorBio}>{item.bio}</Text> */}
 
-        <View style={styles.creatorStats}>
-          <View style={styles.statItem}>
+        {/* <View style={styles.creatorStats}> */}
+          {/* <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.price}</Text>
             <Text style={styles.statLabel}>Price</Text>
-          </View>
+          </View> */}
           {/* <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.marketCap}</Text>
             <Text style={styles.statLabel}>Market Cap</Text>
@@ -89,7 +89,7 @@ export const CreatorsScreen = ({ navigation }) => {
             <Text style={styles.statValue}>{item.followers}</Text>
             <Text style={styles.statLabel}>Holders</Text>
           </View> */}
-        </View>
+        {/* </View> */}
 
         <View style={styles.creatorActions}>
           {/* <TouchableOpacity style={styles.followButton}>

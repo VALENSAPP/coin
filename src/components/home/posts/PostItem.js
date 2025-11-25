@@ -416,7 +416,7 @@ export default function PostItem({
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
     const isPaused = videoStates[index] ?? true;
 
-    const shouldPlay = 
+    const shouldPlay =
       screenFocused &&
       String(playingPostId) === String(item.id) &&
       String(currentlyVisiblePostId) === String(item.id) &&
@@ -518,7 +518,7 @@ export default function PostItem({
 
           <View style={styles.priceSection}>
             <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} />
-            <Text style={[styles.priceText, {color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}>$556</Text>
+            <Text style={[styles.priceText, { color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}>$556</Text>
           </View>
 
           <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
@@ -603,7 +603,7 @@ export default function PostItem({
                 }
               }
             }}
-            style={[styles.followButton, item.follow && styles.followingButton, {backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}
+            style={[styles.followButton, item.follow && styles.followingButton, { backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}
           >
             {followingBusy ? (
               <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
@@ -627,8 +627,8 @@ export default function PostItem({
                   ))}
                 </View>
                 <Text style={styles.buyersText} numberOfLines={1}>
-                  Vallowed by <Text style={[styles.buyerName,  {color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}>{buyerList[0]?.username || '—'}</Text>
-                  {buyerList.length > 1 && <Text style={{color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}}> and {formatNumber(buyerList.length - 1)} others</Text>}
+                  Vallowed by <Text style={[styles.buyerName, { color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
+                  {buyerList.length > 1 && <Text style={{ color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
                 </Text>
               </View>
             )}
@@ -637,7 +637,7 @@ export default function PostItem({
 
         <View style={styles.captionSection}>
           <Text>
-            <Text style={[styles.captionUsername, {color: item?.profile == "user" ? '#5a2d82' : '#D3B683'}]}>{item.username} </Text>
+            <Text style={[styles.captionUsername, { color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}>{item.username} </Text>
             <Text style={styles.captionText}>{item.caption}</Text>
           </Text>
           {item.link ? (
@@ -673,6 +673,18 @@ export default function PostItem({
                   <Text style={styles.statValueSmall}>{postData.daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
+              <TouchableOpacity
+                onPress={() => {
+                }}
+                style={[{
+                  backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683', width: '25%', left: '74%', marginBottom: 5, marginTop: -10, paddingVertical: 8,
+                  borderRadius: 8, alignItems: 'center'
+                }]}
+              >
+                <Text style={styles.followButtonText}>
+                  Donation
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -875,12 +887,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
-    backgroundColor:'#5a2d82'
+    backgroundColor: '#5a2d82'
   },
   followingButtonText: {
     color: '#fff',
   },
- 
+
   followingButton: {
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
