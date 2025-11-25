@@ -4,12 +4,15 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { getTokenPrice, sellToken, tokenPurchaseAmtByVendor } from '../../services/tokens';
+import { showToastMessage } from '../displaytoastmessage';
+import { useToast } from 'react-native-toast-notifications';
 
 const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
   const [loading, setLoading] = useState(false);
   const [isProcessingSale, setIsProcessingSale] = useState(false);
   const [availableTokens, setAvailableTokens] = useState(0);
   const [usdAmount, setUsdAmount] = useState(0);
+  const toast = useToast();
 
   const dispatch = useDispatch();
 
@@ -30,8 +33,12 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
       console.log('requestBody for selling tokens:', requestBody);
 
       const response = await sellToken(requestBody);
+       console.log('response for selling tokens:', response);
       if (response && response.statusCode == 200) {
         onSell();
+      }
+      else {
+        showToastMessage(toast, 'danger', response.message);
       }
     } catch (error) {
       console.error('Error creating sell session:', error);

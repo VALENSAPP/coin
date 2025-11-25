@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 
-export const showToastMessage = async (toast, type, text) => {
+export const showToastMessage = async (toast, type, text, duration = 2500) => {
     try {
         if (!toast || typeof toast.show !== 'function') {
             console.warn('Toast object is not available or toast.show is not a function');
@@ -16,7 +16,7 @@ export const showToastMessage = async (toast, type, text) => {
                 placement: 'top',
                 animationType: 'zoom-in',
                 swipeEnabled: true,
-                duration: 2500, 
+                duration: duration, 
                 style: styles.toastContainer,
                 onPress: () => {
                     toast.hide();

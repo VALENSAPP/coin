@@ -61,6 +61,8 @@ const SubventionSetupScreen = () => {
         }, [])
     );
 
+    const formatPrice = (n) => `${n},00`;
+
     const fetchSubscriptionByUserId = async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
@@ -76,7 +78,7 @@ const SubventionSetupScreen = () => {
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
                     setSubscriptionAmount(amount);
                     setSubscriptionId(subId);
-                  setPrice(Number(amount).toFixed(2));
+                    setPrice(formatPrice(amount));
                     setHasExistingSubscription(true);
                     setShowModal(false)
                 } else {

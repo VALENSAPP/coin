@@ -50,40 +50,37 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   };
 
   useEffect(() => {
-    // const loadTokenPrice = async () => {
-    //   try {
-    setLoading(true);
-    //     const storedPrice = await AsyncStorage.getItem('priceInUsd');
-    //     if (storedPrice) {
-    //       const price = parseFloat(storedPrice);
-    //       if (!isNaN(price) && price > 0) {
-    //         setTokenRate(price);
-    //       }
-    //     }
-    //   } catch (error) {
-    //     console.error('Error loading token price from AsyncStorage:', error);
-    //   } finally {
-    //     setLoading(false);
-    //   }
-    // };
-
-    // loadTokenPrice();
+  // Only fetch if vendorid is available
+  if (vendorid) {
+    console.log('vendorid------->>>>>>>>>>>>>', vendorid)
     fetchTokenPrice();
-  }, []);
+  } else {
+    console.warn('TokenPurchaseModal: vendorid is missing');
+    setLoading(false); // Don't stay in loading state if no vendorid
+  }
+}, [vendorid, fetchTokenPrice]); 
 
   const fetchTokenPrice = useCallback(async () => {
-    try {
-      const response = await getUserTokenInfoByBlockChain(vendorid);
-      if (response?.statusCode === 200 && response?.data) {
-        console.log('Fetched token info:', response.data);
-
-        getPriceOfToken(response.data.data?.tokenAddress);
-      }
-    } catch (err) {
-      console.error('Error fetching profile token info:', err);
-      // Don't show toast error for this, as it's not critical
+  try {
+    if (!vendorid) {
+      console.warn('fetchTokenPrice called without vendorid');
+      setLoading(false);
+      return;
     }
-  }, [vendorid]);
+    
+    const response = await getUserTokenInfoByBlockChain(vendorid);
+    if (response?.statusCode === 200 && response?.data) {
+      console.log('Fetched token info:', response.data);
+      await getPriceOfToken(response.data.data?.tokenAddress);
+    } else {
+      console.warn('Invalid response from getUserTokenInfoByBlockChain:', response);
+      setLoading(false);
+    }
+  } catch (err) {
+    console.error('Error fetching profile token info:', err);
+    setLoading(false); // Make sure to set loading false on error
+  }
+}, [vendorid]);
 
   const getPriceOfToken = async (tokenAddress) => {
     try {
@@ -97,6 +94,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         if (!isNaN(price) && price > 0) {
           setTokenRate(price);
         }
+        setLoading(false)
       }
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to fetch token price');
@@ -179,6 +177,11 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const handlePurchase = async () => {
     const breakdown = calculateBreakdown(amount);
     if (breakdown.baseAmount <= 0 || breakdown.tokens <= 0) {
+      return;
+    }
+
+    if (breakdown.totalAmount < 0.50) {
+      showToastMessage(toast, 'danger', 'Total payable amount must be at least $0.50');
       return;
     }
 

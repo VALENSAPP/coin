@@ -74,17 +74,48 @@ export const WalletDashboardScreen = ({ navigation }) => {
     };
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchAllData();
-    }, [fetchAllData])
-  );
+  // Replace the useFocusEffect and useCallback section with this:
 
+  useFocusEffect(
+  useCallback(() => {
+    const fetchData = async () => {
+      try {
+        dispatch(showLoader()); // Show loader once at the beginning
+        
+        await Promise.allSettled([
+          fetchAllTransaction(),
+          fetchDashboardData(),
+          fetchCreditsLeft(),
+          fetchFollowers(),
+          fetchActivityOverview(),
+          fetchTopCreators(),
+          fetchActivities(),
+        ]);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        dispatch(hideLoader()); // Hide loader once at the end
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, [dispatch]) // Add dispatch to dependency array
+);
+
+  // Remove the separate useEffect for activityPeriod
+  // and replace with this one that properly triggers:
   useEffect(() => {
-    fetchActivityOverview();
+    if (activityPeriod) {
+      fetchActivityOverview();
+    }
   }, [activityPeriod]);
 
-  const fetchAllData = useCallback(async () => {
+  // Update fetchAllData to remove the useCallback wrapper
+  const fetchAllData = async () => {
     await Promise.all([
       fetchAllTransaction(),
       fetchDashboardData(),
@@ -94,13 +125,29 @@ export const WalletDashboardScreen = ({ navigation }) => {
       fetchTopCreators(),
       fetchActivities(),
     ]);
-  }, []);
+  };
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchAllData();
+  setRefreshing(true);
+  try {
+    dispatch(showLoader());
+    
+    await Promise.allSettled([
+      fetchAllTransaction(),
+      fetchDashboardData(),
+      fetchCreditsLeft(),
+      fetchFollowers(),
+      fetchActivityOverview(),
+      fetchTopCreators(),
+      fetchActivities(),
+    ]);
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+  } finally {
+    dispatch(hideLoader());
     setRefreshing(false);
-  };
+  }
+};
 
   const hapticFeedback = (type) => {
     const options = {
@@ -162,283 +209,224 @@ export const WalletDashboardScreen = ({ navigation }) => {
   };
 
   const fetchDashboardData = async () => {
-    const storedPrice = await AsyncStorage.getItem('priceInUsd');
-    try {
-      dispatch(showLoader());
-      const response = await getTotalTokenPurchase();
+  const storedPrice = await AsyncStorage.getItem('priceInUsd');
+  try {
+    const response = await getTotalTokenPurchase();
 
-      if (response?.statusCode === 200) {
-        const totalPortfolioValue = response.data.reduce(
-          (sum, item) => sum + (item.totalTokenAmount || 0),
-          0
-        );
-
-        setKpiData(prevKpiData => {
-          const newKpiData = [...prevKpiData];
-          newKpiData[0] = {
-            ...newKpiData[0],
-            value: `$ ${totalPortfolioValue.toFixed(4)}`
-          };
-          newKpiData[1] = {
-            ...newKpiData[1],
-            value: `$ ${Number(storedPrice).toFixed(4)}`
-          };
-          return newKpiData;
-        });
-      }
-      else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
-    } finally {
-      dispatch(hideLoader());
+    console.log('getTotalTokenPurchasegetTotalTokenPurchase',response)
+    if (response?.statusCode === 200) {
+      const totalPortfolioValue = response.data.reduce(
+        (sum, item) => sum + (item.totalTokenAmount || 0),
+        0
+      );
+      console.log("portfolio value----------------", totalPortfolioValue);
+      setKpiData(prevKpiData => {
+        const newKpiData = [...prevKpiData];
+        newKpiData[0] = {
+          ...newKpiData[0],
+          value: `$ ${totalPortfolioValue.toFixed(4)}`
+        };
+        newKpiData[1] = {
+          ...newKpiData[1],
+          value: `$ ${Number(storedPrice).toFixed(4)}`
+        };
+        return newKpiData;
+      });
+    } else {
+      showToastMessage(toast, 'danger', response?.message);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchDashboardData:', error);
+  }
+};
 
-  const fetchAllTransaction = async () => {
-    try {
-      dispatch(showLoader());
-      const response = await getLatestTransactions();
-      if (response?.statusCode === 200) {
-        setWalletTransactions(response.data.transactions);
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
-    } finally {
-      dispatch(hideLoader());
+const fetchAllTransaction = async () => {
+  try {
+    const response = await getLatestTransactions();
+    if (response?.statusCode === 200) {
+      setWalletTransactions(response.data.transactions);
+    } else {
+      showToastMessage(toast, 'danger', response.data.message);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchAllTransaction:', error);
+  }
+};
 
-  const fetchCreditsLeft = async () => {
-    try {
-      dispatch(showLoader());
-      const response = await getCreditsLeft();
-      if (response?.statusCode === 200) {
-        setKpiData(prevKpiData => {
-          const newKpiData = [...prevKpiData];
-          newKpiData[3] = {
-            ...newKpiData[3],
-            value: `${response.data.hitLeft} / 5`,
-            currentCredits: response.data.hitLeft
-          };
-          return newKpiData;
-        });
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
-    } finally {
-      dispatch(hideLoader());
+const fetchCreditsLeft = async () => {
+  try {
+    const response = await getCreditsLeft();
+    if (response?.statusCode === 200) {
+      setKpiData(prevKpiData => {
+        const newKpiData = [...prevKpiData];
+        newKpiData[3] = {
+          ...newKpiData[3],
+          value: `${response.data.hitLeft} / 5`,
+          currentCredits: response.data.hitLeft
+        };
+        return newKpiData;
+      });
+    } else {
+      showToastMessage(toast, 'danger', response.data.message);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchCreditsLeft:', error);
+  }
+};
 
   const fetchActivityOverview = async () => {
-    const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
+  const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
 
-    const periodMap = {
-      'Weekly': 'week',
-      'Monthly': 'month',
-      'Yearly': 'year'
-    };
+  const periodMap = {
+    'Weekly': 'week',
+    'Monthly': 'month',
+    'Yearly': 'year'
+  };
 
-    try {
-      dispatch(showLoader());
-      const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
+  try {
+    const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
 
-      if (response?.statusCode === 200) {
-        if (response.data.history && Array.isArray(response.data.history)) {
-          const formattedData = response.data.history.map(item => ({
-            timestamp: new Date(item.date || item.timestamp).getTime(),
-            value: parseFloat(item.price || item.value || 0)
-          })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
+    if (response?.statusCode === 200) {
+      if (response.data.history && Array.isArray(response.data.history)) {
+        const formattedData = response.data.history.map(item => ({
+          timestamp: new Date(item.date || item.timestamp).getTime(),
+          value: parseFloat(item.price || item.value || 0)
+        })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
 
-          formattedData.sort((a, b) => a.timestamp - b.timestamp);
+        formattedData.sort((a, b) => a.timestamp - b.timestamp);
 
-          if (formattedData.length > 0) {
-            setPriceHistory(formattedData);
-            setSelectedPrice(formattedData[formattedData.length - 1].value);
-          } else {
-            setPriceHistory([]);
-            setSelectedPrice(0);
-          }
+        if (formattedData.length > 0) {
+          setPriceHistory(formattedData);
+          setSelectedPrice(formattedData[formattedData.length - 1].value);
         } else {
           setPriceHistory([]);
           setSelectedPrice(0);
         }
       } else {
-        showToastMessage(toast, 'danger', response.data.message);
         setPriceHistory([]);
         setSelectedPrice(0);
       }
-    } catch (error) {
-      console.error('Error fetching activity overview:', error);
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
+    } else {
+      showToastMessage(toast, 'danger', response.data.message);
       setPriceHistory([]);
       setSelectedPrice(0);
-    } finally {
-      dispatch(hideLoader());
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchActivityOverview:', error);
+    setPriceHistory([]);
+    setSelectedPrice(0);
+  }
+};
 
-  const fetchFollowers = async () => {
-    const id = await AsyncStorage.getItem('userId');
-    try {
-      dispatch(showLoader());
-      const response = await getUserDashboard(id);
-      if (response?.statusCode === 200) {
-        setKpiData(prevKpiData => {
-          const newKpiData = [...prevKpiData];
-          newKpiData[2] = {
-            ...newKpiData[2],
-            value: response.data.dashboardData.totalFollowers.toString() || '0'
-          };
-          return newKpiData;
-        });
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
-    } finally {
-      dispatch(hideLoader());
+const fetchFollowers = async () => {
+  const id = await AsyncStorage.getItem('userId');
+  try {
+    const response = await getUserDashboard(id);
+    if (response?.statusCode === 200) {
+      setKpiData(prevKpiData => {
+        const newKpiData = [...prevKpiData];
+        newKpiData[2] = {
+          ...newKpiData[2],
+          value: response.data.dashboardData.totalFollowers.toString() || '0'
+        };
+        return newKpiData;
+      });
+    } else {
+      showToastMessage(toast, 'danger', response.data.message);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchFollowers:', error);
+  }
+};
 
-  const fetchTopCreators = async () => {
-    try {
-      dispatch(showLoader());
-      const response = await getTopCreators();
-      if (response?.statusCode === 200) {
-        console.log('Top creators', response.data);
+const fetchTopCreators = async () => {
+  try {
+    const response = await getTopCreators();
+    if (response?.statusCode === 200) {
+      console.log('Top creators', response.data);
 
-        // Transform API data to component format
-        const formattedCreators = response.data.map((creator, index) => ({
-          id: index + 1,
-          name: `@${creator.username || 'unknown'}`,
-          vendorId: creator.vendorId,
-          followers: `${creator.followerCount || '0'}` + ' Vallowers',
-          tokenStatus: creator.currentTokenStatus,
-        }));
-        setTopCreators(formattedCreators.slice(0, 5)); // Limit to top 5
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
-    } finally {
-      dispatch(hideLoader());
+      const formattedCreators = response.data.map((creator, index) => ({
+        id: index + 1,
+        name: `@${creator.username || 'unknown'}`,
+        vendorId: creator.vendorId,
+        followers: `${creator.followerCount || '0'} Followers`,
+        tokenStatus: creator.currentTokenStatus,
+      }));
+      setTopCreators(formattedCreators.slice(0, 5));
+    } else {
+      showToastMessage(toast, 'danger', response.data.message);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchTopCreators:', error);
+  }
+};
 
   const fetchActivities = async () => {
-    try {
-      dispatch(showLoader());
-      const response = await getRecentActivities();
-      if (response?.statusCode === 200) {
-        console.log('Recent activities', response.data);
+  try {
+    const response = await getRecentActivities();
+    if (response?.statusCode === 200) {
+      console.log('Recent activities', response.data);
 
-        // Transform API data to component format
-        const formattedActivities = [];
-        let activityId = 1;
+      const formattedActivities = [];
+      let activityId = 1;
 
-        // Process activities data
-        if (response.data.activities) {
-          const activities = response.data.activities;
+      if (response.data.activities) {
+        const activities = response.data.activities;
 
-          // Add purchase activities
-          if (activities.purchase && Array.isArray(activities.purchase)) {
-            activities.purchase.forEach(purchase => {
-              formattedActivities.push({
-                id: activityId++,
-                action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
-                time: formatTime(purchase.createdAt),
-                type: 'buy',
-                createdAt: new Date(purchase.createdAt).getTime(),
-                rawData: purchase
-              });
+        if (activities.purchase && Array.isArray(activities.purchase)) {
+          activities.purchase.forEach(purchase => {
+            formattedActivities.push({
+              id: activityId++,
+              action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
+              time: formatTime(purchase.createdAt),
+              type: 'buy',
+              createdAt: new Date(purchase.createdAt).getTime(),
+              rawData: purchase
             });
-          }
-
-          // Add sell activities
-          if (activities.sell && Array.isArray(activities.sell)) {
-            activities.sell.forEach(sell => {
-              formattedActivities.push({
-                id: activityId++,
-                action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
-                time: formatTime(sell.createdAt),
-                type: 'sell',
-                createdAt: new Date(sell.createdAt).getTime(),
-                rawData: sell
-              });
-            });
-          }
-
-          // Add following activities
-          if (activities.following && Array.isArray(activities.following)) {
-            activities.following.forEach(follow => {
-              formattedActivities.push({
-                id: activityId++,
-                action: `${follow.followerName || 'Someone'} followed you`,
-                time: formatTime(follow.createdAt),
-                type: 'follow',
-                createdAt: new Date(follow.createdAt).getTime(),
-                rawData: follow
-              });
-            });
-          }
+          });
         }
 
-        // Sort by createdAt timestamp (most recent first)
-        formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
+        if (activities.sell && Array.isArray(activities.sell)) {
+          activities.sell.forEach(sell => {
+            formattedActivities.push({
+              id: activityId++,
+              action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
+              time: formatTime(sell.createdAt),
+              type: 'sell',
+              createdAt: new Date(sell.createdAt).getTime(),
+              rawData: sell
+            });
+          });
+        }
 
-        // Update IDs after sorting
-        formattedActivities.forEach((activity, index) => {
-          activity.id = index + 1;
-        });
-
-        // Limit to 15 most recent activities
-        setRecentActivities(formattedActivities.slice(0, 6));
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
+        if (activities.following && Array.isArray(activities.following)) {
+          activities.following.forEach(follow => {
+            formattedActivities.push({
+              id: activityId++,
+              action: `${follow.followerName || 'Someone'} followed you`,
+              time: formatTime(follow.createdAt),
+              type: 'follow',
+              createdAt: new Date(follow.createdAt).getTime(),
+              rawData: follow
+            });
+          });
+        }
       }
-    } catch (error) {
-      // showToastMessage(
-      //   toast,
-      //   'danger',
-      //   error?.response?.message ?? 'Something went wrong',
-      // );
-    } finally {
-      dispatch(hideLoader());
+
+      formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
+
+      formattedActivities.forEach((activity, index) => {
+        activity.id = index + 1;
+      });
+
+      setRecentActivities(formattedActivities.slice(0, 6));
+    } else {
+      showToastMessage(toast, 'danger', response.data.message);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchActivities:', error);
+  }
+}
 
   const handleTokenModalClose = () => {
     purchaseSheetRef.current?.close?.();
@@ -547,7 +535,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
       }}
     >
-      <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
+      <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
         <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
       </View>
       <View style={styles.creatorInfo}>
@@ -613,7 +601,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 key={period}
                 style={[
                   styles.periodButton,
-                  activityPeriod === period && {backgroundColor: text},
+                  activityPeriod === period && { backgroundColor: text },
                 ]}
                 onPress={() => setActivityPeriod(period)}
               >
@@ -648,7 +636,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       {({ value }) => {
                         updatePriceTitle({ value });
                         return (
-                          <View style={[styles.tooltipContainer, {backgroundColor: text}]}>
+                          <View style={[styles.tooltipContainer, { backgroundColor: text }]}>
                             <Text style={styles.tooltipText}>
                               ${value?.toFixed(2)}
                             </Text>
