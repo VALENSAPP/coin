@@ -383,10 +383,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     backgroundColor: '#5a2d82',
-<<<<<<< HEAD
-
-=======
->>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
   },
   tabText: {
     fontSize: 15,
