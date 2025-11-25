@@ -118,6 +118,7 @@ export default function MainTabNavigator() {
           presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
           animation: 'slide_from_bottom', // Optional: adds nice animation
         }} />
+        <Stack.Screen name="TermConditionScreen" component={TermConditionScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }, []);

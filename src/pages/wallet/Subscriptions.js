@@ -231,7 +231,7 @@ const SubventionSetupScreen = () => {
 
     // Handle add story
     const handleAddStory = () => {
-        Alert.alert('Add Story', 'Choose how to add your story', [
+        Alert.alert('Add Drops', 'Choose how to add your drops', [
             { text: 'Camera', onPress: () => openCamera() },
             { text: 'Gallery', onPress: () => openGallery() },
             { text: 'Cancel', style: 'cancel' },
@@ -644,7 +644,7 @@ const SubventionSetupScreen = () => {
                 />
                 <SubscriptionActivationPopup
                 visible={showActivationPopup}
-                onClose={()=>setShowActivationPopup(false)}
+                onClose={()=>{setShowModal(false), setShowActivationPopup(false)}}
                  onConfirm={handleSaveSubscription}
                 />
             </View>

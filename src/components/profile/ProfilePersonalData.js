@@ -171,7 +171,7 @@ const ProfilePersonData = ({
 
   const handleStoryUpload = () => {
     Alert.alert(
-      'Add Story',
+      'Add Drops',
       'Choose how to add your story',
       [
         { text: 'Camera', onPress: () => openStoryCamera() },

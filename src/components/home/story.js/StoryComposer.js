@@ -277,7 +277,7 @@ export default function StoryComposer({
           <TouchableOpacity onPress={onCancel} style={styles.topBtn}>
             <Icon name="close" size={26} color="#000" />
           </TouchableOpacity>
-          <Text style={styles.topTitle}>Add story</Text>
+          <Text style={styles.topTitle}>Add Drops</Text>
           <TouchableOpacity onPress={handleExport} style={styles.nextBtn}>
             <Text style={styles.nextText}>Post</Text>
           </TouchableOpacity>

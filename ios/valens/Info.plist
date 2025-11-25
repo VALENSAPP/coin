@@ -97,6 +97,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key> 
+	<array>     
+		<string>google-authenticator</string>
+		<string>msauth</string>
+		<string>otpauth</string> 
+	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>NSMotionUsageDescription</key>

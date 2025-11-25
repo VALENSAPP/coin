@@ -53,7 +53,11 @@ const SubscribeFlowModal = ({
     console.log()
     useEffect(() => {
         fetchAllData();
+<<<<<<< HEAD
         GetSubscription();
+=======
+        // getSubscription();
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
         fetchSubscriptionByUserId();
         fetchSubscriptionAmount();
         if (visible) step1Ref.current?.open();
@@ -111,7 +115,7 @@ const SubscribeFlowModal = ({
     };
 
 
-    const GetSubscription = async () => {
+    const getSubscription = async () => {
         dispatch(showLoader());
 
         try {
@@ -127,9 +131,15 @@ const SubscribeFlowModal = ({
 
             console.log("Subscription Response:", response);
 
+<<<<<<< HEAD
             if (response?.statusCode === 200 & response?.data?.url) {
                 const url = response?.data?.url;
                 console.log('chcek respose off uerl came here or note',url);
+=======
+            if (response?.statusCode === 200) {
+                console.log('chcek respose off uerl came here or note',response);
+                const url = response?.data?.url;
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
 
                 // Check if InAppBrowser is available
                 if (await InAppBrowser.isAvailable()) {
@@ -207,7 +217,7 @@ const SubscribeFlowModal = ({
                     userDataToSet = profileResponse;
                 }
                 setUserProfile(userDataToSet.profile || '');
-                await AsyncStorage.setItem('profile', userDataToSet.profile);
+                await AsyncStorage.setItem('profile', userDataToSet?.profile);
                 // console.log('User profile:', userDataToSet.profile);
             } else {
                 // showToastMessage(toast, 'danger', profileResponse.data.message);
@@ -345,9 +355,12 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                         activeOpacity={0.5}
                         onPress={() => {
                             setAcceptedTerms(!acceptedTerms)
+<<<<<<< HEAD
                             navigation.navigate('ProfileMain', {
                                 screen: 'TermConditionScreen'
                             });
+=======
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
                         }}>
                         <Ionicons
                             name={
@@ -358,12 +371,22 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                             size={22}
                             color={acceptedTerms ? { text } : '#aaa'}
                         />
+<<<<<<< HEAD
                         <Text style={[styles.termsText, { fontWeight: '700', textDecorationLine: 'underline' }]}>I accept Terms & Conditions</Text>
+=======
+                        <Text onPress={() => {
+                            onClose();
+                            navigation.navigate('ProfileMain', {
+                                screen: 'TermConditionScreen'
+                            });
+                        }}
+                        style={[styles.termsText, { fontWeight: '700', textDecorationLine: 'underline' }]}>I accept Terms & Conditions</Text>
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.btn, { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text }]}
-                        onPress={GetSubscription}>
+                        onPress={getSubscription}>
                         <Text style={styles.doneText}>✅ Done — Complete Payment</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
