@@ -84,15 +84,15 @@ export const MarketScreen = ({ navigation }) => {
                     {/* <Text style={styles.holdersText}>{item.bio} holders</Text> */}
                 </View>
             </View>
-            <View style={styles.creatorRight}>
+            {/* <View style={styles.creatorRight}>
                 <Text style={[styles.creatorPrice, textStyle]}>{item.price}</Text>
-                <Text style={styles.creatorChange}>{item.change}</Text>
-                {/* <View style={styles.marketActions}>
-                    <TouchableOpacity style={[styles.buyButton, { backgroundColor: text }]} onPress={() => setTradeModalVisible(true)}>
-                        <Text style={styles.buyButtonText}>Support</Text>
+                <Text style={styles.creatorChange}>{item.change}</Text> */}
+                <View style={styles.marketActions}>
+                    <TouchableOpacity style={[styles.buyButton, { backgroundColor: text }]} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
+                        <Text style={styles.buyButtonText}>View Profile</Text>
                     </TouchableOpacity>
-                </View> */}
-            </View>
+                </View>
+            {/* </View> */}
         </View>
     );
 
@@ -124,7 +124,7 @@ export const MarketScreen = ({ navigation }) => {
                 </View>
 
                 {/* Search */}
-                <View style={[styles.searchContainer, { shadowColor: text }]}>
+                {/* <View style={[styles.searchContainer, { shadowColor: text }]}>
                     <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
@@ -133,12 +133,12 @@ export const MarketScreen = ({ navigation }) => {
                         onChangeText={setSearchQuery}
                         placeholderTextColor="#666"
                     />
-                </View>
+                </View> */}
 
                 {/* Creators List */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, textStyle]}>All Creators</Text>
-                    <Text style={styles.sectionSubtitle}>Follow = Buy | Unfollow = Sell easily</Text>
+                    {/* <Text style={styles.sectionSubtitle}>Follow = Buy | Unfollow = Sell easily</Text> */}
                     <FlatList
                         data={marketCreators}
                         renderItem={renderMarketCreator}

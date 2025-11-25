@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { StyleSheet, Text, View, ScrollView } from 'react-native'
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -8,13 +9,44 @@ const TermConditionScreen = () => {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <Text style={[styles.heading, textStyle]}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
+=======
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native'
+import React from 'react'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { useAppTheme } from '../../theme/useApptheme'
+import { useNavigation } from '@react-navigation/native'
+
+const TermConditionScreen = () => {
+    const { bgStyle, textStyle } = useAppTheme();
+    const navigation = useNavigation();
+    
+    return (
+        <SafeAreaView style={[styles.container, bgStyle]}>
+                <TouchableOpacity 
+                    onPress={() => navigation.goBack()} 
+                    style={styles.closeButton}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.closeIcon, textStyle]}>✕</Text>
+                </TouchableOpacity>
+            <View style={styles.header}>
+                <Text style={[styles.heading, textStyle]}>
+                    VALENS MASTER SUBSCRIPTOR POLICY
+                </Text>
+                <View style={styles.placeholder} />
+            </View>
+            
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
             {/* SCROLL CONTENT */}
             <ScrollView
                 style={styles.scrollBox}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
+<<<<<<< HEAD
 
+=======
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
                 <Text style={styles.sectionTitle}>1. Overview</Text>
                 <Text style={styles.text}>
                     This Master Subscription Policy applies to all users participating in the Valens
@@ -129,11 +161,39 @@ export default TermConditionScreen
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+<<<<<<< HEAD
         marginBottom:20,
     },
     scrollBox: {
         flex: 1,
        
+=======
+        marginBottom: 20,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        left: 17
+        // paddingHorizontal: 18,
+    },
+    closeButton: {
+        width: 40,
+        height: 40,
+        left: 28
+        // justifyContent: 'center',
+        // alignItems: 'center',
+    },
+    closeIcon: {
+        fontSize: 28,
+        fontWeight: '400',
+    },
+    placeholder: {
+        width: 40,
+    },
+    scrollBox: {
+        flex: 1,
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
     },
     content: {
         paddingHorizontal: 10,
@@ -143,11 +203,18 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: '700',
         textAlign: 'center',
+<<<<<<< HEAD
         borderRadius: 9,
         paddingTop: 40,
         textDecorationLine: 'underline',
         marginBottom:10,
 
+=======
+        flex: 1,
+        textDecorationLine: 'underline',
+        marginBottom: 10,
+        // left: -15
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
     },
     partTitle: {
         fontSize: 18,
@@ -155,8 +222,12 @@ const styles = StyleSheet.create({
         marginTop: 10,
         marginBottom: 10,
         color: '#000',
+<<<<<<< HEAD
         lineHeight:20,
         
+=======
+        lineHeight: 20,
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
     },
     sectionTitle: {
         fontSize: 16,
@@ -164,7 +235,11 @@ const styles = StyleSheet.create({
         marginTop: 7,
         marginBottom: 5,
         color: '#000',
+<<<<<<< HEAD
          lineHeight:20,
+=======
+        lineHeight: 20,
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
     },
     subSection: {
         fontSize: 15,
@@ -177,6 +252,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#000',
         lineHeight: 20,
+<<<<<<< HEAD
         marginBottom:2,
         fontWeight:'400'
     },
@@ -185,4 +261,9 @@ const styles = StyleSheet.create({
     //     alignItems: 'center',
     // },
     
+=======
+        marginBottom: 2,
+        fontWeight: '400'
+    },
+>>>>>>> 343196a0c4e9ee1b2909ec46fcfc4928c1e58775
 });

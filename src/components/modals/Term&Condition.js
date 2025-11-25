@@ -9,10 +9,12 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useNavigation } from '@react-navigation/native';
 
-const TermCondition = ({ showModal, setShowModal,onAccept }) => {
+const TermCondition = ({ showModal, setShowModal, onAccept }) => {
     const [isChecked, setIsChecked] = useState(false);
     const { bgStyle, textStyle, text } = useAppTheme();
+    const navigation = useNavigation();
 
     return (
         <View style={{ flex: 1 }}>
@@ -21,7 +23,13 @@ const TermCondition = ({ showModal, setShowModal,onAccept }) => {
                     <View style={styles.modalBox}>
                         {/* CLOSE BUTTON */}
                         <TouchableOpacity
-                            onPress={() => setShowModal(false)}
+                            onPress={() => {
+                                setShowModal(false);
+                                navigation.navigate('MainApp', {
+                                    screen: 'wallet',
+                                    params: { screen: 'Dashboard' }
+                                });
+                            }}
                             style={styles.closeButton}
                         >
                             <Ionicons name="close" size={26} color="#000" />
@@ -159,7 +167,7 @@ const TermCondition = ({ showModal, setShowModal,onAccept }) => {
                                         { opacity: isChecked ? 1 : 0.5, backgroundColor: text },
                                     ]}
                                     disabled={!isChecked}
-                                    onPress={ async() => {
+                                    onPress={async () => {
                                         await onAccept();
                                         setShowModal(false);
                                     }}
@@ -167,6 +175,7 @@ const TermCondition = ({ showModal, setShowModal,onAccept }) => {
                                     <Text style={styles.continueText}>Continue</Text>
                                 </TouchableOpacity>
                             </View>
+                            
 
                         </ScrollView>
                     </View>
@@ -186,7 +195,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
     },
-    modalBox: { 
+    modalBox: {
         width: '100%',
         height: '85%',
         backgroundColor: '#fff',
@@ -210,11 +219,11 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: '700',
         textAlign: 'center',
-        borderRadius:9,
-        paddingTop:40,
-        textDecorationLine:'underline'
-        
-     },
+        borderRadius: 9,
+        paddingTop: 40,
+        textDecorationLine: 'underline'
+
+    },
     partTitle: {
         fontSize: 18,
         fontWeight: '700',
