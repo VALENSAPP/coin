@@ -43,8 +43,8 @@ const SubventionSetupScreen = () => {
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
-    const [showModal, setShowModal] = useState(false); 
-        const [showActivationPopup, setShowActivationPopup] = useState(false); 
+    const [showModal, setShowModal] = useState(false);
+    const [showActivationPopup, setShowActivationPopup] = useState(false);
 
 
     const contentTabs = [
@@ -53,13 +53,17 @@ const SubventionSetupScreen = () => {
         { id: 'stories', label: 'Drops', icon: '⭐' },
         { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
     ];
-    
+
 
     useFocusEffect(
         useCallback(() => {
             fetchSubscriptionByUserId();
         }, [])
     );
+
+    const formatPrice = (n) => `${n},00`;
+
+
 
     const fetchSubscriptionByUserId = async () => {
         try {
@@ -76,7 +80,7 @@ const SubventionSetupScreen = () => {
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
                     setSubscriptionAmount(amount);
                     setSubscriptionId(subId);
-                  setPrice(Number(amount).toFixed(2));
+                    setPrice(formatPrice(amount));
                     setHasExistingSubscription(true);
                     setShowModal(false)
                 } else {
@@ -643,9 +647,9 @@ const SubventionSetupScreen = () => {
                     }}
                 />
                 <SubscriptionActivationPopup
-                visible={showActivationPopup}
-                onClose={()=>{setShowModal(false), setShowActivationPopup(false)}}
-                 onConfirm={handleSaveSubscription}
+                    visible={showActivationPopup}
+                    onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
+                    onConfirm={handleSaveSubscription}
                 />
             </View>
         </>

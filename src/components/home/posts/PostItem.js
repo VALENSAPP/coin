@@ -16,6 +16,7 @@ import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
+import MissionSupportScreen from '../../modals/DonationModal';
 
 const { width } = Dimensions.get('window');
 
@@ -216,6 +217,7 @@ export default function PostItem({
   const [viewerUri, setViewerUri] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [donation, setDonation] = useState(false)
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -675,6 +677,7 @@ export default function PostItem({
               </View>
               <TouchableOpacity
                 onPress={() => {
+                  setDonation(true);
                 }}
                 style={[{
                   backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683', width: '25%', left: '74%', marginBottom: 5, marginTop: -10, paddingVertical: 8,
@@ -682,7 +685,7 @@ export default function PostItem({
                 }]}
               >
                 <Text style={styles.followButtonText}>
-                  Donation
+                  Donate
                 </Text>
               </TouchableOpacity>
             </View>
@@ -700,7 +703,7 @@ export default function PostItem({
           }}
         />
       )}
-
+      <MissionSupportScreen visible={donation} onClose={()=>setDonation(false)} />
       <ShareModal ref={shareRef} url={item.link} />
     </View>
   );

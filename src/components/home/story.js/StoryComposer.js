@@ -30,7 +30,7 @@ import {
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT * 0.75);
+const CANVAS_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT * 0.99);
 
 const FILTERS = [
   { key: 'none', label: 'Original', Comp: React.Fragment },
@@ -308,8 +308,8 @@ export default function StoryComposer({
                 <FilterComp>
                   <Image
                     source={{ uri: currentMedia.uri }}
-                    style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
-                    resizeMode="cover"
+                    style={{ width: CANVAS_SIZE, height: CANVAS_SIZE *1.2 }}
+                    resizeMode='cover'
                   />
                 </FilterComp>
               </View>
@@ -371,26 +371,29 @@ export default function StoryComposer({
         </View>
 
         {/* Thumbnails / pager */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.thumbBar}
-        >
-          {mediaList.map((m, i) => (
-            <TouchableOpacity
-              key={`thumb_${i}`}
-              onPress={() => setIndex(i)}
-              style={[styles.thumb, index === i && styles.activeThumb]}
-            >
-              <Image source={{ uri: m.uri }} style={styles.thumbImg} />
-              {isVideo(m) && (
-                <View style={styles.videoBadge}>
-                  <Icon name="videocam" size={12} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+
+        {mediaList.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.thumbBar}>
+            {mediaList.map((m, i) => (
+              <TouchableOpacity
+                key={`thumb_${i}`}
+                onPress={() => setIndex(i)}
+                style={[styles.thumb, index === i && styles.activeThumb]}
+              >
+                <Image source={{ uri: m.uri }} style={styles.thumbImg} />
+                {isVideo(m) && (
+                  <View style={styles.videoBadge}>
+                    <Icon name="videocam" size={12} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
 
         <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
           <Tab
@@ -483,7 +486,7 @@ export default function StoryComposer({
                 onChangeText={setDraftText}
               />
               <TouchableOpacity style={styles.addBtn} onPress={addText}>
-                <Text style={[styles.addBtnLabel, {color: bg}]}>Add</Text>
+                <Text style={[styles.addBtnLabel, { color: bg }]}>Add</Text>
               </TouchableOpacity>
             </View>
 
@@ -587,7 +590,12 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
 
-  thumbBar: { paddingVertical: 8 },
+  thumbBar: {
+    position: 'absolute',
+    bottom: 70,
+    paddingVertical: 8,
+    width: '100%',
+  },
   thumb: {
     width: 56,
     height: 56,
@@ -610,10 +618,15 @@ const styles = StyleSheet.create({
   },
 
   tabs: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth,
+    zIndex: 20,
   },
   tabBtn: { alignItems: 'center', gap: 2 },
   tabLabel: { color: '#fff', fontSize: 11 },
