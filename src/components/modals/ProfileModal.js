@@ -218,7 +218,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         setModalVisible(false);
         navigation.navigate('Add', {
           screen: 'Add',
-          params: { fromIcon: 'Flips' },
+          params: { type: 'Flips' },
         });
         break;
       case 'ai':

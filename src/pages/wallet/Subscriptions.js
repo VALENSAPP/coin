@@ -294,7 +294,7 @@ const SubventionSetupScreen = () => {
                 // Navigate to create reel screen
                 navigation.navigate('Add', {
                     screen: 'Add',
-                    params: { fromIcon: 'Flips' },
+                    params: { type: 'Flips' },
                 });
                 // Example: navigation.navigate('CreateReel');
                 break;
@@ -305,7 +305,7 @@ const SubventionSetupScreen = () => {
             case 'videos':
                 navigation.navigate('Add', {
                     screen: 'Add',
-                    params: { fromIcon: 'Flips' },
+                    params: { type: 'Flips' },
                 });
                 break;
             default:
