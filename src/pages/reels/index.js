@@ -31,6 +31,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import { useAppTheme } from '../../theme/useApptheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -192,6 +193,7 @@ export default function FlipsScreen() {
 
       // Set param reel as first item
       setReels([transformedParamReel]);
+      
     }
 
     // Fetch all reels (will be appended after param reel)
@@ -630,7 +632,7 @@ export default function FlipsScreen() {
 
         {/* User info */}
         <View style={styles.userInfo}>
-          <TouchableOpacity style={styles.userRow}>
+          <TouchableOpacity style={styles.userRow} onPress={handleUserNavigate}>
             <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
             <Text style={styles.username}>
               {item.user}
@@ -697,6 +699,20 @@ export default function FlipsScreen() {
       </View>
     </View>
   );
+
+  const handleUserNavigate = async(id) => {
+    const userId = await AsyncStorage.getItem('userId');
+    const paramReel = route.params?.item;
+
+    if (userId === paramReel.userId) {
+      navigation.navigate('ProfileMain', { screen: 'Profile' });
+    } else {
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: { userId: paramReel.userId }
+      });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>

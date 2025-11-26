@@ -9,14 +9,12 @@ const HighlightStories = ({ userData }) => {
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const { textStyle, text } = useAppTheme();
-  const handlePress = () => {
-
-  }
+  
   return (
     <View style={styles.container}>
       <TouchableOpacity style={[styles.card, { shadowColor: text }]} onPress={() => { navigation.navigate('CreatorCoin') }}>
         <Text style={[styles.cardTitle, { color: text }]}>Score</Text>
-        <Text style={styles.cardValue}>$1,666</Text>
+        <Text style={styles.cardValue}>${userData?.tokenBalance}</Text>
         {/* <Ionicons name="chevron-forward" size={18} color="#000" style={styles.cardIcon} /> */}
       </TouchableOpacity>
       <TouchableOpacity style={[styles.card, { shadowColor: text }]} activeOpacity={0.5}

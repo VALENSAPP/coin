@@ -1419,7 +1419,7 @@ const InstagramPostCreator = () => {
 
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle]}>
-      {/* {!fromIcon && ( */}
+      {!fromIcon && (
 
 
         <View style={styles.tabContainer}>
@@ -1454,7 +1454,7 @@ const InstagramPostCreator = () => {
             />
           ))}
         </View>
-      {/* // )} */}
+       )} 
       <RBSheet
         ref={bottomSheetRef}
         closeOnDragDown={true}
@@ -1641,7 +1641,7 @@ const InstagramPostCreator = () => {
         </Modal>
       )}
 
-      <View style={styles.NextButtonView}>
+      <View style={[styles.NextButtonView]}>
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
           <Text style={styles.nextButtonText}>Next</Text>
           <Text style={styles.nextArrow}>→</Text>
@@ -1658,7 +1658,7 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={{height: fromIcon ? "82%" : "70%"}} showsVerticalScrollIndicator={false}>
         {renderFilters()}
         {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}
@@ -1687,11 +1687,6 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  content: {
-    // flex: 1,
-    // backgroundColor:'#39b314ff',
-    height: "70%"
   },
   imageContainer: {
     marginBottom: 20,

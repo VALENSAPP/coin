@@ -19,7 +19,8 @@ export default function PostScreen({ navigation }) {
   const [shared, setShared] = useState(false);
   const route = useRoute();
   const fromIcon = route?.params?.fromIcon;
-  console.log(fromIcon,'fromicons')
+  const mediaType = route?.params?.type;
+  console.log(mediaType,'mediaTypes--------------------------------')
   const { bgStyle, textStyle, text } = useAppTheme();
 
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
@@ -317,7 +318,7 @@ export default function PostScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      if (fromIcon === 'Flips') {
+      if (mediaType === 'Flips') {
         setSelectedMedia([])
         setShowTypeModal(false);
         setPostType('flip');
@@ -369,7 +370,7 @@ export default function PostScreen({ navigation }) {
       Alert.alert('No media selected', 'Please select at least one photo or video to share.');
       return;
     }
-    navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: fromIcon });
+    navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: mediaType });
   };
 
   const renderGridItem = (asset, index) => {
@@ -539,7 +540,7 @@ export default function PostScreen({ navigation }) {
         >
           <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>{fromIcon === 'Flips' ? 'New Flip' : 'New Mint'}</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{mediaType === 'Flips' ? 'New Flip' : 'New Mint'}</Text>
         <TouchableOpacity
           onPress={handleShare}
           style={[styles.headerShareBtn, { backgroundColor: text, shadowColor: text, opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
