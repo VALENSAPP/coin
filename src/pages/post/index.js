@@ -317,9 +317,11 @@ export default function PostScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       if (fromIcon === 'Flips') {
+        setSelectedMedia([])
         setShowTypeModal(false);
         setPostType('flip');
       } else {
+        setSelectedMedia([])
         setShowTypeModal(true);
       }
     }, [fromIcon])
