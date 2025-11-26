@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking } from 'react-native';
 import React, { useEffect, useState, useCallback } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -486,9 +486,20 @@ const ProfilePersonData = ({
 
   const redirect = () => {
     if (data) {
-      console.log(data, 'dtaaaaa');
       navigation.navigate('ShareProfile', { userData: data });
     }
+  };
+
+  const handleSupportPress = () => {
+    const email = 'info@valens.app';
+    const subject = 'App Support Request';
+    const body = 'Hi team,\n\nI need help with...';
+
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'No mail app found');
+    });
   };
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
@@ -715,7 +726,7 @@ const ProfilePersonData = ({
                       <Text style={styles.buttonText}> Invite</Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity>
+                  <TouchableOpacity onPress={handleSupportPress}>
                     <LinearGradient
                       colors={
                         userData?.profile === 'company'
