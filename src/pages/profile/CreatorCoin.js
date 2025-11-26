@@ -361,12 +361,12 @@ export default function CreatorCoin() {
         </View>
 
         <View style={[styles.detailsBox, bgStyle]}>
-          <View style={[styles.detailRow, bgStyle]}>
+          {/* <View style={[styles.detailRow, bgStyle]}>
             <Text style={styles.detailLabel}>Total supply</Text>
             <Text style={styles.detailValue}>1,00,000</Text>
-          </View>
+          </View> */}
 
-          <View style={[styles.detailRow1, bgStyle]}>
+          <View style={[styles.detailRow, bgStyle]}>
             <Text style={styles.detailLabel}>Contract address</Text>
             <TouchableOpacity onPress={copyToClipboard} style={styles.adressCopy}>
               <Text style={styles.detailValue}>{data?.walletAddress.trim().slice(0, 12) + '....'}</Text>

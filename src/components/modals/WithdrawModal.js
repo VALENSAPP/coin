@@ -15,13 +15,28 @@ const WithdrawalModal = ({ onWithdrawal }) => {
     const [amount, setAmount] = useState('');
     const [bottomPad, setBottomPad] = useState(0);
     const [activeInput, setActiveInput] = useState('amount');
-    const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false); // Add this state
+    const [isProcessingWithdraw, setIsProcessingWithdraw] = useState(false);
 
     const updateInProgress = useRef(false);
     const amountInputRef = useRef(null);
     const dispatch = useDispatch();
     const toast = useToast();
     const { textStyle, text } = useAppTheme();
+
+    // Calculate fee breakdown
+    const calculateFeeBreakdown = (inputAmount) => {
+        const numAmount = Number(inputAmount) || 0;
+        const withdrawalFee = numAmount * 0.05; // 5% fee
+        const finalAmount = numAmount - withdrawalFee; // Amount after deducting fee
+        
+        return {
+            enteredAmount: numAmount,
+            withdrawalFee: withdrawalFee,
+            finalAmount: finalAmount
+        };
+    };
+
+    const breakdown = calculateFeeBreakdown(amount);
 
     useEffect(() => {
         const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
@@ -48,25 +63,33 @@ const WithdrawalModal = ({ onWithdrawal }) => {
     };
 
     const handleWithdraw = async () => {
+        // Validate amount
+        if (!amount || Number(amount) <= 0) {
+            showToastMessage(toast, 'danger', 'Please enter a valid amount');
+            return;
+        }
+
         try {
+            setIsProcessingWithdraw(true);
             dispatch(showLoader());
-            const response = await requestWithdrawal({ amount: Number(amount) });
+            
+            // Send the final amount (after deducting 5% fee) to the API
+            const response = await requestWithdrawal({ amount: Number(breakdown.finalAmount) });
             console.log('requestWithdrawal--------------', response);
+            
             if (response.statusCode === 200) {
                 onWithdrawal();
-            }
-            else {
-                showToastMessage(toast, 'danger', response.message)
+            } else {
+                showToastMessage(toast, 'danger', response.message);
             }
         } catch (error) {
             console.error('Error creating payment session:', error);
-            alert('Failed to process payment. Please check your connection and try again.');
+            showToastMessage(toast, 'danger', 'Failed to process withdrawal. Please try again.');
         } finally {
             setIsProcessingWithdraw(false);
             dispatch(hideLoader());
         }
     };
-
 
     const formatCurrency = (value) => {
         const num = Number(value);
@@ -87,9 +110,6 @@ const WithdrawalModal = ({ onWithdrawal }) => {
             <View style={styles.content}>
                 {/* Token Info */}
                 <View style={styles.tokenInfoSection}>
-                    {/* <View style={styles.tokenIconContainer}>
-            <Icon name="diamond" size={32} color={text} />
-          </View> */}
                     <Text style={styles.tokenTitle}>Withdraw Amount</Text>
                 </View>
 
@@ -110,7 +130,7 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                             blurOnSubmit
                             returnKeyType="done"
                             onSubmitEditing={() => Keyboard.dismiss()}
-                            editable={!isProcessingWithdraw} // Disable input during withdraw
+                            editable={!isProcessingWithdraw}
                         />
                     </View>
                 </View>
@@ -120,55 +140,39 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                     <Text style={styles.calculationTitle}>Fee Structure & Breakdown</Text>
                     <View style={styles.calculationCard}>
                         <View style={styles.calculationRow}>
-                            <Text style={styles.calculationLabel}>Total Value</Text>
+                            <Text style={styles.calculationLabel}>Entered Amount</Text>
                             <Text style={styles.calculationValue}>
-                                {/* ${formatCurrency(currentBreakdown.baseAmount)} */}
+                                ${formatCurrency(breakdown.enteredAmount)}
                             </Text>
                         </View>
                         <View style={styles.calculationRow}>
-                            <Text style={styles.calculationLabel}>Platform Fee (5%)</Text>
-                            <Text style={[styles.calculationValue, styles.addition]}>
-                                {/* +${formatCurrency(currentBreakdown.platformFee)} */}
+                            <Text style={styles.calculationLabel}>Withdrawal Fee (5%)</Text>
+                            <Text style={[styles.calculationValue, styles.deduction]}>
+                                -${formatCurrency(breakdown.withdrawalFee)}
                             </Text>
                         </View>
                         <View style={styles.separator} />
                         <View style={styles.calculationRow}>
                             <Text style={[styles.calculationLabel, styles.totalLabel]}>
-                                Total Withdrawal Amount
+                                Final Withdrawal Amount
                             </Text>
                             <Text style={[styles.calculationValue, styles.totalValue, textStyle]}>
-                                {/* ${formatCurrency(currentBreakdown.totalAmount)} */}
+                                ${formatCurrency(breakdown.finalAmount)}
                             </Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Info Section */}
-                {/* <View style={styles.infoSection}>
-          <View style={[styles.infoBox, {borderLeftColor: text}]}>
-            <Icon name="information-circle" size={20} color={text} style={styles.infoIcon} />
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoText}>
-                • Platform fee and Following fee is added to your token value amount
-              </Text>
-              <Text style={styles.infoText}>
-                • Token count is calculated from the token value amount (before fees)
-              </Text>
-              <Text style={styles.infoText}>
-                • Adjusting either amount or tokens will update the other automatically
-              </Text>
-            </View>
-          </View>
-        </View> */}
-
                 {/* Withdraw Button */}
                 <TouchableOpacity
                     style={[
                         styles.withdrawButton,
-                        { backgroundColor: text, shadowColor: text }
+                        { backgroundColor: text, shadowColor: text },
+                        (!amount || Number(amount) <= 0 || isProcessingWithdraw) && styles.withdrawButtonDisabled
                     ]}
                     onPress={handleWithdraw}
                     activeOpacity={0.8}
+                    disabled={!amount || Number(amount) <= 0 || isProcessingWithdraw}
                 >
                     {isProcessingWithdraw ? (
                         <>
@@ -178,7 +182,7 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                     ) : (
                         <>
                             <Text style={styles.withdrawButtonText}>
-                                Withdraw
+                                Withdraw ${formatCurrency(breakdown.finalAmount)}
                             </Text>
                         </>
                     )}
@@ -392,7 +396,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     addition: {
-        color: '#48AD24', // Orange color to indicate addition
+        color: '#48AD24',
+    },
+    deduction: {
+        color: '#EF4444', // Red color to indicate deduction
     },
     separator: {
         height: 1,
