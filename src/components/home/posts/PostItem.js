@@ -360,9 +360,14 @@ export default function PostItem({
 
   const handleUserProfile = (id) => {
     if (userId === id) {
+
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
-      navigation.navigate('UsersProfile', { userId: id });
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: { userId: id }
+      });
+      console.log(userId, 'can user id came heree')
     }
   };
 
