@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import { useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfilePersonData from '../../components/profile/ProfilePersonalData';
 import HighlightStories from '../../components/profile/HighLightStories';
 import ProfileTabs from '../../components/profile/ProfileTabNavigation';
@@ -24,6 +25,7 @@ import TokenSellModal from '../../components/modals/TokenSellModal';
 import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getMyFanSubscriptionList } from '../../services/stirpe';
 
 const Usersprofile = () => {
   const route = useRoute();
@@ -37,12 +39,52 @@ const Usersprofile = () => {
   const [followBusy, setFollowBusy] = useState(false);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false); // New state for subscription status
+  const [loggedInUserId, setLoggedInUserId] = useState(null); // Store logged-in user ID
 
   const toast = useToast();
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
+
+  // Fetch logged-in user ID
+  const fetchLoggedInUserId = useCallback(async () => {
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      setLoggedInUserId(id);
+      return id;
+    } catch (error) {
+      console.error('Error fetching logged-in user ID:', error);
+      return null;
+    }
+  }, []);
+
+  // Check subscription status
+  const checkSubscriptionStatus = useCallback(async (currentUserId) => {
+    if (!currentUserId || !targetUserId) return false;
+
+    try {
+      const response = await getMyFanSubscriptionList(targetUserId);
+      if (response?.statusCode === 200 && response?.data?.subscriptions) {
+        const subscriptions = response.data.subscriptions;
+        
+        // Check if current user exists in the subscription list as buyUserId
+        const hasSubscription = subscriptions.some(
+          sub => sub.buyUserId === currentUserId && sub.status === 'ACTIVE'
+        );
+
+        console.log('hasSubscription---------------',hasSubscription)
+        setIsSubscribed(hasSubscription);
+        return hasSubscription;
+      }
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      // Don't show toast error as it's not critical
+    }
+    
+    return false;
+  }, [targetUserId]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -65,8 +107,14 @@ const Usersprofile = () => {
     dispatch(showLoader());
 
     try {
-      // Fetch profile token info first
-      await fetchProfile();
+      // Fetch logged-in user ID first
+      const currentUserId = await fetchLoggedInUserId();
+      
+      // Fetch profile token info and check subscription
+      await Promise.all([
+        fetchProfile(),
+        checkSubscriptionStatus(currentUserId)
+      ]);
 
       const [postsRes, userRes, dashRes] = await Promise.all([
         getPostByUser(targetUserId),
@@ -104,7 +152,7 @@ const Usersprofile = () => {
     } finally {
       dispatch(hideLoader());
     }
-  }, [targetUserId, toast, dispatch, fetchProfile]);
+  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus]);
 
   const toggleFollow = async () => {
     console.log('targetUserId--------------------',targetUserId)
@@ -154,11 +202,6 @@ const Usersprofile = () => {
         if (typeof serverVal === 'boolean') {
           setIsFollowing(prev => ({ ...prev, [key]: serverVal }));
         }
-        // showToastMessage(
-        //   toast,
-        //   'success',
-        //   isFollowing ? 'Successfully Vallowed!' : 'Unfollowed',
-        // );
       }
     } catch (e) {
       setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
@@ -248,7 +291,15 @@ const Usersprofile = () => {
           <HighlightStories userData={userData}/>
         </View>
 
-        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} targetUserId={targetUserId}/>
+        <ProfileTabs 
+          post={posts} 
+          displayName={userData?.userName} 
+          userData={userData} 
+          dashboard={userDashboard} 
+          targetUserId={targetUserId}
+          isSubscribed={isSubscribed} // Pass subscription status to ProfileTabs
+          loggedInUserId={loggedInUserId} // Pass logged-in user ID
+        />
       </ScrollView>
 
       {/* Token Purchase Modal */}
