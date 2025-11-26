@@ -488,9 +488,24 @@ export default function PostView({ postData = [] }) {
     commentSheetRef.current?.close();
   };
 
+  const handleCommentClose = () => {
+    commentSheetRef.current?.close();
+    setCommentPostId(null);
+  };
+
+  const handleCommentCountUpdate = useCallback((postId, newCount) => {
+    setPostCommentsCount(prev => ({
+      ...prev,
+      [postId]: Math.max(0, newCount)
+    }));
+  }, []);
+
+  // (progress UI is handled by PostItem directly, therefore no helper is required here)
+
   // ─── Renderer ───────────────────────────────────────────────
   const renderFeedItem = useCallback(
     ({ item }) => {
+      console.log(item,'item data came hererererererere')
       const mapped = {
         id: item.id,
         username: item.userName ?? 'Unknown',
@@ -504,6 +519,11 @@ export default function PostView({ postData = [] }) {
         })),
         caption: item.caption,
         PostsProfile: 'Support',
+        link:item.link,
+        raiseAmount: item.raiseAmount ?? 0,
+        goalAmount: item.goalAmount ?? 100000,
+        daysLeft: item.daysLeft ?? 0,
+        profile: item.profile,
         createdAt: item.createdAt,
         UserId: item.userId,
         userId: item.userId,
@@ -515,20 +535,23 @@ export default function PostView({ postData = [] }) {
       };
 
       return (
-        <PostItem
-          item={mapped}
-          liked={!!liked[item.id]}
-          likesCount={postLikesCount[item.id] || 0}
-          commentsCount={postCommentsCount[item.id] || 0}
-          saved={!!saved[item.id]}
-          onToggleLike={() => toggleLike(item.id)}
-          onToggleSave={() => handleToggleSave(item.id)}
-          onToggleFollow={handleToggleFollow}
-          followingBusy={followingBusy.has(String(mapped.UserId))}
-          onComment={() => handleComment(item.id, mapped.UserId)}
-          onOptions={() => openOptions(item.id)}
-          onSuggest={[]}
-        />
+        <View>
+          <PostItem
+            item={mapped}
+            liked={!!liked[item.id]}
+            likesCount={postLikesCount[item.id] || 0}
+            commentsCount={postCommentsCount[item.id] || 0}
+            saved={!!saved[item.id]}
+            onToggleLike={() => toggleLike(item.id)}
+            onToggleSave={() => handleToggleSave(item.id)}
+            onToggleFollow={handleToggleFollow}
+            followingBusy={followingBusy.has(String(mapped.UserId))}
+            onComment={() => handleComment(item.id, mapped.UserId)}
+            onOptions={() => openOptions(item.id)}
+            onSuggest={[]}
+          />
+          
+        </View>
       );
     },
     [
@@ -558,20 +581,9 @@ export default function PostView({ postData = [] }) {
   const getItemLayout = useCallback((data, index) => {
     const baseHeight = 150;
     const mediaHeight = 300;
-    const totalHeight = baseHeight + mediaHeight;
+    const progressHeight = 100;
+    const totalHeight = baseHeight + mediaHeight + progressHeight;
     return { length: totalHeight, offset: totalHeight * index, index };
-  }, []);
-
-  const handleCommentClose = () => {
-    commentSheetRef.current?.close();
-    setCommentPostId(null);
-  };
-
-  const handleCommentCountUpdate = useCallback((postId, newCount) => {
-    setPostCommentsCount(prev => ({
-      ...prev,
-      [postId]: Math.max(0, newCount)
-    }));
   }, []);
 
   return (
@@ -655,7 +667,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedContainer: {
-    // paddingBottom: 20,
+    paddingBottom: 20,
   },
   headerSection: {
     height: 60,

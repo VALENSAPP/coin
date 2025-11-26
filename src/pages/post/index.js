@@ -19,6 +19,7 @@ export default function PostScreen({ navigation }) {
   const [shared, setShared] = useState(false);
   const route = useRoute();
   const fromIcon = route?.params?.fromIcon;
+  console.log(fromIcon,'fromicons')
   const { bgStyle, textStyle, text } = useAppTheme();
 
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
