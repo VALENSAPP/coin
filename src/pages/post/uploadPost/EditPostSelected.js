@@ -72,12 +72,13 @@ const InstagramPostCreator = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const routeImages = route.params?.selectedMedia || [];
-  const postType = route.params?.postType || 'regular'; // 'regular' or 'crowdfunding'
+  const postType = route.params?.postType || 'regular';
   const fromIcon = route.params?.fromIcon;
   const [selectedImages, setSelectedImages] = useState(routeImages);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
   const bottomSheetRef = useRef();
+  console.log(fromIcon,'from icon came here')
 
   const [selectedFilter, setSelectedFilter] = useState('none');
   const [isZooming, setIsZooming] = useState(false);
@@ -136,24 +137,24 @@ const InstagramPostCreator = () => {
   // Enhanced helper function to check if any media is video
   const isMediaVideo = (media) => {
     if (!media) return false;
-    
+
     // Check by type first
     if (media.type && media.type.includes('video')) {
       return true;
     }
-    
+
     // Check by file extension
     const uri = media.uri || media.path;
     if (uri) {
       const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
       return videoExtensions.some(ext => uri.toLowerCase().includes(ext));
     }
-    
+
     // Check by duration property (videos usually have duration)
     if (media.duration && media.duration > 0) {
       return true;
     }
-    
+
     return false;
   };
 
@@ -821,8 +822,8 @@ const InstagramPostCreator = () => {
   };
 
   const TabButton = ({ title, isActive, icon, onPress, disabled = false }) => (
-    <TouchableOpacity 
-      style={[styles.tabButton, disabled && styles.disabledTabButton]} 
+    <TouchableOpacity
+      style={[styles.tabButton, disabled && styles.disabledTabButton]}
       onPress={onPress}
       disabled={disabled}
     >
@@ -901,7 +902,8 @@ const InstagramPostCreator = () => {
                     }}
                     style={{
                       width: IMAGE_SIZE,
-                      height: IMAGE_SIZE,
+                      height: "100%",
+
                       position: 'relative'
                     }}
                     collapsable={false}
@@ -927,7 +929,7 @@ const InstagramPostCreator = () => {
                           onError={(error) => console.log('Video error:', error)}
                           poster={image.thumbnail || undefined} // Show thumbnail if available
                         />
-                        
+
                         {/* Enhanced Play/Pause Button Overlay */}
                         <TouchableOpacity
                           style={styles.videoPlayButton}
@@ -942,7 +944,7 @@ const InstagramPostCreator = () => {
                             />
                           </View>
                         </TouchableOpacity>
-                        
+
                         {/* Video indicator with duration if available */}
                         <View style={styles.videoIndicator}>
                           <Icon name="videocam" size={16} color="white" />
@@ -1417,39 +1419,42 @@ const InstagramPostCreator = () => {
 
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle]}>
-      <View style={styles.tabContainer}>
-        {[
-          { title: 'Text', icon: 'text-outline', disabled: isCurrentMediaVideo() },
-          { title: 'Overlay', icon: 'layers-outline', disabled: isCurrentMediaVideo() },
-          { title: 'Filter', icon: 'color-filter-outline', disabled: isCurrentMediaVideo() },
-          { title: 'Draw', icon: 'create-outline', disabled: isCurrentMediaVideo() },
-        ].map(tab => (
-          <TabButton
-            key={tab.title}
-            title={tab.title}
-            icon={tab.icon}
-            isActive={activeTab === tab.title}
-            disabled={tab.disabled}
-            onPress={() => {
-              if (tab.disabled) return;
-              
-              setActiveTab(tab.title);
-              if (tab.title === 'Filter') {
-                setShowFilters(prev => !prev);
-              } else if (tab.title === 'Draw') {
-                setIsDrawing(prev => !prev);
-              } else if (tab.title === 'Text') {
-                setModalVisible2(true);
-              } else if (tab.title === 'Overlay') {
-                bottomSheetRef.current.open();
-              } else {
-                setShowFilters(false);
-              }
-            }}
-          />
-        ))}
-      </View>
+      {/* {!fromIcon && ( */}
 
+
+        <View style={styles.tabContainer}>
+          {[
+            { title: 'Text', icon: 'text-outline', disabled: isCurrentMediaVideo() },
+            { title: 'Overlay', icon: 'layers-outline', disabled: isCurrentMediaVideo() },
+            { title: 'Filter', icon: 'color-filter-outline', disabled: isCurrentMediaVideo() },
+            { title: 'Draw', icon: 'create-outline', disabled: isCurrentMediaVideo() },
+          ].map(tab => (
+            <TabButton
+              key={tab.title}
+              title={tab.title}
+              icon={tab.icon}
+              isActive={activeTab === tab.title}
+              disabled={tab.disabled}
+              onPress={() => {
+                if (tab.disabled) return;
+
+                setActiveTab(tab.title);
+                if (tab.title === 'Filter') {
+                  setShowFilters(prev => !prev);
+                } else if (tab.title === 'Draw') {
+                  setIsDrawing(prev => !prev);
+                } else if (tab.title === 'Text') {
+                  setModalVisible2(true);
+                } else if (tab.title === 'Overlay') {
+                  bottomSheetRef.current.open();
+                } else {
+                  setShowFilters(false);
+                }
+              }}
+            />
+          ))}
+        </View>
+      {/* // )} */}
       <RBSheet
         ref={bottomSheetRef}
         closeOnDragDown={true}
@@ -1653,11 +1658,11 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {renderImageCarousel()}
+      <View style={styles.content} showsVerticalScrollIndicator={false}>
         {renderFilters()}
+        {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}
-      </ScrollView>
+      </View>
       {renderEditingTabs()}
     </SafeAreaView>
   );
@@ -1684,16 +1689,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   content: {
-    flex: 1,
+    // flex: 1,
+    // backgroundColor:'#39b314ff',
+    height: "70%"
   },
   imageContainer: {
     marginBottom: 20,
-    marginLeft: 15
+    marginLeft: 15,
+    // height:'100%',
     // alignItems: 'center',
     // paddingVertical: 16,
+    // backgroundColor:'#f51919ff'
+
   },
   mainImageContainer: {
     position: 'relative',
+    height: "100%"
   },
   mainScrollView: {
     width: IMAGE_SIZE,
@@ -1701,23 +1712,29 @@ const styles = StyleSheet.create({
   },
   mainScrollContent: {
     alignItems: 'center',
+    height: '100%',
   },
   imageSlide: {
-     height: IMAGE_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
+    //  height: IMAGE_SIZE ,
+    // justifyContent: 'center',
+    // alignItems: 'center',
+    height: "100%",
+
   },
   mainImage: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    // height: IMAGE_SIZE,
+    height: "100%",
     borderRadius: 8,
   },
   videoContainer: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    // height: IMAGE_SIZE ,
     position: 'relative',
     borderRadius: 8,
     overflow: 'hidden',
+    height: "100%",
+
   },
   videoPlayButton: {
     position: 'absolute',
@@ -1853,6 +1870,7 @@ const styles = StyleSheet.create({
   },
   activeThumbnail: {
     borderColor: '#fff',
+
   },
   thumbnailImage: {
     width: '100%',
@@ -1862,6 +1880,7 @@ const styles = StyleSheet.create({
   filtersContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+
   },
   filterOption: {
     alignItems: 'center',
@@ -1889,6 +1908,7 @@ const styles = StyleSheet.create({
   },
   editingSection: {
     paddingTop: 12,
+
   },
   tabContainer: {
     flexDirection: 'row',
