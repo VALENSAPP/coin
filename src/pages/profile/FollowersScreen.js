@@ -33,10 +33,10 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   // console.log(route?.params?.params.userName, 'checkTab');
 
   const headerUsername =
-    route?.params?.params.userName ||
-    route?.params.userName ||
-    route?.params.username ||
-    route?.params.user?.Username ||
+    route?.params?.params?.userName ||
+    route?.params?.userName ||
+    route?.params?.username ||
+    route?.params?.user?.Username ||
     'Unknown User';
   const profileUserIdFromRoute = route?.params.userId || null;
 

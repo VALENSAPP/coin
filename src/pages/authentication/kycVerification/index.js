@@ -29,6 +29,7 @@ import { kycStart, kycStatus, kycWebhook } from '../../../services/kycverificati
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { EditProfile } from '../../../services/createProfile';
 
 const { width, height } = Dimensions.get('window');
 
@@ -121,57 +122,102 @@ export default function KYCVerification({ route }) {
         }
     };
 
-    const startProgressBarAndFetch = () => {
-        console.log('startProgressBarAndFetch called');
 
-        // Clean up any existing timers/animations FIRST
-        cleanupProgress();
+    const handleCreateProfile = async () => {
+        try {
+            const formData = new FormData();
+            formData.append('userName', profileData.username);
+            formData.append('displayName', profileData.displayName);
+            formData.append('bio', profileData.bio);
+            if (profileData?.image && profileData.image.uri) {
+                const img = profileData.image;
+                const fileUri = Platform.OS === 'android' ? img.uri : img.uri.replace('file://', '');
+                formData.append('image', {
+                    uri: fileUri,
+                    name: img.name || 'profile.jpg',
+                    type: img.type || 'image/jpeg',
+                });
+            } else if (profileData?.imageUri) {
+                const uri = profileData.imageUri;
+                const fileUri = Platform.OS === 'android' ? uri : uri.replace('file://', '');
+                formData.append('image', {
+                    uri: fileUri,
+                    name: 'profile.jpg',
+                    type: 'image/jpeg',
+                });
+            }
+            formData.append('gender', '');
+            formData.append('age', '');
+            formData.append('phoneNumber', '');
 
-        // Reset animation value
-        progressValue.setValue(0);
-        setProgressPercent(0);
+            const response = await EditProfile(formData);
+            const code = response.statusCode;
+
+            if (code === 200) {
+                console.log('profile edit response ---------------',response)
+                // showToastMessage(toast, 'success', 'Profile de.');
+            } else if (code === 500) {
+                showToastMessage(toast, 'danger', 'Something went wrong. Please try again.');
+            } else {
+                showToastMessage(toast, 'danger', 'Something went wrong. Please try again.');
+            }
+        } catch (err) {
+            showToastMessage(toast, 'danger', 'Network error. Please check your connection.');
+        }
+    };
+
+    const startProgressBarAndFetch = async() => {
+        // console.log('startProgressBarAndFetch called');
+
+        // // Clean up any existing timers/animations FIRST
+        // cleanupProgress();
+
+        // // Reset animation value
+        // progressValue.setValue(0);
+        // setProgressPercent(0);
+        await handleCreateProfile();
         setShowProgressModal(true);
 
         // Small delay to ensure modal is rendered before starting animation
-        setTimeout(() => {
-            // Update percentage every 100ms for smooth animation
-            let elapsed = 0;
-            const totalDuration = 120000; // 2 minutes
-            const updateInterval = 100;
+        // setTimeout(() => {
+        //     // Update percentage every 100ms for smooth animation
+        //     let elapsed = 0;
+        //     const totalDuration = 120000; // 2 minutes
+        //     const updateInterval = 100;
 
-            const percentInterval = setInterval(() => {
-                elapsed += updateInterval;
-                const percent = Math.min(Math.round((elapsed / totalDuration) * 100), 100);
-                setProgressPercent(percent);
+        //     const percentInterval = setInterval(() => {
+        //         elapsed += updateInterval;
+        //         const percent = Math.min(Math.round((elapsed / totalDuration) * 100), 100);
+        //         setProgressPercent(percent);
 
-                if (elapsed >= totalDuration) {
-                    clearInterval(percentInterval);
-                }
-            }, updateInterval);
+        //         if (elapsed >= totalDuration) {
+        //             clearInterval(percentInterval);
+        //         }
+        //     }, updateInterval);
 
-            // Store interval reference for cleanup
-            percentUpdateInterval.current = percentInterval;
+        //     // Store interval reference for cleanup
+        //     percentUpdateInterval.current = percentInterval;
 
-            // Animate progress bar over 2 minutes (120000ms)
-            progressAnimationRef.current = Animated.timing(progressValue, {
-                toValue: 1,
-                duration: totalDuration,
-                easing: Easing.linear,
-                useNativeDriver: false,
-            });
+        //     // Animate progress bar over 2 minutes (120000ms)
+        //     progressAnimationRef.current = Animated.timing(progressValue, {
+        //         toValue: 1,
+        //         duration: totalDuration,
+        //         easing: Easing.linear,
+        //         useNativeDriver: false,
+        //     });
 
-            progressAnimationRef.current.start((result) => {
-                console.log('Animation completed, finished:', result.finished);
-            });
+        //     progressAnimationRef.current.start((result) => {
+        //         console.log('Animation completed, finished:', result.finished);
+        //     });
 
-            // Call fetchKycStatus after 2 minutes
-            progressTimerRef.current = setTimeout(() => {
-                setShowProgressModal(false);
-                progressValue.setValue(0);
-                setProgressPercent(0);
-                fetchKycStatus();
-            }, totalDuration);
-        }, 100); // 100ms delay
+        //     // Call fetchKycStatus after 2 minutes
+        //     progressTimerRef.current = setTimeout(() => {
+        //         setShowProgressModal(false);
+        //         progressValue.setValue(0);
+        //         setProgressPercent(0);
+        //         fetchKycStatus();
+        //     }, totalDuration);
+        // }, 100); // 100ms delay
     };
 
     const cancelProgress = () => {
@@ -593,7 +639,10 @@ export default function KYCVerification({ route }) {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            onPress={() => navigation.goBack()}
+                            onPress={() => {
+                                setShowProgressModal(false);
+                                navigation.goBack()
+                            }}
                             style={styles.backButton}
                         >
                             <Text style={styles.backButtonText}>Go Back</Text>
@@ -631,66 +680,24 @@ export default function KYCVerification({ route }) {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
-                        {/* Circular Progress Indicator */}
-                        <View style={styles.circularProgressContainer}>
-                            <View style={styles.wrapper}>
-                                {/* ROTATING BORDER */}
-                                <Animated.View
-                                    style={[
-                                        styles.rotatingBorder,
-                                        {
-                                            transform: [
-                                                {
-                                                    rotate: progressValue.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: ['0deg', '360deg'],
-                                                    }),
-                                                },
-                                            ],
-                                        },
-                                    ]}
-                                />
 
-                                {/* Static Icon */}
-                                <View style={styles.centerIcon}>
-                                    <Icon name="shield-off" size={32} color="#4F46E5" />
-                                </View>
-                            </View>
-
-                            {/* Percentage Display */}
-                            <View style={styles.percentageContainer}>
-                                <Text style={styles.percentageText}>{progressPercent}%</Text>
-                            </View>
-                        </View>
-
-                        <Text style={styles.modalTitle}>Processing KYC</Text>
+                        <Text style={styles.modalTitle}>KYC Verification in Progress</Text>
                         <Text style={styles.modalMessage}>
-                            Please wait while we verify your information...
-                        </Text>
-                        <Text style={styles.estimatedTime}>
-                            Estimated time: {Math.ceil((120000 - (progressPercent * 1200)) / 1000)}s remaining
+                            This may take a few moments. Please check back again later.
                         </Text>
 
-                        {/* Linear Progress Bar */}
-                        <View style={styles.progressBarContainer}>
-                            <Animated.View
-                                style={[
-                                    styles.progressBarFill,
-                                    {
-                                        width: progressValue.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: ['0%', '100%'],
-                                        }),
-                                    },
-                                ]}
-                            />
-                        </View>
-
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                             style={[styles.modalButton, styles.cancelButton]}
                             onPress={cancelProgress}
                         >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                            <Text style={styles.cancelButtonText}>Okay</Text>
+                        </TouchableOpacity> */}
+                        <TouchableOpacity
+                            style={[styles.modalButton, styles.cancelButton]}
+                            onPress={() => { setShowProgressModal(false);
+                                navigation.navigate('Login') }}
+                        >
+                            <Text style={styles.cancelButtonText}>Go Back To Login Screen</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

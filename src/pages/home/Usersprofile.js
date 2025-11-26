@@ -107,6 +107,9 @@ const Usersprofile = () => {
   }, [targetUserId, toast, dispatch, fetchProfile]);
 
   const toggleFollow = async () => {
+    console.log('targetUserId--------------------',targetUserId)
+    console.log('followBusy--------------------',followBusy)
+
     if (!targetUserId || followBusy) return;
     setFollowBusy(true);
 

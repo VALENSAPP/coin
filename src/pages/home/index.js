@@ -64,7 +64,7 @@ export default function HomeScreen() {
       fetchProfileData();
     }
   }, [isFocused]);
-
+  
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && isFocused) {
@@ -75,13 +75,12 @@ export default function HomeScreen() {
     return () => subscription.remove();
   }, [isFocused, fetchData]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       dispatch(showLoader());
       const response = await getposts();
       if (response?.statusCode === 200) {
         console.log('response in get post--------', response);
-
         setPosts(response.data);
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -95,9 +94,9 @@ export default function HomeScreen() {
     } finally {
       dispatch(hideLoader());
     }
-  };
+  }, [dispatch, toast]);
 
-  const fetchProfileData = async () => {
+  const fetchProfileData = useCallback(async () => {
     try {
       dispatch(showLoader());
       const id = await AsyncStorage.getItem('userId');
@@ -106,20 +105,21 @@ export default function HomeScreen() {
       const response = await getProfile(id);
       if (response.statusCode === 200 && response.data) {
         await AsyncStorage.setItem('profile', response.data.profile || '');
-         dispatch(setUserProfile(response.data.profile));
-        
+        dispatch(setUserProfile(response.data.profile));
+
         const raw = response?.data?.image;
-        console.log('getProfilegetProfilegetProfile response--------',raw);
+        console.log('getProfilegetProfilegetProfile response--------', raw);
         dispatch(setProfileImg(raw));
         if (response?.data?.profile === 'company') {
           setIsBusinessProfile(true);
         }
       }
     } catch (err) {
+      console.error('Profile fetch error:', err);
     } finally {
-      dispatch(hideLoader())
+      dispatch(hideLoader());
     }
-  };
+  }, [dispatch]);
 
   useFocusEffect(
     useCallback(() => {
