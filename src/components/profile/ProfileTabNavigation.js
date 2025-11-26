@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PrivateContentScreen from './PrivateContentScreen';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -160,7 +161,10 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard, targetUserId
         {/* ✅ Private Content with Subscription Modal */}
         <Tab.Screen
           name="PrivateContent"
-          component={PrivateContentWrapper}
+          component={loggedInUserId == userData?.id && isSubscribed 
+          ? PrivateContentWrapper 
+          : PrivateContentScreen
+        }
           options={{
             tabBarIcon: ({ focused }) => (
               <LockKey

@@ -595,26 +595,33 @@ export default function PostItem({
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={() => {
-              if (!isBusinessProfile && item.UserId !== userId) {
-                if (item.profile === 'company') {
-                  executeFollowAction(item.UserId, !item.follow);
-                } else {
-                  onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+          {item.UserId !== userId && (
+            <TouchableOpacity
+              onPress={() => {
+                if (!isBusinessProfile && item.UserId !== userId) {
+                  if (item.profile === 'company') {
+                    executeFollowAction(item.UserId, !item.follow);
+                  } else {
+                    onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+                  }
                 }
-              }
-            }}
-            style={[styles.followButton, item.follow && styles.followingButton, { backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}
-          >
-            {followingBusy ? (
-              <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
-            ) : (
-              <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                {isBusinessProfile ? "Support" : item.UserId == userId ? 'Support' : item.follow ? 'Vallowing' : 'Vallow'}
-              </Text>
-            )}
-          </TouchableOpacity>
+              }}
+              style={[
+                styles.followButton,
+                item.follow && styles.followingButton,
+                { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
+              ]}
+            >
+              {followingBusy ? (
+                <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
+              ) : (
+                <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
+                  {isBusinessProfile ? "Support" : item.follow ? 'Vallowing' : 'Vallow'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
         </View>
 
         {item.UserId != userId && (
@@ -703,7 +710,7 @@ export default function PostItem({
           }}
         />
       )}
-      <MissionSupportScreen visible={donation} onClose={()=>setDonation(false)} />
+      <MissionSupportScreen visible={donation} onClose={() => setDonation(false)} />
       <ShareModal ref={shareRef} url={item.link} />
     </View>
   );

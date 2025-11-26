@@ -63,8 +63,6 @@ const SubventionSetupScreen = () => {
 
     const formatPrice = (n) => `${n},00`;
 
-
-
     const fetchSubscriptionByUserId = async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
