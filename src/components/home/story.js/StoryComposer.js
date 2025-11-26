@@ -492,7 +492,7 @@ export default function StoryComposer({
                   style={[
                     styles.colorDot,
                     { backgroundColor: c },
-                    textColor === c && styles.colorDotActive,
+                    textColor === c && styles.cazSSAZSSSolorDotActive,
                   ]}
                   activeOpacity={0.7}
                 />
