@@ -45,8 +45,9 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
     try {
       const id = await AsyncStorage.getItem('userId');
       const pricePerCredit = 1.99;
+      const amount = parseFloat((creditsToBuy * pricePerCredit).toFixed(2));
       const dataToSend = {
-        amount: creditsToBuy * pricePerCredit,
+        amount: amount,
         hitCount: creditsToBuy,
         userId: id
       };
@@ -145,7 +146,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       <View style={styles.container}>
         <Text style={[styles.title, textStyle]}>Buy Mint Credits</Text>
 
-        <View style={[styles.currentCreditsContainer, {shadowColor: text}]}>
+        <View style={[styles.currentCreditsContainer, { shadowColor: text }]}>
           <Text style={styles.currentCreditsLabel}>Current Credits:</Text>
           <Text style={[styles.currentCreditsValue, textStyle]}>{currentCredits} / 5</Text>
         </View>
@@ -154,7 +155,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
         <View style={styles.selectorContainer}>
           <TouchableOpacity
-            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled, {backgroundColor: text, shadowColor: text}]}
+            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled, { backgroundColor: text, shadowColor: text }]}
             onPress={decreaseCredits}
             disabled={creditsToBuy === 1}
           >
@@ -167,7 +168,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           </View>
 
           <TouchableOpacity
-            style={[styles.adjustBtn, creditsToBuy === 5 && styles.adjustBtnDisabled]}
+            style={[styles.adjustBtn, creditsToBuy === 5 && styles.adjustBtnDisabled, { backgroundColor: text, shadowColor: text }]}
             onPress={increaseCredits}
             disabled={creditsToBuy === 5}
           >
@@ -176,7 +177,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         </View>
 
         <TouchableOpacity
-          style={[styles.buyBtn, { backgroundColor: text, shadowColor: text}]}
+          style={[styles.buyBtn, { backgroundColor: text, shadowColor: text }]}
           onPress={handleConfirmPurchase}
         >
           <Text style={styles.buyBtnText}>Continue to Payment</Text>
