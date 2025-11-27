@@ -145,6 +145,7 @@ const SubscribeFlowModal = ({
                         showTitle: true,
                         toolbarColor: '#ffffff',
                         secondaryToolbarColor: '#f0f0f0',
+                        forceCloseOnRedirection: true,
                     });
 
                     // Callback if you have one

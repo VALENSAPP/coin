@@ -154,6 +154,7 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
         showTitle: false,
         enableUrlBarHiding: true,
         enableDefaultShare: false,
+        forceCloseOnRedirection: true,
       });
 
       // `InAppBrowser.openAuth` returns result with `type === 'success'` and `url`

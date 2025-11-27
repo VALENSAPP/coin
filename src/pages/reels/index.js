@@ -161,9 +161,11 @@ export default function FlipsScreen() {
   }, [isFocused]);
 
   useEffect(() => {
-    // Get reel from params if exists
+    // Get reel from params if exists — support both 'uniqueKey' and 'key' as callers may use either.
     const paramReel = route.params?.item;
+    const paramKey = route.params?.uniqueKey ?? route.params?.key ?? null;
 
+    // If there's a param reel, reset reels to show the selected reel first
     if (paramReel) {
       // Transform param reel to match app structure
       const transformedParamReel = {
@@ -191,14 +193,20 @@ export default function FlipsScreen() {
         taggedPeople: paramReel.taggedPeople || [],
       };
 
-      // Set param reel as first item
+      // Set param reel as first item and reset index so we open the selected reel
       setReels([transformedParamReel]);
+      setSelectedReelId(transformedParamReel.id);
+      setCurrentIndex(0);
+      // Reset paused/muted states so the new reel plays correctly
+      setPaused({});
+      setMuted({});
       
     }
 
     // Fetch all reels (will be appended after param reel)
     fetchAllReels(paramReel);
-  }, []);
+    // Re-run effect when route params key or uniqueKey or the item id changes
+  }, [route.params?.uniqueKey, route.params?.key, route.params?.item?.id]);
 
   const fetchAllReels = async (paramReel) => {
     try {
@@ -418,6 +426,23 @@ export default function FlipsScreen() {
       [postId]: Math.max(0, newCount),
     }));
   }, []);
+
+  // Ensure the flatlist scrolls to the current index (reel) when it changes
+  useEffect(() => {
+    if (typeof currentIndex !== 'number' || !flatListRef.current) return;
+    try {
+      flatListRef.current.scrollToIndex({ index: currentIndex, animated: true, viewPosition: 0.5 });
+    } catch (error) {
+      // If scrolling fails because index out of range, try a fallback after a small delay
+      setTimeout(() => {
+        try {
+          flatListRef.current.scrollToIndex({ index: currentIndex, animated: true, viewPosition: 0.5 });
+        } catch (e) {
+          // ignore
+        }
+      }, 200);
+    }
+  }, [currentIndex, reels]);
 
   const handlePause = (id) => {
     setPaused(prev => ({ ...prev, [id]: !prev[id] }));

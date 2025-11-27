@@ -523,7 +523,7 @@ export default function PostView({ postData = [] }) {
         raiseAmount: item.raiseAmount ?? 0,
         goalAmount: item.goalAmount ?? 100000,
         daysLeft: item.daysLeft ?? 0,
-        profile: item.profile,
+        profile: item.profile ?? 'user',
         createdAt: item.createdAt,
         UserId: item.userId,
         userId: item.userId,

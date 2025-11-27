@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
 import { WhiteDragonfly } from '../../../assets/icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
@@ -274,15 +274,19 @@ export default function PostItem({
     }
   }, [item.id]);
 
-  useEffect(() => {
+ useFocusEffect(
+  useCallback(() => {
+    let isActive = true;
+
     const fetchUserId = async () => {
       try {
         const id = await AsyncStorage.getItem('userId');
-        setUserId(id);
+        if (isActive) setUserId(id);
       } catch (error) {
         console.error('Error fetching userId:', error);
       }
     };
+
     fetchUserId();
 
     if (item?.UserId) {
@@ -291,11 +295,16 @@ export default function PostItem({
 
     // Calculate days left
     const days = calculateDaysLeft();
-    setDaysLeft(days);
+    if (isActive) setDaysLeft(days);
 
     // Fetch total donation
     fetchTotalDonation();
-  }, [item?.UserId, calculateDaysLeft, fetchTotalDonation]);
+
+    return () => {
+      isActive = false; // cleanup on blur
+    };
+  }, [item?.UserId, calculateDaysLeft, fetchTotalDonation])
+);
 
   const fetchAllData = async () => {
     if (!item?.UserId) {
