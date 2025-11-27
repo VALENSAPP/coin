@@ -273,6 +273,7 @@ export default function KYCVerification({ route }) {
                         showTitle: true,
                         toolbarColor: '#ffffff',
                         secondaryToolbarColor: '#f0f0f0',
+                        forceCloseOnRedirection: true,
                     });
 
                     // Browser was closed - start progress bar and then fetch KYC status

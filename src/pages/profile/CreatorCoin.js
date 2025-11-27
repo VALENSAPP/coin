@@ -215,6 +215,7 @@ export default function CreatorCoin() {
             showTitle: true,
             toolbarColor: '#ffffff',
             secondaryToolbarColor: '#f0f0f0',
+            forceCloseOnRedirection: true,
           });
 
           fetchAllData();

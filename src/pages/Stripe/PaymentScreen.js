@@ -153,6 +153,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
           showTitle: true,
           enableUrlBarHiding: true,
           enableDefaultShare: false,
+          forceCloseOnRedirection: true,
         });
         await handleRetryCheck()
       } else {

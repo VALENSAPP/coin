@@ -224,6 +224,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
               modalTransitionStyle: 'coverVertical',
               enableBarCollapsing: true,
               showTitle: true,
+              forceCloseOnRedirection: true,
             });
           } else {
             // Fallback if in-app browser not available

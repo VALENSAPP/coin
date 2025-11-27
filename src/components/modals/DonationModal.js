@@ -53,6 +53,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 modalTransitionStyle: 'coverVertical',
                                 enableBarCollapsing: true,
                                 showTitle: true,
+                                forceCloseOnRedirection: true,
                             });
                         } else {
                             await Linking.openURL(url);
@@ -97,21 +98,22 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 const url = response?.data?.sessionUrl;
 
                 try {
-                    if (await InAppBrowser.isAvailable()) {
-                        await InAppBrowser.open(url, {
-                            dismissButtonStyle: 'close',
-                            preferredBarTintColor: '#ffffff',
-                            preferredControlTintColor: '#000000',
-                            readerMode: false,
-                            animated: true,
-                            modalPresentationStyle: 'fullScreen',
-                            modalTransitionStyle: 'coverVertical',
-                            enableBarCollapsing: true,
-                            showTitle: true,
-                        });
-                    } else {
-                        await Linking.openURL(url);
-                    }
+                    // if (await InAppBrowser.isAvailable()) {
+                    //     await InAppBrowser.open(url, {
+                    //         dismissButtonStyle: 'close',
+                    //         preferredBarTintColor: '#ffffff',
+                    //         preferredControlTintColor: '#000000',
+                    //         readerMode: false,
+                    //         animated: true,
+                    //         modalPresentationStyle: 'fullScreen',
+                    //         modalTransitionStyle: 'coverVertical',
+                    //         enableBarCollapsing: true,
+                    //         showTitle: true,
+                    //         forceCloseOnRedirection: true,
+                    //     });
+                    // } else {
+                    await Linking.openURL(url);
+                    // }
                 } catch (error) {
                     console.warn(error);
                 }
@@ -189,8 +191,10 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                             setCustomAmount(t);
                                             setSelectedAmount(null);
                                         }}
-                                        placeholder='Enter any amount'
+                                        placeholder='Enter amount'
                                         placeholderTextColor="#000"
+                                        cursorColor="#000" // Add explicit cursor color
+                                        selectionColor="#000"
                                     />
                                 </View>
                             </View>
@@ -296,16 +300,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#666',
         borderRadius: 8,
-        paddingHorizontal: 8,
-        paddingVertical: 8,
+        paddingHorizontal: 12, // Increased from 8
+        paddingVertical: 10,   // Increased from 8
         marginBottom: 10,
         width: '48%',
+        height: 44, // Add fixed height
     },
 
     customInput: {
-        flex: 1,
         fontSize: 16,
-        textAlign: 'center',
+        color: '#000',
+        paddingHorizontal: 8,
     },
 
     secureText: {

@@ -199,18 +199,20 @@ const SearchScreen = () => {
     } else {
       navigation.navigate('ProfileStack', {
         screen: 'FlipsScreen',
-        // params: { userId: id }
+        params: { userId: id }
       });
     }
   };
 
   /** 🎬 Handle post press (image or video) */
   const handlePostPress = (item, isVideo) => {
+    const uniqueKey = Date.now().toString();
     if (isVideo) {
       navigation.navigate('ProfileMain', {
         screen: 'FlipsScreen',
         params: {
           item: item,
+           key: uniqueKey,
           returnTo: route.name, 
           returnParams: route.params,
         }
