@@ -10,75 +10,71 @@ import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { useAppTheme } from '../../theme/useApptheme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import PrivateContentScreen from './PrivateContentScreen';
 
 const Tab = createMaterialTopTabNavigator();
 
 // Dummy component that triggers navigation to full screen
 const ReelsTabHandler = () => {
-  // const navigation = useNavigation();
-
-  // React.useEffect(() => {
-  //   // Navigate to FlipsScreen in full screen when this tab is focused
-  //   <ReelsScreen/>
-  //   // navigation.navigate('FlipsScreen'); s// Replace 'FlipsScreen' with your actual route name
-  // }, [navigation]);
-
   return <ReelsScreen />; // Return nothing as we're navigating away
 };
 
-
-const ProfileTabs = memo(({ post, displayName, userData, dashboard, targetUserId }) => {
+const ProfileTabs = memo(({ 
+  post, 
+  displayName, 
+  userData, 
+  dashboard, 
+  targetUserId, 
+  isSubscribed: isSubscribedProp, // Receive from parent
+  loggedInUserId // Receive from parent
+}) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(isSubscribedProp || false);
   const [privateKey, setPrivatKey] = useState(0);
-  const [sctiveTab, setActiveTab] = useState('Posts');
+  const [activeTab, setActiveTab] = useState('Posts');
   const [currentTabIndex, setCurrentTabIndex] = useState(0);
   const [previousTabIndex, setPreviousTabIndex] = useState(0);
-  const [loggedInUserId, setLoggedInUserId] = useState(null);
-
 
   const { textStyle, text } = useAppTheme();
+  
+  // Update local subscription state when prop changes
   useEffect(() => {
-    (async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setLoggedInUserId(id);
-    })();
-  }, []);
+    setIsSubscribed(isSubscribedProp);
+  }, [isSubscribedProp]);
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
     (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData} />,
     [post, userData],
   );
+  
   const navigation = useNavigation();
 
   const handleModalClose = () => {
     setShowSubscribeModal(false);
-
-    setCurrentTabIndex(previousTabIndex)
+    setCurrentTabIndex(previousTabIndex);
   };
 
-
-  // ✅ subscription conf'/irmation handler
+  // ✅ subscription confirmation handler
   const handleSubscription = () => {
     console.log('User subscribed successfully!');
-    setIsSubscribed(false);
+    setIsSubscribed(true);
+    setShowSubscribeModal(false);
   };
 
   // ✅ wrapper component for PrivateContent
   const PrivateContentWrapper = (props) => {
-    const isFocused = useIsFocused
+    const isFocused = useIsFocused();
+    
     useCallback(() => {
       if (isFocused) {
         if (!isSubscribed) {
           setShowSubscribeModal(true);
         }
       }
-    }, [isSubscribed])
+    }, [isSubscribed]);
 
-    // return isSubscribed ? <ReelsScreen {...props} /> : <></>;
+    return isSubscribed ? <PrivateContentScreen {...props} /> : <></>;
   };
 
   return (
@@ -150,21 +146,16 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard, targetUserId
               setCurrentTabIndex(1);
             }
           }}
-        // listeners={({ navigation }) => ({
-        //   tabPress: (e) => {
-        //     e.preventDefault(); // Prevent default tab behavior
-        //     navigation.navigate('FlipsScreen'); // Navigate to full screen
-        //   },
-        // })}
         />
 
         {/* ✅ Private Content with Subscription Modal */}
         <Tab.Screen
           name="PrivateContent"
-          component={loggedInUserId == userData?.id && isSubscribed 
-          ? PrivateContentWrapper 
-          : PrivateContentScreen
-        }
+          component={
+            loggedInUserId === userData?.id || isSubscribed 
+              ? PrivateContentScreen 
+              : PrivateContentScreen
+          }
           options={{
             tabBarIcon: ({ focused }) => (
               <LockKey
@@ -178,27 +169,20 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard, targetUserId
             tabPress: () => {
               setPreviousTabIndex(currentTabIndex);
               setCurrentTabIndex(2);
+              
+              // Show subscription modal only if:
+              // 1. User is not viewing their own profile
+              // 2. User is not already subscribed
               if (loggedInUserId !== userData?.id && !isSubscribed) {
-                setPrivatKey(prev => prev + 1)
+                setPrivatKey(prev => prev + 1);
                 setShowSubscribeModal(false);
                 setTimeout(() => {
-                  setShowSubscribeModal(true)
-                }, 50)
+                  setShowSubscribeModal(true);
+                }, 50);
               }
             },
           }}
-          screenListeners={{
-            state: (e) => {
-              const index = e.data.state.index;
-              const routeName = e.data.state.routeNames[index];
-
-              setPreviousTab(currentTab);   // store last tab
-              setCurrentTab(routeName);     // update current tab
-            },
-          }}
-
         />
-
 
         <Tab.Screen
           name="Tagged"
@@ -221,19 +205,22 @@ const ProfileTabs = memo(({ post, displayName, userData, dashboard, targetUserId
         />
       </Tab.Navigator>
 
-      {/* ✅ Subscription Modal */}
-      <SubscribeModal
-        visible={showSubscribeModal}
-        onClose={handleModalClose}
-        membershipPrice={19.99}
-        onPaymentDone={(info) => {
-          console.log('Payment info:', info);
-        }}
-        displayName={displayName}
-        userData={userData}
-        dashboard={dashboard}
-        targetUserId={targetUserId}
-      />
+      {/* ✅ Subscription Modal - Only show if not subscribed */}
+      {!isSubscribed && (
+        <SubscribeModal
+          visible={showSubscribeModal}
+          onClose={handleModalClose}
+          membershipPrice={19.99}
+          onPaymentDone={(info) => {
+            console.log('Payment info:', info);
+            handleSubscription();
+          }}
+          displayName={displayName}
+          userData={userData}
+          dashboard={dashboard}
+          targetUserId={targetUserId}
+        />
+      )}
     </>
   );
 });

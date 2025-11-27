@@ -92,6 +92,7 @@ export default function LoginScreen() {
           // const profile = response?.data?.profile
           // await AsyncStorage.setItem('profile', profile);
           // dispatch(setUserProfile(profile));
+          showToastMessage(toast, 'success', 'User logged in successfully');
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
         }
@@ -189,9 +190,6 @@ export default function LoginScreen() {
       });
       if (response && response.statusCode == 200) {
         console.log('login response ===================>', response);
-        if (response.data.user.kyc == true) {
-          showToastMessage(toast, 'success', response.data.message);
-        }
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
         await AsyncStorage.setItem(
