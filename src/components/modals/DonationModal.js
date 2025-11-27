@@ -8,13 +8,14 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 
-export default function MissionSupportScreen({ visible, onClose, item }) {
+export default function MissionSupportScreen({ visible, onClose, item, onDonationSuccess }) {
     const { bgStyle, textStyle, bg } = useAppTheme();
     const dispatch = useDispatch();
     const toast = useToast();
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
+    const [note, setNote] = useState(''); // Add this state for note
     const amounts = [5, 10, 25, 50];
 
     const handleConfirm = async () => {
@@ -24,13 +25,15 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
         else {
             const finalAmount = selectedAmount || customAmount;
             console.log("Final Amount:", finalAmount);
+            console.log("Note:", note); // Log the note
             try {
                 dispatch(showLoader())
                 const requestBody = {
                     type: "donation",
                     amount: Number(finalAmount),
                     vendorId: item.UserId,
-                    postId: item.id
+                    postId: item.id,
+                    note: note // Include note in request body
                 };
 
                 console.log('Purchase request body:', requestBody);
@@ -41,7 +44,6 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                     try {
                         if (await InAppBrowser.isAvailable()) {
                             await InAppBrowser.open(url, {
-                                // ✅ Customization options
                                 dismissButtonStyle: 'close',
                                 preferredBarTintColor: '#ffffff',
                                 preferredControlTintColor: '#000000',
@@ -53,7 +55,6 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                                 showTitle: true,
                             });
                         } else {
-                            // Fallback if in-app browser not available
                             await Linking.openURL(url);
                         }
                     } catch (error) {
@@ -67,8 +68,9 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                 console.error('Error creating payment session:', error);
                 alert('Failed to process payment. Please check your connection and try again.');
             } finally {
-                setCustomAmount(null);
+                setCustomAmount('');
                 setSelectedAmount(null);
+                setNote(''); // Reset note
                 onClose();
                 dispatch(hideLoader());
             }
@@ -78,13 +80,15 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
     const handleMissionDonation = async () => {
         const finalAmount = selectedAmount || customAmount;
         console.log("Final Amount:", finalAmount);
+        console.log("Note:", note); // Log the note
         try {
             dispatch(showLoader())
             const requestBody = {
                 type: "missionDonation",
                 amount: Number(finalAmount),
                 vendorId: item.UserId,
-                postId: item.id
+                postId: item.id,
+                note: note // Include note in request body
             };
 
             console.log('Purchase request body:', requestBody);
@@ -95,7 +99,6 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                 try {
                     if (await InAppBrowser.isAvailable()) {
                         await InAppBrowser.open(url, {
-                            // ✅ Customization options
                             dismissButtonStyle: 'close',
                             preferredBarTintColor: '#ffffff',
                             preferredControlTintColor: '#000000',
@@ -107,7 +110,6 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                             showTitle: true,
                         });
                     } else {
-                        // Fallback if in-app browser not available
                         await Linking.openURL(url);
                     }
                 } catch (error) {
@@ -121,8 +123,9 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
             console.error('Error creating payment session:', error);
             alert('Failed to process payment. Please check your connection and try again.');
         } finally {
-            setCustomAmount(null);
+            setCustomAmount('');
             setSelectedAmount(null);
+            setNote(''); // Reset note
             onClose();
             dispatch(hideLoader());
         }
@@ -157,6 +160,8 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                                 placeholder="Type a short message of support..."
                                 placeholderTextColor="#999"
                                 multiline
+                                value={note}
+                                onChangeText={setNote} // Update note state
                             />
 
                             <Text style={styles.label}>Choose your support amount:</Text>
@@ -176,7 +181,6 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                                 ))}
 
                                 <View style={[styles.customBox, customAmount && styles.amountSelected]}>
-                                    {/* <Text style={styles.customLabel}>Custom:</Text> */}
                                     <TextInput
                                         keyboardType="numeric"
                                         style={styles.customInput}
@@ -187,7 +191,6 @@ export default function MissionSupportScreen({ visible, onClose, item }) {
                                         }}
                                         placeholder='Enter any amount'
                                         placeholderTextColor="#000"
-
                                     />
                                 </View>
                             </View>
