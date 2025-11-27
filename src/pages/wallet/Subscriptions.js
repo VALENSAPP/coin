@@ -45,6 +45,7 @@ const SubventionSetupScreen = () => {
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [showActivationPopup, setShowActivationPopup] = useState(false);
+    const [rawAmount, setRawAmount] = useState('');
 
 
     const contentTabs = [
@@ -79,6 +80,7 @@ const SubventionSetupScreen = () => {
                     setSubscriptionAmount(amount);
                     setSubscriptionId(subId);
                     setPrice(formatPrice(amount));
+                    setRawAmount(amount.toString());
                     setHasExistingSubscription(true);
                     setShowModal(false)
                 } else {
@@ -104,21 +106,25 @@ const SubventionSetupScreen = () => {
     };
 
     const handlePriceChange = (text) => {
-        if (text === '' || /^\d*\.?\d{0,2}$/.test(text)) {
-            setPrice(text);
-        }
+        const clean = text.replace(/[^0-9]/g, ""); // allow only digits
+        setRawAmount(clean);
+        setPrice(clean); // show raw while typing (editable)
     };
-
     const handlePriceBlur = () => {
-        // Apply min/max validation only when user finishes editing
-        const numValue = parseFloat(price) || 0;
-        if (numValue < 9) {
-            setPrice('9');
-        } else if (numValue > 100) {
-            setPrice('100');
-        } else {
-            setPrice(numValue.toString());
+        if (!rawAmount) {
+            setPrice('');
+            return;
         }
+
+        const numValue = parseInt(rawAmount);
+
+        // apply min / max rules
+        let finalValue = numValue;
+        if (numValue < 9) finalValue = 9;
+        if (numValue > 100) finalValue = 100;
+
+        setRawAmount(finalValue.toString());
+        setPrice(formatPrice(finalValue)); // format on blur
     };
 
     const handlePrintAttempt = () => {
@@ -288,7 +294,7 @@ const SubventionSetupScreen = () => {
                 // Navigate to create reel screen
                 navigation.navigate('Add', {
                     screen: 'Add',
-                    params: { fromIcon: 'Flips' },
+                    params: { type: 'Flips' },
                 });
                 // Example: navigation.navigate('CreateReel');
                 break;
@@ -299,7 +305,7 @@ const SubventionSetupScreen = () => {
             case 'videos':
                 navigation.navigate('Add', {
                     screen: 'Add',
-                    params: { fromIcon: 'Flips' },
+                    params: { type: 'Flips' },
                 });
                 break;
             default:
