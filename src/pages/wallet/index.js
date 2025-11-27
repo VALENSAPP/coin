@@ -285,7 +285,8 @@ const fetchCreditsLeft = async () => {
 
   try {
     const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
-
+    console.log('rrrresssspponsssssseeeeee of fetchActivityOverview',response);
+    
     if (response?.statusCode === 200) {
       if (response.data.history && Array.isArray(response.data.history)) {
         const formattedData = response.data.history.map(item => ({

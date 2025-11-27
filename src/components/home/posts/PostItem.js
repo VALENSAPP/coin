@@ -732,25 +732,27 @@ export default function PostItem({
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  setDonation(true);
-                }}
-                style={[{
-                  backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683',
-                  width: '25%',
-                  left: '74%',
-                  marginBottom: 5,
-                  marginTop: -10,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  alignItems: 'center'
-                }]}
-              >
-                <Text style={styles.followButtonText}>
-                  Donate
-                </Text>
-              </TouchableOpacity>
+              {totalDonation < goalAmount && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setDonation(true);
+                  }}
+                  style={[{
+                    backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683',
+                    width: '25%',
+                    left: '74%',
+                    marginBottom: 5,
+                    marginTop: -10,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    alignItems: 'center'
+                  }]}
+                >
+                  <Text style={styles.followButtonText}>
+                    Donate
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
