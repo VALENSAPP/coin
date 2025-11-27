@@ -1,19 +1,131 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, TouchableOpacity, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, TouchableOpacity, KeyboardAvoidingView, Linking } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { addMissionDonation, purchaseTokenWithUSD } from '../../services/tokens';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { showToastMessage } from '../displaytoastmessage';
+import { useToast } from 'react-native-toast-notifications';
 
-export default function MissionSupportScreen({ visible, onClose }) {
+export default function MissionSupportScreen({ visible, onClose, item }) {
     const { bgStyle, textStyle, bg } = useAppTheme();
-
+    const dispatch = useDispatch();
+    const toast = useToast();
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
     const amounts = [5, 10, 25, 50];
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
+        if (item?.profile === "user") {
+            handleMissionDonation();
+        }
+        else {
+            const finalAmount = selectedAmount || customAmount;
+            console.log("Final Amount:", finalAmount);
+            try {
+                dispatch(showLoader())
+                const requestBody = {
+                    type: "donation",
+                    amount: Number(finalAmount),
+                    vendorId: item.UserId,
+                    postId: item.id
+                };
+
+                console.log('Purchase request body:', requestBody);
+                const response = await purchaseTokenWithUSD(requestBody);
+                if (response && response.statusCode === 200) {
+                    const url = response?.data?.sessionUrl;
+
+                    try {
+                        if (await InAppBrowser.isAvailable()) {
+                            await InAppBrowser.open(url, {
+                                // ✅ Customization options
+                                dismissButtonStyle: 'close',
+                                preferredBarTintColor: '#ffffff',
+                                preferredControlTintColor: '#000000',
+                                readerMode: false,
+                                animated: true,
+                                modalPresentationStyle: 'fullScreen',
+                                modalTransitionStyle: 'coverVertical',
+                                enableBarCollapsing: true,
+                                showTitle: true,
+                            });
+                        } else {
+                            // Fallback if in-app browser not available
+                            await Linking.openURL(url);
+                        }
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                }
+                else {
+                    showToastMessage(toast, 'danger', response.message);
+                }
+            } catch (error) {
+                console.error('Error creating payment session:', error);
+                alert('Failed to process payment. Please check your connection and try again.');
+            } finally {
+                setCustomAmount(null);
+                setSelectedAmount(null);
+                onClose();
+                dispatch(hideLoader());
+            }
+        }
+    };
+
+    const handleMissionDonation = async () => {
         const finalAmount = selectedAmount || customAmount;
         console.log("Final Amount:", finalAmount);
-        onClose();
+        try {
+            dispatch(showLoader())
+            const requestBody = {
+                type: "missionDonation",
+                amount: Number(finalAmount),
+                vendorId: item.UserId,
+                postId: item.id
+            };
+
+            console.log('Purchase request body:', requestBody);
+            const response = await addMissionDonation(requestBody);
+            if (response && response.statusCode === 200) {
+                const url = response?.data?.sessionUrl;
+
+                try {
+                    if (await InAppBrowser.isAvailable()) {
+                        await InAppBrowser.open(url, {
+                            // ✅ Customization options
+                            dismissButtonStyle: 'close',
+                            preferredBarTintColor: '#ffffff',
+                            preferredControlTintColor: '#000000',
+                            readerMode: false,
+                            animated: true,
+                            modalPresentationStyle: 'fullScreen',
+                            modalTransitionStyle: 'coverVertical',
+                            enableBarCollapsing: true,
+                            showTitle: true,
+                        });
+                    } else {
+                        // Fallback if in-app browser not available
+                        await Linking.openURL(url);
+                    }
+                } catch (error) {
+                    console.warn(error);
+                }
+            }
+            else {
+                showToastMessage(toast, 'danger', response.message);
+            }
+        } catch (error) {
+            console.error('Error creating payment session:', error);
+            alert('Failed to process payment. Please check your connection and try again.');
+        } finally {
+            setCustomAmount(null);
+            setSelectedAmount(null);
+            onClose();
+            dispatch(hideLoader());
+        }
     };
 
     return (
