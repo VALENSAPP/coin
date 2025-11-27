@@ -291,8 +291,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           userTokenAddress: tokenAddress || null,
           profile: item.profile || 'user',
           raiseAmount: item.raiseAmount || 0,
-          goalAmount: item.goalAmount || 100000,
           link: item.link || null,
+          start_time: item.start_time || null,
+          end_time: item.end_time || null,
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers]);
