@@ -263,7 +263,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
   // Update the mappedPosts useMemo to use the state instead of API calls
   const mappedPosts = useMemo(() => {
-
+    console.log("list------------------>>>>>>>>>>>>>>>>>",list)
     return (list || [])
       .filter(item => !hiddenById[item.id])
       .map(item => {
@@ -294,6 +294,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           link: item.link || null,
           start_time: item.start_time || null,
           end_time: item.end_time || null,
+          tokenBalance: item.tokenBalance || 0
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers]);

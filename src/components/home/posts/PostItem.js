@@ -257,7 +257,7 @@ export default function PostItem({
 
   // Fetch total donation for this post
   const fetchTotalDonation = useCallback(async () => {
-    if (!item.id) return;
+   if (!item.id) return;
     setIsLoadingDonation(true);
     try {
       const response = await getTotalDonationAmount({ postId: item.id });
@@ -274,37 +274,39 @@ export default function PostItem({
     }
   }, [item.id]);
 
- useFocusEffect(
-  useCallback(() => {
-    let isActive = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-    const fetchUserId = async () => {
-      try {
-        const id = await AsyncStorage.getItem('userId');
-        if (isActive) setUserId(id);
-      } catch (error) {
-        console.error('Error fetching userId:', error);
-      }
-    };
+      const fetchUserId = async () => {
+        try {
+          const id = await AsyncStorage.getItem('userId');
+          if (isActive) setUserId(id);
+        } catch (error) {
+          console.error('Error fetching userId:', error);
+        }
+      };
 
-    fetchUserId();
+      const initializeData = async () => {
+        await fetchUserId();
 
-    if (item?.UserId) {
-      fetchAllData();
-    }
+        if (item?.UserId) {
+          await fetchAllData();
+        }
+        
+        const days = calculateDaysLeft();
+        if (isActive) setDaysLeft(days);
 
-    // Calculate days left
-    const days = calculateDaysLeft();
-    if (isActive) setDaysLeft(days);
+        await fetchTotalDonation();
+      };
 
-    // Fetch total donation
-    fetchTotalDonation();
+      initializeData();
 
-    return () => {
-      isActive = false; // cleanup on blur
-    };
-  }, [item?.UserId, calculateDaysLeft, fetchTotalDonation])
-);
+      return () => {
+        isActive = false; 
+      };
+    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation]) 
+  );
 
   const fetchAllData = async () => {
     if (!item?.UserId) {
@@ -575,8 +577,8 @@ export default function PostItem({
           </TouchableOpacity>
 
           <View style={styles.priceSection}>
-            <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} />
-            <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>$556</Text>
+            {/* <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} /> */}
+            <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text>
           </View>
 
           <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
@@ -741,7 +743,7 @@ export default function PostItem({
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {totalDonation < goalAmount && (
+              {((totalDonation < goalAmount) && (item.UserId !== userId)) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
