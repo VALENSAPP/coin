@@ -532,6 +532,7 @@ export default function PostView({ postData = [] }) {
           typeof followingByUserId[String(item.userId)] === 'boolean'
             ? followingByUserId[String(item.userId)]
             : !!item.isFollow,
+        tokenBalance: item.tokenBalance
       };
 
       return (

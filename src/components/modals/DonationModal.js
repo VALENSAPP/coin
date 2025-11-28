@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, TouchableOpacity, KeyboardAvoidingView, Linking } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, TouchableOpacity, KeyboardAvoidingView, Linking, ActivityIndicator } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -15,17 +15,21 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
-    const [note, setNote] = useState(''); // Add this state for note
+    const [note, setNote] = useState('');
+    const [isButtonLoading, setIsButtonLoading] = useState(false); // Add button loading state
+
     const amounts = [5, 10, 25, 50];
 
     const handleConfirm = async () => {
+        setIsButtonLoading(true); // Start button loading
+        
         if (item?.profile === "user") {
-            handleMissionDonation();
+            await handleMissionDonation();
         }
         else {
             const finalAmount = selectedAmount || customAmount;
             console.log("Final Amount:", finalAmount);
-            console.log("Note:", note); // Log the note
+            console.log("Note:", note);
             try {
                 dispatch(showLoader())
                 const requestBody = {
@@ -33,7 +37,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                     amount: Number(finalAmount),
                     vendorId: item.UserId,
                     postId: item.id,
-                    note: note // Include note in request body
+                    note: note
                 };
 
                 console.log('Purchase request body:', requestBody);
@@ -71,7 +75,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             } finally {
                 setCustomAmount('');
                 setSelectedAmount(null);
-                setNote(''); // Reset note
+                setNote('');
+                setIsButtonLoading(false); // Stop button loading
                 onClose();
                 dispatch(hideLoader());
             }
@@ -81,7 +86,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const handleMissionDonation = async () => {
         const finalAmount = selectedAmount || customAmount;
         console.log("Final Amount:", finalAmount);
-        console.log("Note:", note); // Log the note
+        console.log("Note:", note);
         try {
             dispatch(showLoader())
             const requestBody = {
@@ -89,7 +94,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 amount: Number(finalAmount),
                 vendorId: item.UserId,
                 postId: item.id,
-                note: note // Include note in request body
+                note: note
             };
 
             console.log('Purchase request body:', requestBody);
@@ -98,22 +103,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 const url = response?.data?.sessionUrl;
 
                 try {
-                    // if (await InAppBrowser.isAvailable()) {
-                    //     await InAppBrowser.open(url, {
-                    //         dismissButtonStyle: 'close',
-                    //         preferredBarTintColor: '#ffffff',
-                    //         preferredControlTintColor: '#000000',
-                    //         readerMode: false,
-                    //         animated: true,
-                    //         modalPresentationStyle: 'fullScreen',
-                    //         modalTransitionStyle: 'coverVertical',
-                    //         enableBarCollapsing: true,
-                    //         showTitle: true,
-                    //         forceCloseOnRedirection: true,
-                    //     });
-                    // } else {
                     await Linking.openURL(url);
-                    // }
                 } catch (error) {
                     console.warn(error);
                 }
@@ -127,7 +117,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
         } finally {
             setCustomAmount('');
             setSelectedAmount(null);
-            setNote(''); // Reset note
+            setNote('');
+            setIsButtonLoading(false); // Stop button loading
             onClose();
             dispatch(hideLoader());
         }
@@ -163,7 +154,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 placeholderTextColor="#999"
                                 multiline
                                 value={note}
-                                onChangeText={setNote} // Update note state
+                                onChangeText={setNote}
                             />
 
                             <Text style={styles.label}>Choose your support amount:</Text>
@@ -193,7 +184,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                         }}
                                         placeholder='Enter amount'
                                         placeholderTextColor="#000"
-                                        cursorColor="#000" // Add explicit cursor color
+                                        cursorColor="#000"
                                         selectionColor="#000"
                                     />
                                 </View>
@@ -204,11 +195,26 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                             </Text>
 
                             <View style={styles.bottomButtons}>
-                                <TouchableOpacity style={[styles.confirmBtn, bg]} onPress={handleConfirm}>
-                                    <Text style={styles.confirmText}>🚀 Confirm & Support</Text>
+                                <TouchableOpacity 
+                                    style={[styles.confirmBtn, bg, isButtonLoading && styles.confirmBtnDisabled]} 
+                                    onPress={handleConfirm}
+                                    disabled={isButtonLoading}
+                                >
+                                    {isButtonLoading ? (
+                                        <View style={styles.loadingContainer}>
+                                            <ActivityIndicator size="small" color="#fff" />
+                                            <Text style={[styles.confirmText, { marginLeft: 8 }]}>Processing...</Text>
+                                        </View>
+                                    ) : (
+                                        <Text style={styles.confirmText}>🚀 Confirm & Support</Text>
+                                    )}
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+                                <TouchableOpacity 
+                                    style={styles.cancelBtn} 
+                                    onPress={onClose}
+                                    disabled={isButtonLoading}
+                                >
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>
                             </View>
@@ -300,11 +306,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#666',
         borderRadius: 8,
-        paddingHorizontal: 12, // Increased from 8
-        paddingVertical: 10,   // Increased from 8
+        paddingHorizontal: 12,
+        paddingVertical: 10,
         marginBottom: 10,
         width: '48%',
-        height: 44, // Add fixed height
+        height: 44,
     },
 
     customInput: {
@@ -332,6 +338,16 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 8,
         backgroundColor: '#5a2d82',
+    },
+
+    confirmBtnDisabled: {
+        opacity: 0.7,
+    },
+
+    loadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     confirmText: {
