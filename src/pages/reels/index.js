@@ -705,7 +705,7 @@ export default function FlipsScreen() {
       </View>
 
       {/* Bottom navigation placeholder */}
-      <View style={styles.bottomNavPlaceholder}>
+      {/* <View style={styles.bottomNavPlaceholder}>
         <View style={styles.navIcon}>
           <Icon name="home" size={24} color="#fff" />
         </View>
@@ -721,7 +721,7 @@ export default function FlipsScreen() {
         <View style={styles.navIcon}>
           <Icon name="person-circle-outline" size={24} color="#fff" />
         </View>
-      </View>
+      </View> */}
     </View>
   );
 
@@ -752,6 +752,9 @@ export default function FlipsScreen() {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewConfigRef.current}
         snapToAlignment="start"
+        // removeClippedSubviews={true}
+        maxToRenderPerBatch={2}
+        // initialNumToRender={1}
         getItemLayout={(_, index) => ({
           length: SCREEN_HEIGHT,
           offset: SCREEN_HEIGHT * index,

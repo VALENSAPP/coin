@@ -195,6 +195,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         restAmount: breakdown.baseAmount,
         tokensReceived: breakdown.tokens,
         purchaseTokenPrice: tokenRate,
+        type: "token_purchase",
         // amount: 0.55,
         // platformFee: 0.00003,
         // vendorFee: 0.00007,

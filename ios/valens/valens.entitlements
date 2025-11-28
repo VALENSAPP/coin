@@ -11,7 +11,6 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:valenscorp.com</string>
-		<string>applinks:www.valenscorp.com</string>
 	</array>
 	<key>com.apple.developer.networking.slicing.appcategory</key>
 	<array/>

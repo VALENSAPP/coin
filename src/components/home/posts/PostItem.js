@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
 import { WhiteDragonfly } from '../../../assets/icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
@@ -201,6 +201,7 @@ export default function PostItem({
   screenFocused = true,
   playingPostId,
   currentlyVisiblePostId,
+  returnTo,
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -230,6 +231,8 @@ export default function PostItem({
   const dispatch = useDispatch();
   const toast = useToast();
   const { text } = useAppTheme();
+  const isMountedRef = useRef(true);
+  const route=useRoute();
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -257,7 +260,7 @@ export default function PostItem({
 
   // Fetch total donation for this post
   const fetchTotalDonation = useCallback(async () => {
-   if (!item.id) return;
+    if (!item.id) return;
     setIsLoadingDonation(true);
     try {
       const response = await getTotalDonationAmount({ postId: item.id });
@@ -293,7 +296,7 @@ export default function PostItem({
         if (item?.UserId) {
           await fetchAllData();
         }
-        
+
         const days = calculateDaysLeft();
         if (isActive) setDaysLeft(days);
 
@@ -303,9 +306,9 @@ export default function PostItem({
       initializeData();
 
       return () => {
-        isActive = false; 
+        isActive = false;
       };
-    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation]) 
+    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation])
   );
 
   const fetchAllData = async () => {
@@ -365,7 +368,8 @@ export default function PostItem({
   const safeVideoPause = useCallback((index) => {
     try {
       const ref = videoRefsMap.current[index];
-      if (ref && typeof ref.pause === 'function') {
+      // Check if component is still mounted and ref exists
+      if (isMountedRef.current && ref && typeof ref.pause === 'function') {
         ref.pause();
       }
     } catch (error) {
@@ -374,56 +378,71 @@ export default function PostItem({
   }, []);
 
   useEffect(() => {
-    if (mediaLength <= 0) return;
+  if (mediaLength <= 0 || !isMountedRef.current) return;
 
-    const nextStates = {};
-    for (let idx = 0; idx < mediaLength; idx++) {
-      const shouldPause = !(
-        idx === currentIndex &&
-        isVisible &&
-        screenFocused &&
-        String(playingPostId) === String(item.id)
-      );
-      nextStates[idx] = shouldPause;
-    }
+  const nextStates = {};
+  for (let idx = 0; idx < mediaLength; idx++) {
+    const shouldPause = !(
+      idx === currentIndex &&
+      isVisible &&
+      screenFocused &&
+      String(playingPostId) === String(item.id)
+    );
+    nextStates[idx] = shouldPause;
+  }
 
-    setVideoStates(prev => {
-      const hasChanged = Object.keys(nextStates).some(
-        key => prev[key] !== nextStates[key]
-      );
-      return hasChanged ? nextStates : prev;
-    });
+  setVideoStates(prev => {
+    const hasChanged = Object.keys(nextStates).some(
+      key => prev[key] !== nextStates[key]
+    );
+    return hasChanged ? nextStates : prev;
+  });
 
-    setTimeout(() => {
-      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-        if (shouldPause) {
-          safeVideoPause(parseInt(idx));
-        }
-      });
-    }, 100);
-
-  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
-
-  useEffect(() => {
-    return () => {
-      Object.keys(videoRefsMap.current).forEach(idx => {
+  const timeoutId = setTimeout(() => {
+    if (!isMountedRef.current) return;
+    
+    Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+      if (shouldPause) {
         safeVideoPause(parseInt(idx));
-      });
-      videoRefsMap.current = {};
-    };
-  }, [safeVideoPause]);
+      }
+    });
+  }, 100);
+
+  return () => clearTimeout(timeoutId);
+
+}, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
+
+useEffect(() => {
+  isMountedRef.current = true;
+  
+  return () => {
+    isMountedRef.current = false;
+    // Clear refs immediately
+    Object.keys(videoRefsMap.current).forEach(idx => {
+      safeVideoPause(parseInt(idx));
+    });
+    videoRefsMap.current = {};
+  };
+}, [safeVideoPause]);
 
   const handleUserProfile = (id) => {
+    console.log("handleUserProfile==>>>>>")
+    // const origin = {
+    //   returnTo: returnTo,
+    //   returnParams: route.params?.returnParams,
+    // };
     if (userId === id) {
+ 
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: { userId: id }
+        params: { userId: id, returnTo },
+         
       });
+      console.log(userId, 'can user id came heree')
     }
   };
-
   const formatNumber = (n) => {
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -474,88 +493,69 @@ export default function PostItem({
   };
 
   const renderMedia = ({ item: mediaItem, index }) => {
-    const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? true;
+  const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
+  const isPaused = videoStates[index] ?? true;
 
-    const shouldPlay =
-      screenFocused &&
-      String(playingPostId) === String(item.id) &&
-      String(currentlyVisiblePostId) === String(item.id) &&
-      isVisible &&
-      index === currentIndex &&
-      !isPaused &&
-      !isZooming;
+  const shouldPlay =
+    screenFocused &&
+    String(playingPostId) === String(item.id) &&
+    String(currentlyVisiblePostId) === String(item.id) &&
+    isVisible &&
+    index === currentIndex &&
+    !isPaused &&
+    !isZooming;
 
-    return (
-      <View style={styles.mediaContainer}>
-        {isVideo ? (
-          <>
-            <Video
-              ref={(ref) => {
-                if (ref) {
-                  videoRefsMap.current[index] = ref;
-                }
-              }}
-              source={{ uri: mediaItem.url }}
-              style={styles.postMedia}
-              resizeMode="cover"
-              repeat
-              paused={!shouldPlay}
-              muted={isMuted || isPaused}
-              controls={false}
-              onError={(error) => {
-                console.log('Video error:', error);
-              }}
-              playWhenInactive={false}
-              progressUpdateInterval={500}
-            />
-            <TouchableOpacity
-              style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
-              activeOpacity={1}
-              onPress={() => {
-                if (isVisible && screenFocused) {
-                  setVideoStates((prev) => ({
-                    ...prev,
-                    [index]: !prev[index]
-                  }));
-                }
-              }}
-            >
-              {isPaused && (
-                <View style={styles.playButtonContainer}>
-                  <Icon name="play" size={32} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.speakerButton}
-              onPress={() => setIsMuted((prev) => !prev)}
-            >
-              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity>
-          </>
-        ) : (
-          <InstagramZoomableImage
-            uri={mediaItem.url}
-            onZoomChange={(zoomed) => {
-              setIsZooming(zoomed);
-              setScrollEnabled(!zoomed);
+  return (
+    <View style={styles.mediaContainer}>
+      {isVideo ? (
+        <>
+          <Video
+            ref={(ref) => {
+              // Only assign ref if component is mounted
+              if (ref && isMountedRef.current) {
+                videoRefsMap.current[index] = ref;
+              } else if (!ref && videoRefsMap.current[index]) {
+                // Clean up ref when video unmounts
+                delete videoRefsMap.current[index];
+              }
             }}
-            onDoubleTap={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
+            source={{ uri: mediaItem.url }}
+            style={styles.postMedia}
+            resizeMode="cover"
+            repeat
+            paused={!shouldPlay}
+            muted={isMuted || isPaused}
+            controls={false}
+            onError={(error) => {
+              console.log('Video error:', error);
             }}
-            onOpenViewer={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
+            playWhenInactive={false}
+            progressUpdateInterval={500}
           />
-        )}
-      </View>
-    );
-  };
+          {/* Rest of video UI */}
+        </>
+      ) : (
+        <InstagramZoomableImage
+          uri={mediaItem.url}
+          onZoomChange={(zoomed) => {
+            setIsZooming(zoomed);
+            setScrollEnabled(!zoomed);
+          }}
+          onDoubleTap={(uri) => {
+            setViewerUri(uri);
+            setViewerOpen(true);
+            setScrollEnabled(false);
+          }}
+          onOpenViewer={(uri) => {
+            setViewerUri(uri);
+            setViewerOpen(true);
+            setScrollEnabled(false);
+          }}
+        />
+      )}
+    </View>
+  );
+};
 
   return (
     <View style={styles.wrapper}>
