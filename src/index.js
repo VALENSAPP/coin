@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import React, { useEffect, useState } from 'react';
+import messaging from '@react-native-firebase/messaging';
 import Splash from './pages/splashSceen/Splash';
 import { hideLoader, showLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
@@ -12,6 +13,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
+import { notificationListener, requestUserPermission } from './services/NotificationService';
 
 const linking = {
   prefixes: [
@@ -36,6 +38,9 @@ export default function Main() {
   useEffect(() => {
     dispatch(setUserProfile('normal'))
     fetchRefreshToken();
+    requestUserPermission();
+    notificationListener();
+    getNotification();
     const checkLogin = async () => {
       const loggedI = await AsyncStorage.getItem('isLoggedIn');
       if (loggedI === 'true') {
@@ -71,8 +76,8 @@ export default function Main() {
       const dataToSend = { refreshToken: oldToken };
       const response = await refreshToken(dataToSend);
       if (response?.statusCode === 200) {
-        console.log('response in refreshtoken------->>>>>>>>>>>>>>>',response);
-        
+        console.log('response in refreshtoken------->>>>>>>>>>>>>>>', response);
+
         await AsyncStorage.setItem('token', response.data.access_token);
         await AsyncStorage.setItem(
           'refreshToken',
@@ -92,6 +97,26 @@ export default function Main() {
       dispatch(hideLoader());
     }
   };
+
+  const getNotification = async () => {
+    messaging().onMessage(async remoteMessage => {
+      console.log("onMessage data------------------------",remoteMessage)
+      // readNotificationsAtStart(remoteMessage.data.messageId)
+    });
+
+    messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log("onNotificationOpenedApp data------------------------",remoteMessage)
+      // readNotificationsAtStart(remoteMessage.data.messageId)
+    });
+
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage) {
+         console.log("getInitialNotification data------------------------",remoteMessage)
+        }
+      });
+  }
 
   if (isLoading) {
     return (
