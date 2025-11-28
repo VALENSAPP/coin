@@ -3,8 +3,8 @@ import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import { Alert, Linking } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
 import messaging from '@react-native-firebase/messaging';
 import Splash from './pages/splashSceen/Splash';
 import { hideLoader, showLoader } from './redux/actions/LoaderAction';
@@ -24,7 +24,7 @@ const linking = {
   config: {
     screens: {
       Home: '',
-      Callback: 'callback',          // /callback route
+      CallbackScreen: 'callback',          // /callback route
       Wallet: 'wallet',
     },
   },
@@ -54,48 +54,29 @@ export default function Main() {
         setIsLoading(false);
       }, 1000);
     };
-    
+
     checkLogin();
 
     // Deep Link Handler
+    // Deep Link Handler
     const handleDeepLink = (event) => {
-      console.log('Deep link received:');
+      console.log('Deep link received:', event.url);
       const url = event.url;
-      console.log('Deep link received:', url);
-      
-      // Check if /callback route
-      if (url.includes('/callback') || url.includes('://callback')) {
-        try {
-          // Parse URL
-          const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
-          
-          // Extract parameters
-          const code = urlObj.searchParams.get('code');
-          const token = urlObj.searchParams.get('token');
-          const status = urlObj.searchParams.get('status');
-          
-          console.log('Authorization code:', code);
-          console.log('Token:', token);
-          console.log('Status:', status);
-          
-          // Handle payment success/callback
-          if (code || token) {
-            // Navigate to specific screen if needed
-            setTimeout(() => {
-              navigationRef.current?.navigate('Callback', {
-                code,
-                token,
-                status,
-              });
-            }, 500);
-            
-            // Or show success message
-            showToastMessage(toast, 'success', 'Payment completed successfully!');
-          }
-          
-        } catch (error) {
-          console.error('URL parsing error:', error);
+
+      try {
+        // Parse URL safely
+        const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+
+        // If you just want to go back to Home
+        if (navigationRef.current) {
+          // Navigate to Home or reset stack
+          navigationRef.current.reset({
+            index: 0,
+            routes: [{ name: 'Home' }],
+          });
         }
+      } catch (error) {
+        console.error('URL parsing error:', error);
       }
     };
 
@@ -135,12 +116,13 @@ export default function Main() {
 
   const getNotification = async () => {
     messaging().onMessage(async remoteMessage => {
-      console.log("onMessage data------------------------",remoteMessage)
+      Alert.alert(remoteMessage.notification.body);
+      console.log("onMessage data------------------------", remoteMessage)
       // readNotificationsAtStart(remoteMessage.data.messageId)
     });
 
     messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log("onNotificationOpenedApp data------------------------",remoteMessage)
+      console.log("onNotificationOpenedApp data------------------------", remoteMessage)
       // readNotificationsAtStart(remoteMessage.data.messageId)
     });
 
@@ -148,7 +130,7 @@ export default function Main() {
       .getInitialNotification()
       .then(remoteMessage => {
         if (remoteMessage) {
-         console.log("getInitialNotification data------------------------",remoteMessage)
+          console.log("getInitialNotification data------------------------", remoteMessage)
         }
       });
   }
@@ -163,7 +145,7 @@ export default function Main() {
 
   return (
     <ThemeProvider activeProfile={userProfile}>
-      <NavigationContainer 
+      <NavigationContainer
         ref={navigationRef}  // Navigation reference add kiya
         linking={linking}
         fallback={<Splash />} // Fallback while linking resolves
