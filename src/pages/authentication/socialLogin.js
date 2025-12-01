@@ -18,6 +18,7 @@ import axios from 'axios';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { getProfile } from '../../services/createProfile';
 import { loggedIn } from '../../redux/actions/LoginAction';
+import { useToast } from 'react-native-toast-notifications';
 
 const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
 
@@ -154,6 +155,7 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
         showTitle: false,
         enableUrlBarHiding: true,
         enableDefaultShare: false,
+        forceCloseOnRedirection: true,
       });
 
       // `InAppBrowser.openAuth` returns result with `type === 'success'` and `url`
@@ -177,7 +179,8 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
   }
 }
 
-const getProfileData = async (dispatch, navigation) => {
+const getProfileData = async (dispatch, navigation, toast) => {
+   console.log('profile status--------after toast---------')
   try {
     dispatch(showLoader());
     const id = await AsyncStorage.getItem('userId');
@@ -228,7 +231,7 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
     }
 
     const response = await signup(payload);
-    console.log(response)
+    console.log('google signup',response)
     if (
       response && (response.statusCode == 200 || response.statusCode == 201)
     ) {
@@ -242,7 +245,8 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
           response.data.access_token,
           dispatch,
           navigation,
-          getProfileData
+          getProfileData,
+          toast
         );
       }
     } else {

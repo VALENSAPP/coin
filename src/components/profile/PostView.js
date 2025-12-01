@@ -51,6 +51,8 @@ export default function PostView({ postData = [] }) {
     return [];
   }, [navPosts, postData]);
 
+  console.log(route?.params?.returnTo,"PostViewScreen=>>>>>>>>>>>>>>>>>.")
+
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
   const [savingIds, setSavingIds] = useState(new Set());
@@ -86,6 +88,10 @@ export default function PostView({ postData = [] }) {
 
   // ─── Handle Back Button Press ────────────────────────────────
   const handleBackPress = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
@@ -505,7 +511,7 @@ export default function PostView({ postData = [] }) {
   // ─── Renderer ───────────────────────────────────────────────
   const renderFeedItem = useCallback(
     ({ item }) => {
-      console.log(item,'item data came hererererererere')
+      console.log(item, 'item data came hererererererere')
       const mapped = {
         id: item.id,
         username: item.userName ?? 'Unknown',
@@ -519,21 +525,22 @@ export default function PostView({ postData = [] }) {
         })),
         caption: item.caption,
         PostsProfile: 'Support',
-        link:item.link,
+        link: item.link,
         raiseAmount: item.raiseAmount ?? 0,
         goalAmount: item.goalAmount ?? 100000,
         daysLeft: item.daysLeft ?? 0,
-        profile: item.profile,
+        profile: item?.profile,
         createdAt: item.createdAt,
         UserId: item.userId,
         userId: item.userId,
         boughtBy: item.boughtBy || [],
+        returnTo: route?.params?.returnTo, 
         follow:
           typeof followingByUserId[String(item.userId)] === 'boolean'
             ? followingByUserId[String(item.userId)]
             : !!item.isFollow,
       };
-
+console.log(mapped,'mapped data came hereere check this    ')
       return (
         <View>
           <PostItem
@@ -549,8 +556,9 @@ export default function PostView({ postData = [] }) {
             onComment={() => handleComment(item.id, mapped.UserId)}
             onOptions={() => openOptions(item.id)}
             onSuggest={[]}
+            returnTo={route?.params?.returnTo} 
           />
-          
+
         </View>
       );
     },

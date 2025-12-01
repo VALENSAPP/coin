@@ -288,12 +288,16 @@ const fetchCreditsLeft = async () => {
 
     if (response?.statusCode === 200) {
       if (response.data.history && Array.isArray(response.data.history)) {
-        const formattedData = response.data.history.map(item => ({
-          timestamp: new Date(item.date || item.timestamp).getTime(),
-          value: parseFloat(item.price || item.value || 0)
-        })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
+        // Sort by date first
+        const sortedHistory = [...response.data.history].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
 
-        formattedData.sort((a, b) => a.timestamp - b.timestamp);
+        // Use balanceAfter to show actual portfolio value over time
+        const formattedData = sortedHistory.map(item => ({
+          timestamp: new Date(item.date).getTime(),
+          value: parseFloat(item.balanceAfter || 0) // Use balanceAfter instead of amount
+        })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
 
         if (formattedData.length > 0) {
           setPriceHistory(formattedData);
@@ -1060,6 +1064,13 @@ const styles = StyleSheet.create({
   periodTextActive: {
     color: '#fff',
   },
+  emptyState: {
+    padding: 10
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#000'
+  }
 });
 
 export default WalletDashboardScreen;

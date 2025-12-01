@@ -31,6 +31,7 @@ import { getProfile } from '../../services/createProfile';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { updateFcmToken } from '../../services/notifications';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 110;
@@ -64,7 +65,7 @@ export default function HomeScreen() {
       fetchProfileData();
     }
   }, [isFocused]);
-  
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && isFocused) {
@@ -74,6 +75,10 @@ export default function HomeScreen() {
 
     return () => subscription.remove();
   }, [isFocused, fetchData]);
+
+  useEffect(() => {
+    addFcmToken();
+  },[])
 
   const fetchData = useCallback(async () => {
     try {
@@ -93,6 +98,29 @@ export default function HomeScreen() {
       );
     } finally {
       dispatch(hideLoader());
+    }
+  }, [dispatch, toast]);
+
+  const addFcmToken = useCallback(async () => {
+    let fcmToken = await AsyncStorage.getItem('fcmToken')
+    if (fcmToken) {
+      try {
+        dispatch(showLoader());
+        const response = await updateFcmToken({ fcmToken: fcmToken });
+        if (response?.statusCode === 200) {
+          console.log('response in updateFcmToken---------------', response);
+        } else {
+          showToastMessage(toast, 'danger', response.data.message);
+        }
+      } catch (error) {
+        showToastMessage(
+          toast,
+          'danger',
+          error?.response?.message ?? 'Something went wrong',
+        );
+      } finally {
+        dispatch(hideLoader());
+      }
     }
   }, [dispatch, toast]);
 

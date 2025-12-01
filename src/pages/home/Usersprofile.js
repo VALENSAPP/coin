@@ -29,7 +29,15 @@ import { getMyFanSubscriptionList } from '../../services/stirpe';
 
 const Usersprofile = () => {
   const route = useRoute();
-  const { userId: targetUserId } = route.params;
+  const { userId: targetUserId } = route.params
+
+// const returnTo = route?.params?.returnTo;
+const screenParams = route?.params?.params || route?.params || {};
+
+
+const returnTo = screenParams?.returnTo;
+
+console.log(returnTo,"7777777777")
 
   const [posts, setPosts] = useState([]);
   const [userDashboard, setUserDashboard] = useState();
@@ -47,6 +55,9 @@ const Usersprofile = () => {
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
+
+
+  console.log(route,"ProfileScreenroute===>>>>>>");
 
   // Fetch logged-in user ID
   const fetchLoggedInUserId = useCallback(async () => {
@@ -285,6 +296,7 @@ const Usersprofile = () => {
           purchaseSheetRef={purchaseSheetRef}
           userData={userData}
           executeFollowAction={executeFollowAction}
+          returnByTo={returnTo}
         />
 
         <View>

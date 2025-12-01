@@ -58,6 +58,14 @@ export const tokenPurchaseAmtByVendor = async (userId) => {
   return axiosInstance.get('token-purchase/vendor-token-amount?vendorId=' + userId)
 }
 
+export const getTotalDonationAmount = async (data) => {
+  return axiosInstance.post('token-purchase/post-donation-total', data)
+}
+
+export const addMissionDonation = async (data) => {
+  return axiosInstance.post('token-purchase/mission-donation', data)
+}
+
 //Billing Api's
 
 export const getLatestTransactions = async () => {
