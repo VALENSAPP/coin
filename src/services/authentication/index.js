@@ -3,10 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedIn } from '../../redux/actions/LoginAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 
-export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData) => {
+export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast) => {
     if (token) {
         await AsyncStorage.setItem('token', token);
-        getProfileData(dispatch, navigation);
+        getProfileData(dispatch, navigation, toast);
         // navigation.reset({ index: 0, routes: [{ name: 'MainTabNavigator' }] });
     } else {
         throw new Error('Login successful, but no token received.');

@@ -1,14 +1,13 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator } from 'react-native';
 import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
 import { WhiteDragonfly } from '../../../assets/icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
-import { ActivityIndicator } from 'react-native';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../displaytoastmessage';
@@ -17,6 +16,8 @@ import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
 import MissionSupportScreen from '../../modals/DonationModal';
+import axios from 'axios';
+import { getTotalDonationAmount } from '../../../services/tokens';
 
 const { width } = Dimensions.get('window');
 
@@ -200,6 +201,7 @@ export default function PostItem({
   screenFocused = true,
   playingPostId,
   currentlyVisiblePostId,
+  returnTo,
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -217,13 +219,20 @@ export default function PostItem({
   const [viewerUri, setViewerUri] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [donation, setDonation] = useState(false)
+  const [donation, setDonation] = useState(false);
+
+  // New donation states
+  const [totalDonation, setTotalDonation] = useState(0);
+  const [isLoadingDonation, setIsLoadingDonation] = useState(false);
+  const [daysLeft, setDaysLeft] = useState(0);
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const { text } = useAppTheme();
+  const isMountedRef = useRef(true);
+  const route=useRoute();
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -233,21 +242,74 @@ export default function PostItem({
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
 
-  useEffect(() => {
-    const fetchUserId = async () => {
-      try {
-        const id = await AsyncStorage.getItem('userId');
-        setUserId(id);
-      } catch (error) {
-        console.error('Error fetching userId:', error);
-      }
-    };
-    fetchUserId();
+  // Calculate days left from start_time and end_time
+  const calculateDaysLeft = useCallback(() => {
+    if (!item.start_time || !item.end_time) return 0;
 
-    if (item?.UserId) {
-      fetchAllData();
+    try {
+      const now = new Date();
+      const endDate = new Date(item.end_time);
+      const diffTime = endDate - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+    } catch (error) {
+      console.error('Error calculating days left:', error);
+      return 0;
     }
-  }, [item?.UserId]);
+  }, [item.start_time, item.end_time]);
+
+  // Fetch total donation for this post
+  const fetchTotalDonation = useCallback(async () => {
+    if (!item.id) return;
+    setIsLoadingDonation(true);
+    try {
+      const response = await getTotalDonationAmount({ postId: item.id });
+
+      if (response.statusCode === 200) {
+        const donationAmount = response.data?.totalDonation || 0;
+        setTotalDonation(donationAmount);
+      }
+    } catch (error) {
+      console.error('Error fetching total donation:', error);
+      setTotalDonation(0);
+    } finally {
+      setIsLoadingDonation(false);
+    }
+  }, [item.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const fetchUserId = async () => {
+        try {
+          const id = await AsyncStorage.getItem('userId');
+          if (isActive) setUserId(id);
+        } catch (error) {
+          console.error('Error fetching userId:', error);
+        }
+      };
+
+      const initializeData = async () => {
+        await fetchUserId();
+
+        if (item?.UserId) {
+          await fetchAllData();
+        }
+
+        const days = calculateDaysLeft();
+        if (isActive) setDaysLeft(days);
+
+        await fetchTotalDonation();
+      };
+
+      initializeData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation])
+  );
 
   const fetchAllData = async () => {
     if (!item?.UserId) {
@@ -303,11 +365,11 @@ export default function PostItem({
     }
   };
 
-  // FIX 1: Add safe pause function with null checks
   const safeVideoPause = useCallback((index) => {
     try {
       const ref = videoRefsMap.current[index];
-      if (ref && typeof ref.pause === 'function') {
+      // Check if component is still mounted and ref exists
+      if (isMountedRef.current && ref && typeof ref.pause === 'function') {
         ref.pause();
       }
     } catch (error) {
@@ -315,62 +377,72 @@ export default function PostItem({
     }
   }, []);
 
-  // FIX 2: Improved video state management with stable dependencies
   useEffect(() => {
-    if (mediaLength <= 0) return;
+  if (mediaLength <= 0 || !isMountedRef.current) return;
 
-    const nextStates = {};
-    for (let idx = 0; idx < mediaLength; idx++) {
-      const shouldPause = !(
-        idx === currentIndex &&
-        isVisible &&
-        screenFocused &&
-        String(playingPostId) === String(item.id)
-      );
-      nextStates[idx] = shouldPause;
-    }
+  const nextStates = {};
+  for (let idx = 0; idx < mediaLength; idx++) {
+    const shouldPause = !(
+      idx === currentIndex &&
+      isVisible &&
+      screenFocused &&
+      String(playingPostId) === String(item.id)
+    );
+    nextStates[idx] = shouldPause;
+  }
 
-    setVideoStates(prev => {
-      const hasChanged = Object.keys(nextStates).some(
-        key => prev[key] !== nextStates[key]
-      );
-      return hasChanged ? nextStates : prev;
-    });
+  setVideoStates(prev => {
+    const hasChanged = Object.keys(nextStates).some(
+      key => prev[key] !== nextStates[key]
+    );
+    return hasChanged ? nextStates : prev;
+  });
 
-    // FIX 3: Use safe pause with timeout to ensure refs are ready
-    setTimeout(() => {
-      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-        if (shouldPause) {
-          safeVideoPause(parseInt(idx));
-        }
-      });
-    }, 100);
-
-  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
-
-  // FIX 4: Cleanup on unmount with safe pause
-  useEffect(() => {
-    return () => {
-      Object.keys(videoRefsMap.current).forEach(idx => {
+  const timeoutId = setTimeout(() => {
+    if (!isMountedRef.current) return;
+    
+    Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+      if (shouldPause) {
         safeVideoPause(parseInt(idx));
-      });
-      videoRefsMap.current = {};
-    };
-  }, [safeVideoPause]);
+      }
+    });
+  }, 100);
+
+  return () => clearTimeout(timeoutId);
+
+}, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
+
+useEffect(() => {
+  isMountedRef.current = true;
+  
+  return () => {
+    isMountedRef.current = false;
+    // Clear refs immediately
+    Object.keys(videoRefsMap.current).forEach(idx => {
+      safeVideoPause(parseInt(idx));
+    });
+    videoRefsMap.current = {};
+  };
+}, [safeVideoPause]);
 
   const handleUserProfile = (id) => {
+    console.log("handleUserProfile==>>>>>")
+    // const origin = {
+    //   returnTo: returnTo,
+    //   returnParams: route.params?.returnParams,
+    // };
     if (userId === id) {
-
+ 
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: { userId: id }
+        params: { userId: id, returnTo },
+         
       });
       console.log(userId, 'can user id came heree')
     }
   };
-
   const formatNumber = (n) => {
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -397,18 +469,14 @@ export default function PostItem({
     animateHeart();
   };
 
-  const mockDonationData = {
-    raisedAmount: item.raiseAmount ?? 0,
-    goalAmount: item.goalAmount ?? 100000000,
-    daysLeft: item.daysLeft ?? 0,
-  };
-
-  const postData = { ...item, ...mockDonationData };
-  const progressPercent = postData.goalAmount > 0 ? (postData.raisedAmount / postData.goalAmount) * 100 : 0;
+  // Use dynamic values for donation calculations
+  const goalAmount = item.raiseAmount || 0; // Target amount to raise
+  const currentRaised = totalDonation || 0; // Current amount raised from API
+  const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
 
   const getProgressBarColor = () => {
-    if (progressPercent >= 75) return (item?.profile == "user" ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 50) return (item?.profile == "user" ? '#5a2d82' : '#D3B683');
+    if (progressPercent >= 75) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
+    if (progressPercent >= 50) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
     if (progressPercent >= 25) return '#FF9800';
     return '#F44336';
   };
@@ -419,90 +487,75 @@ export default function PostItem({
     if (index !== currentIndex) setCurrentIndex(index);
   };
 
-  const renderMedia = ({ item: mediaItem, index }) => {
-    const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? true;
-
-    const shouldPlay =
-      screenFocused &&
-      String(playingPostId) === String(item.id) &&
-      String(currentlyVisiblePostId) === String(item.id) &&
-      isVisible &&
-      index === currentIndex &&
-      !isPaused &&
-      !isZooming;
-
-    return (
-      <View style={styles.mediaContainer}>
-        {isVideo ? (
-          <>
-            <Video
-              ref={(ref) => {
-                // FIX 5: Only set ref if it's valid
-                if (ref) {
-                  videoRefsMap.current[index] = ref;
-                }
-              }}
-              source={{ uri: mediaItem.url }}
-              style={styles.postMedia}
-              resizeMode="cover"
-              repeat
-              paused={!shouldPlay}
-              muted={isMuted || isPaused}
-              controls={false}
-              onError={(error) => {
-                console.log('Video error:', error);
-              }}
-              playWhenInactive={false}
-              progressUpdateInterval={500}
-            />
-            <TouchableOpacity
-              style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
-              activeOpacity={1}
-              onPress={() => {
-                if (isVisible && screenFocused) {
-                  setVideoStates((prev) => ({
-                    ...prev,
-                    [index]: !prev[index]
-                  }));
-                }
-              }}
-            >
-              {isPaused && (
-                <View style={styles.playButtonContainer}>
-                  <Icon name="play" size={32} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.speakerButton}
-              onPress={() => setIsMuted((prev) => !prev)}
-            >
-              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity>
-          </>
-        ) : (
-          <InstagramZoomableImage
-            uri={mediaItem.url}
-            onZoomChange={(zoomed) => {
-              setIsZooming(zoomed);
-              setScrollEnabled(!zoomed);
-            }}
-            onDoubleTap={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
-            onOpenViewer={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
-          />
-        )}
-      </View>
-    );
+  const handleDonationSuccess = () => {
+    // Refresh donation total after successful donation
+    fetchTotalDonation();
   };
+
+  const renderMedia = ({ item: mediaItem, index }) => {
+  const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
+  const isPaused = videoStates[index] ?? true;
+
+  const shouldPlay =
+    screenFocused &&
+    String(playingPostId) === String(item.id) &&
+    String(currentlyVisiblePostId) === String(item.id) &&
+    isVisible &&
+    index === currentIndex &&
+    !isPaused &&
+    !isZooming;
+
+  return (
+    <View style={styles.mediaContainer}>
+      {isVideo ? (
+        <>
+          <Video
+            ref={(ref) => {
+              // Only assign ref if component is mounted
+              if (ref && isMountedRef.current) {
+                videoRefsMap.current[index] = ref;
+              } else if (!ref && videoRefsMap.current[index]) {
+                // Clean up ref when video unmounts
+                delete videoRefsMap.current[index];
+              }
+            }}
+            source={{ uri: mediaItem.url }}
+            style={styles.postMedia}
+            resizeMode="cover"
+            repeat
+            paused={!shouldPlay}
+            muted={isMuted || isPaused}
+            controls={false}
+            onError={(error) => {
+              console.log('Video error:', error);
+            }}
+            playWhenInactive={false}
+            progressUpdateInterval={500}
+          />
+          {/* Rest of video UI */}
+        </>
+      ) : (
+        <InstagramZoomableImage
+          uri={mediaItem.url}
+          onZoomChange={(zoomed) => {
+            setIsZooming(zoomed);
+            setScrollEnabled(!zoomed);
+          }}
+          onDoubleTap={(uri) => {
+            setViewerUri(uri);
+            setViewerOpen(true);
+            setScrollEnabled(false);
+          }}
+          onOpenViewer={(uri) => {
+            setViewerUri(uri);
+            setViewerOpen(true);
+            setScrollEnabled(false);
+          }}
+        />
+      )}
+    </View>
+  );
+};
 
   return (
     <View style={styles.wrapper}>
@@ -524,8 +577,8 @@ export default function PostItem({
           </TouchableOpacity>
 
           <View style={styles.priceSection}>
-            <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} />
-            <Text style={[styles.priceText, { color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}>$556</Text>
+            {/* <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} /> */}
+            <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text>
           </View>
 
           <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
@@ -626,10 +679,9 @@ export default function PostItem({
               )}
             </TouchableOpacity>
           )}
-
         </View>
 
-        {item.UserId != userId && (
+        {item.UserId !== userId && (
           <>
             {buyerList.length > 0 && (
               <View style={styles.buyersSection}>
@@ -641,8 +693,8 @@ export default function PostItem({
                   ))}
                 </View>
                 <Text style={styles.buyersText} numberOfLines={1}>
-                  Vallowed by <Text style={[styles.buyerName, { color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
-                  {buyerList.length > 1 && <Text style={{ color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
+                  Vallowed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
+                  {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
                 </Text>
               </View>
             )}
@@ -651,7 +703,7 @@ export default function PostItem({
 
         <View style={styles.captionSection}>
           <Text>
-            <Text style={[styles.captionUsername, { color: item?.profile == "user" ? '#5a2d82' : '#D3B683' }]}>{item.username} </Text>
+            <Text style={[styles.captionUsername, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{item.username} </Text>
             <Text style={styles.captionText}>{item.caption}</Text>
           </Text>
           {item.link ? (
@@ -661,7 +713,7 @@ export default function PostItem({
           ) : null}
         </View>
 
-        {postData.raisedAmount !== undefined && postData.raisedAmount > 0 && (
+        {goalAmount > 0 && (
           <View style={styles.progressSection}>
             <View style={styles.progressBarWrapper}>
               <View style={styles.progressBarBackground}>
@@ -678,28 +730,40 @@ export default function PostItem({
 
               <View style={styles.progressStatsContainer}>
                 <View style={styles.statAtStart}>
-                  <Text style={styles.statValueSmall}>{Math.min(progressPercent, 100).toFixed(1)}% FUNDED</Text>
+                  <Text style={styles.statValueSmall}>
+                    {isLoadingDonation ? '...' : `${Math.min(progressPercent, 100).toFixed(1)}% FUNDED`}
+                  </Text>
                 </View>
                 <View style={styles.statAtCenter}>
-                  <Text style={styles.statValueSmall}>${(postData.raisedAmount / 1000).toFixed(0)}K RAISED</Text>
+                  <Text style={styles.statValueSmall}>
+                    {isLoadingDonation ? 'Loading...' : `$${(goalAmount / 1000).toFixed(0)}K RAISED`}
+                  </Text>
                 </View>
                 <View style={styles.statAtEnd}>
-                  <Text style={styles.statValueSmall}>{postData.daysLeft || 0} DAYS LEFT</Text>
+                  <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  setDonation(true);
-                }}
-                style={[{
-                  backgroundColor: item?.profile == "user" ? '#5a2d82' : '#D3B683', width: '25%', left: '74%', marginBottom: 5, marginTop: -10, paddingVertical: 8,
-                  borderRadius: 8, alignItems: 'center'
-                }]}
-              >
-                <Text style={styles.followButtonText}>
-                  Donate
-                </Text>
-              </TouchableOpacity>
+              {((totalDonation < goalAmount) && (item.UserId !== userId)) && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setDonation(true);
+                  }}
+                  style={[{
+                    backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683',
+                    width: '25%',
+                    left: '74%',
+                    marginBottom: 5,
+                    marginTop: -10,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    alignItems: 'center'
+                  }]}
+                >
+                  <Text style={styles.followButtonText}>
+                    Donate
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -715,7 +779,12 @@ export default function PostItem({
           }}
         />
       )}
-      <MissionSupportScreen visible={donation} onClose={() => setDonation(false)} />
+      <MissionSupportScreen
+        visible={donation}
+        onClose={() => setDonation(false)}
+        item={item}
+        onDonationSuccess={handleDonationSuccess}
+      />
       <ShareModal ref={shareRef} url={item.link} />
     </View>
   );

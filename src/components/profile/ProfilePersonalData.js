@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import ProfileModal from '../modals/ProfileModal';
@@ -48,7 +48,8 @@ const ProfilePersonData = ({
   purchaseSheetRef,
   onStoryUploaded, // Callback to refresh stories after upload
   userData,
-  executeFollowAction
+  executeFollowAction,
+  returnByTo
 }) => {
 
   useEffect(() => {
@@ -83,6 +84,7 @@ const ProfilePersonData = ({
   const dispatch = useDispatch();
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const route = useRoute();
 
   const Userdata = {
     Displayname: displayName || 'No Name',
@@ -94,6 +96,8 @@ const ProfilePersonData = ({
     Followings: dashboard?.totalFollowing ?? 'NA',
     userId: userId,
   };
+
+  console.log(returnByTo,"returnToreturnTo")
 
   const fetchAllData = async () => {
     try {
@@ -504,6 +508,19 @@ const ProfilePersonData = ({
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
 
+const handleBackPress = useCallback(() => {
+  const  returnTo = returnByTo;
+  console.log('is this wokreing buy',returnTo)
+  
+  if (returnTo) {
+    // console.log()
+    navigation.navigate(returnTo);
+    return;
+  }
+  // 3️⃣ Absolute fallback
+  navigation.goBack();
+}, []);
+
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>
       <View style={[styles.container, bgStyle]}>
@@ -517,7 +534,7 @@ const ProfilePersonData = ({
             >
               {fromUsersProfile && (
                 <TouchableOpacity
-                  onPress={() => navigation.goBack()}
+                  onPress={handleBackPress}
                 >
                   <Ionicons
                     name="arrow-back-outline"

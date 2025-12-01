@@ -10,12 +10,14 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useRoute } from '@react-navigation/native';
 
 const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0 }) => {
   const [creditsToBuy, setCreditsToBuy] = useState(1);
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
@@ -54,6 +56,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       const response = await buyCreditHits(dataToSend);
       console.log('Response from buyCreditHits:', response);
       if (response?.statusCode === 200 && response?.data?.url) {
+        await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
         const url = response.data.url;
 
         if (await InAppBrowser.isAvailable()) {
@@ -69,6 +72,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
             showTitle: true,
             toolbarColor: '#ffffff',
             secondaryToolbarColor: '#f0f0f0',
+            forceCloseOnRedirection: true,
           });
 
           // Call the callback after successful payment flow

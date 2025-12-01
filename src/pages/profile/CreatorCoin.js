@@ -11,6 +11,7 @@ import {
   Keyboard,
   ActivityIndicator,
   Linking,
+  Modal,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -40,6 +41,8 @@ export default function CreatorCoin() {
   const [displayedTransactions, setDisplayedTransactions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [pendingWithdrawal, setPendingWithdrawal] = useState(null);
 
   const navigation = useNavigation();
   const toast = useToast();
@@ -68,14 +71,29 @@ export default function CreatorCoin() {
     }
   }, [currentPage]);
 
+  // Check for onboarding required withdrawal on initial load
   useEffect(() => {
     if (withdrawHistory.length > 0) {
-      const hasOnboardingRequired = withdrawHistory.some(
+      // Filter all withdrawals that require onboarding
+      const onboardingRequired = withdrawHistory.filter(
         item => item.status === 'requires_onboarding'
       );
 
-      if (hasOnboardingRequired) {
-        handleOnboardingClick();
+      // If there are any withdrawals requiring onboarding, show modal
+      if (onboardingRequired.length > 0) {
+        // Calculate total amount from all pending withdrawals
+        const totalAmount = onboardingRequired.reduce(
+          (sum, item) => sum + item.withdrawAmount, 
+          0
+        );
+        
+        // Store all pending withdrawals and total
+        setPendingWithdrawal({
+          items: onboardingRequired,
+          totalAmount: totalAmount,
+          count: onboardingRequired.length
+        });
+        setShowOnboardingModal(true);
       }
     }
   }, [withdrawHistory]);
@@ -197,6 +215,7 @@ export default function CreatorCoin() {
             showTitle: true,
             toolbarColor: '#ffffff',
             secondaryToolbarColor: '#f0f0f0',
+            forceCloseOnRedirection: true,
           });
 
           fetchAllData();
@@ -216,6 +235,16 @@ export default function CreatorCoin() {
     } finally {
       dispatch(hideLoader());
     }
+  };
+
+  const handleConfirmOnboarding = () => {
+    setShowOnboardingModal(false);
+    handleOnboardingClick();
+  };
+
+  const handleCancelOnboarding = () => {
+    setShowOnboardingModal(false);
+    setPendingWithdrawal(null);
   };
 
   const getStatusColor = (status) => {
@@ -269,9 +298,6 @@ export default function CreatorCoin() {
             ]}>
               {getStatusText(item.status)}
             </Text>
-            {/* {isOnboardingRequired && (
-              <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
-            )} */}
           </View>
         </View>
       </TouchableOpacity>
@@ -361,11 +387,6 @@ export default function CreatorCoin() {
         </View>
 
         <View style={[styles.detailsBox, bgStyle]}>
-          {/* <View style={[styles.detailRow, bgStyle]}>
-            <Text style={styles.detailLabel}>Total supply</Text>
-            <Text style={styles.detailValue}>1,00,000</Text>
-          </View> */}
-
           <View style={[styles.detailRow, bgStyle]}>
             <Text style={styles.detailLabel}>Contract address</Text>
             <TouchableOpacity onPress={copyToClipboard} style={styles.adressCopy}>
@@ -446,6 +467,55 @@ export default function CreatorCoin() {
           }}
         />
       </RBSheet>
+
+      {/* Onboarding Confirmation Modal */}
+      <Modal
+        visible={showOnboardingModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCancelOnboarding}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="alert-circle" size={50} color="#783eb9" />
+              <Text style={styles.modalTitle}>Complete Onboarding</Text>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDescription}>
+                You have{' '}
+                <Text style={styles.modalAmount}>
+                  {pendingWithdrawal?.count} pending withdrawal{pendingWithdrawal?.count > 1 ? 's' : ''}
+                </Text>
+                {' '}totaling{' '}
+                <Text style={styles.modalAmount}>
+                  ${pendingWithdrawal?.totalAmount}
+                </Text>
+              </Text>
+              <Text style={styles.modalSubtext}>
+                To complete {pendingWithdrawal?.count > 1 ? 'these withdrawals' : 'this withdrawal'}, you need to finish the onboarding process. Would you like to proceed?
+              </Text>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCancelOnboarding}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleConfirmOnboarding}
+              >
+                <Text style={styles.confirmButtonText}>Proceed</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -519,14 +589,6 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     borderRadius: 15,
     paddingHorizontal: 10,
-  },
-  detailRow1: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 6,
-    borderRadius: 15,
-    paddingHorizontal: 10,
-    paddingVertical: 15,
   },
   detailLabel: { color: 'gray', fontSize: 16, fontWeight: '600' },
   detailValue: {
@@ -635,5 +697,89 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 10,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  modalBody: {
+    marginBottom: 24,
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#4b5563',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  modalAmount: {
+    fontWeight: '700',
+    color: '#783eb9',
+    fontSize: 18,
+  },
+  modalSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  confirmButton: {
+    backgroundColor: '#783eb9',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });

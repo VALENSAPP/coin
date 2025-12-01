@@ -195,6 +195,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         restAmount: breakdown.baseAmount,
         tokensReceived: breakdown.tokens,
         purchaseTokenPrice: tokenRate,
+        type: "token_purchase",
         // amount: 0.55,
         // platformFee: 0.00003,
         // vendorFee: 0.00007,
@@ -224,6 +225,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
               modalTransitionStyle: 'coverVertical',
               enableBarCollapsing: true,
               showTitle: true,
+              forceCloseOnRedirection: true,
             });
           } else {
             // Fallback if in-app browser not available
