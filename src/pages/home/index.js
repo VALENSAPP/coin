@@ -12,6 +12,7 @@ import {
   PanResponder,
   Platform,
   Modal,
+  DeviceEventEmitter,
 } from 'react-native';
 import createStyles from './Style';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,6 +52,9 @@ export default function HomeScreen() {
   const isFocused = useIsFocused();
   const { bgStyle, text } = useAppTheme();
 
+  // ✅ Use ref to track if we need to refresh on app resume
+  const appState = useRef(AppState.currentState);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
@@ -58,28 +62,7 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    if (isFocused) {
-      setStoryRefreshTick(t => t + 1);
-      fetchData();
-      fetchProfileData();
-    }
-  }, [isFocused]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && isFocused) {
-        fetchData();
-      }
-    });
-
-    return () => subscription.remove();
-  }, [isFocused, fetchData]);
-
-  useEffect(() => {
-    addFcmToken();
-  },[])
-
+  // ✅ Move fetchData outside of useEffect so it's stable
   const fetchData = useCallback(async () => {
     try {
       dispatch(showLoader());
@@ -101,29 +84,7 @@ export default function HomeScreen() {
     }
   }, [dispatch, toast]);
 
-  const addFcmToken = useCallback(async () => {
-    let fcmToken = await AsyncStorage.getItem('fcmToken')
-    if (fcmToken) {
-      try {
-        dispatch(showLoader());
-        const response = await updateFcmToken({ fcmToken: fcmToken });
-        if (response?.statusCode === 200) {
-          console.log('response in updateFcmToken---------------', response);
-        } else {
-          showToastMessage(toast, 'danger', response.data.message);
-        }
-      } catch (error) {
-        showToastMessage(
-          toast,
-          'danger',
-          error?.response?.message ?? 'Something went wrong',
-        );
-      } finally {
-        dispatch(hideLoader());
-      }
-    }
-  }, [dispatch, toast]);
-
+  // ✅ Move fetchProfileData outside of useEffect so it's stable
   const fetchProfileData = useCallback(async () => {
     try {
       dispatch(showLoader());
@@ -148,6 +109,90 @@ export default function HomeScreen() {
       dispatch(hideLoader());
     }
   }, [dispatch]);
+
+  const addFcmToken = useCallback(async () => {
+    let fcmToken = await AsyncStorage.getItem('fcmToken')
+    if (fcmToken) {
+      try {
+        dispatch(showLoader());
+        const response = await updateFcmToken({ fcmToken: fcmToken });
+        if (response?.statusCode === 200) {
+          console.log('response in updateFcmToken---------------', response);
+        } else {
+          showToastMessage(toast, 'danger', response.data.message);
+        }
+      } catch (error) {
+        showToastMessage(
+          toast,
+          'danger',
+          error?.response?.message ?? 'Something went wrong',
+        );
+      } finally {
+        dispatch(hideLoader());
+      }
+    }
+  }, [dispatch, toast]);
+
+  // ✅ Initial load on screen focus
+  useEffect(() => {
+    if (isFocused) {
+      console.log('HomeScreen focused - fetching data');
+      setStoryRefreshTick(t => t + 1);
+      fetchData();
+      fetchProfileData();
+    }
+  }, [isFocused, fetchData, fetchProfileData]);
+
+  // ✅ FIXED: AppState listener with proper dependencies
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('AppState changed from', appState.current, 'to', nextAppState);
+      
+      // When app comes to foreground AND screen is focused
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active' &&
+        isFocused
+      ) {
+        console.log('App resumed while HomeScreen focused - refreshing data');
+        fetchData();
+        fetchProfileData();
+        setStoryRefreshTick(t => t + 1);
+      }
+      
+      appState.current = nextAppState;
+    });
+
+    return () => subscription.remove();
+  }, [isFocused, fetchData, fetchProfileData]); // ✅ All dependencies added
+
+  useEffect(() => {
+    addFcmToken();
+  }, [addFcmToken]);
+
+  // ✅ Listen for payment completion
+  useEffect(() => {
+    // Only setup listener when screen is focused
+    if (!isFocused) return;
+    
+    console.log('🎧 HomeScreen: Setting up PAYMENT_COMPLETED listener');
+    
+    const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+      console.log('🔔 HomeScreen: PAYMENT_COMPLETED event received!', data);
+      console.log('📞 HomeScreen: Calling fetchData and fetchProfileData');
+      
+      fetchData();
+      fetchProfileData();
+      setStoryRefreshTick(t => t + 1);
+      
+      console.log('✅ HomeScreen: Refresh functions called');
+    });
+
+    return () => {
+      console.log('🔇 HomeScreen: Removing PAYMENT_COMPLETED listener');
+      subscription.remove();
+    };
+  }, [isFocused]); // ✅ Only depend on isFocused
 
   useFocusEffect(
     useCallback(() => {

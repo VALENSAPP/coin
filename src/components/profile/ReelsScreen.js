@@ -1,56 +1,160 @@
-import React, { memo, useCallback } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet, Dimensions, Image, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback, memo } from 'react';
+import {
+  View,
+  FlatList,
+  Image,
+  StyleSheet,
+  Dimensions,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
-const { width } = Dimensions.get('window');
-const itemSize = width / 3 - 2;
+const { width: screenWidth } = Dimensions.get('window');
+const numColumns = 3;
+const SPACING = 2;
+const IMAGE_SIZE = (screenWidth - SPACING * (numColumns + 1)) / numColumns;
 
-// Use local placeholder instead of external URLs for better performance
-const createPlaceholderColor = (id) => {
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
-  return colors[parseInt(id) % colors.length];
+// URL normalization function
+const normalizeImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
+  return `http://35.174.167.92:3002/${trimmed}`;
 };
 
-const ReelsScreen = memo(() => {
+// Check if URL is a video (mp4, mov, avi, etc.)
+const isVideoUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
+  const lowerUrl = url.toLowerCase();
+  return videoExtensions.some(ext => lowerUrl.includes(ext));
+};
+
+// Memoized image component for better performance
+const PostImage = memo(({ item, index, onPress }) => {
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = normalizeImageUrl(item?.images?.[0]);
+  const isVideo = isVideoUrl(item?.images?.[0]);
+  const { bgStyle, textStyle, text } = useAppTheme();
+  
+  // Show placeholder for videos (camera icon)
+  if (isVideo) {
+    return (
+      <View style={[styles.image, styles.placeholderImage]}>
+        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
+        {/* <View style={styles.videoBadge}>
+          <Text style={styles.videoBadgeText}>VIDEO</Text>
+        </View> */}
+      </View>
+    );
+  }
+  
+  // Show placeholder for missing/error images
+  if (!imageUrl || imageError) {
+    return (
+      <View style={[styles.image, styles.placeholderImage]}>
+        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
+      </View>
+    );
+  }
+  
+  return (
+    <Image
+      source={{ uri: imageUrl }}
+      style={styles.image}
+      resizeMode="cover"
+      onError={() => setImageError(true)}
+      onLoad={() => setImageError(false)}
+    />
+  );
+});
+
+PostImage.displayName = 'PostImage';
+
+const ReelsScreen = memo(({ postCheck, userData }) => {
+  const [posts, setPosts] = useState([]);
   const navigation = useNavigation();
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle, text } = useAppTheme();
+
+  useEffect(() => {
+    // Filter posts to only show those with MP4 videos
+    if (postCheck && Array.isArray(postCheck)) {
+      const videoPosts = postCheck.filter(post => {
+        const firstImage = post?.images?.[0];
+        return firstImage && isVideoUrl(firstImage);
+      });
+      setPosts(videoPosts);
+    }
+  }, [postCheck]);
+
+  const openPosts = useCallback((index) => {
+    navigation.getParent().navigate('ProfileMain', {
+      screen: 'PostView',
+      params: {
+        postData: posts,
+        startIndex: index,
+      },
+    });
+  }, [navigation, posts]);
 
   const renderItem = useCallback(({ item, index }) => (
-    <TouchableOpacity
-      style={[styles.item, bgStyle]}
-      activeOpacity={0.8}
-      onPress={() => {
-        // Handle reel tap - you can add navigation logic here
-        console.log('Reel tapped:', item.id);
-      }}
-    >
-      <View style={[styles.thumbnail, { backgroundColor: createPlaceholderColor(item.id) }]}>
-        <Text style={styles.placeholderText}>🎬</Text>
-      </View>
-    </TouchableOpacity>
-  ), []);
+      <TouchableOpacity
+        style={[
+          styles.imageContainer,
+          { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
+        ]}
+        activeOpacity={0.95}
+        onPress={() => openPosts(index)}
+      >
+      <PostImage item={item} index={index} />
+        <View style={styles.overlay} />
+      </TouchableOpacity>
+  ), [openPosts, text]);
 
-  const keyExtractor = useCallback((item) => item.id, []);
+  const keyExtractor = useCallback((item) => item.id.toString(), []);
 
   const getItemLayout = useCallback((data, index) => ({
-    length: itemSize,
-    offset: itemSize * index,
+    length: IMAGE_SIZE + SPACING,
+    offset: (IMAGE_SIZE + SPACING) * Math.floor(index / numColumns),
     index,
   }), []);
+
+  const renderEmptyComponent = useCallback(() => (
+    <View style={styles.emptyContainer}>
+      <Text style={[styles.emptyTitle, textStyle]}>No video posts yet</Text>
+      <Text style={styles.emptySubtitle}>Share your first video moment</Text>
+    </View>
+  ), [textStyle]);
+
+  if (!posts || posts.length === 0) {
+    return (
+      <View style={styles.screen}>
+        {renderEmptyComponent()}
+    </View>
+  );
+  }
 
   return (
     <View style={[styles.screen, bgStyle]}>
       <FlatList
-        data={Array.from({ length: 6 }, (_, i) => ({ id: (i + 1).toString() }))}
+        data={posts}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        numColumns={3}
+        numColumns={numColumns}
+        ListEmptyComponent={renderEmptyComponent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.listContent,
+          posts.length === 0 && styles.emptyListContent,
+        ]}
+        ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
         removeClippedSubviews={true}
-        maxToRenderPerBatch={6}
+        maxToRenderPerBatch={12}
         windowSize={5}
-        initialNumToRender={6}
+        initialNumToRender={12}
         getItemLayout={getItemLayout}
         updateCellsBatchingPeriod={50}
         disableVirtualization={false}
@@ -67,20 +171,78 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1
   },
-  item: {
-    width: itemSize,
-    height: itemSize,
-    margin: 1,
+  listContent: {
+    padding: SPACING,
+    paddingBottom: 100,
   },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
+  emptyListContent: {
+    flexGrow: 1,
+  },
+
+  // --- Grid Images ---
+  imageContainer: {
+    marginBottom: SPACING,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    marginRight: 7,
+    marginTop: 5
+  },
+  image: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+    backgroundColor: '#f0f0f0',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(90, 45, 130, 0.08)',
+    opacity: 0,
+  },
+  placeholderImage: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 4,
+    backgroundColor: '#f3e9fb',
   },
   placeholderText: {
-    fontSize: 32,
+    fontSize: 20,
     opacity: 0.7,
   },
-}); 
+  videoBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  videoBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  // --- Empty State ---
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+});

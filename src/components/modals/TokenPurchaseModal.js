@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Keyboard, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Keyboard, Linking, AppState, DeviceEventEmitter } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -50,37 +50,61 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   };
 
   useEffect(() => {
-  // Only fetch if vendorid is available
-  if (vendorid) {
-    console.log('vendorid------->>>>>>>>>>>>>', vendorid)
-    fetchTokenPrice();
-  } else {
-    console.warn('TokenPurchaseModal: vendorid is missing');
-    setLoading(false); // Don't stay in loading state if no vendorid
-  }
-}, [vendorid, fetchTokenPrice]); 
+    // Only fetch if vendorid is available
+    if (vendorid) {
+      console.log('vendorid------->>>>>>>>>>>>>', vendorid)
+      fetchTokenPrice();
+    } else {
+      console.warn('TokenPurchaseModal: vendorid is missing');
+      setLoading(false); // Don't stay in loading state if no vendorid
+    }
+  }, [vendorid, fetchTokenPrice]);
+
+  useEffect(() => {
+    console.log('🎧 TokenPurchaseModal: Setting up PAYMENT_COMPLETED listener');
+
+    const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+      console.log('🔔 TokenPurchaseModal: PAYMENT_COMPLETED event received!', data);
+      console.log('📞 TokenPurchaseModal: Resetting state and calling onPurchase');
+
+      setIsProcessingPurchase(false);
+      dispatch(hideLoader());
+
+      if (onPurchase) {
+        console.log('✅ Calling onPurchase callback');
+        onPurchase();
+      }
+
+      showToastMessage(toast, 'success', 'Payment completed!');
+    });
+
+    return () => {
+      console.log('🔇 TokenPurchaseModal: Removing PAYMENT_COMPLETED listener');
+      subscription.remove();
+    };
+  }, [onPurchase, dispatch, toast]);
 
   const fetchTokenPrice = useCallback(async () => {
-  try {
-    if (!vendorid) {
-      console.warn('fetchTokenPrice called without vendorid');
-      setLoading(false);
-      return;
+    try {
+      if (!vendorid) {
+        console.warn('fetchTokenPrice called without vendorid');
+        setLoading(false);
+        return;
+      }
+
+      const response = await getUserTokenInfoByBlockChain(vendorid);
+      if (response?.statusCode === 200 && response?.data) {
+        console.log('Fetched token info:', response.data);
+        await getPriceOfToken(response.data.data?.tokenAddress);
+      } else {
+        console.warn('Invalid response from getUserTokenInfoByBlockChain:', response);
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error fetching profile token info:', err);
+      setLoading(false); // Make sure to set loading false on error
     }
-    
-    const response = await getUserTokenInfoByBlockChain(vendorid);
-    if (response?.statusCode === 200 && response?.data) {
-      console.log('Fetched token info:', response.data);
-      await getPriceOfToken(response.data.data?.tokenAddress);
-    } else {
-      console.warn('Invalid response from getUserTokenInfoByBlockChain:', response);
-      setLoading(false);
-    }
-  } catch (err) {
-    console.error('Error fetching profile token info:', err);
-    setLoading(false); // Make sure to set loading false on error
-  }
-}, [vendorid]);
+  }, [vendorid]);
 
   const getPriceOfToken = async (tokenAddress) => {
     try {
@@ -186,8 +210,9 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
     }
 
     try {
-      setIsProcessingPurchase(true); // Set local loading state
-      dispatch(showLoader())
+      setIsProcessingPurchase(true);
+      dispatch(showLoader());
+
       const requestBody = {
         amount: breakdown.totalAmount,
         platformFee: breakdown.platformFee,
@@ -196,26 +221,18 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         tokensReceived: breakdown.tokens,
         purchaseTokenPrice: tokenRate,
         type: "token_purchase",
-        // amount: 0.55,
-        // platformFee: 0.00003,
-        // vendorFee: 0.00007,
-        // restAmount: 0.50,
-        // tokensReceived: breakdown.tokens,
-        // purchaseTokenPrice: 0.001,
         vendorId: vendorid
-        // vendorId: 'fe9fb714-36f1-44bb-a8fc-ee2573c9cc3f'
       };
 
       console.log('Purchase request body:', requestBody);
       const response = await purchaseTokenWithUSD(requestBody);
-      console.log('purchaseTokenWithUSD------------------------:', response);
+
       if (response && response.statusCode === 200) {
         const url = response?.data?.sessionUrl;
 
         try {
           if (await InAppBrowser.isAvailable()) {
             await InAppBrowser.open(url, {
-              // ✅ Customization options
               dismissButtonStyle: 'close',
               preferredBarTintColor: '#ffffff',
               preferredControlTintColor: '#000000',
@@ -223,31 +240,68 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
               animated: true,
               modalPresentationStyle: 'fullScreen',
               modalTransitionStyle: 'coverVertical',
-              enableBarCollapsing: true,
+              enableBarCollapsing: false,
               showTitle: true,
-              forceCloseOnRedirection: true,
+              forceCloseOnRedirection: false,
             });
+
+            console.log('InAppBrowser closed');
+            // Event will handle refresh
           } else {
-            // Fallback if in-app browser not available
             await Linking.openURL(url);
+            setIsProcessingPurchase(false);
+            dispatch(hideLoader());
           }
-          onPurchase(); // Trigger after browser opened
         } catch (error) {
-          console.warn(error);
+          console.error('InAppBrowser error:', error);
+          setIsProcessingPurchase(false);
+          dispatch(hideLoader());
         }
-      }
-      else {
-        showToastMessage(toast, 'danger', response.message);
+      } else {
+        showToastMessage(toast, 'danger', response?.message || 'Payment failed');
+        setIsProcessingPurchase(false);
+        dispatch(hideLoader());
       }
     } catch (error) {
-      console.error('Error creating payment session:', error);
-      alert('Failed to process payment. Please check your connection and try again.');
-    } finally {
-      setIsProcessingPurchase(false); // Reset local loading state
+      console.error('Payment error:', error);
+      showToastMessage(toast, 'danger', 'Payment failed');
+      setIsProcessingPurchase(false);
       dispatch(hideLoader());
     }
   };
 
+  const handlePaymentCallback = useCallback(() => {
+    // This runs when user returns to the screen
+    const checkPaymentStatus = async () => {
+      // Refresh token balance or check payment status
+      console.log('User returned from payment - checking status...');
+
+      // Add your logic here to:
+      // 1. Refresh token balance
+      // 2. Show success/failure message
+      // 3. Update UI
+
+      if (onPurchase) {
+        onPurchase();
+      }
+    };
+
+    checkPaymentStatus();
+  }, [onPurchase]);
+
+  // ✅ Add this in your component's useEffect (in the screen where handlePurchase is called)
+  useEffect(() => {
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        // User came back to the app
+        handlePaymentCallback();
+      }
+    });
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, [handlePaymentCallback]);
 
   const formatCurrency = (value) => {
     const num = Number(value);
@@ -297,7 +351,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         {/* Amount Input */}
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>Token Value Amount</Text>
-          <View style={[styles.inputGroup, activeInput === 'amount' && styles.inputGroupActive, {borderColor: text, shadowColor: text}]}>
+          <View style={[styles.inputGroup, activeInput === 'amount' && styles.inputGroupActive, { borderColor: text, shadowColor: text }]}>
             <Text style={[styles.currencySymbol, textStyle]}>$</Text>
             <TextInput
               ref={amountInputRef}
@@ -319,9 +373,9 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         {/* Token Selector */}
         <View style={styles.inputWrapper}>
           <Text style={styles.inputLabel}>Select Tokens</Text>
-          <View style={[styles.tokenSelector, activeInput === 'tokens' && styles.tokenSelectorActive, {borderColor: text, shadowColor: text}]}>
+          <View style={[styles.tokenSelector, activeInput === 'tokens' && styles.tokenSelectorActive, { borderColor: text, shadowColor: text }]}>
             <TouchableOpacity
-              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled, {backgroundColor: text}]}
+              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled, { backgroundColor: text }]}
               onPress={() => handleTokenChange(Math.max(0, selectedTokens - 1))}
               activeOpacity={0.7}
               disabled={isProcessingPurchase} // Disable during purchase
@@ -332,7 +386,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
             <Text style={styles.tokenCount}>{selectedTokens.toLocaleString()}</Text>
 
             <TouchableOpacity
-              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled, {backgroundColor: text}]}
+              style={[styles.tokenButton, isProcessingPurchase && styles.tokenButtonDisabled, { backgroundColor: text }]}
               onPress={() => handleTokenChange(selectedTokens + 1)}
               activeOpacity={0.7}
               disabled={isProcessingPurchase} // Disable during purchase
@@ -387,7 +441,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
         {/* Info Section */}
         <View style={styles.infoSection}>
-          <View style={[styles.infoBox, {borderLeftColor: text}]}>
+          <View style={[styles.infoBox, { borderLeftColor: text }]}>
             <Icon name="information-circle" size={20} color={text} style={styles.infoIcon} />
             <View style={styles.infoTextContainer}>
               <Text style={styles.infoText}>
@@ -408,7 +462,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
           style={[
             styles.purchaseButton,
             isButtonDisabled && styles.purchaseButtonDisabled,
-            {backgroundColor: text, shadowColor: text}
+            { backgroundColor: text, shadowColor: text }
           ]}
           onPress={handlePurchase}
           disabled={isButtonDisabled}

@@ -147,7 +147,8 @@ const SubscribeFlowModal = ({
                         secondaryToolbarColor: '#f0f0f0',
                         forceCloseOnRedirection: true,
                     });
-
+                    step1Ref.current?.close();
+                    step2Ref.current?.close();
                     // Callback if you have one
                     // if (onPurchaseComplete) {
                     //     onPurchaseComplete();

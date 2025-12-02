@@ -19,12 +19,12 @@ const ReelsTabHandler = () => {
   return <ReelsScreen />; // Return nothing as we're navigating away
 };
 
-const ProfileTabs = memo(({ 
-  post, 
-  displayName, 
-  userData, 
-  dashboard, 
-  targetUserId, 
+const ProfileTabs = memo(({
+  post,
+  displayName,
+  userData,
+  dashboard,
+  targetUserId,
   isSubscribed: isSubscribedProp, // Receive from parent
   loggedInUserId // Receive from parent
 }) => {
@@ -36,7 +36,7 @@ const ProfileTabs = memo(({
   const [previousTabIndex, setPreviousTabIndex] = useState(0);
 
   const { textStyle, text } = useAppTheme();
-  
+
   // Update local subscription state when prop changes
   useEffect(() => {
     setIsSubscribed(isSubscribedProp);
@@ -47,7 +47,12 @@ const ProfileTabs = memo(({
     (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData} />,
     [post, userData],
   );
-  
+
+  const renderReelsScreen = useCallback(
+    (navProps) => <ReelsScreen {...navProps} postCheck={post} userData={userData} />,
+    [post, userData],
+  );
+
   const navigation = useNavigation();
 
   const handleModalClose = () => {
@@ -65,7 +70,7 @@ const ProfileTabs = memo(({
   // ✅ wrapper component for PrivateContent
   const PrivateContentWrapper = (props) => {
     const isFocused = useIsFocused();
-    
+
     useCallback(() => {
       if (isFocused) {
         if (!isSubscribed) {
@@ -130,7 +135,6 @@ const ProfileTabs = memo(({
         {/* ✅ Reels tab now navigates to full screen */}
         <Tab.Screen
           name="Reels"
-          component={ReelsScreen}
           options={{
             tabBarIcon: ({ focused }) => (
               <ProfileReelIcon
@@ -140,20 +144,30 @@ const ProfileTabs = memo(({
               />
             ),
           }}
-          listeners={{
-            tabPress: () => {
+          // listeners={{
+          //   tabPress: () => {
+          //     setPreviousTabIndex(currentTabIndex);
+          //     setCurrentTabIndex(1);
+          //   }
+          // }}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
               setPreviousTabIndex(currentTabIndex);
               setCurrentTabIndex(1);
-            }
-          }}
-        />
+              e.preventDefault(); // Prevent default tab behavior
+              navigation.navigate('FlipsScreen'); // Navigate to full screen
+            },
+          })}
+        >
+          {renderReelsScreen}
+        </Tab.Screen>
 
         {/* ✅ Private Content with Subscription Modal */}
         <Tab.Screen
           name="PrivateContent"
           component={
-            loggedInUserId === userData?.id || isSubscribed 
-              ? PrivateContentScreen 
+            loggedInUserId === userData?.id || isSubscribed
+              ? PrivateContentScreen
               : PrivateContentScreen
           }
           options={{
@@ -169,7 +183,7 @@ const ProfileTabs = memo(({
             tabPress: () => {
               setPreviousTabIndex(currentTabIndex);
               setCurrentTabIndex(2);
-              
+
               // Show subscription modal only if:
               // 1. User is not viewing their own profile
               // 2. User is not already subscribed
