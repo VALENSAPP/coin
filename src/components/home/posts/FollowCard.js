@@ -111,11 +111,14 @@ export default function FollowCard({
         <TouchableOpacity
           style={[styles.followButton, isFollowing && styles.unfollowButton, {backgroundColor: text, shadowColor: text}]}
           onPress={() => {
-            if (!isBusinessProfile && item.UserId !== currentUserId) {
+            console.log('-----suggestions-------on press--------------',item)
+            console.log('-----suggestions-------isBusinessProfile-------------',isBusinessProfile)
+            console.log('-----suggestions-------currentUserId-------------',currentUserId)
+            if (!isBusinessProfile && item.id !== currentUserId) {
               if (item.profile === 'company') {
-                executeFollowAction(item.UserId, !item.follow);
+                executeFollowAction(item.id, !item.follow);
               } else {
-                onToggle?.(item.UserId, !item.follow, item.userTokenAddress);
+                onToggle?.(item.id, !item.follow, item.userTokenAddress);
               }
             }
           }}

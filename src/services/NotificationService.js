@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
 
+// SINGLETON LISTENERS (avoid duplicates)
+let unsubscribeOnMessage = null;
+let unsubscribeOnNotificationOpened = null;
+
 export async function requestUserPermission() {
     const authStatus = await messaging().requestPermission();
     const enabled =
@@ -10,49 +14,62 @@ export async function requestUserPermission() {
     if (enabled) {
         console.log('Authorization status:', authStatus);
         getFcmToken();
-    }
-    else{
+    } else {
         console.log('authStatus not enabled------------');
     }
 }
 
 const getFcmToken = async () => {
-    let fcmToken = await AsyncStorage.getItem('fcmToken')
-    console.log(fcmToken, "the old token")
+    let fcmToken = await AsyncStorage.getItem('fcmToken');
+    console.log(fcmToken, 'the old token');
+
     if (!fcmToken) {
         try {
-            const fcmToken = await messaging().getToken();
-            if (fcmToken) {
-                console.log(fcmToken, "the new generated token");
-                await AsyncStorage.setItem('fcmToken', fcmToken)
+            const token = await messaging().getToken();
+            if (token) {
+                console.log(token, 'the new generated token');
+                await AsyncStorage.setItem('fcmToken', token);
             }
-        }
-        catch (error) {
+        } catch (error) {
             console.log(error, 'error raised in fcmtoken');
         }
     }
-}
+};
 
-export const notificationListener = async () => {
+export const notificationListener = () => {
 
-    messaging().onNotificationOpenedApp(remoteMessage => {
-        console.log(
-            'Notification caused app to open from background state:', remoteMessage.notification,
-        );
+    // -------------------------
+    // FOREGROUND LISTENER (FIXED)
+    // -------------------------
+    if (unsubscribeOnMessage) {
+        unsubscribeOnMessage();  // prevent duplicates
+        unsubscribeOnMessage = null;
+    }
+
+    unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
+        console.log("🔥 received in foreground (single listener)", remoteMessage);
     });
 
-    messaging().onMessage(async remoteMessage => {
-        console.log("received iin foreground",remoteMessage)
-    })
+    // -------------------------
+    // BACKGROUND TAP LISTENER
+    // -------------------------
+    if (unsubscribeOnNotificationOpened) {
+        unsubscribeOnNotificationOpened();
+        unsubscribeOnNotificationOpened = null;
+    }
 
-    // messaging()
-    //     .getInitialNotification()
-    //     .then(remoteMessage => {
-    //         if (remoteMessage) {
-    //             console.log(
-    //                 'Notification caused app to open from quit state:',remoteMessage,
-    //             );
-    //             // alert(JSON.stringify(remoteMessage.data))
-    //         }
-    //     });
-}
+    unsubscribeOnNotificationOpened = messaging().onNotificationOpenedApp(remoteMessage => {
+        console.log("📩 Notification opened from background", remoteMessage);
+    });
+
+    // -------------------------
+    // QUIT STATE (only once)
+    // -------------------------
+    messaging()
+        .getInitialNotification()
+        .then(remoteMessage => {
+            if (remoteMessage) {
+                console.log("📌 Notification opened from quit state", remoteMessage);
+            }
+        });
+};

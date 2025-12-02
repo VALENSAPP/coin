@@ -197,6 +197,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     };
 
     fetchFollowingStatus();
+    loadSuggestions();
   }, [list]);
 
   // -------- Fetch followers for each post (for "Vallowed by" section) --------
@@ -758,6 +759,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           (u.email ? u.email.split('@')[0] : 'User'),
         avatar: u.image || u.avatar || null,
         isFollow: typeof u.isFollow === 'boolean' ? u.isFollow : false,
+        profile: u.profile
       };
     },
     [], // EMPTY DEPS
@@ -785,7 +787,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
         .filter(u => u && (!me || String(u.id) !== me))
         .map(normalizeUser)
         .filter(Boolean); // Remove null results
-
+      console.log("cleansedcleansedcleansedcleansedcleansedcleansed",cleansed)
       if (isLoadMore) {
         setSuggestAllUsers(prev => [...prev, ...cleansed]);
       } else {

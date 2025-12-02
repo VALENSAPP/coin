@@ -16,6 +16,7 @@ import {
     Linking,
     AppState,
     Keyboard,
+    DeviceEventEmitter,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
@@ -70,19 +71,42 @@ export default function KYCVerification({ route }) {
     const { bgStyle, textStyle } = useAppTheme();
 
     // Monitor app state
+    // useEffect(() => {
+    //     const subscription = AppState.addEventListener('change', nextAppState => {
+    //         if (nextAppState === 'active' && isFocused && hasOpenedBrowser) {
+    //             setHasOpenedBrowser(false);
+    //             startProgressBarAndFetch();
+    //         }
+    //     });
+
+    //     return () => {
+    //         subscription.remove();
+    //         cleanupProgress();
+    //     };
+    // }, [isFocused, hasOpenedBrowser]);
+
     useEffect(() => {
-        const subscription = AppState.addEventListener('change', nextAppState => {
-            if (nextAppState === 'active' && isFocused && hasOpenedBrowser) {
+        console.log('🎧 KYCVerification: Setting up PAYMENT_COMPLETED listener');
+
+        const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+            console.log('🔔 KYCVerification: PAYMENT_COMPLETED event received!', data);
+            console.log('📞 KYCVerification: Calling startProgressBarAndFetch');
+
+            // Close any open InAppBrowser first
+            if (hasOpenedBrowser) {
                 setHasOpenedBrowser(false);
-                startProgressBarAndFetch();
             }
+
+            startProgressBarAndFetch();
+
+            console.log('✅ KYCVerification: startProgressBarAndFetch called');
         });
 
         return () => {
+            console.log('🔇 KYCVerification: Removing PAYMENT_COMPLETED listener');
             subscription.remove();
-            cleanupProgress();
         };
-    }, [isFocused, hasOpenedBrowser]);
+    }, []);
 
     // Also check on focus (but skip first time)
     useFocusEffect(
@@ -154,7 +178,7 @@ export default function KYCVerification({ route }) {
             const code = response.statusCode;
 
             if (code === 200) {
-                console.log('profile edit response ---------------',response)
+                console.log('profile edit response ---------------', response)
                 // showToastMessage(toast, 'success', 'Profile de.');
             } else if (code === 500) {
                 showToastMessage(toast, 'danger', 'Something went wrong. Please try again.');
@@ -166,7 +190,7 @@ export default function KYCVerification({ route }) {
         }
     };
 
-    const startProgressBarAndFetch = async() => {
+    const startProgressBarAndFetch = async () => {
         // console.log('startProgressBarAndFetch called');
 
         // // Clean up any existing timers/animations FIRST
@@ -695,8 +719,10 @@ export default function KYCVerification({ route }) {
                         </TouchableOpacity> */}
                         <TouchableOpacity
                             style={[styles.modalButton, styles.cancelButton]}
-                            onPress={() => { setShowProgressModal(false);
-                                navigation.navigate('Login') }}
+                            onPress={() => {
+                                setShowProgressModal(false);
+                                navigation.navigate('Login')
+                            }}
                         >
                             <Text style={styles.cancelButtonText}>Go Back To Login Screen</Text>
                         </TouchableOpacity>

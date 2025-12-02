@@ -1,5 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, TouchableOpacity, KeyboardAvoidingView, Linking, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+    View, 
+    Text, 
+    TextInput, 
+    Pressable, 
+    StyleSheet, 
+    ScrollView, 
+    Modal, 
+    TouchableOpacity, 
+    KeyboardAvoidingView, 
+    Linking, 
+    ActivityIndicator,
+    DeviceEventEmitter,
+    Platform,
+} from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -16,12 +30,49 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
     const [note, setNote] = useState('');
-    const [isButtonLoading, setIsButtonLoading] = useState(false); // Add button loading state
+    const [isButtonLoading, setIsButtonLoading] = useState(false);
 
     const amounts = [5, 10, 25, 50];
 
+    // ✅ Listen for payment completion events
+    useEffect(() => {
+        // Only setup listener when modal is visible
+        if (!visible) return;
+        
+        console.log('🎧 MissionSupport: Setting up PAYMENT_COMPLETED listener');
+        
+        const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+            console.log('🔔 MissionSupport: PAYMENT_COMPLETED event received!', data);
+            
+            // Reset loading state
+            setIsButtonLoading(false);
+            dispatch(hideLoader());
+            
+            // Call success callback if provided
+            if (onDonationSuccess) {
+                console.log('📞 MissionSupport: Calling onDonationSuccess');
+                onDonationSuccess();
+            }
+            
+            // Reset form
+            setCustomAmount('');
+            setSelectedAmount(null);
+            setNote('');
+            
+            // Close modal
+            onClose();
+            
+            showToastMessage(toast, 'success', 'Donation completed successfully!');
+        });
+
+        return () => {
+            console.log('🔇 MissionSupport: Removing PAYMENT_COMPLETED listener');
+            subscription.remove();
+        };
+    }, [visible]); // ✅ Only depend on visible prop
+
     const handleConfirm = async () => {
-        setIsButtonLoading(true); // Start button loading
+        setIsButtonLoading(true);
         
         if (item?.profile === "user") {
             await handleMissionDonation();
@@ -55,29 +106,38 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 animated: true,
                                 modalPresentationStyle: 'fullScreen',
                                 modalTransitionStyle: 'coverVertical',
-                                enableBarCollapsing: true,
+                                enableBarCollapsing: false, // Changed to false
                                 showTitle: true,
-                                forceCloseOnRedirection: true,
+                                forceCloseOnRedirection: false, // Changed to false
                             });
+                            
+                            // Don't reset here - event will handle it
+                            console.log('InAppBrowser closed - waiting for event');
                         } else {
                             await Linking.openURL(url);
+                            // For external browser, reset immediately
+                            setCustomAmount('');
+                            setSelectedAmount(null);
+                            setNote('');
+                            setIsButtonLoading(false);
+                            onClose();
+                            dispatch(hideLoader());
                         }
                     } catch (error) {
                         console.warn(error);
+                        setIsButtonLoading(false);
+                        dispatch(hideLoader());
                     }
                 }
                 else {
                     showToastMessage(toast, 'danger', response.message);
+                    setIsButtonLoading(false);
+                    dispatch(hideLoader());
                 }
             } catch (error) {
                 console.error('Error creating payment session:', error);
                 alert('Failed to process payment. Please check your connection and try again.');
-            } finally {
-                setCustomAmount('');
-                setSelectedAmount(null);
-                setNote('');
-                setIsButtonLoading(false); // Stop button loading
-                onClose();
+                setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
         }
@@ -104,22 +164,22 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                 try {
                     await Linking.openURL(url);
+                    // Event will handle the rest
                 } catch (error) {
                     console.warn(error);
+                    setIsButtonLoading(false);
+                    dispatch(hideLoader());
                 }
             }
             else {
                 showToastMessage(toast, 'danger', response.message);
+                setIsButtonLoading(false);
+                dispatch(hideLoader());
             }
         } catch (error) {
             console.error('Error creating payment session:', error);
             alert('Failed to process payment. Please check your connection and try again.');
-        } finally {
-            setCustomAmount('');
-            setSelectedAmount(null);
-            setNote('');
-            setIsButtonLoading(false); // Stop button loading
-            onClose();
+            setIsButtonLoading(false);
             dispatch(hideLoader());
         }
     };
@@ -242,31 +302,26 @@ const styles = StyleSheet.create({
     container: {
         padding: 20,
     },
-
     title: {
         fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 10,
     },
-
     heading: {
         fontSize: 18,
         fontWeight: '600',
         marginTop: 10,
     },
-
     description: {
         fontSize: 15,
         color: '#333',
         marginVertical: 10,
     },
-
     label: {
         marginTop: 20,
         fontWeight: '600',
         fontSize: 15,
     },
-
     noteInput: {
         borderWidth: 1,
         borderColor: '#ccc',
@@ -275,13 +330,11 @@ const styles = StyleSheet.create({
         height: 80,
         marginTop: 10,
     },
-
     amountContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         marginTop: 10,
     },
-
     amountBox: {
         borderWidth: 1,
         borderColor: '#666',
@@ -291,17 +344,14 @@ const styles = StyleSheet.create({
         marginRight: 10,
         marginBottom: 10,
     },
-
     amountSelected: {
         borderColor: '#7F3DFF',
         backgroundColor: '#EDE4FF',
     },
-
     amountText: {
         fontSize: 16,
         fontWeight: '600',
     },
-
     customBox: {
         borderWidth: 1,
         borderColor: '#666',
@@ -312,13 +362,11 @@ const styles = StyleSheet.create({
         width: '48%',
         height: 44,
     },
-
     customInput: {
         fontSize: 16,
         color: '#000',
         paddingHorizontal: 8,
     },
-
     secureText: {
         marginTop: 15,
         color: '#555',
@@ -326,41 +374,34 @@ const styles = StyleSheet.create({
         borderLeftColor: '#ccc',
         paddingLeft: 10,
     },
-
     bottomButtons: {
         flexDirection: 'row',
         marginTop: 30,
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-
     confirmBtn: {
         padding: 12,
         borderRadius: 8,
         backgroundColor: '#5a2d82',
     },
-
     confirmBtnDisabled: {
         opacity: 0.7,
     },
-
     loadingContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
     },
-
     confirmText: {
         color: '#fff',
         fontWeight: '600',
     },
-
     cancelBtn: {
         padding: 12,
         borderWidth: 1,
         borderRadius: 5,
     },
-
     cancelText: {
         color: '#333',
         fontWeight: '600',
