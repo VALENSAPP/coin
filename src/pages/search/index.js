@@ -24,6 +24,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import Video from 'react-native-video';
 import styles from './Style';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,6 +44,7 @@ const SearchScreen = () => {
   const [isGrid, setIsGrid] = useState(false);
 
   const searchTimeoutRef = useRef(null);
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -397,7 +399,7 @@ const SearchScreen = () => {
   return (
     <>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.container}>
+        <View style={[styles.container, bgStyle]}>
           {/* 🔍 Search bar */}
           <View style={styles.searchContainer}>
             <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />

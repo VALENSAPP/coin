@@ -21,7 +21,7 @@ export default function Suggestion({
   hasMore,
   isLoading = false,
   isBusinessProfile,
-  executeFollowAction
+  executeFollowAction,
 }) {
   const data = hasMore
     ? [...users, { id: '__see_more__', username: 'See more' }]
@@ -100,7 +100,7 @@ export default function Suggestion({
           }
 
           const following =
-            item.isFollow ?? item.isFollowing ?? item.following ?? false;
+            item.isFollow ?? false;
 
           return (
             <FollowCard
