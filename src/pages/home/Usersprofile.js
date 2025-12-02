@@ -1,11 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   RefreshControl,
   ScrollView,
   Keyboard,
-  Alert
+  Alert,
+  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -31,13 +32,10 @@ const Usersprofile = () => {
   const route = useRoute();
   const { userId: targetUserId } = route.params
 
-// const returnTo = route?.params?.returnTo;
-const screenParams = route?.params?.params || route?.params || {};
+  const screenParams = route?.params?.params || route?.params || {};
+  const returnTo = screenParams?.returnTo;
 
-
-const returnTo = screenParams?.returnTo;
-
-console.log(returnTo,"7777777777")
+  console.log(returnTo,"7777777777")
 
   const [posts, setPosts] = useState([]);
   const [userDashboard, setUserDashboard] = useState();
@@ -47,8 +45,8 @@ console.log(returnTo,"7777777777")
   const [followBusy, setFollowBusy] = useState(false);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false); // New state for subscription status
-  const [loggedInUserId, setLoggedInUserId] = useState(null); // Store logged-in user ID
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [loggedInUserId, setLoggedInUserId] = useState(null);
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -56,10 +54,8 @@ console.log(returnTo,"7777777777")
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
 
-
   console.log(route,"ProfileScreenroute===>>>>>>");
 
-  // Fetch logged-in user ID
   const fetchLoggedInUserId = useCallback(async () => {
     try {
       const id = await AsyncStorage.getItem('userId');
@@ -71,7 +67,6 @@ console.log(returnTo,"7777777777")
     }
   }, []);
 
-  // Check subscription status
   const checkSubscriptionStatus = useCallback(async (currentUserId) => {
     if (!currentUserId || !targetUserId) return false;
 
@@ -80,7 +75,6 @@ console.log(returnTo,"7777777777")
       if (response?.statusCode === 200 && response?.data?.subscriptions) {
         const subscriptions = response.data.subscriptions;
         
-        // Check if current user exists in the subscription list as buyUserId
         const hasSubscription = subscriptions.some(
           sub => sub.buyUserId === currentUserId && sub.status === 'ACTIVE'
         );
@@ -91,7 +85,6 @@ console.log(returnTo,"7777777777")
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);
-      // Don't show toast error as it's not critical
     }
     
     return false;
@@ -105,7 +98,6 @@ console.log(returnTo,"7777777777")
       }
     } catch (err) {
       console.error('Error fetching profile token info:', err);
-      // Don't show toast error for this, as it's not critical
     }
   }, [targetUserId]);
 
@@ -118,10 +110,8 @@ console.log(returnTo,"7777777777")
     dispatch(showLoader());
 
     try {
-      // Fetch logged-in user ID first
       const currentUserId = await fetchLoggedInUserId();
       
-      // Fetch profile token info and check subscription
       await Promise.all([
         fetchProfile(),
         checkSubscriptionStatus(currentUserId)
@@ -133,14 +123,12 @@ console.log(returnTo,"7777777777")
         getUserDashboard(targetUserId),
       ]);
 
-      // Handle posts
       if (postsRes?.statusCode === 200) {
         setPosts(postsRes.data || []);
       } else {
         showToastMessage(toast, 'danger', postsRes?.data?.message || 'Failed to fetch posts');
       }
 
-      // Handle user data
       if (userRes?.statusCode === 200) {
         console.log('userres for postres------->>>>>>>>>>>>>>>>>>',userRes.data);
         
@@ -150,7 +138,6 @@ console.log(returnTo,"7777777777")
         showToastMessage(toast, 'danger', userRes?.data?.message || 'Failed to fetch profile');
       }
 
-      // Handle dashboard
       if (dashRes?.statusCode === 200) {
         setUserDashboard(dashRes.data?.dashboardData);
       } else {
@@ -226,6 +213,16 @@ console.log(returnTo,"7777777777")
       onRefresh();
     }
   }
+
+  // ✅ Listen for payment completion events
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+      console.log('✅ Payment completed event received in Usersprofile:', data);
+      fetchAllData();
+    });
+
+    return () => subscription.remove();
+  }, [fetchAllData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -309,8 +306,8 @@ console.log(returnTo,"7777777777")
           userData={userData} 
           dashboard={userDashboard} 
           targetUserId={targetUserId}
-          isSubscribed={isSubscribed} // Pass subscription status to ProfileTabs
-          loggedInUserId={loggedInUserId} // Pass logged-in user ID
+          isSubscribed={isSubscribed}
+          loggedInUserId={loggedInUserId}
         />
       </ScrollView>
 

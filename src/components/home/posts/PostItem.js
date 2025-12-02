@@ -232,7 +232,7 @@ export default function PostItem({
   const toast = useToast();
   const { text } = useAppTheme();
   const isMountedRef = useRef(true);
-  const route=useRoute();
+  const route = useRoute();
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -368,8 +368,7 @@ export default function PostItem({
   const safeVideoPause = useCallback((index) => {
     try {
       const ref = videoRefsMap.current[index];
-      // Check if component is still mounted and ref exists
-      if (isMountedRef.current && ref && typeof ref.pause === 'function') {
+      if (ref && typeof ref.pause === 'function') {
         ref.pause();
       }
     } catch (error) {
@@ -378,52 +377,44 @@ export default function PostItem({
   }, []);
 
   useEffect(() => {
-  if (mediaLength <= 0 || !isMountedRef.current) return;
+    if (mediaLength <= 0) return;
 
-  const nextStates = {};
-  for (let idx = 0; idx < mediaLength; idx++) {
-    const shouldPause = !(
-      idx === currentIndex &&
-      isVisible &&
-      screenFocused &&
-      String(playingPostId) === String(item.id)
-    );
-    nextStates[idx] = shouldPause;
-  }
+    const nextStates = {};
+    for (let idx = 0; idx < mediaLength; idx++) {
+      const shouldPause = !(
+        idx === currentIndex &&
+        isVisible &&
+        screenFocused &&
+        String(playingPostId) === String(item.id)
+      );
+      nextStates[idx] = shouldPause;
+    }
 
-  setVideoStates(prev => {
-    const hasChanged = Object.keys(nextStates).some(
-      key => prev[key] !== nextStates[key]
-    );
-    return hasChanged ? nextStates : prev;
-  });
+    setVideoStates(prev => {
+      const hasChanged = Object.keys(nextStates).some(
+        key => prev[key] !== nextStates[key]
+      );
+      return hasChanged ? nextStates : prev;
+    });
 
-  const timeoutId = setTimeout(() => {
-    if (!isMountedRef.current) return;
-    
-    Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-      if (shouldPause) {
+    setTimeout(() => {
+      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+        if (shouldPause) {
+          safeVideoPause(parseInt(idx));
+        }
+      });
+    }, 100);
+
+  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
+
+  useEffect(() => {
+    return () => {
+      Object.keys(videoRefsMap.current).forEach(idx => {
         safeVideoPause(parseInt(idx));
-      }
-    });
-  }, 100);
-
-  return () => clearTimeout(timeoutId);
-
-}, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
-
-useEffect(() => {
-  isMountedRef.current = true;
-  
-  return () => {
-    isMountedRef.current = false;
-    // Clear refs immediately
-    Object.keys(videoRefsMap.current).forEach(idx => {
-      safeVideoPause(parseInt(idx));
-    });
-    videoRefsMap.current = {};
-  };
-}, [safeVideoPause]);
+      });
+      videoRefsMap.current = {};
+    };
+  }, [safeVideoPause]);
 
   const handleUserProfile = (id) => {
     console.log("handleUserProfile==>>>>>")
@@ -432,13 +423,13 @@ useEffect(() => {
     //   returnParams: route.params?.returnParams,
     // };
     if (userId === id) {
- 
+
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
         params: { userId: id, returnTo },
-         
+
       });
       console.log(userId, 'can user id came heree')
     }
@@ -493,69 +484,85 @@ useEffect(() => {
   };
 
   const renderMedia = ({ item: mediaItem, index }) => {
-  const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-  const isPaused = videoStates[index] ?? true;
+    const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
+    const isPaused = videoStates[index] ?? true;
 
-  const shouldPlay =
-    screenFocused &&
-    String(playingPostId) === String(item.id) &&
-    String(currentlyVisiblePostId) === String(item.id) &&
-    isVisible &&
-    index === currentIndex &&
-    !isPaused &&
-    !isZooming;
+    // Simplified shouldPlay - only check if not paused and current index
+    const shouldPlay = index === currentIndex && !isPaused && !isZooming;
 
-  return (
-    <View style={styles.mediaContainer}>
-      {isVideo ? (
-        <>
-          <Video
-            ref={(ref) => {
-              // Only assign ref if component is mounted
-              if (ref && isMountedRef.current) {
-                videoRefsMap.current[index] = ref;
-              } else if (!ref && videoRefsMap.current[index]) {
-                // Clean up ref when video unmounts
-                delete videoRefsMap.current[index];
-              }
+    return (
+      <View style={styles.mediaContainer}>
+        {isVideo ? (
+          <>
+            <Video
+              ref={(ref) => {
+                if (ref) {
+                  videoRefsMap.current[index] = ref;
+                }
+              }}
+              source={{ uri: mediaItem.url }}
+              style={styles.postMedia}
+              resizeMode="cover"
+              repeat
+              paused={!shouldPlay}
+              muted={isMuted}
+              controls={false}
+              onError={(error) => {
+                console.log('Video error:', error);
+              }}
+              playWhenInactive={false}
+              progressUpdateInterval={500}
+            />
+            <TouchableOpacity
+              style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
+              activeOpacity={1}
+              onPress={() => {
+                console.log('Video overlay pressed, current isPaused:', isPaused);
+                setVideoStates((prev) => {
+                  const newState = {
+                    ...prev,
+                    [index]: !prev[index]
+                  };
+                  console.log('New video state for index', index, ':', newState[index]);
+                  return newState;
+                });
+              }}
+            >
+              {isPaused && (
+                <View style={styles.playButtonContainer}>
+                  <Icon name="play" size={32} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.speakerButton}
+              onPress={() => setIsMuted((prev) => !prev)}
+            >
+              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <InstagramZoomableImage
+            uri={mediaItem.url}
+            onZoomChange={(zoomed) => {
+              setIsZooming(zoomed);
+              setScrollEnabled(!zoomed);
             }}
-            source={{ uri: mediaItem.url }}
-            style={styles.postMedia}
-            resizeMode="cover"
-            repeat
-            paused={!shouldPlay}
-            muted={isMuted || isPaused}
-            controls={false}
-            onError={(error) => {
-              console.log('Video error:', error);
+            onDoubleTap={(uri) => {
+              setViewerUri(uri);
+              setViewerOpen(true);
+              setScrollEnabled(false);
             }}
-            playWhenInactive={false}
-            progressUpdateInterval={500}
+            onOpenViewer={(uri) => {
+              setViewerUri(uri);
+              setViewerOpen(true);
+              setScrollEnabled(false);
+            }}
           />
-          {/* Rest of video UI */}
-        </>
-      ) : (
-        <InstagramZoomableImage
-          uri={mediaItem.url}
-          onZoomChange={(zoomed) => {
-            setIsZooming(zoomed);
-            setScrollEnabled(!zoomed);
-          }}
-          onDoubleTap={(uri) => {
-            setViewerUri(uri);
-            setViewerOpen(true);
-            setScrollEnabled(false);
-          }}
-          onOpenViewer={(uri) => {
-            setViewerUri(uri);
-            setViewerOpen(true);
-            setScrollEnabled(false);
-          }}
-        />
-      )}
-    </View>
-  );
-};
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.wrapper}>

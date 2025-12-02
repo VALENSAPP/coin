@@ -3,7 +3,7 @@ import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, AppState, DeviceEventEmitter, View, StyleSheet } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import messaging from '@react-native-firebase/messaging';
 import Splash from './pages/splashSceen/Splash';
@@ -14,17 +14,19 @@ import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { notificationListener, requestUserPermission } from './services/NotificationService';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import NotificationModal from './components/modals/NotificationModal';
 
 const linking = {
   prefixes: [
-    'https://www.valenscorp.com',   // Universal Link (typo fix)
-    'https://valenscorp.com',        // Without www
-    'com.valens://',                 // Custom scheme
+    'https://www.valenscorp.com',
+    'https://valenscorp.com',
+    'com.valens://',
   ],
   config: {
     screens: {
       Home: '',
-      CallbackScreen: 'callback',          // /callback route
+      CallbackScreen: 'callback',
       Wallet: 'wallet',
     },
   },
@@ -32,17 +34,25 @@ const linking = {
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [message, setMessage] = useState('');
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const dispatch = useDispatch();
   const toast = useToast();
-  const navigationRef = useRef(null); // Navigation reference
+  const navigationRef = useRef(null);
+  const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    requestUserPermission();
+    notificationListener();
+}, []);
 
   useEffect(() => {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
-    requestUserPermission();
-    notificationListener();
     getNotification();
+
     const checkLogin = async () => {
       const loggedI = await AsyncStorage.getItem('isLoggedIn');
       if (loggedI === 'true') {
@@ -57,23 +67,70 @@ export default function Main() {
 
     checkLogin();
 
-    // Deep Link Handler
-    // Deep Link Handler
-    const handleDeepLink = (event) => {
+    // Track app state changes
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      console.log('AppState changed:', appState.current, '->', nextAppState);
+      appState.current = nextAppState;
+    });
+
+    // Deep Link Handler - FIXED FOR iOS
+    const handleDeepLink = async (event) => {
       console.log('Deep link received:', event.url);
       const url = event.url;
 
-      try {
-        // Parse URL safely
-        const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+      // Check if URL is callback
+      if (url.includes('callback')) {
+        console.log('🔔 Callback URL detected - closing InAppBrowser');
 
-        // If you just want to go back to Home
-        if (navigationRef.current) {
-          // Navigate to Home or reset stack
-          navigationRef.current.reset({
-            index: 0,
-            routes: [{ name: 'Home' }],
-          });
+        try {
+          // ✅ CRITICAL: Close InAppBrowser on iOS
+          if (await InAppBrowser.isAvailable()) {
+            await InAppBrowser.close();
+            console.log('✅ InAppBrowser closed successfully');
+          }
+        } catch (error) {
+          console.log('❌ Error closing InAppBrowser:', error);
+        }
+
+        // Parse query params to check payment status
+        let status = 'success';
+        try {
+          const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+          status = urlObj.searchParams.get('status') || 'success';
+          console.log('📋 Payment status from URL:', status);
+        } catch (error) {
+          console.log('⚠️ Error parsing callback URL:', error);
+        }
+
+        // ✅ Emit event FIRST before hiding loader
+        console.log('📢 Emitting PAYMENT_COMPLETED event with status:', status);
+        DeviceEventEmitter.emit('PAYMENT_COMPLETED', {
+          status: status,
+          timestamp: Date.now()
+        });
+
+        // Hide loader after a small delay to ensure event is processed
+        setTimeout(() => {
+          dispatch(hideLoader());
+          console.log('✅ Loader hidden - user back on screen');
+        }, 500);
+
+        return;
+      }
+
+      // Handle other deep links normally if needed
+      try {
+        const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+        const path = urlObj.pathname;
+
+        if (navigationRef.current && isNavigationReady) {
+          setTimeout(() => {
+            if (path === '/wallet') {
+              navigationRef.current.navigate('Wallet');
+            } else if (path === '/home' || path === '/') {
+              navigationRef.current.navigate('Home');
+            }
+          }, 100);
         }
       } catch (error) {
         console.error('URL parsing error:', error);
@@ -81,7 +138,7 @@ export default function Main() {
     };
 
     // Listen for deep links when app is open
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
     // Handle deep link when app was closed
     Linking.getInitialURL().then((url) => {
@@ -91,8 +148,11 @@ export default function Main() {
       }
     });
 
-    return () => subscription.remove();
-  }, [dispatch, toast]);
+    return () => {
+      linkingSubscription.remove();
+      appStateSubscription.remove();
+    };
+  }, [dispatch, toast, isNavigationReady]);
 
   const fetchRefreshToken = async () => {
     const oldToken = await AsyncStorage.getItem('refreshToken');
@@ -115,15 +175,15 @@ export default function Main() {
   };
 
   const getNotification = async () => {
-    messaging().onMessage(async remoteMessage => {
-      Alert.alert(remoteMessage.notification.body);
-      console.log("onMessage data------------------------", remoteMessage)
-      // readNotificationsAtStart(remoteMessage.data.messageId)
-    });
+    // messaging().onMessage(async remoteMessage => {
+    //   setModalVisible(true);
+    //   setMessage(remoteMessage.notification.body);
+    // });
 
     messaging().onNotificationOpenedApp(remoteMessage => {
       console.log("onNotificationOpenedApp data------------------------", remoteMessage)
-      // readNotificationsAtStart(remoteMessage.data.messageId)
+      setMessage(remoteMessage.notification.body);
+      setModalVisible(true);
     });
 
     messaging()
@@ -131,9 +191,20 @@ export default function Main() {
       .then(remoteMessage => {
         if (remoteMessage) {
           console.log("getInitialNotification data------------------------", remoteMessage)
+          setMessage(remoteMessage.notification.body);
+          setModalVisible(true);
         }
       });
   }
+
+  const handleNavigationReady = () => {
+    console.log('Navigation is ready');
+    setIsNavigationReady(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+  };
 
   if (isLoading) {
     return (
@@ -144,14 +215,25 @@ export default function Main() {
   }
 
   return (
-    <ThemeProvider activeProfile={userProfile}>
-      <NavigationContainer
-        ref={navigationRef}  // Navigation reference add kiya
-        linking={linking}
-        fallback={<Splash />} // Fallback while linking resolves
-      >
-        <MainStack />
-      </NavigationContainer>
-    </ThemeProvider>
+    <>
+      <ThemeProvider activeProfile={userProfile}>
+        <NavigationContainer
+          ref={navigationRef}
+          linking={linking}
+          onReady={handleNavigationReady}
+          fallback={<Splash />}
+        >
+          <MainStack />
+        </NavigationContainer>
+        {
+        modalVisible && 
+          <NotificationModal
+            visible={modalVisible}
+            message={message}
+            closeModal={closeModal}
+          />
+        }
+      </ThemeProvider>
+    </>
   );
 }

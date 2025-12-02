@@ -165,7 +165,6 @@ export default function FlipsScreen() {
     const paramReel = route.params?.item;
     const paramKey = route.params?.uniqueKey ?? route.params?.key ?? null;
 
-    // If there's a param reel, reset reels to show the selected reel first
     if (paramReel) {
       // Transform param reel to match app structure
       const transformedParamReel = {
@@ -200,7 +199,7 @@ export default function FlipsScreen() {
       // Reset paused/muted states so the new reel plays correctly
       setPaused({});
       setMuted({});
-      
+
     }
 
     // Fetch all reels (will be appended after param reel)
@@ -302,12 +301,9 @@ export default function FlipsScreen() {
   }, [navigation, route.params]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
-    }
   }).current;
 
-  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 80 });
+  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 95 });
 
   // Handlers
   const handleLike = useCallback(
@@ -427,22 +423,28 @@ export default function FlipsScreen() {
     }));
   }, []);
 
-  // Ensure the flatlist scrolls to the current index (reel) when it changes
   useEffect(() => {
-    if (typeof currentIndex !== 'number' || !flatListRef.current) return;
-    try {
-      flatListRef.current.scrollToIndex({ index: currentIndex, animated: true, viewPosition: 0.5 });
-    } catch (error) {
-      // If scrolling fails because index out of range, try a fallback after a small delay
-      setTimeout(() => {
+    if (!flatListRef.current) return;
+    // If a param-driven selected reel exists, scroll to it once; otherwise do not auto-scroll here.
+    if (selectedReelId) {
+      const idx = reels.findIndex(r => r.id === selectedReelId);
+      if (idx >= 0) {
         try {
-          flatListRef.current.scrollToIndex({ index: currentIndex, animated: true, viewPosition: 0.5 });
-        } catch (e) {
-          // ignore
+          flatListRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 });
+        } catch (error) {
+          // fallback after a small delay
+          setTimeout(() => {
+            try {
+              flatListRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 });
+            } catch (e) {
+              // ignore
+            }
+          }, 200);
         }
-      }, 200);
+        setSelectedReelId(null);
+      }
     }
-  }, [currentIndex, reels]);
+  }, [selectedReelId, reels]);
 
   const handlePause = (id) => {
     setPaused(prev => ({ ...prev, [id]: !prev[id] }));
@@ -511,7 +513,7 @@ export default function FlipsScreen() {
 
   const renderItem = ({ item, index }) => (
     <View style={styles.reelContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
       {/* Progress bar */}
       <View style={styles.progressContainer}>
@@ -725,7 +727,7 @@ export default function FlipsScreen() {
     </View>
   );
 
-  const handleUserNavigate = async(id) => {
+  const handleUserNavigate = async (id) => {
     const userId = await AsyncStorage.getItem('userId');
     const paramReel = route.params?.item;
 
@@ -750,11 +752,17 @@ export default function FlipsScreen() {
         showsVerticalScrollIndicator={false}
         decelerationRate={0.98}
         onViewableItemsChanged={onViewableItemsChanged}
+        onMomentumScrollEnd={(e) => {
+          const offsetY = e.nativeEvent.contentOffset.y || 0;
+          const idx = Math.round(offsetY / SCREEN_HEIGHT);
+          if (idx !== currentIndex) {
+            setCurrentIndex(idx);
+          }
+        }}
         viewabilityConfig={viewConfigRef.current}
         snapToAlignment="start"
-        // removeClippedSubviews={true}
-        maxToRenderPerBatch={2}
-        // initialNumToRender={1}
+        snapToInterval={SCREEN_HEIGHT}
+        maxToRenderPerBatch={1}
         getItemLayout={(_, index) => ({
           length: SCREEN_HEIGHT,
           offset: SCREEN_HEIGHT * index,

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
+  DeviceEventEmitter,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -74,20 +75,16 @@ export default function CreatorCoin() {
   // Check for onboarding required withdrawal on initial load
   useEffect(() => {
     if (withdrawHistory.length > 0) {
-      // Filter all withdrawals that require onboarding
       const onboardingRequired = withdrawHistory.filter(
         item => item.status === 'requires_onboarding'
       );
 
-      // If there are any withdrawals requiring onboarding, show modal
       if (onboardingRequired.length > 0) {
-        // Calculate total amount from all pending withdrawals
         const totalAmount = onboardingRequired.reduce(
           (sum, item) => sum + item.withdrawAmount, 
           0
         );
         
-        // Store all pending withdrawals and total
         setPendingWithdrawal({
           items: onboardingRequired,
           totalAmount: totalAmount,
@@ -97,6 +94,25 @@ export default function CreatorCoin() {
       }
     }
   }, [withdrawHistory]);
+
+  // ✅ Listen for payment/onboarding completion events
+  useEffect(() => {
+    console.log('🎧 CreatorCoin: Setting up PAYMENT_COMPLETED listener');
+    
+    const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+      console.log('🔔 CreatorCoin: PAYMENT_COMPLETED event received!', data);
+      console.log('📞 CreatorCoin: Calling fetchAllData');
+      
+      fetchAllData();
+      
+      console.log('✅ CreatorCoin: Refresh function called');
+    });
+
+    return () => {
+      console.log('🔇 CreatorCoin: Removing PAYMENT_COMPLETED listener');
+      subscription.remove();
+    };
+  }, []); // ✅ Empty array - setup once
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -110,14 +126,12 @@ export default function CreatorCoin() {
     try {
       dispatch(showLoader());
 
-      // Run all API calls in parallel
       const [profileResponse, dashboardRes, withdrawRes] = await Promise.all([
         getUserCredentials(id),
         getUserDashboard(id),
-        getWithdrawalHistory(), // Add your withdraw history API endpoint
+        getWithdrawalHistory(),
       ]);
 
-      // Handle profile response
       if (profileResponse?.statusCode === 200) {
         console.log('User profile:', profileResponse);
         let userDataToSet;
@@ -133,19 +147,16 @@ export default function CreatorCoin() {
         showToastMessage(toast, 'danger', profileResponse.data.message);
       }
 
-      // Dashboard
       if (dashboardRes.statusCode === 200) {
         setUserDashboard(dashboardRes.data.dashboardData);
       } else {
         showToastMessage(toast, 'danger', 'Failed to fetch dashboard');
       }
 
-      // Withdraw History
       if (withdrawRes?.statusCode === 200) {
         console.log('withdrawal history----------------', withdrawRes)
         const history = withdrawRes.data.withdrawals || withdrawRes.data || [];
         setWithdrawHistory(history);
-        // Load first page
         const firstPageData = history.slice(0, ITEMS_PER_PAGE);
         setDisplayedTransactions(firstPageData);
       } else {
@@ -175,13 +186,11 @@ export default function CreatorCoin() {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
 
-    // Check if user has scrolled to bottom
     const isCloseToBottom =
       layoutMeasurement.height + contentOffset.y >=
       contentSize.height - paddingToBottom;
 
     if (isCloseToBottom && !isLoadingMore) {
-      // Check if there are more transactions to load
       const hasMoreTransactions = displayedTransactions.length < withdrawHistory.length;
 
       if (hasMoreTransactions) {
@@ -215,9 +224,11 @@ export default function CreatorCoin() {
             showTitle: true,
             toolbarColor: '#ffffff',
             secondaryToolbarColor: '#f0f0f0',
-            forceCloseOnRedirection: true,
+            forceCloseOnRedirection: false, // ✅ Changed to false
           });
 
+          // This will run when browser closes
+          console.log('InAppBrowser closed - refreshing data');
           fetchAllData();
         } else {
           await Linking.openURL(url);
@@ -520,6 +531,7 @@ export default function CreatorCoin() {
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
@@ -625,7 +637,6 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     alignItems: 'center',
   },
-  // Withdraw History Styles
   historySection: {
     marginTop: 20,
     paddingHorizontal: 15,
@@ -698,7 +709,6 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 10,
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
