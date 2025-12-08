@@ -33,6 +33,9 @@ import { pick } from '@react-native-documents/picker';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
+import { getSocket, getConversation, sendMessage as sendSocketMessage, emitTyping, emitStopTyping } from '../../../services/socket';
+import useSocket from '../../../hooks/useSocket';
+import { sharePost } from '../../../services/post';
 
 
 // Fallback icon component
@@ -88,8 +91,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const UserChat = ({ route, navigation }) => {
   // Safe destructuring with fallbacks
   const routeParams = route?.params || {};
-  const { userId: targetUserId, user, post, postId, reel, reelId,story } = routeParams;
-  console.log(story,'whata is geet we herere in chat screeennenenneneneneneen')
+  const { userId: targetUserId, user, post, postId, reel, reelId, story } = routeParams;
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -102,14 +104,14 @@ const UserChat = ({ route, navigation }) => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  // Shared item coming from share modal (post / reel)
   const initialShared = post
     ? { type: 'post', post: post, postId: postId || post?.id }
     : reel
-    ? { type: 'reel', reel: reel, reelId: reelId || reel?.id }
-    : story
-    ? { type: 'story', story: story, storyId: story?.id }
-    : null;
+      ? { type: 'reel', reel: reel, reelId: reelId || reel?.id }
+      : story
+        ? { type: 'story', story: story, storyId: story?.id }
+        : null;
+  console.log(initialShared, 'indidtalshare')
   const [sharedItem, setSharedItem] = useState(initialShared);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -120,8 +122,9 @@ const UserChat = ({ route, navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
+  const typingTimeoutRef = useRef(null);
   const { bgStyle, textStyle, bg, text } = useAppTheme();
-  const dispatch=useDispatch();
+  const dispatch = useDispatch();
 
   // Validate required params on mount
   useEffect(() => {
@@ -138,6 +141,125 @@ const UserChat = ({ route, navigation }) => {
     setMessages([]);
     setIsLoading(true);
   }, [targetUserId, navigation]);
+
+  // Add this at the top of UserChat component, after state declarations
+  const hasSharedRef = useRef(false); // Track if we've already shared
+
+  // Replace the auto-share useEffect with this fixed version
+  useEffect(() => {
+    const autoShareMedia = async () => {
+      if (hasSharedRef.current) {
+        return;
+      }
+      if (!initialShared || !currentUserId || !targetUserId) {
+        return;
+      }
+      hasSharedRef.current = true;
+
+      try {
+        dispatch(showLoader());
+        const mediaId = initialShared.postId || initialShared.reelId || initialShared.storyId;
+
+        if (!mediaId) {
+          return;
+        }
+        const tempId = `temp_share_${Date.now()}`;
+        const tempMessage = {
+          id: tempId,
+          type: initialShared.type === 'post' ? 'post_share'
+            : initialShared.type === 'reel' ? 'reel_share'
+              : initialShared.type === 'story' ? 'story_share'
+                : 'text',
+          sender: 'user',
+          content: '',
+          timestamp: new Date(),
+          isTemp: true,
+          senderInfo: {
+            id: currentUserId,
+            displayName: 'You',
+            image: null
+          },
+          receiverInfo: {
+            id: targetUserId,
+            displayName: user?.displayName || user?.username,
+            image: user?.image
+          },
+          post: initialShared.type === 'post' ? initialShared.post : null,
+          reel: initialShared.type === 'reel' ? initialShared.reel : null,
+          story: initialShared.type === 'story' ? initialShared.story : null,
+        };
+
+        setMessages(prev => [...prev, tempMessage]);
+        setTimeout(() => scrollToBottom(), 200);
+        let mediaType;
+        if (initialShared.type === 'post') {
+          mediaType = 'POST';
+        } else if (initialShared.type === 'reel') {
+          mediaType = 'REEL';
+        } else if (initialShared.type === 'story') {
+          mediaType = 'STORY';
+        }
+
+        const sharePayload = {
+          mediaId: mediaId,
+          mediaType: mediaType,
+          conversationType: 'MEDIA',
+          sharedUserId: currentUserId,
+          receiverUserId: targetUserId
+        };
+        const shareResponse = await sharePost(sharePayload);
+        if (!shareResponse.success) {
+          throw new Error(shareResponse.message || 'Failed to share media');
+        }
+        const messageData = {
+          senderId: currentUserId,
+          receiverId: targetUserId,
+          message: '',
+          type: initialShared.type === 'post' ? 'POST_SHARE'
+            : initialShared.type === 'reel' ? 'REEL_SHARE'
+              : initialShared.type === 'story' ? 'STORY_SHARE'
+                : 'MEDIA',
+        };
+        if (initialShared.type === 'post') {
+          messageData.postId = initialShared.postId;
+        } else if (initialShared.type === 'reel') {
+          messageData.reelId = initialShared.reelId;
+        } else if (initialShared.type === 'story') {
+          messageData.storyId = initialShared.storyId;
+        }
+        const socket = getSocket();
+        if (socket?.connected) {
+          sendSocketMessage(messageData);
+          fetchConversation(currentUserId, targetUserId)
+        } else {
+          setMessages(prev => prev.filter(msg => msg.id !== tempId));
+          throw new Error('Socket not connected. Please try again.');
+        }
+        setSharedItem(null);
+
+      } catch (error) {
+        console.error('❌ Auto-share error:', error);
+        Alert.alert('Error', error.message || 'Failed to share media');
+
+        hasSharedRef.current = false;
+      } finally {
+        dispatch(hideLoader());
+      }
+    };
+    if (currentUserId && targetUserId && initialShared && !hasSharedRef.current) {
+      const timer = setTimeout(() => {
+        autoShareMedia();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentUserId, targetUserId]); // Remove initialShared from deps to prevent loop
+
+  useEffect(() => {
+    return () => {
+      hasSharedRef.current = false;
+    };
+  }, []);
 
   // Get current user ID and fetch conversation
   useEffect(() => {
@@ -173,180 +295,183 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [targetUserId]);
 
+  // Listen for conversation data from socket
+  useSocket('userConversation', (data) => {
+    let conversationData = null;
+    if (data && data.success && Array.isArray(data.data)) {
+      conversationData = data.data;
+    } else if (Array.isArray(data)) {
+      conversationData = data;
+    }
+    if (conversationData && conversationData.length > 0) {
+      const conversationMessages = conversationData.filter(msg => {
+        const isBetweenUsers = (
+          (msg.sender?.id === currentUserId && msg.receiver?.id === targetUserId) ||
+          (msg.sender?.id === targetUserId && msg.receiver?.id === currentUserId)
+        );
+        return isBetweenUsers;
+      });
+      if (conversationMessages.length > 0) {
+        processAndSetMessages(conversationMessages, currentUserId, targetUserId);
+      } else {
+        console.warn('⚠️ No messages found for this conversation after filtering');
+        setMessages([]);
+        setIsLoading(false);
+      }
+    } else {
+      setMessages([]);
+      setIsLoading(false);
+    }
+  }, [currentUserId, targetUserId]);
 
-  
-  // Helper to create dummy messages for UI checks (reel and post previews included)
-  const createDummyMessages = (senderId, receiverId) => {
-    const now = Date.now();
-    const peer = user || { displayName: 'Peer User', image: 'https://via.placeholder.com/40' };
-    const me = { id: senderId, displayName: 'You', image: 'https://via.placeholder.com/40' };
+  // Listen for new messages in real-time
+  useSocket('newMessage', (message) => {
+    if (message && currentUserId && targetUserId) {
+      const isForThisConversation = (
+        (message.sender?.id === currentUserId && message.receiver?.id === targetUserId) ||
+        (message.sender?.id === targetUserId && message.receiver?.id === currentUserId)
+      );
+      if (isForThisConversation) {
+        let messageType = (message.type || 'CHAT').toLowerCase().replace('_share', '_share');
+        if ((message.type === 'POST_SHARE' || message.type === 'MEDIA') && message.story) {
+          messageType = 'story_share';
+        }
 
-    return [
-      {
-        id: `dum_text_${now}_1`,
-        type: 'text',
-        sender: 'peer',
-        content: 'Hey — wanted to share this reel with you!',
-        timestamp: new Date(now - 1000 * 60 * 60 * 4),
-        senderInfo: peer,
-        receiverInfo: me,
-      },
-      {
-        id: `dum_reel_${now}_2`,
-        type: 'reel_share',
-        sender: 'peer',
-        reel: {
-          id: 'r_12345',
-          user: { displayName: peer.displayName || 'Peer User', image: peer.image },
-          caption: 'Cool flip I made — check it out!',
-          thumbnail: 'https://via.placeholder.com/300x200.png?text=Reel+Thumbnail',
-          likes: 128,
-          views: 2048,
-        },
-        timestamp: new Date(now - 1000 * 60 * 60 * 3),
-        senderInfo: peer,
-        receiverInfo: me,
-      },
-      {
-        id: `dum_text_${now}_3`,
-        type: 'text',
-        sender: 'user',
-        content: 'Nice! Also saw this post earlier.',
-        timestamp: new Date(now - 1000 * 60 * 60 * 2),
-        senderInfo: me,
-        receiverInfo: peer,
-      },
-      {
-        id: `dum_post_${now}_4`,
-        type: 'post_share',
-        sender: 'user',
-        post: {
-          id: 'p_98765',
-          user: { displayName: 'Creator Name', image: 'https://via.placeholder.com/40' },
-          text: 'A short post text showing how this will render in chat.',
-          caption: 'Longer caption for the shared post to validate truncation behavior.',
-          images: [
-            { url: 'https://via.placeholder.com/400x300.png?text=Post+Image+1' },
-            { url: 'https://via.placeholder.com/400x300.png?text=Post+Image+2' },
-          ],
-          likes: 76,
-          comments: 12,
-        },
-        timestamp: new Date(now - 1000 * 60 * 30),
-        senderInfo: me,
-        receiverInfo: peer,
-      },
-      {
-        id: `dum_image_${now}_5`,
-        type: 'image',
-        sender: 'peer',
-        images: [{ uri: 'https://shorturl.at/b9IlB' }],
-        timestamp: new Date(now - 1000 * 60 * 10),
-        senderInfo: peer,
-        receiverInfo: me,
-      },
-    ];
+        const formattedMsg = {
+          id: message.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
+          type: messageType,
+          sender: message.sender?.id === currentUserId ? 'user' : 'peer',
+          content: message.content || '',
+          timestamp: new Date(message.createdAt || Date.now()),
+          senderInfo: message.sender || {},
+          receiverInfo: message.receiver || {},
+          post: message.post,
+          story: message.story,
+          reel: message.reel,
+        };
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === formattedMsg.id);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, formattedMsg];
+        });
+
+        scrollToBottom();
+      }
+    }
+  }, [currentUserId, targetUserId]);
+
+  // Listen for typing indicators
+  useSocket('typing', (data) => {
+    if (data.userId === targetUserId) {
+      setIsTyping(true);
+    }
+  }, [targetUserId]);
+
+  useSocket('stopTyping', (data) => {
+    if (data.userId === targetUserId) {
+      setIsTyping(false);
+    }
+  }, [targetUserId]);
+
+  // Process and set messages helper
+  const processAndSetMessages = (conversationMessages, senderId, receiverId) => {
+    const formattedMessages = conversationMessages.map(msg => {
+      const isSender = msg.sender?.id === senderId;
+      const messageType = msg.type || 'CHAT';
+
+      let formattedMsg = {
+        id: msg.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
+        type: messageType.toLowerCase(),
+        sender: isSender ? 'user' : 'peer',
+        timestamp: new Date(msg.createdAt || Date.now()),
+        senderInfo: msg.sender || {},
+        receiverInfo: msg.receiver || {},
+        rawData: msg,
+      };
+
+      // Handle different message types
+      if (messageType === 'CHAT' || messageType === 'text') {
+        formattedMsg.type = 'text';
+        formattedMsg.content = msg.content || '';
+      } else if (messageType === 'image' || messageType === 'IMAGE') {
+        formattedMsg.type = 'image';
+        formattedMsg.images = msg.images || [];
+      } else if (messageType === 'video' || messageType === 'VIDEO' || messageType === 'reel') {
+        formattedMsg.type = 'video';
+        formattedMsg.uri = msg.video || msg.content || '';
+        formattedMsg.thumbnail = msg.thumbnail || '';
+      } else if (messageType === 'POST_SHARE' || messageType === 'MEDIA') {
+        // Check if it's actually a story
+        if (msg.story) {
+          formattedMsg.type = 'story_share';
+          formattedMsg.story = msg.story;
+          formattedMsg.content = msg.content;
+        } else {
+          // NEW: Check for video in images
+          if (msg.post && msg.post.images && msg.post.images.length > 0) {
+            const firstImage = msg.post.images[0];
+            if (isVideoUrl(firstImage)) {
+              formattedMsg.type = 'video';
+              formattedMsg.uri = firstImage;
+              formattedMsg.thumbnail = msg.post.thumbnail || '';
+            } else {
+              formattedMsg.type = 'post_share';
+              formattedMsg.post = msg.post || {};
+            }
+          } else {
+            formattedMsg.type = 'post_share';
+            formattedMsg.post = msg.post || {};
+          }
+        }
+      } else if (messageType === 'REEL_SHARE') {
+        formattedMsg.type = 'reel_share';
+        formattedMsg.reel = msg.reel || msg.post || {};
+        formattedMsg.content = msg.content;
+      } else if (messageType === 'STORY_SHARE') {
+        formattedMsg.type = 'story_share';
+        formattedMsg.story = msg.story || {};
+        formattedMsg.content = msg.content;
+      } else {
+        formattedMsg.type = 'text';
+        formattedMsg.content = msg.content || '';
+      }
+      return formattedMsg;
+    });
+
+    // Sort messages by timestamp
+    formattedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    setMessages(formattedMessages);
+    setIsLoading(false);
   };
 
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm']; // Add more if needed
+    return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+  };
 
-  
   // Fetch conversation messages
   const fetchConversation = async (senderId, receiverId) => {
     try {
-      console.log('Fetching conversation between:', { senderId, receiverId });
-
-      const response = await getConversationById(receiverId);
-
-      console.log('whata cnversation data get in chat', response)
-
-      if (response.success) {
-        // Filter messages to only show conversation between these two user
-        const conversationMessages = response.data.filter(msg => {
-          const isBetweenUsers = (
-            (msg.sender?.id === senderId && msg.receiver?.id === receiverId) ||
-            (msg.sender?.id === receiverId && msg.receiver?.id === senderId)
-          );
-
-          console.log('Message filter check:', {
-            messageId: msg.id,
-            senderId: msg.sender?.id,
-            receiverId: msg.receiver?.id,
-            isBetweenUsers,
-            messageType: msg.type,
-            content: msg.content?.substring(0, 50)
+      const socket = getSocket();
+      if (socket?.connected) {
+        const newMessage = getConversation(senderId, receiverId);
+      } else {
+        const response = await getConversationById(receiverId);
+        if (response.success) {
+          const conversationMessages = response.data.filter(msg => {
+            const isBetweenUsers = (
+              (msg.sender?.id === senderId && msg.receiver?.id === receiverId) ||
+              (msg.sender?.id === receiverId && msg.receiver?.id === senderId)
+            );
+            return isBetweenUsers;
           });
-
-          return isBetweenUsers;
-        });
-
-        console.log('Filtered conversation messages:', conversationMessages);
-
-        const formattedMessages = conversationMessages.map(msg => {
-          const isSender = msg.sender?.id === senderId;
-          const messageType = msg.type || 'text';
-
-          // Determine the message type based on API response
-          let formattedMsg = {
-            id: msg.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
-            type: messageType.toLowerCase(),
-            sender: isSender ? 'user' : 'peer',
-            timestamp: new Date(msg.createdAt || Date.now()),
-            senderInfo: msg.sender || {},
-            receiverInfo: msg.receiver || {},
-            rawData: msg, // Keep raw data for complex types
-          };
-
-          // Handle different message types
-          if (messageType === 'text') {
-            formattedMsg.content = msg.content || '';
-          } else if (messageType === 'image') {
-            formattedMsg.images = msg.images || [];
-          } else if (messageType === 'video' || messageType === 'reel') {
-            formattedMsg.uri = msg.video || msg.content || '';
-            formattedMsg.thumbnail = msg.thumbnail || '';
-          } else if (messageType === 'document' || messageType === 'file') {
-            formattedMsg.file = msg.file || {
-              name: msg.fileName || 'document',
-              uri: msg.fileUri || msg.content || '',
-              size: msg.fileSize || 0,
-            };
-          } else if (messageType === 'post_share' || messageType === 'POST_SHARE') {
-            // Handle post shares - display post content
-            formattedMsg.type = 'post_share';
-            formattedMsg.post = msg.post || {};
-            formattedMsg.content = msg.content;
-          } else if (messageType === 'reel_share' || messageType === 'REEL_SHARE') {
-            // Handle reel shares
-            formattedMsg.type = 'reel_share';
-            formattedMsg.reel = msg.reel || msg.post || {};
-            formattedMsg.content = msg.content;
-          } else if (messageType === 'story_share' || messageType === 'STORY_SHARE') {
-            // Handle story shares
-            formattedMsg.type = 'story_share';
-            formattedMsg.story = msg.story || {};
-            formattedMsg.content = msg.content;
-          } else {
-            // Fallback to text
-            formattedMsg.type = 'text';
-            formattedMsg.content = msg.content || '';
-          }
-
-          return formattedMsg;
-        });
-
-        // Sort messages by timestamp (oldest first)
-        formattedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-        console.log('Final formatted messages:', formattedMessages);
-        // Always include dummy messages before the fetched conversation so
-        // reel/post UI can be previewed while developing, and new messages appear below.
-        const dummy = createDummyMessages(senderId, receiverId);
-        // Avoid duplicating dummy messages if they somehow exist already
-        const filteredDummy = dummy.filter(d => !formattedMessages.some(m => m.id === d.id));
-        setMessages([...filteredDummy, ...(formattedMessages || [])]);
+          processAndSetMessages(conversationMessages, senderId, receiverId);
+        }
       }
     } catch (error) {
-      console.error('Error fetching conversation:', error);
       Alert.alert('Error', 'Failed to load messages');
     }
   };
@@ -375,9 +500,29 @@ const UserChat = ({ route, navigation }) => {
     }, 100);
   };
 
-  // Send message function with API integration
+  // Handle typing indicator
+  const handleTyping = () => {
+    if (!targetUserId) return;
+    const socket = getSocket();
+    if (socket?.connected) {
+      emitTyping(targetUserId);
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        console.log('⌨️ Stop typing');
+        emitStopTyping(targetUserId);
+      }, 2000);
+    }
+  };
+
+  // Send message function with socket integration
   const sendMessage = async () => {
-    if ((inputText.trim() === '' && !sharedItem) || isSending || !currentUserId || !targetUserId) return;
+    if ((inputText.trim() === '' && !sharedItem) || isSending || !currentUserId || !targetUserId) {
+      return;
+    }
 
     const messageContent = inputText.trim();
     const tempId = `temp_${Date.now()}_${Math.random()}`;
@@ -390,7 +535,7 @@ const UserChat = ({ route, navigation }) => {
       content: messageContent,
       shared: sharedItem ? { ...sharedItem } : undefined,
       timestamp: new Date(),
-      isTemp: true, 
+      isTemp: true,
     };
 
     setMessages(prev => [...prev, tempMessage]);
@@ -403,17 +548,27 @@ const UserChat = ({ route, navigation }) => {
         senderId: currentUserId,
         receiverId: targetUserId,
         message: messageContent,
-        // include shared content if present
-        shareType: sharedItem?.type,
-        shareData: sharedItem?.type === 'post'
-          ? { postId: sharedItem.postId, post: sharedItem.post }
-          : sharedItem?.type === 'reel'
-            ? { reelId: sharedItem.reelId, reel: sharedItem.reel }
-            : sharedItem?.type === 'story'
-              ? { storyId: sharedItem.storyId, story: sharedItem.story }
-              : undefined,
+        type: sharedItem?.type === 'post' ? 'POST_SHARE'
+          : sharedItem?.type === 'reel' ? 'REEL_SHARE'
+            : sharedItem?.type === 'story' ? 'STORY_SHARE'
+              : 'CHAT',
       };
 
+      // Add shared content if present
+      if (sharedItem?.type === 'post') {
+        messageData.postId = sharedItem.postId;
+      } else if (sharedItem?.type === 'reel') {
+        messageData.reelId = sharedItem.reelId;
+      } else if (sharedItem?.type === 'story') {
+        messageData.storyId = sharedItem.storyId;
+      }
+      // Try socket first
+      const socket = getSocket();
+      if (socket?.connected) {
+        sendSocketMessage(messageData);
+      }
+
+      // Always use API for confirmation
       const response = await sendMsgAPI(messageData);
 
       if (response.success) {
@@ -430,22 +585,26 @@ const UserChat = ({ route, navigation }) => {
           )
         );
 
-        // Optionally refresh conversation to get latest messages
-        await fetchConversation(currentUserId, targetUserId);
-        // clear shared item after successful send
+        // Clear shared item after successful send
         setSharedItem(null);
       } else {
-        // Remove temporary message on failure
-        setMessages(prev => prev.filter(msg => msg.id !== tempId));
-        Alert.alert('Error', response.message || 'Failed to send message');
+        throw new Error(response.message || 'Failed to send message');
       }
     } catch (error) {
-      console.error('Error sending message:', error);
       // Remove temporary message on error
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      Alert.alert('Error', error.message || 'Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
+
+      // Stop typing indicator
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      const socket = getSocket();
+      if (socket?.connected) {
+        emitStopTyping(targetUserId);
+      }
     }
   };
 
@@ -598,7 +757,7 @@ const UserChat = ({ route, navigation }) => {
         </View>
       );
     }
-    
+
 
     const displayImages = images.slice(0, 4);
     const remainingCount = images.length - 4;
@@ -637,6 +796,27 @@ const UserChat = ({ route, navigation }) => {
       </View>
     );
   };
+  const renderVideoGrid = (videoUri, thumbnailUri) => {
+    // Treat video like a single image in the grid, but add play overlay
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          setCurrentVideo(videoUri);
+          setViewerVisible(false); // Close image viewer if open
+          setVideoModalVisible(true);
+        }}
+        style={styles.singleImageContainer} // Reuse image container style for consistency
+      >
+        <Video source={{ uri: thumbnailUri || videoUri }} style={styles.singleImage} resizeMode="cover" />
+        <View style={styles.playButton}>
+          <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']} style={styles.playButtonGradient}>
+            <Text style={styles.playIcon}>▶</Text>
+          </LinearGradient>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
 
   const renderMessage = ({ item, index }) => {
     const isUser = item.sender === 'user';
@@ -763,20 +943,9 @@ const UserChat = ({ route, navigation }) => {
             )}
 
             {item.type === 'video' && (
-              <TouchableOpacity
-                style={styles.videoMessage}
-                onPress={() => {
-                  setCurrentVideo(item.uri);
-                  setVideoModalVisible(true);
-                }}
-              >
-                <Image source={{ uri: item.uri }} style={styles.videoThumbnail} resizeMode="cover" />
-                <View style={styles.playButton}>
-                  <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']} style={styles.playButtonGradient}>
-                    <Text style={styles.playIcon}>▶</Text>
-                  </LinearGradient>
-                </View>
-              </TouchableOpacity>
+              <View style={styles.imageMessage}>
+                {renderVideoGrid(item.uri, item.thumbnail)}
+              </View>
             )}
 
             {item.type === 'file' && (
@@ -839,7 +1008,6 @@ const UserChat = ({ route, navigation }) => {
                         </View>
                       </View>
 
-                      {/* Post Text/Caption */}
                       {postData.text && (
                         <Text style={[styles.sharedPostText, isUser && styles.userSharedPostText]} numberOfLines={3}>
                           {postData.text}
@@ -954,43 +1122,99 @@ const UserChat = ({ route, navigation }) => {
             )}
             {(item.type === 'story_share' || item.type === 'story') && (
               (() => {
-                const storyData = item.story || item.rawData?.story || item.rawData || {
-                  id: item.rawData?.id || item.id,
-                  user: item.story?.user || item.senderInfo || {},
-                  caption: item.story?.caption || item.content || '',
-                  thumbnail: item.story?.thumbnail || item.story?.uri || item.rawData?.thumbnail || '',
-                  views: item.story?.views || item.rawData?.views || 0,
-                };
+                // Enhanced story data extraction with better fallbacks
+                const storyData = item.story || item.rawData?.story || item.rawData || {};
+
+                // Get the image/video URI with multiple fallback options
+                const mediaUri = storyData.uri ||
+                  storyData.thumbnail ||
+                  storyData.media?.[0]?.url ||
+                  storyData.image ||
+                  item.rawData?.uri;
+
+                const storyUser = storyData.user || item.senderInfo || {};
+                const caption = storyData.caption || storyData.text || item.content || '';
+                const views = storyData.views?.length || storyData.viewCount || 0;
+                const mediaType = storyData.type || 'image';
 
                 return (
-                  storyData && (
-                    <TouchableOpacity style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}>
-                      <View style={styles.sharedPostHeader}>
-                        <View style={styles.sharedPostUserInfo}>
-                          <Image source={{ uri: storyData.user?.image || 'https://via.placeholder.com/40' }} style={styles.sharedPostAvatar} />
-                          <View>
-                            <Text style={styles.sharedPostUserName}>{storyData.user?.displayName || 'Unknown User'}</Text>
-                          </View>
+                  <TouchableOpacity
+                    style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
+                    onPress={() => {
+                      // Optional: Open story viewer
+                    }}
+                  >
+                    {/* User Header */}
+                    <View style={styles.sharedPostHeader}>
+                      <View style={styles.sharedPostUserInfo}>
+                        <Image
+                          source={{
+                            uri: storyUser.image || user?.image || 'https://via.placeholder.com/40'
+                          }}
+                          style={styles.sharedPostAvatar}
+                        />
+                        <View>
+                          <Text style={styles.sharedPostUserName}>
+                            {storyUser.displayName || storyUser.name || user?.displayName || 'Unknown User'}
+                          </Text>
+                          <Text style={styles.sharedPostTimeText}>Story</Text>
                         </View>
                       </View>
+                    </View>
 
-                      {storyData.caption && (
-                        <Text style={[styles.sharedPostText, isUser && styles.userSharedPostText]} numberOfLines={2}>
-                          {storyData.caption}
+                    {/* Caption (if exists) */}
+                    {caption && caption.trim() !== '' && (
+                      <Text
+                        style={[styles.sharedPostText, isUser && styles.userSharedPostText]}
+                        numberOfLines={2}
+                      >
+                        {caption}
+                      </Text>
+                    )}
+
+                    {/* Story Media */}
+                    {mediaUri && (
+                      <View style={styles.storyMediaContainer}>
+                        <Image
+                          source={{ uri: mediaUri }}
+                          style={styles.storyMediaImage}
+                          resizeMode="cover"
+                        />
+
+                        {/* Story Type Badge */}
+                        <View style={styles.storyBadge}>
+                          <Text style={styles.storyBadgeText}>
+                            {mediaType === 'video' ? '🎬' : '📷'} Story
+                          </Text>
+                        </View>
+
+                        {/* Video Play Icon for video stories */}
+                        {mediaType === 'video' && (
+                          <View style={styles.storyPlayButton}>
+                            <Text style={styles.storyPlayIcon}>▶</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* No Media Fallback */}
+                    {!mediaUri && (
+                      <View style={styles.storyNoMediaContainer}>
+                        <Text style={styles.storyNoMediaIcon}>📖</Text>
+                        <Text style={styles.storyNoMediaText}>Story content</Text>
+                      </View>
+                    )}
+
+                    {/* Stats */}
+                    <View style={styles.sharedPostStats}>
+                      <Text style={styles.sharedPostStatText}>👁️ {views} views</Text>
+                      {storyData.duration && (
+                        <Text style={styles.sharedPostStatText}>
+                          ⏱️ {Math.round(storyData.duration / 1000)}s
                         </Text>
                       )}
-
-                      {storyData.thumbnail && (
-                        <View style={styles.reelThumbnailContainer}>
-                          <Image source={{ uri: storyData.thumbnail }} style={styles.reelThumbnail} resizeMode="cover" />
-                        </View>
-                      )}
-
-                      <View style={styles.sharedPostStats}>
-                        <Text style={styles.sharedPostStatText}>👁️ {storyData.views || 0}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  )
+                    </View>
+                  </TouchableOpacity>
                 );
               })()
             )}
@@ -1098,23 +1322,31 @@ const UserChat = ({ route, navigation }) => {
     </RBSheet>
   );
 
-  // Handle navigation to user profile safely
   const handleNavigateToProfile = () => {
     if (!targetUserId) {
       Alert.alert('Error', 'User information is not available');
       return;
     }
-
     navigation.navigate('UsersProfile', {
       userId: targetUserId,
       user: user
     });
   };
 
-  // Note: Inline/local loading UI removed. Full-screen loader is handled
-  // by dispatching `showLoader()` / `hideLoader()` via Redux (see
-  // `initializeChat`). The component will render normally while the
-  // global loader is visible.
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Stop typing on unmount
+      const socket = getSocket();
+      if (socket?.connected && targetUserId) {
+        emitStopTyping(targetUserId);
+      }
+    };
+  }, [targetUserId]);
 
   if (!targetUserId) {
     return (
@@ -1271,7 +1503,7 @@ const UserChat = ({ route, navigation }) => {
                               resizeMode="cover"
                             />
                           )}
-                          
+
                           {(sharedItem.type === 'reel') && (
                             <View style={styles.shareInlineImageWrap}>
                               <Image
@@ -1302,16 +1534,19 @@ const UserChat = ({ route, navigation }) => {
                       <TextInput
                         style={styles.textInput}
                         value={inputText}
-                        onChangeText={setInputText}
+                        onChangeText={(text) => {
+                          setInputText(text);
+                          handleTyping();
+                        }}
                         placeholder={
                           sharedItem
                             ? sharedItem.type === 'post'
                               ? 'Add a message to your post...'
                               : sharedItem.type === 'reel'
-                              ? 'Add a message to your reel...'
-                              : sharedItem.type === 'story'
-                              ? 'Add a message to your story...'
-                              : 'Type a message...'
+                                ? 'Add a message to your reel...'
+                                : sharedItem.type === 'story'
+                                  ? 'Add a message to your story...'
+                                  : 'Type a message...'
                             : 'Type a message...'
                         }
                         placeholderTextColor="#9ca3af"
@@ -1379,7 +1614,7 @@ const UserChat = ({ route, navigation }) => {
 
 export default UserChat;
 
-// Complete updated styles with all fixes
+// Complete styles
 const createStyles = () => ({
   safeArea: {
     flex: 1
@@ -1445,7 +1680,7 @@ const createStyles = () => ({
     padding: 12,
   },
 
-  /* Card wrapper - Fixed */
+  /* Card wrapper */
   formWrapper: {
     flex: 1,
     marginTop: -30,
@@ -1509,7 +1744,7 @@ const createStyles = () => ({
     color: '#6B7280',
   },
 
-  /* Messages Container - Fixed */
+  /* Messages Container */
   messagesContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1540,7 +1775,6 @@ const createStyles = () => ({
     alignItems: 'flex-end',
     marginVertical: 2,
     width: '100%',
-    
   },
   userMessageRow: {
     justifyContent: 'flex-end',
@@ -1626,7 +1860,7 @@ const createStyles = () => ({
     textAlign: 'center',
   },
 
-  /* Input Area - Fixed */
+  /* Input Area */
   inputContainer: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 4,
@@ -1640,7 +1874,6 @@ const createStyles = () => ({
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
-    // alignItems: 'flex-end',
     backgroundColor: '#F9FAFB',
     borderRadius: 24,
     borderWidth: 1.5,
@@ -1650,38 +1883,6 @@ const createStyles = () => ({
     marginRight: 8,
     minHeight: 48,
     maxHeight: 120,
-  },
-  sharePreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    padding: 8,
-    marginHorizontal: 6,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  sharePreviewImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  sharePreviewTextWrap: {
-    flex: 1,
-  },
-  sharePreviewText: {
-    fontSize: 13,
-    color: '#374151',
-  },
-  shareRemoveButton: {
-    marginLeft: 8,
-    padding: 6,
-  },
-  shareRemoveText: {
-    fontSize: 14,
-    color: '#fff',
   },
   textInput: {
     flex: 1,
@@ -1761,9 +1962,8 @@ const createStyles = () => ({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 8,
-    height:100,
-    width:100,
-   
+    height: 100,
+    width: 100,
   },
   shareInlineImageWrap: {
     position: 'relative',
@@ -1788,16 +1988,19 @@ const createStyles = () => ({
     color: '#fff',
     fontSize: 12,
   },
- shareInlineRemove: {
-  position: 'absolute',
-  top: 2,
-  right: 2,
-  padding: 4,
-  zIndex: 1,          // keeps it above the preview
-  // backgroundColor: 'rgba(0,0,0,0.3)', 
-  backgroundColor:'#000',
-  borderRadius: 12,
-},
+  shareInlineRemove: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    padding: 4,
+    zIndex: 1,
+    backgroundColor: '#000',
+    borderRadius: 12,
+  },
+  shareRemoveText: {
+    fontSize: 14,
+    color: '#fff',
+  },
 
   /* Shared item inside message bubble */
   messageSharedContainer: {
@@ -1807,11 +2010,8 @@ const createStyles = () => ({
     borderWidth: 1,
     borderColor: '#1346acff',
     backgroundColor: '#fff',
-    // maxWidth: 220,
-    paddingHorizontal:40,
-    paddingVertical:20,
-   
-
+    paddingHorizontal: 40,
+    paddingVertical: 20,
   },
   messageSharedImage: {
     width: '100%',
@@ -1821,6 +2021,29 @@ const createStyles = () => ({
     padding: 8,
     fontSize: 13,
     color: '#374151',
+  },
+
+  // Image message styles
+  imageMessage: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginVertical: 4,
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  singleImageContainer: {
+    width: 250,
+    height: 250,
+    margin: 1,
+  },
+  singleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gridImage: {
+    margin: 1,
   },
   twoImagesImage: {
     width: 124,
@@ -2176,5 +2399,72 @@ const createStyles = () => ({
     color: '#ffffff',
     fontSize: 14,
     marginLeft: 1,
+  },
+
+  // Story specific styles (add to createStyles return object)
+  storyMediaContainer: {
+    position: 'relative',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  storyMediaImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  storyBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  storyBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  storyPlayButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyPlayIcon: {
+    color: '#ffffff',
+    fontSize: 16,
+    marginLeft: 2,
+  },
+  storyNoMediaContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+    marginHorizontal: 8,
+    marginVertical: 8,
+    borderRadius: 12,
+  },
+  storyNoMediaIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  storyNoMediaText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  sharedPostTimeText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
 });

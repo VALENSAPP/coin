@@ -355,7 +355,6 @@ export default function Notifications() {
               <Text style={[
                 styles.tabText,
                 activeTab === tab.key && styles.activeTabText,
-                textStyle
               ]}>
                 {tab.label}
               </Text>
@@ -471,7 +470,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   activeTabText: {
-    color: '#fff',
+    color:'#fff',
   },
   tabBadge: {
     marginLeft: 6,
@@ -625,6 +624,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     textAlign: 'center',
+    color:'#fff'
   },
   emptyMessage: {
     fontSize: 16,
