@@ -17,6 +17,7 @@ import {
   Animated,
   Dimensions,
   StyleSheet,
+  Keyboard,
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -908,11 +909,25 @@ const StoryViewer = ({
               <Text style={userAnalyticsStyles.deleteText}>Delete Story</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ position: 'absolute', right: 5, bottom: 5, backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 10, }}
-              onPress={() => { shareRef.current?.open?.(), setSelectedPostId(currentStory) }}>
-              {/* <Text style={{fontSize:20, fontWeight:'500',color:'#000'}}>share</Text> */}
+              onPress={() => {
+                handlePause();
+                shareRef.current?.open?.();
+                setSelectedPostId(currentStory);
+              }}>
               <Feather name="send" size={24} color="#000" />
             </TouchableOpacity>
-            <ShareModal ref={shareRef} story={selectedPostId} />
+            <ShareModal
+              ref={shareRef}
+              story={selectedPostId}
+              onClose={() => {
+                shareRef.current?.close?.();
+                handleResume(); // Resume story when modal closes
+              }}
+              onShare={() => {
+                shareRef.current?.close?.();
+                handleResume(); // Resume story after sharing
+              }}
+            />
           </View>
         )}
 
@@ -999,15 +1014,31 @@ const StoryViewer = ({
                     if (text) {
                       onAddComment(ownerId, storyId, text);
                       setCommentText('');
+                      return;
+
                     }
-                    shareRef.current?.open?.();
-                     setSelectedPostId(currentStory);
+                    Keyboard.dismiss();
+
+                    setTimeout(() => {
+                      shareRef.current?.open?.();
+                      handlePause();
+                      setSelectedPostId(currentStory);
+                    }, 150);
+
                   }}
                 >
                   <Icon name="send" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
             </KeyboardAvoidingView>
+            <ShareModal
+              ref={shareRef}
+              story={selectedPostId}
+              onClose={() => {
+                shareRef.current?.close?.();
+                handleResume();
+              }}
+            />
           </>
         )}
 

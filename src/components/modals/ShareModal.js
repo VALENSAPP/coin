@@ -37,9 +37,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId,story }, ref) => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [search, setSearch] = useState('');
   const navigation = useNavigation();
-
-  console.log(reel,'story data came hererereerre')
-  console.log(selfUserId)
+  
   useEffect(() => {
     (async () => {
       const id = await AsyncStorage.getItem('userId');

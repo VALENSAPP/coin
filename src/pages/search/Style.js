@@ -315,4 +315,86 @@ export default StyleSheet.create({
     color: '#999',
     marginTop: 8,
   },
+
+  /* -------------------------------------------------------
+      MISSION PROGRESS BAR STYLES
+  ------------------------------------------------------- */
+  missionBadgeWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical:4,
+    zIndex: 10,
+  },
+
+  progressContainer: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 3,
+  },
+
+  progressSection: {
+    marginTop: 0,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+
+  progressBarWrapper: {
+    position: 'relative',
+  },
+
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: '#4B5563',
+    overflow: 'hidden',
+    marginBottom: 8,
+    borderRadius: 3,
+  },
+
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+
+  progressStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 0,
+  },
+
+  statAtStart: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+
+  statAtCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  statAtEnd: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+
+  statValueSmall: {
+    fontSize: 7,
+    fontWeight: '400',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+
+  progressContainer: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 3,
+  }
 });

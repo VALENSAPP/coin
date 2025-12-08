@@ -842,10 +842,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       // Find the most visible post (excluding suggestions)
       let mostVisiblePost = null;
       let highestPercentage = 0;
-      console.log(mostVisiblePost, 'get id heree')
-
-      console.log(viewableItems, "ddddddddddddddViewableitemssssss>>>>>>>>")
-
       for (const item of viewableItems) {
         // Skip suggestions
         if (item.item?.__type === 'suggestions') continue;
