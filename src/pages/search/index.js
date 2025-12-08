@@ -28,6 +28,47 @@ import { useAppTheme } from '../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+/** Mission Progress Bar Component */
+const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised = 0, daysLeft = 0, profile = 'user' }) => {
+  const getProgressBarColor = () => {
+    if (progressPercent >= 75) return (profile === 'user' ? '#5a2d82' : '#D3B683');
+    if (progressPercent >= 50) return (profile === 'user' ? '#5a2d82' : '#D3B683');
+    if (progressPercent >= 25) return '#FF9800';
+    return '#F44336';
+  };
+
+  const fillColor = getProgressBarColor();
+
+  return (
+    <View style={styles.progressSection}>
+      <View style={styles.progressBarWrapper}>
+        <View style={styles.progressBarBackground}>
+          <View
+            style={[
+              styles.progressBarFill,
+              { width: `${Math.min(progressPercent, 100)}%`, backgroundColor: fillColor },
+            ]}
+          />
+        </View>
+
+        <View style={styles.progressStatsContainer}>
+          <View style={styles.statAtStart}>
+            <Text style={styles.statValueSmall}>{progressPercent.toFixed(1)}% FUNDED</Text>
+          </View>
+
+          <View style={styles.statAtCenter}>
+            <Text style={styles.statValueSmall}>${currentRaised} / ${goalAmount}</Text>
+          </View>
+
+          <View style={styles.statAtEnd}>
+            <Text style={styles.statValueSmall}>{daysLeft} DAYS LEFT</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const SearchScreen = () => {
   const dispatch = useDispatch();
   const toast = useToast();
@@ -42,6 +83,7 @@ const SearchScreen = () => {
   const [previewPost, setPreviewPost] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [isGrid, setIsGrid] = useState(false);
+  console.log(posts,'data canme i post od search')
 
   const searchTimeoutRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
@@ -98,7 +140,7 @@ const SearchScreen = () => {
     try {
       dispatch(showLoader());
       const response = await getposts();
-      console.log('Search response:', response);
+      console.log('Search response hereer darattatatatatata:', response);
       if (response?.statusCode === 200) {
         const postsData = response.data || [];
         // Transform posts: if a post has multiple images, create separate items for each
@@ -228,7 +270,7 @@ const SearchScreen = () => {
           startIndex: 0,
           returnTo: route.name,
           returnParams: route.params,
-          hideTabBar: true,  
+          hideTabBar: true,
         },
         fromSearch: true,
 
@@ -342,22 +384,33 @@ const SearchScreen = () => {
           />
         )}
         {isMissionPost && (
-          <View style={{
-            position: 'absolute',
-            top: 6,
-            right: 6,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            paddingHorizontal: 10,
-            paddingVertical: 3,
-            borderRadius: 4,
-            flexShrink: 1,
-            width: '75%'
+          <View style={styles.missionBadgeWrapper}>
+            {(() => {
+              const goalAmount = post?.raiseAmount || post?.goalAmount || 10000;
+              const currentRaised = post?.tokenBalance ?? post?.totalDonation ?? 0;
+              const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
+              let daysLeft = 0;
+              if (post?.end_time) {
+                try {
+                  const end = new Date(post.end_time);
+                  const now = new Date();
+                  const diff = end - now;
+                  daysLeft = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
+                } catch (err) {
+                  daysLeft = 0;
+                }
+              }
 
-
-          }}>
-            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', textAlign: 'left' }}>
-              MISSION POST
-            </Text>
+              return (
+                <MissionProgressBar
+                  progressPercent={progressPercent}
+                  goalAmount={goalAmount}
+                  currentRaised={currentRaised}
+                  daysLeft={daysLeft}
+                  profile={post?.profile}
+                />
+              );
+            })()}
           </View>
         )}
 

@@ -62,7 +62,24 @@ const SubventionSetupScreen = () => {
         }, [])
     );
 
-    const formatPrice = (n) => `${n},00`;
+    const formatPrice = (value) => {
+        if (!value) return "";
+        
+        const stringValue = value.toString();
+        console.log('Formatting value:', stringValue);
+
+        if (stringValue.includes(".")) {
+            return stringValue;
+        }
+
+        const cleaned = stringValue.replace(/\D/g, "");
+        if (!cleaned) return "";
+        
+        const formatted = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+        return `${formatted},00`;
+    };
+
 
     const fetchSubscriptionByUserId = async () => {
         try {
@@ -106,25 +123,36 @@ const SubventionSetupScreen = () => {
     };
 
     const handlePriceChange = (text) => {
-        const clean = text.replace(/[^0-9]/g, ""); // allow only digits
+        const clean = text.replace(/[^0-9.]/g, "");
         setRawAmount(clean);
-        setPrice(clean); // show raw while typing (editable)
+        setPrice(clean);
+        
+        console.log('User typing, raw amount:', clean);
     };
     const handlePriceBlur = () => {
         if (!rawAmount) {
             setPrice('');
+            setRawAmount('');
             return;
         }
 
-        const numValue = parseInt(rawAmount);
+        const hasDecimal = rawAmount.includes('.');
+        const numValue = parseFloat(rawAmount);
 
-        // apply min / max rules
+        // Apply min/max rules
         let finalValue = numValue;
         if (numValue < 9) finalValue = 9;
         if (numValue > 100) finalValue = 100;
 
         setRawAmount(finalValue.toString());
-        setPrice(formatPrice(finalValue)); // format on blur
+        
+        console.log('Final value after blur:', finalValue, 'Has decimal:', hasDecimal);
+        
+        if (hasDecimal) {
+            setPrice(finalValue.toString());
+        } else {
+            setPrice(formatPrice(finalValue.toString()));
+        }
     };
 
     const handlePrintAttempt = () => {
@@ -359,7 +387,12 @@ const SubventionSetupScreen = () => {
 
     const handleSaveSubscription = async () => {
         try {
-            const subscriptionAmount = parseFloat(price) || 0;
+            // Parse the raw amount (without formatting) for the API
+            const subscriptionAmount = parseFloat(rawAmount) || 0;
+            
+            console.log('Raw Amount:', rawAmount);
+            console.log('Parsed Amount:', subscriptionAmount);
+            
             if (subscriptionAmount < 9 || subscriptionAmount > 100) {
                 showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
                 return;
@@ -376,16 +409,12 @@ const SubventionSetupScreen = () => {
                     status: "ACTIVE",
                     isDelete: 0
                 };
-                // Update existing subscription
-                console.log('Updating existing subscription with ID:', subscriptionId);
                 response = await setUserSubscription(dataToSend, subscriptionId);
             } else {
                 const dataToSend = {
                     subscriptionAmount: subscriptionAmount,
                     status: "ACTIVE"
                 };
-                // Create new subscription
-                console.log('Creating new subscription');
                 response = await setPrivateSubscription(dataToSend);
                 setShowActivationPopup(false);
             }
