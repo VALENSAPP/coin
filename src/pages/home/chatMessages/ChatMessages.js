@@ -6,6 +6,9 @@ import { getAllConversations } from '../../../services/chatMessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { getSocket } from '../../../services/socket';
+import useSocket from '../../../hooks/useSocket';
+
 
 
 // Fallback icon component
@@ -69,8 +72,44 @@ export default function ChatMessages() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-   const inputRef = useRef(null);
-   const { bgStyle, textStyle, text } = useAppTheme();
+  const inputRef = useRef(null);
+  const { bgStyle, textStyle, text } = useAppTheme();
+
+   // Initialize socket connection
+
+  useEffect(() => {
+    const setupSocket = async () => {
+      try {        // Request chat box data when socket connects
+        if (currentUserId) {
+          const socket = getSocket();
+          if (socket?.connected) {
+            socket.emit('getUserChatBox', { userId: currentUserId });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize socket:', error);
+      }
+
+    };
+
+
+
+    setupSocket();
+
+  }, []);
+
+
+
+  // Listen for chat box updates (conversation list)
+
+  useSocket('userChatBox', (data) => {
+    console.log('📨 Received userChatBox data:', data);
+    if (data && Array.isArray(data)) {
+      const processedConversations = processConversationsData(data);
+      setConversations(processedConversations);
+      // setIsLoading(false);
+    }
+  }, [currentUserId]);
 
   // Get current user ID on mount
   useEffect(() => {
@@ -91,10 +130,31 @@ export default function ChatMessages() {
     getCurrentUserId();
   }, []);
 
+  // Request chat box when user ID is available
+
+  useEffect(() => {
+    if (currentUserId) {
+      const socket = getSocket();
+      if (socket?.connected) {
+        console.log('Requesting chat box for user:', currentUserId);
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+
+    }
+
+  }, [currentUserId]);
+
+
+
   // Fetch conversations when component mounts or when focused
   useFocusEffect(
     useCallback(() => {
       if (currentUserId) {
+        const socket = getSocket();
+        if (socket?.connected) {
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
+        // Also fetch via API as fallback
         fetchConversations();
       }
     }, [currentUserId])
@@ -105,7 +165,7 @@ export default function ChatMessages() {
 
     try {
       setIsLoading(true);
-      setError(null);
+      // setError(null);
 
       const response = await getAllConversations();
       console.log(response, 'totalMessages')
@@ -128,6 +188,10 @@ export default function ChatMessages() {
   };
 
   const processConversationsData = (conversationsData) => {
+    if (!Array.isArray(conversationsData)) {
+      console.warn('Invalid conversations data format:', conversationsData);
+      return [];
+    }
     // Group conversations by chat partner
     const conversationMap = new Map();
 
@@ -138,8 +202,23 @@ export default function ChatMessages() {
       // Determine the other user (chat partner)
       const isCurrentUserSender = message.sender?.id === currentUserId;
       const chatPartner = isCurrentUserSender ? message.receiver : message.sender;
+      let previewMessage = "";
 
-      if (!chatPartner?.id) return; // Skip if no valid chat partner
+      if (message.type === "POST_SHARE" && message.post) {
+        previewMessage = isCurrentUserSender
+          ? "You shared a post"
+          : "Shared a post";
+      } else if (message.type === "MEDIA" && message.post) {
+        previewMessage = isCurrentUserSender
+          ? "You shared a post"
+          : "Shared a post";
+      } else {
+        previewMessage = isCurrentUserSender
+          ? `You: ${message.content}`
+          : message.content;
+      }
+
+      if (!chatPartner?.id) return;
 
       const partnerId = chatPartner.id;
       const messageTime = new Date(message.createdAt);
@@ -153,12 +232,15 @@ export default function ChatMessages() {
           username: chatPartner.displayName || chatPartner.username || 'Unknown User',
           displayName: chatPartner.displayName,
           avatar: chatPartner.image || ONLINE_PLACEHOLDER,
-          lastMessage: isCurrentUserSender ? `You: ${message.content}` : message.content,
+          // lastMessage: isCurrentUserSender ? `You: ${message.content}` : message.content,
+          lastMessage: previewMessage,
           lastMessageTime: message.createdAt,
           timestamp: formatTimestamp(message.createdAt),
-          unreadCount: 0, // You can implement unread logic based on your needs
-          isOnline: false, // You can implement online status if available
+          unreadCount: message.unreadCount || 0, // You can implement unread logic based on your needs
+          isOnline: chatPartner.isOnline || false, // You can implement online status if available
           sentByMe: isCurrentUserSender,
+          type: message.type,
+          post: message.post,
           user: {
             id: partnerId,
             displayName: chatPartner.displayName,
@@ -399,6 +481,8 @@ const styles = StyleSheet.create({
   },
   searchWrapper: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchIcon: {
     marginRight: 8,

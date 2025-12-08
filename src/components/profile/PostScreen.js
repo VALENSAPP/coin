@@ -30,7 +30,6 @@ const PostImage = memo(({ item, index, onPress }) => {
   const [imageError, setImageError] = useState(false);
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
   const { bgStyle, textStyle, text } = useAppTheme();
-  
   if (!imageUrl || imageError) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
@@ -59,7 +58,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
 
   useEffect(() => {
     if (postCheck !== posts) {
-    setPosts(postCheck);
+      setPosts(postCheck);
     }
   }, [postCheck, posts]);
 
@@ -69,22 +68,24 @@ const PostScreen = memo(({ postCheck, userData }) => {
       params: {
         postData: postCheck,
         startIndex: index,
+        hideTabBar: true,      // <<< ADD THIS
       },
     });
   }, [navigation, postCheck]);
 
+
   const renderItem = useCallback(({ item, index }) => (
-      <TouchableOpacity
-        style={[
-          styles.imageContainer,
-          { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
-        ]}
-        activeOpacity={0.95}
-        onPress={() => openPosts(index)}
-      >
+    <TouchableOpacity
+      style={[
+        styles.imageContainer,
+        { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
+      ]}
+      activeOpacity={0.95}
+      onPress={() => openPosts(index)}
+    >
       <PostImage item={item} index={index} />
-        <View style={styles.overlay} />
-      </TouchableOpacity>
+      <View style={styles.overlay} />
+    </TouchableOpacity>
   ), [openPosts]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
@@ -106,8 +107,8 @@ const PostScreen = memo(({ postCheck, userData }) => {
     return (
       <View style={styles.screen}>
         {renderEmptyComponent()}
-    </View>
-  );
+      </View>
+    );
   }
 
   return (

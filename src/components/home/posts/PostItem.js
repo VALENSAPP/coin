@@ -59,7 +59,7 @@ function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }
         numberOfTaps={2}
         onHandlerStateChange={onDoubleTapStateChange}
       >
-        <Image source={{ uri }} style={styles.postMedia} resizeMode="cover" />
+        <Image source={{ uri }} style={styles.postMedia}  />
       </TapGestureHandler>
     </PinchGestureHandler>
   );
@@ -233,6 +233,8 @@ export default function PostItem({
   const { text } = useAppTheme();
   const isMountedRef = useRef(true);
   const route = useRoute();
+   const [selectedPostId, setSelectedPostId] = useState(null);
+ 
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -502,7 +504,7 @@ export default function PostItem({
               }}
               source={{ uri: mediaItem.url }}
               style={styles.postMedia}
-              resizeMode="cover"
+              resizeMode="contain"
               repeat
               paused={!shouldPlay}
               muted={isMuted}
@@ -654,7 +656,7 @@ export default function PostItem({
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => shareRef.current?.open?.()} style={styles.actionButton}>
+            <TouchableOpacity onPress={() => { shareRef.current?.open?.(), setSelectedPostId(item) }} style={styles.actionButton}>
               <Feather name="send" size={24} color="#374151" />
               <Text style={styles.actionCount}>{item.sharesCount || 0}</Text>
             </TouchableOpacity>
@@ -792,7 +794,7 @@ export default function PostItem({
         item={item}
         onDonationSuccess={handleDonationSuccess}
       />
-      <ShareModal ref={shareRef} url={item.link} />
+       <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
     </View>
   );
 }
@@ -874,7 +876,7 @@ const styles = StyleSheet.create({
   mediaWrapper: {
     position: 'relative',
     width: '100%',
-    height: 340,
+    height: 500,
     backgroundColor: '#000',
     overflow: 'hidden',
   },
@@ -884,12 +886,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   postMedia: {
-    width,
-    height: 340,
+    width: '100%',
+    height: 500,
+    resizeMode: 'contain',
+    // aspectRatio:1,
   },
   videoOverlay: {
     position: 'absolute',
-    top: 0,
+    top: 150,
     left: 0,
     right: 0,
     bottom: 0,
@@ -1102,13 +1106,13 @@ const styles = StyleSheet.create({
   },
   speakerButton: {
     position: 'absolute',
-    bottom: 12,
+    bottom: -130,
     right: 12,
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 8,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // justifyContent: 'center',
+    // alignItems: 'center',
     zIndex: 10,
   },
   linkText: {
