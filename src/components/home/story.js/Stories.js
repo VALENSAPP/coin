@@ -38,16 +38,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastMessage } from '../../displaytoastmessage';
 import { Toast, useToast } from 'react-native-toast-notifications';
 import { getUserCredentials } from '../../../services/post';
+import Feather from 'react-native-vector-icons/Feather';
 
 // Import the new API functions
 import { postCommentStory, postLikeStory } from '../../../services/stories'; // Adjust path as needed
 import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
+import ShareModal from '../../modals/ShareModal';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DOUBLE_TAP_DELAY = 300;
+
 
 // Story Analytics Modal Component
 const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
@@ -321,6 +324,8 @@ const StoryViewer = ({
   const timerRef = useRef(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const videoRef = useRef(null);
+  const shareRef = useRef(null);
+  const [selectedPostId, setSelectedPostId] = useState(null);
 
   // --- keep latest callbacks for PanResponder (fix slide stale-closure) ---
   const nextUserCb = useRef(onNextUser);
@@ -902,6 +907,12 @@ const StoryViewer = ({
               <Icon name="trash-outline" size={18} color="#fff" />
               <Text style={userAnalyticsStyles.deleteText}>Delete Story</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={{ position: 'absolute', right: 5, bottom: 5, backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 10, }}
+              onPress={() => { shareRef.current?.open?.(), setSelectedPostId(currentStory) }}>
+              {/* <Text style={{fontSize:20, fontWeight:'500',color:'#000'}}>share</Text> */}
+              <Feather name="send" size={24} color="#000" />
+            </TouchableOpacity>
+            <ShareModal ref={shareRef} story={selectedPostId} />
           </View>
         )}
 
@@ -989,6 +1000,8 @@ const StoryViewer = ({
                       onAddComment(ownerId, storyId, text);
                       setCommentText('');
                     }
+                    shareRef.current?.open?.();
+                     setSelectedPostId(currentStory);
                   }}
                 >
                   <Icon name="send" size={20} color="#fff" />
@@ -1191,8 +1204,8 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
       const resp = await getUserCredentials(viewerId);
       if (resp?.statusCode === 200) {
         const raw = resp?.data?.image;
-        console.log('innnnnnn load profile data----------',raw);
-        
+        console.log('innnnnnn load profile data----------', raw);
+
         dispatch(setProfileImg(raw));
       }
     } catch (e) {

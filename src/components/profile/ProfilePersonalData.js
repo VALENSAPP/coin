@@ -430,7 +430,7 @@ const ProfilePersonData = ({
   const UserMessageNavigation = () => {
     navigation.navigate('UserChat', {
       userId: targetUserId,
-      user: ''
+      user: userData
     });
   }
 
