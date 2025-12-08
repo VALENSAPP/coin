@@ -214,10 +214,10 @@ const SearchScreen = () => {
         screen: 'FlipsScreen',
         params: {
           item: item,
-           key: uniqueKey,
-          returnTo: route.name, 
+          key: uniqueKey,
+          returnTo: route.name,
           returnParams: route.params,
-        }
+        },
       });
     }
     else {
@@ -226,9 +226,12 @@ const SearchScreen = () => {
         params: {
           postData: [item],
           startIndex: 0,
-          returnTo: route.name, 
+          returnTo: route.name,
           returnParams: route.params,
+          hideTabBar: true,  
         },
+        fromSearch: true,
+
       });
     }
   };
@@ -291,6 +294,7 @@ const SearchScreen = () => {
     const { post, index, height, top, columnIndex, width, spacing } = layoutItem;
     const isVideo = post?.isVideo || post?.type === 'video' || post?.mediaType === 'video';
     const imageUrl = normalizeImageUrl(post?.mediaUrl || post?.image || (post?.images && post.images[0]));
+    const isMissionPost = post?.isMission === true || post?.type === "crowdfunding";
 
     if (!imageUrl) {
       return null;
@@ -337,6 +341,26 @@ const SearchScreen = () => {
             resizeMode="cover"
           />
         )}
+        {isMissionPost && (
+          <View style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            paddingHorizontal: 10,
+            paddingVertical: 3,
+            borderRadius: 4,
+            flexShrink: 1,
+            width: '75%'
+
+
+          }}>
+            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', textAlign: 'left' }}>
+              MISSION POST
+            </Text>
+          </View>
+        )}
+
       </TouchableOpacity>
     );
   }, [playingIndex, handlePostPress, openPreview]);

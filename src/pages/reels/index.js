@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   Alert,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -32,6 +33,7 @@ import { useDispatch } from 'react-redux';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import { useAppTheme } from '../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ShareModal from '../../components/modals/ShareModal';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -137,7 +139,7 @@ export default function FlipsScreen() {
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const { bgStyle, textStyle } = useAppTheme();
-
+const shareRef = useRef(null);
   // Progress bar animation
   useEffect(() => {
     const currentReel = reels[currentIndex];
@@ -620,7 +622,8 @@ export default function FlipsScreen() {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => handleShare(item)}
+          // onPress={() => handleShare(item)}
+           onPress={() => shareRef.current?.open?.()}
         >
           <Icon name="paper-plane-outline" size={30} color="#fff" />
           <Text style={styles.actionLabel}>Share</Text>
@@ -902,6 +905,8 @@ export default function FlipsScreen() {
           />
         </View>
       </RBSheet>
+      <ShareModal ref={shareRef} reel={reels[currentIndex]}
+        reelId={reels[currentIndex]?.id} />
     </SafeAreaView>
   );
 }

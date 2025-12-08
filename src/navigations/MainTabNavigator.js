@@ -367,7 +367,7 @@ export default function MainTabNavigator() {
 
     const hideTabBarRoutes = [
       'ChatMessages', 'HeartNotification', 'Following', 'UserChat',
-      'PostUpload', 'PostEditor', 'SelectedPost', 'PostView',
+      'PostUpload', 'PostEditor', 'SelectedPost', 
       'SavedPost', 'CreatorCoin', 'notificationEnable', 'HidePosts',
       'FollowersFollowingScreen', 'Settings', 'subscription',
       'QuickBuy', 'CashOutScreen', 'Invite', 'ShareProfile', 'EditProfile',
@@ -410,7 +410,18 @@ export default function MainTabNavigator() {
       }
     }
 
-    const hideTabBar = hideTabBarRoutes.includes(currentRouteName);
+    let hideTabBar = hideTabBarRoutes.includes(currentRouteName);
+
+// Check dynamic param for PostView
+if (currentRouteName === 'PostView') {
+  const routeObj =
+    route?.state?.routes?.[route?.state?.index]?.params;
+
+  if (routeObj?.hideTabBar !== undefined) {
+    hideTabBar = routeObj.hideTabBar;  // override
+  }
+}
+
 
     return {
       tabBarStyle: hideTabBar ? hiddenTabBarStyle : defaultTabBarStyle

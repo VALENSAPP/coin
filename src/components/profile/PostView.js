@@ -88,10 +88,7 @@ export default function PostView({ postData = [] }) {
 
   // ─── Handle Back Button Press ────────────────────────────────
   const handleBackPress = useCallback(() => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
+   
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
