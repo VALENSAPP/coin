@@ -16,6 +16,7 @@ import { setUserProfile } from './redux/actions/UserProfileAction';
 import { notificationListener, requestUserPermission } from './services/NotificationService';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
+import { initializeSocket } from './services/socket';
 
 const linking = {
   prefixes: [
@@ -44,9 +45,20 @@ export default function Main() {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
+    const setup = async () => {
+      try {
+        await initializeSocket();
+      } catch (e) {
+        console.warn("Socket init failed", e);
+      }
+    };
+    setup();
+  }, []);
+
+  useEffect(() => {
     requestUserPermission();
     notificationListener();
-}, []);
+  }, []);
 
   useEffect(() => {
     dispatch(setUserProfile('normal'));
@@ -226,7 +238,7 @@ export default function Main() {
           <MainStack />
         </NavigationContainer>
         {
-        modalVisible && 
+          modalVisible &&
           <NotificationModal
             visible={modalVisible}
             message={message}
