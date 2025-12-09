@@ -29,7 +29,7 @@ const CELL_W = Math.floor(width / COLS);
 const AVATAR_SIZE = 64;
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-const ShareModal = forwardRef(({ post, postId, reel, reelId,story }, ref) => {
+const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onShare }, ref) => {
   const [selfUserId, setSelfUserId] = useState(null);
   const [following, setFollowing] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -88,9 +88,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId,story }, ref) => {
   //   setSelectedUsers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   // };
   const toggleSelectUser = (user) => {
-    // Close the sheet first
-    if (ref?.current) ref.current.close();
-
     // Normalize incoming param: sometimes caller passed id, sometimes full user
     const selected = typeof user === 'string' || typeof user === 'number' ?
       following.find(u => u.id === String(user)) : user;
@@ -100,28 +97,73 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId,story }, ref) => {
       return;
     }
 
-    navigation.navigate('HomeMain', {
-      screen: 'UserChat',
-      params: {
-        userId: String(selected.id),
-        user: {
-          id: String(selected.id),
-          displayName: selected.username,
-          image: selected.avatar,
+    // Close the sheet first
+    if (ref?.current) ref.current.close();
+
+    // Call onClose callback if provided (to close story viewer)
+    if (onClose) {
+      onClose();
+    }
+
+    // Call onShare callback if provided
+    if (onShare) {
+      onShare();
+    }
+
+    // Small delay to ensure sheet closes smoothly before navigation
+    setTimeout(() => {
+      // Prepare story data with proper structure
+      let storyData = null;
+      if (story) {
+        storyData = {
+          id: story.id || story._id,
+          uri: story.uri,
+          type: story.type,
+          caption: story.caption,
+          userName: story.userName,
+          userImage: story.userImage,
+          user: story.user,
+          timestamp: story.timestamp,
+          duration: story.duration,
+          views: story.views,
+          likes: story.likes,
+          comments: story.comments
+        };
+      }
+      console.log(selected,'check------------')
+
+      navigation.navigate('HomeMain', {
+        screen: 'UserChat',
+        params: {
+          userId: String(selected.id),
+          user: {
+            id: selected.id,
+            displayName: selected.username,
+            image: selected.avatar,
+          },
+          post,
+          postId,
+          reelId,
+          reel,
+          story: storyData,
+          storyId: story?.id || story?._id,
         },
-        post,
-        postId,
-        reelId,
-        reel,
-        story,
-      },
-    });
+      });
+    }, 200);
   };
 
   const resolvePostId = () => {
-
     if (postId) return String(postId);
     if (reelId) return String(reelId);
+
+    // If story object is passed
+    if (story) {
+      if (typeof story === "string" || typeof story === "number")
+        return String(story);
+
+      if (story.id) return String(story.id);
+      if (story._id) return String(story._id);
+    }
 
     // If Post object is passed
     if (post) {
@@ -202,6 +244,10 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId,story }, ref) => {
     if (!id) return null;
 
     // --- Make link based on type ----
+    if (story) {
+      return `https://valens.com/story/${id}`;
+    }
+
     if (reel || reelId) {
       return `https://valens.com/reel/${id}`;
     }
