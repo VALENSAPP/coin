@@ -93,7 +93,14 @@ export default function PostView({ postData = [] }) {
     const returnParams = route.params?.returnParams;
 
     if (returnTo) {
-      navigation.navigate(returnTo, returnParams);
+      // Check if returnParams has nested screen navigation
+      if (returnParams?.screen) {
+        // Navigate to the main stack and then to the nested screen
+        navigation.navigate(returnTo, returnParams);
+      } else {
+        // Simple navigation
+        navigation.navigate(returnTo, returnParams);
+      }
     } else {
       navigation.goBack();
     }

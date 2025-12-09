@@ -1,5 +1,18 @@
-import React, { useLayoutEffect, useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, Dimensions, ScrollView, Alert } from 'react-native';
+import React, { useLayoutEffect, useState, useEffect, useCallback, useRef, Children } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  Image, 
+  TextInput, 
+  Dimensions, 
+  ScrollView, 
+  Alert,
+  RefreshControl,
+  Modal // ✅ ADD THIS
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getAllConversations } from '../../../services/chatMessage';
@@ -8,8 +21,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { getSocket } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
-
-
+import { number } from 'yup';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../../../components/displaytoastmessage';
+import { getHideChatConversation } from '../../../services/post';
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -23,6 +38,10 @@ const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
         return '✏️';
       case 'search':
         return '🔍';
+      case 'trash-outline':
+        return '🗑️';
+      case 'close':
+        return '✕';
       default:
         return '•';
     }
@@ -71,15 +90,23 @@ export default function ChatMessages() {
   const [conversations, setConversations] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const inputRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
+  const toast = useToast();
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  
+  // ✅ ADD THESE NEW STATES FOR DELETE MODAL
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-   // Initialize socket connection
-
+  // Initialize socket connection
   useEffect(() => {
     const setupSocket = async () => {
-      try {        // Request chat box data when socket connects
+      try {
+        // Request chat box data when socket connects
         if (currentUserId) {
           const socket = getSocket();
           if (socket?.connected) {
@@ -89,25 +116,75 @@ export default function ChatMessages() {
       } catch (error) {
         console.error('Failed to initialize socket:', error);
       }
-
     };
 
-
-
     setupSocket();
-
   }, []);
 
-
-
   // Listen for chat box updates (conversation list)
-
   useSocket('userChatBox', (data) => {
     console.log('📨 Received userChatBox data:', data);
     if (data && Array.isArray(data)) {
       const processedConversations = processConversationsData(data);
       setConversations(processedConversations);
-      // setIsLoading(false);
+    }
+  }, [currentUserId]);
+
+  // Listen for new messages to show toast notification
+  useSocket('newMessage', (message) => {
+    console.log('🔔 New message received:', message);
+    
+    if (!message || !currentUserId) return;
+    
+    // Check if message is for current user (as receiver)
+    const receiverId = String(message.receiver?.id || message.receiverId || '');
+    const senderId = String(message.sender?.id || message.senderId || '');
+    const me = String(currentUserId);
+    
+    // Only show notification if current user is the receiver
+    if (receiverId === me && senderId !== me) {
+      const senderName = message.sender?.displayName || message.sender?.username || 'Someone';
+      
+      // Determine message preview
+      let messagePreview = '';
+      if (message.type === 'MEDIA') {
+        messagePreview = 'Shared a media';
+      } else if (message.type === 'POST_SHARE') {
+        messagePreview = 'Shared a post';
+      } else if (message.type === 'REEL_SHARE') {
+        messagePreview = 'Shared a reel';
+      } else if (message.type === 'STORY_SHARE') {
+        messagePreview = 'Shared a story';
+      } else {
+        messagePreview = message.content || message.message || 'New message';
+      }
+      
+      // Show toast notification
+      showToastMessage(
+        toast,
+        'success',
+        `${senderName}: ${messagePreview}`,
+        3000
+      );
+      
+      // Refresh conversation list to update unread count
+      const socket = getSocket();
+      if (socket?.connected) {
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    }
+  }, [currentUserId, toast]);
+
+  // Listen for messageSent event as well (some backends emit this)
+  useSocket('messageSent', (message) => {
+    console.log('📤 Message sent event received:', message);
+    
+    if (!message || !currentUserId) return;
+    
+    // Refresh conversation list to update with the new message
+    const socket = getSocket();
+    if (socket?.connected) {
+      socket.emit('getUserChatBox', { userId: currentUserId });
     }
   }, [currentUserId]);
 
@@ -131,7 +208,6 @@ export default function ChatMessages() {
   }, []);
 
   // Request chat box when user ID is available
-
   useEffect(() => {
     if (currentUserId) {
       const socket = getSocket();
@@ -139,16 +215,14 @@ export default function ChatMessages() {
         console.log('Requesting chat box for user:', currentUserId);
         socket.emit('getUserChatBox', { userId: currentUserId });
       }
-
     }
-
   }, [currentUserId]);
 
-
-
-  // Fetch conversations when component mounts or when focused
+  // Track screen focus state
   useFocusEffect(
     useCallback(() => {
+      setIsScreenFocused(true);
+      
       if (currentUserId) {
         const socket = getSocket();
         if (socket?.connected) {
@@ -157,6 +231,10 @@ export default function ChatMessages() {
         // Also fetch via API as fallback
         fetchConversations();
       }
+      
+      return () => {
+        setIsScreenFocused(false);
+      };
     }, [currentUserId])
   );
 
@@ -165,10 +243,9 @@ export default function ChatMessages() {
 
     try {
       setIsLoading(true);
-      // setError(null);
 
       const response = await getAllConversations();
-      console.log(response, 'totalMessages')
+      console.log(response, 'totalMessages hererereree');
 
       if (response.success && response.data) {
         // Process conversations to get unique chat partners
@@ -187,57 +264,118 @@ export default function ChatMessages() {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    if (!currentUserId) return;
+
+    setRefreshing(true);
+    
+    try {
+      // Request fresh data from socket
+      const socket = getSocket();
+      if (socket?.connected) {
+        console.log('🔄 Pull-to-refresh: Requesting chat box');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+      
+      // Also fetch via API
+      const response = await getAllConversations();
+      console.log('🔄 Pull-to-refresh: API response', response);
+
+      if (response.success && response.data) {
+        const processedConversations = processConversationsData(response.data);
+        setConversations(processedConversations);
+        setError(null);
+        
+        // Show success feedback
+        showToastMessage(
+          toast,
+          'success',
+          'Messages refreshed',
+          2000
+        );
+      } else {
+        setError(response.message || 'Failed to refresh conversations');
+      }
+    } catch (error) {
+      console.error('Error refreshing conversations:', error);
+      showToastMessage(
+        toast,
+        'error',
+        'Failed to refresh messages',
+        2000
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentUserId, toast]);
+
   const processConversationsData = (conversationsData) => {
+    console.log(conversationsData, 'covesation datatatatatat>>>.');
     if (!Array.isArray(conversationsData)) {
       console.warn('Invalid conversations data format:', conversationsData);
       return [];
     }
-    // Group conversations by chat partner
-    const conversationMap = new Map();
 
-    console.log('Processing conversations data:', conversationsData);
+    const conversationMap = new Map();
     console.log('Current user ID:', currentUserId);
 
     conversationsData.forEach(message => {
-      // Determine the other user (chat partner)
+      console.log(message, 'message data came herrererere');
+      // NEW: Handles your API structure
+     const conversationId = message.id; 
+      // ✅ FILTER OUT HIDDEN CONVERSATIONS
+      if (message.isHidden === true) {
+        console.log('Skipping hidden conversation:', message.id);
+        return;
+      }
+      
+      const unreadCount = message?.unreadCount;
       const isCurrentUserSender = message.sender?.id === currentUserId;
       const chatPartner = isCurrentUserSender ? message.receiver : message.sender;
-      let previewMessage = "";
-
-      if (message.type === "POST_SHARE" && message.post) {
-        previewMessage = isCurrentUserSender
-          ? "You shared a post"
-          : "Shared a post";
-      } else if (message.type === "MEDIA" && message.post) {
-        previewMessage = isCurrentUserSender
-          ? "You shared a post"
-          : "Shared a post";
-      } else {
-        previewMessage = isCurrentUserSender
-          ? `You: ${message.content}`
-          : message.content;
-      }
 
       if (!chatPartner?.id) return;
 
       const partnerId = chatPartner.id;
       const messageTime = new Date(message.createdAt);
 
-      if (!conversationMap.has(partnerId) ||
-        messageTime > new Date(conversationMap.get(partnerId).lastMessageTime)) {
+      // Last message preview logic
+      let previewMessage = "";
 
+      if (message.type === "MEDIA") {
+        previewMessage = isCurrentUserSender
+          ? "You shared a Media"
+          : "Shared a Media";
+      } else if (message.type === "CHAT") {
+        if (message.post) {
+          previewMessage = isCurrentUserSender
+            ? "You shared a post"
+            : "Shared a post";
+        } else {
+          const content = message.content || "";
+          previewMessage = isCurrentUserSender
+            ? `You: ${content}`
+            : content;
+        }
+      }
+      console.log(message, 'new messsgae');
+
+      console.log(`Partner ${partnerId} unread count:`, unreadCount);
+      if (
+        !conversationMap.has(partnerId) ||
+        messageTime > new Date(conversationMap.get(partnerId).lastMessageTime)
+      ) {
         conversationMap.set(partnerId, {
           id: partnerId,
-          userId: partnerId, // For navigation
-          username: chatPartner.displayName || chatPartner.username || 'Unknown User',
+          userId: partnerId,
+          chatId: message.chatId, // ✅ ADD CHAT ID FOR DELETION
+          username: chatPartner.displayName || "Unknown User",
           displayName: chatPartner.displayName,
           avatar: chatPartner.image || ONLINE_PLACEHOLDER,
-          // lastMessage: isCurrentUserSender ? `You: ${message.content}` : message.content,
           lastMessage: previewMessage,
           lastMessageTime: message.createdAt,
           timestamp: formatTimestamp(message.createdAt),
-          unreadCount: message.unreadCount || 0, // You can implement unread logic based on your needs
-          isOnline: chatPartner.isOnline || false, // You can implement online status if available
+          unreadCount: unreadCount,
+          isOnline: chatPartner.isOnline || false,
           sentByMe: isCurrentUserSender,
           type: message.type,
           post: message.post,
@@ -251,10 +389,11 @@ export default function ChatMessages() {
       }
     });
 
-    const result = Array.from(conversationMap.values())
-      .sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+    const result = Array.from(conversationMap.values()).sort(
+      (a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime)
+    );
 
-    console.log('Processed conversations:', result);
+    console.log("Processed conversations here im getting unred message :", result);
     return result;
   };
 
@@ -267,7 +406,7 @@ export default function ChatMessages() {
       return 'Now';
     } else if (diffInMinutes < 60) {
       return `${diffInMinutes}m`;
-    } else if (diffInMinutes < 1440) { // Less than 24 hours
+    } else if (diffInMinutes < 1440) {
       return `${Math.floor(diffInMinutes / 60)}h`;
     } else {
       const diffInDays = Math.floor(diffInMinutes / 1440);
@@ -287,11 +426,80 @@ export default function ChatMessages() {
       return;
     }
 
-    // Navigate to UserChat with proper parameters
     navigation.navigate('UserChat', {
       userId: item.userId,
       user: item.user
     });
+  };
+
+  // ✅ ADD LONG PRESS HANDLER
+  const handleLongPress = (item) => {
+    setSelectedConversation(item);
+    setShowDeleteModal(true);
+  };
+
+  // ✅ ADD DELETE CONVERSATION HANDLER
+  const handleDeleteConversation = async () => {
+    console.log(selectedConversation,'cehckSelect conversation')
+    if (!selectedConversation || !selectedConversation.chatId) {
+      showToastMessage(toast, 'error', 'Unable to delete conversation', 2000);
+      setShowDeleteModal(false);
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      console.log('Deleting conversation with chatId:', selectedConversation.chatId);
+      const response = await getHideChatConversation(selectedConversation.chatId);
+      
+      console.log('Hide conversation response:', response);
+
+      if (response.success) {
+        // Remove from local state immediately
+        setConversations(prev => 
+          prev.filter(conv => conv.chatId !== selectedConversation.chatId)
+        );
+
+        showToastMessage(
+          toast,
+          'success',
+          'Conversation deleted successfully',
+          2000
+        );
+
+        // Refresh from server to sync
+        const socket = getSocket();
+        if (socket?.connected) {
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
+      } else {
+        showToastMessage(
+          toast,
+          'error',
+          response.message || 'Failed to delete conversation',
+          2000
+        );
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      showToastMessage(
+        toast,
+        'error',
+        'Failed to delete conversation',
+        2000
+      );
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setSelectedConversation(null);
+    }
+  };
+
+  // ✅ ADD CANCEL HANDLER
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setSelectedConversation(null);
   };
 
   // Safe image loading with error handling
@@ -316,25 +524,13 @@ export default function ChatMessages() {
     );
   };
 
-  const renderStoryItem = ({ item }) => (
-    <View style={styles.storyItem}>
-      {item.note ? (
-        <View style={styles.noteCardWrap}>
-          <View style={styles.noteCard}>
-            <Text style={styles.noteCardText} numberOfLines={1} ellipsizeMode="tail">{item.note}</Text>
-          </View>
-          <View style={styles.noteTail} />
-        </View>
-      ) : <View style={{ height: NOTE_CARD_HEIGHT + 6 }} />}
-      <View style={[styles.avatarBorder, item.isUser && styles.userBorder, {borderColor: text}]}>
-        <SafeImage source={{ uri: item.avatar || ONLINE_PLACEHOLDER }} style={styles.avatar} />
-      </View>
-      <Text style={styles.storyUsername} numberOfLines={1}>{item.username}</Text>
-    </View>
-  );
-
   const renderChatItem = ({ item }) => (
-    <TouchableOpacity style={[styles.chatItem, bgStyle, {shadowColor: text}]} onPress={() => handleUserChat(item)}>
+    <TouchableOpacity 
+      style={[styles.chatItem, bgStyle, { shadowColor: text }]} 
+      onPress={() => handleUserChat(item)}
+      onLongPress={() => handleLongPress(item)}
+      delayLongPress={500}
+    >
       <View style={styles.avatarContainer}>
         <View style={styles.storyNoRing}>
           <SafeImage source={{ uri: item.avatar || ONLINE_PLACEHOLDER }} style={styles.chatAvatar} />
@@ -348,9 +544,22 @@ export default function ChatMessages() {
         </View>
         <View style={styles.messageRow}>
           {item.lastMessage ? (
-            <Text style={styles.lastMessage} numberOfLines={1}>{item.lastMessage}</Text>
+            <Text
+              style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]}
+              numberOfLines={1}
+            >
+              {item.lastMessage}
+            </Text>
           ) : (
-            <Text style={styles.lastMessage} numberOfLines={1}>Start a conversation</Text>
+            <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
+              Start a conversation
+            </Text>
+          )}
+
+          {item.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+            </View>
           )}
         </View>
       </View>
@@ -364,22 +573,19 @@ export default function ChatMessages() {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
-      <View style={[styles.header, bgStyle, {shadowColor: text}]}>
+      <View style={[styles.header, bgStyle, { shadowColor: text }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <SafeIcon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>{USERNAME}</Text>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity>
-          <SafeIcon name="create-outline" size={24} color="#000" />
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <TouchableOpacity
         activeOpacity={1}
         onPress={() => inputRef.current?.focus()}
-        style={[styles.searchContainer, {shadowColor: text}]}
+        style={[styles.searchContainer, { shadowColor: text }]}
       >
         <View style={styles.searchWrapper}>
           <SafeIcon name="search" size={20} color={text} style={[styles.searchIcon, textStyle]} />
@@ -402,20 +608,30 @@ export default function ChatMessages() {
         </TouchableOpacity>
       </View>
 
-      {/* Chat List */}
+      {/* Chat List with RefreshControl */}
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[text]} // Android
+            tintColor={text} // iOS
+            title="Pull to refresh" // iOS
+            titleColor={text} // iOS
+          />
+        }
       >
-        {isLoading ? (
+        {isLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, textStyle]}>Loading conversations...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={[styles.retryButton, {backgroundColor: text}]} onPress={fetchConversations}>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: text }]} onPress={fetchConversations}>
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -437,6 +653,52 @@ export default function ChatMessages() {
           ))
         )}
       </ScrollView>
+
+      {/* ✅ ADD DELETE CONFIRMATION MODAL */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, bgStyle]}>
+            <View style={styles.modalHeader}>
+              <SafeIcon name="trash-outline" size={32} color="#ff6b6b" />
+              <Text style={[styles.modalTitle, textStyle]}>Delete Conversation</Text>
+            </View>
+            
+            <Text style={[styles.modalMessage, textStyle]}>
+              Are you sure you want to delete this conversation with{' '}
+              <Text style={styles.modalUsername}>{selectedConversation?.username}</Text>?
+            </Text>
+            
+            <Text style={styles.modalWarning}>
+              This action cannot be undone.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCancelDelete}
+                disabled={isDeleting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={handleDeleteConversation}
+                disabled={isDeleting}
+              >
+                <Text style={styles.deleteButtonText}>
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -445,8 +707,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -464,8 +724,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flex: 1,
   },
-
-  // Search bar
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -486,84 +744,11 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
-    // marginTop: 10,
   },
   searchInput: {
     fontSize: 15,
     color: '#000',
   },
-
-  // Stories/Notes row
-  storiesBar: {
-    height: AVATAR_BORDER + NOTE_CARD_HEIGHT + 28,
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#dbdbdb',
-  },
-  storyItem: {
-    width: 76,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  storyUsername: {
-    fontSize: 12,
-    color: '#333',
-    maxWidth: 60,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  avatarBorder: {
-    borderWidth: 2,
-    borderRadius: AVATAR_BORDER / 2,
-    padding: 2,
-    marginBottom: 4,
-    backgroundColor: '#fff',
-  },
-  userBorder: { borderColor: '#999' },
-  avatar: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: '#eee',
-  },
-  noteCardWrap: {
-    position: 'relative',
-    marginBottom: 6,
-  },
-  noteCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    maxWidth: 70,
-    minHeight: NOTE_CARD_HEIGHT,
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  noteCardText: {
-    fontSize: 10,
-    color: '#333',
-    textAlign: 'center',
-  },
-  noteTail: {
-    position: 'absolute',
-    bottom: -3,
-    left: '50%',
-    marginLeft: -3,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 3,
-    borderRightWidth: 3,
-    borderTopWidth: 3,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#fff',
-  },
-
-  // Messages/Requests row
   messagesRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -575,12 +760,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  requestsLink: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  // Chat item
   chatItem: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -635,6 +814,7 @@ const styles = StyleSheet.create({
   },
   unreadMessage: {
     fontWeight: '700',
+    color: '#000',
   },
   timestamp: {
     fontSize: 12,
@@ -650,11 +830,28 @@ const styles = StyleSheet.create({
     color: '#666',
     flex: 1,
   },
+  unreadLastMessage: {
+    color: '#111',
+    fontWeight: '600',
+  },
+  unreadBadge: {
+    backgroundColor: '#5a2d82',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   separator: {
     height: 10,
   },
-
-  // Loading, Error, and Empty states
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -705,5 +902,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
+  },
+  // ✅ ADD MODAL STYLES
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  modalUsername: {
+    fontWeight: '700',
+    color: '#5a2d82',
+  },
+  modalWarning: {
+    fontSize: 14,
+    color: '#ff6b6b',
+    textAlign: 'center',
+    marginBottom: 24,
+    fontStyle: 'italic',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e5e7eb',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  deleteButton: {
+    backgroundColor: '#ff6b6b',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

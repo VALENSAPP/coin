@@ -17,6 +17,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -36,6 +37,7 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { getSocket, getConversation, sendMessage as sendSocketMessage, emitTyping, emitStopTyping, initializeSocket } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
 import { sharePost } from '../../../services/post';
+import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 
 
 // Fallback icon component
@@ -114,7 +116,7 @@ const UserChat = ({ route, navigation }) => {
   console.log(initialShared, 'indidtalshare')
   console.log('Story params received:', { story, storyId, hasStory: !!story, hasStoryId: !!storyId });
   const [sharedItem, setSharedItem] = useState(initialShared);
-  
+
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const sheetRef = useRef(null);
@@ -127,6 +129,11 @@ const UserChat = ({ route, navigation }) => {
   const { bgStyle, textStyle, bg, text } = useAppTheme();
   const dispatch = useDispatch();
   const [socketReady, setSocketReady] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const scrollTimeoutRef = useRef(null);
+  const [storyViewerVisible, setStoryViewerVisible] = useState(false);
+  const [selectedStory, setSelectedStory] = useState(null);
 
   // Initialize socket with userId and mark ready when connected
   useEffect(() => {
@@ -200,11 +207,11 @@ const UserChat = ({ route, navigation }) => {
       try {
         dispatch(showLoader());
         const mediaId = initialShared.postId || initialShared.reelId || initialShared.storyId;
-        console.log('📤 Auto-sharing media:', { 
-          type: initialShared.type, 
+        console.log('📤 Auto-sharing media:', {
+          type: initialShared.type,
           mediaId,
           postId: initialShared.postId,
-          reelId: initialShared.reelId, 
+          reelId: initialShared.reelId,
           storyId: initialShared.storyId,
           fullData: initialShared
         });
@@ -238,13 +245,13 @@ const UserChat = ({ route, navigation }) => {
           reel: initialShared.type === 'reel' ? initialShared.reel : null,
           story: initialShared.type === 'story' ? initialShared.story : null,
         };
-        console.log(tempMessage,'checktemmessage for story')
+        console.log(tempMessage, 'checktemmessage for story')
 
         setMessages(prev => [...prev, tempMessage]);
         setTimeout(() => scrollToBottom(), 200);
         let mediaType;
         let cleanMediaId = mediaId;
-        
+
         if (initialShared.type === 'post') {
           mediaType = 'POST';
         } else if (initialShared.type === 'reel') {
@@ -295,13 +302,13 @@ const UserChat = ({ route, navigation }) => {
           console.log('📤 Sending socket message:', messageData);
           sendSocketMessage(messageData);
           console.log('🔄 Fetching conversation after share');
-          
+
           // Wait a bit for the message to be processed by the server
           await new Promise(resolve => setTimeout(resolve, 500));
-          
+
           // Fetch conversation to get the updated messages
           await fetchConversation(currentUserId, targetUserId);
-          
+
           // Remove temp message after fetching
           setMessages(prev => prev.filter(msg => msg.id !== tempId));
         } else {
@@ -455,7 +462,7 @@ const UserChat = ({ route, navigation }) => {
         console.log('[UserChat] emit getConversation (focus)', currentUserId, '->', targetUserId);
         try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] getConversation error focus', e?.message); }
       }
-      return () => {};
+      return () => { };
     }, [currentUserId, targetUserId, socketReady])
   );
 
@@ -572,10 +579,13 @@ const UserChat = ({ route, navigation }) => {
       newMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       return newMessages;
     });
-    setTimeout(() => {
-      console.log('[UserChat] Scrolling to bottom');
-      scrollToBottom();
-    }, 100);
+    // Only auto-scroll for incoming messages if user is near bottom
+    if (isNearBottom) {
+      setTimeout(() => {
+        console.log('[UserChat] Scrolling to bottom');
+        scrollToBottom(false);
+      }, 100);
+    }
     console.log('[UserChat] ===== END NEW MESSAGE EVENT =====');
   }, [currentUserId, targetUserId]);
 
@@ -635,7 +645,10 @@ const UserChat = ({ route, navigation }) => {
       if (exists) return prev;
       return [...prev, formattedMsg];
     });
-    scrollToBottom();
+    // Only auto-scroll if user is near bottom
+    if (isNearBottom) {
+      scrollToBottom(false);
+    }
   }, [currentUserId, targetUserId]);
 
   // Listen for typing indicators
@@ -653,7 +666,7 @@ const UserChat = ({ route, navigation }) => {
 
   // Process and set messages helper
   const processAndSetMessages = (conversationMessages, senderId, receiverId) => {
-    console.log(conversationMessages,'check new conversation message')
+    console.log(conversationMessages, 'check new conversation message')
     const formattedMessages = conversationMessages.map(msg => {
       // Log post type for debugging
       if (msg.post) {
@@ -748,7 +761,7 @@ const UserChat = ({ route, navigation }) => {
       if (socket?.connected) {
         console.log('🔌 Socket connected, emitting getConversation');
         getConversation(senderId, receiverId);
-        
+
         // Also fetch via API as fallback to ensure we get the latest messages
         console.log('📡 Also fetching via API as backup');
         const response = await getConversationById(receiverId);
@@ -808,10 +821,44 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [isLoading]);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+  const scrollToBottom = (force = false) => {
+    // Only auto-scroll if user is near bottom or if forced (e.g., user sent a message)
+    if (force || isNearBottom) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
+  // Track scroll position to determine if user is near bottom
+  const handleScroll = (event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+
+    // Consider "near bottom" if within 100 pixels of the bottom
+    const nearBottom = distanceFromBottom < 100;
+    setIsNearBottom(nearBottom);
+
+    // Set user scrolling flag
+    setIsUserScrolling(true);
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // Reset scrolling flag after user stops scrolling
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 150);
+  };
+
+  // Handle content size change - only scroll if appropriate
+  const handleContentSizeChange = () => {
+    // Only auto-scroll if user is not actively scrolling and is near bottom
+    if (!isUserScrolling && isNearBottom) {
+      scrollToBottom(false);
+    }
   };
 
   // Handle typing indicator
@@ -857,7 +904,7 @@ const UserChat = ({ route, navigation }) => {
     setMessages(prev => [...prev, tempMessage]);
     setInputText('');
     setIsSending(true);
-    scrollToBottom();
+    scrollToBottom(true); // Force scroll when user sends a message
 
     try {
       const messageData = {
@@ -944,74 +991,164 @@ const UserChat = ({ route, navigation }) => {
     try {
       if (type === 'camera' && ImagePicker) {
         const image = await ImagePicker.openCamera({
-          mediaType: 'photo',
+          mediaType: 'any',
+          cropping: false,
           quality: 0.8,
         });
-        addImageMessage([{ uri: image.path }]);
+
+        // Determine if it's a video or photo
+        const isVideo = image.mime?.startsWith('video/') || image.path?.toLowerCase().match(/\.(mp4|mov|avi|mkv|webm)$/);
+
+        if (isVideo) {
+          await sendMediaMessage([image], 'video');
+        } else {
+          await sendMediaMessage([image], 'photo');
+        }
       } else if (type === 'gallery' && ImagePicker) {
-        const images = await ImagePicker.openPicker({
+        const media = await ImagePicker.openPicker({
           multiple: true,
-          mediaType: 'photo',
+          mediaType: 'any',
+          cropping: false,
           quality: 0.8,
         });
-        const imageUris = images.map(img => ({ uri: img.path }));
-        addImageMessage(imageUris);
-      } else if (type === 'video' && ImagePicker) {
-        const video = await ImagePicker.openPicker({
-          mediaType: 'video',
-        });
-        addVideoMessage(video.path);
-      }
-      else if (type === 'document') {
+
+        const mediaArray = Array.isArray(media) ? media : [media];
+
+        // Separate photos and videos
+        const photos = mediaArray.filter(m => !m.mime?.startsWith('video/') && !m.path?.toLowerCase().match(/\.(mp4|mov|avi|mkv|webm)$/));
+        const videos = mediaArray.filter(m => m.mime?.startsWith('video/') || m.path?.toLowerCase().match(/\.(mp4|mov|avi|mkv|webm)$/));
+
+        // Send photos
+        if (photos.length > 0) {
+          await sendMediaMessage(photos, 'photo');
+        }
+
+        // Send videos one by one
+        for (const video of videos) {
+          await sendMediaMessage([video], 'video');
+        }
+      } else if (type === 'document') {
         const [file] = await pick({
           type: ['application/pdf', 'application/msword', 'text/plain'],
         });
-        addFileMessage(file);
-      }
-      else {
+        await sendMediaMessage([file], 'file');
+      } else {
         Alert.alert('Feature Unavailable', 'This feature is not available on your device');
       }
     } catch (error) {
-      if (error?.message !== 'User cancelled image selection') {
+      console.error('Attachment error:', error);
+      if (error?.message !== 'User cancelled image selection' && error?.code !== 'E_PICKER_CANCELLED') {
         Alert.alert('Error', 'Failed to select file');
       }
     }
   };
 
-  const addImageMessage = images => {
-    const imageMessage = {
-      id: `img_${Date.now()}_${Math.random()}`,
-      type: 'image',
-      sender: 'user',
-      images: images,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, imageMessage]);
-    scrollToBottom();
-  };
+  const sendMediaMessage = async (mediaFiles, mediaType) => {
+    if (!currentUserId || !targetUserId || !mediaFiles || mediaFiles.length === 0) {
+      return;
+    }
 
-  const addVideoMessage = videoUri => {
-    const videoMessage = {
-      id: `vid_${Date.now()}_${Math.random()}`,
-      type: 'video',
-      sender: 'user',
-      uri: videoUri,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, videoMessage]);
-    scrollToBottom();
-  };
+    const tempId = `temp_${mediaType}_${Date.now()}_${Math.random()}`;
 
-  const addFileMessage = file => {
-    const fileMessage = {
-      id: `file_${Date.now()}_${Math.random()}`,
-      type: 'file',
-      sender: 'user',
-      file: file,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, fileMessage]);
-    scrollToBottom();
+    try {
+      // Create temporary message for immediate UI update
+      const tempMessage = {
+        id: tempId,
+        type: mediaType === 'photo' ? 'image' : mediaType,
+        sender: 'user',
+        timestamp: new Date(),
+        isTemp: true,
+        isSending: true,
+        senderInfo: { id: currentUserId, displayName: 'You' },
+        receiverInfo: { id: targetUserId, displayName: user?.displayName || user?.username, image: user?.image }
+      };
+
+      if (mediaType === 'photo') {
+        tempMessage.images = mediaFiles.map(m => ({ uri: m.path || m.uri }));
+      } else if (mediaType === 'video') {
+        tempMessage.uri = mediaFiles[0].path || mediaFiles[0].uri;
+      } else if (mediaType === 'file') {
+        tempMessage.file = mediaFiles[0];
+      }
+
+      setMessages(prev => [...prev, tempMessage]);
+      scrollToBottom(true); // Force scroll when user sends media
+
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append('senderId', currentUserId);
+      formData.append('receiverId', targetUserId);
+      formData.append('message', '');
+      formData.append('type', mediaType === 'photo' ? 'PHOTO' : mediaType === 'video' ? 'VIDEO' : 'FILE');
+
+      // Append media files
+      mediaFiles.forEach((file, index) => {
+        const fileUri = Platform.OS === 'android' ? file.path || file.uri : (file.path || file.uri)?.replace('file://', '');
+        const fileName = file.filename || file.name || fileUri?.split('/').pop() || `${mediaType}_${Date.now()}_${index}`;
+        const fileType = file.mime || file.type || (mediaType === 'photo' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/octet-stream');
+
+        formData.append('images', {
+          uri: fileUri,
+          name: fileName,
+          type: fileType,
+        });
+      });
+
+      console.log('📤 Sending media message:', { mediaType, fileCount: mediaFiles.length });
+
+      // Send via API
+      const response = await sendMsgAPI(formData);
+
+      if (response.success) {
+        console.log('✅ Media sent successfully:', response.data);
+
+        // Replace temp message with actual message
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === tempId
+              ? {
+                ...msg,
+                id: response.data?.id?.toString() || tempId,
+                isTemp: false,
+                isSending: false,
+                images: response.data?.images || msg.images,
+                uri: response.data?.images?.[0] || msg.uri,
+              }
+              : msg
+          )
+        );
+
+        // Send via socket if connected
+        const socket = getSocket();
+        if (socket?.connected && socketReady) {
+          const messageData = {
+            senderId: currentUserId,
+            receiverId: targetUserId,
+            message: '',
+            type: mediaType === 'photo' ? 'PHOTO' : mediaType === 'video' ? 'VIDEO' : 'FILE',
+          };
+          sendSocketMessage(messageData);
+        }
+
+        // Refresh conversation to get the latest messages
+        setTimeout(() => {
+          fetchConversation(currentUserId, targetUserId);
+        }, 500);
+      } else {
+        throw new Error(response.message || 'Failed to send media');
+      }
+    } catch (error) {
+      console.error('❌ Error sending media:', error);
+
+      // Remove temp message and show error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+
+      Alert.alert(
+        'Failed to send',
+        error?.response?.data?.message || error?.message || 'Could not send media. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const formatTime = timestamp => {
@@ -1147,7 +1284,7 @@ const UserChat = ({ route, navigation }) => {
 
 
   const renderMessage = ({ item, index }) => {
-    console.log(item,'checkItem What i get')
+    console.log(item, 'checkItem What i get')
     const isUser = item.sender === 'user';
     const showTime =
       index === 0 ||
@@ -1268,11 +1405,25 @@ const UserChat = ({ route, navigation }) => {
             )}
 
             {item.type === 'image' && (
-              <View style={styles.imageMessage}>{renderImageGrid(item.images)}</View>
+              <View style={styles.imageMessage}>
+                {item.isSending && (
+                  <View style={styles.mediaSendingOverlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.mediaSendingText}>Uploading...</Text>
+                  </View>
+                )}
+                {renderImageGrid(item.images)}
+              </View>
             )}
 
             {item.type === 'video' && (
               <View style={styles.imageMessage}>
+                {item.isSending && (
+                  <View style={styles.mediaSendingOverlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.mediaSendingText}>Uploading...</Text>
+                  </View>
+                )}
                 {renderVideoGrid(item.uri, item.thumbnail)}
               </View>
             )}
@@ -1307,7 +1458,7 @@ const UserChat = ({ route, navigation }) => {
             {(item.type === 'post_share' || item.type === 'post') && (
               (() => {
                 const postData = item.post || item.rawData?.post || item.rawData || {};
-                
+
                 // Extract user information with proper fallbacks
                 const postUser = {
                   displayName: postData.userName || postData.user?.displayName || postData.user?.name || item.senderInfo?.displayName || 'Unknown User',
@@ -1332,13 +1483,16 @@ const UserChat = ({ route, navigation }) => {
                     onPress={() => {
                       if (postData.id) {
                         // Navigate to PostView with the post data
-                        navigation.getParent()?.navigate('ProfileMain', {
+                        navigation.navigate('ProfileMain', {
                           screen: 'PostView',
                           params: {
                             postData: [postData],
                             startIndex: 0,
-                            returnTo: 'UserChat',
-                            returnParams: { userId: targetUserId, user }
+                            returnTo: 'HomeMain',
+                            returnParams: {
+                              screen: 'UserChat',
+                              params: { userId: targetUserId, user }
+                            }
                           }
                         });
                       } else {
@@ -1347,72 +1501,77 @@ const UserChat = ({ route, navigation }) => {
                     }}
                     activeOpacity={0.7}
                   >
-                      <View style={styles.sharedPostHeader}>
-                        <View style={styles.sharedPostUserInfo}>
-                          <Image
-                            source={{ uri: postUser.image }}
-                            style={styles.sharedPostAvatar}
-                          />
-                          <View>
-                            <Text style={styles.sharedPostUserName}>
-                              {postUser.displayName}
-                            </Text>
-                          </View>
+                    <View style={styles.sharedPostHeader}>
+                      <View style={styles.sharedPostUserInfo}>
+                        <Image
+                          source={{ uri: postUser.image }}
+                          style={styles.sharedPostAvatar}
+                        />
+                        <View>
+                          <Text style={styles.sharedPostUserName}>
+                            {postUser.displayName}
+                          </Text>
                         </View>
                       </View>
+                    </View>
 
-                      {postData.text && (
-                        <Text style={[styles.sharedPostText, isUser && styles.userSharedPostText]} numberOfLines={3}>
-                          {postData.text}
-                        </Text>
-                      )}
+                    {postData.text && (
+                      <Text style={[styles.sharedPostText, isUser && styles.userSharedPostText]} numberOfLines={3}>
+                        {postData.text}
+                      </Text>
+                    )}
 
-                      {postData.caption && (
-                        <Text style={[styles.sharedPostCaption, isUser && styles.userSharedPostText]} numberOfLines={2}>
-                          {postData.caption}
-                        </Text>
-                      )}
+                    {postData.caption && (
+                      <Text style={[styles.sharedPostCaption, isUser && styles.userSharedPostText]} numberOfLines={2}>
+                        {postData.caption}
+                      </Text>
+                    )}
 
-                      {/* Post Images/Videos */}
-                      {images.length > 0 && (
-                        <View style={styles.sharedPostImageContainer}>
-                          {hasVideo ? (
-                            <View style={styles.postVideoWrapper}>
+                    {/* Post Images/Videos */}
+                    {images.length > 0 && (
+                      <View style={styles.sharedPostImageContainer}>
+                        {hasVideo ? (
+                          <View style={styles.postVideoWrapper}>
+                            <Video
+                              source={{ uri: images[0].url || images[0] }}
+                              style={styles.sharedPostImageFull}
+                              resizeMode="cover"
+                              paused={true}
+                              muted={true}
+                              controls={false}
+                              poster={images[0].thumbnail}
+                              posterResizeMode="cover"
+                            />
+                            <View style={styles.postVideoPlayButton}>
+                              <Icon name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+                            </View>
+                          </View>
+                        ) : (
+                          <>
+                            {images.slice(0, 2).map((image, idx) => (
                               <Image
-                                source={{ uri: images[0].url || images[0] }}
-                                style={styles.sharedPostImageFull}
+                                key={idx}
+                                source={{ uri: image.url || image }}
+                                style={[styles.sharedPostImage, images.length === 1 && styles.sharedPostImageFull]}
                                 resizeMode="cover"
                               />
-                              <View style={styles.postVideoPlayButton}>
-                                <Icon name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+                            ))}
+                            {images.length > 2 && (
+                              <View style={styles.sharedPostImageOverlay}>
+                                <Text style={styles.sharedPostImageCount}>+{images.length - 2}</Text>
                               </View>
-                            </View>
-                          ) : (
-                            <>
-                              {images.slice(0, 2).map((image, idx) => (
-                                <Image
-                                  key={idx}
-                                  source={{ uri: image.url || image }}
-                                  style={[styles.sharedPostImage, images.length === 1 && styles.sharedPostImageFull]}
-                                  resizeMode="cover"
-                                />
-                              ))}
-                              {images.length > 2 && (
-                                <View style={styles.sharedPostImageOverlay}>
-                                  <Text style={styles.sharedPostImageCount}>+{images.length - 2}</Text>
-                                </View>
-                              )}
-                            </>
-                          )}
-                        </View>
-                      )}
-
-                      {/* Engagement Stats */}
-                      <View style={styles.sharedPostStats}>
-                        <Text style={styles.sharedPostStatText}>❤️ {postData.likes || 0} likes</Text>
-                        <Text style={styles.sharedPostStatText}>💬 {postData.comments || 0}</Text>
+                            )}
+                          </>
+                        )}
                       </View>
-                    </TouchableOpacity>
+                    )}
+
+                    {/* Engagement Stats */}
+                    {/* <View style={styles.sharedPostStats}>
+                          <Text style={styles.sharedPostStatText}>❤️ {postData.likes || 0} likes</Text>
+                          <Text style={styles.sharedPostStatText}>💬 {postData.comments || 0}</Text>
+                        </View> */}
+                  </TouchableOpacity>
                 );
               })()
             )}
@@ -1421,7 +1580,7 @@ const UserChat = ({ route, navigation }) => {
               (() => {
                 console.log(item, 'checkItem What i get');
                 const reelData = item.reel || item.rawData?.reel || item.rawData?.post || {};
-                
+
                 // Extract proper data with fallbacks
                 const reelId = reelData.id || item.rawData?.id || item.id;
                 const reelVideo = reelData.video || reelData.images?.[0] || item.uri;
@@ -1459,7 +1618,7 @@ const UserChat = ({ route, navigation }) => {
                 return (
                   <TouchableOpacity
                     style={[
-                      styles.instagramReelCard, 
+                      styles.instagramReelCard,
                       isUser && styles.userSharedPost,
                       item.isTemp && styles.tempMessage
                     ]}
@@ -1469,8 +1628,14 @@ const UserChat = ({ route, navigation }) => {
                         navigation.navigate('ProfileMain', {
                           screen: 'FlipsScreen',
                           params: {
+                            item: reelData,
                             reelId: reelId,
-                            initialIndex: 0
+                            initialIndex: 0,
+                            returnTo: 'HomeMain',
+                            returnParams: {
+                              screen: 'UserChat',
+                              params: { userId: targetUserId, user }
+                            }
                           }
                         });
                       } else {
@@ -1495,10 +1660,15 @@ const UserChat = ({ route, navigation }) => {
 
                     {/* Reel Video Thumbnail */}
                     <View style={styles.reelCardVideoContainer}>
-                      <Image
-                        source={{ uri: reelThumbnail }}
+                      <Video
+                        source={{ uri: reelVideo || reelThumbnail }}
                         style={styles.reelCardVideo}
                         resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        controls={false}
+                        poster={reelThumbnail}
+                        posterResizeMode="cover"
                       />
                       {/* Play Button Overlay */}
                       <View style={styles.reelCardPlayOverlay}>
@@ -1519,22 +1689,6 @@ const UserChat = ({ route, navigation }) => {
                       </Text>
                     )}
 
-                    {/* Stats Row */}
-                    <View style={styles.reelCardStats}>
-                      <View style={styles.reelCardStat}>
-                        <Icon name="heart-outline" size={14} color="#6B7280" />
-                        <Text style={styles.reelCardStatText}>{reelLikes}</Text>
-                      </View>
-                      <View style={styles.reelCardStat}>
-                        <Icon name="chatbubble-outline" size={14} color="#6B7280" />
-                        <Text style={styles.reelCardStatText}>{reelComments}</Text>
-                      </View>
-                      <View style={styles.reelCardStat}>
-                        <Icon name="eye-outline" size={14} color="#6B7280" />
-                        <Text style={styles.reelCardStatText}>{reelViews}</Text>
-                      </View>
-                    </View>
-
                     {/* Sending indicator for temp messages */}
                     {item.isTemp && (
                       <View style={styles.reelSendingOverlay}>
@@ -1550,34 +1704,29 @@ const UserChat = ({ route, navigation }) => {
               (() => {
                 // Enhanced story data extraction with better fallbacks
                 const storyData = item.story || item.rawData?.story || item.rawData || {};
-                console.log('📖 Story data for rendering:', {
-                  hasStory: !!item.story,
-                  hasRawStory: !!item.rawData?.story,
-                  storyId: storyData.id,
-                  mediaArray: storyData.media,
-                  userName: storyData.userName,
-                  fullData: storyData
-                });
-                
+                console.log('📖 Story data for rendering:', storyData);
+
                 // Get the image/video URI with multiple fallback options
-                // API returns media as array of URLs: ["https://..."]
                 const mediaUri = storyData.uri ||
                   storyData.thumbnail ||
-                  storyData.media?.[0] ||  // Direct URL from API
-                  storyData.media?.[0]?.url ||  // Fallback if it's an object
+                  storyData.media?.[0] ||
+                  storyData.media?.[0]?.url ||
                   storyData.images?.[0]?.url ||
                   storyData.images?.[0] ||
                   storyData.image ||
                   item.rawData?.uri;
-                
-                console.log('📸 Story media URI extracted:', mediaUri);
-                 
+
                 // Extract user information with proper fallbacks
                 const storyUserData = storyData.user || {};
                 const storyUser = {
-                  displayName: storyData.userName || (typeof storyUserData === 'string' ? storyUserData : (storyUserData?.displayName || storyUserData?.name || item.senderInfo?.displayName || 'Unknown User')),
-                  image: storyData.userImage || storyUserData?.image || item.senderInfo?.image || 'https://via.placeholder.com/40'
+                  displayName: storyData.userName ||
+                    (typeof storyUserData === 'string' ? storyUserData :
+                      (storyUserData?.displayName || storyUserData?.name ||
+                        item.senderInfo?.displayName || 'Unknown User')),
+                  image: storyData.userImage || storyUserData?.image ||
+                    item.senderInfo?.image || 'https://via.placeholder.com/40'
                 };
+
                 const caption = storyData.caption || storyData.text || item.content || '';
                 const views = storyData.views?.length || storyData.viewCount || 0;
                 const mediaType = storyData.type || (isVideoUrl(mediaUri) ? 'video' : 'image');
@@ -1595,18 +1744,19 @@ const UserChat = ({ route, navigation }) => {
                   <TouchableOpacity
                     style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                     onPress={() => {
-                      if (storyExists && storyData.id) {
-                        // Stories typically expire after 24 hours
-                        // Check if story is still available or show appropriate message
-                        Alert.alert(
-                          'Story', 
-                          'This story may have expired. Stories are only available for 24 hours.',
-                          [
-                            { text: 'OK', style: 'default' }
-                          ]
-                        );
+                      // ✅ UPDATED: Open story viewer modal
+                      if (storyExists && mediaUri) {
+                        setSelectedStory({
+                          ...storyData,
+                          uri: mediaUri,
+                          type: mediaType,
+                          userName: storyUser.displayName,
+                          userImage: storyUser.image,
+                          caption: caption,
+                        });
+                        setStoryViewerVisible(true);
                       } else {
-                        Alert.alert('Story Unavailable', 'This story is no longer available');
+                        Alert.alert('Story Unavailable', 'This story is no longer available or has expired');
                       }
                     }}
                     activeOpacity={0.7}
@@ -1637,14 +1787,26 @@ const UserChat = ({ route, navigation }) => {
                       </Text>
                     )}
 
-                    {/* Story Media */}
+                    {/* Story Media Preview */}
                     {mediaUri && (
                       <View style={styles.storyMediaContainer}>
-                        <Image
-                          source={{ uri: mediaUri }}
-                          style={styles.storyMediaImage}
-                          resizeMode="cover"
-                        />
+                        {mediaType === 'video' ? (
+                          <Video
+                            source={{ uri: mediaUri }}
+                            style={styles.storyMediaImage}
+                            resizeMode="cover"
+                            paused={true}
+                            muted={true}
+                            controls={false}
+                            posterResizeMode="cover"
+                          />
+                        ) : (
+                          <Image
+                            source={{ uri: mediaUri }}
+                            style={styles.storyMediaImage}
+                            resizeMode="cover"
+                          />
+                        )}
 
                         {/* Story Type Badge */}
                         <View style={styles.storyBadge}>
@@ -1659,6 +1821,11 @@ const UserChat = ({ route, navigation }) => {
                             <Text style={styles.storyPlayIcon}>▶</Text>
                           </View>
                         )}
+
+                        {/* Tap to view overlay */}
+                        <View style={styles.storyTapOverlay}>
+                          <Text style={styles.storyTapText}>Tap to view</Text>
+                        </View>
                       </View>
                     )}
 
@@ -1825,6 +1992,9 @@ const UserChat = ({ route, navigation }) => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
 
       // Stop typing on unmount
       const socket = getSocket();
@@ -1941,7 +2111,9 @@ const UserChat = ({ route, navigation }) => {
                         }
                       ]}
                       showsVerticalScrollIndicator={false}
-                      onContentSizeChange={scrollToBottom}
+                      onContentSizeChange={handleContentSizeChange}
+                      onScroll={handleScroll}
+                      scrollEventThrottle={16}
                       keyboardShouldPersistTaps="handled"
                       ListFooterComponent={renderTypingIndicator}
                       ListEmptyComponent={() => (
@@ -1973,17 +2145,17 @@ const UserChat = ({ route, navigation }) => {
                     ]}
                   >
                     <View style={styles.inputWrapper}>
-                      <TouchableOpacity
-                        style={styles.attachButton}
-                        onPress={() => {
-                          Keyboard.dismiss();
-                          setTimeout(() => sheetRef.current?.open(), 100);
-                        }}
-                      >
-                        <LinearGradient colors={[text, text]} style={styles.attachButtonGradient}>
-                          <Text style={styles.attachIcon}>+</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
+                      {/* <TouchableOpacity
+                          style={styles.attachButton}
+                          onPress={() => {
+                            Keyboard.dismiss();
+                            setTimeout(() => sheetRef.current?.open(), 100);
+                          }}
+                        >
+                          <LinearGradient colors={[text, text]} style={styles.attachButtonGradient}>
+                            <Text style={styles.attachIcon}>+</Text>
+                          </LinearGradient>
+                        </TouchableOpacity> */}
 
                       {/* Inline small shared preview inside the input */}
                       {sharedItem && (
@@ -2079,7 +2251,7 @@ const UserChat = ({ route, navigation }) => {
                 </View>
               </View>
 
-              <AttachmentModal />
+              {/* <AttachmentModal /> */}
 
               <ImageViewing
                 images={currentImages}
@@ -2100,7 +2272,18 @@ const UserChat = ({ route, navigation }) => {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+      <StoryViewerModal
+        visible={storyViewerVisible}
+        story={selectedStory}
+        onClose={() => {
+          setStoryViewerVisible(false);
+          setSelectedStory(null);
+        }}
+        userName={selectedStory?.userName}
+        userImage={selectedStory?.userImage}
+      />
     </SafeAreaView>
+
   );
 };
 
@@ -3110,5 +3293,40 @@ const createStyles = () => ({
     fontSize: 11,
     color: '#9CA3AF',
     marginTop: 2,
+  },
+
+  // Media sending overlay
+  mediaSendingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    zIndex: 10,
+    gap: 8,
+  },
+  mediaSendingText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  storyTapOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  storyTapText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
