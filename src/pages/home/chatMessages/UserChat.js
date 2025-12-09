@@ -91,7 +91,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const UserChat = ({ route, navigation }) => {
   // Safe destructuring with fallbacks
   const routeParams = route?.params || {};
-  const { userId: targetUserId, user, post, postId, reel, reelId, story } = routeParams;
+  const { userId: targetUserId, user, post, postId, reel, reelId, story, storyId } = routeParams;
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -109,11 +109,12 @@ const UserChat = ({ route, navigation }) => {
     : reel
       ? { type: 'reel', reel: reel, reelId: reelId || reel?.id }
       : story
-        ? { type: 'story', story: story, storyId: story?.id }
+        ? { type: 'story', story: story, storyId: storyId || story?.id }
         : null;
   console.log(initialShared, 'indidtalshare')
+  console.log('Story params received:', { story, storyId, hasStory: !!story, hasStoryId: !!storyId });
   const [sharedItem, setSharedItem] = useState(initialShared);
-
+  
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const sheetRef = useRef(null);
@@ -187,9 +188,11 @@ const UserChat = ({ route, navigation }) => {
   useEffect(() => {
     const autoShareMedia = async () => {
       if (hasSharedRef.current) {
+        console.log('❌ Auto-share already executed');
         return;
       }
       if (!initialShared || !currentUserId || !targetUserId) {
+        console.log('❌ Missing required data:', { initialShared, currentUserId, targetUserId });
         return;
       }
       hasSharedRef.current = true;
@@ -197,8 +200,17 @@ const UserChat = ({ route, navigation }) => {
       try {
         dispatch(showLoader());
         const mediaId = initialShared.postId || initialShared.reelId || initialShared.storyId;
+        console.log('📤 Auto-sharing media:', { 
+          type: initialShared.type, 
+          mediaId,
+          postId: initialShared.postId,
+          reelId: initialShared.reelId, 
+          storyId: initialShared.storyId,
+          fullData: initialShared
+        });
 
         if (!mediaId) {
+          console.log('❌ No media ID found in initialShared:', initialShared);
           return;
         }
         const tempId = `temp_share_${Date.now()}`;
@@ -226,26 +238,36 @@ const UserChat = ({ route, navigation }) => {
           reel: initialShared.type === 'reel' ? initialShared.reel : null,
           story: initialShared.type === 'story' ? initialShared.story : null,
         };
+        console.log(tempMessage,'checktemmessage for story')
 
         setMessages(prev => [...prev, tempMessage]);
         setTimeout(() => scrollToBottom(), 200);
         let mediaType;
+        let cleanMediaId = mediaId;
+        
         if (initialShared.type === 'post') {
           mediaType = 'POST';
         } else if (initialShared.type === 'reel') {
           mediaType = 'REEL';
         } else if (initialShared.type === 'story') {
           mediaType = 'STORY';
+          // Story IDs have format: {uuid}_0, need to remove the _0 suffix for API
+          if (cleanMediaId && cleanMediaId.includes('_')) {
+            cleanMediaId = cleanMediaId.split('_')[0];
+            console.log('🔧 Cleaned story ID:', { original: mediaId, cleaned: cleanMediaId });
+          }
         }
 
         const sharePayload = {
-          mediaId: mediaId,
+          mediaId: cleanMediaId,
           mediaType: mediaType,
           conversationType: 'MEDIA',
           sharedUserId: currentUserId,
           receiverUserId: targetUserId
         };
+        console.log('📤 Calling sharePost API with:', sharePayload);
         const shareResponse = await sharePost(sharePayload);
+        console.log('📥 Share API response:', shareResponse);
         if (!shareResponse.success) {
           throw new Error(shareResponse.message || 'Failed to share media');
         }
@@ -263,17 +285,31 @@ const UserChat = ({ route, navigation }) => {
         } else if (initialShared.type === 'reel') {
           messageData.reelId = initialShared.reelId;
         } else if (initialShared.type === 'story') {
-          messageData.storyId = initialShared.storyId;
+          // Use the cleaned story ID (without _0 suffix)
+          messageData.storyId = cleanMediaId;
+          console.log('📤 Socket message storyId:', cleanMediaId);
         }
         const socket = getSocket();
+        console.log('🔌 Socket status:', { connected: socket?.connected, id: socket?.id });
         if (socket?.connected) {
+          console.log('📤 Sending socket message:', messageData);
           sendSocketMessage(messageData);
-          fetchConversation(currentUserId, targetUserId)
+          console.log('🔄 Fetching conversation after share');
+          
+          // Wait a bit for the message to be processed by the server
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Fetch conversation to get the updated messages
+          await fetchConversation(currentUserId, targetUserId);
+          
+          // Remove temp message after fetching
+          setMessages(prev => prev.filter(msg => msg.id !== tempId));
         } else {
           setMessages(prev => prev.filter(msg => msg.id !== tempId));
           throw new Error('Socket not connected. Please try again.');
         }
         setSharedItem(null);
+        console.log('✅ Story shared successfully');
 
       } catch (error) {
         console.error('❌ Auto-share error:', error);
@@ -425,6 +461,7 @@ const UserChat = ({ route, navigation }) => {
 
   // Listen for conversation data from socket
   useSocket('userConversation', (data) => {
+    console.log('📨 Received userConversation event:', data);
     let conversationData = null;
     if (data && data.success && Array.isArray(data.data)) {
       conversationData = data.data;
@@ -442,6 +479,7 @@ const UserChat = ({ route, navigation }) => {
           (sId === other && rId === me)
         );
       });
+      console.log('📨 Filtered conversation messages:', conversationMessages.length);
       if (conversationMessages.length > 0) {
         processAndSetMessages(conversationMessages, currentUserId, targetUserId);
       } else {
@@ -449,6 +487,7 @@ const UserChat = ({ route, navigation }) => {
         setIsLoading(false);
       }
     } else {
+      console.log('📨 No conversation data received');
       setMessages([]);
       setIsLoading(false);
     }
@@ -614,7 +653,15 @@ const UserChat = ({ route, navigation }) => {
 
   // Process and set messages helper
   const processAndSetMessages = (conversationMessages, senderId, receiverId) => {
+    console.log(conversationMessages,'check new conversation message')
     const formattedMessages = conversationMessages.map(msg => {
+      // Log post type for debugging
+      if (msg.post) {
+        console.log('Post type detected:', msg.post.type, 'Message type:', msg.type);
+      }
+      if (msg.story) {
+        console.log('📖 Story detected in message:', msg.story, 'Message type:', msg.type);
+      }
       const isSender = String(msg.sender?.id ?? msg.senderId) === String(senderId);
       const messageType = msg.type || 'CHAT';
 
@@ -645,28 +692,31 @@ const UserChat = ({ route, navigation }) => {
           formattedMsg.type = 'story_share';
           formattedMsg.story = msg.story;
           formattedMsg.content = msg.content;
-        } else {
-          // NEW: Check for video in images
-          if (msg.post && msg.post.images && msg.post.images.length > 0) {
-            const firstImage = msg.post.images[0];
-            if (isVideoUrl(firstImage)) {
-              formattedMsg.type = 'video';
-              formattedMsg.uri = firstImage;
-              formattedMsg.thumbnail = msg.post.thumbnail || '';
-            } else {
-              formattedMsg.type = 'post_share';
-              formattedMsg.post = msg.post || {};
-            }
+        } else if (msg.post) {
+          // Check if the post is a reel type
+          if (msg.post.type === 'reel') {
+            formattedMsg.type = 'reel_share';
+            formattedMsg.reel = msg.post;
+            formattedMsg.content = msg.content;
           } else {
+            // For normal posts, crowdfunding, and other post types, always show as post_share
+            // This preserves user information (userName, userImage) and post metadata
             formattedMsg.type = 'post_share';
-            formattedMsg.post = msg.post || {};
+            formattedMsg.post = msg.post;
           }
+        } else {
+          // If both story and post are null, show as deleted/unavailable content
+          console.log('⚠️ MEDIA message with no story or post data (likely expired/deleted):', msg.id);
+          formattedMsg.type = 'text';
+          formattedMsg.content = '❌ This content is no longer available';
+          formattedMsg.isDeletedContent = true;
         }
       } else if (messageType === 'REEL_SHARE') {
         formattedMsg.type = 'reel_share';
         formattedMsg.reel = msg.reel || msg.post || {};
         formattedMsg.content = msg.content;
       } else if (messageType === 'STORY_SHARE') {
+        console.log('📖 Processing STORY_SHARE message:', msg);
         formattedMsg.type = 'story_share';
         formattedMsg.story = msg.story || {};
         formattedMsg.content = msg.content;
@@ -677,9 +727,10 @@ const UserChat = ({ route, navigation }) => {
       return formattedMsg;
     });
 
-    // Sort messages by timestamp
-    formattedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    setMessages(formattedMessages);
+    // Filter out null messages and sort by timestamp
+    const validMessages = formattedMessages.filter(msg => msg !== null);
+    validMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    setMessages(validMessages);
     setIsLoading(false);
   };
 
@@ -692,10 +743,32 @@ const UserChat = ({ route, navigation }) => {
   // Fetch conversation messages
   const fetchConversation = async (senderId, receiverId) => {
     try {
+      console.log('🔄 fetchConversation called for:', senderId, '->', receiverId);
       const socket = getSocket();
       if (socket?.connected) {
-        const newMessage = getConversation(senderId, receiverId);
+        console.log('🔌 Socket connected, emitting getConversation');
+        getConversation(senderId, receiverId);
+        
+        // Also fetch via API as fallback to ensure we get the latest messages
+        console.log('📡 Also fetching via API as backup');
+        const response = await getConversationById(receiverId);
+        if (response.success) {
+          console.log('📥 API response received:', response.data?.length, 'messages');
+          const conversationMessages = response.data.filter(msg => {
+            const sId = String(msg.sender?.id ?? msg.senderId);
+            const rId = String(msg.receiver?.id ?? msg.receiverId);
+            const me = String(senderId);
+            const other = String(receiverId);
+            return (
+              (sId === me && rId === other) ||
+              (sId === other && rId === me)
+            );
+          });
+          console.log('📥 Filtered messages:', conversationMessages.length);
+          processAndSetMessages(conversationMessages, senderId, receiverId);
+        }
       } else {
+        console.log('❌ Socket not connected, fetching via API only');
         const response = await getConversationById(receiverId);
         if (response.success) {
           const conversationMessages = response.data.filter(msg => {
@@ -712,6 +785,7 @@ const UserChat = ({ route, navigation }) => {
         }
       }
     } catch (error) {
+      console.error('❌ fetchConversation error:', error);
       Alert.alert('Error', 'Failed to load messages');
     }
   };
@@ -1073,6 +1147,7 @@ const UserChat = ({ route, navigation }) => {
 
 
   const renderMessage = ({ item, index }) => {
+    console.log(item,'checkItem What i get')
     const isUser = item.sender === 'user';
     const showTime =
       index === 0 ||
@@ -1231,32 +1306,56 @@ const UserChat = ({ route, navigation }) => {
 
             {(item.type === 'post_share' || item.type === 'post') && (
               (() => {
-                const postData = item.post || item.rawData?.post || item.rawData || {
-                  id: item.rawData?.id || item.id,
-                  user: item.post?.user || item.senderInfo || {},
-                  text: item.post?.text || item.content || '',
-                  caption: item.post?.caption || item.content || '',
-                  images: item.post?.images || item.rawData?.images || [],
-                  likes: item.post?.likes || item.rawData?.likes || 0,
-                  comments: item.post?.comments || item.rawData?.comments || 0,
+                const postData = item.post || item.rawData?.post || item.rawData || {};
+                
+                // Extract user information with proper fallbacks
+                const postUser = {
+                  displayName: postData.userName || postData.user?.displayName || postData.user?.name || item.senderInfo?.displayName || 'Unknown User',
+                  image: postData.userImage || postData.user?.image || item.senderInfo?.image || 'https://via.placeholder.com/40'
                 };
 
                 const images = postData.images || [];
+                const hasVideo = images.length > 0 && isVideoUrl(images[0]?.url || images[0]);
+                const postExists = postData && (postData.id || postData.text || postData.caption || images.length > 0);
+
+                if (!postExists) {
+                  return (
+                    <View style={[styles.sharedPostContainer, isUser && styles.userSharedPost, styles.deletedContent]}>
+                      <Text style={styles.deletedContentText}>❌ This post is no longer available</Text>
+                    </View>
+                  );
+                }
 
                 return (
-                  postData && (
-                    <TouchableOpacity
-                      style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
-                    >
+                  <TouchableOpacity
+                    style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
+                    onPress={() => {
+                      if (postData.id) {
+                        // Navigate to PostView with the post data
+                        navigation.getParent()?.navigate('ProfileMain', {
+                          screen: 'PostView',
+                          params: {
+                            postData: [postData],
+                            startIndex: 0,
+                            returnTo: 'UserChat',
+                            returnParams: { userId: targetUserId, user }
+                          }
+                        });
+                      } else {
+                        Alert.alert('Error', 'Post not found');
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
                       <View style={styles.sharedPostHeader}>
                         <View style={styles.sharedPostUserInfo}>
                           <Image
-                            source={{ uri: postData.user?.image || 'https://via.placeholder.com/40' }}
+                            source={{ uri: postUser.image }}
                             style={styles.sharedPostAvatar}
                           />
                           <View>
                             <Text style={styles.sharedPostUserName}>
-                              {postData.user?.displayName || postData.user?.name || 'Unknown User'}
+                              {postUser.displayName}
                             </Text>
                           </View>
                         </View>
@@ -1274,21 +1373,36 @@ const UserChat = ({ route, navigation }) => {
                         </Text>
                       )}
 
-                      {/* Post Images */}
+                      {/* Post Images/Videos */}
                       {images.length > 0 && (
                         <View style={styles.sharedPostImageContainer}>
-                          {images.slice(0, 2).map((image, idx) => (
-                            <Image
-                              key={idx}
-                              source={{ uri: image.url || image }}
-                              style={[styles.sharedPostImage, images.length === 1 && styles.sharedPostImageFull]}
-                              resizeMode="cover"
-                            />
-                          ))}
-                          {images.length > 2 && (
-                            <View style={styles.sharedPostImageOverlay}>
-                              <Text style={styles.sharedPostImageCount}>+{images.length - 2}</Text>
+                          {hasVideo ? (
+                            <View style={styles.postVideoWrapper}>
+                              <Image
+                                source={{ uri: images[0].url || images[0] }}
+                                style={styles.sharedPostImageFull}
+                                resizeMode="cover"
+                              />
+                              <View style={styles.postVideoPlayButton}>
+                                <Icon name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+                              </View>
                             </View>
+                          ) : (
+                            <>
+                              {images.slice(0, 2).map((image, idx) => (
+                                <Image
+                                  key={idx}
+                                  source={{ uri: image.url || image }}
+                                  style={[styles.sharedPostImage, images.length === 1 && styles.sharedPostImageFull]}
+                                  resizeMode="cover"
+                                />
+                              ))}
+                              {images.length > 2 && (
+                                <View style={styles.sharedPostImageOverlay}>
+                                  <Text style={styles.sharedPostImageCount}>+{images.length - 2}</Text>
+                                </View>
+                              )}
+                            </>
                           )}
                         </View>
                       )}
@@ -1299,78 +1413,136 @@ const UserChat = ({ route, navigation }) => {
                         <Text style={styles.sharedPostStatText}>💬 {postData.comments || 0}</Text>
                       </View>
                     </TouchableOpacity>
-                  )
                 );
               })()
             )}
 
             {(item.type === 'reel_share' || item.type === 'reel') && (
               (() => {
-                const reelData = item.reel || item.rawData?.reel || item.rawData?.post || {
-                  id: item.rawData?.id || item.id,
-                  user: item.reel?.user || item.senderInfo || {},
-                  caption: item.reel?.caption || item.content || '',
-                  thumbnail: item.reel?.thumbnail || item.thumbnail || item.rawData?.thumbnail || '',
-                  likes: item.reel?.likes || item.rawData?.likes || 0,
-                  views: item.reel?.views || item.rawData?.views || 0,
-                };
+                console.log(item, 'checkItem What i get');
+                const reelData = item.reel || item.rawData?.reel || item.rawData?.post || {};
+                
+                // Extract proper data with fallbacks
+                const reelId = reelData.id || item.rawData?.id || item.id;
+                const reelVideo = reelData.video || reelData.images?.[0] || item.uri;
+                const reelThumbnail = reelData.thumbnail || reelData.video || reelData.images?.[0];
+                const reelUserData = reelData.user || {};
+                const reelUser = reelData.userName || (typeof reelUserData === 'string' ? reelUserData : (reelUserData?.displayName || reelUserData?.name || item.senderInfo?.displayName));
+                const reelAvatar = reelData.userImage || reelUserData?.image || item.senderInfo?.image;
+                const reelCaption = reelData.caption || item.content || '';
+                const reelLikes = reelData.likes || 0;
+                const reelViews = reelData.views || '0';
+                const reelComments = reelData.comments || 0;
+
+                console.log('Reel rendering data:', {
+                  reelId,
+                  reelVideo,
+                  reelThumbnail,
+                  reelUser,
+                  reelAvatar,
+                  reelCaption,
+                  reelLikes,
+                  reelViews,
+                  reelComments
+                });
+
+                const reelExists = reelId && (reelVideo || reelThumbnail);
+
+                if (!reelExists) {
+                  return (
+                    <View style={[styles.sharedPostContainer, isUser && styles.userSharedPost, styles.deletedContent]}>
+                      <Text style={styles.deletedContentText}>❌ This reel is no longer available</Text>
+                    </View>
+                  );
+                }
 
                 return (
-                  reelData && (
-                    <TouchableOpacity
-                      style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
-                    >
-                      <View style={styles.sharedPostHeader}>
-                        <View style={styles.sharedPostUserInfo}>
-                          <Image
-                            source={{
-                              uri: reelData.user?.image || 'https://via.placeholder.com/40'
-                            }}
-                            style={styles.sharedPostAvatar}
-                          />
-                          <View>
-                            <Text style={styles.sharedPostUserName}>
-                              {reelData.user?.displayName || 'Unknown User'}
-                            </Text>
-                          </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.instagramReelCard, 
+                      isUser && styles.userSharedPost,
+                      item.isTemp && styles.tempMessage
+                    ]}
+                    onPress={() => {
+                      if (reelId) {
+                        // Navigate to FlipsScreen (Reels screen) with the reel data
+                        navigation.navigate('ProfileMain', {
+                          screen: 'FlipsScreen',
+                          params: {
+                            reelId: reelId,
+                            initialIndex: 0
+                          }
+                        });
+                      } else {
+                        Alert.alert('Error', 'Reel not found');
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    {/* User Header */}
+                    <View style={styles.reelCardHeader}>
+                      <Image
+                        source={{ uri: reelAvatar || 'https://via.placeholder.com/32' }}
+                        style={styles.reelCardAvatar}
+                      />
+                      <View style={styles.reelCardUserInfo}>
+                        <Text style={styles.reelCardUsername} numberOfLines={1}>
+                          {reelUser || 'Unknown User'}
+                        </Text>
+                        <Text style={styles.reelCardLabel}>Reel</Text>
+                      </View>
+                    </View>
+
+                    {/* Reel Video Thumbnail */}
+                    <View style={styles.reelCardVideoContainer}>
+                      <Image
+                        source={{ uri: reelThumbnail }}
+                        style={styles.reelCardVideo}
+                        resizeMode="cover"
+                      />
+                      {/* Play Button Overlay */}
+                      <View style={styles.reelCardPlayOverlay}>
+                        <View style={styles.reelCardPlayButton}>
+                          <Icon name="play" size={20} color="#fff" />
                         </View>
                       </View>
-
-                      {/* Reel Caption */}
-                      {reelData.caption && (
-                        <Text
-                          style={[styles.sharedPostText, isUser && styles.userSharedPostText]}
-                          numberOfLines={2}
-                        >
-                          {reelData.caption}
-                        </Text>
-                      )}
-
-                      {/* Reel Thumbnail */}
-                      {reelData.thumbnail && (
-                        <View style={styles.reelThumbnailContainer}>
-                          <Image
-                            source={{ uri: reelData.thumbnail }}
-                            style={styles.reelThumbnail}
-                            resizeMode="cover"
-                          />
-                          <View style={styles.reelPlayButton}>
-                            <Text style={styles.reelPlayIcon}>▶</Text>
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Reel Stats */}
-                      <View style={styles.sharedPostStats}>
-                        <Text style={styles.sharedPostStatText}>
-                          ❤️ {reelData.likes || 0}
-                        </Text>
-                        <Text style={styles.sharedPostStatText}>
-                          👁️ {reelData.views || 0}
-                        </Text>
+                      {/* Reel Icon Badge */}
+                      <View style={styles.reelCardBadge}>
+                        <Icon name="play-circle" size={16} color="#fff" />
                       </View>
-                    </TouchableOpacity>
-                  )
+                    </View>
+
+                    {/* Caption */}
+                    {reelCaption && reelCaption.trim() !== '' && (
+                      <Text style={styles.reelCardCaption} numberOfLines={2}>
+                        {reelCaption}
+                      </Text>
+                    )}
+
+                    {/* Stats Row */}
+                    <View style={styles.reelCardStats}>
+                      <View style={styles.reelCardStat}>
+                        <Icon name="heart-outline" size={14} color="#6B7280" />
+                        <Text style={styles.reelCardStatText}>{reelLikes}</Text>
+                      </View>
+                      <View style={styles.reelCardStat}>
+                        <Icon name="chatbubble-outline" size={14} color="#6B7280" />
+                        <Text style={styles.reelCardStatText}>{reelComments}</Text>
+                      </View>
+                      <View style={styles.reelCardStat}>
+                        <Icon name="eye-outline" size={14} color="#6B7280" />
+                        <Text style={styles.reelCardStatText}>{reelViews}</Text>
+                      </View>
+                    </View>
+
+                    {/* Sending indicator for temp messages */}
+                    {item.isTemp && (
+                      <View style={styles.reelSendingOverlay}>
+                        <ActivityIndicator size="small" color="#fff" />
+                        <Text style={styles.reelSendingText}>Sending...</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 );
               })()
             )}
@@ -1378,38 +1550,77 @@ const UserChat = ({ route, navigation }) => {
               (() => {
                 // Enhanced story data extraction with better fallbacks
                 const storyData = item.story || item.rawData?.story || item.rawData || {};
-
+                console.log('📖 Story data for rendering:', {
+                  hasStory: !!item.story,
+                  hasRawStory: !!item.rawData?.story,
+                  storyId: storyData.id,
+                  mediaArray: storyData.media,
+                  userName: storyData.userName,
+                  fullData: storyData
+                });
+                
                 // Get the image/video URI with multiple fallback options
+                // API returns media as array of URLs: ["https://..."]
                 const mediaUri = storyData.uri ||
                   storyData.thumbnail ||
-                  storyData.media?.[0]?.url ||
+                  storyData.media?.[0] ||  // Direct URL from API
+                  storyData.media?.[0]?.url ||  // Fallback if it's an object
+                  storyData.images?.[0]?.url ||
+                  storyData.images?.[0] ||
                   storyData.image ||
                   item.rawData?.uri;
-
-                const storyUser = storyData.user || item.senderInfo || {};
+                
+                console.log('📸 Story media URI extracted:', mediaUri);
+                 
+                // Extract user information with proper fallbacks
+                const storyUserData = storyData.user || {};
+                const storyUser = {
+                  displayName: storyData.userName || (typeof storyUserData === 'string' ? storyUserData : (storyUserData?.displayName || storyUserData?.name || item.senderInfo?.displayName || 'Unknown User')),
+                  image: storyData.userImage || storyUserData?.image || item.senderInfo?.image || 'https://via.placeholder.com/40'
+                };
                 const caption = storyData.caption || storyData.text || item.content || '';
                 const views = storyData.views?.length || storyData.viewCount || 0;
-                const mediaType = storyData.type || 'image';
+                const mediaType = storyData.type || (isVideoUrl(mediaUri) ? 'video' : 'image');
+                const storyExists = storyData && (storyData.id || mediaUri);
+
+                if (!storyExists) {
+                  return (
+                    <View style={[styles.sharedPostContainer, isUser && styles.userSharedPost, styles.deletedContent]}>
+                      <Text style={styles.deletedContentText}>❌ This story is no longer available</Text>
+                    </View>
+                  );
+                }
 
                 return (
                   <TouchableOpacity
                     style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                     onPress={() => {
-                      // Optional: Open story viewer
+                      if (storyExists && storyData.id) {
+                        // Stories typically expire after 24 hours
+                        // Check if story is still available or show appropriate message
+                        Alert.alert(
+                          'Story', 
+                          'This story may have expired. Stories are only available for 24 hours.',
+                          [
+                            { text: 'OK', style: 'default' }
+                          ]
+                        );
+                      } else {
+                        Alert.alert('Story Unavailable', 'This story is no longer available');
+                      }
                     }}
+                    activeOpacity={0.7}
                   >
                     {/* User Header */}
                     <View style={styles.sharedPostHeader}>
                       <View style={styles.sharedPostUserInfo}>
                         <Image
-                          source={{
-                            uri: storyUser.image || user?.image || 'https://via.placeholder.com/40'
-                          }}
+                          source={{ uri: storyUser.image }}
                           style={styles.sharedPostAvatar}
                         />
                         <View>
                           <Text style={styles.sharedPostUserName}>
-                            {storyUser.displayName || storyUser.name || user?.displayName || 'Unknown User'}
+                            {storyUser.displayName}
                           </Text>
                           <Text style={styles.sharedPostTimeText}>Story</Text>
                         </View>
@@ -2564,6 +2775,19 @@ const createStyles = () => ({
     backgroundColor: '#E8F4F8',
     borderColor: '#B3D9E8',
   },
+  deletedContent: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  deletedContentText: {
+    color: '#991B1B',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
   sharedPostHeader: {
     paddingHorizontal: 12,
     paddingTop: 12,
@@ -2639,6 +2863,17 @@ const createStyles = () => ({
     fontSize: 12,
     fontWeight: '600',
   },
+  postVideoWrapper: {
+    position: 'relative',
+    width: '98%',
+    margin: '1%',
+  },
+  postVideoPlayButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -24 }, { translateY: -24 }],
+  },
   sharedPostStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -2653,7 +2888,135 @@ const createStyles = () => ({
     fontWeight: '500',
   },
 
-  // Reel specific styles
+  // Instagram-style Reel Card
+  instagramReelCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    marginVertical: 4,
+    overflow: 'hidden',
+    maxWidth: 280,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  reelCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#FAFAFA',
+  },
+  reelCardAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  reelCardUserInfo: {
+    flex: 1,
+  },
+  reelCardUsername: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  reelCardLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  reelCardVideoContainer: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 9 / 16,
+    backgroundColor: '#000',
+    maxHeight: 350,
+  },
+  reelCardVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  reelCardPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  reelCardPlayButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  reelCardBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reelCardCaption: {
+    fontSize: 13,
+    color: '#374151',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    lineHeight: 18,
+  },
+  reelCardStats: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E7EB',
+    gap: 16,
+  },
+  reelCardStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reelCardStatText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  reelSendingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    gap: 8,
+  },
+  reelSendingText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Old reel styles (keep for backward compatibility)
   reelThumbnailContainer: {
     position: 'relative',
     paddingHorizontal: 8,
@@ -2689,7 +3052,7 @@ const createStyles = () => ({
     paddingVertical: 8,
   },
   storyMediaImage: {
-    width: '100%',
+    width: '200',
     height: 200,
     borderRadius: 12,
     backgroundColor: '#F3F4F6',

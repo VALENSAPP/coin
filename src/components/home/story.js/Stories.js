@@ -912,7 +912,18 @@ const StoryViewer = ({
               onPress={() => {
                 handlePause();
                 shareRef.current?.open?.();
-                setSelectedPostId(currentStory);
+                // Include user information with the story
+                const storyWithUser = {
+                  ...currentStory,
+                  userName: currentUser?.username,
+                  userImage: currentUser?.avatar,
+                  user: {
+                    id: currentUser?.id,
+                    displayName: currentUser?.username,
+                    image: currentUser?.avatar
+                  }
+                };
+                setSelectedPostId(storyWithUser);
               }}>
               <Feather name="send" size={24} color="#000" />
             </TouchableOpacity>
@@ -920,12 +931,10 @@ const StoryViewer = ({
               ref={shareRef}
               story={selectedPostId}
               onClose={() => {
-                shareRef.current?.close?.();
-                handleResume(); // Resume story when modal closes
+                onClose(); // Close stories viewer using the prop
               }}
               onShare={() => {
-                shareRef.current?.close?.();
-                handleResume(); // Resume story after sharing
+                onClose(); // Close stories viewer after sharing using the prop
               }}
             />
           </View>
@@ -1022,7 +1031,18 @@ const StoryViewer = ({
                     setTimeout(() => {
                       shareRef.current?.open?.();
                       handlePause();
-                      setSelectedPostId(currentStory);
+                      // Include user information with the story
+                      const storyWithUser = {
+                        ...currentStory,
+                        userName: currentUser?.username,
+                        userImage: currentUser?.avatar,
+                        user: {
+                          id: currentUser?.id,
+                          displayName: currentUser?.username,
+                          image: currentUser?.avatar
+                        }
+                      };
+                      setSelectedPostId(storyWithUser);
                     }, 150);
 
                   }}
@@ -1035,8 +1055,10 @@ const StoryViewer = ({
               ref={shareRef}
               story={selectedPostId}
               onClose={() => {
-                shareRef.current?.close?.();
-                handleResume();
+                onClose(); // Close stories viewer using the prop
+              }}
+              onShare={() => {
+                onClose(); // Close stories viewer after sharing using the prop
               }}
             />
           </>
