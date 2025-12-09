@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,7 +33,7 @@ import { pick } from '@react-native-documents/picker';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
-import { getSocket, getConversation, sendMessage as sendSocketMessage, emitTyping, emitStopTyping } from '../../../services/socket';
+import { getSocket, getConversation, sendMessage as sendSocketMessage, emitTyping, emitStopTyping, initializeSocket } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
 import { sharePost } from '../../../services/post';
 
@@ -125,6 +125,44 @@ const UserChat = ({ route, navigation }) => {
   const typingTimeoutRef = useRef(null);
   const { bgStyle, textStyle, bg, text } = useAppTheme();
   const dispatch = useDispatch();
+  const [socketReady, setSocketReady] = useState(false);
+
+  // Initialize socket with userId and mark ready when connected
+  useEffect(() => {
+    const ensureSocketInitialized = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) {
+          console.log('[UserChat] No userId found, cannot initialize socket');
+          return;
+        }
+        const socket = getSocket();
+        if (socket?.connected) {
+          console.log('[UserChat] Socket already connected, ID:', socket.id);
+          setSocketReady(true);
+        } else {
+          console.log('[UserChat] Socket not connected, initializing...');
+          await initializeSocket(userId);
+          const newSocket = getSocket();
+          if (newSocket?.connected) {
+            console.log('[UserChat] Socket initialized successfully, ID:', newSocket.id);
+            setSocketReady(true);
+          } else {
+            console.log('[UserChat] Socket initialized but not connected yet, waiting...');
+            if (newSocket) {
+              newSocket.once('connect', () => {
+                console.log('[UserChat] Socket connected after waiting, ID:', newSocket.id);
+                setSocketReady(true);
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[UserChat] Socket initialization error:', error);
+      }
+    };
+    ensureSocketInitialized();
+  }, []);
 
   // Validate required params on mount
   useEffect(() => {
@@ -261,6 +299,35 @@ const UserChat = ({ route, navigation }) => {
     };
   }, []);
 
+  // Handle reconnection/disconnection and re-fetch on reconnect
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) {
+      console.log('[UserChat] No socket available for reconnection handler');
+      return;
+    }
+    const handleReconnect = () => {
+      console.log('[UserChat] Socket reconnected!');
+      setSocketReady(true);
+      if (currentUserId && targetUserId) {
+        console.log('[UserChat] Re-fetching conversation after reconnect');
+        setTimeout(() => {
+          try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] getConversation error after reconnect', e?.message); }
+        }, 500);
+      }
+    };
+    const handleDisconnect = (reason) => {
+      console.log('[UserChat] Socket disconnected:', reason);
+      setSocketReady(false);
+    };
+    socket.on('reconnect', handleReconnect);
+    socket.on('disconnect', handleDisconnect);
+    return () => {
+      socket.off('reconnect', handleReconnect);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, [currentUserId, targetUserId]);
+
   // Get current user ID and fetch conversation
   useEffect(() => {
     const initializeChat = async () => {
@@ -295,6 +362,67 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [targetUserId]);
 
+  // Ensure conversation updates render even if socket connects late
+  useEffect(() => {
+    const socket = getSocket();
+    console.log('[UserChat] connect effect. socketReady:', socketReady, 'socket?', !!socket, 'connected?', !!socket?.connected, 'me:', currentUserId, 'other:', targetUserId);
+    if (!currentUserId || !targetUserId || !socketReady) {
+      console.log('[UserChat] Skipping getConversation - not ready');
+      return;
+    }
+    if (socket?.connected) {
+      console.log('[UserChat] emit getConversation (connect effect initial)', currentUserId, '->', targetUserId);
+      try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] getConversation error initial', e?.message); }
+    }
+    if (socket) {
+      const onConnect = () => {
+        console.log('[UserChat] socket connect event -> emit getConversation', currentUserId, '->', targetUserId);
+        setSocketReady(true);
+        try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] getConversation error on connect', e?.message); }
+      };
+      socket.on('connect', onConnect);
+      return () => {
+        socket.off('connect', onConnect);
+      };
+    }
+  }, [currentUserId, targetUserId, socketReady]);
+
+  // Periodic refresh to avoid missed events during long sessions
+  useEffect(() => {
+    if (!currentUserId || !targetUserId || !socketReady) {
+      console.log('[UserChat] Skipping periodic refresh - not ready');
+      return;
+    }
+    const socket = getSocket();
+    let interval;
+    if (socket) {
+      interval = setInterval(() => {
+        if (socket.connected) {
+          console.log('[UserChat] periodic refresh -> emit getConversation', currentUserId, '->', targetUserId);
+          try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] periodic getConversation error', e?.message); }
+        } else {
+          console.log('[UserChat] periodic refresh skipped (socket not connected)');
+        }
+      }, 10000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentUserId, targetUserId, socketReady]);
+
+  // Re-emit conversation on screen focus to recover missed events
+  useFocusEffect(
+    useCallback(() => {
+      const socket = getSocket();
+      console.log('[UserChat] focus effect. socketReady:', socketReady, 'socket?', !!socket, 'connected?', !!socket?.connected, 'me:', currentUserId, 'other:', targetUserId);
+      if (socket?.connected && socketReady && currentUserId && targetUserId) {
+        console.log('[UserChat] emit getConversation (focus)', currentUserId, '->', targetUserId);
+        try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] getConversation error focus', e?.message); }
+      }
+      return () => {};
+    }, [currentUserId, targetUserId, socketReady])
+  );
+
   // Listen for conversation data from socket
   useSocket('userConversation', (data) => {
     let conversationData = null;
@@ -305,16 +433,18 @@ const UserChat = ({ route, navigation }) => {
     }
     if (conversationData && conversationData.length > 0) {
       const conversationMessages = conversationData.filter(msg => {
-        const isBetweenUsers = (
-          (msg.sender?.id === currentUserId && msg.receiver?.id === targetUserId) ||
-          (msg.sender?.id === targetUserId && msg.receiver?.id === currentUserId)
+        const sId = String(msg.sender?.id ?? msg.senderId);
+        const rId = String(msg.receiver?.id ?? msg.receiverId);
+        const me = String(currentUserId);
+        const other = String(targetUserId);
+        return (
+          (sId === me && rId === other) ||
+          (sId === other && rId === me)
         );
-        return isBetweenUsers;
       });
       if (conversationMessages.length > 0) {
         processAndSetMessages(conversationMessages, currentUserId, targetUserId);
       } else {
-        console.warn('⚠️ No messages found for this conversation after filtering');
         setMessages([]);
         setIsLoading(false);
       }
@@ -324,42 +454,149 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [currentUserId, targetUserId]);
 
-  // Listen for new messages in real-time
+  // Listen for new messages in real-time (robust to payload shape and type)
   useSocket('newMessage', (message) => {
-    if (message && currentUserId && targetUserId) {
-      const isForThisConversation = (
-        (message.sender?.id === currentUserId && message.receiver?.id === targetUserId) ||
-        (message.sender?.id === targetUserId && message.receiver?.id === currentUserId)
-      );
-      if (isForThisConversation) {
-        let messageType = (message.type || 'CHAT').toLowerCase().replace('_share', '_share');
-        if ((message.type === 'POST_SHARE' || message.type === 'MEDIA') && message.story) {
-          messageType = 'story_share';
-        }
-
-        const formattedMsg = {
-          id: message.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
-          type: messageType,
-          sender: message.sender?.id === currentUserId ? 'user' : 'peer',
-          content: message.content || '',
-          timestamp: new Date(message.createdAt || Date.now()),
-          senderInfo: message.sender || {},
-          receiverInfo: message.receiver || {},
-          post: message.post,
-          story: message.story,
-          reel: message.reel,
-        };
-        setMessages(prev => {
-          const exists = prev.some(m => m.id === formattedMsg.id);
-          if (exists) {
-            return prev;
-          }
-          return [...prev, formattedMsg];
-        });
-
-        scrollToBottom();
-      }
+    console.log('[UserChat] ===== NEW MESSAGE EVENT =====');
+    console.log('[UserChat] Raw message:', JSON.stringify(message, null, 2));
+    if (!message) {
+      console.log('[UserChat] Message is null/undefined');
+      return;
     }
+    if (!currentUserId || !targetUserId) {
+      console.log('[UserChat] Missing currentUserId or targetUserId');
+      return;
+    }
+    const getSenderId = (msg) => String(msg.sender?.id || msg.sender?._id || msg.senderId || '');
+    const getReceiverId = (msg) => String(msg.receiver?.id || msg.receiver?._id || msg.receiverId || '');
+    const sId = getSenderId(message);
+    const rId = getReceiverId(message);
+    const me = String(currentUserId);
+    const other = String(targetUserId);
+    console.log('[UserChat] ID Comparison:');
+    console.log(' Sender ID:', sId);
+    console.log(' Receiver ID:', rId);
+    console.log(' Current User (me):', me);
+    console.log(' Target User (other):', other);
+    const isForThisConversation = ((sId === me && rId === other) || (sId === other && rId === me));
+    console.log('[UserChat] Is for this conversation?', isForThisConversation);
+    if (!isForThisConversation) {
+      console.log('[UserChat] Message NOT for this conversation, ignoring');
+      return;
+    }
+    console.log('[UserChat] ✅ Processing message for this conversation');
+    const rawType = (message.type || 'CHAT').toUpperCase();
+    let mappedType = 'text';
+    switch (rawType) {
+      case 'TEXT':
+      case 'CHAT':
+        mappedType = 'text'; break;
+      case 'IMAGE':
+        mappedType = 'image'; break;
+      case 'VIDEO':
+        mappedType = 'video'; break;
+      case 'POST_SHARE':
+        mappedType = 'post_share'; break;
+      case 'REEL_SHARE':
+        mappedType = 'reel_share'; break;
+      case 'STORY_SHARE':
+        mappedType = 'story_share'; break;
+      case 'MEDIA':
+        mappedType = message.story ? 'story_share' : 'post_share'; break;
+      default:
+        mappedType = 'text';
+    }
+    console.log('[UserChat] Mapped type:', rawType, '->', mappedType);
+    const formattedMsg = {
+      id: message.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
+      type: mappedType,
+      sender: sId === me ? 'user' : 'peer',
+      content: message.content || message.message || '',
+      timestamp: new Date(message.createdAt || Date.now()),
+      senderInfo: message.sender || { id: sId },
+      receiverInfo: message.receiver || { id: rId },
+      images: Array.isArray(message.images) ? message.images : undefined,
+      uri: message.video || message.content || undefined,
+      thumbnail: message.thumbnail || undefined,
+      post: message.post,
+      story: message.story,
+      reel: message.reel,
+    };
+    console.log('[UserChat] Formatted message:', formattedMsg);
+    setMessages(prev => {
+      const exists = prev.some(m => m.id === formattedMsg.id);
+      if (exists) {
+        console.log('[UserChat] ⚠️ Message already exists, skipping');
+        return prev;
+      }
+      console.log('[UserChat] ✅ Adding new message to state');
+      const newMessages = [...prev, formattedMsg];
+      newMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      return newMessages;
+    });
+    setTimeout(() => {
+      console.log('[UserChat] Scrolling to bottom');
+      scrollToBottom();
+    }, 100);
+    console.log('[UserChat] ===== END NEW MESSAGE EVENT =====');
+  }, [currentUserId, targetUserId]);
+
+  // Also handle 'messageSent' as some backends emit this instead of 'newMessage'
+  useSocket('messageSent', (message) => {
+    if (!message || !currentUserId || !targetUserId) return;
+
+    const sId = String(message.sender?.id ?? message.senderId);
+    const rId = String(message.receiver?.id ?? message.receiverId);
+    const me = String(currentUserId);
+    const other = String(targetUserId);
+    const isForThisConversation = (
+      (sId === me && rId === other) ||
+      (sId === other && rId === me)
+    );
+    if (!isForThisConversation) return;
+
+    const rawType = (message.type || 'CHAT').toUpperCase();
+    let mappedType = 'text';
+    switch (rawType) {
+      case 'TEXT':
+      case 'CHAT':
+        mappedType = 'text'; break;
+      case 'IMAGE':
+        mappedType = 'image'; break;
+      case 'VIDEO':
+        mappedType = 'video'; break;
+      case 'POST_SHARE':
+        mappedType = 'post_share'; break;
+      case 'REEL_SHARE':
+        mappedType = 'reel_share'; break;
+      case 'STORY_SHARE':
+      case 'MEDIA':
+        mappedType = message.story ? 'story_share' : 'post_share'; break;
+      default:
+        mappedType = 'text';
+    }
+
+    const formattedMsg = {
+      id: message.id?.toString() || `msg_${Date.now()}_${Math.random()}`,
+      type: mappedType,
+      sender: sId === currentUserId ? 'user' : 'peer',
+      content: message.content || '',
+      timestamp: new Date(message.createdAt || Date.now()),
+      senderInfo: message.sender || {},
+      receiverInfo: message.receiver || {},
+      images: Array.isArray(message.images) ? message.images : undefined,
+      uri: message.video || message.content || undefined,
+      thumbnail: message.thumbnail || undefined,
+      post: message.post,
+      story: message.story,
+      reel: message.reel,
+    };
+
+    setMessages(prev => {
+      const exists = prev.some(m => m.id === formattedMsg.id);
+      if (exists) return prev;
+      return [...prev, formattedMsg];
+    });
+    scrollToBottom();
   }, [currentUserId, targetUserId]);
 
   // Listen for typing indicators
@@ -378,7 +615,7 @@ const UserChat = ({ route, navigation }) => {
   // Process and set messages helper
   const processAndSetMessages = (conversationMessages, senderId, receiverId) => {
     const formattedMessages = conversationMessages.map(msg => {
-      const isSender = msg.sender?.id === senderId;
+      const isSender = String(msg.sender?.id ?? msg.senderId) === String(senderId);
       const messageType = msg.type || 'CHAT';
 
       let formattedMsg = {
@@ -462,11 +699,14 @@ const UserChat = ({ route, navigation }) => {
         const response = await getConversationById(receiverId);
         if (response.success) {
           const conversationMessages = response.data.filter(msg => {
-            const isBetweenUsers = (
-              (msg.sender?.id === senderId && msg.receiver?.id === receiverId) ||
-              (msg.sender?.id === receiverId && msg.receiver?.id === senderId)
+            const sId = String(msg.sender?.id ?? msg.senderId);
+            const rId = String(msg.receiver?.id ?? msg.receiverId);
+            const me = String(senderId);
+            const other = String(receiverId);
+            return (
+              (sId === me && rId === other) ||
+              (sId === other && rId === me)
             );
-            return isBetweenUsers;
           });
           processAndSetMessages(conversationMessages, senderId, receiverId);
         }
@@ -536,6 +776,8 @@ const UserChat = ({ route, navigation }) => {
       shared: sharedItem ? { ...sharedItem } : undefined,
       timestamp: new Date(),
       isTemp: true,
+      senderInfo: { id: currentUserId, displayName: 'You' },
+      receiverInfo: { id: targetUserId, displayName: user?.displayName || user?.username, image: user?.image }
     };
 
     setMessages(prev => [...prev, tempMessage]);
@@ -562,10 +804,13 @@ const UserChat = ({ route, navigation }) => {
       } else if (sharedItem?.type === 'story') {
         messageData.storyId = sharedItem.storyId;
       }
-      // Try socket first
+      console.log('[UserChat] Sending message. Socket ready?', socketReady);
       const socket = getSocket();
-      if (socket?.connected) {
+      if (socket?.connected && socketReady) {
+        console.log('[UserChat] ✅ Sending via socket');
         sendSocketMessage(messageData);
+      } else {
+        console.log('[UserChat] ⚠️ Socket not ready, will rely on API only');
       }
 
       // Always use API for confirmation
@@ -587,6 +832,15 @@ const UserChat = ({ route, navigation }) => {
 
         // Clear shared item after successful send
         setSharedItem(null);
+
+        // Force-refresh conversation to ensure it's synced
+        const sock = getSocket();
+        if (sock?.connected && socketReady) {
+          console.log('[UserChat] Force-refreshing conversation after send');
+          setTimeout(() => {
+            try { getConversation(currentUserId, targetUserId); } catch (e) { console.log('[UserChat] getConversation error post-send', e?.message); }
+          }, 500);
+        }
       } else {
         throw new Error(response.message || 'Failed to send message');
       }
@@ -1333,6 +1587,27 @@ const UserChat = ({ route, navigation }) => {
     });
   };
 
+  // Temporary: log generic socket events for testing
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const logEvent = (eventName) => (data) => {
+      console.log(`[UserChat] Socket event: ${eventName}`, data);
+    };
+    socket.on('connect', logEvent('connect'));
+    socket.on('disconnect', logEvent('disconnect'));
+    socket.on('connect_error', logEvent('connect_error'));
+    socket.on('reconnect', logEvent('reconnect'));
+    socket.on('reconnect_error', logEvent('reconnect_error'));
+    return () => {
+      socket.off('connect', logEvent('connect'));
+      socket.off('disconnect', logEvent('disconnect'));
+      socket.off('connect_error', logEvent('connect_error'));
+      socket.off('reconnect', logEvent('reconnect'));
+      socket.off('reconnect_error', logEvent('reconnect_error'));
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -1432,6 +1707,12 @@ const UserChat = ({ route, navigation }) => {
                         {isTyping ? 'Typing…' : 'Active now'}
                       </Text>
                     </TouchableOpacity>
+                    {/* Socket Status Indicator */}
+                    {socketReady ? (
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981', marginLeft: 8 }} />
+                    ) : (
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginLeft: 8 }} />
+                    )}
                   </View>
 
                   {/* Messages Container with proper flex */}

@@ -12,16 +12,26 @@ export const initializeSocket = async (userId) => {
     console.log('✅ Socket already connected');
     return socket;
   }
-  
+
   if (isConnecting) {
     console.log('⏳ Socket connection in progress...');
     return null;
   }
-  
+
   isConnecting = true;
   console.log('🔌 Initializing socket connection...');
 
   try {
+    // Attempt to resolve userId if not provided
+    if (!userId) {
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        userId = await AsyncStorage.getItem('userId');
+      } catch (e) {
+        console.warn('Unable to read userId from AsyncStorage during socket init');
+      }
+    }
+
     socket = io(SOCKET_URL, {
       transports: ['websocket'],
       reconnection: true,
@@ -47,6 +57,12 @@ export const initializeSocket = async (userId) => {
 
     socket.on('reconnect', (attemptNumber) => {
       console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
+      // Re-request chat box on reconnect
+      if (userId) {
+        try {
+          getUserChatBox(userId);
+        } catch (_) {}
+      }
     });
 
     socket.on('reconnect_attempt', (attemptNumber) => {
