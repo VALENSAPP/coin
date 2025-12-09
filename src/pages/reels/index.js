@@ -34,6 +34,8 @@ import CommentSheet from '../../components/home/posts/CommentSheet';
 import { useAppTheme } from '../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../components/modals/ShareModal';
+import ReportFlowScreen from '../../components/modals/Report';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -132,14 +134,37 @@ export default function FlipsScreen() {
   const [selectedReelId, setSelectedReelId] = useState(null);
   const commentSheetRef = useRef();
   const moreOptionsSheetRef = useRef();
+  const notInterestedSheetRef = useRef();
   const musicTemplatesSheetRef = useRef();
+  const reportSheetRef = useRef();
   const [videoProgress, setVideoProgress] = useState({});
   const [isBuffering, setIsBuffering] = useState({});
 
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const { bgStyle, textStyle } = useAppTheme();
-const shareRef = useRef(null);
+  const shareRef = useRef(null);
+  const options = [
+    "I don't like this post",
+    "I've already seen this",
+    "It's inappropriate",
+    "Other",
+  ];
+
+  const handleNotInterestedSelect = (option) => {
+    // Close the not-interested sheet first
+    notInterestedSheetRef.current?.close?.();
+
+    // Remove the currently selected reel from the list (simple hide action)
+    if (selectedReelId) {
+      setReels(prev => prev.filter(r => r.id !== selectedReelId));
+      setSelectedReelId(null);
+      showToastMessage(toast, 'success', 'Thanks — we\'ll show you fewer posts like this');
+      Alert.alert('success', 'Thanks — we\'ll show you fewer posts like this')
+    }
+    // You can extend this to call an API to report preference
+    console.log('Not interested reason:', option);
+  };
   // Progress bar animation
   useEffect(() => {
     const currentReel = reels[currentIndex];
@@ -270,6 +295,10 @@ const shareRef = useRef(null);
     }
   };
 
+  const copyToClipboard = (url) => {
+    Clipboard.setString(url);
+    console.log("Copied to clipboard:", url);
+  };
   // Initialize likes and comments count from reels data
   useEffect(() => {
     if (Array.isArray(reels) && reels.length) {
@@ -623,7 +652,7 @@ const shareRef = useRef(null);
         <TouchableOpacity
           style={styles.actionButton}
           // onPress={() => handleShare(item)}
-           onPress={() => shareRef.current?.open?.()}
+          onPress={() => shareRef.current?.open?.()}
         >
           <Icon name="paper-plane-outline" size={30} color="#fff" />
           <Text style={styles.actionLabel}>Share</Text>
@@ -857,15 +886,28 @@ const shareRef = useRef(null);
               <Icon name="bookmark-outline" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Save</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.moreOption}>
+            <TouchableOpacity
+              style={styles.moreOption}
+              onPress={() => {
+                moreOptionsSheetRef.current?.close();
+                setTimeout(() => reportSheetRef.current?.open(), 200);
+              }}
+            >
               <Icon name="flag-outline" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Report</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.moreOption}>
+            <TouchableOpacity
+              style={styles.moreOption}
+              onPress={() => {
+                moreOptionsSheetRef.current?.close();
+                // ensure selectedReelId is kept and open the not-interested sheet
+                setTimeout(() => notInterestedSheetRef.current?.open?.(), 220);
+              }}
+            >
               <Icon name="eye-off-outline" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Not Interested</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.moreOption}>
+            <TouchableOpacity style={styles.moreOption} onPress={() => copyToClipboard('')}>
               <Icon name="copy-outline" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Copy Link</Text>
             </TouchableOpacity>
@@ -905,8 +947,47 @@ const shareRef = useRef(null);
           />
         </View>
       </RBSheet>
+      {/* Not Interested Bottom Sheet */}
+      <RBSheet
+        ref={notInterestedSheetRef}
+        height={360}
+        openDuration={200}
+        closeOnDragDown={true}
+        closeOnPressMask={true}
+        customStyles={{ container: styles.sheetContainer, overlay: { backgroundColor: 'rgba(0,0,0,0.4)' } }}
+      >
+        <View style={styles.dragHandle} />
+
+        <View style={styles.headerContainer}>
+          <View style={styles.headerIcon}>
+            <Icon name="eye-off" size={22} color="#5a2d82" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sheetTitle}>Not Interested</Text>
+            <Text style={styles.sheetSubtitle}>Tell us why you don't want to see this</Text>
+          </View>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+          {options.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.reasonItem}
+              onPress={() => handleNotInterestedSelect(option)}
+            >
+              <View style={styles.reasonIconWrapper}>
+                <Icon name="eye-off" size={18} color="#5a2d82" />
+              </View>
+              <Text style={styles.reasonText}>{option}</Text>
+              <Icon name="chevron-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </RBSheet>
+
       <ShareModal ref={shareRef} reel={reels[currentIndex]}
         reelId={reels[currentIndex]?.id} />
+      <ReportFlowScreen ref={reportSheetRef} />
     </SafeAreaView>
   );
 }
@@ -1440,5 +1521,82 @@ const styles = StyleSheet.create({
   },
   musicIcon: {
     marginTop: 4
+  }
+  ,
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  sheetContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    backgroundColor: '#FFFFFF',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  headerIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(90,45,130,0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 2,
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    color: '#999',
+  },
+  reasonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: '#F8F8F8',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  reasonIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(90,45,130,0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reasonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+    flex: 1,
+  },
+  optionItem: {
+    // kept for compatibility if referenced elsewhere
+  },
+  optionText: {
+    // kept for compatibility
   }
 });
