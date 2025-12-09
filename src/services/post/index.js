@@ -136,3 +136,8 @@ export async function sharePost(body) {
 export async function GetAllReels(){
   return axiosInstance.get('/post/getAllReel')
 }
+
+export async function getHideChatConversation(chatId){
+  console.log(chatId,'check')
+  return axiosInstance.post('/post/hideChat', { chatId });
+}
