@@ -440,60 +440,61 @@ export default function ChatMessages() {
 
   // ✅ ADD DELETE CONVERSATION HANDLER
   const handleDeleteConversation = async () => {
-    console.log(selectedConversation,'cehckSelect conversation')
-    if (!selectedConversation || !selectedConversation.chatId) {
-      showToastMessage(toast, 'error', 'Unable to delete conversation', 2000);
-      setShowDeleteModal(false);
-      return;
-    }
+    setShowDeleteModal(false);
+    // console.log(selectedConversation,'cehckSelect conversation')
+    // if (!selectedConversation || !selectedConversation.chatId) {
+    //   showToastMessage(toast, 'error', 'Unable to delete conversation', 2000);
+    //   setShowDeleteModal(false);
+    //   return;
+    // }
 
-    setIsDeleting(true);
+    // setIsDeleting(true);
 
-    try {
-      console.log('Deleting conversation with chatId:', selectedConversation.chatId);
-      const response = await getHideChatConversation(selectedConversation.chatId);
+    // try {
+    //   console.log('Deleting conversation with chatId:', selectedConversation.chatId);
+    //   const response = await getHideChatConversation(selectedConversation.chatId);
       
-      console.log('Hide conversation response:', response);
+    //   console.log('Hide conversation response:', response);
 
-      if (response.success) {
-        // Remove from local state immediately
-        setConversations(prev => 
-          prev.filter(conv => conv.chatId !== selectedConversation.chatId)
-        );
+    //   if (response.success) {
+    //     // Remove from local state immediately
+    //     setConversations(prev => 
+    //       prev.filter(conv => conv.chatId !== selectedConversation.chatId)
+    //     );
 
-        showToastMessage(
-          toast,
-          'success',
-          'Conversation deleted successfully',
-          2000
-        );
+    //     showToastMessage(
+    //       toast,
+    //       'success',
+    //       'Conversation deleted successfully',
+    //       2000
+    //     );
 
-        // Refresh from server to sync
-        const socket = getSocket();
-        if (socket?.connected) {
-          socket.emit('getUserChatBox', { userId: currentUserId });
-        }
-      } else {
-        showToastMessage(
-          toast,
-          'error',
-          response.message || 'Failed to delete conversation',
-          2000
-        );
-      }
-    } catch (error) {
-      console.error('Error deleting conversation:', error);
-      showToastMessage(
-        toast,
-        'error',
-        'Failed to delete conversation',
-        2000
-      );
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteModal(false);
-      setSelectedConversation(null);
-    }
+    //     // Refresh from server to sync
+    //     const socket = getSocket();
+    //     if (socket?.connected) {
+    //       socket.emit('getUserChatBox', { userId: currentUserId });
+    //     }
+    //   } else {
+    //     showToastMessage(
+    //       toast,
+    //       'error',
+    //       response.message || 'Failed to delete conversation',
+    //       2000
+    //     );
+    //   }
+    // } catch (error) {
+    //   console.error('Error deleting conversation:', error);
+    //   showToastMessage(
+    //     toast,
+    //     'error',
+    //     'Failed to delete conversation',
+    //     2000
+    //   );
+    // } finally {
+    //   setIsDeleting(false);
+    //   setShowDeleteModal(false);
+    //   setSelectedConversation(null);
+    // }
   };
 
   // ✅ ADD CANCEL HANDLER

@@ -25,7 +25,7 @@ import CommentSection from '../../components/comments/CommentSection';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CustomMarquee from '../../components/customMarquee/CustomMarquee';
 import { getAllReels } from '../../services/reels';
-import { likePost } from '../../services/post';
+import { likePost, savePost, unSavePost } from '../../services/post';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -117,6 +117,10 @@ export default function FlipsScreen() {
   const [likesCount, setLikesCount] = useState({});
   const [commentsCount, setCommentsCount] = useState({});
   const [likingIds, setLikingIds] = useState(new Set());
+
+  // Save state
+  const [saved, setSaved] = useState({});
+  const [savingIds, setSavingIds] = useState(new Set());
 
   // Animation states
   const [heartAnimatingId, setHeartAnimatingId] = useState(null);
@@ -296,8 +300,13 @@ export default function FlipsScreen() {
   };
 
   const copyToClipboard = (url) => {
+    if (!url) {
+      showToastMessage(toast, 'danger', 'No link available to copy');
+      return;
+    }
     Clipboard.setString(url);
     console.log("Copied to clipboard:", url);
+    showToastMessage(toast, 'success', 'Link copied to clipboard');
   };
   // Initialize likes and comments count from reels data
   useEffect(() => {
@@ -305,18 +314,21 @@ export default function FlipsScreen() {
       const seededLiked = {};
       const seededLikesCount = {};
       const seededCommentsCount = {};
+      const seededSaved = {};
 
       for (const reel of reels) {
         if (reel?.id) {
           seededLiked[reel.id] = !!reel.isLiked;
           seededLikesCount[reel.id] = reel.likes || 0;
           seededCommentsCount[reel.id] = reel.comments || 0;
+          seededSaved[reel.id] = !!reel.isSaved;
         }
       }
 
       setLiked(seededLiked);
       setLikesCount(seededLikesCount);
       setCommentsCount(seededCommentsCount);
+      setSaved(seededSaved);
     }
   }, [reels]);
 
@@ -448,6 +460,44 @@ export default function FlipsScreen() {
     setSelectedReelId(postId);
     commentSheetRef.current?.open();
   };
+
+  const handleToggleSave = useCallback(
+    async (reelId) => {
+      if (!reelId) return;
+      if (savingIds.has(reelId)) return;
+
+      setSavingIds(prev => new Set(prev).add(reelId));
+      const isCurrentlySaved = !!saved[reelId];
+
+      let resp;
+      try {
+        resp = isCurrentlySaved
+          ? await unSavePost(reelId)
+          : await savePost(reelId);
+          console.log(resp,'respose get in this paiiapaiaiaa baa ')
+        if (resp && resp.statusCode === 200) {
+          showToastMessage(toast, 'success', resp.data.message);
+          Alert.alert(resp?.data?.message)
+          setSaved(prev => ({ ...prev, [reelId]: !isCurrentlySaved }));
+        } else {
+          showToastMessage(toast, 'danger', resp.data.message);
+        }
+      } catch (err) {
+        showToastMessage(
+          toast,
+          'danger',
+          err?.response?.data?.message ?? 'Something went wrong',
+        );
+      } finally {
+        setSavingIds(prev => {
+          const next = new Set(prev);
+          next.delete(reelId);
+          return next;
+        });
+      }
+    },
+    [saved, savingIds, toast],
+  );
 
   const handleCommentClose = useCallback(() => {
     commentSheetRef.current?.close();
@@ -889,9 +939,20 @@ export default function FlipsScreen() {
               <Text style={styles.moreOptionText}>Music Templates</Text>
               <Icon name="chevron-forward" size={20} color="#666" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.moreOption}>
-              <Icon name="bookmark-outline" size={24} color="#000" />
-              <Text style={styles.moreOptionText}>Save</Text>
+            <TouchableOpacity
+              style={styles.moreOption}
+              onPress={() => {
+                const reelId = selectedReelId || reels[currentIndex]?.id;
+                handleToggleSave(reelId);
+                moreOptionsSheetRef.current?.close();
+              }}
+            >
+              <Icon
+                name={saved[selectedReelId || reels[currentIndex]?.id] ? 'bookmark' : 'bookmark-outline'}
+                size={24}
+                color="#000"
+              />
+              <Text style={styles.moreOptionText}>{saved[selectedReelId || reels[currentIndex]?.id] ? 'Saved' : 'Save'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.moreOption}
@@ -914,7 +975,15 @@ export default function FlipsScreen() {
               <Icon name="eye-off-outline" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Not Interested</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.moreOption} onPress={() => copyToClipboard('')}>
+            <TouchableOpacity
+              style={styles.moreOption}
+              onPress={() => {
+                const reel = reels.find(r => r.id === selectedReelId) || reels[currentIndex];
+                const url = reel?.video || reel?.images?.[0] || reel?.image || '';
+                copyToClipboard(url);
+                moreOptionsSheetRef.current?.close();
+              }}
+            >
               <Icon name="copy-outline" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Copy Link</Text>
             </TouchableOpacity>
