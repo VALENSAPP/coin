@@ -138,6 +138,9 @@ export async function GetAllReels(){
 }
 
 export async function getHideChatConversation(chatId){
-  console.log(chatId,'check')
   return axiosInstance.post('/post/hideChat', { chatId });
+}
+
+export async function chatStatusUpdate(chatId){
+  return axiosInstance.post('/post/chatStatusUpdate', { chatId });
 }
