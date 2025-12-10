@@ -1,17 +1,17 @@
 import React, { useLayoutEffect, useState, useEffect, useCallback, useRef, Children } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
-  TextInput, 
-  Dimensions, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  Dimensions,
+  ScrollView,
   Alert,
   RefreshControl,
-  Modal // ✅ ADD THIS
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -24,7 +24,7 @@ import useSocket from '../../../hooks/useSocket';
 import { number } from 'yup';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
-import { getHideChatConversation } from '../../../services/post';
+import { getHideChatConversation, chatStatusUpdate } from '../../../services/post';
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -96,8 +96,7 @@ export default function ChatMessages() {
   const { bgStyle, textStyle, text } = useAppTheme();
   const toast = useToast();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
-  
-  // ✅ ADD THESE NEW STATES FOR DELETE MODAL
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -106,7 +105,6 @@ export default function ChatMessages() {
   useEffect(() => {
     const setupSocket = async () => {
       try {
-        // Request chat box data when socket connects
         if (currentUserId) {
           const socket = getSocket();
           if (socket?.connected) {
@@ -121,31 +119,34 @@ export default function ChatMessages() {
     setupSocket();
   }, []);
 
+  const [dataSource, setDataSource] = useState('none'); // Track data source: 'socket', 'api', or 'none'
+
   // Listen for chat box updates (conversation list)
   useSocket('userChatBox', (data) => {
     console.log('📨 Received userChatBox data:', data);
     if (data && Array.isArray(data)) {
       const processedConversations = processConversationsData(data);
+      console.log('✅ Socket data processed, setting conversations');
       setConversations(processedConversations);
+      setDataSource('socket'); // Mark that we have socket data
+      setIsLoading(false);
+      setError(null);
     }
   }, [currentUserId]);
 
   // Listen for new messages to show toast notification
   useSocket('newMessage', (message) => {
     console.log('🔔 New message received:', message);
-    
+
     if (!message || !currentUserId) return;
-    
-    // Check if message is for current user (as receiver)
+
     const receiverId = String(message.receiver?.id || message.receiverId || '');
     const senderId = String(message.sender?.id || message.senderId || '');
     const me = String(currentUserId);
-    
-    // Only show notification if current user is the receiver
+
     if (receiverId === me && senderId !== me) {
       const senderName = message.sender?.displayName || message.sender?.username || 'Someone';
-      
-      // Determine message preview
+
       let messagePreview = '';
       if (message.type === 'MEDIA') {
         messagePreview = 'Shared a media';
@@ -158,16 +159,14 @@ export default function ChatMessages() {
       } else {
         messagePreview = message.content || message.message || 'New message';
       }
-      
-      // Show toast notification
+
       showToastMessage(
         toast,
         'success',
         `${senderName}: ${messagePreview}`,
         3000
       );
-      
-      // Refresh conversation list to update unread count
+
       const socket = getSocket();
       if (socket?.connected) {
         socket.emit('getUserChatBox', { userId: currentUserId });
@@ -175,13 +174,12 @@ export default function ChatMessages() {
     }
   }, [currentUserId, toast]);
 
-  // Listen for messageSent event as well (some backends emit this)
+  // Listen for messageSent event
   useSocket('messageSent', (message) => {
     console.log('📤 Message sent event received:', message);
-    
+
     if (!message || !currentUserId) return;
-    
-    // Refresh conversation list to update with the new message
+
     const socket = getSocket();
     if (socket?.connected) {
       socket.emit('getUserChatBox', { userId: currentUserId });
@@ -222,16 +220,15 @@ export default function ChatMessages() {
   useFocusEffect(
     useCallback(() => {
       setIsScreenFocused(true);
-      
+
       if (currentUserId) {
         const socket = getSocket();
         if (socket?.connected) {
           socket.emit('getUserChatBox', { userId: currentUserId });
         }
-        // Also fetch via API as fallback
-        fetchConversations();
+        // fetchConversations();
       }
-      
+
       return () => {
         setIsScreenFocused(false);
       };
@@ -241,24 +238,30 @@ export default function ChatMessages() {
   const fetchConversations = async () => {
     if (!currentUserId) return;
 
+    // Don't use API if we already have socket data
+    if (dataSource === 'socket') {
+      console.log('✅ Already have socket data, skipping API call');
+      return;
+    }
+
     try {
       setIsLoading(true);
 
       const response = await getAllConversations();
-      console.log(response, 'totalMessages hererereree');
+      console.log('📥 API Response (fallback):', response);
 
       if (response.success && response.data) {
-        // Process conversations to get unique chat partners
         const processedConversations = processConversationsData(response.data);
+        console.log('⚠️ Using API data as fallback - count:', processedConversations.length);
         setConversations(processedConversations);
+        setDataSource('api');
+        setError(null);
       } else {
         setError(response.message || 'Failed to load conversations');
-        setConversations([]);
       }
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      console.error('❌ Error fetching conversations:', error);
       setError('Failed to load conversations');
-      setConversations([]);
     } finally {
       setIsLoading(false);
     }
@@ -266,74 +269,102 @@ export default function ChatMessages() {
 
   const onRefresh = useCallback(async () => {
     if (!currentUserId) return;
-
     setRefreshing(true);
-    
-    try {
-      // Request fresh data from socket
-      const socket = getSocket();
-      if (socket?.connected) {
-        console.log('🔄 Pull-to-refresh: Requesting chat box');
-        socket.emit('getUserChatBox', { userId: currentUserId });
-      }
-      
-      // Also fetch via API
-      const response = await getAllConversations();
-      console.log('🔄 Pull-to-refresh: API response', response);
-
-      if (response.success && response.data) {
-        const processedConversations = processConversationsData(response.data);
-        setConversations(processedConversations);
-        setError(null);
-        
-        // Show success feedback
-        showToastMessage(
-          toast,
-          'success',
-          'Messages refreshed',
-          2000
-        );
-      } else {
-        setError(response.message || 'Failed to refresh conversations');
-      }
-    } catch (error) {
-      console.error('Error refreshing conversations:', error);
-      showToastMessage(
-        toast,
-        'error',
-        'Failed to refresh messages',
-        2000
-      );
-    } finally {
-      setRefreshing(false);
+    const socket = getSocket();
+    if (socket?.connected) {
+      console.log('🔄 Pull-to-refresh: Requesting chat box');
+      socket.emit('getUserChatBox', { userId: currentUserId });
     }
+    setRefreshing(false);
   }, [currentUserId, toast]);
 
   const processConversationsData = (conversationsData) => {
-    console.log(conversationsData, 'covesation datatatatatat>>>.');
+    console.log('🔍 Processing conversations data - count:', conversationsData?.length);
+
     if (!Array.isArray(conversationsData)) {
-      console.warn('Invalid conversations data format:', conversationsData);
+      console.warn('❌ Invalid conversations data format:', conversationsData);
+      return [];
+    }
+
+    if (conversationsData.length === 0) {
+      console.log('📭 No conversations in data');
       return [];
     }
 
     const conversationMap = new Map();
-    console.log('Current user ID:', currentUserId);
+    console.log('👤 Current user ID:', currentUserId);
 
-    conversationsData.forEach(message => {
-      console.log(message, 'message data came herrererere');
-      // NEW: Handles your API structure
-     const conversationId = message.id; 
-      // ✅ FILTER OUT HIDDEN CONVERSATIONS
-      if (message.isHidden === true) {
-        console.log('Skipping hidden conversation:', message.id);
+    conversationsData.forEach((item, index) => {
+      // ✅ DETECT FORMAT: Check if this is a conversation object or a message object
+      const hasLastMessage = !!item.lastMessage;
+      const hasUser = !!item.user;
+      const hasSender = !!item.sender;
+      const hasReceiver = !!item.receiver;
+
+      let conversation, message, chatId;
+
+      // FORMAT 1: Socket data (conversation with lastMessage)
+      if (hasLastMessage && hasUser) {
+        console.log(`✅ Item ${index}: NEW FORMAT (conversation)`);
+
+        // ✅ CHECK isHidden FIRST - before processing
+        if (item.isHidden === true) {
+          console.log(`🚫 Skipping hidden conversation: ${item.id}`);
+          return;
+        }
+
+        conversation = item;
+        message = item.lastMessage;
+        chatId = item.id; // conversation.id is the chatId
+
+        console.log(`  - conversation.id (chatId): ${chatId}`);
+        console.log(`  - isHidden: ${item.isHidden}`);
+      }
+      // FORMAT 2: API data (individual messages)
+      else if (hasSender && hasReceiver) {
+        console.log(`✅ Item ${index}: OLD FORMAT (message)`);
+
+        // ✅ CHECK isHidden for old format too
+        if (item.isHidden === true) {
+          console.log(`🚫 Skipping hidden message: ${item.id}`);
+          return;
+        }
+
+        message = item;
+
+        // Generate stable conversation ID from user pair
+        const isCurrentUserSender = message.sender.id === currentUserId;
+        const chatPartner = isCurrentUserSender ? message.receiver : message.sender;
+        const partnerId = chatPartner.id;
+
+        chatId = [currentUserId, partnerId].sort().join('_');
+        console.log(`  - Generated chatId: ${chatId}`);
+
+        // Create conversation-like structure
+        conversation = {
+          id: chatId,
+          user: chatPartner,
+          unreadCount: 0,
+          isHidden: item.isHidden || false
+        };
+      } else {
+        console.warn('⚠️ Unknown format, skipping item:', item);
         return;
       }
-      
-      const unreadCount = message?.unreadCount;
-      const isCurrentUserSender = message.sender?.id === currentUserId;
-      const chatPartner = isCurrentUserSender ? message.receiver : message.sender;
 
-      if (!chatPartner?.id) return;
+      if (!message) {
+        console.log('⚠️ No message found');
+        return;
+      }
+
+      const unreadCount = conversation?.unreadCount || 0;
+      const isCurrentUserSender = (message.senderId || message.sender?.id) === currentUserId;
+      const chatPartner = conversation.user || (isCurrentUserSender ? message.receiver : message.sender);
+
+      if (!chatPartner?.id) {
+        console.log('⚠️ No chat partner found');
+        return;
+      }
 
       const partnerId = chatPartner.id;
       const messageTime = new Date(message.createdAt);
@@ -346,29 +377,30 @@ export default function ChatMessages() {
           ? "You shared a Media"
           : "Shared a Media";
       } else if (message.type === "CHAT") {
-        if (message.post) {
-          previewMessage = isCurrentUserSender
-            ? "You shared a post"
-            : "Shared a post";
-        } else {
-          const content = message.content || "";
-          previewMessage = isCurrentUserSender
-            ? `You: ${content}`
-            : content;
-        }
+        const content = message.content || "";
+        previewMessage = isCurrentUserSender
+          ? `You: ${content}`
+          : content;
+      } else if (message.type === "POST_SHARE") {
+        previewMessage = isCurrentUserSender
+          ? "You shared a post"
+          : "Shared a post";
+      } else if (message.type === "REEL_SHARE") {
+        previewMessage = isCurrentUserSender
+          ? "You shared a reel"
+          : "Shared a reel";
       }
-      console.log(message, 'new messsgae');
 
-      console.log(`Partner ${partnerId} unread count:`, unreadCount);
+      // Only keep the most recent message for each conversation
       if (
         !conversationMap.has(partnerId) ||
         messageTime > new Date(conversationMap.get(partnerId).lastMessageTime)
       ) {
-        conversationMap.set(partnerId, {
+        const conversationData = {
           id: partnerId,
           userId: partnerId,
-          chatId: message.chatId, // ✅ ADD CHAT ID FOR DELETION
-          username: chatPartner.displayName || "Unknown User",
+          chatId: chatId,
+          username: chatPartner.displayName || chatPartner.username || "Unknown User",
           displayName: chatPartner.displayName,
           avatar: chatPartner.image || ONLINE_PLACEHOLDER,
           lastMessage: previewMessage,
@@ -378,14 +410,16 @@ export default function ChatMessages() {
           isOnline: chatPartner.isOnline || false,
           sentByMe: isCurrentUserSender,
           type: message.type,
-          post: message.post,
           user: {
             id: partnerId,
             displayName: chatPartner.displayName,
             username: chatPartner.username,
             image: chatPartner.image,
           }
-        });
+        };
+
+        console.log(`  💾 Storing conversation - Partner: ${partnerId}, chatId: ${chatId}`);
+        conversationMap.set(partnerId, conversationData);
       }
     });
 
@@ -393,7 +427,7 @@ export default function ChatMessages() {
       (a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime)
     );
 
-    console.log("Processed conversations here im getting unred message :", result);
+    console.log(`✅ Final processed conversations: ${result.length} items`);
     return result;
   };
 
@@ -420,84 +454,94 @@ export default function ChatMessages() {
     }
   };
 
-  const handleUserChat = (item) => {
+  const handleUserChat = async (item) => {
     if (!item.userId || !item.user) {
       Alert.alert('Error', 'Unable to open chat');
       return;
     }
+    if (item.unreadCount > 0) {
+      try {
+        chatStatusUpdate(item.chatId)
+          .then((response) => {
+            console.log('HideChat Response:', response);
+          })
+          .catch((err) => {
+            console.log('HideChat Error:', err);
+          });
+
+      } catch (error) {
+        console.log('Background API Error:', error);
+      }
+    }
 
     navigation.navigate('UserChat', {
       userId: item.userId,
-      user: item.user
+      user: item.user,
     });
   };
 
-  // ✅ ADD LONG PRESS HANDLER
+
   const handleLongPress = (item) => {
     setSelectedConversation(item);
     setShowDeleteModal(true);
   };
 
-  // ✅ ADD DELETE CONVERSATION HANDLER
   const handleDeleteConversation = async () => {
-    setShowDeleteModal(false);
-    // console.log(selectedConversation,'cehckSelect conversation')
-    // if (!selectedConversation || !selectedConversation.chatId) {
-    //   showToastMessage(toast, 'error', 'Unable to delete conversation', 2000);
-    //   setShowDeleteModal(false);
-    //   return;
-    // }
+    console.log('🗑️ Attempting to delete conversation:', selectedConversation);
 
-    // setIsDeleting(true);
+    if (!selectedConversation || !selectedConversation.chatId) {
+      showToastMessage(toast, 'error', 'Unable to delete conversation', 2000);
+      setShowDeleteModal(false);
+      return;
+    }
 
-    // try {
-    //   console.log('Deleting conversation with chatId:', selectedConversation.chatId);
-    //   const response = await getHideChatConversation(selectedConversation.chatId);
-      
-    //   console.log('Hide conversation response:', response);
+    setIsDeleting(true);
 
-    //   if (response.success) {
-    //     // Remove from local state immediately
-    //     setConversations(prev => 
-    //       prev.filter(conv => conv.chatId !== selectedConversation.chatId)
-    //     );
+    try {
+      console.log('🗑️ Deleting conversation with chatId:', selectedConversation.chatId);
+      const response = await getHideChatConversation(selectedConversation.chatId);
 
-    //     showToastMessage(
-    //       toast,
-    //       'success',
-    //       'Conversation deleted successfully',
-    //       2000
-    //     );
+      console.log('📡 Hide conversation response:', response);
 
-    //     // Refresh from server to sync
-    //     const socket = getSocket();
-    //     if (socket?.connected) {
-    //       socket.emit('getUserChatBox', { userId: currentUserId });
-    //     }
-    //   } else {
-    //     showToastMessage(
-    //       toast,
-    //       'error',
-    //       response.message || 'Failed to delete conversation',
-    //       2000
-    //     );
-    //   }
-    // } catch (error) {
-    //   console.error('Error deleting conversation:', error);
-    //   showToastMessage(
-    //     toast,
-    //     'error',
-    //     'Failed to delete conversation',
-    //     2000
-    //   );
-    // } finally {
-    //   setIsDeleting(false);
-    //   setShowDeleteModal(false);
-    //   setSelectedConversation(null);
-    // }
+      if (response.success) {
+        setConversations(prev =>
+          prev.filter(conv => conv.chatId !== selectedConversation.chatId)
+        );
+
+        showToastMessage(
+          toast,
+          'success',
+          'Conversation deleted successfully',
+          2000
+        );
+
+        const socket = getSocket();
+        if (socket?.connected) {
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
+      } else {
+        showToastMessage(
+          toast,
+          'error',
+          response.message || 'Failed to delete conversation',
+          2000
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error deleting conversation:', error);
+      showToastMessage(
+        toast,
+        'error',
+        'Failed to delete conversation',
+        2000
+      );
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setSelectedConversation(null);
+    }
   };
 
-  // ✅ ADD CANCEL HANDLER
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setSelectedConversation(null);
@@ -526,8 +570,8 @@ export default function ChatMessages() {
   };
 
   const renderChatItem = ({ item }) => (
-    <TouchableOpacity 
-      style={[styles.chatItem, bgStyle, { shadowColor: text }]} 
+    <TouchableOpacity
+      style={[styles.chatItem, bgStyle, { shadowColor: text }]}
       onPress={() => handleUserChat(item)}
       onLongPress={() => handleLongPress(item)}
       delayLongPress={500}
@@ -618,10 +662,10 @@ export default function ChatMessages() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[text]} // Android
-            tintColor={text} // iOS
-            title="Pull to refresh" // iOS
-            titleColor={text} // iOS
+            colors={[text]}
+            tintColor={text}
+            title="Pull to refresh"
+            titleColor={text}
           />
         }
       >
@@ -632,7 +676,7 @@ export default function ChatMessages() {
         ) : error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={[styles.retryButton, { backgroundColor: text }]} onPress={fetchConversations}>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: text }]} onPress={console.log('')}>
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -655,7 +699,7 @@ export default function ChatMessages() {
         )}
       </ScrollView>
 
-      {/* ✅ ADD DELETE CONFIRMATION MODAL */}
+      {/* Delete Confirmation Modal */}
       <Modal
         visible={showDeleteModal}
         transparent={true}
@@ -668,12 +712,12 @@ export default function ChatMessages() {
               <SafeIcon name="trash-outline" size={32} color="#ff6b6b" />
               <Text style={[styles.modalTitle, textStyle]}>Delete Conversation</Text>
             </View>
-            
+
             <Text style={[styles.modalMessage, textStyle]}>
               Are you sure you want to delete this conversation with{' '}
               <Text style={styles.modalUsername}>{selectedConversation?.username}</Text>?
             </Text>
-            
+
             <Text style={styles.modalWarning}>
               This action cannot be undone.
             </Text>
@@ -904,7 +948,6 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
-  // ✅ ADD MODAL STYLES
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

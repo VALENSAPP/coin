@@ -33,6 +33,8 @@ import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { updateFcmToken } from '../../services/notifications';
+import { getSocket } from '../../services/socket';
+import useSocket from '../../hooks/useSocket';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 110;
@@ -45,22 +47,115 @@ export default function HomeScreen() {
   const [storyRefreshTick, setStoryRefreshTick] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
 
   const toast = useToast();
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
   const { bgStyle, text } = useAppTheme();
-
+  
   // ✅ Use ref to track if we need to refresh on app resume
   const appState = useRef(AppState.currentState);
+
+  // ✅ NEW: Get current user ID on mount
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          setCurrentUserId(userId);
+          console.log('📱 HomeScreen: Current user ID set:', userId);
+        }
+      } catch (error) {
+        console.error('Error getting user ID:', error);
+      }
+    };
+
+    getCurrentUserId();
+  }, []);
+
+  // ✅ NEW: Initialize socket and request unread count when user ID is available
+  useEffect(() => {
+    if (currentUserId && isFocused) {
+      const socket = getSocket();
+      if (socket?.connected) {
+        console.log('🔌 HomeScreen: Requesting chat box for unread count');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    }
+  }, [currentUserId, isFocused]);
+
+  // ✅ NEW: Listen for chat box updates to calculate unread count
+  useSocket('userChatBox', (data) => {
+    console.log('📨 HomeScreen: Received userChatBox data for unread calculation');
+    if (data && Array.isArray(data)) {
+      // Calculate total unread messages
+      const totalUnread = data.reduce((acc, conversation) => {
+        // Check if conversation is hidden first
+        if (conversation.isHidden === true) {
+          return acc;
+        }
+        return acc + (conversation.unreadCount || 0);
+      }, 0);
+      
+      console.log('📊 HomeScreen: Total unread messages:', totalUnread);
+      setUnreadCount(totalUnread);
+    }
+  }, [currentUserId]);
+
+  // ✅ NEW: Listen for new messages to update unread count
+  useSocket('newMessage', (message) => {
+    console.log('🔔 HomeScreen: New message received');
+    
+    if (!message || !currentUserId) return;
+    
+    const receiverId = String(message.receiver?.id || message.receiverId || '');
+    const senderId = String(message.sender?.id || message.senderId || '');
+    const me = String(currentUserId);
+    
+    // Only increment unread if message is for current user and not from them
+    if (receiverId === me && senderId !== me) {
+      console.log('📬 HomeScreen: Incrementing unread count');
+      
+      // Request fresh chat box data for accurate count
+      const socket = getSocket();
+      if (socket?.connected) {
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    }
+  }, [currentUserId]);
+
+  // ✅ NEW: Listen for messageSent to refresh unread count
+  useSocket('messageSent', (message) => {
+    console.log('📤 HomeScreen: Message sent event received');
+    
+    if (!message || !currentUserId) return;
+    
+    // Request fresh chat box data
+    const socket = getSocket();
+    if (socket?.connected) {
+      socket.emit('getUserChatBox', { userId: currentUserId });
+    }
+  }, [currentUserId]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
     setStoryRefreshTick(t => t + 1);
+    
+    // ✅ NEW: Refresh unread count on pull-to-refresh
+    if (currentUserId) {
+      const socket = getSocket();
+      if (socket?.connected) {
+        console.log('🔄 HomeScreen: Refreshing unread count');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    }
+    
     setRefreshing(false);
-  }, []);
+  }, [currentUserId]);
 
   // ✅ Move fetchData outside of useEffect so it's stable
   const fetchData = useCallback(async () => {
@@ -140,8 +235,17 @@ export default function HomeScreen() {
       setStoryRefreshTick(t => t + 1);
       fetchData();
       fetchProfileData();
+      
+      // ✅ NEW: Request unread count when screen becomes focused
+      if (currentUserId) {
+        const socket = getSocket();
+        if (socket?.connected) {
+          console.log('👁️ HomeScreen: Screen focused, requesting unread count');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
+      }
     }
-  }, [isFocused, fetchData, fetchProfileData]);
+  }, [isFocused, fetchData, fetchProfileData, currentUserId]);
 
   // ✅ FIXED: AppState listener with proper dependencies
   useEffect(() => {
@@ -158,13 +262,22 @@ export default function HomeScreen() {
         fetchData();
         fetchProfileData();
         setStoryRefreshTick(t => t + 1);
+        
+        // ✅ NEW: Refresh unread count on app resume
+        if (currentUserId) {
+          const socket = getSocket();
+          if (socket?.connected) {
+            console.log('🔄 HomeScreen: App resumed, requesting unread count');
+            socket.emit('getUserChatBox', { userId: currentUserId });
+          }
+        }
       }
       
       appState.current = nextAppState;
     });
 
     return () => subscription.remove();
-  }, [isFocused, fetchData, fetchProfileData]); // ✅ All dependencies added
+  }, [isFocused, fetchData, fetchProfileData, currentUserId]); // ✅ All dependencies added
 
   useEffect(() => {
     addFcmToken();
@@ -290,9 +403,20 @@ export default function HomeScreen() {
           >
             <Icon name="notifications-outline" size={25} color="#111100" />
           </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => navigation.navigate('ChatMessages')}>
+ 
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ChatMessages')}
+            style={{ position: 'relative', padding: 4 }}
+          >
             <Chat width={24} height={24} style={styles.headerIcon} />
+ 
+            {unreadCount > 0 && (
+              <View style={headerBadgeStyles.badgeContainer}>
+                <Text style={headerBadgeStyles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           {/* Story toggle button */}
@@ -386,5 +510,28 @@ const sidebarStyles = StyleSheet.create({
   toggleButton: {
     marginLeft: 8,
     padding: 4,
+  },
+});
+ 
+const headerBadgeStyles = StyleSheet.create({
+  badgeContainer: {
+    position: 'absolute',
+    right: -4,
+    top: -4,
+    backgroundColor: 'red',
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    zIndex: 2,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth:1,
+    borderColor:'#000',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
