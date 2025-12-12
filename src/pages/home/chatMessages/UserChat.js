@@ -104,7 +104,7 @@ const UserChat = ({ route, navigation }) => {
   const [currentVideo, setCurrentVideo] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const initialShared = post
     ? { type: 'post', post: post, postId: postId || post?.id }
@@ -185,7 +185,7 @@ const UserChat = ({ route, navigation }) => {
     }
     // Clear previous messages when switching to a different chat
     setMessages([]);
-    setIsLoading(true);
+    // setIsLoading(true);
   }, [targetUserId, navigation]);
 
   // Add this at the top of UserChat component, after state declarations
@@ -745,6 +745,12 @@ const UserChat = ({ route, navigation }) => {
     validMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     setMessages(validMessages);
     setIsLoading(false);
+     // ADD: Force scroll to bottom after setting messages (e.g., on initial load or fetch)
+  setTimeout(() => {
+    if (!isUserScrolling) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, 100);
   };
 
   const isVideoUrl = (url) => {
@@ -832,34 +838,25 @@ const UserChat = ({ route, navigation }) => {
 
   // Track scroll position to determine if user is near bottom
   const handleScroll = (event) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-
-    // Consider "near bottom" if within 100 pixels of the bottom
-    const nearBottom = distanceFromBottom < 100;
-    setIsNearBottom(nearBottom);
-
-    // Set user scrolling flag
+  if (!isUserScrolling) {
     setIsUserScrolling(true);
-
-    // Clear existing timeout
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-
-    // Reset scrolling flag after user stops scrolling
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsUserScrolling(false);
-    }, 150);
-  };
+  }
+  if (scrollTimeoutRef.current) {
+    clearTimeout(scrollTimeoutRef.current);
+  }
+  scrollTimeoutRef.current = setTimeout(() => {
+    setIsUserScrolling(false);
+  }, 200);
+};
 
   // Handle content size change - only scroll if appropriate
-  const handleContentSizeChange = () => {
-    // Only auto-scroll if user is not actively scrolling and is near bottom
-    if (!isUserScrolling && isNearBottom) {
-      scrollToBottom(false);
-    }
-  };
+const handleContentSizeChange = () => {
+  if (!isUserScrolling && isNearBottom) {
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: false });
+    }, 50); 
+  }
+};
 
   // Handle typing indicator
   const handleTyping = () => {
@@ -2026,10 +2023,10 @@ const UserChat = ({ route, navigation }) => {
 
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior="padding"
+         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss}> */}
           <View style={[styles.container, bgStyle]}>
             <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
               {/* Header */}
@@ -2089,11 +2086,11 @@ const UserChat = ({ route, navigation }) => {
                       </Text>
                     </TouchableOpacity>
                     {/* Socket Status Indicator */}
-                    {socketReady ? (
+                    {/* {socketReady ? (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981', marginLeft: 8 }} />
                     ) : (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginLeft: 8 }} />
-                    )}
+                    )} */}
                   </View>
 
                   {/* Messages Container with proper flex */}
@@ -2111,8 +2108,9 @@ const UserChat = ({ route, navigation }) => {
                         }
                       ]}
                       showsVerticalScrollIndicator={false}
-                      onContentSizeChange={handleContentSizeChange}
+                      // onContentSizeChange={handleContentSizeChange}
                       onScroll={handleScroll}
+                      scrollEnabled={true}
                       scrollEventThrottle={16}
                       keyboardShouldPersistTaps="handled"
                       ListFooterComponent={renderTypingIndicator}
@@ -2121,10 +2119,7 @@ const UserChat = ({ route, navigation }) => {
                           <Text style={styles.emptyText}>Start a conversation</Text>
                         </View>
                       )}
-                      maintainVisibleContentPosition={{
-                        minIndexForVisible: 0,
-                        autoscrollToTopThreshold: 10,
-                      }}
+
                     />
                   </View>
 
@@ -2270,7 +2265,7 @@ const UserChat = ({ route, navigation }) => {
               </Modal>
             </Animated.View>
           </View>
-        </TouchableWithoutFeedback>
+        {/* </TouchableWithoutFeedback> */}
       </KeyboardAvoidingView>
       <StoryViewerModal
         visible={storyViewerVisible}

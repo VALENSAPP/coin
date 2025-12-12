@@ -720,7 +720,7 @@ const handleBackPress = useCallback(() => {
                   <TouchableOpacity
                     onPress={() =>
                       navigation.navigate('Invite', {
-                        referralUrl: 'https://example.com/referral?code=ABC123',
+                        referralUrl: 'https://valens.com/referral?code=Valens123',
                         avatar: Userdata.profilePic,
                       })
                     }
