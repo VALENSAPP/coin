@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    Pressable, 
-    StyleSheet, 
-    ScrollView, 
-    Modal, 
-    TouchableOpacity, 
-    KeyboardAvoidingView, 
-    Linking, 
+import {
+    View,
+    Text,
+    TextInput,
+    Pressable,
+    StyleSheet,
+    ScrollView,
+    Modal,
+    TouchableOpacity,
+    KeyboardAvoidingView,
+    Linking,
     ActivityIndicator,
     DeviceEventEmitter,
     Platform,
@@ -38,30 +38,30 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     useEffect(() => {
         // Only setup listener when modal is visible
         if (!visible) return;
-        
+
         console.log('🎧 MissionSupport: Setting up PAYMENT_COMPLETED listener');
-        
+
         const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
             console.log('🔔 MissionSupport: PAYMENT_COMPLETED event received!', data);
-            
+
             // Reset loading state
             setIsButtonLoading(false);
             dispatch(hideLoader());
-            
+
             // Call success callback if provided
             if (onDonationSuccess) {
                 console.log('📞 MissionSupport: Calling onDonationSuccess');
                 onDonationSuccess();
             }
-            
+
             // Reset form
             setCustomAmount('');
             setSelectedAmount(null);
             setNote('');
-            
+
             // Close modal
             onClose();
-            
+
             showToastMessage(toast, 'success', 'Donation completed successfully!');
         });
 
@@ -73,7 +73,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
     const handleConfirm = async () => {
         setIsButtonLoading(true);
-        
+
         if (item?.profile === "user") {
             await handleMissionDonation();
         }
@@ -93,6 +93,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                 console.log('Purchase request body:', requestBody);
                 const response = await purchaseTokenWithUSD(requestBody);
+                console.log(response, 'respone s s ssbshujj')
                 if (response && response.statusCode === 200) {
                     const url = response?.data?.sessionUrl;
 
@@ -110,7 +111,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 showTitle: true,
                                 forceCloseOnRedirection: false, // Changed to false
                             });
-                            
+
                             // Don't reset here - event will handle it
                             console.log('InAppBrowser closed - waiting for event');
                         } else {
@@ -142,13 +143,14 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             }
         }
     };
-
     const handleMissionDonation = async () => {
         const finalAmount = selectedAmount || customAmount;
         console.log("Final Amount:", finalAmount);
         console.log("Note:", note);
+
         try {
-            dispatch(showLoader())
+            dispatch(showLoader());
+
             const requestBody = {
                 type: "missionDonation",
                 amount: Number(finalAmount),
@@ -157,14 +159,45 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 note: note
             };
 
-            console.log('Purchase request body:', requestBody);
+            console.log('Mission Donation Request:', requestBody);
+
             const response = await addMissionDonation(requestBody);
+            console.log(response, 'Mission Donation session response');
+
             if (response && response.statusCode === 200) {
                 const url = response?.data?.sessionUrl;
 
                 try {
-                    await Linking.openURL(url);
-                    // Event will handle the rest
+                    // ------------------------------
+                    // 🚀 USE IN-APP BROWSER (same as purchase flow)
+                    // ------------------------------
+                    if (await InAppBrowser.isAvailable()) {
+                        await InAppBrowser.open(url, {
+                            dismissButtonStyle: 'close',
+                            preferredBarTintColor: '#ffffff',
+                            preferredControlTintColor: '#000000',
+                            readerMode: false,
+                            animated: true,
+                            modalPresentationStyle: 'fullScreen',
+                            modalTransitionStyle: 'coverVertical',
+                            enableBarCollapsing: false,
+                            showTitle: true,
+                            forceCloseOnRedirection: false,
+                        });
+
+                        console.log('Mission Donation InAppBrowser closed — waiting for event');
+                    }
+                    else {
+                        await Linking.openURL(url);
+
+                        setCustomAmount('');
+                        setSelectedAmount(null);
+                        setNote('');
+                        setIsButtonLoading(false);
+                        dispatch(hideLoader());
+                        onClose();
+                    }
+
                 } catch (error) {
                     console.warn(error);
                     setIsButtonLoading(false);
@@ -176,9 +209,10 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
+
         } catch (error) {
-            console.error('Error creating payment session:', error);
-            alert('Failed to process payment. Please check your connection and try again.');
+            console.error('Error creating mission donation session:', error);
+            alert('Failed to process donation. Please try again.');
             setIsButtonLoading(false);
             dispatch(hideLoader());
         }
@@ -255,8 +289,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                             </Text>
 
                             <View style={styles.bottomButtons}>
-                                <TouchableOpacity 
-                                    style={[styles.confirmBtn, bg, isButtonLoading && styles.confirmBtnDisabled]} 
+                                <TouchableOpacity
+                                    style={[styles.confirmBtn, bg, isButtonLoading && styles.confirmBtnDisabled]}
                                     onPress={handleConfirm}
                                     disabled={isButtonLoading}
                                 >
@@ -270,8 +304,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                     )}
                                 </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={styles.cancelBtn} 
+                                <TouchableOpacity
+                                    style={styles.cancelBtn}
                                     onPress={onClose}
                                     disabled={isButtonLoading}
                                 >

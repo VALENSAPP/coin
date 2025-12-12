@@ -26,7 +26,7 @@ export default function InviteScreen() {
     const { bgStyle, textStyle } = useAppTheme();
  
     // Generate unique referral code for this user
-    const userReferralCode = route?.params?.referralCode ?? 'ABC123';
+    const userReferralCode = route?.params?.referralCode ?? 'Valens123';
     
     // OPTION 1: Custom URL Scheme (works immediately)
     // Format: yourapp://referral?code=ABC123
