@@ -19,7 +19,7 @@ import { getAllConversations } from '../../../services/chatMessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../../theme/useApptheme';
-import { getSocket } from '../../../services/socket';
+import { getSocket, initializeSocket } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
 import { number } from 'yup';
 import { useToast } from 'react-native-toast-notifications';
@@ -92,6 +92,7 @@ export default function ChatMessages() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [socketReady, setSocketReady] = useState(false);
   const inputRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
   const toast = useToast();
@@ -101,50 +102,149 @@ export default function ChatMessages() {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Initialize socket connection
+  const [dataSource, setDataSource] = useState('none'); // Track data source: 'socket', 'api', or 'none'
+
+  // ✅ Get current user ID and initialize socket on mount
   useEffect(() => {
-    const setupSocket = async () => {
+    const initializeUserAndSocket = async () => {
       try {
-        if (currentUserId) {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          setCurrentUserId(userId);
+          console.log('📱 ChatMessages: Current user ID set:', userId);
+          
+          // Initialize socket with userId
           const socket = getSocket();
-          if (socket?.connected) {
-            socket.emit('getUserChatBox', { userId: currentUserId });
+          if (!socket || !socket.connected) {
+            console.log('🔌 ChatMessages: Initializing socket...');
+            await initializeSocket(userId);
+            setSocketReady(true);
+          } else {
+            console.log('🔌 ChatMessages: Socket already connected');
+            setSocketReady(true);
           }
+        } else {
+          Alert.alert('Error', 'Please log in to view messages');
         }
       } catch (error) {
-        console.error('Failed to initialize socket:', error);
+        console.error('❌ Error initializing user and socket:', error);
+        Alert.alert('Error', 'Failed to load user information');
       }
     };
 
-    setupSocket();
+    initializeUserAndSocket();
   }, []);
 
-  const [dataSource, setDataSource] = useState('none'); // Track data source: 'socket', 'api', or 'none'
+  // ✅ Handle socket reconnection
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
 
-  // Listen for chat box updates (conversation list)
-  useSocket('userChatBox', (data) => {
-    console.log('📨 Received userChatBox data:', data);
-    if (data && Array.isArray(data)) {
-      const processedConversations = processConversationsData(data);
-      console.log('✅ Socket data processed, setting conversations');
-      setConversations(processedConversations);
-      setDataSource('socket'); // Mark that we have socket data
-      setIsLoading(false);
-      setError(null);
+    const handleConnect = () => {
+      console.log('🔌 ChatMessages: Socket connected');
+      setSocketReady(true);
+      
+      // Request chat box data on connection
+      if (currentUserId) {
+        console.log('📡 ChatMessages: Requesting chat box on connect');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    };
+
+    const handleDisconnect = () => {
+      console.log('🔌 ChatMessages: Socket disconnected');
+      setSocketReady(false);
+    };
+
+    const handleReconnect = () => {
+      console.log('🔌 ChatMessages: Socket reconnected');
+      setSocketReady(true);
+      
+      if (currentUserId) {
+        console.log('📡 ChatMessages: Requesting chat box on reconnect');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('reconnect', handleReconnect);
+
+    // Check if already connected
+    if (socket.connected) {
+      handleConnect();
     }
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('reconnect', handleReconnect);
+    };
   }, [currentUserId]);
 
-  // Listen for new messages to show toast notification
-  useSocket('newMessage', (message) => {
-    console.log('🔔 New message received:', message);
+  // ✅ Request chat box when user ID is available and socket is ready
+  useEffect(() => {
+    if (currentUserId && socketReady) {
+      const socket = getSocket();
+      if (socket?.connected) {
+        console.log('📡 ChatMessages: Requesting initial chat box');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    }
+  }, [currentUserId, socketReady]);
 
-    if (!message || !currentUserId) return;
+  // ✅ Listen for chat box updates (conversation list)
+  useSocket('userChatBox', (data) => {
+    console.log('📨 ChatMessages: Received userChatBox data');
+    
+    if (!data) {
+      console.log('⚠️ ChatMessages: No data received');
+      return;
+    }
+
+    let conversationsData = [];
+    
+    // Handle different data structures
+    if (Array.isArray(data)) {
+      conversationsData = data;
+    } else if (data.success && Array.isArray(data.data)) {
+      conversationsData = data.data;
+    }
+
+    console.log(`📊 ChatMessages: Processing ${conversationsData.length} conversations`);
+    
+    const processedConversations = processConversationsData(conversationsData);
+    console.log(`✅ ChatMessages: Processed ${processedConversations.length} conversations`);
+    
+    setConversations(processedConversations);
+    setDataSource('socket');
+    setIsLoading(false);
+    setError(null);
+  }, [currentUserId]);
+
+  // ✅ Listen for new messages to update conversation list in real-time
+  useSocket('newMessage', (message) => {
+    console.log('🔔 ChatMessages: New message received');
+
+    if (!message || !currentUserId) {
+      console.log('⚠️ ChatMessages: Missing message or currentUserId');
+      return;
+    }
 
     const receiverId = String(message.receiver?.id || message.receiverId || '');
     const senderId = String(message.sender?.id || message.senderId || '');
     const me = String(currentUserId);
 
-    if (receiverId === me && senderId !== me) {
+    console.log('🔍 ChatMessages: Message IDs:', {
+      senderId,
+      receiverId,
+      currentUserId: me,
+      isForMe: receiverId === me,
+      isFromMe: senderId === me
+    });
+
+    // Show toast notification if message is for current user and not from them
+    if (receiverId === me && senderId !== me && !isScreenFocused) {
       const senderName = message.sender?.displayName || message.sender?.username || 'Someone';
 
       let messagePreview = '';
@@ -166,75 +266,80 @@ export default function ChatMessages() {
         `${senderName}: ${messagePreview}`,
         3000
       );
-
-      const socket = getSocket();
-      if (socket?.connected) {
-        socket.emit('getUserChatBox', { userId: currentUserId });
-      }
     }
-  }, [currentUserId, toast]);
 
-  // Listen for messageSent event
+    // Request fresh conversation list from server
+    const socket = getSocket();
+    if (socket?.connected) {
+      console.log('📡 ChatMessages: Requesting fresh chat box after new message');
+      socket.emit('getUserChatBox', { userId: currentUserId });
+    }
+  }, [currentUserId, toast, isScreenFocused]);
+
+  // ✅ Listen for messageSent event to update conversation list
   useSocket('messageSent', (message) => {
-    console.log('📤 Message sent event received:', message);
+    console.log('📤 ChatMessages: Message sent event received');
 
     if (!message || !currentUserId) return;
 
-    const socket = getSocket();
-    if (socket?.connected) {
-      socket.emit('getUserChatBox', { userId: currentUserId });
-    }
-  }, [currentUserId]);
+    const senderId = String(message.sender?.id || message.senderId || '');
+    const me = String(currentUserId);
 
-  // Get current user ID on mount
-  useEffect(() => {
-    const getCurrentUserId = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
-          setCurrentUserId(userId);
-        } else {
-          Alert.alert('Error', 'Please log in to view messages');
-        }
-      } catch (error) {
-        console.error('Error getting user ID:', error);
-        Alert.alert('Error', 'Failed to load user information');
-      }
-    };
-
-    getCurrentUserId();
-  }, []);
-
-  // Request chat box when user ID is available
-  useEffect(() => {
-    if (currentUserId) {
+    // If current user sent the message, refresh chat box
+    if (senderId === me) {
+      console.log('📤 ChatMessages: Current user sent message, refreshing');
       const socket = getSocket();
       if (socket?.connected) {
-        console.log('Requesting chat box for user:', currentUserId);
         socket.emit('getUserChatBox', { userId: currentUserId });
       }
     }
   }, [currentUserId]);
 
-  // Track screen focus state
+  // ✅ Periodic refresh to catch any missed messages
+  useEffect(() => {
+    if (!currentUserId || !socketReady) {
+      console.log('⏸️ ChatMessages: Skipping periodic refresh - not ready');
+      return;
+    }
+
+    console.log('⏰ ChatMessages: Setting up periodic refresh');
+    
+    const interval = setInterval(() => {
+      const socket = getSocket();
+      if (socket?.connected && isScreenFocused) {
+        console.log('🔄 ChatMessages: Periodic refresh - requesting chat box');
+        socket.emit('getUserChatBox', { userId: currentUserId });
+      }
+    }, 10000); // Every 10 seconds
+
+    return () => {
+      console.log('⏰ ChatMessages: Clearing periodic refresh');
+      clearInterval(interval);
+    };
+  }, [currentUserId, socketReady, isScreenFocused]);
+
+  // ✅ Track screen focus state and request fresh data when focused
   useFocusEffect(
     useCallback(() => {
+      console.log('👁️ ChatMessages: Screen focused');
       setIsScreenFocused(true);
 
-      if (currentUserId) {
+      if (currentUserId && socketReady) {
         const socket = getSocket();
         if (socket?.connected) {
+          console.log('📡 ChatMessages: Requesting chat box on focus');
           socket.emit('getUserChatBox', { userId: currentUserId });
         }
-        // fetchConversations();
       }
 
       return () => {
+        console.log('👁️ ChatMessages: Screen unfocused');
         setIsScreenFocused(false);
       };
-    }, [currentUserId])
+    }, [currentUserId, socketReady])
   );
 
+  // ✅ Fetch conversations via API (only as fallback if socket data not received)
   const fetchConversations = async () => {
     if (!currentUserId) return;
 
@@ -267,19 +372,26 @@ export default function ChatMessages() {
     }
   };
 
+  // ✅ Pull-to-refresh handler (event-driven, no interval)
   const onRefresh = useCallback(async () => {
-    if (!currentUserId) return;
+    if (!currentUserId || !socketReady) return;
+    
     setRefreshing(true);
+    
     const socket = getSocket();
     if (socket?.connected) {
-      console.log('🔄 Pull-to-refresh: Requesting chat box');
+      console.log('🔄 ChatMessages: Manual refresh - requesting chat box');
       socket.emit('getUserChatBox', { userId: currentUserId });
     }
-    setRefreshing(false);
-  }, [currentUserId, toast]);
+    
+    // Give socket a moment to respond
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 500);
+  }, [currentUserId, socketReady]);
 
   const processConversationsData = (conversationsData) => {
-    console.log('🔍 Processing conversations data - count:', conversationsData?.length);
+    console.log('🔍 Processing conversations data - count:', conversationsData);
 
     if (!Array.isArray(conversationsData)) {
       console.warn('❌ Invalid conversations data format:', conversationsData);
@@ -389,6 +501,10 @@ export default function ChatMessages() {
         previewMessage = isCurrentUserSender
           ? "You shared a reel"
           : "Shared a reel";
+      } else if (message.type === "STORY_SHARE") {
+        previewMessage = isCurrentUserSender
+          ? "You shared a story"
+          : "Shared a story";
       }
 
       // Only keep the most recent message for each conversation
@@ -459,18 +575,25 @@ export default function ChatMessages() {
       Alert.alert('Error', 'Unable to open chat');
       return;
     }
+    
+    // Mark conversation as read if it has unread messages
     if (item.unreadCount > 0) {
       try {
         chatStatusUpdate(item.chatId)
           .then((response) => {
-            console.log('HideChat Response:', response);
+            console.log('✅ Chat marked as read:', response);
+            
+            // Request fresh chat box to update unread counts
+            const socket = getSocket();
+            if (socket?.connected) {
+              socket.emit('getUserChatBox', { userId: currentUserId });
+            }
           })
           .catch((err) => {
-            console.log('HideChat Error:', err);
+            console.log('❌ Chat status update error:', err);
           });
-
       } catch (error) {
-        console.log('Background API Error:', error);
+        console.log('❌ Background API Error:', error);
       }
     }
 
@@ -479,7 +602,6 @@ export default function ChatMessages() {
       user: item.user,
     });
   };
-
 
   const handleLongPress = (item) => {
     setSelectedConversation(item);
@@ -504,6 +626,7 @@ export default function ChatMessages() {
       console.log('📡 Hide conversation response:', response);
 
       if (response.success) {
+        // Optimistically remove from local state
         setConversations(prev =>
           prev.filter(conv => conv.chatId !== selectedConversation.chatId)
         );
@@ -515,6 +638,7 @@ export default function ChatMessages() {
           2000
         );
 
+        // Request fresh data from socket to confirm
         const socket = getSocket();
         if (socket?.connected) {
           socket.emit('getUserChatBox', { userId: currentUserId });
@@ -624,6 +748,17 @@ export default function ChatMessages() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>{USERNAME}</Text>
         <View style={{ flex: 1 }} />
+        
+        {/* Socket status indicator (for debugging - remove in production) */}
+        {/* {__DEV__ && (
+          <View style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: socketReady ? '#10b981' : '#ef4444',
+            marginLeft: 8,
+          }} />
+        )} */}
       </View>
 
       {/* Search Bar */}
@@ -676,7 +811,17 @@ export default function ChatMessages() {
         ) : error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={[styles.retryButton, { backgroundColor: text }]} onPress={console.log('')}>
+            <TouchableOpacity 
+              style={[styles.retryButton, { backgroundColor: text }]} 
+              onPress={() => {
+                const socket = getSocket();
+                if (socket?.connected) {
+                  socket.emit('getUserChatBox', { userId: currentUserId });
+                } else {
+                  fetchConversations();
+                }
+              }}
+            >
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>

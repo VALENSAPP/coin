@@ -9,120 +9,41 @@ import {
   Dimensions,
   FlatList,
   Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
-
+import { getAllNotifactions, readNotification } from '../../services/notifications';
+import { useDispatch } from 'react-redux';
 const { width } = Dimensions.get('window');
 
 export default function Notifications() {
   const [activeTab, setActiveTab] = useState('all');
   const scrollViewRef = useRef(null);
   const tabScrollRef = useRef(null);
+  const dispatch = useDispatch();
 
   // Track horizontal paging position
   const scrollX = useRef(new Animated.Value(0)).current;
   const currentIndexRef = useRef(0);
   const { bgStyle, textStyle, text } = useAppTheme();
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      type: 'mint',
-      title: 'New mint from artist you follow',
-      message: 'ethereum.jpeg minted "Digital Dreams #142"',
-      time: '2m',
-      avatar: 'https://picsum.photos/40/40?random=1',
-      isRead: false,
-      image: 'https://picsum.photos/60/60?random=10',
-      price: '0.001 ETH'
-    },
-    {
-      id: '2',
-      type: 'sale',
-      title: 'Your NFT was purchased',
-      message: 'cryptoart.eth bought "Neon Nights #7" for 0.05 ETH',
-      time: '15m',
-      avatar: 'https://picsum.photos/40/40?random=2',
-      isRead: false,
-      image: 'https://picsum.photos/60/60?random=11',
-      price: '0.05 ETH'
-    },
-    {
-      id: '3',
-      type: 'follow',
-      title: 'New follower',
-      message: "artist_collective started following you",
-      time: '1h',
-      avatar: 'https://picsum.photos/40/40?random=3',
-      isRead: true,
-      image: null,
-      price: null
-    },
-    {
-      id: '4',
-      type: 'comment',
-      title: 'New comment on your post',
-      message: 'web3_artist: "Beautiful work! Love the colors 🎨"',
-      time: '2h',
-      avatar: 'https://picsum.photos/40/40?random=7',
-      isRead: false,
-      image: 'https://picsum.photos/60/60?random=15',
-      price: null
-    },
-    {
-      id: '5',
-      type: 'bid',
-      title: 'New bid on your NFT',
-      message: 'collector_pro placed a bid of 0.12 ETH on "Abstract Flow"',
-      time: '4h',
-      avatar: 'https://picsum.photos/40/40?random=8',
-      isRead: false,
-      image: 'https://picsum.photos/60/60?random=16',
-      price: '0.12 ETH'
-    },
-    {
-      id: '6',
-      type: 'trade',
-      title: 'Trade completed',
-      message: 'Your trade with collector.eth was successful',
-      time: '6h',
-      avatar: 'https://picsum.photos/40/40?random=4',
-      isRead: true,
-      image: 'https://picsum.photos/60/60?random=12',
-      price: '0.08 ETH'
-    },
-    {
-      id: '7',
-      type: 'like',
-      title: 'Your post was liked',
-      message: 'crypto_enthusiast and 5 others liked your post',
-      time: '8h',
-      avatar: 'https://picsum.photos/40/40?random=9',
-      isRead: true,
-      image: 'https://picsum.photos/60/60?random=17',
-      price: null
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // Track loading state
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [SelectedNotification, setSelectedNotification] = useState(null);
 
   const navigation = useNavigation();
 
   const tabs = [
     { key: 'all', label: 'All' },
     { key: 'trades', label: 'Trades' },
-    { key: 'comments', label: 'Comments' },
+    // { key: 'comments', label: 'Comments' },
     { key: 'follows', label: 'Follows' }
   ];
 
-  const filteredNotifications = useMemo(() => {
-    if (activeTab === 'all') return notifications;
-    if (activeTab === 'trades') return notifications.filter(n => ['sale', 'bid', 'trade'].includes(n.type));
-    if (activeTab === 'comments') return notifications.filter(n => n.type === 'comment');
-    if (activeTab === 'follows') return notifications.filter(n => n.type === 'follow');
-    return notifications;
-  }, [activeTab, notifications]);
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -133,22 +54,116 @@ export default function Notifications() {
       case 'follow': return '👥';
       case 'like': return '❤️';
       case 'comment': return '💬';
+      case 'token_purchase': return '💎';
       default: return '🔔';
     }
   };
 
-  const markAsRead = (id) => {
+  useFocusEffect(
+    useCallback(() => {
+      getNotification();  
+    }, [])
+  );
+
+  const getNotification = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getAllNotifactions();
+      console.log(response, 'notification is working');
+      const raw = response?.data ?? [];
+
+      const formatRelativeTime = (iso) => {
+        if (!iso) return '';
+        const then = new Date(iso).getTime();
+        const now = Date.now();
+        const diff = Math.floor((now - then) / 1000); // seconds
+        if (diff < 60) return `${diff}s`;
+        const mins = Math.floor(diff / 60);
+        if (mins < 60) return `${mins}m`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d`;
+        const date = new Date(iso);
+        return date.toLocaleDateString();
+      };
+
+      const mapped = raw.map(item => ({
+        id: item.id,
+        type: item.data?.type ?? 'notification',
+        title: item.title ?? '',
+        message: item.body ?? '',
+        time: formatRelativeTime(item.createdAt ?? item.updatedAt),
+        avatar: item.avatar ?? null,
+        image: null,
+        price: null,
+        isRead: !!item.isRead,
+        raw: item,
+      }));
+
+      setNotifications(mapped);
+      
+      // Wait for state update and re-render
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+    } catch (err) {
+      console.log(err, 'error getting notifications');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const read = async (notificationIds) => {
+    console.log(notificationIds, 'notification IDs to mark as read');
+    try {
+      const idsArray = Array.isArray(notificationIds) ? notificationIds : [notificationIds];
+
+      const payload = {
+        notificationIds: idsArray
+      };
+
+      console.log(payload, 'payload being sent');
+      const response = await readNotification(payload);
+      console.log(response, 'response received');
+
+      if (response?.status === 200) {
+        console.log('Notifications marked as read');
+        await getNotification();
+      }
+    } catch (err) {
+      console.log(err, 'error marking notifications as read');
+    }
+  };
+
+  const markAsRead = async (id) => {
     setNotifications(prev =>
       prev.map(notif =>
         notif.id === id ? { ...notif, isRead: true } : notif
       )
     );
+
+    await read(id);
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
+  const markAllAsRead = async () => {
+    const unreadIds = notifications
+      .filter(n => !n.isRead)
+      .map(n => n.id);
+
+    if (unreadIds.length > 0) {
+      setNotifications(prev =>
+        prev.map(notif => ({ ...notif, isRead: true }))
+      );
+
+      await read(unreadIds);
+    }
+  };
+
+  const popupOpen = (item) => {
+    console.log(item, 'selected notification');
+    const selected = notifications.find(n => n.id === item.id);
+    setSelectedNotification(selected);
+    setPopupVisible(true);
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -159,7 +174,6 @@ export default function Notifications() {
 
     setActiveTab(tabKey);
 
-    // Snap the content ScrollView
     const targetScrollX = newIndex * width;
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
@@ -168,9 +182,8 @@ export default function Notifications() {
       });
     }
 
-    // Keep the tab in view
     if (tabScrollRef.current) {
-      const tabPosition = newIndex * 90; // approx tab width
+      const tabPosition = newIndex * 90;
       tabScrollRef.current.scrollTo({
         x: Math.max(0, tabPosition - width / 2 + 45),
         animated: true,
@@ -178,7 +191,6 @@ export default function Notifications() {
     }
   }, [tabs]);
 
-  // Update active tab while swiping (no lag)
   useEffect(() => {
     const sub = scrollX.addListener(({ value }) => {
       const index = Math.round(value / width);
@@ -188,7 +200,6 @@ export default function Notifications() {
 
         setActiveTab((prev) => (prev === newKey ? prev : newKey));
 
-        // Auto-scroll the tab bar to keep the active tab centered
         if (tabScrollRef.current) {
           const tabPosition = index * 90;
           tabScrollRef.current.scrollTo({
@@ -213,13 +224,6 @@ export default function Notifications() {
             title: 'No trades yet',
             subtitle: 'Your trading activity will appear here',
             showCreatePost: false
-          };
-        case 'comments':
-          return {
-            icon: '💬',
-            title: 'No comments yet',
-            subtitle: 'Share your work to start getting comments',
-            showCreatePost: true
           };
         case 'follows':
           return {
@@ -248,7 +252,7 @@ export default function Notifications() {
 
         {content.showCreatePost && (
           <TouchableOpacity
-            style={[styles.createPostButton, {backgroundColor: text, shadowColor: text}]}
+            style={[styles.createPostButton, { backgroundColor: text, shadowColor: text }]}
             activeOpacity={0.8}
             onPress={() => navigation.navigate('Add')}
           >
@@ -259,17 +263,52 @@ export default function Notifications() {
     );
   };
 
+  const renderPopup = () => (
+    <Modal
+      visible={popupVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setPopupVisible(false)}
+    >
+      <View style={styles.popupOverlay}>
+        
+        <View style={styles.popupContainer}>
+          <View style={styles.popupBell}>
+          <Text style={styles.popupBellIcon}>🔔</Text>
+        </View>
+          <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
+          <Text style={styles.popupMessage}>
+            {SelectedNotification?.message}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.popupCloseButton}
+            onPress={() => setPopupVisible(false)}
+          >
+            <Text style={styles.popupCloseText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const renderTabContent = (tabData) => {
     const renderItem = ({ item, index }) => (
       <TouchableOpacity
         style={[styles.notificationItem, !item.isRead && bgStyle]}
-        onPress={() => markAsRead(item.id)}
+        onPress={() => { markAsRead(item.id); popupOpen(item); }}
         activeOpacity={0.7}
       >
-        <View style={[styles.notificationContent, {shadowColor: text}]}>
+        <View style={[styles.notificationContent, { shadowColor: text }]}>
           <View style={styles.leftSection}>
             <View style={styles.avatarContainer}>
-              <Image source={{ uri: item.avatar }} style={styles.avatar} />
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}>
+                  <Text style={styles.avatarPlaceholderText}>🔔</Text>
+                </View>
+              )}
               <View style={[styles.iconBadge, bgStyle]}>
                 <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
               </View>
@@ -289,7 +328,7 @@ export default function Notifications() {
             {item.price && (
               <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
             )}
-            {!item.isRead && <View style={[styles.unreadDot, {backgroundColor: text}]} />}
+            {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />}
           </View>
         </View>
 
@@ -301,8 +340,12 @@ export default function Notifications() {
 
     return (
       <View style={styles.tabContentContainer}>
-        {tabData.length === 0 ? (
+        {!isLoading && tabData.length === 0 ? (
           <EmptyState tabType={activeTab} />
+        ) : isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, textStyle]}>Loading notifications...</Text>
+          </View>
         ) : (
           <FlatList
             data={tabData}
@@ -319,7 +362,7 @@ export default function Notifications() {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
-      <View style={[styles.header, bgStyle, {shadowColor: text}]}>
+      <View style={[styles.header, bgStyle, { shadowColor: text }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-back" size={24} color="#000" />
@@ -327,7 +370,7 @@ export default function Notifications() {
           <Text style={[styles.headerTitle, textStyle]}>Notifications</Text>
         </View>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllAsRead} style={[styles.markAllButton, {shadowColor: text}]}>
+          <TouchableOpacity onPress={markAllAsRead} style={[styles.markAllButton, { shadowColor: text }]}>
             <Text style={[styles.markAllText, textStyle]}>Mark all read</Text>
           </TouchableOpacity>
         )}
@@ -346,8 +389,8 @@ export default function Notifications() {
               key={tab.key}
               style={[
                 styles.tab,
-                activeTab === tab.key && {backgroundColor: text},
-                {shadowColor: text}
+                activeTab === tab.key && { backgroundColor: text },
+                { shadowColor: text }
               ]}
               onPress={() => switchToTab(tab.key)}
               activeOpacity={0.7}
@@ -366,7 +409,6 @@ export default function Notifications() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-        {/* If you later want an underline indicator, you can add it here */}
       </View>
 
       {/* Swipeable Content Area */}
@@ -385,9 +427,8 @@ export default function Notifications() {
         {tabs.map((tab) => {
           const tabData = (() => {
             if (tab.key === 'all') return notifications;
-            if (tab.key === 'trades') return notifications.filter(n => ['sale', 'bid', 'trade'].includes(n.type));
-            if (tab.key === 'comments') return notifications.filter(n => n.type === 'comment');
-            if (tab.key === 'follows') return notifications.filter(n => n.type === 'follow');
+            if (tab.key === 'trades') return notifications.filter(n => ['sale', 'bid', 'trade', 'token_purchase'].includes(n.type));
+            if (tab.key === 'follows') return notifications.filter(n => !['sale', 'bid', 'trade', 'token_purchase'].includes(n.type));
             return notifications;
           })();
 
@@ -398,6 +439,7 @@ export default function Notifications() {
           );
         })}
       </Animated.ScrollView>
+      {renderPopup()}
     </SafeAreaView>
   );
 }
@@ -470,7 +512,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   activeTabText: {
-    color:'#fff',
+    color: '#fff',
   },
   tabBadge: {
     marginLeft: 6,
@@ -487,23 +529,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  tabIndicatorContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 24,
-    right: 24,
-    height: 2,
-    backgroundColor: 'transparent',
-  },
-  tabIndicatorBar: {
-    width: 80,
-    height: 2,
-    backgroundColor: '#ff1493',
-    borderRadius: 1,
-  },
-  contentContainer: {
-    flex: 1,
-  },
   horizontalScrollView: {
     flex: 1,
   },
@@ -513,13 +538,15 @@ const styles = StyleSheet.create({
   },
   tabContentContainer: {
     flex: 1,
+    marginTop:15,
   },
   listContent: {
     flexGrow: 1,
   },
   notificationItem: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 0,
+    marginBottom:'-1%'
   },
   notificationContent: {
     flexDirection: 'row',
@@ -527,7 +554,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 12,
+    padding: 10,
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
@@ -548,6 +575,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
     borderWidth: 2,
     borderColor: '#f3f0f7',
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholderText: {
+    fontSize: 18,
   },
   iconBadge: {
     position: 'absolute',
@@ -624,7 +658,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     textAlign: 'center',
-    color:'#fff'
+    color: '#fff'
   },
   emptyMessage: {
     fontSize: 16,
@@ -651,4 +685,67 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popupContainer: {
+    width: '80%',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  popupMessage: {
+    fontSize: 14,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  popupCloseButton: {
+    backgroundColor: '#5a2d82',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  popupCloseText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+popupBell: {
+  backgroundColor: '#fff',
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  justifyContent: 'center',
+  alignItems: 'center',
+  elevation: 6,
+  shadowColor: '#000',
+  shadowOpacity: 0.2,
+  shadowRadius: 6,
+  marginBottom:20,
+},
+
+popupBellIcon: {
+  fontSize: 30,
+},
+
 });
