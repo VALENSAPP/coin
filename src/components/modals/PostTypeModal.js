@@ -57,7 +57,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   };
 
   const handleCrowdfundingSelect = () => {
-    if (creditsLeft === 0) {
+     if (!creditsLeft ||  creditsLeft === 0) {
       setShowBuyCreditsModal(true);
     } else {
       onSelect('crowdfunding');
