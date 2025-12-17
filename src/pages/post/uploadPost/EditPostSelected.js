@@ -78,7 +78,7 @@ const InstagramPostCreator = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
   const bottomSheetRef = useRef();
-  console.log(fromIcon,'from icon came here')
+  console.log(fromIcon, 'from icon came here')
 
   const [selectedFilter, setSelectedFilter] = useState('none');
   const [isZooming, setIsZooming] = useState(false);
@@ -284,11 +284,23 @@ const InstagramPostCreator = () => {
     }
   };
 
+
   const renderFilters = () => {
     // Hide filters if current media is video or filters are not shown
     if (!showFilters || isCurrentMediaVideo()) return null;
 
     const currentEdits = getCurrentImageEdits();
+    const imageUri = selectedImages[currentImageIndex]?.path || selectedImages[currentImageIndex]?.uri;
+
+    // List of filter names (we'll show names + simple preview style instead of live filter)
+    const filterPreviews = [
+      { name: 'Original', value: 'none' },
+      { name: 'Grayscale', value: 'grayscale' },
+      { name: 'Sepia', value: 'sepia' },
+      { name: 'Saturate', value: 'saturate' },
+      { name: 'Contrast', value: 'contrast' },
+      { name: 'Brightness', value: 'brightness' },
+    ];
 
     return (
       <ScrollView
@@ -296,35 +308,43 @@ const InstagramPostCreator = () => {
         showsHorizontalScrollIndicator={false}
         style={styles.filtersContainer}
       >
-        {filterOptions.map(opt => {
-          const FilterComp = opt.component;
-          return (
-            <TouchableOpacity
-              key={opt.value}
-              onPress={() => handleFilterChange(opt.value)}
-              style={styles.filterOption}
+        {filterPreviews.map((filter) => (
+          <TouchableOpacity
+            key={filter.value}
+            onPress={() => handleFilterChange(filter.value)}
+            style={styles.filterOption}
+          >
+            <View
+              style={[
+                styles.filterPreview,
+                currentEdits.filter === filter.value && styles.selectedFilter,
+              ]}
             >
-              <View
-                style={[
-                  styles.filterPreview,
-                  currentEdits.filter === opt.value && styles.selectedFilter,
-                ]}
-              >
-                <FilterComp>
-                  <Image
-                    source={{
-                      uri:
-                        selectedImages[currentImageIndex]?.path ||
-                        selectedImages[currentImageIndex]?.uri,
-                    }}
-                    style={styles.filterPreviewImage}
-                  />
-                </FilterComp>
-              </View>
-              <Text style={styles.filterName}>{opt.name}</Text>
-            </TouchableOpacity>
-          );
-        })}
+              {/* Simple preview using original image with overlay effect */}
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.filterPreviewImage}
+              // resizeMode="cover"
+              />
+              {/* Visual indicator overlay for each filter */}
+              <View style={[
+                StyleSheet.absoluteFillObject,
+                {
+                  backgroundColor:
+                    filter.value === 'grayscale' ? 'rgba(0,0,0,0.4)' :
+                      filter.value === 'sepia' ? 'rgba(148, 175, 227, 0.3)' :
+                        filter.value === 'saturate' ? 'rgba(255,0,255,0.1)' :
+                          filter.value === 'contrast' ? 'rgba(0,0,0,0.3)' :
+                            filter.value === 'brightness' ? 'rgba(255,255,255,0.3)' :
+                              'transparent',
+                },
+              ]} />
+            </View>
+            <Text style={[styles.filterName, { color: '#000000' }]}>
+              {filter.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     );
   };
@@ -1003,15 +1023,47 @@ const InstagramPostCreator = () => {
                         onMove={({ scale }) => handleZoomChange(scale)}
                       >
                         {/* Filtered image */}
-                        <FilterComponent>
+                        {!isMediaVideo(image) ? (
+                          <View style={styles.mainImage}>
+                            <Image
+                              source={{ uri: image.path || image.uri }}
+                              style={styles.mainImage}
+                              resizeMode="cover"
+                            />
+                            {/* Filter overlay */}
+                            {selectedFilter !== 'none' && (
+                              <View
+                                pointerEvents="none"
+                                style={[
+                                  StyleSheet.absoluteFillObject,
+                                  {
+                                    backgroundColor:
+                                      selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                        selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                          selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                            selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                              selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                                'transparent',
+                                    mixBlendMode: 'multiply',
+                                  }
+                                ]} />
+                            )}
+                            {/* Optional: Duplicate image with tint for stronger effect */}
+                            {/* {selectedFilter === 'grayscale' && (
+                              <Image
+                                source={{ uri: image.path || image.uri }}
+                                style={[styles.mainImage, { tintColor: '#808080', opacity: 0.8 }]}
+                                resizeMode="cover"
+                              />
+                            )} */}
+                          </View>
+                        ) : (
                           <Image
-                            source={{
-                              uri: image.path || image.uri,
-                            }}
+                            source={{ uri: image.path || image.uri }}
                             style={styles.mainImage}
                             resizeMode="cover"
                           />
-                        </FilterComponent>
+                        )}
                       </ImageZoom>
                     )}
 
@@ -1454,7 +1506,7 @@ const InstagramPostCreator = () => {
             />
           ))}
         </View>
-       )} 
+      )}
       <RBSheet
         ref={bottomSheetRef}
         closeOnDragDown={true}
@@ -1658,7 +1710,7 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <View style={{height: fromIcon ? "82%" : "70%"}} showsVerticalScrollIndicator={false}>
+      <View style={{ height: fromIcon ? "82%" : "70%" }} showsVerticalScrollIndicator={false}>
         {renderFilters()}
         {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}
@@ -1672,6 +1724,7 @@ const InstagramPostCreator = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+
   },
   header: {
     flexDirection: 'row',
@@ -1689,25 +1742,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   imageContainer: {
-    marginBottom: 20,
-    marginLeft: 15,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    // alignItems: 'center',
+    // marginBottom: 20,
+    // marginLeft: 15,
     // height:'100%',
     // alignItems: 'center',
     // paddingVertical: 16,
     // backgroundColor:'#f51919ff'
 
+
   },
   mainImageContainer: {
-    position: 'relative',
-    height: "100%"
+    position:'relative',
+    // width: IMAGE_SIZE,
+    height: '100%',
+    // paddingVertical:20,      
+    // alignSelf: 'center',
+    // position: 'relative',
+    // height: showFilters ? '80%' : '100%',
+
   },
   mainScrollView: {
     width: IMAGE_SIZE,
-    // height: IMAGE_SIZE,
+    // height: '90%',
   },
   mainScrollContent: {
     alignItems: 'center',
     height: '100%',
+    // alignSelf: 'center',
   },
   imageSlide: {
     //  height: IMAGE_SIZE ,
@@ -1874,7 +1938,7 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
 
   },
   filterOption: {
@@ -1890,16 +1954,16 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   selectedFilter: {
-    borderColor: '#fff',
+    borderColor: '#000',
   },
   filterPreviewImage: {
     width: '100%',
     height: '100%',
   },
   filterName: {
-    color: '#fff',
     fontSize: 12,
     marginTop: 4,
+    color: '#000'
   },
   editingSection: {
     paddingTop: 12,

@@ -664,26 +664,6 @@ export default function FlipsScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={handleBackPress}
-          style={styles.buttons}
-        >
-          <Icon name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerLeft}
-          onPress={() => setDropdownVisible(v => !v)}
-        >
-          <Text style={styles.logo}>Flips</Text>
-          <Icon name="chevron-down" size={18} color="#fff" style={styles.chevronIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <Feather name="camera" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
       {/* Side actions */}
       <View style={styles.sideActions}>
         <TouchableOpacity
@@ -832,6 +812,25 @@ export default function FlipsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={handleBackPress}
+          style={styles.buttons}
+        >
+          <Icon name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerLeft}
+          onPress={() => setDropdownVisible(v => !v)}
+        >
+          <Text style={styles.logo}>Flips</Text>
+          <Icon name="chevron-down" size={18} color="#fff" style={styles.chevronIcon} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerIconButton}>
+          <Feather name="camera" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
       <FlatList
         ref={flatListRef}
         data={reels}
@@ -1072,6 +1071,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    marginBottom:'10%'
   },
   reelContainer: {
     width: SCREEN_WIDTH,
@@ -1123,14 +1123,15 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 0,
+    top: 5,
     left: 0,
     right: 0,
+    zIndex:100,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 50,
     paddingBottom: 10,
   },
   headerLeft: {
@@ -1167,6 +1168,7 @@ const styles = StyleSheet.create({
   },
   musicDisc: {
     marginTop: 10,
+    marginBottom:'10%'
   },
   discContainer: {
     width: 30,
@@ -1182,7 +1184,7 @@ const styles = StyleSheet.create({
   },
   bottomContent: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 110,
     left: 0,
     right: 80,
     padding: 16,
