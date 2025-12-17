@@ -34,5 +34,24 @@ target 'valens' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    
+    # Fix Swift compilation and deployment target issues
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # Set minimum deployment target
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.4'
+        
+        # Fix Swift version
+        config.build_settings['SWIFT_VERSION'] = '5.0'
+        
+        # Disable bitcode
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+        
+        # Fix expo-localization Swift issue
+        if target.name == 'ExpoLocalization'
+          config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
+        end
+      end
+    end
   end
 end
