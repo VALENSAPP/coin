@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import PostTypeModal from '../../components/modals/PostTypeModal';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useDispatch } from 'react-redux';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
 const { width } = Dimensions.get('window');
 const gridItemSize = (width - 48) / 3;
@@ -20,8 +22,11 @@ export default function PostScreen({ navigation }) {
   const route = useRoute();
   const fromIcon = route?.params?.fromIcon;
   const mediaType = route?.params?.type;
-  console.log(mediaType,'mediaTypes--------------------------------')
+  console.log(mediaType, 'mediaTypes--------------------------------')
   const { bgStyle, textStyle, text } = useAppTheme();
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+  const dispatch = useDispatch();
+
 
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
     const existingUris = new Set(existingGallery.map(img => img.uri));
@@ -117,6 +122,8 @@ export default function PostScreen({ navigation }) {
     })
       .then((response) => {
         if (!response) return;
+        // dispatch(showLoader());
+        // setPreviewLoaded(false);
 
         const assets = Array.isArray(response) ? response : [response];
 
@@ -434,7 +441,23 @@ export default function PostScreen({ navigation }) {
             <View key={`selected_${media.uri}_${index}`} style={styles.selectedGridItemHorizontal}>
               {media.type && media.type.startsWith('video') ? (
                 <View style={styles.selectedVideoItem}>
-                  <Image source={{ uri: media.uri }} style={styles.selectedGridImageHorizontal} />
+                  <Image
+                    source={{ uri: media.uri }}
+                    style={styles.selectedGridImageHorizontal}
+                    // onLoadEnd={() => {
+                    //   if (!previewLoaded) {
+                    //     setPreviewLoaded(true);
+                    //     dispatch(hideLoader());
+                    //   }
+                    // }}
+                    // onError={() => {
+                    //   if (!previewLoaded) {
+                    //     setPreviewLoaded(true);
+                    //     dispatch(hideLoader());
+                    //   }
+                    // }}
+                  />
+
                   <View style={styles.selectedVideoPlay}>
                     <Icon name="play" size={20} color="#fff" />
                   </View>
@@ -467,7 +490,7 @@ export default function PostScreen({ navigation }) {
               >
                 <Icon name="close-circle" size={20} color="#ff3040" />
               </TouchableOpacity>
-              <View style={[styles.selectedOrderIndicator, {backgroundColor: text}]}>
+              <View style={[styles.selectedOrderIndicator, { backgroundColor: text }]}>
                 <Text style={styles.selectedOrderText}>{index + 1}</Text>
               </View>
             </View>

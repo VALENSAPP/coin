@@ -118,7 +118,7 @@ const SearchScreen = () => {
       console.error('Search error:', err);
       setFilteredUsers([]);
     } finally {
-      // dispatch(hideLoader());
+      dispatch(hideLoader());
     }
   }, [dispatch]);
 
