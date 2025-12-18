@@ -56,7 +56,7 @@ export default function PostScreen({ navigation }) {
       showCropFrame: true,
       hideBottomControls: false,
       enableRotationGesture: true,
-      compressImageQuality: 0.8,
+      compressImageQuality: 0.6,
     })
       .then((croppedImage) => {
         setSelectedMedia(prev => {
@@ -111,18 +111,18 @@ export default function PostScreen({ navigation }) {
 
   const openGallery = () => {
     const remainingSlots = 10 - (selectedMedia?.length || 0);
-
+    dispatch(showLoader());
     ImagePicker.openPicker({
       mediaType: postType === 'flip' ? 'video' : 'any',
       multiple: postType !== 'flip', // single video in flip mode
       maxFiles: postType === 'flip' ? 1 : remainingSlots > 0 ? remainingSlots : 1,
       includeBase64: false,
-      compressImageQuality: 0.8,
+      compressImageQuality: 0.6,
       cropping: false,
     })
       .then((response) => {
         if (!response) return;
-        // dispatch(showLoader());
+        dispatch(hideLoader());
         // setPreviewLoaded(false);
 
         const assets = Array.isArray(response) ? response : [response];
@@ -190,9 +190,12 @@ export default function PostScreen({ navigation }) {
         );
 
         setGalleryImages(updatedGalleryImages);
+        dispatch(hideLoader());
       })
       .catch((error) => {
         console.log('Gallery error:', error);
+        dispatch(hideLoader());
+
 
         if (error.code === 'E_PICKER_CANCELLED') {
           if ((!selectedMedia || selectedMedia.length === 0) && navigation?.goBack) {
@@ -246,10 +249,11 @@ export default function PostScreen({ navigation }) {
   };
 
   const captureMedia = (mediaType) => {
+    dispatch(showLoader());
     const options = {
       mediaType,
       includeBase64: false,
-      compressImageQuality: 0.8,
+      compressImageQuality: 0.6,
       cropping: false,
     };
 
@@ -261,6 +265,7 @@ export default function PostScreen({ navigation }) {
     ImagePicker.openCamera(options)
       .then((response) => {
         if (!response) return;
+        dispatch(hideLoader());
 
         // 🧠 Duration validation for Flip-type videos
         if (mediaType === 'video' && postType === 'flip') {
@@ -317,9 +322,13 @@ export default function PostScreen({ navigation }) {
           ];
           setGalleryImages(sampleRecentImages);
         }
+        dispatch(hideLoader());
+
       })
       .catch((err) => {
         console.log('Camera cancelled or error:', err);
+        dispatch(hideLoader());
+
       });
   };
 
@@ -444,18 +453,18 @@ export default function PostScreen({ navigation }) {
                   <Image
                     source={{ uri: media.uri }}
                     style={styles.selectedGridImageHorizontal}
-                    // onLoadEnd={() => {
-                    //   if (!previewLoaded) {
-                    //     setPreviewLoaded(true);
-                    //     dispatch(hideLoader());
-                    //   }
-                    // }}
-                    // onError={() => {
-                    //   if (!previewLoaded) {
-                    //     setPreviewLoaded(true);
-                    //     dispatch(hideLoader());
-                    //   }
-                    // }}
+                  // onLoadEnd={() => {
+                  //   if (!previewLoaded) {
+                  //     setPreviewLoaded(true);
+                  //     dispatch(hideLoader());
+                  //   }
+                  // }}
+                  // onError={() => {
+                  //   if (!previewLoaded) {
+                  //     setPreviewLoaded(true);
+                  //     dispatch(hideLoader());
+                  //   }
+                  // }}
                   />
 
                   <View style={styles.selectedVideoPlay}>
