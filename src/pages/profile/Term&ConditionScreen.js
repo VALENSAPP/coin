@@ -39,7 +39,7 @@ const TermConditionScreen = () => {
                 </Text>
 
                 {/* PART A */}
-                <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
+                {/* <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
 
                 <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
                 <Text style={styles.text}>
@@ -80,54 +80,54 @@ const TermConditionScreen = () => {
                 <Text style={styles.text}>
                     Valens may restrict monetization, freeze payouts, remove content, or disable plans
                     upon violations.
-                </Text>
+                </Text> */}
 
                 {/* PART B */}
-                <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
+                <Text style={styles.partTitle}>PART A — TERMS FOR SUBSCRIBERS</Text>
 
-                <Text style={styles.sectionTitle}>7. Subscription Access</Text>
+                <Text style={styles.sectionTitle}>2. Subscription Access</Text>
                 <Text style={styles.text}>
                     Subscribers gain access to exclusive private content and perks. Access is
                     non-transferable.
                 </Text>
 
-                <Text style={styles.sectionTitle}>8. Monthly Billing & Auto-Renewal</Text>
+                <Text style={styles.sectionTitle}>3. Monthly Billing & Auto-Renewal</Text>
                 <Text style={styles.text}>
                     By subscribing, you authorize Valens to bill you monthly until cancellation.
                 </Text>
 
-                <Text style={styles.sectionTitle}>9. Cancellation</Text>
+                <Text style={styles.sectionTitle}>4. Cancellation</Text>
                 <Text style={styles.text}>
                     You may cancel anytime. Access remains until the end of the billing period. No
                     partial refunds.
                 </Text>
 
-                <Text style={styles.sectionTitle}>10. No Refunds</Text>
+                <Text style={styles.sectionTitle}>5. No Refunds</Text>
                 <Text style={styles.text}>
                     All subscription payments are final and non-refundable, including unused periods.
                 </Text>
 
-                <Text style={styles.sectionTitle}>11. Content Protection</Text>
+                <Text style={styles.sectionTitle}>6. Content Protection</Text>
                 <Text style={styles.text}>
                     Subscribers may NOT screenshot, record, download, print, or share subscription
                     content. Violations may result in a security block.
                 </Text>
 
                 {/* PART C */}
-                <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
+                <Text style={styles.partTitle}>PART B — GENERAL TERMS</Text>
 
-                <Text style={styles.sectionTitle}>12. Safety & Compliance</Text>
+                <Text style={styles.sectionTitle}>7. Safety & Compliance</Text>
                 <Text style={styles.text}>
                     All interactions must comply with Valens Community Guidelines and legal requirements.
                 </Text>
 
-                <Text style={styles.sectionTitle}>13. Platform Rights</Text>
+                <Text style={styles.sectionTitle}>8. Platform Rights</Text>
                 <Text style={styles.text}>
                     Valens may update fees, freeze suspicious activity, restrict payouts, or suspend
                     programs.
                 </Text>
 
-                <Text style={styles.sectionTitle}>14. Agreement to Terms</Text>
+                <Text style={styles.sectionTitle}>9. Agreement to Terms</Text>
                 <Text style={styles.text}>
                     By using subscription features, you agree to this policy and authorize Valens to
                     manage charges and fees.

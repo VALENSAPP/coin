@@ -114,6 +114,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                             // Don't reset here - event will handle it
                             console.log('InAppBrowser closed - waiting for event');
+                            setIsButtonLoading(false);
+                            dispatch(hideLoader());
                         } else {
                             await Linking.openURL(url);
                             // For external browser, reset immediately
@@ -307,7 +309,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 <TouchableOpacity
                                     style={styles.cancelBtn}
                                     onPress={onClose}
-                                    disabled={isButtonLoading}
+                                // disabled={isButtonLoading}
                                 >
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>
