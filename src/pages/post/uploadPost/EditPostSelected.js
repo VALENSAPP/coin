@@ -1742,31 +1742,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   imageContainer: {
-    flexDirection: 'row',
+    // flex: 1,
     justifyContent: 'center',
-    // alignItems: 'center',
-    // marginBottom: 20,
-    // marginLeft: 15,
-    // height:'100%',
-    // alignItems: 'center',
-    // paddingVertical: 16,
-    // backgroundColor:'#f51919ff'
+    alignItems: 'center',
+    height:'80%',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    // backgroundColor:'#ed1010ff'
 
 
   },
   mainImageContainer: {
-    position:'relative',
-    // width: IMAGE_SIZE,
+    width: IMAGE_SIZE,
     height: '100%',
-    // paddingVertical:20,      
     // alignSelf: 'center',
-    // position: 'relative',
-    // height: showFilters ? '80%' : '100%',
+    overflow: 'hidden',
 
   },
   mainScrollView: {
-    width: IMAGE_SIZE,
-    // height: '90%',
+   width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
   },
   mainScrollContent: {
     alignItems: 'center',
@@ -1938,7 +1933,7 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 20,
 
   },
   filterOption: {
@@ -1963,7 +1958,7 @@ const styles = StyleSheet.create({
   filterName: {
     fontSize: 12,
     marginTop: 4,
-    color: '#000'
+    color: '#000',
   },
   editingSection: {
     paddingTop: 12,

@@ -898,6 +898,7 @@ const StoryViewer = ({
                   </Text>
                 </View>
               )}
+              
             </View>
 
             {/* Delete Story Button */}
@@ -1129,6 +1130,7 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
 
       // Fetch user's own stories
       const userStoriesResponse = await getStoryByUser(id);
+      console.log(userStoriesResponse, 'respose for user storeis')
 
       // Fetch following users' stories
       let followingStoriesResponse;
@@ -1185,13 +1187,24 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
         const userImage = userStory.user?.image || '';
 
         const ts = new Date(userStory.createdAt || userStory.updatedAt || Date.now()).getTime();
-
+        const getMediaType = (url) => {
+          if (typeof url !== 'string') return 'image';
+          const lower = url.toLowerCase().trim();
+          const videoExts = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v'];
+          if (videoExts.some(ext => lower.endsWith(ext))) {
+            return 'video';
+          }
+          if (lower.includes('/video/') || lower.includes('video')) {
+            return 'video';
+          }
+          return 'image';
+        };
         // Create story objects for this user's media
         const storyObjects = (userStory.media || []).map((url, idx) => ({
           id: `${userStory.id}_${idx}`,
-          type: (String(url).toLowerCase().includes('.mp4') || String(url).toLowerCase().includes('video')) ? 'video' : 'image',
+          type: getMediaType(url),
           uri: String(url).trim(),
-          duration: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('video') ? 15000 : 5000,
+          duration: getMediaType(url) === 'video' ? 15000 : 5000,
           timestamp: ts,
           seen: false,
           views: [],
@@ -1342,15 +1355,32 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
       presentationStyle: 'fullScreen',
     };
     launchCamera(options, response => {
-      if (response?.didCancel) return;
-      if (response?.errorCode) {
-        Alert.alert(
-          'Camera error',
-          response.errorMessage || response.errorCode,
-        );
+      if (response?.didCancel) {
+        setComposerList([]);
+        setComposerMedia(null);
         return;
       }
-      handleMediaSelected(response);
+      if (response?.errorCode) {
+        Alert.alert('Camera Error', response.errorMessage || 'Unknown error');
+        return;
+      }
+
+      const asset = response?.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert('Error', 'Failed to capture media.');
+        return;
+      }
+      const uri = asset.uri;
+
+      const mediaItem = {
+        uri: uri,
+        type: asset.type?.startsWith('video') ? 'video' : 'image',
+        duration: asset.duration ? asset.duration * 1000 : undefined,
+      };
+
+      setComposerList([mediaItem]);
+      setComposerVisible(true);
+
     });
   };
 
@@ -1363,9 +1393,21 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
       maxWidth: 2000,
     };
     launchImageLibrary(options, response => {
-      if (response?.didCancel || response?.errorCode) return;
+      if (response?.didCancel || response?.errorCode) {
+        setComposerList([]);
+        setComposerMedia(null);
+        setComposerVisible(false);
+        return;
+      };
       const assets = response?.assets || [];
-      if (!assets.length) return;
+      // if (!assets.length) return;
+      if (!assets.length) {
+        setComposerList([]);
+        setComposerMedia(null);
+        return;
+      }
+
+
 
       const list = assets.map(a => ({
         uri: a.uri,
@@ -1839,7 +1881,11 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
       <StoryComposer
         modalVisible={composerVisible}
         mediaList={composerList}
-        onCancel={() => setComposerVisible(false)}
+        onCancel={() => {
+          setComposerVisible(false);
+          setComposerList([]);        // Clear list
+          setComposerMedia(null);     // Clear single media if any
+        }}
         onDone={handleComposerDone}
       />
     </View>

@@ -103,7 +103,7 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
           <View style={styles.tokenIconContainer}>
             <Icon name="trending-down" size={32} color="#dc2626" />
           </View>
-          <Text style={styles.tokenTitle}>Sell Tokens</Text>
+          <Text style={styles.tokenTitle}>Unsupportive Tokens</Text>
           <Text style={styles.availableTokens}>
             Available: {availableTokens.toLocaleString()} tokens
             {/* Available: 1 tokens */}
@@ -112,7 +112,7 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
 
         {/* Tokens to Sell (Disabled Display) */}
         <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>Tokens to Sell</Text>
+          <Text style={styles.inputLabel}>Tokens to Unsupport</Text>
           <View style={[styles.inputGroup, styles.inputGroupDisabled]}>
             <Icon name="diamond" size={20} color="#9CA3AF" style={styles.tokenIcon} />
             <Text style={[styles.textDisplay, styles.textDisplayDisabled]}>
@@ -151,7 +151,7 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
             <>
               {/* <Icon name="trending-down" size={20} color="#FFFFFF" style={styles.buttonIcon} /> */}
               <Text style={styles.sellButtonText}>
-                Sell Tokens for ${(availableTokens * usdAmount).toFixed(2)}
+                Unsupport Tokens for ${(availableTokens * usdAmount).toFixed(2)}
               </Text>
             </>
           )}
