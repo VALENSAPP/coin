@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -31,6 +31,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const [customAmount, setCustomAmount] = useState('');
     const [note, setNote] = useState('');
     const [isButtonLoading, setIsButtonLoading] = useState(false);
+    const paymentCompletedRef = useRef(false);
+
 
     const amounts = [5, 10, 25, 50];
 
@@ -45,6 +47,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             console.log('🔔 MissionSupport: PAYMENT_COMPLETED event received!', data);
 
             // Reset loading state
+            paymentCompletedRef.current = true;
             setIsButtonLoading(false);
             dispatch(hideLoader());
 
@@ -99,6 +102,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                     try {
                         if (await InAppBrowser.isAvailable()) {
+                            paymentCompletedRef.current = false;
                             await InAppBrowser.open(url, {
                                 dismissButtonStyle: 'close',
                                 preferredBarTintColor: '#ffffff',
@@ -111,11 +115,17 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 showTitle: true,
                                 forceCloseOnRedirection: false, // Changed to false
                             });
+                            if (!paymentCompletedRef.current) {
+                                console.log('❌ Payment cancelled by user');
+
+                                setIsButtonLoading(false);
+                                dispatch(hideLoader());
+
+                                showToastMessage(toast, 'danger', 'Payment cancelled');
+                            }
 
                             // Don't reset here - event will handle it
                             console.log('InAppBrowser closed - waiting for event');
-                            setIsButtonLoading(false);
-                            dispatch(hideLoader());
                         } else {
                             await Linking.openURL(url);
                             // For external browser, reset immediately
@@ -308,8 +318,12 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                                 <TouchableOpacity
                                     style={styles.cancelBtn}
-                                    onPress={onClose}
-                                // disabled={isButtonLoading}
+                                    onPress={() => {
+                                        setIsButtonLoading(false);
+                                        dispatch(hideLoader());
+                                        onClose();
+                                    }}
+                                    // disabled={isButtonLoading}
                                 >
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>
