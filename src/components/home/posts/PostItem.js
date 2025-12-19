@@ -18,6 +18,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import MissionSupportScreen from '../../modals/DonationModal';
 import axios from 'axios';
 import { getTotalDonationAmount } from '../../../services/tokens';
+import BuyersListModal from '../../modals/BuyerList';
 
 const { width } = Dimensions.get('window');
 
@@ -59,7 +60,7 @@ function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }
         numberOfTaps={2}
         onHandlerStateChange={onDoubleTapStateChange}
       >
-        <Image source={{ uri }} style={styles.postMedia}  />
+        <Image source={{ uri }} style={styles.postMedia} />
       </TapGestureHandler>
     </PinchGestureHandler>
   );
@@ -220,6 +221,7 @@ export default function PostItem({
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [donation, setDonation] = useState(false);
+  const [showBuyersModal, setShowBuyersModal] = useState(false);
 
   // New donation states
   const [totalDonation, setTotalDonation] = useState(0);
@@ -233,8 +235,8 @@ export default function PostItem({
   const { text } = useAppTheme();
   const isMountedRef = useRef(true);
   const route = useRoute();
-   const [selectedPostId, setSelectedPostId] = useState(null);
- 
+  const [selectedPostId, setSelectedPostId] = useState(null);
+
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -693,7 +695,11 @@ export default function PostItem({
         {item.UserId !== userId && (
           <>
             {buyerList.length > 0 && (
-              <View style={styles.buyersSection}>
+              <TouchableOpacity
+                style={styles.buyersSection}
+                activeOpacity={0.8}
+                onPress={() => setShowBuyersModal(true)}
+              >
                 <View style={styles.avatarsContainer}>
                   {buyerList.slice(0, 3).map((buyer, idx) => (
                     <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
@@ -705,7 +711,7 @@ export default function PostItem({
                   Vallowed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
                   {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
           </>
         )}
@@ -794,7 +800,18 @@ export default function PostItem({
         item={item}
         onDonationSuccess={handleDonationSuccess}
       />
-       <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
+      <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
+      <BuyersListModal
+        visible={showBuyersModal}
+        onClose={() => setShowBuyersModal(false)}
+        buyers={buyerList}
+        profileType={item?.profile}
+        onUserPress={(id) => {
+          setShowBuyersModal(false);
+          handleUserProfile(id);
+        }}
+      />
+
     </View>
   );
 }
