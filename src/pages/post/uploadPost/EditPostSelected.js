@@ -101,6 +101,7 @@ const InstagramPostCreator = () => {
   const canvasRef = useRef(null);
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
+  const [isScrollEnabled, setIsScrollEnabled] = useState(true);
 
   // Video related states
   const [videoPaused, setVideoPaused] = useState({});
@@ -911,6 +912,7 @@ const InstagramPostCreator = () => {
               scrollEventThrottle={16}
               style={styles.mainScrollView}
               contentContainerStyle={styles.mainScrollContent}
+              scrollEnabled={isScrollEnabled}   // ← THIS LINE
             >
               {selectedImages.map((image, index) => (
                 <View key={index} style={[styles.imageSlide, { width: IMAGE_SIZE }]}>
@@ -1364,6 +1366,7 @@ const InstagramPostCreator = () => {
                   onPress={async () => {
                     await saveCurrentDrawing();
                     setIsDrawing(false);
+                    setIsScrollEnabled(true);
                   }}
                   style={[
                     styles.controlButton,
@@ -1489,19 +1492,38 @@ const InstagramPostCreator = () => {
               disabled={tab.disabled}
               onPress={() => {
                 if (tab.disabled) return;
-
-                setActiveTab(tab.title);
-                if (tab.title === 'Filter') {
-                  setShowFilters(prev => !prev);
-                } else if (tab.title === 'Draw') {
-                  setIsDrawing(prev => !prev);
-                } else if (tab.title === 'Text') {
-                  setModalVisible2(true);
-                } else if (tab.title === 'Overlay') {
-                  bottomSheetRef.current.open();
-                } else {
+                if (tab.title !== 'Filter' && showFilters) {
                   setShowFilters(false);
                 }
+
+                if (tab.title === 'Draw') {
+                  const newDrawingMode = !isDrawing;
+                  setIsDrawing(newDrawingMode);
+                  setIsScrollEnabled(!newDrawingMode); 
+                }
+                else if (tab.title === 'Filter') {
+                  setShowFilters(prev => !prev);
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                  }
+                }
+                else if (tab.title === 'Text') {
+                  setModalVisible2(true);
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                  }
+                }
+                else if (tab.title === 'Overlay') {
+                  bottomSheetRef.current?.open();
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                  }
+                }
+
+                setActiveTab(tab.title);
               }}
             />
           ))}
@@ -1745,7 +1767,7 @@ const styles = StyleSheet.create({
     // flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height:'80%',
+    height: '80%',
     paddingHorizontal: 16,
     paddingBottom: 12,
     // backgroundColor:'#ed1010ff'
@@ -1760,7 +1782,7 @@ const styles = StyleSheet.create({
 
   },
   mainScrollView: {
-   width: IMAGE_SIZE,
+    width: IMAGE_SIZE,
     height: IMAGE_SIZE,
   },
   mainScrollContent: {
