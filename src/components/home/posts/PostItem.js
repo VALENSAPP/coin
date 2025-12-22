@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator } from 'react-native';
 import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -184,7 +184,7 @@ function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
   );
 }
 
-export default function PostItem({
+function PostItem({
   item,
   likesCount,
   commentsCount,
@@ -203,6 +203,7 @@ export default function PostItem({
   playingPostId,
   currentlyVisiblePostId,
   returnTo,
+  shareCount
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -236,12 +237,13 @@ export default function PostItem({
   const isMountedRef = useRef(true);
   const route = useRoute();
   const [selectedPostId, setSelectedPostId] = useState(null);
-
+  const [dataFetched, setDataFetched] = useState(false); // To prevent redundant fetches
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
     return null;
   }
+  console.log(shareCount,'checkItem')
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
@@ -281,48 +283,14 @@ export default function PostItem({
     }
   }, [item.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      const fetchUserId = async () => {
-        try {
-          const id = await AsyncStorage.getItem('userId');
-          if (isActive) setUserId(id);
-        } catch (error) {
-          console.error('Error fetching userId:', error);
-        }
-      };
-
-      const initializeData = async () => {
-        await fetchUserId();
-
-        if (item?.UserId) {
-          await fetchAllData();
-        }
-
-        const days = calculateDaysLeft();
-        if (isActive) setDaysLeft(days);
-
-        await fetchTotalDonation();
-      };
-
-      initializeData();
-
-      return () => {
-        isActive = false;
-      };
-    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation])
-  );
-
-  const fetchAllData = async () => {
+  // Memoize fetchAllData
+  const fetchAllData = useCallback(async () => {
     if (!item?.UserId) {
       console.warn('No UserId available for fetching data');
       return;
     }
 
     try {
-      dispatch(showLoader());
       const [dashboardResponse, profileResponse] = await Promise.allSettled([
         getUserDashboard(item.UserId),
         getUserCredentials(item.UserId)
@@ -365,9 +333,42 @@ export default function PostItem({
         error?.response?.message ?? 'Failed to load user data',
       );
     } finally {
-      dispatch(hideLoader());
+      // dispatch(hideLoader());
     }
-  };
+  }, [item?.UserId, toast]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const initializeData = async () => {
+        try {
+          const id = await AsyncStorage.getItem('userId');
+          if (isActive) setUserId(id);
+
+          if (item?.UserId && !dataFetched) {
+            await fetchAllData();
+            setDataFetched(true);
+          }
+
+          const days = calculateDaysLeft();
+          if (isActive) setDaysLeft(days);
+
+          if (!dataFetched) {
+            await fetchTotalDonation();
+          }
+        } catch (error) {
+          console.error('Error initializing PostItem data:', error);
+        }
+      };
+
+      initializeData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched])
+  );
 
   const safeVideoPause = useCallback((index) => {
     try {
@@ -401,14 +402,16 @@ export default function PostItem({
       return hasChanged ? nextStates : prev;
     });
 
-    setTimeout(() => {
+    // Use requestAnimationFrame for better performance
+    const rafId = requestAnimationFrame(() => {
       Object.entries(nextStates).forEach(([idx, shouldPause]) => {
         if (shouldPause) {
           safeVideoPause(parseInt(idx));
         }
       });
-    }, 100);
+    });
 
+    return () => cancelAnimationFrame(rafId);
   }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
 
   useEffect(() => {
@@ -420,7 +423,7 @@ export default function PostItem({
     };
   }, [safeVideoPause]);
 
-  const handleUserProfile = (id) => {
+  const handleUserProfile = useCallback((id) => {
     console.log("handleUserProfile==>>>>>")
     // const origin = {
     //   returnTo: returnTo,
@@ -437,57 +440,58 @@ export default function PostItem({
       });
       console.log(userId, 'can user id came heree')
     }
-  };
-  const formatNumber = (n) => {
+  }, [userId, navigation, returnTo]);
+
+  const formatNumber = useCallback((n) => {
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
+  }, []);
 
-  const isVideoUrl = (url) => {
+  const isVideoUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.toLowerCase().split('?')[0];
     const exts = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'];
     return exts.some((ext) => lower.endsWith(`.${ext}`));
-  };
+  }, []);
 
-  const buyerList = Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [];
+  const buyerList = useMemo(() => Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [], [item.boughtBy, item.buyers]);
 
-  const animateHeart = () => {
+  const animateHeart = useCallback(() => {
     Animated.sequence([
       Animated.timing(heartScale, { toValue: 1.2, duration: 80, useNativeDriver: true }),
       Animated.timing(heartScale, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
-  };
+  }, [heartScale]);
 
-  const handleLike = () => {
+  const handleLike = useCallback(() => {
     onToggleLike?.();
     animateHeart();
-  };
+  }, [onToggleLike, animateHeart]);
 
   // Use dynamic values for donation calculations
   const goalAmount = item.raiseAmount || 0; // Target amount to raise
   const currentRaised = totalDonation || 0; // Current amount raised from API
-  const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
+  const progressPercent = useMemo(() => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0, [goalAmount, currentRaised]);
 
-  const getProgressBarColor = () => {
+   const getProgressBarColor = useCallback(() => {
     if (progressPercent >= 75) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
     if (progressPercent >= 50) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
     if (progressPercent >= 25) return '#FF9800';
     return '#F44336';
-  };
+  }, [progressPercent, item?.profile]);
 
-  const onMomentumEnd = (e) => {
+  const onMomentumEnd = useCallback((e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
     if (index !== currentIndex) setCurrentIndex(index);
-  };
+  }, [currentIndex]);
 
-  const handleDonationSuccess = () => {
+  const handleDonationSuccess = useCallback(() => {
     // Refresh donation total after successful donation
     fetchTotalDonation();
-  };
+  }, [fetchTotalDonation]);
 
-  const renderMedia = ({ item: mediaItem, index }) => {
+  const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
     const isPaused = videoStates[index] ?? true;
 
@@ -515,7 +519,14 @@ export default function PostItem({
                 console.log('Video error:', error);
               }}
               playWhenInactive={false}
-              progressUpdateInterval={500}
+              progressUpdateInterval={1000}
+              bufferConfig={{
+                minBufferMs: 15000,
+                maxBufferMs: 50000,
+                bufferForPlaybackMs: 2500,
+                bufferForPlaybackAfterRebufferMs: 5000
+              }}
+              maxBitRate={2000000}
             />
             <TouchableOpacity
               style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
@@ -566,7 +577,7 @@ export default function PostItem({
         )}
       </View>
     );
-  };
+  }, [currentIndex, isVideoUrl, videoStates, isZooming, isMuted]);
 
   return (
     <View style={styles.wrapper}>
@@ -617,6 +628,10 @@ export default function PostItem({
               index
             })}
             renderItem={renderMedia}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            initialNumToRender={1}
           />
 
           {item.media && item.media.length > 1 && (
@@ -660,7 +675,7 @@ export default function PostItem({
 
             <TouchableOpacity onPress={() => { shareRef.current?.open?.(), setSelectedPostId(item) }} style={styles.actionButton}>
               <Feather name="send" size={24} color="#374151" />
-              <Text style={styles.actionCount}>{item.sharesCount || 0}</Text>
+              <Text style={styles.actionCount}>{ shareCount}</Text>
             </TouchableOpacity>
           </View>
 
@@ -815,6 +830,8 @@ export default function PostItem({
     </View>
   );
 }
+
+export default React.memo(PostItem);
 
 const styles = StyleSheet.create({
   wrapper: {

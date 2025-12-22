@@ -58,7 +58,7 @@ export const getPostById = async (postId) => {
   if (!postId || typeof postId !== 'string') {
     throw new Error('getPostById: you must pass a valid postId');
   }
-  return await axiosInstance.get(`post/${postId}`);
+  return await axiosInstance.get(`post/by-id/${postId}`);
 
 };
 

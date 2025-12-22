@@ -299,29 +299,30 @@ export default function HomeScreen() {
     };
   }, [currentUserId, socketReady, isFocused]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchData();
-    setStoryRefreshTick(t => t + 1);
-
-    // Refresh unread count on pull-to-refresh
-    if (currentUserId && socketReady) {
-      const socket = getSocket();
-      if (socket?.connected) {
-        console.log('🔄 HomeScreen: Manual refresh - requesting chat box');
-        socket.emit('getUserChatBox', { userId: currentUserId });
-      }
+    try {
+      await Promise.all([
+        fetchData(),
+        currentUserId && socketReady ? (() => {
+          const socket = getSocket();
+          if (socket?.connected) {
+            console.log('🔄 HomeScreen: Manual refresh - requesting chat box');
+            socket.emit('getUserChatBox', { userId: currentUserId });
+          }
+        })() : Promise.resolve()
+      ]);
+      setStoryRefreshTick(t => t + 1);
+    } finally {
+      setRefreshing(false);
     }
-    
-    setRefreshing(false);
-  }, [currentUserId, socketReady]);
+  }, [currentUserId, socketReady, fetchData]);
 
   const fetchData = useCallback(async () => {
     try {
-      dispatch(showLoader());
       const response = await getposts();
       if (response?.statusCode === 200) {
-        console.log('✅ HomeScreen: Posts fetched successfully');
+        console.log('✅ HomeScreen: Posts fetched successfully',response);
         setPosts(response.data);
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -332,14 +333,11 @@ export default function HomeScreen() {
         'danger',
         error?.response?.message ?? 'Something went wrong',
       );
-    } finally {
-      dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [toast]);
 
   const fetchProfileData = useCallback(async () => {
     try {
-      dispatch(showLoader());
       const id = await AsyncStorage.getItem('userId');
       if (!id) return;
 
@@ -356,8 +354,6 @@ export default function HomeScreen() {
       }
     } catch (err) {
       console.error('❌ Profile fetch error:', err);
-    } finally {
-      dispatch(hideLoader());
     }
   }, [dispatch]);
 
@@ -365,7 +361,6 @@ export default function HomeScreen() {
     let fcmToken = await AsyncStorage.getItem('fcmToken')
     if (fcmToken) {
       try {
-        dispatch(showLoader());
         const response = await updateFcmToken({ fcmToken: fcmToken });
         if (response?.statusCode === 200) {
           console.log('✅ FCM token updated successfully');
@@ -378,19 +373,21 @@ export default function HomeScreen() {
           'danger',
           error?.response?.message ?? 'Something went wrong',
         );
-      } finally {
-        dispatch(hideLoader());
       }
     }
-  }, [dispatch, toast]);
+  }, [toast]);
 
-  // Initial load on screen focus
+  // Initial load on screen focus - optimized to prevent redundant calls
   useEffect(() => {
     if (isFocused) {
       console.log('👁️ HomeScreen focused - fetching data');
       setStoryRefreshTick(t => t + 1);
-      fetchData();
-      fetchProfileData();
+      
+      // Batch data fetching
+      Promise.all([
+        fetchData(),
+        fetchProfileData()
+      ]).catch(err => console.error('Error fetching initial data:', err));
 
       // Request unread count when screen becomes focused
       if (currentUserId && socketReady) {
@@ -401,9 +398,9 @@ export default function HomeScreen() {
         }
       }
     }
-  }, [isFocused, fetchData, fetchProfileData, currentUserId, socketReady]);
+  }, [isFocused, currentUserId, socketReady]);
 
-  // AppState listener
+  // AppState listener - optimized
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       console.log('📱 AppState changed:', appState.current, '→', nextAppState);
@@ -414,8 +411,13 @@ export default function HomeScreen() {
         isFocused
       ) {
         console.log('🔄 App resumed while HomeScreen focused - refreshing');
-        fetchData();
-        fetchProfileData();
+        
+        // Batch operations
+        Promise.all([
+          fetchData(),
+          fetchProfileData()
+        ]).catch(err => console.error('Error on app resume:', err));
+        
         setStoryRefreshTick(t => t + 1);
 
         // Refresh unread count on app resume
@@ -432,13 +434,13 @@ export default function HomeScreen() {
     });
 
     return () => subscription.remove();
-  }, [isFocused, fetchData, fetchProfileData, currentUserId, socketReady]);
+  }, [isFocused, currentUserId, socketReady]);
 
   useEffect(() => {
     addFcmToken();
   }, [addFcmToken]);
 
-  // Listen for payment completion
+  // Listen for payment completion - optimized
   useEffect(() => {
     if (!isFocused) return;
 
@@ -447,8 +449,11 @@ export default function HomeScreen() {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
       console.log('🔔 HomeScreen: PAYMENT_COMPLETED event received!', data);
 
-      fetchData();
-      fetchProfileData();
+      Promise.all([
+        fetchData(),
+        fetchProfileData()
+      ]).catch(err => console.error('Error on payment completion:', err));
+      
       setStoryRefreshTick(t => t + 1);
     });
 
@@ -456,7 +461,7 @@ export default function HomeScreen() {
       console.log('🔇 HomeScreen: Removing PAYMENT_COMPLETED listener');
       subscription.remove();
     };
-  }, [isFocused, fetchData, fetchProfileData]);
+  }, [isFocused]);
 
   useFocusEffect(
     useCallback(() => {

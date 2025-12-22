@@ -131,7 +131,7 @@ export default function CommentSheet({
       return;
     }
     if (isPosting) return;
-    dispatch(showLoader());
+    // dispatch(showLoader());
     const trimmedComment = commentText.trim();
 
     // --- EDIT FLOW ---
@@ -185,7 +185,7 @@ export default function CommentSheet({
         setIsPosting(false);
         setEditingComment(null);
         setCommentText('');
-        dispatch(hideLoader());
+        // dispatch(hideLoader());
       }
       return;
     }
@@ -242,7 +242,7 @@ export default function CommentSheet({
       showToastMessage(toast, 'danger', 'Error posting comment');
     } finally {
       setIsPosting(false);
-      dispatch(hideLoader());
+      // dispatch(hideLoader());
     }
   };
 

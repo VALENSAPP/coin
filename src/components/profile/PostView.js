@@ -24,6 +24,7 @@ import {
   deletePost,
   HidePost as apiHidePost,
   unHidePost as apiUnhidePost,
+  getPostById,
 } from '../../services/post';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -38,7 +39,7 @@ export default function PostView({ postData = [] }) {
   const navigation = useNavigation();
 
   // Extract params including the source screen info
-  const { postData: navPosts, startIndex, fromScreen } = route.params || {};
+  const { postData: navPosts, startIndex, fromScreen, userChat } = route.params || {};
   const posts = useMemo(() => {
     if (Array.isArray(navPosts) && navPosts.length) {
       return navPosts;
@@ -51,7 +52,7 @@ export default function PostView({ postData = [] }) {
     return [];
   }, [navPosts, postData]);
 
-  console.log(route?.params?.returnTo,"PostViewScreen=>>>>>>>>>>>>>>>>>.")
+  console.log(route?.params?.returnTo, "PostViewScreen=>>>>>>>>>>>>>>>>>.")
 
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
@@ -86,9 +87,99 @@ export default function PostView({ postData = [] }) {
     })();
   }, []);
 
+  // ─── Fetch post from API when coming from UserChat ──────────
+  useEffect(() => {
+    const fetchPostFromUserChat = async () => {
+      console.log(userChat,navPosts[0]?.id,'openthingx')
+      // Check if we're coming from UserChat and have a postId
+      if (userChat && navPosts && navPosts[0]?.id) {
+        const postId = navPosts[0]?.id;
+
+        try {
+          const response = await getPostById(postId);
+          console.log(response)
+          if (response?.statusCode === 200 ) {
+            // Update the list with fresh data from API
+            setList([response.data]);
+
+            // Also update the state maps with fresh data
+            const freshPost = response.data;
+            setSaved(prev => ({ ...prev, [freshPost.id]: !!freshPost.isSaved }));
+            setLiked(prev => ({ ...prev, [freshPost.id]: !!freshPost.isLike }));
+            setPostLikesCount(prev => ({ ...prev, [freshPost.id]: freshPost.likeCount ?? 0 }));
+            setPostCommentsCount(prev => ({ ...prev, [freshPost.id]: freshPost.commentCount ?? 0 }));
+            setHiddenById(prev => ({ ...prev, [freshPost.id]: !!freshPost.isHide }));
+
+            if (freshPost.userId != null && typeof freshPost.isFollow === 'boolean') {
+              setFollowingByUserId(prev => ({ ...prev, [String(freshPost.userId)]: freshPost.isFollow }));
+            }
+          } else {
+            showToastMessage(toast, 'danger', 'Failed to load post details');
+          }
+        } catch (error) {
+          console.error('Error fetching post from UserChat:', error);
+          showToastMessage(
+            toast,
+            'danger',
+            error?.response?.data?.message || 'Failed to load post'
+          );
+        } finally {
+        }
+      }
+    };
+
+    fetchPostFromUserChat();
+  }, [userChat, navPosts]);
+
+  // ─── Refetch post data ──────────────────────────────────────
+  const refetchPostData = useCallback(async (postId) => {
+    if (!postId || !userChat) return;
+
+    try {
+      const response = await getPostById(postId);
+
+      // Handle both response formats: direct data array or wrapped in data property
+      let freshPost = null;
+
+      if (response?.data?.statusCode === 200 && response?.data?.success && response?.data?.data) {
+        // Format: { data: { statusCode: 200, success: true, data: {...} } }
+        freshPost = response.data.data;
+      } else if (response?.statusCode === 200 && response?.success && response?.data) {
+        // Format: { statusCode: 200, success: true, data: {...} }
+        freshPost = response.data;
+      } else if (Array.isArray(response?.data) && response.data.length > 0) {
+        // Format: { data: [{...}] }
+        freshPost = response.data[0];
+      } else if (response?.data && typeof response.data === 'object' && response.data.id) {
+        // Format: { data: {...} } - direct post object
+        freshPost = response.data;
+      }
+
+      if (freshPost && freshPost.id) {
+        // Update the list
+        setList(prev => prev.map(p =>
+          String(p.id) === String(postId) ? freshPost : p
+        ));
+
+        // Update state maps
+        setSaved(prev => ({ ...prev, [freshPost.id]: !!freshPost.isSaved }));
+        setLiked(prev => ({ ...prev, [freshPost.id]: !!freshPost.isLike }));
+        setPostLikesCount(prev => ({ ...prev, [freshPost.id]: freshPost.likeCount ?? 0 }));
+        setPostCommentsCount(prev => ({ ...prev, [freshPost.id]: freshPost.commentCount ?? 0 }));
+        setHiddenById(prev => ({ ...prev, [freshPost.id]: !!freshPost.isHide }));
+
+        if (freshPost.userId != null && typeof freshPost.isFollow === 'boolean') {
+          setFollowingByUserId(prev => ({ ...prev, [String(freshPost.userId)]: freshPost.isFollow }));
+        }
+      }
+    } catch (error) {
+      console.error('Error refetching post:', error);
+    }
+  }, [userChat]);
+
   // ─── Handle Back Button Press ────────────────────────────────
   const handleBackPress = useCallback(() => {
-   
+
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
@@ -216,12 +307,17 @@ export default function PostView({ postData = [] }) {
       const ok = res?.statusCode === 200 && res?.success;
 
       if (ok) {
-        const serverLiked = !!res?.data?.liked;
-        const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
+        // If coming from UserChat, refetch the post data
+        if (userChat) {
+          await refetchPostData(postId);
+        } else {
+          const serverLiked = !!res?.data?.liked;
+          const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
 
-        setLiked(prev => ({ ...prev, [postId]: serverLiked }));
-        if (serverCount !== undefined) {
-          setPostLikesCount(prev => ({ ...prev, [postId]: serverCount }));
+          setLiked(prev => ({ ...prev, [postId]: serverLiked }));
+          if (serverCount !== undefined) {
+            setPostLikesCount(prev => ({ ...prev, [postId]: serverCount }));
+          }
         }
       } else {
         setLiked(prev => ({ ...prev, [postId]: wasLiked }));
@@ -253,7 +349,13 @@ export default function PostView({ postData = [] }) {
       const resp = isCurrentlySaved ? await unSavePost(id) : await savePost(id);
       if (resp && resp.statusCode == 200) {
         showToastMessage(toast, 'success', resp.data.message);
-        setSaved(prev => ({ ...prev, [id]: !isCurrentlySaved }));
+
+        // If coming from UserChat, refetch the post data
+        if (userChat) {
+          await refetchPostData(id);
+        } else {
+          setSaved(prev => ({ ...prev, [id]: !isCurrentlySaved }));
+        }
       } else {
         showToastMessage(toast, 'danger', resp.data.message);
       }
@@ -303,6 +405,11 @@ export default function PostView({ postData = [] }) {
             'success',
             resp?.data?.message || (isHidden ? 'Post unhidden' : 'Post hidden'),
           );
+
+          // If coming from UserChat, refetch the post data
+          if (userChat) {
+            await refetchPostData(postId);
+          }
         }
       } catch (e) {
         setHiddenById(prev => ({ ...prev, [postId]: isHidden }));
@@ -320,7 +427,7 @@ export default function PostView({ postData = [] }) {
         });
       }
     },
-    [hiddenById, hidingIds, toast, dispatch],
+    [hiddenById, hidingIds, toast, dispatch, userChat, refetchPostData],
   );
 
   const handleToggleFollow = useCallback(
@@ -343,9 +450,14 @@ export default function PostView({ postData = [] }) {
             res?.data?.message || res?.message || 'Unable to update follow'
           );
         } else {
-          const serverVal = res?.data?.following;
-          if (typeof serverVal === 'boolean') {
-            setFollowingByUserId(prev => ({ ...prev, [key]: serverVal }));
+          // If coming from UserChat, refetch the post data
+          if (userChat && list[0]?.id) {
+            await refetchPostData(list[0].id);
+          } else {
+            const serverVal = res?.data?.following;
+            if (typeof serverVal === 'boolean') {
+              setFollowingByUserId(prev => ({ ...prev, [key]: serverVal }));
+            }
           }
           showToastMessage(
             toast,
@@ -368,7 +480,7 @@ export default function PostView({ postData = [] }) {
         });
       }
     },
-    [toast, followingBusy]
+    [toast, followingBusy, userChat, list, refetchPostData]
   );
 
   // ─── Options ──────────────────────────────────────────
@@ -508,9 +620,12 @@ export default function PostView({ postData = [] }) {
       ...prev,
       [postId]: Math.max(0, newCount)
     }));
-  }, []);
 
-  // (progress UI is handled by PostItem directly, therefore no helper is required here)
+    // If coming from UserChat, refetch the post data for accuracy
+    if (userChat) {
+      refetchPostData(postId);
+    }
+  }, [userChat, refetchPostData]);
 
   // ─── Renderer ───────────────────────────────────────────────
   const renderFeedItem = useCallback(
@@ -538,13 +653,12 @@ export default function PostView({ postData = [] }) {
         UserId: item.userId,
         userId: item.userId,
         boughtBy: item.boughtBy || [],
-        returnTo: route?.params?.returnTo, 
+        returnTo: route?.params?.returnTo,
         follow:
           typeof followingByUserId[String(item.userId)] === 'boolean'
             ? followingByUserId[String(item.userId)]
             : !!item.isFollow,
       };
-console.log(mapped,'mapped data came hereere check this    ')
       return (
         <View>
           <PostItem
@@ -560,7 +674,8 @@ console.log(mapped,'mapped data came hereere check this    ')
             onComment={() => handleComment(item.id, mapped.UserId)}
             onOptions={() => openOptions(item.id)}
             onSuggest={[]}
-            returnTo={route?.params?.returnTo} 
+            returnTo={route?.params?.returnTo}
+            shareCount={item.shareCount}
           />
 
         </View>

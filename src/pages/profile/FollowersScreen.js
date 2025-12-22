@@ -173,13 +173,31 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     );
   }, [search, followingList]);
 
+  const goToUserProfile = useCallback(
+    (user) => {
+      if (!user?.id) return;
+
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: user.id,
+          username: user.username,
+          // returnTo: route?.name,
+          // stackName: 'ProfileMain',
+        },
+      });
+    },
+    [navigation],
+  );
+
+
   const renderItem =
     tab =>
       ({ item }) => {
         const isFollowingState = !!item.isFollowing;
 
         return (
-          <TouchableOpacity style={[styles.userRow, { shadowColor: text }]} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.userRow, { shadowColor: text }]} activeOpacity={0.7} onPress={() => goToUserProfile(item)}>
             <Image
               source={{
                 uri: !imageError && item.avatar ? item.avatar : DEFAULT_AVATAR,
