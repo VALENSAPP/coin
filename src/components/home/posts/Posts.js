@@ -23,6 +23,7 @@ import {
   unfollow,
   HidePost as apiHidePost,
   unHidePost as apiUnhidePost,
+  sharePost,
 } from '../../../services/post';
 
 import { useToast } from 'react-native-toast-notifications';
@@ -133,23 +134,18 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     const fetchFollowingStatus = async () => {
       if (!list || list.length === 0) return;
 
-      const followingPromises = list.map(async (item) => {
-        // Add safety check
-        if (!item || !item.userId) {
-          return {
-            userId: null,
-            isFollowing: false,
-            tokenAddress: null,
-            image: null
-          };
-        }
+      // Extract unique user IDs to avoid duplicate API calls
+      const uniqueUserIds = [...new Set(list.map(item => item?.userId).filter(Boolean))];
+      
+      if (uniqueUserIds.length === 0) return;
 
+      const followingPromises = uniqueUserIds.map(async (userId) => {
         try {
-          const res = await apiFollowing(item.userId);
+          const res = await apiFollowing(userId);
           const rows = res?.data?.data ?? res?.data ?? [];
 
           const followingRow = Array.isArray(rows)
-            ? rows.find(r => r?.followingId === item.userId)
+            ? rows.find(r => r?.followingId === userId)
             : null;
 
           const isFollowing = !!followingRow;
@@ -157,7 +153,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           const followingImage = followingRow?.following?.image ?? null;
 
           return {
-            userId: item.userId,
+            userId,
             isFollowing,
             tokenAddress,
             image: followingImage
@@ -166,7 +162,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           console.log('Error checking follow status for user:', item.userId, e);
           // Return safe default instead of throwing
           return {
-            userId: item.userId,
+            userId,
             isFollowing: false,
             tokenAddress: null,
             image: null
@@ -175,7 +171,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       });
 
       try {
-        // Use Promise.allSettled instead of Promise.all
         const results = await Promise.allSettled(followingPromises);
         const followingMap = {};
 
@@ -196,27 +191,33 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       }
     };
 
-    fetchFollowingStatus();
-    loadSuggestions();
+    // Debounce to prevent rapid successive calls
+    const timer = setTimeout(() => {
+      fetchFollowingStatus();
+      loadSuggestions();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [list]);
 
-  // -------- Fetch followers for each post (for "Vallowed by" section) --------
+  // -------- Fetch followers for each post (for "Vallowed by" section) - optimized --------
   useEffect(() => {
     const fetchPostFollowers = async () => {
       if (!list || list.length === 0) return;
 
-      const followersPromises = list.map(async (item) => {
-        if (!item || !item.userId) {
-          return { userId: null, followers: [] };
-        }
+      // Extract unique user IDs
+      const uniqueUserIds = [...new Set(list.map(item => item?.userId).filter(Boolean))];
+      
+      if (uniqueUserIds.length === 0) return;
 
+      const followersPromises = uniqueUserIds.map(async (userId) => {
         try {
-          const res = await apiFollowers(item.userId);
+          const res = await apiFollowers(userId);
           let followersData = res?.data?.data || res?.data || [];
 
           if (!Array.isArray(followersData)) {
             console.warn('Non-array followers data:', followersData);
-            return { userId: item.userId, followers: [] };
+            return { userId, followers: [] };
           }
 
           const transformedFollowers = followersData
@@ -232,17 +233,16 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             });
 
           return {
-            userId: item.userId,
+            userId,
             followers: transformedFollowers
           };
         } catch (e) {
-          console.error('Error fetching followers for user:', item.userId, e);
-          return { userId: item.userId, followers: [] };
+          console.error('Error fetching followers for user:', userId, e);
+          return { userId, followers: [] };
         }
       });
 
       try {
-        // Use Promise.allSettled instead of Promise.all
         const results = await Promise.allSettled(followersPromises);
         const followersMap = {};
 
@@ -259,7 +259,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       }
     };
 
-    fetchPostFollowers();
+    // Debounce to prevent rapid successive calls
+    const timer = setTimeout(fetchPostFollowers, 300);
+    return () => clearTimeout(timer);
   }, [list]);
 
   // Update the mappedPosts useMemo to use the state instead of API calls
@@ -295,7 +297,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           link: item.link || null,
           start_time: item.start_time || null,
           end_time: item.end_time || null,
-          tokenBalance: item.tokenBalance || 0
+          tokenBalance: item.tokenBalance || 0,
+          shareCount:item.shareCount || 0
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers]);
@@ -422,7 +425,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       setHidingIds(prev => new Set(prev).add(postId));
 
       try {
-        dispatch(showLoader());
+        // dispatch(showLoader());
         const resp = isHidden
           ? await apiUnhidePost(postId)
           : await apiHidePost(postId);
@@ -451,7 +454,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           e?.response?.data?.message || 'Something went wrong',
         );
       } finally {
-        dispatch(hideLoader());
+        // dispatch(hideLoader());
         setHidingIds(prev => {
           const next = new Set(prev);
           next.delete(postId);
@@ -766,6 +769,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   );
 
   const loadSuggestions = useCallback(async (page = 1, isLoadMore = false) => {
+    // Prevent duplicate calls
+    if (isLoadingSuggestions) return;
+    
     try {
       setIsLoadingSuggestions(true);
       const limit = 15;
@@ -786,8 +792,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       const cleansed = raw
         .filter(u => u && (!me || String(u.id) !== me))
         .map(normalizeUser)
-        .filter(Boolean); // Remove null results
-      console.log("cleansedcleansedcleansedcleansedcleansedcleansed",cleansed)
+        .filter(Boolean);
+      
       if (isLoadMore) {
         setSuggestAllUsers(prev => [...prev, ...cleansed]);
       } else {
@@ -806,7 +812,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     } finally {
       setIsLoadingSuggestions(false);
     }
-  }, [currentUserId, normalizeUser]);
+  }, [currentUserId, normalizeUser, isLoadingSuggestions]);
 
   useEffect(() => {
     loadSuggestions(1, false);
@@ -884,6 +890,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
   const renderItem = useCallback(
     ({ item }) => {
+      console.log(item,'opppppppp')
       // Add safety check
       if (!item) return null;
 
@@ -932,6 +939,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           screenFocused={screenFocused}
           playingPostId={playingPostId}
           currentlyVisiblePostId={currentlyVisiblePostId}
+          shareCount={item.shareCount}
         />
       );
     },
@@ -972,13 +980,19 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             removeClippedSubviews={true}
-            maxToRenderPerBatch={2}
-            windowSize={5}
-            initialNumToRender={1}
+            maxToRenderPerBatch={3}
+            windowSize={7}
+            initialNumToRender={2}
+            updateCellsBatchingPeriod={100}
+            getItemLayout={(data, index) => ({
+              length: 600,
+              offset: 600 * index,
+              index,
+            })}
             viewabilityConfig={{
-              itemVisiblePercentThreshold: 50,
-              minimumViewTime: 100,
-              waitForInteraction: false,
+              itemVisiblePercentThreshold: 60,
+              minimumViewTime: 250,
+              waitForInteraction: true,
             }}
             onViewableItemsChanged={handleViewableItemsChanged}
             scrollEventThrottle={16}

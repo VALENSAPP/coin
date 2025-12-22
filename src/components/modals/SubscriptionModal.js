@@ -50,6 +50,7 @@ const SubscribeFlowModal = ({
     const { bgStyle, textStyle, text } = useAppTheme();
     const [fanId, setFanId] = useState();
     const navigation = useNavigation();
+    const [comment, setComment] = useState('');
     console.log()
     useEffect(() => {
         fetchAllData();
@@ -77,6 +78,10 @@ const SubscribeFlowModal = ({
         }
     };
 
+    const openTerms = () => {
+        console.log('openterms')
+    }
+
     const fetchSubscriptionByUserId = async () => {
         try {
             const id = targetUserId;
@@ -87,6 +92,7 @@ const SubscribeFlowModal = ({
 
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
+                setComment(subscriptions[0].comment)
                 if (subscriptions && subscriptions.length > 0) {
                     const amount = subscriptions[0].subscriptionAmount;
                     console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
@@ -341,30 +347,43 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                             </Text>
                         </ScrollView>
                     </View> */}
+                       {comment ? (
+                        <Text style={styles.comment}>Comment: <Text style={styles.comments}>{comment}</Text></Text>
+                    ) : null}
 
                     <TouchableOpacity
                         style={styles.checkboxRow}
-                        activeOpacity={0.5}
-                        onPress={() => {
-                            setAcceptedTerms(!acceptedTerms)
-                        }}>
+                        activeOpacity={0.8}
+                        onPress={() => setAcceptedTerms(!acceptedTerms)}
+                    >
                         <Ionicons
-                            name={
-                                acceptedTerms
-                                    ? 'checkbox-outline'
-                                    : 'square-outline'
-                            }
+                            name={acceptedTerms ? 'checkbox-outline' : 'square-outline'}
                             size={22}
-                            color={acceptedTerms ? { text } : '#aaa'}
+                            color={acceptedTerms ? '#000' : '#aaa'}
+                            style={styles.checkboxIcon}
                         />
-                        <Text onPress={() => {
+                           {/* <Text onPress={() => {
                             onClose();
                             navigation.navigate('ProfileMain', {
                                 screen: 'TermConditionScreen'
                             });
                         }}
-                        style={[styles.termsText, { fontWeight: '700', textDecorationLine: 'underline' }]}>I accept Terms & Conditions</Text>
+                        style={[styles.termsText, { fontWeight: '700', textDecorationLine: 'underline' }]}>I accept Terms & Conditions</Text> */}
+
+                        <Text style={styles.checkboxText}>
+                            I agree to the{' '}
+                            <Text style={styles.linkText} onPress={openTerms}>
+                                Valens Subscriber Terms
+                            </Text>{' '}
+                            and understand that subscriptions provide access to digital content only
+                            and are not investments or financial products. Subscription fees are billed
+                            monthly and are non-refundable except where required by law.
+                        </Text>
                     </TouchableOpacity>
+                  
+                 
+  
+                      <View style={{ marginTop: 15 }} />
 
                     <TouchableOpacity
                         style={[styles.btn, { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text }]}
@@ -500,4 +519,38 @@ const styles = StyleSheet.create({
         borderColor: '#ddd',
         padding: 10,
     },
+    checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+  },
+
+  checkboxIcon: {
+    marginTop: 3,
+    marginRight: 10,
+  },
+
+  checkboxText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000',
+  },
+
+  linkText: {
+    color: '#5a2d82',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  comment: {
+        fontSize: 14,
+        color: '#6b7280',
+        marginTop: 10,
+        fontWeight:600
+    },
+    comments:{
+        fontWeight:100,
+        fontSize:14,
+        color:'#000'
+    }
 });

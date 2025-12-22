@@ -46,6 +46,7 @@ const SubventionSetupScreen = () => {
     const [showModal, setShowModal] = useState(false);
     const [showActivationPopup, setShowActivationPopup] = useState(false);
     const [rawAmount, setRawAmount] = useState('');
+    const [comment, setComment] = useState('');
 
 
     const contentTabs = [
@@ -64,7 +65,7 @@ const SubventionSetupScreen = () => {
 
     const formatPrice = (value) => {
         if (!value) return "";
-        
+
         const stringValue = value.toString();
         console.log('Formatting value:', stringValue);
 
@@ -74,11 +75,15 @@ const SubventionSetupScreen = () => {
 
         const cleaned = stringValue.replace(/\D/g, "");
         if (!cleaned) return "";
-        
+
         const formatted = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
         return `${formatted},00`;
     };
+
+    const openTerms = () => {
+        console.log('openterms')
+    }
 
 
     const fetchSubscriptionByUserId = async () => {
@@ -90,6 +95,7 @@ const SubventionSetupScreen = () => {
 
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
+                setComment(subscriptions[0].comment)
                 if (subscriptions && subscriptions.length > 0) {
                     const amount = subscriptions[0].subscriptionAmount;
                     const subId = subscriptions[0].id;
@@ -126,7 +132,7 @@ const SubventionSetupScreen = () => {
         const clean = text.replace(/[^0-9.]/g, "");
         setRawAmount(clean);
         setPrice(clean);
-        
+
         console.log('User typing, raw amount:', clean);
     };
     const handlePriceBlur = () => {
@@ -145,9 +151,9 @@ const SubventionSetupScreen = () => {
         if (numValue > 100) finalValue = 100;
 
         setRawAmount(finalValue.toString());
-        
+
         console.log('Final value after blur:', finalValue, 'Has decimal:', hasDecimal);
-        
+
         if (hasDecimal) {
             setPrice(finalValue.toString());
         } else {
@@ -389,10 +395,10 @@ const SubventionSetupScreen = () => {
         try {
             // Parse the raw amount (without formatting) for the API
             const subscriptionAmount = parseFloat(rawAmount) || 0;
-            
+
             console.log('Raw Amount:', rawAmount);
             console.log('Parsed Amount:', subscriptionAmount);
-            
+
             if (subscriptionAmount < 9 || subscriptionAmount > 100) {
                 showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
                 return;
@@ -407,13 +413,16 @@ const SubventionSetupScreen = () => {
                 const dataToSend = {
                     subscriptionAmount: subscriptionAmount,
                     status: "ACTIVE",
-                    isDelete: 0
+                    isDelete: 0,
+                    comment:comment ||''
                 };
                 response = await setUserSubscription(dataToSend, subscriptionId);
+                console.log(response,'checkreponse')
             } else {
                 const dataToSend = {
                     subscriptionAmount: subscriptionAmount,
-                    status: "ACTIVE"
+                    status: "ACTIVE",
+                    comment:comment || ''
                 };
                 response = await setPrivateSubscription(dataToSend);
                 setShowActivationPopup(false);
@@ -422,6 +431,7 @@ const SubventionSetupScreen = () => {
             console.log('Subscription response:', response);
 
             if (response?.statusCode === 200) {
+                setComment('');
                 showToastMessage(toast, 'success', hasExistingSubscription ? 'Subscription updated successfully' : 'Subscription created successfully');
                 // Refresh subscription data
                 await fetchSubscriptionByUserId();
@@ -462,6 +472,17 @@ const SubventionSetupScreen = () => {
                             <Text style={styles.rangeText}>Min: $9</Text>
                             <Text style={styles.rangeText}>Max: $100</Text>
                         </View>
+                        <TextInput
+                            style={styles.commentBox}
+                            placeholder="Add a comment..."
+                            placeholderTextColor="#9ca3af"
+                            multiline
+                            value={comment}
+                            onChangeText={setComment}
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                        />
+
                     </View>
 
                     {/* Content Creation Section */}
@@ -542,38 +563,38 @@ const SubventionSetupScreen = () => {
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
                         <Text style={[styles.heading, textStyle]}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
 
-                        <Text style={styles.sectionTitle}>1. Overview</Text>
-                        <Text style={styles.text}>
+                        {/* <Text style={styles.sectionTitle}>1. Overview</Text> */}
+                        {/* <Text style={styles.text}>
                             This Master Subscription Policy applies to all users participating in the Valens
                             subscription ecosystem, including Plan Owners and Subscribers. By activating or subscribing,
                             users agree to this policy, including Valens Terms of Use, Privacy Policy, and Payout Policy.
-                        </Text>
+                        </Text> */}
 
                         {/* PART A */}
-                        <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
+                        {/* <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
 
                         <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
                         <Text style={styles.text}>
                             When you activate a subscription plan, you become a Plan Owner. You may create private
                             channels, define perks, and set monthly subscription prices between $9.99 USD and $100.00 USD.
-                        </Text>
+                        </Text> */}
 
-                        <Text style={styles.sectionTitle}>3. Platform Fees</Text>
+                        {/* <Text style={styles.sectionTitle}>3. Platform Fees</Text>
                         <Text style={styles.subSection}>3.1 Monthly Maintenance Fee</Text>
                         <Text style={styles.text}>
                             Valens charges $19.99 USD/month for hosting and operating your subscription channel.
-                        </Text>
+                        </Text> */}
 
-                        <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
+                        {/* <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
                         <Text style={styles.text}>A 5% withdrawal fee applies to every payout request.</Text>
 
                         <Text style={styles.subSection}>3.3 Billing Authorization</Text>
                         <Text style={styles.text}>
                             By enabling your plan, you authorize Valens to charge maintenance fees and deduct payout
                             withdrawal fees automatically.
-                        </Text>
+                        </Text> */}
 
-                        <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
+                        {/* <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
                         <Text style={styles.text}>
                             Earnings are visible in the Creator Dashboard. Payouts follow the Payout Policy. KYC
                             verification is required. You must report earnings to tax authorities.
@@ -583,16 +604,16 @@ const SubventionSetupScreen = () => {
                         <Text style={styles.text}>
                             All private content must follow Valens guidelines. Illegal, harmful, abusive, or fraudulent
                             content is prohibited.
-                        </Text>
+                        </Text> */}
 
-                        <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
+                        {/* <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
                         <Text style={styles.text}>
                             Valens may restrict monetization, freeze payouts, remove content, or disable plans upon
                             violations.
-                        </Text>
+                        </Text> */}
 
                         {/* PART B */}
-                        <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
+                        {/* <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
 
                         <Text style={styles.sectionTitle}>7. Subscription Access</Text>
                         <Text style={styles.text}>
@@ -602,9 +623,9 @@ const SubventionSetupScreen = () => {
                         <Text style={styles.sectionTitle}>8. Monthly Billing & Auto-Renewal</Text>
                         <Text style={styles.text}>
                             By subscribing, you authorize Valens to bill you monthly until cancellation.
-                        </Text>
+                        </Text> */}
 
-                        <Text style={styles.sectionTitle}>9. Cancellation</Text>
+                        {/* <Text style={styles.sectionTitle}>9. Cancellation</Text>
                         <Text style={styles.text}>
                             You may cancel anytime. Access remains until the end of the billing period. No partial refunds.
                         </Text>
@@ -618,10 +639,10 @@ const SubventionSetupScreen = () => {
                         <Text style={styles.text}>
                             Subscribers may NOT screenshot, record, download, print, or share subscription content.
                             Violations may result in a security block.
-                        </Text>
+                        </Text> */}
 
                         {/* PART C */}
-                        <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
+                        {/* <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
 
                         <Text style={styles.sectionTitle}>12. Safety & Compliance</Text>
                         <Text style={styles.text}>
@@ -637,20 +658,34 @@ const SubventionSetupScreen = () => {
                         <Text style={styles.text}>
                             By using subscription features, you agree to this policy and authorize Valens to manage
                             charges and fees.
-                        </Text>
+                        </Text> */}
+                        {/* <Text style={styles.heading}>IN-APP CHECKBOX — CREATORS (Plan Owners)</Text> */}
 
                         <View style={{ marginTop: 15 }} />
 
                         <TouchableOpacity
                             style={styles.checkboxRow}
+                            activeOpacity={0.8}
                             onPress={() => setIsChecked(!isChecked)}
                         >
                             <Ionicons
-                                name={isChecked ? "checkbox-outline" : "square-outline"}
-                                size={26}
-                                color={text}
+                                name={isChecked ? 'checkbox-outline' : 'square-outline'}
+                                size={24}
+                                color="#000"
+                                style={styles.checkboxIcon}
                             />
-                            <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
+
+                            <Text style={styles.checkboxText}>
+                                I agree to the{' '}
+                                <Text style={styles.linkText} onPress={openTerms}>
+                                    Valens Creator Terms
+                                </Text>
+                                , including fees, payout conditions, platform rules, and acknowledge
+                                that I am acting as an independent creator and not as an employee or
+                                agent of Valens. {'\n\n'}
+                                Subscriptions provide access to digital content only and do not create
+                                any ownership, partnership, or financial rights.
+                            </Text>
                         </TouchableOpacity>
                     </ScrollView>
 
@@ -974,6 +1009,42 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontSize: 16,
         color: "#333",
+    },
+    heading: {
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 16,
+        color: '#000',
+    },
+    checkboxRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    checkboxIcon: {
+        marginTop: 2,
+        marginRight: 10,
+    },
+    checkboxText: {
+        flex: 1,
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#000',
+    },
+    linkText: {
+        color: '#5a2d82', // same blue as image
+        fontWeight: '600',
+        textDecorationLine: 'underline',
+    },
+    commentBox: {
+        marginTop: 10,
+        fontSize: 12,
+        color: '#6b7280',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 6,
+        padding: 10,
+        minHeight: 80,
+        backgroundColor: '#fff',
     },
 });
 

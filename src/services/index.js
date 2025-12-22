@@ -24,7 +24,7 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
             }
         }
 
-        // console.log(config, "config=================")
+        console.log(config, "config=================")
         return {
             ...config,
         };

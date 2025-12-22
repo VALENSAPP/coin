@@ -474,7 +474,6 @@ export default function FlipsScreen() {
         resp = isCurrentlySaved
           ? await unSavePost(reelId)
           : await savePost(reelId);
-          console.log(resp,'respose get in this paiiapaiaiaa baa ')
         if (resp && resp.statusCode === 200) {
           showToastMessage(toast, 'success', resp.data.message);
           Alert.alert(resp?.data?.message)
@@ -856,6 +855,8 @@ export default function FlipsScreen() {
           offset: SCREEN_HEIGHT * index,
           index,
         })}
+        overScrollMode='never'
+        bounces={true}
       />
 
       {/* Dropdown Menu */}
@@ -1071,7 +1072,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    marginBottom:'10%'
+    // marginBottom:'10%'
   },
   reelContainer: {
     width: SCREEN_WIDTH,
@@ -1126,7 +1127,7 @@ const styles = StyleSheet.create({
     top: 5,
     left: 0,
     right: 0,
-    zIndex:100,
+    zIndex: 100,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1168,7 +1169,7 @@ const styles = StyleSheet.create({
   },
   musicDisc: {
     marginTop: 10,
-    marginBottom:'10%'
+    marginBottom: '10%'
   },
   discContainer: {
     width: 30,

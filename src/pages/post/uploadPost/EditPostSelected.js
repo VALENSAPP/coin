@@ -101,7 +101,7 @@ const InstagramPostCreator = () => {
   const canvasRef = useRef(null);
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
-  const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+  const [isScrollEnabled, setIsScrollEnabled] = useState(false);
 
   // Video related states
   const [videoPaused, setVideoPaused] = useState({});
@@ -391,125 +391,105 @@ const InstagramPostCreator = () => {
   };
 
   const createPanResponder = (id) => {
-    const currentEdits = getCurrentImageEdits();
-    const target = currentEdits.overlayImages.find(o => o.id === id);
-    if (!target) {
-      return PanResponder.create({ onStartShouldSetPanResponder: () => false });
-    }
+  const currentEdits = getCurrentImageEdits();
+  const target = currentEdits.overlayImages.find(o => o.id === id);
+  if (!target) {
+    return PanResponder.create({ onStartShouldSetPanResponder: () => false });
+  }
 
-    // Get or create animated value for this overlay
-    const animatedPosition = getAnimatedValue(currentImageIndex, id, target.position.x, target.position.y);
+  const animatedPosition = getAnimatedValue(currentImageIndex, id, target.position.x, target.position.y);
 
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) =>
-        Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
-      onPanResponderGrant: () => {
-        animatedPosition.setOffset({
-          x: animatedPosition.x._value,
-          y: animatedPosition.y._value,
-        });
-        animatedPosition.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const currentX = animatedPosition.x._offset + gestureState.dx;
-        const currentY = animatedPosition.y._offset + gestureState.dy;
+  return PanResponder.create({
+    onStartShouldSetPanResponder: () => true,               
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+    },
+    onPanResponderGrant: () => {
+      setIsScrollEnabled(false); // ← Disable main carousel scrolling
+      animatedPosition.setOffset({ x: animatedPosition.x._value, y: animatedPosition.y._value });
+      animatedPosition.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: Animated.event(
+      [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
+      { useNativeDriver: false }
+    ),
+    onPanResponderRelease: () => {
+      setIsScrollEnabled(true); // ← Re-enable carousel scrolling
+      animatedPosition.flattenOffset();
 
-        const boundedX = Math.max(
-          IMAGE_OVERLAY_BOUNDS.minX,
-          Math.min(IMAGE_OVERLAY_BOUNDS.maxX, currentX),
-        );
-        const boundedY = Math.max(
-          IMAGE_OVERLAY_BOUNDS.minY,
-          Math.min(IMAGE_OVERLAY_BOUNDS.maxY, currentY),
-        );
-
-        animatedPosition.setValue({
-          x: boundedX - animatedPosition.x._offset,
-          y: boundedY - animatedPosition.y._offset,
-        });
-      },
-      onPanResponderRelease: () => {
-        animatedPosition.flattenOffset();
-        // Update the stored position
-        const currentEdits = getCurrentImageEdits();
-        const updatedOverlays = currentEdits.overlayImages.map(overlay => {
-          if (overlay.id === id) {
-            return {
-              ...overlay,
-              position: {
-                x: animatedPosition.x._value,
-                y: animatedPosition.y._value,
-              }
-            };
-          }
-          return overlay;
-        });
-        updateCurrentImageEdits({ overlayImages: updatedOverlays });
-      },
-    });
-  };
+      // Save new position
+      const currentEdits = getCurrentImageEdits();
+      const updatedOverlays = currentEdits.overlayImages.map(overlay => {
+        if (overlay.id === id) {
+          return {
+            ...overlay,
+            position: {
+              x: animatedPosition.x._value,
+              y: animatedPosition.y._value,
+            }
+          };
+        }
+        return overlay;
+      });
+      updateCurrentImageEdits({ overlayImages: updatedOverlays });
+    },
+    onPanResponderTerminate: () => {
+      setIsScrollEnabled(true); // Safety: re-enable if touch is stolen
+    },
+  });
+};
 
   const createTextPanResponder = (id) => {
-    const currentEdits = getCurrentImageEdits();
-    const overlay = currentEdits.textOverlays.find(o => o.id === id);
-    if (!overlay) {
-      return PanResponder.create({ onStartShouldSetPanResponder: () => false });
-    }
+  const currentEdits = getCurrentImageEdits();
+  const overlay = currentEdits.textOverlays.find(o => o.id === id);
+  if (!overlay) {
+    return PanResponder.create({ onStartShouldSetPanResponder: () => false });
+  }
 
-    // Get or create animated value for this text overlay
-    const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
+  const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
 
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gs) =>
-        Math.abs(gs.dx) > 5 || Math.abs(gs.dy) > 5,
+  return PanResponder.create({
+    onStartShouldSetPanResponder: () => true,  // ← IMPORTANT: Capture touch immediately
+    onMoveShouldSetPanResponder: (evt, gs) => {
+      return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
+    },
+    onPanResponderGrant: () => {
+      setIsScrollEnabled(false); // ← Disable main carousel scroll
+      animatedPosition.setOffset({
+        x: animatedPosition.x._value,
+        y: animatedPosition.y._value,
+      });
+      animatedPosition.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: Animated.event(
+      [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
+      { useNativeDriver: false }
+    ),
+    onPanResponderRelease: () => {
+      setIsScrollEnabled(true); // ← Re-enable carousel scroll
+      animatedPosition.flattenOffset();
 
-      onPanResponderGrant: () => {
-        animatedPosition.setOffset({
-          x: animatedPosition.x._value,
-          y: animatedPosition.y._value,
-        });
-        animatedPosition.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const currentX = animatedPosition.x._offset + gestureState.dx;
-        const currentY = animatedPosition.y._offset + gestureState.dy;
-
-        const boundedX = Math.max(
-          TEXT_OVERLAY_BOUNDS.minX,
-          Math.min(TEXT_OVERLAY_BOUNDS.maxX, currentX),
-        );
-        const boundedY = Math.max(
-          TEXT_OVERLAY_BOUNDS.minY,
-          Math.min(TEXT_OVERLAY_BOUNDS.maxY, currentY),
-        );
-
-        animatedPosition.setValue({
-          x: boundedX - animatedPosition.x._offset,
-          y: boundedY - animatedPosition.y._offset,
-        });
-      },
-      onPanResponderRelease: () => {
-        animatedPosition.flattenOffset();
-        // Update the stored position
-        const currentEdits = getCurrentImageEdits();
-        const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
-          if (textOverlay.id === id) {
-            return {
-              ...textOverlay,
-              position: {
-                x: animatedPosition.x._value,
-                y: animatedPosition.y._value,
-              }
-            };
-          }
-          return textOverlay;
-        });
-        updateCurrentImageEdits({ textOverlays: updatedOverlays });
-      },
-    });
-  };
+      // Save new position
+      const currentEdits = getCurrentImageEdits();
+      const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
+        if (textOverlay.id === id) {
+          return {
+            ...textOverlay,
+            position: {
+              x: animatedPosition.x._value,
+              y: animatedPosition.y._value,
+            }
+          };
+        }
+        return textOverlay;
+      });
+      updateCurrentImageEdits({ textOverlays: updatedOverlays });
+    },
+    onPanResponderTerminate: () => {
+      setIsScrollEnabled(true); // Safety
+    },
+  });
+};
 
   const filterOptions = [
     { name: 'Original', value: 'none', component: React.Fragment },

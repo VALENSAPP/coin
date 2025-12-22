@@ -83,7 +83,7 @@ const SearchScreen = () => {
   const [previewPost, setPreviewPost] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [isGrid, setIsGrid] = useState(false);
-  console.log(posts,'data canme i post od search')
+  console.log(posts, 'data canme i post od search')
 
   const searchTimeoutRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
@@ -237,16 +237,36 @@ const SearchScreen = () => {
   }, [masonryLayout]);
 
   /** 👤 Navigate to user profile */
-  const handleUserProfile = (id) => {
-    if (userId === id) {
-      navigation.navigate('ProfileStack', { screen: 'FlipsScreen' });
-    } else {
-      navigation.navigate('ProfileStack', {
-        screen: 'FlipsScreen',
-        params: { userId: id }
+  // const handleUserProfile = (id) => {
+  //    if (userId === id) {
+  //   navigation.navigate('HomeMain', {
+  //     screen: 'ProfileStack',
+  //     params: {
+  //       screen: 'UserProfile', // 👈 profile screen only
+  //     },
+  //   // }); else {
+  //   //   navigation.navigate('ProfileStack', {
+  //   //     screen: 'FlipsScreen',
+  //   //     params: { userId: id }
+  //   //   });
+  //   // }
+  // };
+
+  const handleUserProfile = useCallback(
+    (user) => {
+      if (!user?.id) return;
+
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',   
+        params: {
+          userId: user.id,        
+          username: user.username, 
+          returnTo: route?.name,   
+        },
       });
-    }
-  };
+    },
+    [navigation],
+  );
 
   /** 🎬 Handle post press (image or video) */
   const handlePostPress = (item, isVideo) => {
@@ -434,7 +454,7 @@ const SearchScreen = () => {
     return (
       <TouchableOpacity
         style={styles.userListItem}
-        onPress={() => handleUserProfile(item.id)}
+        onPress={() => handleUserProfile(item)}
         activeOpacity={0.7}
       >
         <Image
