@@ -23,30 +23,29 @@ import BuyersListModal from '../../modals/BuyerList';
 const { width } = Dimensions.get('window');
 
 /* ----------------------------------------- */
-function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }) {
+function InstagramZoomableImage({ uri, onZoomChange }) {
   const pinchRef = useRef();
-  const hasOpenedRef = useRef(false);
-  const MIN_SCALE_TO_OPEN = 0.8;
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const onPinchEvent = (e) => {
-    const { scale = 1, numberOfPointers = 0, state } = e.nativeEvent || {};
-    if (!hasOpenedRef.current && numberOfPointers >= 2 && scale > MIN_SCALE_TO_OPEN) {
-      hasOpenedRef.current = true;
-      onZoomChange?.(true);
-      onOpenViewer?.(uri);
-    }
-  };
+  const onPinchEvent = Animated.event(
+    [{ nativeEvent: { scale: scale } }],
+    { useNativeDriver: true }
+  );
 
   const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.oldState === State.ACTIVE) {
-      onZoomChange?.(false);
-      hasOpenedRef.current = false;
-    }
-  };
-
-  const onDoubleTapStateChange = ({ nativeEvent }) => {
     if (nativeEvent.state === State.ACTIVE) {
-      onDoubleTap?.(uri);
+      // User started pinching - enable zoom mode
+      onZoomChange?.(true);
+    }
+
+    if (nativeEvent.oldState === State.ACTIVE) {
+      // User released pinch - reset zoom
+      onZoomChange?.(false);
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 7,
+      }).start();
     }
   };
 
@@ -56,131 +55,16 @@ function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }
       onGestureEvent={onPinchEvent}
       onHandlerStateChange={onPinchStateChange}
     >
-      <TapGestureHandler
-        numberOfTaps={2}
-        onHandlerStateChange={onDoubleTapStateChange}
-      >
-        <Image source={{ uri }} style={styles.postMedia} />
-      </TapGestureHandler>
+      <Animated.Image 
+        source={{ uri }} 
+        style={[
+          styles.postMedia,
+          {
+            transform: [{ scale: scale }]
+          }
+        ]} 
+      />
     </PinchGestureHandler>
-  );
-}
-
-/* ----------------------------------------- */
-function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
-  if (!visible) return null;
-
-  const screen = Dimensions.get('window');
-  const pinchScale = useRef(new Animated.Value(1)).current;
-  const panX = useRef(new Animated.Value(0)).current;
-  const panY = useRef(new Animated.Value(0)).current;
-  const focalX = useRef(new Animated.Value(0)).current;
-  const focalY = useRef(new Animated.Value(0)).current;
-  const panOffsetX = useRef(0);
-  const panOffsetY = useRef(0);
-  const pinchRef = useRef();
-  const panRef = useRef();
-
-  const clampedScale = pinchScale.interpolate({
-    inputRange: [1, 4],
-    outputRange: [1, 4],
-    extrapolate: 'clamp',
-  });
-
-  const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale: pinchScale, focalX: focalX, focalY: focalY } }],
-    { useNativeDriver: false }
-  );
-
-  const onPanEvent = Animated.event(
-    [{ nativeEvent: { translationX: panX, translationY: panY } }],
-    { useNativeDriver: false }
-  );
-
-  const onPanStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.BEGAN) {
-      panX.setOffset(panOffsetX.current);
-      panY.setOffset(panOffsetY.current);
-      panX.setValue(0);
-      panY.setValue(0);
-    }
-    if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED || nativeEvent.oldState === State.ACTIVE) {
-      panOffsetX.current = panOffsetX.current + (nativeEvent.translationX || 0);
-      panOffsetY.current = panOffsetY.current + (nativeEvent.translationY || 0);
-      panX.setOffset(panOffsetX.current);
-      panY.setOffset(panOffsetY.current);
-      panX.setValue(0);
-      panY.setValue(0);
-    }
-  };
-
-  const resetTransform = (cb) => {
-    Animated.parallel([
-      Animated.spring(pinchScale, { toValue: 1, useNativeDriver: false }),
-      Animated.spring(panX, { toValue: 0, useNativeDriver: false }),
-      Animated.spring(panY, { toValue: 0, useNativeDriver: false }),
-    ]).start(cb);
-  };
-
-  const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.oldState === State.ACTIVE) {
-      panOffsetX.current = 0;
-      panOffsetY.current = 0;
-      panX.setOffset(0);
-      panY.setOffset(0);
-      resetTransform(onRequestClose);
-    }
-  };
-
-  const onDoubleTapStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.ACTIVE) {
-      resetTransform(onRequestClose);
-    }
-  };
-
-  return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 9999 }]}>
-      <PinchGestureHandler
-        ref={pinchRef}
-        onGestureEvent={onPinchEvent}
-        onHandlerStateChange={onPinchStateChange}
-      >
-        <PanGestureHandler
-          ref={panRef}
-          simultaneousHandlers={pinchRef}
-          onGestureEvent={onPanEvent}
-          onHandlerStateChange={(e) => {
-            onPanStateChange({ nativeEvent: e.nativeEvent });
-            if (e.nativeEvent.state === State.END || e.nativeEvent.state === State.CANCELLED || e.nativeEvent.oldState === State.ACTIVE) {
-              panOffsetX.current = 0;
-              panOffsetY.current = 0;
-              panX.setOffset(0);
-              panY.setOffset(0);
-              resetTransform(onRequestClose);
-            }
-          }}
-        >
-          <TapGestureHandler
-            numberOfTaps={2}
-            onHandlerStateChange={onDoubleTapStateChange}
-          >
-            <Animated.Image
-              source={{ uri }}
-              style={{
-                width: screen.width,
-                height: screen.height,
-                transform: [
-                  { translateX: panX },
-                  { translateY: panY },
-                  { scale: clampedScale },
-                ],
-              }}
-              resizeMode="contain"
-            />
-          </TapGestureHandler>
-        </PanGestureHandler>
-      </PinchGestureHandler>
-    </View>
   );
 }
 
@@ -217,8 +101,6 @@ function PostItem({
   const [videoStates, setVideoStates] = useState({});
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [isZooming, setIsZooming] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerUri, setViewerUri] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [donation, setDonation] = useState(false);
@@ -243,7 +125,6 @@ function PostItem({
     console.warn('PostItem received invalid item:', item);
     return null;
   }
-  console.log(shareCount,'checkItem')
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
@@ -563,16 +444,6 @@ function PostItem({
               setIsZooming(zoomed);
               setScrollEnabled(!zoomed);
             }}
-            onDoubleTap={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
-            onOpenViewer={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
           />
         )}
       </View>
@@ -581,8 +452,6 @@ function PostItem({
 
   return (
     <View style={styles.wrapper}>
-      {isZooming && <View style={styles.zoomBackdrop} pointerEvents="none" />}
-
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
@@ -675,7 +544,7 @@ function PostItem({
 
             <TouchableOpacity onPress={() => { shareRef.current?.open?.(), setSelectedPostId(item) }} style={styles.actionButton}>
               <Feather name="send" size={24} color="#374151" />
-              <Text style={styles.actionCount}>{ shareCount}</Text>
+              <Text style={styles.actionCount}>{shareCount}</Text>
             </TouchableOpacity>
           </View>
 
@@ -799,16 +668,6 @@ function PostItem({
         )}
       </View>
 
-      {viewerOpen && (
-        <InlineFullscreenViewer
-          uri={viewerUri}
-          visible={viewerOpen}
-          onRequestClose={() => {
-            setViewerOpen(false);
-            setScrollEnabled(true);
-          }}
-        />
-      )}
       <MissionSupportScreen
         visible={donation}
         onClose={() => setDonation(false)}
@@ -837,15 +696,6 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingBottom: 8,
     position: 'relative',
-  },
-  zoomBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    zIndex: 999,
   },
   postCard: {
     backgroundColor: '#FFFFFF',
@@ -968,15 +818,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  dotsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   dot: {
     width: 8,

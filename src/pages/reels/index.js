@@ -355,7 +355,20 @@ export default function FlipsScreen() {
 
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 95 });
 
-  // Handlers
+  // Handle scroll to prevent scrolling beyond last reel
+  const handleScroll = useCallback((event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const maxScroll = (reels.length - 1) * SCREEN_HEIGHT;
+    
+    // If trying to scroll beyond the last reel, prevent it
+    if (offsetY > maxScroll + 50) { // 50px threshold
+      flatListRef.current?.scrollToIndex({
+        index: reels.length - 1,
+        animated: false
+      });
+    }
+  }, [reels.length]);
+
   const handleLike = useCallback(
     async (id) => {
       if (!id) return;
@@ -838,12 +851,27 @@ export default function FlipsScreen() {
         pagingEnabled
         showsVerticalScrollIndicator={false}
         decelerationRate={0.98}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         onViewableItemsChanged={onViewableItemsChanged}
         onMomentumScrollEnd={(e) => {
           const offsetY = e.nativeEvent.contentOffset.y || 0;
           const idx = Math.round(offsetY / SCREEN_HEIGHT);
-          if (idx !== currentIndex) {
-            setCurrentIndex(idx);
+          const maxIndex = reels.length - 1;
+          
+          // Ensure we don't go beyond the last reel
+          const validIdx = Math.min(idx, maxIndex);
+          
+          if (validIdx !== currentIndex) {
+            setCurrentIndex(validIdx);
+          }
+          
+          // If scrolled beyond last reel, snap back
+          if (idx > maxIndex) {
+            flatListRef.current?.scrollToIndex({
+              index: maxIndex,
+              animated: true
+            });
           }
         }}
         viewabilityConfig={viewConfigRef.current}
@@ -856,7 +884,9 @@ export default function FlipsScreen() {
           index,
         })}
         overScrollMode='never'
-        bounces={true}
+        bounces={false}
+        scrollEnabled={reels.length > 0}
+        removeClippedSubviews={true}
       />
 
       {/* Dropdown Menu */}
@@ -1061,8 +1091,7 @@ export default function FlipsScreen() {
         </ScrollView>
       </RBSheet>
 
-      <ShareModal ref={shareRef} reel={reels[currentIndex]}
-        reelId={reels[currentIndex]?.id} />
+      <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
       <ReportFlowScreen ref={reportSheetRef} />
     </SafeAreaView>
   );
@@ -1149,6 +1178,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   headerIconButton: {
+    padding: 8,
+  },
+  buttons: {
     padding: 8,
   },
   sideActions: {
@@ -1593,15 +1625,9 @@ const styles = StyleSheet.create({
     top: 7,
     left: 5,
   },
-  marqueeText: {
-    fontSize: 12,
-    color: '#fff',
-    width: 100,
-  },
   musicIcon: {
     marginTop: 4
-  }
-  ,
+  },
   dragHandle: {
     width: 40,
     height: 4,

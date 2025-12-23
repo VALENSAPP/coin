@@ -61,6 +61,7 @@
     "react-native-insta-story": "^1.1.9",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-linear-gradient": "^2.8.3",
+    "react-native-localize": "^3.6.0",
     "react-native-otp-textinput": "^1.1.7",
     "react-native-pager-view": "^6.8.1",
     "react-native-permissions": "^5.4.2",
