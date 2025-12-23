@@ -17,6 +17,7 @@ import { notificationListener, requestUserPermission } from './services/Notifica
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
 import { initializeSocket } from './services/socket';
+// import { getUserCountry } from './hooks/countryLocation';
 
 const linking = {
   prefixes: [
@@ -48,6 +49,8 @@ export default function Main() {
     const setup = async () => {
       try {
         await initializeSocket();
+        // const country = await getUserCountry();
+        // console.log(country,'checkWhichCountryuserare........')
       } catch (e) {
         console.warn("Socket init failed", e);
       }

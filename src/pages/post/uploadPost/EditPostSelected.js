@@ -101,7 +101,8 @@ const InstagramPostCreator = () => {
   const canvasRef = useRef(null);
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
-  const [isScrollEnabled, setIsScrollEnabled] = useState(false);
+  const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+  const [canvasKey, setCanvasKey] = useState(0);
 
   // Video related states
   const [videoPaused, setVideoPaused] = useState({});
@@ -260,6 +261,70 @@ const InstagramPostCreator = () => {
     updateCurrentImageEdits({ filter: filterValue });
   };
 
+  const captureAndMergeDrawing = async (shouldExitDrawMode = true) => {
+    if (!isDrawing || isCurrentMediaVideo() || !canvasRef.current) return;
+
+    try {
+      // Create a promise that resolves when onSketchSaved is called
+      const savePromise = new Promise((resolve, reject) => {
+        // Store the resolve/reject functions temporarily
+        window._canvasSaveResolve = resolve;
+        window._canvasSaveReject = reject;
+      });
+
+      // Trigger the save operation
+      canvasRef.current.save(
+        'jpg',                  // format (jpg is smaller)
+        false,                  // transparent = false (we want the photo background)
+        '',                     // folder (empty = default temp/cache)
+        `merged_${Date.now()}`, // filename
+        true,                   // includeImage = true → merges with background photo
+        false,                  // includeText = false (we don't use canvas text)
+        true                    // cropToImageSize = true → matches photo size perfectly
+      );
+
+      // Wait for the save to complete
+      await savePromise;
+
+      // Clear canvas after save completes
+      if (canvasRef.current) {
+        canvasRef.current.clear();
+      }
+
+      if (shouldExitDrawMode) {
+        setIsDrawing(false);
+        setIsScrollEnabled(true);
+        setActiveTab('null');
+        setCanvasKey(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error('Drawing save error:', err);
+      Alert.alert('Error', 'Failed to save drawing.');
+    } finally {
+      // Clean up the temporary promise handlers
+      delete window._canvasSaveResolve;
+      delete window._canvasSaveReject;
+    }
+  };
+  const handleImageChange = async (newIndex) => {
+    if (newIndex === currentImageIndex) return;
+
+    // Auto-merge current drawing before switching
+    if (isDrawing) {
+      await captureAndMergeDrawing(false); // false = don't exit draw mode yet
+    }
+
+    setCurrentImageIndex(newIndex);
+    loadImageEdits(newIndex);
+    setCanvasKey(prev => prev + 1);
+
+    // Re-enter draw mode if user was drawing
+    if (isDrawing) {
+      setIsDrawing(true);
+      setIsScrollEnabled(false);
+    }
+  };
+
   // Function to capture filtered image
   const captureFilteredImage = async (imageIndex) => {
     try {
@@ -391,105 +456,105 @@ const InstagramPostCreator = () => {
   };
 
   const createPanResponder = (id) => {
-  const currentEdits = getCurrentImageEdits();
-  const target = currentEdits.overlayImages.find(o => o.id === id);
-  if (!target) {
-    return PanResponder.create({ onStartShouldSetPanResponder: () => false });
-  }
+    const currentEdits = getCurrentImageEdits();
+    const target = currentEdits.overlayImages.find(o => o.id === id);
+    if (!target) {
+      return PanResponder.create({ onStartShouldSetPanResponder: () => false });
+    }
 
-  const animatedPosition = getAnimatedValue(currentImageIndex, id, target.position.x, target.position.y);
+    const animatedPosition = getAnimatedValue(currentImageIndex, id, target.position.x, target.position.y);
 
-  return PanResponder.create({
-    onStartShouldSetPanResponder: () => true,               
-    onMoveShouldSetPanResponder: (evt, gestureState) => {
-      return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
-    },
-    onPanResponderGrant: () => {
-      setIsScrollEnabled(false); // ← Disable main carousel scrolling
-      animatedPosition.setOffset({ x: animatedPosition.x._value, y: animatedPosition.y._value });
-      animatedPosition.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderMove: Animated.event(
-      [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
-      { useNativeDriver: false }
-    ),
-    onPanResponderRelease: () => {
-      setIsScrollEnabled(true); // ← Re-enable carousel scrolling
-      animatedPosition.flattenOffset();
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onPanResponderGrant: () => {
+        setIsScrollEnabled(false); // ← Disable main carousel scrolling
+        animatedPosition.setOffset({ x: animatedPosition.x._value, y: animatedPosition.y._value });
+        animatedPosition.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => {
+        setIsScrollEnabled(true); // ← Re-enable carousel scrolling
+        animatedPosition.flattenOffset();
 
-      // Save new position
-      const currentEdits = getCurrentImageEdits();
-      const updatedOverlays = currentEdits.overlayImages.map(overlay => {
-        if (overlay.id === id) {
-          return {
-            ...overlay,
-            position: {
-              x: animatedPosition.x._value,
-              y: animatedPosition.y._value,
-            }
-          };
-        }
-        return overlay;
-      });
-      updateCurrentImageEdits({ overlayImages: updatedOverlays });
-    },
-    onPanResponderTerminate: () => {
-      setIsScrollEnabled(true); // Safety: re-enable if touch is stolen
-    },
-  });
-};
+        // Save new position
+        const currentEdits = getCurrentImageEdits();
+        const updatedOverlays = currentEdits.overlayImages.map(overlay => {
+          if (overlay.id === id) {
+            return {
+              ...overlay,
+              position: {
+                x: animatedPosition.x._value,
+                y: animatedPosition.y._value,
+              }
+            };
+          }
+          return overlay;
+        });
+        updateCurrentImageEdits({ overlayImages: updatedOverlays });
+      },
+      onPanResponderTerminate: () => {
+        setIsScrollEnabled(true); // Safety: re-enable if touch is stolen
+      },
+    });
+  };
 
   const createTextPanResponder = (id) => {
-  const currentEdits = getCurrentImageEdits();
-  const overlay = currentEdits.textOverlays.find(o => o.id === id);
-  if (!overlay) {
-    return PanResponder.create({ onStartShouldSetPanResponder: () => false });
-  }
+    const currentEdits = getCurrentImageEdits();
+    const overlay = currentEdits.textOverlays.find(o => o.id === id);
+    if (!overlay) {
+      return PanResponder.create({ onStartShouldSetPanResponder: () => false });
+    }
 
-  const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
+    const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
 
-  return PanResponder.create({
-    onStartShouldSetPanResponder: () => true,  // ← IMPORTANT: Capture touch immediately
-    onMoveShouldSetPanResponder: (evt, gs) => {
-      return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
-    },
-    onPanResponderGrant: () => {
-      setIsScrollEnabled(false); // ← Disable main carousel scroll
-      animatedPosition.setOffset({
-        x: animatedPosition.x._value,
-        y: animatedPosition.y._value,
-      });
-      animatedPosition.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderMove: Animated.event(
-      [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
-      { useNativeDriver: false }
-    ),
-    onPanResponderRelease: () => {
-      setIsScrollEnabled(true); // ← Re-enable carousel scroll
-      animatedPosition.flattenOffset();
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,  // ← IMPORTANT: Capture touch immediately
+      onMoveShouldSetPanResponder: (evt, gs) => {
+        return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
+      },
+      onPanResponderGrant: () => {
+        setIsScrollEnabled(false); // ← Disable main carousel scroll
+        animatedPosition.setOffset({
+          x: animatedPosition.x._value,
+          y: animatedPosition.y._value,
+        });
+        animatedPosition.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => {
+        setIsScrollEnabled(true); // ← Re-enable carousel scroll
+        animatedPosition.flattenOffset();
 
-      // Save new position
-      const currentEdits = getCurrentImageEdits();
-      const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
-        if (textOverlay.id === id) {
-          return {
-            ...textOverlay,
-            position: {
-              x: animatedPosition.x._value,
-              y: animatedPosition.y._value,
-            }
-          };
-        }
-        return textOverlay;
-      });
-      updateCurrentImageEdits({ textOverlays: updatedOverlays });
-    },
-    onPanResponderTerminate: () => {
-      setIsScrollEnabled(true); // Safety
-    },
-  });
-};
+        // Save new position
+        const currentEdits = getCurrentImageEdits();
+        const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
+          if (textOverlay.id === id) {
+            return {
+              ...textOverlay,
+              position: {
+                x: animatedPosition.x._value,
+                y: animatedPosition.y._value,
+              }
+            };
+          }
+          return textOverlay;
+        });
+        updateCurrentImageEdits({ textOverlays: updatedOverlays });
+      },
+      onPanResponderTerminate: () => {
+        setIsScrollEnabled(true); // Safety
+      },
+    });
+  };
 
   const filterOptions = [
     { name: 'Original', value: 'none', component: React.Fragment },
@@ -678,29 +743,10 @@ const InstagramPostCreator = () => {
     }
   };
 
-  const saveCurrentDrawing = () => {
-    if (canvasRef.current && isDrawing) {
-      try {
-        canvasRef.current.save('png', false, 'Sketches', String(Date.now()), false, false, false);
-      } catch (error) {
-        console.log('Error calling save():', error);
-      }
-    }
-  };
-
-  const handleImageChange = async (newIndex) => {
-    if (newIndex === currentImageIndex) return;
-
-    // Save current drawing before switching
-    await saveCurrentDrawing();
-
-    setCurrentImageIndex(newIndex);
-
-    // Load edits for the new image
-    loadImageEdits(newIndex);
-  };
-
   const handleNext = async () => {
+    if (isDrawing) {
+      await captureAndMergeDrawing(false);
+    }
     try {
       const processedImages = await Promise.all(
         selectedImages.map(async (image, index) => {
@@ -709,16 +755,15 @@ const InstagramPostCreator = () => {
             overlayImages: [],
             filter: 'none',
             drawings: null,
+            processedImageUri: null,
           };
-
-          let processedUri = image.path || image.uri;
-
-          // Skip capture for videos or if no edits are applied
+          let processedUri = edits.processedImageUri || image.path || image.uri;
           const isVideo = isMediaVideo(image);
           const hasEdits =
             edits.textOverlays.length > 0 ||
             edits.overlayImages.length > 0 ||
             edits.drawings ||
+            edits.processedImageUri ||
             (edits.filter && edits.filter !== 'none');
 
           if (!isVideo && hasEdits) {
@@ -786,12 +831,13 @@ const InstagramPostCreator = () => {
                   overlayImages: [],
                   filter: 'none',
                   drawings: null,
+                  processedImageUri: null,
                 };
 
                 return {
                   ...image,
                   originalUri: image.path || image.uri,
-                  processedUri: image.path || image.uri,
+                  processedUri: edits.processedImageUri || image.path || image.uri,
                   filter: edits.filter,
                   isVideo: isMediaVideo(image),
                   textOverlays: edits.textOverlays.map(overlay => ({
@@ -989,102 +1035,96 @@ const InstagramPostCreator = () => {
                         onStartShouldSetPanResponder={evt => {
                           if (isDrawing) return false;
                           return (
-                            evt.nativeEvent.target._owner?.memoizedProps?.testID !==
-                            'overlay-element'
+                            evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
                           );
                         }}
                         onMoveShouldSetPanResponder={evt => {
                           if (isDrawing) return false;
                           return (
-                            evt.nativeEvent.target._owner?.memoizedProps?.testID !==
-                            'overlay-element'
+                            evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
                           );
                         }}
                         onPanResponderGrant={handleZoomStart}
                         onPanResponderRelease={handleZoomEnd}
                         onMove={({ scale }) => handleZoomChange(scale)}
                       >
-                        {/* Filtered image */}
-                        {!isMediaVideo(image) ? (
-                          <View style={styles.mainImage}>
-                            <Image
-                              source={{ uri: image.path || image.uri }}
-                              style={styles.mainImage}
-                              resizeMode="cover"
-                            />
-                            {/* Filter overlay */}
-                            {selectedFilter !== 'none' && (
-                              <View
-                                pointerEvents="none"
-                                style={[
-                                  StyleSheet.absoluteFillObject,
-                                  {
-                                    backgroundColor:
-                                      selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
-                                        selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
-                                          selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
-                                            selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
-                                              selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
-                                                'transparent',
-                                    mixBlendMode: 'multiply',
-                                  }
-                                ]} />
-                            )}
-                            {/* Optional: Duplicate image with tint for stronger effect */}
-                            {/* {selectedFilter === 'grayscale' && (
+                        <View style={styles.mainImage}>
+                          {/* Use processedImageUri if drawing was saved, otherwise original */}
+                          {(() => {
+                            const currentImageUri =
+                              getCurrentImageEdits().processedImageUri ||
+                              (selectedImages[currentImageIndex]?.path || selectedImages[currentImageIndex]?.uri);
+
+                            return (
                               <Image
-                                source={{ uri: image.path || image.uri }}
-                                style={[styles.mainImage, { tintColor: '#808080', opacity: 0.8 }]}
+                                source={{ uri: currentImageUri }}
+                                style={styles.mainImage}
                                 resizeMode="cover"
                               />
-                            )} */}
-                          </View>
-                        ) : (
-                          <Image
-                            source={{ uri: image.path || image.uri }}
-                            style={styles.mainImage}
-                            resizeMode="cover"
-                          />
-                        )}
+                            );
+                          })()}
+
+                          {/* Fake filter overlay (your current visual effect) */}
+                          {selectedFilter !== 'none' && (
+                            <View
+                              pointerEvents="none"
+                              style={[
+                                StyleSheet.absoluteFillObject,
+                                {
+                                  backgroundColor:
+                                    selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                      selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                        selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                          selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                            selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                              'transparent',
+                                  mixBlendMode: 'multiply',
+                                }
+                              ]}
+                            />
+                          )}
+                        </View>
                       </ImageZoom>
                     )}
 
-                    {/* Only show overlays for current image */}
-                    {index === currentImageIndex && (
+                    {index === currentImageIndex && !isMediaVideo(image) && (
                       <>
-                        {/* Drawing Canvas - only for images, not videos */}
-                        {isDrawing && !isMediaVideo(image) && (
+                        {isDrawing && (
                           <SketchCanvas
+                            key={`canvas-${currentImageIndex}-${canvasKey}`}
                             ref={canvasRef}
-                            style={[
-                              StyleSheet.absoluteFill,
-                              {
-                                backgroundColor: 'rgba(0,0,0,0)', // Completely transparent
-                              }
-                            ]}
+                            style={StyleSheet.absoluteFill}
                             strokeColor={drawColor}
                             strokeWidth={5}
                             pointerEvents="box-only"
-                            // Force transparent background
-                            defaultBackground="transparent"
-                            backgroundColor="rgba(0,0,0,0)"
-                            onStrokeEnd={() => {
-                              setTimeout(() => {
-                                saveCurrentDrawing();
-                              }, 100);
+                            localSourceImage={{
+                              filename: selectedImages[currentImageIndex].path || selectedImages[currentImageIndex].uri,
+                              directory: '',
+                              mode: 'AspectFill',
                             }}
-                            onSketchSaved={async (success, path) => {
+                            onSketchSaved={(success, path) => {
                               if (success) {
-                                const base64 = await RNFS.readFile(path, 'base64');
+                                console.log('✅ Drawing merged successfully:', path);
                                 updateCurrentImageEdits({
-                                  drawings: `data:image/png;base64,${base64}`,
+                                  processedImageUri: path,
                                 });
+
+                                // Resolve the promise if it exists
+                                if (window._canvasSaveResolve) {
+                                  window._canvasSaveResolve(path);
+                                }
+                              } else {
+                                console.log('❌ Canvas save failed');
+
+                                // Reject the promise if it exists
+                                if (window._canvasSaveReject) {
+                                  window._canvasSaveReject(new Error('Canvas save failed'));
+                                }
                               }
                             }}
                           />
                         )}
 
-                        {/* Overlay Images */}
                         {currentEdits.overlayImages.map(img => {
                           const panResponder = createPanResponder(img.id);
                           const animatedPosition = getAnimatedValue(currentImageIndex, img.id, img.position.x, img.position.y);
@@ -1217,24 +1257,6 @@ const InstagramPostCreator = () => {
                             </Text>
                           </Animated.View>
                         )}
-
-                        {/* Current image drawing overlay - only for images */}
-                        {currentEdits.drawings && !isMediaVideo(image) && (
-                          <Image
-                            source={{ uri: currentEdits.drawings }}
-                            style={[
-                              StyleSheet.absoluteFill,
-                              {
-                                backgroundColor: 'transparent',
-                                // Use blend mode to only show colored pixels
-                                mixBlendMode: 'multiply', // or 'overlay', 'screen'
-                              }
-                            ]}
-                            resizeMode="cover"
-                            // Make only non-white pixels visible
-                            blendMode="normal"
-                          />
-                        )}
                       </>
                     )}
 
@@ -1298,15 +1320,6 @@ const InstagramPostCreator = () => {
                             </Text>
                           </View>
                         ))}
-
-                        {/* Show saved drawings for this specific image - only for images */}
-                        {imageEdits[index]?.drawings && !isMediaVideo(selectedImages[index]) && (
-                          <Image
-                            source={{ uri: imageEdits[index].drawings }}
-                            style={StyleSheet.absoluteFill}
-                            resizeMode="cover"
-                          />
-                        )}
                       </>
                     )}
                   </View>
@@ -1321,7 +1334,6 @@ const InstagramPostCreator = () => {
                   onPress={() => {
                     if (canvasRef.current) {
                       canvasRef.current.undo();
-                      setTimeout(() => saveCurrentDrawing(), 100);
                     }
                   }}
                   style={styles.controlButton}
@@ -1334,6 +1346,10 @@ const InstagramPostCreator = () => {
                       canvasRef.current.clear();
                       updateCurrentImageEdits({ drawings: null });
                     }
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                    setActiveTab('null');
                   }}
                   style={[
                     styles.controlButton,
@@ -1343,42 +1359,31 @@ const InstagramPostCreator = () => {
                   <Text style={styles.controlButtonText}>✕</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={async () => {
-                    await saveCurrentDrawing();
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                  }}
-                  style={[
-                    styles.controlButton,
-                    { backgroundColor: 'rgba(0,128,0,0.7)' },
-                  ]}
+                  onPress={() => captureAndMergeDrawing(true)} // Now just exits cleanly
+                  style={[styles.controlButton, { backgroundColor: 'rgba(0,128,0,0.8)' }]}
                 >
                   <Text style={styles.controlButtonText}>✓</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Color palette - only show for images */}
             {isDrawing && !isCurrentMediaVideo() && (
               <ScrollView
                 horizontal
                 style={styles.colorPalette}
-                contentContainerStyle={{ alignItems: 'center' }}
                 showsHorizontalScrollIndicator={false}
               >
-                {['red', 'blue', 'green', 'yellow', 'white', 'black'].map(
-                  color => (
-                    <TouchableOpacity
-                      key={color}
-                      style={[
-                        styles.colorOption,
-                        { backgroundColor: color },
-                        drawColor === color && styles.activeColorOption,
-                      ]}
-                      onPress={() => setDrawColor(color)}
-                    />
-                  ),
-                )}
+                {['red', 'blue', 'green', 'yellow', 'white', 'black'].map(color => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorOption,
+                      { backgroundColor: color },
+                      drawColor === color && styles.activeColorOption,
+                    ]}
+                    onPress={() => setDrawColor(color)}
+                  />
+                ))}
               </ScrollView>
             )}
 
@@ -1464,13 +1469,10 @@ const InstagramPostCreator = () => {
             { title: 'Filter', icon: 'color-filter-outline', disabled: isCurrentMediaVideo() },
             { title: 'Draw', icon: 'create-outline', disabled: isCurrentMediaVideo() },
           ].map(tab => (
-            <TabButton
+            <TouchableOpacity
               key={tab.title}
-              title={tab.title}
-              icon={tab.icon}
-              isActive={activeTab === tab.title}
-              disabled={tab.disabled}
-              onPress={() => {
+              style={[styles.tabButton, tab.disabled && styles.disabledTabButton]}
+              onPress={async () => {
                 if (tab.disabled) return;
                 if (tab.title !== 'Filter' && showFilters) {
                   setShowFilters(false);
@@ -1478,14 +1480,22 @@ const InstagramPostCreator = () => {
 
                 if (tab.title === 'Draw') {
                   const newDrawingMode = !isDrawing;
-                  setIsDrawing(newDrawingMode);
-                  setIsScrollEnabled(!newDrawingMode); 
+                  if (isDrawing) {
+                    // Exiting draw mode → save first
+                    await captureAndMergeDrawing(true);
+                  } else {
+                    // Entering draw mode
+                    setIsDrawing(true);
+                    setIsScrollEnabled(false);
+                    setCanvasKey(prev => prev + 1);
+                  }
                 }
                 else if (tab.title === 'Filter') {
                   setShowFilters(prev => !prev);
                   if (isDrawing) {
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
                   }
                 }
                 else if (tab.title === 'Text') {
@@ -1493,6 +1503,7 @@ const InstagramPostCreator = () => {
                   if (isDrawing) {
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
                   }
                 }
                 else if (tab.title === 'Overlay') {
@@ -1500,12 +1511,17 @@ const InstagramPostCreator = () => {
                   if (isDrawing) {
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
                   }
                 }
 
                 setActiveTab(tab.title);
               }}
-            />
+              disabled={tab.disabled}
+            >
+              <Icon name={tab.icon} size={15} color={tab.disabled ? '#555' : '#aaa'} style={{ marginBottom: 2 }} />
+              <Text style={[styles.tabButtonText, tab.disabled && styles.disabledTabButtonText]}>{tab.title}</Text>
+            </TouchableOpacity>
           ))}
         </View>
       )}

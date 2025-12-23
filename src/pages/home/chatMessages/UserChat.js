@@ -1281,7 +1281,6 @@ const handleContentSizeChange = () => {
 
 
   const renderMessage = ({ item, index }) => {
-    console.log(item, 'checkItem What i get')
     const isUser = item.sender === 'user';
     const showTime =
       index === 0 ||
@@ -1576,7 +1575,6 @@ const handleContentSizeChange = () => {
 
             {(item.type === 'reel_share' || item.type === 'reel') && (
               (() => {
-                console.log(item, 'checkItem What i get');
                 const reelData = item.reel || item.rawData?.reel || item.rawData?.post || {};
 
                 // Extract proper data with fallbacks

@@ -10,7 +10,8 @@ import {
     StyleSheet,
     Alert,
     PermissionsAndroid,
-    Platform
+    Platform,
+    Linking
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { PostStory } from '../../services/stories';
@@ -81,8 +82,18 @@ const SubventionSetupScreen = () => {
         return `${formatted},00`;
     };
 
-    const openTerms = () => {
-        console.log('openterms')
+    const openTerms = async() => {
+      const url = 'https://www.valenstechnologies.app/creatorterms';
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                console.log("Can't open URL:", url);
+            }
+        } catch (error) {
+            console.error('Error opening terms link:', error);
+        }
     }
 
 

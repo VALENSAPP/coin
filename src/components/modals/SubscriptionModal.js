@@ -78,8 +78,18 @@ const SubscribeFlowModal = ({
         }
     };
 
-    const openTerms = () => {
-        console.log('openterms')
+   const openTerms = async() => {
+      const url = 'https://www.valenstechnologies.app/subscriberterms';
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                console.log("Can't open URL:", url);
+            }
+        } catch (error) {
+            console.error('Error opening terms link:', error);
+        }
     }
 
     const fetchSubscriptionByUserId = async () => {
