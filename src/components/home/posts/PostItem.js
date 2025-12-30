@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal } from 'react-native';
 import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -24,50 +24,107 @@ const { width } = Dimensions.get('window');
 
 /* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange }) {
-  const pinchRef = useRef();
   const scale = useRef(new Animated.Value(1)).current;
+  const [isModalVisible, setIsModalVisible] = useState(false);
+   const [modalImageLoaded, setModalImageLoaded] = useState(false);
+  const imageSource = useMemo(() => ({ uri }), [uri]);
+
+  // useEffect(() => {
+  //   if (uri) {
+  //     Image.prefetch(uri).catch(err => console.warn('Prefetch failed:', err));
+  //   }
+  // }, [uri]);
 
   const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale: scale } }],
+    [{ nativeEvent: { scale } }],
     { useNativeDriver: true }
   );
 
+  const resetScale = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 0,
+    }).start(() => {
+      setIsModalVisible(false);
+      setModalImageLoaded(false);
+      onZoomChange?.(false);
+    });
+  };
+
   const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.ACTIVE) {
-      // User started pinching - enable zoom mode
+    const { state, oldState } = nativeEvent;
+    if (state === State.BEGAN ) {
+      setIsModalVisible(true);
       onZoomChange?.(true);
     }
 
-    if (nativeEvent.oldState === State.ACTIVE) {
-      // User released pinch - reset zoom
+    if (
+      oldState === State.ACTIVE &&
+      (state === State.END ||
+        state === State.CANCELLED ||
+        state === State.FAILED)
+    ) {
+      setIsModalVisible(false);
+      // setModalReady(false);
       onZoomChange?.(false);
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 7,
-      }).start();
+      resetScale();
     }
   };
 
   return (
-    <PinchGestureHandler
-      ref={pinchRef}
-      onGestureEvent={onPinchEvent}
-      onHandlerStateChange={onPinchStateChange}
-    >
-      <Animated.Image 
-        source={{ uri }} 
-        style={[
-          styles.postMedia,
-          {
-            transform: [{ scale: scale }]
-          }
-        ]} 
-      />
-    </PinchGestureHandler>
+    <View style={styles.mediaContainer}>
+      {/* INLINE IMAGE */}
+      <PinchGestureHandler
+        onGestureEvent={onPinchEvent}
+        onHandlerStateChange={onPinchStateChange}
+      >
+        <Animated.Image
+          source={imageSource}
+          style={[
+            styles.postMedia,
+            { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
+            // {opacity:1}
+          ]}
+        />
+      </PinchGestureHandler>
+
+      {/* FULLSCREEN MODAL */}
+      <Modal
+        visible={isModalVisible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+      // onShow={() => setModalReady(true)}
+      >
+        <View style={styles.modalBackground}>
+          <PinchGestureHandler
+            onGestureEvent={onPinchEvent}
+            onHandlerStateChange={onPinchStateChange}
+          >
+            <Animated.Image
+              // key={uri}
+              source={imageSource}
+              resizeMode="contain"
+              resizeMethod='resize'
+              fadeDuration={0}
+               onLoadEnd={() => setModalImageLoaded(true)}
+              style={[
+                styles.fullScreenImage,
+                {
+                  width: width,
+                  height: 500,
+                  transform: [{ scale }],
+                },
+              ]}
+            />
+          </PinchGestureHandler>
+        </View>
+      </Modal>
+    </View>
   );
 }
-
 function PostItem({
   item,
   likesCount,
@@ -354,7 +411,7 @@ function PostItem({
   const currentRaised = totalDonation || 0; // Current amount raised from API
   const progressPercent = useMemo(() => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0, [goalAmount, currentRaised]);
 
-   const getProgressBarColor = useCallback(() => {
+  const getProgressBarColor = useCallback(() => {
     if (progressPercent >= 75) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
     if (progressPercent >= 50) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
     if (progressPercent >= 25) return '#FF9800';
@@ -382,7 +439,7 @@ function PostItem({
     return (
       <View style={styles.mediaContainer}>
         {isVideo ? (
-          <>
+          <View style={{ flex: 1 }}>
             <Video
               ref={(ref) => {
                 if (ref) {
@@ -436,7 +493,7 @@ function PostItem({
             >
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
             </TouchableOpacity>
-          </>
+          </View>
         ) : (
           <InstagramZoomableImage
             uri={mediaItem.url}
@@ -485,7 +542,7 @@ function PostItem({
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            scrollEnabled={scrollEnabled}
+            scrollEnabled={scrollEnabled && safeMedia.length > 1}
             onMomentumScrollEnd={onMomentumEnd}
             decelerationRate="fast"
             snapToInterval={width}
@@ -759,14 +816,14 @@ const styles = StyleSheet.create({
   },
   mediaWrapper: {
     position: 'relative',
-    width: '100%',
+    width: width,
     height: 500,
     backgroundColor: '#000',
     overflow: 'hidden',
   },
   mediaContainer: {
     width,
-    height: 340,
+    height: 500,
     position: 'relative',
   },
   postMedia: {
@@ -776,13 +833,10 @@ const styles = StyleSheet.create({
     // aspectRatio:1,
   },
   videoOverlay: {
-    position: 'absolute',
-    top: 150,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   videoOverlayTransparent: {},
   playButtonContainer: {
@@ -813,6 +867,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    justifyContent: 'center'
   },
   mediaCounterText: {
     color: '#fff',
@@ -993,5 +1048,26 @@ const styles = StyleSheet.create({
   linkText: {
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: width,
+    height: 500,
+    resizeMode: 'contain',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });

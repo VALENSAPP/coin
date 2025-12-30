@@ -96,60 +96,64 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                 console.log('Purchase request body:', requestBody);
                 const response = await purchaseTokenWithUSD(requestBody);
-                console.log(response, 'respone s s ssbshujj')
-                if (response && response.statusCode === 200) {
-                    const url = response?.data?.sessionUrl;
-
-                    try {
-                        if (await InAppBrowser.isAvailable()) {
-                            paymentCompletedRef.current = false;
-                            await InAppBrowser.open(url, {
-                                dismissButtonStyle: 'close',
-                                preferredBarTintColor: '#ffffff',
-                                preferredControlTintColor: '#000000',
-                                readerMode: false,
-                                animated: true,
-                                modalPresentationStyle: 'fullScreen',
-                                modalTransitionStyle: 'coverVertical',
-                                enableBarCollapsing: false, // Changed to false
-                                showTitle: true,
-                                forceCloseOnRedirection: false, // Changed to false
-                            });
-                            if (!paymentCompletedRef.current) {
-                                console.log('❌ Payment cancelled by user');
-
+                setTimeout(async() => {
+                    
+                    console.log(response, 'respone s s ssbshujj')
+                    if (response && response.statusCode === 200) {
+                        const url = response?.data?.sessionUrl;
+    
+                        try {
+                            if (await InAppBrowser.isAvailable()) {
+                                paymentCompletedRef.current = false;
+                                await InAppBrowser.open(url, {
+                                    dismissButtonStyle: 'close',
+                                    preferredBarTintColor: '#ffffff',
+                                    preferredControlTintColor: '#000000',
+                                    readerMode: false,
+                                    animated: true,
+                                    modalPresentationStyle: 'fullScreen',
+                                    modalTransitionStyle: 'coverVertical',
+                                    enableBarCollapsing: false, // Changed to false
+                                    showTitle: true,
+                                    forceCloseOnRedirection: false, // Changed to false
+                                });
+                                if (!paymentCompletedRef.current) {
+                                    console.log('❌ Payment cancelled by user');
+    
+                                    setIsButtonLoading(false);
+                                    dispatch(hideLoader());
+                                    showToastMessage(toast, 'danger', 'Payment cancelled');
+                                }
+    
+                                // Don't reset here - event will handle it
+                                console.log('InAppBrowser closed - waiting for event');
+                            } else {
+                                await Linking.openURL(url);
+                                // For external browser, reset immediately
+                                setCustomAmount('');
+                                setSelectedAmount(null);
+                                setNote('');
                                 setIsButtonLoading(false);
+                                onClose();
                                 dispatch(hideLoader());
-
-                                showToastMessage(toast, 'danger', 'Payment cancelled');
                             }
-
-                            // Don't reset here - event will handle it
-                            console.log('InAppBrowser closed - waiting for event');
-                        } else {
-                            await Linking.openURL(url);
-                            // For external browser, reset immediately
-                            setCustomAmount('');
-                            setSelectedAmount(null);
-                            setNote('');
+                        } catch (error) {
+                            console.warn(error);
+                             await InAppBrowser.close();
                             setIsButtonLoading(false);
-                            onClose();
                             dispatch(hideLoader());
                         }
-                    } catch (error) {
-                        console.warn(error);
+                    }
+                    else {
+                        showToastMessage(toast, 'danger', response.message);
                         setIsButtonLoading(false);
                         dispatch(hideLoader());
                     }
-                }
-                else {
-                    showToastMessage(toast, 'danger', response.message);
-                    setIsButtonLoading(false);
-                    dispatch(hideLoader());
-                }
+                }, 1000);
             } catch (error) {
                 console.error('Error creating payment session:', error);
                 alert('Failed to process payment. Please check your connection and try again.');
+                 await InAppBrowser.close();
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
@@ -323,7 +327,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                         dispatch(hideLoader());
                                         onClose();
                                     }}
-                                    // disabled={isButtonLoading}
+                                // disabled={isButtonLoading}
                                 >
                                     <Text style={styles.cancelText}>Cancel</Text>
                                 </TouchableOpacity>

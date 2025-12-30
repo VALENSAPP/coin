@@ -106,11 +106,10 @@ const SubventionSetupScreen = () => {
 
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
-                setComment(subscriptions[0].comment)
                 if (subscriptions && subscriptions.length > 0) {
                     const amount = subscriptions[0].subscriptionAmount;
                     const subId = subscriptions[0].id;
-                    console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
+                    setComment(subscriptions[0].comment)
                     setSubscriptionAmount(amount);
                     setSubscriptionId(subId);
                     setPrice(formatPrice(amount));
@@ -123,6 +122,7 @@ const SubventionSetupScreen = () => {
                     setSubscriptionId(null);
                     setHasExistingSubscription(false);
                     setShowModal(true)
+                    setShowActivationPopup(true)
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
@@ -131,7 +131,7 @@ const SubventionSetupScreen = () => {
 
         } catch (error) {
             console.error('Error fetching subscription:', error);
-            showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+            // showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
             setHasExistingSubscription(false);
         }
         finally {
@@ -717,14 +717,14 @@ const SubventionSetupScreen = () => {
                     onDone={handleComposerDone}
                 />
 
-                <TermCondition
+                {/* <TermCondition
                     showModal={showModal}
                     setShowModal={setShowModal}
                     onAccept={() => {
                         setShowModal(false);
                         setShowActivationPopup(true)
                     }}
-                />
+                /> */}
                 <SubscriptionActivationPopup
                     visible={showActivationPopup}
                     onClose={() => { setShowModal(false), setShowActivationPopup(false) }}

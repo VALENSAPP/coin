@@ -52,6 +52,8 @@ export default function HomeScreen() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const scrollViewRef = useRef(null);
+
 
   // Track conversations to calculate unread properly
   const conversationsRef = useRef([]);
@@ -535,6 +537,26 @@ export default function HomeScreen() {
       },
     }),
   ).current;
+  useEffect(() => {
+  const subscription = DeviceEventEmitter.addListener(
+    'HOME_TAB_PRESS',
+    () => {
+      console.log('🏠 Home tab pressed again');
+
+      // ⬆️ Scroll to top
+      scrollViewRef.current?.scrollTo({
+        y: 0,
+        animated: true,
+      });
+
+      // 🔄 Refresh posts + stories
+      onRefresh();
+    }
+  );
+
+  return () => subscription.remove();
+}, [onRefresh]);
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -600,6 +622,8 @@ export default function HomeScreen() {
       {/* Main Content with Pan Responder */}
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>
         <ScrollView
+          ref={scrollViewRef}
+
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

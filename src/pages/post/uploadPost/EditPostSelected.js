@@ -1341,15 +1341,16 @@ const InstagramPostCreator = () => {
                   <Text style={styles.controlButtonText}>↩</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => {
+                  onPress={async () => {
+                    // Always save/merge drawing first (even on cancel)
                     if (canvasRef.current) {
-                      canvasRef.current.clear();
-                      updateCurrentImageEdits({ drawings: null });
+                      await captureAndMergeDrawing(false); // false = don't exit yet
                     }
+                    // Then exit draw mode
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
-                    setCanvasKey(prev => prev + 1);
                     setActiveTab('null');
+                    setCanvasKey(prev => prev + 1);
                   }}
                   style={[
                     styles.controlButton,
@@ -1479,9 +1480,8 @@ const InstagramPostCreator = () => {
                 }
 
                 if (tab.title === 'Draw') {
-                  const newDrawingMode = !isDrawing;
                   if (isDrawing) {
-                    // Exiting draw mode → save first
+                    // Exiting draw mode → always save drawing first
                     await captureAndMergeDrawing(true);
                   } else {
                     // Entering draw mode
