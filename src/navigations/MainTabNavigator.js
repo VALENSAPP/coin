@@ -59,6 +59,9 @@ import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../theme/useApptheme';
 import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
+import { DeviceEventEmitter } from 'react-native';
+
+
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -367,7 +370,7 @@ export default function MainTabNavigator() {
 
     const hideTabBarRoutes = [
       'ChatMessages', 'HeartNotification', 'Following', 'UserChat',
-      'PostUpload', 'PostEditor', 'SelectedPost', 
+      'PostUpload', 'PostEditor', 'SelectedPost',
       'SavedPost', 'CreatorCoin', 'notificationEnable', 'HidePosts',
       'FollowersFollowingScreen', 'Settings', 'subscription',
       'QuickBuy', 'CashOutScreen', 'Invite', 'ShareProfile', 'EditProfile',
@@ -412,15 +415,15 @@ export default function MainTabNavigator() {
 
     let hideTabBar = hideTabBarRoutes.includes(currentRouteName);
 
-// Check dynamic param for PostView
-if (currentRouteName === 'PostView') {
-  const routeObj =
-    route?.state?.routes?.[route?.state?.index]?.params;
+    // Check dynamic param for PostView
+    if (currentRouteName === 'PostView') {
+      const routeObj =
+        route?.state?.routes?.[route?.state?.index]?.params;
 
-  if (routeObj?.hideTabBar !== undefined) {
-    hideTabBar = routeObj.hideTabBar;  // override
-  }
-}
+      if (routeObj?.hideTabBar !== undefined) {
+        hideTabBar = routeObj.hideTabBar;  // override
+      }
+    }
 
 
     return {
@@ -435,6 +438,19 @@ if (currentRouteName === 'PostView') {
           name="HomeMain"
           component={HomeStack}
           options={getHomeMainOptions}
+          listeners={({ navigation }) => ({
+            tabPress: () => {
+              const state = navigation.getState();
+              const isFocused =
+                state.index ===
+                state.routes.findIndex(r => r.name === 'HomeMain');
+
+              if (isFocused) {
+                // 🔔 Trigger scroll-to-top + refresh
+                DeviceEventEmitter.emit('HOME_TAB_PRESS');
+              }
+            },
+          })}
         />
         <Tab.Screen
           name="Search"

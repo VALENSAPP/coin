@@ -154,8 +154,8 @@ const ProfileTabs = memo(({
             tabPress: (e) => {
               setPreviousTabIndex(currentTabIndex);
               setCurrentTabIndex(1);
-              e.preventDefault(); // Prevent default tab behavior
-              navigation.navigate('FlipsScreen'); // Navigate to full screen
+              // e.preventDefault(); // Prevent default tab behavior
+              // navigation.navigate('FlipsScreen'); // Navigate to full screen
             },
           })}
         >

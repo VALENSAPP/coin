@@ -890,7 +890,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
   const renderItem = useCallback(
     ({ item }) => {
-      console.log(item,'opppppppp')
       // Add safety check
       if (!item) return null;
 

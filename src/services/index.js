@@ -23,8 +23,6 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
                 config.headers['Content-Type'] = 'application/json';
             }
         }
-
-        console.log(config, "config=================")
         return {
             ...config,
         };
