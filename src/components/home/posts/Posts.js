@@ -40,8 +40,10 @@ import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { clampRGBA } from 'react-native-reanimated/lib/typescript/Colors';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
+
   // All state hooks first - maintain consistent order
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [list, setList] = useState(postData);
@@ -266,7 +268,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
   // Update the mappedPosts useMemo to use the state instead of API calls
   const mappedPosts = useMemo(() => {
-    console.log("list------------------>>>>>>>>>>>>>>>>>",list)
     return (list || [])
       .filter(item => !hiddenById[item.id])
       .map(item => {

@@ -303,7 +303,7 @@ export default function WalletComponent() {
                     <Text style={styles.tradeBtnText}>Buy (Follow)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, styles.sellBtn, {bordercolor: text}, textStyle]}
+                    style={[styles.tradeBtn, styles.sellBtn, {backgroundColor: text}]}
                     onPress={() => handleFollowUnfollow(creator, true)}
                 >
                     <Text style={[styles.tradeBtnText, styles.sellBtnText]}>Sell (Unfollow)</Text>
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     sellBtn: {
-        backgroundColor: '#fff',
+        backgroundColor: '#000',
         borderWidth: 1,
     },
     tradeBtnText: {

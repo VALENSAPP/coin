@@ -26,7 +26,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const dispatch = useDispatch();
   const toast = useToast();
   const { textStyle, text } = useAppTheme();
-
+  const paymentCompletedRef = useRef(false);
   const calculateBreakdown = (inputAmount) => {
     const baseAmount = parseFloat(inputAmount) || 0;
     const platformFee = baseAmount * 0.05;
@@ -129,18 +129,18 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   };
 
 
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
-      setBottomPad(e?.endCoordinates?.height ?? 0);
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      requestAnimationFrame(() => setBottomPad(0));
-    });
-    return () => {
-      showSub?.remove?.();
-      hideSub?.remove?.();
-    };
-  }, []);
+  // useEffect(() => {
+  //   const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+  //     setBottomPad(e?.endCoordinates?.height ?? 0);
+  //   });
+  //   const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+  //     requestAnimationFrame(() => setBottomPad(0));
+  //   });
+  //   return () => {
+  //     showSub?.remove?.();
+  //     hideSub?.remove?.();
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (!updateInProgress.current && activeInput === 'amount' && !loading && tokenRate > 0) {
@@ -232,6 +232,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
         try {
           if (await InAppBrowser.isAvailable()) {
+            paymentCompletedRef.current = false;
             await InAppBrowser.open(url, {
               dismissButtonStyle: 'close',
               preferredBarTintColor: '#ffffff',
@@ -244,6 +245,13 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
               showTitle: true,
               forceCloseOnRedirection: false,
             });
+            if (!paymentCompletedRef.current) {
+              console.log('❌ Payment cancelled by user');
+
+              setIsProcessingPurchase(false);
+              dispatch(hideLoader());
+              showToastMessage(toast, 'danger', 'Payment cancelled');
+            }
 
             console.log('InAppBrowser closed');
             // Event will handle refresh
@@ -330,11 +338,13 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
   return (
     <KeyboardAwareScrollView
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomPad + 24 }}
+      contentContainerStyle={{ flexGrow: 1, marginBottom: -10 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       enableOnAndroid={true}
-      extraScrollHeight={16}
+      extraScrollHeight={0}
+      extraHeight={0}
+      enableAutomaticScroll={false}
     >
       <View style={styles.content}>
         {/* Token Info */}
@@ -547,6 +557,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingTop: 16,
+    marginBottom: 10,
+    // paddingBottom:20,
   },
 
   // Token Info Section

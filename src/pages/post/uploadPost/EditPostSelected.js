@@ -280,7 +280,7 @@ const InstagramPostCreator = () => {
         `merged_${Date.now()}`, // filename
         true,                   // includeImage = true → merges with background photo
         false,                  // includeText = false (we don't use canvas text)
-        true                    // cropToImageSize = true → matches photo size perfectly
+        false                    // cropToImageSize = true → matches photo size perfectly
       );
 
       // Wait for the save to complete
@@ -317,11 +317,15 @@ const InstagramPostCreator = () => {
     setCurrentImageIndex(newIndex);
     loadImageEdits(newIndex);
     setCanvasKey(prev => prev + 1);
+    if (isDrawing) {
+      setCanvasKey(prev => prev + 1);
+    }
 
     // Re-enter draw mode if user was drawing
     if (isDrawing) {
       setIsDrawing(true);
       setIsScrollEnabled(false);
+
     }
   };
 
@@ -1022,9 +1026,9 @@ const InstagramPostCreator = () => {
                       <ImageZoom
                         {...(!isDrawing ? panResponder.panHandlers : {})}
                         cropWidth={IMAGE_SIZE}
-                        cropHeight={IMAGE_SIZE}
-                        imageWidth={IMAGE_SIZE}
-                        imageHeight={IMAGE_SIZE}
+                        cropHeight={'100%'}
+                        imageWidth={'95%'}
+                        imageHeight={'100%'}
                         enableImageZoom={!isDrawing}
                         minScale={0.5}
                         maxScale={4}
@@ -1096,27 +1100,31 @@ const InstagramPostCreator = () => {
                             style={StyleSheet.absoluteFill}
                             strokeColor={drawColor}
                             strokeWidth={5}
-                            pointerEvents="box-only"
+                            touchEnabled={true} // ← ADD THIS
+                            pointerEvents="auto"
                             localSourceImage={{
-                              filename: selectedImages[currentImageIndex].path || selectedImages[currentImageIndex].uri,
+                              filename:
+                                getCurrentImageEdits().processedImageUri ||
+                                selectedImages[currentImageIndex].path ||
+                                selectedImages[currentImageIndex].uri,
                               directory: '',
                               mode: 'AspectFill',
                             }}
                             onSketchSaved={(success, path) => {
                               if (success) {
-                                console.log('✅ Drawing merged successfully:', path);
+                                console.log('Drawing merged successfully:', path);
+                                // Save the new merged image URI
                                 updateCurrentImageEdits({
                                   processedImageUri: path,
+                                  drawings: path, // optional, if you need it later
                                 });
 
-                                // Resolve the promise if it exists
+                                // Resolve the waiting promise (used in captureAndMergeDrawing)
                                 if (window._canvasSaveResolve) {
                                   window._canvasSaveResolve(path);
                                 }
                               } else {
-                                console.log('❌ Canvas save failed');
-
-                                // Reject the promise if it exists
+                                console.log('Canvas save failed');
                                 if (window._canvasSaveReject) {
                                   window._canvasSaveReject(new Error('Canvas save failed'));
                                 }
@@ -1349,8 +1357,8 @@ const InstagramPostCreator = () => {
                     // Then exit draw mode
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
-                    setActiveTab('null');
-                    setCanvasKey(prev => prev + 1);
+                    // setActiveTab('null');
+                    // setCanvasKey(prev => prev + 1);
                   }}
                   style={[
                     styles.controlButton,
@@ -1360,7 +1368,8 @@ const InstagramPostCreator = () => {
                   <Text style={styles.controlButtonText}>✕</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => captureAndMergeDrawing(true)} // Now just exits cleanly
+                  onPress={() =>{ 
+                    captureAndMergeDrawing(true)}} // Now just exits cleanly
                   style={[styles.controlButton, { backgroundColor: 'rgba(0,128,0,0.8)' }]}
                 >
                   <Text style={styles.controlButtonText}>✓</Text>
@@ -1787,7 +1796,7 @@ const styles = StyleSheet.create({
     // alignSelf: 'center',
   },
   imageSlide: {
-    //  height: IMAGE_SIZE ,
+    //  height: '100%' ,
     // justifyContent: 'center',
     // alignItems: 'center',
     height: "100%",
