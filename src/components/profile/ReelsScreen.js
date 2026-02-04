@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import Video from 'react-native-video';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -39,36 +40,60 @@ const PostImage = memo(({ item, index, onPress }) => {
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
   const isVideo = isVideoUrl(item?.images?.[0]);
   const { bgStyle, textStyle, text } = useAppTheme();
-  
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+
   // Show placeholder for videos (camera icon)
   if (isVideo) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
-        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
-        {/* <View style={styles.videoBadge}>
-          <Text style={styles.videoBadgeText}>VIDEO</Text>
-        </View> */}
+        <Video
+          source={{ uri: imageUrl }}
+          style={StyleSheet.absoluteFill}
+          paused={true}
+          muted={true}
+          resizeMode="cover"
+          onLoad={() => setIsVideoLoading(false)} // Hide fallback when video loads
+          onError={() => {
+            setVideoError(true);
+            setIsVideoLoading(false);
+          }}
+          playInBackground={false}
+        />
+
+        {/* FALLBACK / LOADING ICON: Shown while loading OR if error occurs */}
+        {isVideoLoading && (
+          <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
+            <Text style={[styles.placeholderText, textStyle]}>🎬</Text>
+          </View>
+        )}
+
+        {/* Play Icon Badge (only if loaded successfully) */}
+        {!isVideoLoading && (
+          <View style={styles.videoBadge}>
+            <Text style={styles.videoBadgeText}>▶</Text>
+          </View>
+        )}
       </View>
     );
   }
-  
-  // Show placeholder for missing/error images
-  if (!imageUrl || imageError) {
-    return (
-      <View style={[styles.image, styles.placeholderImage]}>
-        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
-      </View>
-    );
-  }
-  
+
+  // 2. Final Fallback (if video error occurred OR it's a standard image)
   return (
-    <Image
-      source={{ uri: imageUrl }}
-      style={styles.image}
-      resizeMode="cover"
-      onError={() => setImageError(true)}
-      onLoad={() => setImageError(false)}
-    />
+    <View style={styles.image}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.image}
+        resizeMode="cover"
+        onError={() => setVideoError(true)}
+      />
+      {/* If there's an error loading the image or video fallback, show the placeholder */}
+      {(videoError || !imageUrl) && (
+        <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
+          <Text style={[styles.placeholderText, textStyle]}>🎬</Text>
+        </View>
+      )}
+    </View>
   );
 });
 
@@ -101,17 +126,17 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
   }, [navigation, posts]);
 
   const renderItem = useCallback(({ item, index }) => (
-      <TouchableOpacity
-        style={[
-          styles.imageContainer,
-          { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
-        ]}
-        activeOpacity={0.95}
-        onPress={() => openPosts(index)}
-      >
+    <TouchableOpacity
+      style={[
+        styles.imageContainer,
+        { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
+      ]}
+      activeOpacity={0.95}
+      onPress={() => openPosts(index)}
+    >
       <PostImage item={item} index={index} />
-        <View style={styles.overlay} />
-      </TouchableOpacity>
+      <View style={styles.overlay} />
+    </TouchableOpacity>
   ), [openPosts, text]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
@@ -133,8 +158,8 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
     return (
       <View style={styles.screen}>
         {renderEmptyComponent()}
-    </View>
-  );
+      </View>
+    );
   }
 
   return (
@@ -212,9 +237,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   videoBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
+    flexDirection:'row',
+    justifyContent:'center',
+    alignSelf:'center',
+    // position: 'absolute',
+    // top: 8,
+    // right: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,

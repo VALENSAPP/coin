@@ -155,7 +155,7 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      unreadNotification();   
+      unreadNotification();
     }, [])
   );
 
@@ -324,7 +324,7 @@ export default function HomeScreen() {
     try {
       const response = await getposts();
       if (response?.statusCode === 200) {
-        console.log('✅ HomeScreen: Posts fetched successfully',response);
+        console.log('✅ HomeScreen: Posts fetched successfully', response);
         setPosts(response.data);
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -384,7 +384,7 @@ export default function HomeScreen() {
     if (isFocused) {
       console.log('👁️ HomeScreen focused - fetching data');
       setStoryRefreshTick(t => t + 1);
-      
+
       // Batch data fetching
       Promise.all([
         fetchData(),
@@ -413,13 +413,13 @@ export default function HomeScreen() {
         isFocused
       ) {
         console.log('🔄 App resumed while HomeScreen focused - refreshing');
-        
+
         // Batch operations
         Promise.all([
           fetchData(),
           fetchProfileData()
         ]).catch(err => console.error('Error on app resume:', err));
-        
+
         setStoryRefreshTick(t => t + 1);
 
         // Refresh unread count on app resume
@@ -455,7 +455,7 @@ export default function HomeScreen() {
         fetchData(),
         fetchProfileData()
       ]).catch(err => console.error('Error on payment completion:', err));
-      
+
       setStoryRefreshTick(t => t + 1);
     });
 
@@ -538,24 +538,24 @@ export default function HomeScreen() {
     }),
   ).current;
   useEffect(() => {
-  const subscription = DeviceEventEmitter.addListener(
-    'HOME_TAB_PRESS',
-    () => {
-      console.log('🏠 Home tab pressed again');
+    const subscription = DeviceEventEmitter.addListener(
+      'HOME_TAB_PRESS',
+      () => {
+        console.log('🏠 Home tab pressed again');
 
-      // ⬆️ Scroll to top
-      scrollViewRef.current?.scrollTo({
-        y: 0,
-        animated: true,
-      });
+        // ⬆️ Scroll to top
+        scrollViewRef.current?.scrollTo({
+          y: 0,
+          animated: true,
+        });
 
-      // 🔄 Refresh posts + stories
-      onRefresh();
-    }
-  );
+        // 🔄 Refresh posts + stories
+        onRefresh();
+      }
+    );
 
-  return () => subscription.remove();
-}, [onRefresh]);
+    return () => subscription.remove();
+  }, [onRefresh]);
 
 
   return (
@@ -663,6 +663,14 @@ export default function HomeScreen() {
             <Stories
               refreshTick={storyRefreshTick}
               sidebarMode={true}
+              onDrawerClose={() => {
+                // Close the drawer when story is shared and chat opens
+                setSidebarVisible(false);
+                Animated.spring(sidebarAnim, {
+                  toValue: SIDEBAR_WIDTH,
+                  useNativeDriver: true,
+                }).start();
+              }}
             />
           </Animated.View>
         </View>

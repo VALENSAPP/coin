@@ -313,6 +313,7 @@ const StoryViewer = ({
   onReportUser,
   onDeleteStory,
   ownerProfileImage,
+  onDrawerClose
 }) => {
   const dispatch = useDispatch();
   const [paused, setPaused] = useState(false);
@@ -898,7 +899,7 @@ const StoryViewer = ({
                   </Text>
                 </View>
               )}
-              
+
             </View>
 
             {/* Delete Story Button */}
@@ -935,7 +936,14 @@ const StoryViewer = ({
                 onClose(); // Close stories viewer using the prop
               }}
               onShare={() => {
-                onClose(); // Close stories viewer after sharing using the prop
+                // Close story viewer first
+                stopAndResetProgress(true);
+                onClose();
+
+                // Close drawer after navigation starts
+                setTimeout(() => {
+                  if (onDrawerClose) onDrawerClose();
+                }, 150);
               }}
             />
           </View>
@@ -1059,7 +1067,14 @@ const StoryViewer = ({
                 onClose(); // Close stories viewer using the prop
               }}
               onShare={() => {
-                onClose(); // Close stories viewer after sharing using the prop
+                // Close story viewer first
+                stopAndResetProgress(true);
+                onClose();
+
+                // Close drawer after navigation starts
+                setTimeout(() => {
+                  if (onDrawerClose) onDrawerClose();
+                }, 150);
               }}
             />
           </>
@@ -1104,7 +1119,7 @@ const formatTime = timestamp => {
   return `${Math.floor(hours / 24)}d`;
 };
 
-export default function Stories({ refreshTick, sidebarMode = false }) {
+export default function Stories({ refreshTick, sidebarMode = false, onDrawerClose }) {
   const styles = createStyles();
   const [stories, setStories] = useState([]);
   const [likes, setLikes] = useState({});
@@ -1876,6 +1891,7 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
         onReportUser={onReportUser}
         onDeleteStory={handleDeleteStory}
         ownerProfileImage={profileImage}
+        onDrawerClose={onDrawerClose}
       />
 
       <StoryComposer
@@ -1883,8 +1899,8 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
         mediaList={composerList}
         onCancel={() => {
           setComposerVisible(false);
-          setComposerList([]);        // Clear list
-          setComposerMedia(null);     // Clear single media if any
+          setComposerList([]);
+          setComposerMedia(null);
         }}
         onDone={handleComposerDone}
       />

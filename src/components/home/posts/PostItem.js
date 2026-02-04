@@ -19,6 +19,7 @@ import MissionSupportScreen from '../../modals/DonationModal';
 import axios from 'axios';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
+import FastImage from 'react-native-fast-image'
 
 const { width } = Dimensions.get('window');
 
@@ -26,8 +27,18 @@ const { width } = Dimensions.get('window');
 function InstagramZoomableImage({ uri, onZoomChange }) {
   const scale = useRef(new Animated.Value(1)).current;
   const [isModalVisible, setIsModalVisible] = useState(false);
-   const [modalImageLoaded, setModalImageLoaded] = useState(false);
-  const imageSource = useMemo(() => ({ uri }), [uri]);
+  const [modalImageLoaded, setModalImageLoaded] = useState(false);
+  const imageSource = useMemo(
+    () => ({
+      uri,
+      priority: FastImage.priority.high,           // ← helps a lot
+      cache: FastImage.cacheControl.immutable,     // ← very important!
+    }),
+    [uri]
+  );
+  const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
+  const [isZoomed, setIsZoomed] = useState(false);
+
 
   // useEffect(() => {
   //   if (uri) {
@@ -55,7 +66,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const onPinchStateChange = ({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
-    if (state === State.BEGAN ) {
+    if (state === State.BEGAN) {
       setIsModalVisible(true);
       onZoomChange?.(true);
     }
@@ -72,7 +83,16 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       resetScale();
     }
   };
+useEffect(() => {
+    if (!uri) return;
 
+    // 1. Normal priority preload (good enough for most cases)
+    FastImage.preload([imageSource]);
+
+    // 2. Optional: even more aggressive (sometimes helps on slow networks)
+    setTimeout(() => FastImage.preload([{ ...imageSource, priority: FastImage.priority.highest }]), 400);
+
+  }, [uri, imageSource]);
   return (
     <View style={styles.mediaContainer}>
       {/* INLINE IMAGE */}
@@ -103,13 +123,13 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
             onGestureEvent={onPinchEvent}
             onHandlerStateChange={onPinchStateChange}
           >
-            <Animated.Image
+            <AnimatedFastImage
               // key={uri}
               source={imageSource}
               resizeMode="contain"
               resizeMethod='resize'
               fadeDuration={0}
-               onLoadEnd={() => setModalImageLoaded(true)}
+              //  onLoadEnd={() => setModalImageLoaded(true)}
               style={[
                 styles.fullScreenImage,
                 {
@@ -144,7 +164,9 @@ function PostItem({
   playingPostId,
   currentlyVisiblePostId,
   returnTo,
-  shareCount
+  shareCount,
+  hideDonationButton = false, // Add this prop with default false
+
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -506,7 +528,7 @@ function PostItem({
       </View>
     );
   }, [currentIndex, isVideoUrl, videoStates, isZooming, isMuted]);
-
+  console.log(item, 'item getete herereer')
   return (
     <View style={styles.wrapper}>
       <View style={styles.postCard}>
@@ -699,7 +721,7 @@ function PostItem({
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {((totalDonation < goalAmount) && (item.UserId !== userId)) && (
+              { !hideDonationButton &&((totalDonation < goalAmount) && (item.UserId !== userId)) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
