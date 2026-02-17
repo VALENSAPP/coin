@@ -1,5 +1,5 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking } from 'react-native';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
@@ -9,6 +9,7 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import ProfileModal from '../modals/ProfileModal';
 import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
+import SupportCreatorModal from '../modals/SupportCreatorModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
@@ -21,6 +22,7 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow } from '../../utils/metaMaskSupport';
 
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return GoldLavenderDragonfly;
@@ -77,8 +79,10 @@ const ProfilePersonData = ({
   const [composerList, setComposerList] = useState([]);
   const [data, setData] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [walletAddress, setWalletAddress] = useState('');
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
   // console.log('item----------------followers------------', item);
   const isCompanyProfile = userProfile === 'company';
   const dispatch = useDispatch();
@@ -434,6 +438,40 @@ const ProfilePersonData = ({
     });
   }
 
+  const recipientWalletAddress = useMemo(
+    () => getSupportRecipientWalletAddress(userData),
+    [userData],
+  );
+  const canSupport = !!recipientWalletAddress;
+
+  const handleSupportNow = useCallback(async () => {
+    if (!canSupport) return;
+    setSupportModalVisible(false);
+    await handleMetaMaskSupportFlow({
+      recipientWalletAddress,
+      walletAddress,
+      setWalletAddress,
+      toast,
+      navigation,
+      dispatch,
+    });
+  }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
+
+  const handleFollowButtonPress = useCallback(async () => {
+    if (isBusinessProfile && canSupport) {
+      await handleSupportNow();
+      return;
+    }
+
+    const shouldFollow = !isFollowing;
+    const followHandler = executeFollowAction || onToggleFollow;
+    const success = await followHandler?.();
+
+    if (success && shouldFollow && canSupport) {
+      setSupportModalVisible(true);
+    }
+  }, [isBusinessProfile, canSupport, handleSupportNow, isFollowing, executeFollowAction, onToggleFollow]);
+
   useFocusEffect(
     useCallback(() => {
       // if (fromUsersProfile) return;
@@ -443,7 +481,9 @@ const ProfilePersonData = ({
         try {
           dispatch(showLoader());
           const id = await AsyncStorage.getItem('userId');
+          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
           setUserId(id);
+          setWalletAddress(storedWalletAddress || '');
           if (!id) return;
 
           const response = await getProfile(id);
@@ -657,13 +697,7 @@ const handleBackPress = useCallback(() => {
                     }
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={
-                      isBusinessProfile
-                        ? undefined
-                        : (userData?.profile == 'company'
-                          ? executeFollowAction
-                          : onToggleFollow)
-                    }
+                    onPress={handleFollowButtonPress}
                     disabled={followBusy || isFollowing === null}
                   >
                     <LinearGradient
@@ -855,6 +889,12 @@ const handleBackPress = useCallback(() => {
         mediaList={composerList}
         onCancel={() => setComposerVisible(false)}
         onDone={handleComposerDone}
+      />
+      <SupportCreatorModal
+        visible={supportModalVisible}
+        creatorName={username || userData?.userName || 'Creator'}
+        onClose={() => setSupportModalVisible(false)}
+        onSupport={handleSupportNow}
       />
     </View>
   );

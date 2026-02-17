@@ -20,7 +20,9 @@ export const ActivityScreen = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [activities, setActivities] = useState([]);
   const { bgStyle, textStyle, text } = useAppTheme();
-  const filters = ['All', 'Supporters', 'Follows'];
+  const filters = ['All', 'Vallow'];
+  // const filters = ['All', 'Supporters', '
+
 
   const formatTime = (timestamp) => {
     const now = new Date();
@@ -52,30 +54,30 @@ export const ActivityScreen = ({ navigation }) => {
         const data = response.data.activities;
 
         // Purchase activities
-        if (data.purchase?.length) {
-          data.purchase.forEach(purchase => {
-            formattedActivities.push({
-              id: activityId++,
-              action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
-              time: formatTime(purchase.createdAt),
-              type: 'buy',
-              createdAt: new Date(purchase.createdAt).getTime(),
-            });
-          });
-        }
+        // if (data.purchase?.length) {
+        //   data.purchase.forEach(purchase => {
+        //     formattedActivities.push({
+        //       id: activityId++,
+        //       action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
+        //       time: formatTime(purchase.createdAt),
+        //       type: 'buy',
+        //       createdAt: new Date(purchase.createdAt).getTime(),
+        //     });
+        //   });
+        // }
 
         // Sell activities
-        if (data.sell?.length) {
-          data.sell.forEach(sell => {
-            formattedActivities.push({
-              id: activityId++,
-              action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
-              time: formatTime(sell.createdAt),
-              type: 'sell',
-              createdAt: new Date(sell.createdAt).getTime(),
-            });
-          });
-        }
+        // if (data.sell?.length) {
+        //   data.sell.forEach(sell => {
+        //     formattedActivities.push({
+        //       id: activityId++,
+        //       action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
+        //       time: formatTime(sell.createdAt),
+        //       type: 'sell',
+        //       createdAt: new Date(sell.createdAt).getTime(),
+        //     });
+        //   });
+        // }
 
         // Following activities
         if (data.following?.length) {
@@ -161,7 +163,7 @@ export const ActivityScreen = ({ navigation }) => {
 
 
   const renderActivity = ({ item }) => (
-    <View style={[styles.activityDetailItem, {shadowColor: text}]}>
+    <View style={[styles.activityDetailItem, { shadowColor: text }]}>
       <View style={[styles.activityIcon, {
         backgroundColor: item.type === 'buy' ? '#10b981' :
           item.type === 'sell' ? '#ef4444' :
@@ -193,7 +195,7 @@ export const ActivityScreen = ({ navigation }) => {
           {filters.map(filter => (
             <TouchableOpacity
               key={filter}
-              style={[styles.filterButton, activeFilter === filter && {backgroundColor: text, borderColor: text}]}
+              style={[styles.filterButton, activeFilter === filter && { backgroundColor: text, borderColor: text }]}
               onPress={() => setActiveFilter(filter)}
             >
               <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
