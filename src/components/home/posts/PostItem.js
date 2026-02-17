@@ -9,17 +9,16 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
-import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
-import MissionSupportScreen from '../../modals/DonationModal';
-import axios from 'axios';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
 import FastImage from 'react-native-fast-image'
+import SupportCreatorModal from '../../modals/SupportCreatorModal';
+import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow } from '../../../utils/metaMaskSupport';
 
 const { width } = Dimensions.get('window');
 
@@ -83,7 +82,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       resetScale();
     }
   };
-useEffect(() => {
+  useEffect(() => {
     if (!uri) return;
 
     // 1. Normal priority preload (good enough for most cases)
@@ -168,6 +167,7 @@ function PostItem({
   hideDonationButton = false, // Add this prop with default false
 
 }) {
+  console.log(item,'item data for transfer data ')
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
@@ -182,13 +182,16 @@ function PostItem({
   const [isZooming, setIsZooming] = useState(false);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [donation, setDonation] = useState(false);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+
 
   // New donation states
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
   const [daysLeft, setDaysLeft] = useState(0);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [targetWalletAddress, setTargetWalletAddress] = useState('');
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -279,6 +282,7 @@ function PostItem({
             userDataToSet = data;
           }
           setUserProfile(userDataToSet.profile || '');
+          setTargetWalletAddress(getSupportRecipientWalletAddress(userDataToSet) || '');
         } else {
           console.warn('Profile fetch failed:', data?.data?.message);
         }
@@ -304,7 +308,9 @@ function PostItem({
       const initializeData = async () => {
         try {
           const id = await AsyncStorage.getItem('userId');
+          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
           if (isActive) setUserId(id);
+          if (isActive) setWalletAddress(storedWalletAddress || '');
 
           if (item?.UserId && !dataFetched) {
             await fetchAllData();
@@ -329,6 +335,25 @@ function PostItem({
       };
     }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched])
   );
+
+  const recipientWalletAddress = useMemo(
+    () => getSupportRecipientWalletAddress({ ...item, walletAddress: targetWalletAddress || item?.walletAddress }),
+    [item, targetWalletAddress],
+  );
+  const canSupport = !!recipientWalletAddress;
+
+  const handleSupportNow = useCallback(async () => {
+    if (!canSupport) return;
+    setModalVisible(false);
+    await handleMetaMaskSupportFlow({
+      recipientWalletAddress,
+      walletAddress,
+      setWalletAddress,
+      toast,
+      navigation,
+      dispatch,
+    });
+  }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
 
   const safeVideoPause = useCallback((index) => {
     try {
@@ -446,10 +471,19 @@ function PostItem({
     if (index !== currentIndex) setCurrentIndex(index);
   }, [currentIndex]);
 
-  const handleDonationSuccess = useCallback(() => {
-    // Refresh donation total after successful donation
-    fetchTotalDonation();
-  }, [fetchTotalDonation]);
+  const handleFollowPress = useCallback(async () => {
+    if (!item?.UserId || item.UserId === userId || followingBusy) return;
+    if (isBusinessProfile) {
+      await handleSupportNow();
+      return;
+    }
+
+    const shouldFollow = !item.follow;
+    const success = await executeFollowAction?.(item.UserId, shouldFollow);
+    if (success && shouldFollow && canSupport) {
+      setModalVisible(true);
+    }
+  }, [item?.UserId, item.follow, userId, followingBusy, executeFollowAction, isBusinessProfile, handleSupportNow, canSupport]);
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
@@ -548,7 +582,7 @@ function PostItem({
 
           <View style={styles.priceSection}>
             {/* <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} /> */}
-            <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text>
+            {/* <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text> */}
           </View>
 
           <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
@@ -629,15 +663,16 @@ function PostItem({
 
           {item.UserId !== userId && (
             <TouchableOpacity
-              onPress={() => {
-                if (!isBusinessProfile && item.UserId !== userId) {
-                  if (item.profile === 'company') {
-                    executeFollowAction(item.UserId, !item.follow);
-                  } else {
-                    onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
-                  }
-                }
-              }}
+              // onPress={() => {
+              //   if (!isBusinessProfile && item.UserId !== userId) {
+              //     if (item.profile === 'company') {
+              //       executeFollowAction(item.UserId, !item.follow);
+              //     } else {
+              //       onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
+              //     }
+              //   }
+              // }}
+                 onPress={handleFollowPress}
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
@@ -648,7 +683,7 @@ function PostItem({
                 <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
               ) : (
                 <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                  {isBusinessProfile ? "Support" : item.follow ? 'Vallowing' : 'Vallow'}
+                  {isBusinessProfile ? "Support" : item.follow ? 'Vallowed' : 'Vallow'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -694,7 +729,7 @@ function PostItem({
         {goalAmount > 0 && (
           <View style={styles.progressSection}>
             <View style={styles.progressBarWrapper}>
-              <View style={styles.progressBarBackground}>
+              {/* <View style={styles.progressBarBackground}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -704,9 +739,9 @@ function PostItem({
                     },
                   ]}
                 />
-              </View>
+              </View> */}
 
-              <View style={styles.progressStatsContainer}>
+              {/* <View style={styles.progressStatsContainer}>
                 <View style={styles.statAtStart}>
                   <Text style={styles.statValueSmall}>
                     {isLoadingDonation ? '...' : `${Math.min(progressPercent, 100).toFixed(1)}% FUNDED`}
@@ -720,8 +755,8 @@ function PostItem({
                 <View style={styles.statAtEnd}>
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
-              </View>
-              { !hideDonationButton &&((totalDonation < goalAmount) && (item.UserId !== userId)) && (
+              </View> */}
+              {/* { !hideDonationButton &&((totalDonation < goalAmount) && (item.UserId !== userId)) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
@@ -741,18 +776,12 @@ function PostItem({
                     Donate
                   </Text>
                 </TouchableOpacity>
-              )}
+              )} */}
             </View>
           </View>
         )}
       </View>
 
-      <MissionSupportScreen
-        visible={donation}
-        onClose={() => setDonation(false)}
-        item={item}
-        onDonationSuccess={handleDonationSuccess}
-      />
       <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
       <BuyersListModal
         visible={showBuyersModal}
@@ -764,7 +793,12 @@ function PostItem({
           handleUserProfile(id);
         }}
       />
-
+      <SupportCreatorModal
+        visible={modalVisible}
+        creatorName={item?.username || 'Creator'}
+        onClose={() => setModalVisible(false)}
+        onSupport={handleSupportNow}
+      />
     </View>
   );
 }

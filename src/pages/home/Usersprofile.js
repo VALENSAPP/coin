@@ -96,6 +96,7 @@ const Usersprofile = () => {
       if (response?.statusCode === 200 && response?.data) {
         setTokenAddress(response.data.data?.tokenAddress);
       }
+      console.log(response,'data for the user profiule other ß')
     } catch (err) {
       console.error('Error fetching profile token info:', err);
     }
@@ -176,10 +177,7 @@ const Usersprofile = () => {
   };
 
   const executeFollowAction = async () => {
-    console.log('isFollowing----->>>>>>>>>>>>>>>>>>>',isFollowing);
-    
     if (!targetUserId) return;
-    const key = String(targetUserId);
 
     try {
       const res = !isFollowing
@@ -189,25 +187,25 @@ const Usersprofile = () => {
       const ok = res?.statusCode === 200 && (res?.success ?? true);
 
       if (!ok) {
-        setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
         showToastMessage(
           toast,
           'danger',
           res?.data?.message || res?.message || 'Unable to update follow',
         );
+        return false;
       } else {
         const serverVal = res?.data?.following;
-        if (typeof serverVal === 'boolean') {
-          setIsFollowing(prev => ({ ...prev, [key]: serverVal }));
-        }
+        const resolvedFollowing = typeof serverVal === 'boolean' ? serverVal : !isFollowing;
+        setIsFollowing(resolvedFollowing);
+        return true;
       }
     } catch (e) {
-      setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
       showToastMessage(
         toast,
         'danger',
         e?.response?.data?.message || 'Something went wrong',
       );
+      return false;
     } finally {
       setFollowBusy(false);
       onRefresh();

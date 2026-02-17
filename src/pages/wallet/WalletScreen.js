@@ -320,8 +320,8 @@ export default function WalletComponent() {
 
         return (
             <View style={[{ flex: 1 }]}>
-                <Text style={[styles.subHeader, {shadowColor: text}]}>{filteredList.length} creators</Text>
-                <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text>
+                <Text style={[styles.subHeader, {shadowColor: text}]}>{filteredList.length} Top creators</Text>
+                {/* <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text> */}
 
                 <FlatList
                     data={filteredList}
@@ -356,14 +356,14 @@ export default function WalletComponent() {
                                 <Text style={[styles.price, textStyle]}>
                                     ${item.purchaseTokenPrice?.toFixed(4) || '0.00'}
                                 </Text>
-                                <TouchableOpacity
+                                {/* <TouchableOpacity
                                     style={[styles.followBtn, {bordercolor: text, backgroundColor: text}]}
-                                    onPress={() => { setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}
+                                    // onPress={() => { setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}
                                 >
                                     <Text style={[styles.followBtnText, styles.followBtnActiveText]}>
                                         Buy
                                     </Text>
-                                </TouchableOpacity>
+                                </TouchableOpacity> */}
                             </View>
                         </TouchableOpacity>
                     )}
@@ -383,7 +383,7 @@ export default function WalletComponent() {
         return (
             <View style={[{ flex: 1 }, bgStyle]}>
                 <Text style={[styles.subHeader, {shadowColor: text}]}>{holdingsData.length} holdings</Text>
-                <Text style={styles.note}>Your current creator investments</Text>
+                {/* <Text style={styles.note}>Your current creator investments</Text> */}
 
                 <FlatList
                     data={holdingsData}

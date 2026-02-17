@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import HexAvatar from '../story.js/HexAvatar'; // Import your HexAvatar component
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useDispatch } from 'react-redux';
+import { useToast } from 'react-native-toast-notifications';
+import SupportCreatorModal from '../../modals/SupportCreatorModal';
+import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow } from '../../../utils/metaMaskSupport';
+import { getUserCredentials } from '../../../services/post';
 
 export default function FollowCard({
   userId,
@@ -25,7 +30,12 @@ export default function FollowCard({
   item
 }) {
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [targetWalletAddress, setTargetWalletAddress] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const toast = useToast();
   const { textStyle, text } = useAppTheme();
   
   const handleUserProfile = userId => {
@@ -33,12 +43,44 @@ export default function FollowCard({
   };
 
   useEffect(() => {
-    const fetchUserId = async () => {
+    const fetchInitialData = async () => {
       const id = await AsyncStorage.getItem('userId');
+      const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
       setCurrentUserId(id);
+      setWalletAddress(storedWalletAddress || '');
+
+      if (!item?.id) return;
+      try {
+        const profileResponse = await getUserCredentials(item.id);
+        if (profileResponse?.statusCode === 200) {
+          const profileUser = profileResponse?.data?.user || profileResponse?.data || {};
+          setTargetWalletAddress(getSupportRecipientWalletAddress(profileUser) || '');
+        }
+      } catch (error) {
+        setTargetWalletAddress('');
+      }
     };
-    fetchUserId();
-  }, []);
+    fetchInitialData();
+  }, [item?.id]);
+
+  const recipientWalletAddress = useMemo(
+    () => getSupportRecipientWalletAddress({ ...item, walletAddress: targetWalletAddress || item?.walletAddress }),
+    [item, targetWalletAddress],
+  );
+  const canSupport = !!recipientWalletAddress;
+
+  const handleSupportNow = async () => {
+    if (!canSupport) return;
+    setModalVisible(false);
+    await handleMetaMaskSupportFlow({
+      recipientWalletAddress,
+      walletAddress,
+      setWalletAddress,
+      toast,
+      navigation,
+      dispatch,
+    });
+  };
 
   // Hexagon dimensions for the card
   const cardWidth = 200;
@@ -110,16 +152,26 @@ export default function FollowCard({
         {/* Follow Button */}
         <TouchableOpacity
           style={[styles.followButton, isFollowing && styles.unfollowButton, {backgroundColor: text, shadowColor: text}]}
-          onPress={() => {
-            console.log('-----suggestions-------on press--------------',item)
-            console.log('-----suggestions-------isBusinessProfile-------------',isBusinessProfile)
-            console.log('-----suggestions-------currentUserId-------------',currentUserId)
-            if (!isBusinessProfile && item.id !== currentUserId) {
-              if (item.profile === 'company') {
-                executeFollowAction(item.id, !item.follow);
-              } else {
-                onToggle?.(item.id, !item.follow, item.userTokenAddress);
-              }
+          onPress={async () => {
+            if (item.id === currentUserId) return;
+
+            if (isBusinessProfile) {
+              await handleSupportNow();
+              return;
+            }
+
+            const shouldFollow = !isFollowing;
+            let success = false;
+
+            if (typeof executeFollowAction === 'function') {
+              success = await executeFollowAction(item.id, shouldFollow);
+            } else if (typeof onToggle === 'function') {
+              await onToggle(item.id, shouldFollow, item.userTokenAddress);
+              success = true;
+            }
+
+            if (success && shouldFollow && canSupport) {
+              setModalVisible(true);
             }
           }}
           disabled={loading}
@@ -134,6 +186,12 @@ export default function FollowCard({
           )}
         </TouchableOpacity>
       </View>
+      <SupportCreatorModal
+        visible={modalVisible}
+        creatorName={username || 'Creator'}
+        onClose={() => setModalVisible(false)}
+        onSupport={handleSupportNow}
+      />
     </View>
   );
 }

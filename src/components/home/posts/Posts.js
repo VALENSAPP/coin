@@ -271,8 +271,15 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     return (list || [])
       .filter(item => !hiddenById[item.id])
       .map(item => {
+        const userIdKey = String(item.userId);
         const followStatus = userFollowStatus[item.userId] || {};
-        const isFollowing = followStatus.isFollowing || false;
+        const hasLocalFollowState = Object.prototype.hasOwnProperty.call(
+          followingByUserId,
+          userIdKey,
+        );
+        const isFollowing = hasLocalFollowState
+          ? !!followingByUserId[userIdKey]
+          : (followStatus.isFollowing || item.isFollow || false);
         const tokenAddress = followStatus.tokenAddress || null;
         const followingImage = followStatus.image || null;
 
@@ -291,7 +298,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           media: (item.images || []).map(url => ({ type: 'image', url })),
           caption: item.caption || '***',
           boughtBy: finalBoughtBy,
-          follow: isFollowing || item.isFollow || false,
+          follow: isFollowing,
           userTokenAddress: tokenAddress || null,
           profile: item.profile || 'user',
           raiseAmount: item.raiseAmount || 0,
@@ -302,7 +309,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           shareCount:item.shareCount || 0
         };
       });
-  }, [list, hiddenById, userFollowStatus, postFollowers]);
+  }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId]);
 
   // Optimize canDelete calculation
   const canDelete = useMemo(() => {
@@ -533,6 +540,13 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     const key = String(targetUserId);
 
     setFollowingByUserId(prev => ({ ...prev, [key]: shouldFollow }));
+    setUserFollowStatus(prev => ({
+      ...prev,
+      [targetUserId]: {
+        ...(prev[targetUserId] || {}),
+        isFollowing: shouldFollow,
+      },
+    }));
     setFollowingBusy(prev => new Set(prev).add(key));
 
     try {
@@ -544,36 +558,58 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
       if (!ok) {
         setFollowingByUserId(prev => ({ ...prev, [key]: !shouldFollow }));
+        setUserFollowStatus(prev => ({
+          ...prev,
+          [targetUserId]: {
+            ...(prev[targetUserId] || {}),
+            isFollowing: !shouldFollow,
+          },
+        }));
         showToastMessage(
           toast,
           'danger',
           res?.data?.message || res?.message || 'Unable to update follow',
         );
+        return false;
       } else {
         const serverVal = res?.data?.following;
-        if (typeof serverVal === 'boolean') {
-          setFollowingByUserId(prev => ({ ...prev, [key]: serverVal }));
-        }
+        const resolvedFollowing = typeof serverVal === 'boolean' ? serverVal : shouldFollow;
+        setFollowingByUserId(prev => ({ ...prev, [key]: resolvedFollowing }));
+        setUserFollowStatus(prev => ({
+          ...prev,
+          [targetUserId]: {
+            ...(prev[targetUserId] || {}),
+            isFollowing: resolvedFollowing,
+          },
+        }));
         // showToastMessage(
         //   toast,
         //   'success',
         //   shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
         // );
+        return true;
       }
     } catch (e) {
       setFollowingByUserId(prev => ({ ...prev, [key]: !shouldFollow }));
+      setUserFollowStatus(prev => ({
+        ...prev,
+        [targetUserId]: {
+          ...(prev[targetUserId] || {}),
+          isFollowing: !shouldFollow,
+        },
+      }));
       showToastMessage(
         toast,
         'danger',
         e?.response?.data?.message || 'Something went wrong',
       );
+      return false;
     } finally {
       setFollowingBusy(prev => {
         const next = new Set(prev);
         next.delete(key);
         return next;
       });
-      onRefresh();
     }
   }
 

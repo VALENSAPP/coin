@@ -257,7 +257,8 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
   }
 };
 
-export const MetasmaskLogin = async (toast, navigation, dispatch) => {
+export const MetasmaskLogin = async (toast, navigation, dispatch, options = {}) => {
+  const returnAddressOnly = options?.returnAddressOnly === true;
   const projectId = '53707e25e6a88c4f83d2d0dba0904606';
   const storeUrl =
     Platform.OS === 'ios'
@@ -287,9 +288,30 @@ export const MetasmaskLogin = async (toast, navigation, dispatch) => {
     }
 
     const session = await approval();
-    const address = session.namespaces.eip155.accounts[0].split(':')[2];
+    const accounts = session?.namespaces?.eip155?.accounts || [];
+    console.log('All accounts from session:', accounts);
 
-    if (address && navigation !== 'createProfile') {
+    const accountOnPreferredChain =
+      accounts.find((item) => item.startsWith('eip155:137:')) ||
+      accounts.find((item) => item.startsWith('eip155:1:')) ||
+      accounts[0] ||
+      '';
+
+    const parts = accountOnPreferredChain.split(':');
+    const connectedChainId = parts[1]; // "1" or "137"
+    const address = parts[2];          // "0xABC..."
+
+console.log('Connected Chain ID:', connectedChainId);
+console.log('Connected Address:', address);
+
+    if (connectedChainId) {
+      await AsyncStorage.setItem('walletChainId', connectedChainId);
+    }
+    if (address) {
+      await AsyncStorage.setItem('walletAddress', address);
+    }
+
+    if (address && !returnAddressOnly && navigation !== 'createProfile') {
       await signupReference('WALLET', address, toast, dispatch, navigation);
     } else {
       return address;
