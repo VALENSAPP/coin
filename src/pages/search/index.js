@@ -18,7 +18,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getAllUser } from '../../services/users';
 import { getposts } from '../../services/home';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -79,23 +79,23 @@ const SearchScreen = () => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [posts, setPosts] = useState([]);
-  const [playingIndex, setPlayingIndex] = useState(null);
+  const [playingVideoIndexes, setPlayingVideoIndexes] = useState(new Set());
   const [previewPost, setPreviewPost] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [isGrid, setIsGrid] = useState(false);
   console.log(posts, 'data canme i post od search')
 
   const searchTimeoutRef = useRef(null);
+  const autoplayTimeoutRef = useRef(null);
+  const scrollOffsetRef = useRef(0);
+  const toastRef = useRef(toast);
   const { bgStyle, textStyle } = useAppTheme();
+  const isScreenFocused = useIsFocused();
+  const isSearchActive = searchText.trim().length > 0;
 
   useEffect(() => {
-    const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
-    };
-    fetchUserId();
-    fetchPosts();
-  }, [fetchPosts]);
+    toastRef.current = toast;
+  }, [toast]);
 
   /** 🔍 User search logic */
   const searchUsers = useCallback(async (searchQuery) => {
@@ -132,6 +132,7 @@ const SearchScreen = () => {
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (autoplayTimeoutRef.current) clearTimeout(autoplayTimeoutRef.current);
     };
   }, []);
 
@@ -172,15 +173,24 @@ const SearchScreen = () => {
         console.log('Flattened posts:', flattenedPosts.length);
         setPosts(flattenedPosts);
       } else {
-        showToastMessage(toast, 'danger', response?.data?.message || 'Failed to fetch posts');
+        showToastMessage(toastRef.current, 'danger', response?.data?.message || 'Failed to fetch posts');
       }
     } catch (error) {
       console.log('Posts fetch error:', error);
-      showToastMessage(toast, 'danger', error?.response?.message ?? 'Something went wrong');
+      showToastMessage(toastRef.current, 'danger', error?.response?.message ?? 'Something went wrong');
     } finally {
       dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [dispatch]);
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+    fetchUserId();
+    fetchPosts();
+  }, [fetchPosts]);
 
   /** 🏗️ Masonry layout: Organize posts into columns with some items spanning 2 rows */
   const masonryLayout = useMemo(() => {
@@ -265,11 +275,11 @@ const SearchScreen = () => {
         },
       });
     },
-    [navigation],
+    [navigation, route?.name],
   );
 
   /** 🎬 Handle post press (image or video) */
-  const handlePostPress = (item, isVideo) => {
+  const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
     if (isVideo) {
       navigation.navigate('ProfileMain', {
@@ -286,7 +296,7 @@ const SearchScreen = () => {
       navigation.navigate('ProfileMain', {
         screen: 'PostView',
         params: {
-          postData: [item],
+          postData: item,
           startIndex: 0,
           returnTo: route.name,
           returnParams: route.params,
@@ -296,19 +306,72 @@ const SearchScreen = () => {
 
       });
     }
-  };
+  }, [navigation, route?.name, route?.params]);
 
-  const viewabilityConfig = {
-    itemVisiblePercentThreshold: 50
-  };
-
-  const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      const firstVisible = viewableItems[0];
-      const nextPlaying = firstVisible?.item?.index ?? firstVisible?.index ?? 0;
-      setPlayingIndex(nextPlaying);
-    }
+  const isVideoPost = useCallback((post) => {
+    if (!post) return false;
+    const mediaUrl = post?.mediaUrl || post?.image || (Array.isArray(post?.images) ? post.images[0] : '');
+    const lowerMediaUrl = (mediaUrl || '').toLowerCase();
+    return (
+      post?.isVideo ||
+      post?.type === 'video' ||
+      post?.mediaType === 'video' ||
+      lowerMediaUrl.includes('.mp4') ||
+      lowerMediaUrl.includes('.mov') ||
+      lowerMediaUrl.includes('.avi') ||
+      lowerMediaUrl.includes('.mkv') ||
+      lowerMediaUrl.includes('.webm')
+    );
   }, []);
+
+  const syncVisibleVideos = useCallback((offsetY = 0) => {
+    if (!isScreenFocused || previewVisible || isSearchActive) {
+      setPlayingVideoIndexes((prev) => (prev.size === 0 ? prev : new Set()));
+      return;
+    }
+
+    const viewportTop = offsetY;
+    const viewportBottom = offsetY + SCREEN_HEIGHT;
+    const nextPlayingIndexes = new Set();
+
+    for (const layoutItem of masonryItems) {
+      if (!isVideoPost(layoutItem?.post)) continue;
+
+      const itemTop = layoutItem?.top ?? 0;
+      const itemBottom = itemTop + (layoutItem?.height ?? 0);
+      const visibleHeight = Math.min(itemBottom, viewportBottom) - Math.max(itemTop, viewportTop);
+      if (visibleHeight > 0) nextPlayingIndexes.add(layoutItem?.index);
+    }
+
+    setPlayingVideoIndexes((prev) => {
+      if (prev.size === nextPlayingIndexes.size) {
+        let same = true;
+        for (const idx of nextPlayingIndexes) {
+          if (!prev.has(idx)) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextPlayingIndexes;
+    });
+  }, [isScreenFocused, previewVisible, isSearchActive, masonryItems, isVideoPost]);
+
+  const onMasonryScroll = useCallback((event) => {
+    const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
+    scrollOffsetRef.current = offsetY;
+
+    if (autoplayTimeoutRef.current) clearTimeout(autoplayTimeoutRef.current);
+    autoplayTimeoutRef.current = setTimeout(() => {
+      syncVisibleVideos(offsetY);
+      autoplayTimeoutRef.current = null;
+    }, 80);
+  }, [syncVisibleVideos]);
+
+  useEffect(() => {
+    syncVisibleVideos(scrollOffsetRef.current);
+  }, [syncVisibleVideos]);
 
   /** Normalize image URL */
   const normalizeImageUrl = (url) => {
@@ -354,7 +417,12 @@ const SearchScreen = () => {
   /** 🔲 UI — render masonry post item */
   const renderMasonryItem = useCallback((layoutItem) => {
     const { post, index, height, top, columnIndex, width, spacing } = layoutItem;
-    const isVideo = post?.isVideo || post?.type === 'video' || post?.mediaType === 'video';
+    const isVideo = isVideoPost(post);
+    const shouldPlay =
+      isScreenFocused &&
+      !previewVisible &&
+      !isSearchActive &&
+      playingVideoIndexes.has(index);
     const imageUrl = normalizeImageUrl(post?.mediaUrl || post?.image || (post?.images && post.images[0]));
     const isMissionPost = post?.isMission === true || post?.type === "crowdfunding";
 
@@ -389,7 +457,7 @@ const SearchScreen = () => {
               style={styles.media}
               resizeMode="cover"
               repeat
-              paused={playingIndex !== index}
+              paused={!shouldPlay}
               muted={true}
             />
             <View style={styles.videoIconOverlay}>
@@ -436,7 +504,7 @@ const SearchScreen = () => {
 
       </TouchableOpacity>
     );
-  }, [playingIndex, handlePostPress, openPreview]);
+  }, [playingVideoIndexes, handlePostPress, openPreview, isVideoPost, isScreenFocused, previewVisible, isSearchActive]);
 
   /** 👥 Render empty state for search results */
   const renderEmptyState = useCallback(() => {
@@ -559,8 +627,8 @@ const SearchScreen = () => {
                   removeClippedSubviews={true}
                   initialNumToRender={12}
                   windowSize={10}
-                  viewabilityConfig={viewabilityConfig}
-                  onViewableItemsChanged={handleViewableItemsChanged}
+                  onScroll={onMasonryScroll}
+                  scrollEventThrottle={16}
                 />
               </View>
             ) : (

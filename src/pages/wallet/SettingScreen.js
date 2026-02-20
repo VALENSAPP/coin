@@ -131,14 +131,14 @@ export const SettingsScreen = ({ navigation }) => {
         { label: 'Privacy Settings', icon: 'lock-closed', action: () => { navigation.navigate('PrivacySettings') } },
       ]
     },
-    {
-      title: 'Trading',
-      items: [
-        { label: 'Auto-invest', icon: 'flash', toggle: true, value: autoInvest, onToggle: setAutoInvest },
-        { label: 'Price Alerts', icon: 'notifications', toggle: true, value: priceAlerts, onToggle: setPriceAlerts },
-        { label: 'Default Buy Amount', icon: 'wallet', action: () => { }, value: '$25' },
-      ]
-    },
+    // {
+    //   title: 'Trading',
+    //   items: [
+    //     { label: 'Auto-invest', icon: 'flash', toggle: true, value: autoInvest, onToggle: setAutoInvest },
+    //     { label: 'Price Alerts', icon: 'notifications', toggle: true, value: priceAlerts, onToggle: setPriceAlerts },
+    //     { label: 'Default Buy Amount', icon: 'wallet', action: () => { }, value: '$25' },
+    //   ]
+    // },
     {
       title: 'Security',
       items: [

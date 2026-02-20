@@ -62,11 +62,14 @@ export default function LoginScreen() {
       if (id) {
         const response = await getProfile(id);
         console.log('in profile response ----->>>>>>>>> ', response)
-        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
+        const normalizedKycStatus = String(response?.data?.kycStatus || '').toUpperCase();
+        if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED')) {
+          await AsyncStorage.setItem('isLoggedIn', 'true');
+          dispatch(loggedIn());
           showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
         }
-        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
+        else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
           navigation.navigate('CreateProfile');
         }

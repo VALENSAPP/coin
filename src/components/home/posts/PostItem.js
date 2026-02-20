@@ -479,11 +479,14 @@ function PostItem({
     }
 
     const shouldFollow = !item.follow;
-    const success = await executeFollowAction?.(item.UserId, shouldFollow);
+    const followHandler = executeFollowAction || onToggleFollow;
+    if (!followHandler) return;
+    const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
+    const success = typeof result === 'boolean' ? result : true;
     if (success && shouldFollow && canSupport) {
       setModalVisible(true);
     }
-  }, [item?.UserId, item.follow, userId, followingBusy, executeFollowAction, isBusinessProfile, handleSupportNow, canSupport]);
+  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, isBusinessProfile, handleSupportNow, canSupport]);
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
@@ -729,7 +732,7 @@ function PostItem({
         {goalAmount > 0 && (
           <View style={styles.progressSection}>
             <View style={styles.progressBarWrapper}>
-              {/* <View style={styles.progressBarBackground}>
+              <View style={styles.progressBarBackground}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -739,9 +742,9 @@ function PostItem({
                     },
                   ]}
                 />
-              </View> */}
+              </View>
 
-              {/* <View style={styles.progressStatsContainer}>
+              <View style={styles.progressStatsContainer}>
                 <View style={styles.statAtStart}>
                   <Text style={styles.statValueSmall}>
                     {isLoadingDonation ? '...' : `${Math.min(progressPercent, 100).toFixed(1)}% FUNDED`}
@@ -755,8 +758,8 @@ function PostItem({
                 <View style={styles.statAtEnd}>
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
-              </View> */}
-              {/* { !hideDonationButton &&((totalDonation < goalAmount) && (item.UserId !== userId)) && (
+              </View>
+              { !hideDonationButton &&((totalDonation < goalAmount) && (item.UserId !== userId)) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
@@ -776,7 +779,7 @@ function PostItem({
                     Donate
                   </Text>
                 </TouchableOpacity>
-              )} */}
+              )}
             </View>
           </View>
         )}

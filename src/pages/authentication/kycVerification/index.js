@@ -31,6 +31,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { EditProfile } from '../../../services/createProfile';
+import { loggedIn } from '../../../redux/actions/LoginAction';
 
 const { width, height } = Dimensions.get('window');
 
@@ -360,24 +361,25 @@ export default function KYCVerification({ route }) {
 
             if (response?.statusCode === 200) {
                 console.log('KYC Webhook Response', response.data);
-                if (response.data.status == "APPROVED") {
+                const status = String(response?.data?.status || '').toUpperCase();
+
+                if (status === 'APPROVED') {
                     navigation.navigate('Wallet', { profileData, serverProfile });
-                }
-                else {
-                    if (isFirstMount.current) {
-                        isFirstMount.current = false;
-                        return;
-                    }
+                } else if (status === 'PENDING' || status === 'SUBMITTED' || status === false) {
+                    await AsyncStorage.setItem('isLoggedIn', 'true');
+                    dispatch(loggedIn());
+                    showToastMessage(toast, 'warning', 'KYC is pending. You can explore the app while we review it.');
+                } else if (status === 'DECLINED' || status === 'REJECTED') {
                     Alert.alert(
-                        "KYC Not Verified",
-                        "Your KYC is not verified. Please try again.",
+                        'KYC Rejected',
+                        'Your KYC was rejected. Please submit your KYC again.',
                         [
                             {
-                                text: "Cancel",
-                                style: "cancel"
+                                text: 'Cancel',
+                                style: 'cancel'
                             },
                             {
-                                text: "Retry",
+                                text: 'Retry',
                                 onPress: () => {
                                     handleSubmitKYC();
                                 }
@@ -385,6 +387,12 @@ export default function KYCVerification({ route }) {
                         ],
                         { cancelable: true }
                     );
+                } else {
+                    if (isFirstMount.current) {
+                        isFirstMount.current = false;
+                        return;
+                    }
+                    Alert.alert('KYC Not Verified', 'Unable to verify KYC status. Please try again.');
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
@@ -719,9 +727,9 @@ export default function KYCVerification({ route }) {
                         </TouchableOpacity> */}
                         <TouchableOpacity
                             style={[styles.modalButton, styles.cancelButton]}
-                            onPress={() => {
+                            onPress={async () => {
                                 setShowProgressModal(false);
-                                navigation.navigate('Login')
+                                await fetchKycStatus();
                             }}
                         >
                             <Text style={styles.cancelButtonText}>Go Back To Login Screen</Text>
