@@ -39,18 +39,18 @@ export default function PostView({ postData = [] }) {
   const navigation = useNavigation();
 
   // Extract params including the source screen info
-  const { postData: navPosts, startIndex, fromScreen, userChat } = route.params || {};
-  const posts = useMemo(() => {
-    if (Array.isArray(navPosts) && navPosts.length) {
-      return navPosts;
-    } else if (navPosts && typeof navPosts === 'object') {
-      // Single post object - convert to array
-      return [navPosts];
-    } else if (Array.isArray(postData) && postData.length) {
-      return postData;
-    }
+  const routeParams = route.params || {};
+  const { startIndex, fromScreen, userChat } = routeParams;
+  const navPostData = routeParams.postData;
+
+  const normalizePosts = useCallback((candidate, fallback = []) => {
+    if (Array.isArray(candidate) && candidate.length) return candidate;
+    if (candidate && typeof candidate === 'object') return [candidate];
+    if (Array.isArray(fallback) && fallback.length) return fallback;
     return [];
-  }, [navPosts, postData]);
+  }, []);
+
+  const [posts, setPosts] = useState(() => normalizePosts(navPostData, postData));
 
   console.log(route?.params?.returnTo, "PostViewScreen=>>>>>>>>>>>>>>>>>.")
 
@@ -81,6 +81,23 @@ export default function PostView({ postData = [] }) {
   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
+    const nextPosts = normalizePosts(navPostData, postData);
+    setPosts(prev => {
+      if (prev.length === nextPosts.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i += 1) {
+          if (String(prev[i]?.id ?? '') !== String(nextPosts[i]?.id ?? '')) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextPosts;
+    });
+  }, [navPostData, postData, normalizePosts]);
+
+  useEffect(() => {
     (async () => {
       const id = await AsyncStorage.getItem('userId');
       setCurrentUserId(id ? String(id) : null);
@@ -90,10 +107,11 @@ export default function PostView({ postData = [] }) {
   // ─── Fetch post from API when coming from UserChat ──────────
   useEffect(() => {
     const fetchPostFromUserChat = async () => {
-      console.log(userChat,navPosts[0]?.id,'openthingx')
+      const chatPostId = posts[0]?.id;
+      console.log(userChat, chatPostId, 'openthingx')
       // Check if we're coming from UserChat and have a postId
-      if (userChat && navPosts && navPosts[0]?.id) {
-        const postId = navPosts[0]?.id;
+      if (userChat && chatPostId) {
+        const postId = chatPostId;
 
         try {
           const response = await getPostById(postId);
@@ -129,7 +147,7 @@ export default function PostView({ postData = [] }) {
     };
 
     fetchPostFromUserChat();
-  }, [userChat, navPosts]);
+  }, [userChat, posts]);
 
   // ─── Refetch post data ──────────────────────────────────────
   const refetchPostData = useCallback(async (postId) => {
@@ -432,9 +450,9 @@ export default function PostView({ postData = [] }) {
 
   const handleToggleFollow = useCallback(
     async (targetUserId, shouldFollow) => {
-      if (!targetUserId) return;
+      if (!targetUserId) return false;
       const key = String(targetUserId);
-      if (followingBusy.has(key)) return;
+      if (followingBusy.has(key)) return false;
       setFollowingByUserId(prev => ({ ...prev, [key]: shouldFollow }));
       setFollowingBusy(prev => new Set(prev).add(key));
 
@@ -449,6 +467,7 @@ export default function PostView({ postData = [] }) {
             'danger',
             res?.data?.message || res?.message || 'Unable to update follow'
           );
+          return false;
         } else {
           // If coming from UserChat, refetch the post data
           if (userChat && list[0]?.id) {
@@ -464,6 +483,7 @@ export default function PostView({ postData = [] }) {
             'success',
             shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
           );
+          return true;
         }
       } catch (e) {
         setFollowingByUserId(prev => ({ ...prev, [key]: !shouldFollow }));
@@ -472,6 +492,7 @@ export default function PostView({ postData = [] }) {
           'danger',
           e?.response?.data?.message || 'Something went wrong'
         );
+        return false;
       } finally {
         setFollowingBusy(prev => {
           const next = new Set(prev);
@@ -648,7 +669,10 @@ export default function PostView({ postData = [] }) {
         raiseAmount: item.raiseAmount ?? 0,
         goalAmount: item.goalAmount ?? 100000,
         daysLeft: item.daysLeft ?? 0,
-        profile: item?.profile,
+        profile:
+          typeof item?.profile === 'string' && item.profile.toLowerCase() === 'company'
+            ? 'company'
+            : 'user',
         createdAt: item.createdAt,
         UserId: item.userId,
         userId: item.userId,
