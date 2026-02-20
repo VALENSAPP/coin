@@ -1,6 +1,6 @@
 import { Alert, Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MetasmaskLogin } from '../pages/authentication/socialLogin';
+import { connectWalletLogin } from '../pages/authentication/socialLogin';
 import { showToastMessage } from '../components/displaytoastmessage';
 
 export const getSupportRecipientWalletAddress = (target = {}) =>
@@ -81,6 +81,43 @@ const openMetaMaskPayment = async (recipientWalletAddress, chainId) => {
   }
 };
 
+// Generic function to open wallet payment - works for any wallet
+export const openWalletPayment = async (recipientWalletAddress, chainId, walletType = 'metamask') => {
+  if (!recipientWalletAddress) {
+    Alert.alert('Wallet unavailable', 'This creator wallet address is not available right now.');
+    return false;
+  }
+
+  const normalizedChainId = normalizeChainId(chainId);
+
+  // Different deep link formats for different wallets
+  const deepLinks = {
+    metamask: normalizedChainId
+      ? `https://metamask.app.link/send/${recipientWalletAddress}@${normalizedChainId}`
+      : `https://metamask.app.link/send/${recipientWalletAddress}`,
+    coinbase: normalizedChainId
+      ? `https://go.cb-w.com/send?address=${recipientWalletAddress}&chainId=${normalizedChainId}`
+      : `https://go.cb-w.com/send?address=${recipientWalletAddress}`,
+    trust: normalizedChainId
+      ? `trust://send?address=${recipientWalletAddress}&chainId=${normalizedChainId}`
+      : `trust://send?address=${recipientWalletAddress}`,
+  };
+
+  const deepLink = deepLinks[walletType] || deepLinks.metamask;
+
+  try {
+    await Linking.openURL(deepLink);
+    return true;
+  } catch (error) {
+    Alert.alert(
+      'Wallet Not Available',
+      'The wallet app could not be opened. Please make sure it is installed.',
+      [{ text: 'OK' }],
+    );
+    return false;
+  }
+};
+
 export const handleMetaMaskSupportFlow = async ({
   recipientWalletAddress,
   walletAddress,
@@ -88,33 +125,46 @@ export const handleMetaMaskSupportFlow = async ({
   toast,
   navigation,
   dispatch,
+  onShowWalletSelection, // Callback to show wallet selection modal
 }) => {
   const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
   const currentWalletChainId = await AsyncStorage.getItem('walletChainId');
+  const currentWalletType = await AsyncStorage.getItem('walletType') || 'metamask';
 
-  if (currentWalletAddress) {
-    setWalletAddress?.(currentWalletAddress);
-    return openMetaMaskPayment(recipientWalletAddress, currentWalletChainId);
+  // Always show wallet selection modal if callback is provided
+  // This allows users to choose/change their wallet even if one is already connected
+  if (onShowWalletSelection) {
+    onShowWalletSelection();
+    return false;
   }
 
+  // If wallet is already connected and no callback provided, proceed with payment
+  if (currentWalletAddress) {
+    setWalletAddress?.(currentWalletAddress);
+    return openWalletPayment(recipientWalletAddress, currentWalletChainId, currentWalletType);
+  }
+
+  // Fallback: Show alert if no callback and no wallet connected
   Alert.alert(
     'Wallet not connected',
-    'Connect your MetaMask wallet to support this creator.',
+    'Connect your wallet to support this creator.',
     [
       { text: 'Later', style: 'cancel' },
       {
         text: 'Connect wallet',
         onPress: async () => {
-          const connectedAddress = await MetasmaskLogin(toast, navigation, dispatch, {
+          const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
             returnAddressOnly: true,
+            walletType: 'metamask',
           });
 
           if (connectedAddress) {
             await AsyncStorage.setItem('walletAddress', connectedAddress);
+            await AsyncStorage.setItem('walletType', 'metamask');
             setWalletAddress?.(connectedAddress);
             showToastMessage(toast, 'success', 'Wallet connected successfully');
             const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-            await openMetaMaskPayment(recipientWalletAddress, connectedWalletChainId);
+            await openWalletPayment(recipientWalletAddress, connectedWalletChainId, 'metamask');
           }
         },
       },

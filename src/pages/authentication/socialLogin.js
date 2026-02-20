@@ -257,32 +257,108 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
   }
 };
 
-export const MetasmaskLogin = async (toast, navigation, dispatch, options = {}) => {
+// Generic wallet connection function that works for all wallet types
+export const connectWalletLogin = async (toast, navigation, dispatch, options = {}) => {
   const returnAddressOnly = options?.returnAddressOnly === true;
+  const walletType = options?.walletType || null; // null means use universal WalletConnect URI
   const projectId = '53707e25e6a88c4f83d2d0dba0904606';
-  const storeUrl =
-    Platform.OS === 'ios'
-      ? 'https://apps.apple.com/app/metamask/id1438144202'
-      : 'https://play.google.com/store/apps/details?id=io.metamask';
+
+  const walletConfigs = {
+    metamask: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/metamask/id1438144202'
+        : 'https://play.google.com/store/apps/details?id=io.metamask',
+      name: 'MetaMask',
+    },
+    coinbase: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/coinbase-wallet/id1278383455'
+        : 'https://play.google.com/store/apps/details?id=org.toshi',
+      name: 'Coinbase Wallet',
+    },
+    trust: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409'
+        : 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp',
+      name: 'Trust Wallet',
+    },
+    walletconnect: {
+      storeUrl: null,
+      name: 'WalletConnect',
+    },
+    rainbow: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/rainbow-ethereum-wallet/id1457119021'
+        : 'https://play.google.com/store/apps/details?id=me.rainbow',
+      name: 'Rainbow',
+    },
+    zerion: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/zerion-defi-wallet/id1456732568'
+        : 'https://play.google.com/store/apps/details?id=io.zerion.android',
+      name: 'Zerion',
+    },
+  };
+
+  // If walletType is null, use universal WalletConnect (works with all wallets)
+  const walletConfig = walletType ? (walletConfigs[walletType] || walletConfigs.metamask) : { name: 'Wallet', storeUrl: null };
 
   dispatch(showLoader());
 
   try {
-    const { metamaskDeepLink, approval } = await connectWallet(projectId);
+    const { selectedWalletDeepLink, universalUri, approval, uri } = await connectWallet(projectId, walletType);
 
     try {
-      await Linking.openURL(metamaskDeepLink); // attempt to open MetaMask
+      // Try to open the selected wallet's deep link first, or use universal URI
+      let deepLinkToOpen = selectedWalletDeepLink || universalUri;
+      
+      // Check if we can open the specific wallet deep link
+      if (walletType && walletType !== 'walletconnect') {
+        try {
+          const canOpen = await Linking.canOpenURL(deepLinkToOpen);
+          if (!canOpen) {
+            // Fall back to universal URI if specific deep link doesn't work
+            deepLinkToOpen = universalUri;
+          }
+        } catch (checkErr) {
+          // If check fails, use universal URI
+          deepLinkToOpen = universalUri;
+        }
+      }
+      
+      await Linking.openURL(deepLinkToOpen);
       dispatch(hideLoader());
     } catch (openErr) {
-      // fallback if MetaMask can't open
-      Alert.alert(
-        'MetaMask Not Installed',
-        'MetaMask is not installed or cannot be opened. Would you like to install it?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Install', onPress: () => Linking.openURL(storeUrl) },
-        ]
-      );
+      // fallback if wallet can't open
+      if (walletConfig.storeUrl) {
+        Alert.alert(
+          `${walletConfig.name} Not Installed`,
+          `${walletConfig.name} is not installed or cannot be opened. Would you like to install it?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Install', onPress: () => Linking.openURL(walletConfig.storeUrl) },
+          ]
+        );
+      } else {
+        // For universal WalletConnect, try to open in browser or show instructions
+        Alert.alert(
+          'Open Wallet',
+          'Please open your wallet app and connect using WalletConnect, or scan the QR code.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Try Universal Link', 
+              onPress: async () => {
+                try {
+                  await Linking.openURL(universalUri);
+                } catch (err) {
+                  showToastMessage(toast, 'danger', 'Please install a WalletConnect-compatible wallet app');
+                }
+              }
+            },
+          ]
+        );
+      }
       dispatch(hideLoader());
       return;
     }
@@ -301,14 +377,16 @@ export const MetasmaskLogin = async (toast, navigation, dispatch, options = {}) 
     const connectedChainId = parts[1]; // "1" or "137"
     const address = parts[2];          // "0xABC..."
 
-console.log('Connected Chain ID:', connectedChainId);
-console.log('Connected Address:', address);
+    console.log('Connected Chain ID:', connectedChainId);
+    console.log('Connected Address:', address);
 
     if (connectedChainId) {
       await AsyncStorage.setItem('walletChainId', connectedChainId);
     }
     if (address) {
       await AsyncStorage.setItem('walletAddress', address);
+      // Store wallet type if specified, otherwise store as 'walletconnect' for universal connection
+      await AsyncStorage.setItem('walletType', walletType || 'walletconnect');
     }
 
     if (address && !returnAddressOnly && navigation !== 'createProfile') {
@@ -322,6 +400,11 @@ console.log('Connected Address:', address);
   } finally {
     dispatch(hideLoader());
   }
+};
+
+// Keep MetasmaskLogin for backward compatibility
+export const MetasmaskLogin = async (toast, navigation, dispatch, options = {}) => {
+  return connectWalletLogin(toast, navigation, dispatch, { ...options, walletType: 'metamask' });
 };
 
 export const exchangeCodeForToken = async (code, dispatch, toast, navigation, profile) => {
