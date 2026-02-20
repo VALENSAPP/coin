@@ -10,8 +10,11 @@ import ProfileModal from '../modals/ProfileModal';
 import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
 import SupportCreatorModal from '../modals/SupportCreatorModal';
+import WelcomeValensModal from '../modals/WelcomeValensModal';
+import WalletSelectionModal from '../modals/WalletSelectionModal';
+import WalletConnectedModal from '../modals/WalletConnectedModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
 import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly } from '../../assets/icons';
@@ -22,7 +25,8 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow } from '../../utils/metaMaskSupport';
+import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../utils/metaMaskSupport';
+import { connectWalletLogin } from '../../pages/authentication/socialLogin';
 
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return GoldLavenderDragonfly;
@@ -83,12 +87,20 @@ const ProfilePersonData = ({
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
+  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
+  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
   // console.log('item----------------followers------------', item);
   const isCompanyProfile = userProfile === 'company';
   const dispatch = useDispatch();
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
   const route = useRoute();
+  // Get logged-in user's profile type from Redux (same as ThemeContext)
+  const loggedInUserProfile = useSelector(state => state.userProfile.userProfile);
+  console.log(loggedInUserProfile,"loggegege00000000000000000000000000000000000")
+  const isLoggedInBusinessUser = loggedInUserProfile === 'company';
 
   const Userdata = {
     Displayname: displayName || 'No Name',
@@ -444,6 +456,42 @@ const ProfilePersonData = ({
   );
   const canSupport = !!recipientWalletAddress;
 
+  const handleWalletSelect = useCallback(async (wallet) => {
+    setWalletSelectionVisible(false);
+    
+    try {
+      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
+        returnAddressOnly: true,
+        walletType: wallet.id,
+      });
+
+      if (connectedAddress) {
+        await AsyncStorage.setItem('walletAddress', connectedAddress);
+        await AsyncStorage.setItem('walletType', wallet.id);
+        setWalletAddress(connectedAddress);
+        
+        // Show success modal with wallet info
+        setConnectedWalletInfo({
+          name: wallet.name,
+          address: connectedAddress,
+        });
+        setWalletConnectedModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
+    }
+  }, [toast, navigation, dispatch, setWalletAddress]);
+
+  const handleWalletConnectedContinue = useCallback(async () => {
+    setWalletConnectedModalVisible(false);
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+    
+    // Open payment flow with the connected wallet
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [recipientWalletAddress]);
+
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) return;
     setSupportModalVisible(false);
@@ -454,6 +502,7 @@ const ProfilePersonData = ({
       toast,
       navigation,
       dispatch,
+      onShowWalletSelection: () => setWalletSelectionVisible(true),
     });
   }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
 
@@ -499,6 +548,18 @@ const ProfilePersonData = ({
             }
             if (response?.data?.profile === 'company') {
               setIsBusinessProfile(true);
+            }
+
+            // Check KYC approval status and show welcome modal
+            if (!fromUsersProfile && response.data.kyc === true) {
+              const hasShownWelcome = await AsyncStorage.getItem('kycWelcomeShown');
+              if (!hasShownWelcome) {
+                // Show welcome modal after a short delay to ensure UI is ready
+                setTimeout(() => {
+                  setWelcomeModalVisible(true);
+                  AsyncStorage.setItem('kycWelcomeShown', 'true');
+                }, 500);
+              }
             }
           }
         } catch (err) {
@@ -681,8 +742,8 @@ const handleBackPress = useCallback(() => {
                           isFollowing && (
                             <LinearGradient
                               colors={
-                                userData?.profile === 'company'
-                                  ? ['#D3B683', '#e54ba0']
+                                isLoggedInBusinessUser
+                                  ? ['#D3B683', '#D3B683']
                                   : ['#513189bd', '#e54ba0']
                               }
                               start={{ x: 0, y: 0 }}
@@ -702,8 +763,8 @@ const handleBackPress = useCallback(() => {
                   >
                     <LinearGradient
                       colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
+                        isLoggedInBusinessUser
+                          ? ['#D3B683', '#D3B683']
                           : ['#513189bd', '#e54ba0']
                       }
                       start={{ x: 0, y: 0 }}
@@ -721,8 +782,8 @@ const handleBackPress = useCallback(() => {
                   >
                     <LinearGradient
                       colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
+                        isLoggedInBusinessUser
+                          ? ['#D3B683', '#D3B683']
                           : ['#513189bd', '#e54ba0']
                       }
                       start={{ x: 0, y: 0 }}
@@ -740,8 +801,8 @@ const handleBackPress = useCallback(() => {
                   <TouchableOpacity onPress={() => handleNavigate()}>
                     <LinearGradient
                       colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
+                        isLoggedInBusinessUser
+                          ? ['#D3B683', '#D3B683']
                           : ['#513189bd', '#e54ba0']
                       }
                       start={{ x: 0, y: 0 }}
@@ -761,8 +822,8 @@ const handleBackPress = useCallback(() => {
                   >
                     <LinearGradient
                       colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
+                        isLoggedInBusinessUser
+                          ? ['#D3B683', '#D3B683']
                           : ['#513189bd', '#e54ba0']
                       }
                       start={{ x: 0, y: 0 }}
@@ -780,8 +841,8 @@ const handleBackPress = useCallback(() => {
                   <TouchableOpacity onPress={handleSupportPress}>
                     <LinearGradient
                       colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
+                        isLoggedInBusinessUser
+                          ? ['#D3B683', '#D3B683']
                           : ['#513189bd', '#e54ba0']
                       }
                       start={{ x: 0, y: 0 }}
@@ -895,6 +956,22 @@ const handleBackPress = useCallback(() => {
         creatorName={username || userData?.userName || 'Creator'}
         onClose={() => setSupportModalVisible(false)}
         onSupport={handleSupportNow}
+      />
+      <WelcomeValensModal
+        visible={welcomeModalVisible}
+        onClose={() => setWelcomeModalVisible(false)}
+      />
+      <WalletSelectionModal
+        visible={walletSelectionVisible}
+        onClose={() => setWalletSelectionVisible(false)}
+        onSelectWallet={handleWalletSelect}
+      />
+      <WalletConnectedModal
+        visible={walletConnectedModalVisible}
+        onClose={() => setWalletConnectedModalVisible(false)}
+        walletName={connectedWalletInfo.name}
+        walletAddress={connectedWalletInfo.address}
+        onContinue={handleWalletConnectedContinue}
       />
     </View>
   );

@@ -18,6 +18,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 
 const ProfileScreen = () => {
   const [posts, setPosts] = useState([]);
@@ -25,6 +26,7 @@ const ProfileScreen = () => {
   const [userDashboard, setUserDashboard] = useState();
   const [userData, setUserData] = useState();
   const [refreshing, setRefreshing] = useState(false);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -104,6 +106,18 @@ const ProfileScreen = () => {
         console.log('Final user data to set:', userDataToSet);
         AsyncStorage.setItem('currentUsername', userDataToSet.displayName);
         setUserData(userDataToSet);
+
+        // Check KYC approval status and show welcome modal
+        if (userDataToSet.kyc === true) {
+          const hasShownWelcome = await AsyncStorage.getItem('kycWelcomeShown');
+          if (!hasShownWelcome) {
+            // Show welcome modal after a short delay to ensure UI is ready
+            setTimeout(() => {
+              setWelcomeModalVisible(true);
+              AsyncStorage.setItem('kycWelcomeShown', 'true');
+            }, 500);
+          }
+        }
       } else {
         showToastMessage(
           toast,
@@ -177,6 +191,10 @@ const ProfileScreen = () => {
         </View>
         <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} loggedInUserId={userId}/>
       </ScrollView>
+      <WelcomeValensModal
+        visible={welcomeModalVisible}
+        onClose={() => setWelcomeModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };

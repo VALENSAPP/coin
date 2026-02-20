@@ -14,8 +14,11 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
-import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow } from '../../../utils/metaMaskSupport';
+import WalletSelectionModal from '../../modals/WalletSelectionModal';
+import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../../utils/metaMaskSupport';
 import { getUserCredentials } from '../../../services/post';
+import { showToastMessage } from '../../displaytoastmessage';
+import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 
 export default function FollowCard({
   userId,
@@ -33,6 +36,7 @@ export default function FollowCard({
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const toast = useToast();
@@ -69,6 +73,32 @@ export default function FollowCard({
   );
   const canSupport = !!recipientWalletAddress;
 
+  const handleWalletSelect = async (wallet) => {
+    setWalletSelectionVisible(false);
+    
+    try {
+      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
+        returnAddressOnly: true,
+        walletType: wallet.id,
+      });
+
+      if (connectedAddress) {
+        await AsyncStorage.setItem('walletAddress', connectedAddress);
+        await AsyncStorage.setItem('walletType', wallet.id);
+        setWalletAddress(connectedAddress);
+        showToastMessage(toast, 'success', 'Wallet connected successfully');
+        
+        const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+        const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+        
+        // Open payment flow with the connected wallet
+        await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+    }
+  };
+
   const handleSupportNow = async () => {
     if (!canSupport) return;
     setModalVisible(false);
@@ -79,6 +109,7 @@ export default function FollowCard({
       toast,
       navigation,
       dispatch,
+      onShowWalletSelection: () => setWalletSelectionVisible(true),
     });
   };
 
@@ -191,6 +222,11 @@ export default function FollowCard({
         creatorName={username || 'Creator'}
         onClose={() => setModalVisible(false)}
         onSupport={handleSupportNow}
+      />
+      <WalletSelectionModal
+        visible={walletSelectionVisible}
+        onClose={() => setWalletSelectionVisible(false)}
+        onSelectWallet={handleWalletSelect}
       />
     </View>
   );
