@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState } from 'react-native';
 import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -18,13 +18,18 @@ import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
 import FastImage from 'react-native-fast-image'
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
-import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow } from '../../../utils/metaMaskSupport';
+import WalletSelectionModal from '../../modals/WalletSelectionModal';
+import WalletConnectedModal from '../../modals/WalletConnectedModal';
+import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../../utils/metaMaskSupport';
+import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 
 const { width } = Dimensions.get('window');
 
 /* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const imageSource = useMemo(
@@ -50,23 +55,53 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
     { useNativeDriver: true }
   );
 
+  const closeModal = () => {
+    // Reset animations
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 0,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 0,
+      }),
+      Animated.spring(opacity, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 0,
+      }),
+    ]).start(() => {
+      setIsModalVisible(false);
+      setModalImageLoaded(false);
+      setIsZoomed(false);
+      onZoomChange?.(false);
+      // Reset values
+      scale.setValue(1);
+      translateY.setValue(0);
+      opacity.setValue(1);
+    });
+  };
+
   const resetScale = () => {
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
       speed: 20,
       bounciness: 0,
-    }).start(() => {
-      setIsModalVisible(false);
-      setModalImageLoaded(false);
-      onZoomChange?.(false);
-    });
+    }).start();
   };
 
   const onPinchStateChange = ({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
     if (state === State.BEGAN) {
       setIsModalVisible(true);
+      setIsZoomed(true);
       onZoomChange?.(true);
     }
 
@@ -76,10 +111,55 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         state === State.CANCELLED ||
         state === State.FAILED)
     ) {
-      setIsModalVisible(false);
-      // setModalReady(false);
-      onZoomChange?.(false);
+      // Only reset scale, don't close modal on pinch end
       resetScale();
+    }
+  };
+
+  // Swipe down gesture handler to close modal
+  const onSwipeGestureEvent = Animated.event(
+    [{ nativeEvent: { translationY: translateY } }],
+    { useNativeDriver: true }
+  );
+
+  const onSwipeHandlerStateChange = ({ nativeEvent }) => {
+    const { state, translationY, velocityY } = nativeEvent;
+    
+    if (state === State.END) {
+      // If swiped down more than 100px or with high velocity, close modal
+      if (translationY > 100 || velocityY > 500) {
+        // Animate out
+        Animated.parallel([
+          Animated.timing(translateY, {
+            toValue: Dimensions.get('window').height,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          closeModal();
+        });
+      } else {
+        // Spring back to original position
+        Animated.parallel([
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            speed: 20,
+            bounciness: 0,
+          }),
+          Animated.spring(opacity, {
+            toValue: 1,
+            useNativeDriver: true,
+            speed: 20,
+            bounciness: 0,
+          }),
+        ]).start();
+      }
     }
   };
   useEffect(() => {
@@ -113,32 +193,66 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       <Modal
         visible={isModalVisible}
         transparent
-        animationType="none"
+        animationType="fade"
         statusBarTranslucent
-      // onShow={() => setModalReady(true)}
+        onRequestClose={closeModal}
       >
         <View style={styles.modalBackground}>
-          <PinchGestureHandler
-            onGestureEvent={onPinchEvent}
-            onHandlerStateChange={onPinchStateChange}
+          {/* Tap to close background */}
+          <TouchableWithoutFeedback onPress={closeModal}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
+
+          {/* Close button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={closeModal}
+            activeOpacity={0.7}
           >
-            <AnimatedFastImage
-              // key={uri}
-              source={imageSource}
-              resizeMode="contain"
-              resizeMethod='resize'
-              fadeDuration={0}
-              //  onLoadEnd={() => setModalImageLoaded(true)}
+            <Icon name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+
+          {/* Swipe down gesture handler for image */}
+          <PanGestureHandler
+            onGestureEvent={onSwipeGestureEvent}
+            onHandlerStateChange={onSwipeHandlerStateChange}
+            activeOffsetY={10}
+            failOffsetX={[-50, 50]}
+            minPointers={1}
+          >
+            <Animated.View
               style={[
-                styles.fullScreenImage,
+                styles.imageContainer,
                 {
-                  width: width,
-                  height: 500,
-                  transform: [{ scale }],
+                  transform: [
+                    { translateY },
+                  ],
+                  opacity,
                 },
               ]}
-            />
-          </PinchGestureHandler>
+            >
+              <PinchGestureHandler
+                onGestureEvent={onPinchEvent}
+                onHandlerStateChange={onPinchStateChange}
+              >
+                <AnimatedFastImage
+                  source={imageSource}
+                  resizeMode="contain"
+                  resizeMethod='resize'
+                  fadeDuration={0}
+                  onLoadEnd={() => setModalImageLoaded(true)}
+                  style={[
+                    styles.fullScreenImage,
+                    {
+                      width: width,
+                      height: Dimensions.get('window').height,
+                      transform: [{ scale }],
+                    },
+                  ]}
+                />
+              </PinchGestureHandler>
+            </Animated.View>
+          </PanGestureHandler>
         </View>
       </Modal>
     </View>
@@ -192,6 +306,9 @@ function PostItem({
   const [daysLeft, setDaysLeft] = useState(0);
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
+  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
+  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
+  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -301,6 +418,20 @@ function PostItem({
     }
   }, [item?.UserId, toast]);
 
+  // Function to restore userId from AsyncStorage
+  const restoreUserId = useCallback(async () => {
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      const currentUserId = userId ? String(userId) : null;
+      const newUserId = id ? String(id) : null;
+      if (newUserId !== currentUserId) {
+        setUserId(newUserId);
+      }
+    } catch (error) {
+      console.error('Error restoring userId:', error);
+    }
+  }, [userId]);
+
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -309,7 +440,7 @@ function PostItem({
         try {
           const id = await AsyncStorage.getItem('userId');
           const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
-          if (isActive) setUserId(id);
+          if (isActive) setUserId(id ? String(id) : null);
           if (isActive) setWalletAddress(storedWalletAddress || '');
 
           if (item?.UserId && !dataFetched) {
@@ -336,11 +467,70 @@ function PostItem({
     }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched])
   );
 
+  // Listen for app state changes to restore userId when returning from MetaMask
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App has come to the foreground, restore userId
+        restoreUserId();
+      }
+    });
+
+    // Also restore on mount
+    restoreUserId();
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [restoreUserId]);
+
   const recipientWalletAddress = useMemo(
     () => getSupportRecipientWalletAddress({ ...item, walletAddress: targetWalletAddress || item?.walletAddress }),
     [item, targetWalletAddress],
   );
   const canSupport = !!recipientWalletAddress;
+
+  const handleWalletSelect = useCallback(async (wallet) => {
+    setWalletSelectionVisible(false);
+    
+    try {
+      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
+        returnAddressOnly: true,
+        walletType: wallet.id,
+      });
+
+      if (connectedAddress) {
+        await AsyncStorage.setItem('walletAddress', connectedAddress);
+        await AsyncStorage.setItem('walletType', wallet.id);
+        setWalletAddress(connectedAddress);
+        
+        // Show success modal with wallet info
+        setConnectedWalletInfo({
+          name: wallet.name,
+          address: connectedAddress,
+        });
+        setWalletConnectedModalVisible(true);
+        
+        const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+        const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+        
+        // Open payment flow with the connected wallet after user acknowledges
+        // This will be handled in the modal's onContinue callback
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
+    }
+  }, [toast, navigation, dispatch, setWalletAddress]);
+
+  const handleWalletConnectedContinue = useCallback(async () => {
+    setWalletConnectedModalVisible(false);
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+    
+    // Open payment flow with the connected wallet
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [recipientWalletAddress]);
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) return;
@@ -352,6 +542,7 @@ function PostItem({
       toast,
       navigation,
       dispatch,
+      onShowWalletSelection: () => setWalletSelectionVisible(true),
     });
   }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
 
@@ -472,7 +663,10 @@ function PostItem({
   }, [currentIndex]);
 
   const handleFollowPress = useCallback(async () => {
-    if (!item?.UserId || item.UserId === userId || followingBusy) return;
+    const itemUserId = String(item?.UserId || '');
+    const currentUserId = String(userId || '');
+    
+    if (!itemUserId || itemUserId === currentUserId || followingBusy) return;
     if (isBusinessProfile) {
       await handleSupportNow();
       return;
@@ -664,36 +858,41 @@ function PostItem({
             </TouchableOpacity>
           </View>
 
-          {item.UserId !== userId && (
-            <TouchableOpacity
-              // onPress={() => {
-              //   if (!isBusinessProfile && item.UserId !== userId) {
-              //     if (item.profile === 'company') {
-              //       executeFollowAction(item.UserId, !item.follow);
-              //     } else {
-              //       onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
-              //     }
-              //   }
-              // }}
-                 onPress={handleFollowPress}
-              style={[
-                styles.followButton,
-                item.follow && styles.followingButton,
-                { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
-              ]}
-            >
-              {followingBusy ? (
-                <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
-              ) : (
-                <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                  {isBusinessProfile ? "Support" : item.follow ? 'Vallowed' : 'Vallow'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
+          {item?.UserId && (() => {
+            // Convert both to strings for reliable comparison
+            const itemUserIdStr = String(item.UserId);
+            const currentUserIdStr = userId ? String(userId) : '';
+            // Show button if post is from a different user (or if userId is not set yet)
+            const isDifferentUser = !currentUserIdStr || itemUserIdStr !== currentUserIdStr;
+            
+            if (!isDifferentUser) return null;
+            
+            return (
+              <TouchableOpacity
+                onPress={handleFollowPress}
+                style={[
+                  styles.followButton,
+                  item.follow && styles.followingButton,
+                  { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
+                ]}
+              >
+                {followingBusy ? (
+                  <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
+                ) : (
+                  <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
+                    {isBusinessProfile ? "Support" : item.follow ? 'Vallowed' : 'Vallow'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
         </View>
 
-        {item.UserId !== userId && (
+        {(() => {
+          const itemUserId = item?.UserId ? String(item.UserId) : null;
+          const currentUserId = userId ? String(userId) : null;
+          return itemUserId && itemUserId !== currentUserId;
+        })() && (
           <>
             {buyerList.length > 0 && (
               <TouchableOpacity
@@ -801,6 +1000,18 @@ function PostItem({
         creatorName={item?.username || 'Creator'}
         onClose={() => setModalVisible(false)}
         onSupport={handleSupportNow}
+      />
+      <WalletSelectionModal
+        visible={walletSelectionVisible}
+        onClose={() => setWalletSelectionVisible(false)}
+        onSelectWallet={handleWalletSelect}
+      />
+      <WalletConnectedModal
+        visible={walletConnectedModalVisible}
+        onClose={() => setWalletConnectedModalVisible(false)}
+        walletName={connectedWalletInfo.name}
+        walletAddress={connectedWalletInfo.address}
+        onContinue={handleWalletConnectedContinue}
       />
     </View>
   );
@@ -1118,6 +1329,26 @@ const styles = StyleSheet.create({
     width: width,
     height: 500,
     resizeMode: 'contain',
+  },
+  imageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dotsContainer: {
     position: 'absolute',
