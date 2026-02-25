@@ -270,6 +270,7 @@ const Settings = () => {
           AsyncStorage.removeItem('walletPrivateKey');
           AsyncStorage.removeItem('walletMnemonic');
           AsyncStorage.removeItem('profile');
+          AsyncStorage.removeItem('stripeCustomerId');
           dispatch(loggedOut());
         },
       },
@@ -289,6 +290,7 @@ const Settings = () => {
             dispatch(setUserProfile('normal'))
             AsyncStorage.setItem('isLoggedIn', 'false');
             AsyncStorage.removeItem('profile');
+            AsyncStorage.removeItem('stripeCustomerId');
             dispatch(loggedOut());
           },
         },

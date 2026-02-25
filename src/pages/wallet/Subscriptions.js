@@ -26,6 +26,9 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAppTheme } from '../../theme/useApptheme';
 import TermCondition from '../../components/modals/Term&Condition';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
+import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
+import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
+import { STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -46,9 +49,11 @@ const SubventionSetupScreen = () => {
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [showActivationPopup, setShowActivationPopup] = useState(false);
+    const [showStripeSetupModal, setShowStripeSetupModal] = useState(false);
     const [rawAmount, setRawAmount] = useState('');
     const [comment, setComment] = useState('');
 
+    const { canReceivePayments, refresh: refreshOnboarding, openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
 
     const contentTabs = [
         { id: 'posts', label: 'New Mint', icon: '📝' },
@@ -404,14 +409,16 @@ const SubventionSetupScreen = () => {
 
     const handleSaveSubscription = async () => {
         try {
-            // Parse the raw amount (without formatting) for the API
             const subscriptionAmount = parseFloat(rawAmount) || 0;
-
-            console.log('Raw Amount:', rawAmount);
-            console.log('Parsed Amount:', subscriptionAmount);
 
             if (subscriptionAmount < 9 || subscriptionAmount > 100) {
                 showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
+                return;
+            }
+
+            const status = await refreshOnboarding();
+            if (status?.canReceivePayments === false) {
+                setShowStripeSetupModal(true);
                 return;
             }
 
@@ -731,6 +738,19 @@ const SubventionSetupScreen = () => {
                     visible={showActivationPopup}
                     onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
                     onConfirm={handleSaveSubscription}
+                />
+                <ConnectStripeModal
+                    visible={showStripeSetupModal}
+                    onClose={() => setShowStripeSetupModal(false)}
+                    onConnectStripe={async () => {
+                        setShowStripeSetupModal(false);
+                        setShowActivationPopup(false);
+                        try {
+                            await openOnboarding();
+                        } catch (e) {
+                            showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+                        }
+                    }}
                 />
             </View>
         </>

@@ -36,6 +36,7 @@ import { loggedIn } from '../../../redux/actions/LoginAction';
 import TextGradient from '../../../assets/textgradient/TextGradient';
 import { AuthHeader } from '../../../components/auth';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
+import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import DeviceInfo from 'react-native-device-info';
 
 const { width, height } = Dimensions.get('window');
@@ -92,9 +93,7 @@ export default function LoginScreen() {
           navigation.navigate('CreateProfile');
         }
         else {
-          // const profile = response?.data?.profile
-          // await AsyncStorage.setItem('profile', profile);
-          // dispatch(setUserProfile(profile));
+          await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
           showToastMessage(toast, 'success', 'User logged in successfully');
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
@@ -192,14 +191,13 @@ export default function LoginScreen() {
         registrationType: 'NORMAL',
       });
       if (response && response.statusCode == 200) {
-        console.log('login response ===================>', response);
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
-        //  await AsyncStorage.setItem('kyc', response.data.user.kyc);
         await AsyncStorage.setItem(
           'refreshToken',
           response.data.user.refresh_token,
         );
+        await persistStripeCustomerId(response.data.user.stripeCustomerId ?? null, dispatch);
         if (
           response.data.user.walletAddress &&
           response.data.user.walletPrivateKey &&

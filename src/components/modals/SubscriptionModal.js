@@ -21,6 +21,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FanPageSubscription } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import { setStripeSetupError } from '../../redux/actions/UserAction';
 import { useNavigation } from '@react-navigation/native';
 
 const SubscribeFlowModal = ({
@@ -51,7 +54,8 @@ const SubscribeFlowModal = ({
     const [fanId, setFanId] = useState();
     const navigation = useNavigation();
     const [comment, setComment] = useState('');
-    console.log()
+    const { requireStripeCustomerForPayment } = useStripeCustomer();
+
     useEffect(() => {
         fetchAllData();
         // getSubscription();
@@ -128,6 +132,15 @@ const SubscribeFlowModal = ({
 
 
     const getSubscription = async () => {
+        const canProceed = await requireStripeCustomerForPayment(toast);
+        if (!canProceed) {
+            dispatch(setStripeSetupError(true));
+            step1Ref.current?.close();
+            step2Ref.current?.close();
+            if (onClose) onClose();
+            navigation.navigate('wallet', { screen: 'WalletMain' });
+            return;
+        }
         dispatch(showLoader());
 
         try {
@@ -140,54 +153,25 @@ const SubscribeFlowModal = ({
             };
 
             const response = await FanPageSubscription(payload);
+            const url = getPaymentSessionUrl(response);
 
-            console.log("Subscription Response:", response);
-
-            if (response?.statusCode === 200) {
-                console.log('chcek respose off uerl came here or note',response);
-                const url = response?.data?.url;
-
-                // Check if InAppBrowser is available
+            if (url) {
                 if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(url, {
-                        dismissButtonStyle: 'close',
-                        preferredBarTintColor: '#ffffff',
-                        preferredControlTintColor: '#000000',
-                        readerMode: false,
-                        animated: true,
-                        modalPresentationStyle: 'fullScreen',
-                        modalTransitionStyle: 'coverVertical',
-                        enableBarCollapsing: false,
-                        showTitle: true,
-                        toolbarColor: '#ffffff',
-                        secondaryToolbarColor: '#f0f0f0',
-                        forceCloseOnRedirection: true,
-                    });
+                    await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
                     step1Ref.current?.close();
                     step2Ref.current?.close();
-                    // Callback if you have one
-                    // if (onPurchaseComplete) {
-                    //     onPurchaseComplete();
-                    // }
                 } else {
-                    // If InAppBrowser is not available, fallback to Linking
                     await Linking.openURL(url);
                 }
-
             } else {
                 showToastMessage(
                     toast,
                     'danger',
-                    response?.message || 'Failed to open subscription. Please try again.'
+                    response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
                 );
             }
         } catch (error) {
-            console.log("Subscription Error:", error);
-            showToastMessage(
-                toast,
-                'danger',
-                'Network error. Please check your internet connection and try again.'
-            );
+            showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
         } finally {
             dispatch(hideLoader());
         }

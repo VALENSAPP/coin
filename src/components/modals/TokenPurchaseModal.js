@@ -9,6 +9,8 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,13 +21,14 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const [loading, setLoading] = useState(true);
   const [bottomPad, setBottomPad] = useState(0);
   const [activeInput, setActiveInput] = useState('amount');
-  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false); // Add this state
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
 
   const updateInProgress = useRef(false);
   const amountInputRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const { textStyle, text } = useAppTheme();
+  const { requireStripeCustomerForPayment } = useStripeCustomer();
   const paymentCompletedRef = useRef(false);
   const calculateBreakdown = (inputAmount) => {
     const baseAmount = parseFloat(inputAmount) || 0;
@@ -209,6 +212,9 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
       return;
     }
 
+    const canProceed = await requireStripeCustomerForPayment(toast);
+    if (!canProceed) return;
+
     try {
       setIsProcessingPurchase(true);
       dispatch(showLoader());
@@ -226,53 +232,36 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
       console.log('Purchase request body:', requestBody);
       const response = await purchaseTokenWithUSD(requestBody);
+      const url = getPaymentSessionUrl(response);
 
-      if (response && response.statusCode === 200) {
-        const url = response?.data?.sessionUrl;
-
+      if (url) {
         try {
           if (await InAppBrowser.isAvailable()) {
             paymentCompletedRef.current = false;
-            await InAppBrowser.open(url, {
-              dismissButtonStyle: 'close',
-              preferredBarTintColor: '#ffffff',
-              preferredControlTintColor: '#000000',
-              readerMode: false,
-              animated: true,
-              modalPresentationStyle: 'fullScreen',
-              modalTransitionStyle: 'coverVertical',
-              enableBarCollapsing: false,
-              showTitle: true,
-              forceCloseOnRedirection: false,
-            });
+            await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
             if (!paymentCompletedRef.current) {
-              console.log('❌ Payment cancelled by user');
-
               setIsProcessingPurchase(false);
               dispatch(hideLoader());
-              showToastMessage(toast, 'danger', 'Payment cancelled');
+              showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.PAYMENT_CANCELLED);
             }
-
-            console.log('InAppBrowser closed');
-            // Event will handle refresh
           } else {
             await Linking.openURL(url);
             setIsProcessingPurchase(false);
             dispatch(hideLoader());
           }
-        } catch (error) {
-          console.error('InAppBrowser error:', error);
+        } catch (err) {
           setIsProcessingPurchase(false);
           dispatch(hideLoader());
+          showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
         }
       } else {
-        showToastMessage(toast, 'danger', response?.message || 'Payment failed');
+        showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
         setIsProcessingPurchase(false);
         dispatch(hideLoader());
       }
     } catch (error) {
       console.error('Payment error:', error);
-      showToastMessage(toast, 'danger', 'Payment failed');
+      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
       setIsProcessingPurchase(false);
       dispatch(hideLoader());
     }
