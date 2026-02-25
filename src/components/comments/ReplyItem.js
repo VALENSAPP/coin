@@ -1,27 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import LikeButton from './LikeButton';
+import { getTimeAgo, parseText } from '../../utils/commentUtils';
 
 export default function ReplyItem({ reply, onLike, onReply }) {
-  const getTimeAgo = (ts) => {
-    const diff = Math.floor((Date.now() - ts) / 60000);
-    if (diff < 1) return 'now';
-    if (diff < 60) return `${diff}m ago`;
-    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-    return `${Math.floor(diff / 1440)}d ago`;
-  };
-
-  const parseText = (text) =>
-    text.split(/([#@][\w_]+)/g).map((part, i) =>
-      part.startsWith('#') ? (
-        <Text key={i} style={{ color: '#385898' }}>{part}</Text>
-      ) : part.startsWith('@') ? (
-        <Text key={i} style={{ color: '#00376b' }}>{part}</Text>
-      ) : (
-        <Text key={i}>{part}</Text>
-      )
-    );
-
   return (
     <View style={styles.row}>
       <TouchableOpacity>

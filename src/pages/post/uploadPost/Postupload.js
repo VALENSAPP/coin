@@ -440,7 +440,7 @@ const GalleryPickerScreen = () => {
           <FlatList
             data={media}
             renderItem={renderItem}
-            keyExtractor={(item, i) => i.toString()}
+            keyExtractor={(item, i) => (item.uri ?? `media-${i}`).toString()}
             numColumns={3}
             contentContainerStyle={styles.grid}
           />

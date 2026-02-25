@@ -18,6 +18,7 @@ import CommentSheet from '../../components/home/posts/CommentSheet';
 import OptionsModal from '../../components/home/posts/OptionsModal';
 
 import { getHidePost, unHidePost, likePost, follow, unfollow } from '../../services/post';
+import { buildPostMaps } from '../../utils/postMaps';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useSelector } from 'react-redux';
@@ -109,29 +110,13 @@ const HidePosts = ({ navigation }) => {
   );
 
   const seedMapsFromPosts = useCallback((list) => {
-    const nextLiked = {};
-    const nextLikeCounts = {};
-    const nextCommentCounts = {};
-    const nextFollowing = {};
-    const nextHidden = {};
-
-    for (const p of list) {
-      if (!p?.id) continue;
-      nextLiked[p.id] = !!(p.isLike ?? p.liked);
-      nextLikeCounts[p.id] = p.likesCount ?? p.likeCount ?? 0;
-      nextCommentCounts[p.id] = p.commentCount ?? 0;
-      nextHidden[p.id] = true; // this list is ONLY hidden posts
-      if (p?.userId != null && typeof p.isFollow === 'boolean') {
-        nextFollowing[String(p.userId)] = p.isFollow;
-      }
-    }
-
-    setLiked(nextLiked);
-    setPostLikesCount(nextLikeCounts);
-    setPostCommentsCount(nextCommentCounts);
-    setHidden(nextHidden);
-    if (Object.keys(nextFollowing).length) {
-      setFollowingByUserId((prev) => ({ ...prev, ...nextFollowing }));
+    const maps = buildPostMaps(list, { includeSaved: false, includeHidden: true });
+    setLiked(maps.nextLiked);
+    setPostLikesCount(maps.nextLikeCounts);
+    setPostCommentsCount(maps.nextCommentCounts);
+    setHidden(maps.nextHidden);
+    if (Object.keys(maps.nextFollowing).length) {
+      setFollowingByUserId((prev) => ({ ...prev, ...maps.nextFollowing }));
     }
   }, []);
 
