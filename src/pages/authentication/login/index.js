@@ -195,6 +195,7 @@ export default function LoginScreen() {
         console.log('login response ===================>', response);
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
+        //  await AsyncStorage.setItem('kyc', response.data.user.kyc);
         await AsyncStorage.setItem(
           'refreshToken',
           response.data.user.refresh_token,

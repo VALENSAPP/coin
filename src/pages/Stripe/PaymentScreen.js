@@ -275,17 +275,17 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
                   </View>
                   <Text style={styles.feature}>Premium creator features</Text>
                 </View>
+                {/* <View style={styles.featureRow}> */}
+                  {/* <View style={styles.checkmarkContainer}>
+                    <Text style={styles.checkmark}>✓</Text>
+                  </View>
+                  {/* <Text style={styles.feature}>Built-in secure wallet</Text> */}
+                {/* </View> */} 
                 <View style={styles.featureRow}>
                   <View style={styles.checkmarkContainer}>
                     <Text style={styles.checkmark}>✓</Text>
                   </View>
-                  <Text style={styles.feature}>Built-in secure wallet</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>5 free coin credits monthly</Text>
+                  <Text style={styles.feature}>5 free Post credits monthly</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <View style={styles.checkmarkContainer}>

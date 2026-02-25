@@ -99,6 +99,8 @@ const InstagramPostCreator = () => {
   const [drawColor, setDrawColor] = useState('red');
   const [imageEdits, setImageEdits] = useState({});
   const canvasRef = useRef(null);
+  const canvasSaveResolveRef = useRef(null);
+  const canvasSaveRejectRef = useRef(null);
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
@@ -128,6 +130,10 @@ const InstagramPostCreator = () => {
     minY: 0,
     maxX: IMAGE_SIZE - 100,
     maxY: IMAGE_SIZE - 100,
+  };
+
+  const getMediaKey = (media, index) => {
+    return media?.path || media?.uri || media?.sourceURL || `media-${index}`;
   };
 
   // Helper function to check if current media is video
@@ -264,12 +270,15 @@ const InstagramPostCreator = () => {
   const captureAndMergeDrawing = async (shouldExitDrawMode = true) => {
     if (!isDrawing || isCurrentMediaVideo() || !canvasRef.current) return;
 
+    let saveTimeout = null;
     try {
-      // Create a promise that resolves when onSketchSaved is called
+      // Create a promise that resolves when onSketchSaved is called.
       const savePromise = new Promise((resolve, reject) => {
-        // Store the resolve/reject functions temporarily
-        window._canvasSaveResolve = resolve;
-        window._canvasSaveReject = reject;
+        canvasSaveResolveRef.current = resolve;
+        canvasSaveRejectRef.current = reject;
+        saveTimeout = setTimeout(() => {
+          reject(new Error('Canvas save timeout'));
+        }, 8000);
       });
 
       // Trigger the save operation
@@ -301,9 +310,11 @@ const InstagramPostCreator = () => {
       console.error('Drawing save error:', err);
       Alert.alert('Error', 'Failed to save drawing.');
     } finally {
-      // Clean up the temporary promise handlers
-      delete window._canvasSaveResolve;
-      delete window._canvasSaveReject;
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+      }
+      canvasSaveResolveRef.current = null;
+      canvasSaveRejectRef.current = null;
     }
   };
   const handleImageChange = async (newIndex) => {
@@ -356,11 +367,11 @@ const InstagramPostCreator = () => {
 
 
   const renderFilters = () => {
-    // Hide filters if current media is video or filters are not shown
-    if (!showFilters || isCurrentMediaVideo()) return null;
+    if (!showFilters) return null;
 
     const currentEdits = getCurrentImageEdits();
     const imageUri = selectedImages[currentImageIndex]?.path || selectedImages[currentImageIndex]?.uri;
+    const currentMediaIsVideo = isCurrentMediaVideo();
 
     // List of filter names (we'll show names + simple preview style instead of live filter)
     const filterPreviews = [
@@ -390,12 +401,16 @@ const InstagramPostCreator = () => {
                 currentEdits.filter === filter.value && styles.selectedFilter,
               ]}
             >
-              {/* Simple preview using original image with overlay effect */}
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.filterPreviewImage}
-              // resizeMode="cover"
-              />
+              {currentMediaIsVideo ? (
+                <View style={[styles.filterPreviewImage, styles.videoFilterPreview]}>
+                  <Icon name="videocam" size={18} color="#fff" />
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.filterPreviewImage}
+                />
+              )}
               {/* Visual indicator overlay for each filter */}
               <View style={[
                 StyleSheet.absoluteFillObject,
@@ -945,7 +960,7 @@ const InstagramPostCreator = () => {
               scrollEnabled={isScrollEnabled}   // ← THIS LINE
             >
               {selectedImages.map((image, index) => (
-                <View key={index} style={[styles.imageSlide, { width: IMAGE_SIZE }]}>
+                <View key={getMediaKey(image, index)} style={[styles.imageSlide, { width: IMAGE_SIZE }]}>
                   <View
                     ref={ref => {
                       if (ref) {
@@ -1020,6 +1035,24 @@ const InstagramPostCreator = () => {
                             />
                           </TouchableOpacity>
                         </View>
+
+                        {selectedFilter !== 'none' && index === currentImageIndex && (
+                          <View
+                            pointerEvents="none"
+                            style={[
+                              StyleSheet.absoluteFillObject,
+                              {
+                                backgroundColor:
+                                  selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                    selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                      selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                        selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                          selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                            'transparent',
+                              }
+                            ]}
+                          />
+                        )}
                       </View>
                     ) : (
                       // Image with zoom functionality
@@ -1055,9 +1088,11 @@ const InstagramPostCreator = () => {
                         <View style={styles.mainImage}>
                           {/* Use processedImageUri if drawing was saved, otherwise original */}
                           {(() => {
+                            const slideEdits = imageEdits[index] || {};
                             const currentImageUri =
-                              getCurrentImageEdits().processedImageUri ||
-                              (selectedImages[currentImageIndex]?.path || selectedImages[currentImageIndex]?.uri);
+                              slideEdits.processedImageUri ||
+                              image.path ||
+                              image.uri;
 
                             return (
                               <Image
@@ -1091,16 +1126,16 @@ const InstagramPostCreator = () => {
                       </ImageZoom>
                     )}
 
-                    {index === currentImageIndex && !isMediaVideo(image) && (
+                    {index === currentImageIndex && (
                       <>
-                        {isDrawing && (
+                        {isDrawing && !isMediaVideo(image) && (
                           <SketchCanvas
                             key={`canvas-${currentImageIndex}-${canvasKey}`}
                             ref={canvasRef}
-                            style={StyleSheet.absoluteFill}
+                            style={[StyleSheet.absoluteFill, styles.activeDrawCanvas]}
                             strokeColor={drawColor}
                             strokeWidth={5}
-                            touchEnabled={true} // ← ADD THIS
+                            touchEnabled={true}
                             pointerEvents="auto"
                             localSourceImage={{
                               filename:
@@ -1120,13 +1155,13 @@ const InstagramPostCreator = () => {
                                 });
 
                                 // Resolve the waiting promise (used in captureAndMergeDrawing)
-                                if (window._canvasSaveResolve) {
-                                  window._canvasSaveResolve(path);
+                                if (canvasSaveResolveRef.current) {
+                                  canvasSaveResolveRef.current(path);
                                 }
                               } else {
                                 console.log('Canvas save failed');
-                                if (window._canvasSaveReject) {
-                                  window._canvasSaveReject(new Error('Canvas save failed'));
+                                if (canvasSaveRejectRef.current) {
+                                  canvasSaveRejectRef.current(new Error('Canvas save failed'));
                                 }
                               }
                             }}
@@ -1411,7 +1446,7 @@ const InstagramPostCreator = () => {
               <View style={styles.pageIndicator}>
                 {selectedImages.map((_, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={`${getMediaKey(selectedImages[index], index)}-dot`}
                     onPress={() => scrollToImage(index)}
                     style={[
                       styles.dot,
@@ -1440,7 +1475,7 @@ const InstagramPostCreator = () => {
           >
             {selectedImages.map((image, index) => (
               <TouchableOpacity
-                key={index}
+                key={`${getMediaKey(image, index)}-thumb`}
                 onPress={() => scrollToImage(index)}
                 style={[
                   styles.thumbnail,
@@ -1470,14 +1505,14 @@ const InstagramPostCreator = () => {
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle]}>
       {!fromIcon && (
-
-
         <View style={styles.tabContainer}>
           {[
-            { title: 'Text', icon: 'text-outline', disabled: isCurrentMediaVideo() },
-            { title: 'Overlay', icon: 'layers-outline', disabled: isCurrentMediaVideo() },
-            { title: 'Filter', icon: 'color-filter-outline', disabled: isCurrentMediaVideo() },
-            { title: 'Draw', icon: 'create-outline', disabled: isCurrentMediaVideo() },
+            { title: 'Text', icon: 'text-outline', disabled: false },
+            { title: 'Overlay', icon: 'layers-outline', disabled: false },
+            { title: 'Filter', icon: 'color-filter-outline', disabled: false },
+            ...(!isCurrentMediaVideo()
+              ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
+              : []),
           ].map(tab => (
             <TouchableOpacity
               key={tab.title}
@@ -1867,6 +1902,10 @@ const styles = StyleSheet.create({
   imageZoomContainer: {
     flex: 1,
   },
+  activeDrawCanvas: {
+    zIndex: 3000,
+    elevation: 20,
+  },
   drawControls: {
     position: 'absolute',
     top: 12,
@@ -1981,6 +2020,11 @@ const styles = StyleSheet.create({
   filterPreviewImage: {
     width: '100%',
     height: '100%',
+  },
+  videoFilterPreview: {
+    backgroundColor: '#1f1f1f',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterName: {
     fontSize: 12,

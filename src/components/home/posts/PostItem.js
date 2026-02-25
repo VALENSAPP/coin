@@ -22,6 +22,7 @@ import WalletSelectionModal from '../../modals/WalletSelectionModal';
 import WalletConnectedModal from '../../modals/WalletConnectedModal';
 import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
+import MissionSupportScreen from '../../modals/DonationModal';
 
 const { width } = Dimensions.get('window');
 
@@ -281,7 +282,6 @@ function PostItem({
   hideDonationButton = false, // Add this prop with default false
 
 }) {
-  console.log(item,'item data for transfer data ')
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
@@ -289,7 +289,7 @@ function PostItem({
   const [userProfile, setUserProfile] = useState('');
   const isCompanyProfile = userProfile === 'company';
   const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
-
+  const [donation, setDonation] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
   const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -309,6 +309,7 @@ function PostItem({
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
   const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -343,6 +344,10 @@ function PostItem({
       return 0;
     }
   }, [item.start_time, item.end_time]);
+  const handleDonationSuccess = useCallback(() => {
+    // Refresh donation total after successful donation
+    fetchTotalDonation();
+  }, [fetchTotalDonation]);
 
   // Fetch total donation for this post
   const fetchTotalDonation = useCallback(async () => {
@@ -468,21 +473,21 @@ function PostItem({
   );
 
   // Listen for app state changes to restore userId when returning from MetaMask
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        // App has come to the foreground, restore userId
-        restoreUserId();
-      }
-    });
+  // useEffect(() => {
+  //   const subscription = AppState.addEventListener('change', (nextAppState) => {
+  //     if (nextAppState === 'active') {
+  //       // App has come to the foreground, restore userId
+  //       restoreUserId();
+  //     }
+  //   });
 
-    // Also restore on mount
-    restoreUserId();
+  //   // Also restore on mount
+  //   restoreUserId();
 
-    return () => {
-      subscription?.remove();
-    };
-  }, [restoreUserId]);
+  //   return () => {
+  //     subscription?.remove();
+  //   };
+  // }, [restoreUserId]);
 
   const recipientWalletAddress = useMemo(
     () => getSupportRecipientWalletAddress({ ...item, walletAddress: targetWalletAddress || item?.walletAddress }),
@@ -534,7 +539,7 @@ function PostItem({
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) return;
-    setModalVisible(false);
+    setSupportDisclaimerVisible(false);
     await handleMetaMaskSupportFlow({
       recipientWalletAddress,
       walletAddress,
@@ -545,6 +550,11 @@ function PostItem({
       onShowWalletSelection: () => setWalletSelectionVisible(true),
     });
   }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
+
+  const handleOpenSupportDisclaimer = useCallback(() => {
+    setModalVisible(false);
+    setSupportDisclaimerVisible(true);
+  }, []);
 
   const safeVideoPause = useCallback((index) => {
     try {
@@ -663,10 +673,8 @@ function PostItem({
   }, [currentIndex]);
 
   const handleFollowPress = useCallback(async () => {
-    const itemUserId = String(item?.UserId || '');
-    const currentUserId = String(userId || '');
-    
-    if (!itemUserId || itemUserId === currentUserId || followingBusy) return;
+    if (!item?.UserId || item.UserId === userId || followingBusy) return;
+
     if (isBusinessProfile) {
       await handleSupportNow();
       return;
@@ -759,7 +767,6 @@ function PostItem({
       </View>
     );
   }, [currentIndex, isVideoUrl, videoStates, isZooming, isMuted]);
-  console.log(item, 'item getete herereer')
   return (
     <View style={styles.wrapper}>
       <View style={styles.postCard}>
@@ -858,34 +865,33 @@ function PostItem({
             </TouchableOpacity>
           </View>
 
-          {item?.UserId && (() => {
+           {item.UserId !== userId && (
             // Convert both to strings for reliable comparison
-            const itemUserIdStr = String(item.UserId);
-            const currentUserIdStr = userId ? String(userId) : '';
-            // Show button if post is from a different user (or if userId is not set yet)
-            const isDifferentUser = !currentUserIdStr || itemUserIdStr !== currentUserIdStr;
+            // const itemUserIdStr = String(item.UserId);
+            // const currentUserIdStr = userId ? String(userId) : '';
+            // // Show button if post is from a different user (or if userId is not set yet)
+            // const isDifferentUser = !currentUserIdStr || itemUserIdStr !== currentUserIdStr;
             
-            if (!isDifferentUser) return null;
-            
-            return (
+            // if (!isDifferentUser) return null;
+            // console.log(item,'item for follow ß')
+            // return (
               <TouchableOpacity
                 onPress={handleFollowPress}
-                style={[
-                  styles.followButton,
-                  item.follow && styles.followingButton,
-                  { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
-                ]}
-              >
-                {followingBusy ? (
-                  <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
-                ) : (
-                  <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                    {isBusinessProfile ? "Support" : item.follow ? 'Vallowed' : 'Vallow'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          })()}
+              style={[
+                styles.followButton,
+                item.follow && styles.followingButton,
+                { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
+              ]}
+            >
+              {followingBusy ? (
+                <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
+              ) : (
+                <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
+                  {isBusinessProfile ? "Support" : item.follow ? 'Followed' : 'Follow'}
+                </Text>
+              )}
+            </TouchableOpacity>
+             )}
         </View>
 
         {(() => {
@@ -908,7 +914,7 @@ function PostItem({
                   ))}
                 </View>
                 <Text style={styles.buyersText} numberOfLines={1}>
-                  Vallowed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
+                  Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
                   {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
                 </Text>
               </TouchableOpacity>
@@ -983,6 +989,12 @@ function PostItem({
           </View>
         )}
       </View>
+       <MissionSupportScreen
+        visible={donation}
+        onClose={() => setDonation(false)}
+        item={item}
+        onDonationSuccess={handleDonationSuccess}
+      />
 
       <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
       <BuyersListModal
@@ -999,6 +1011,13 @@ function PostItem({
         visible={modalVisible}
         creatorName={item?.username || 'Creator'}
         onClose={() => setModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={item?.username || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
       <WalletSelectionModal

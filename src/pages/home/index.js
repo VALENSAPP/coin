@@ -36,6 +36,8 @@ import { unReadNotification, updateFcmToken } from '../../services/notifications
 import { getSocket, initializeSocket } from '../../services/socket';
 import useSocket from '../../hooks/useSocket';
 import { clampRGBA } from 'react-native-reanimated/lib/typescript/Colors';
+import { checkSubscription } from '../../services/stirpe';
+import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 110;
@@ -48,6 +50,8 @@ export default function HomeScreen() {
   const [storyRefreshTick, setStoryRefreshTick] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [showBusinessSubscriptionPrompt, setShowBusinessSubscriptionPrompt] = useState(false);
+  const [hasCheckedBusinessSubscription, setHasCheckedBusinessSubscription] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
@@ -279,7 +283,6 @@ export default function HomeScreen() {
       console.log('Error in unreadNotification:', err);
     }
   };
-  console.log(notificationUnreadCount, 'data gte hre kys ?')
 
   // ✅ Periodic refresh to catch any missed messages
   useEffect(() => {
@@ -352,6 +355,10 @@ export default function HomeScreen() {
         dispatch(setProfileImg(raw));
         if (response?.data?.profile === 'company') {
           setIsBusinessProfile(true);
+        } else {
+          setIsBusinessProfile(false);
+          setShowBusinessSubscriptionPrompt(false);
+          setHasCheckedBusinessSubscription(false);
         }
       }
     } catch (err) {
@@ -378,6 +385,23 @@ export default function HomeScreen() {
       }
     }
   }, [toast]);
+
+  const checkBusinessSubscriptionStatus = useCallback(async () => {
+    if (hasCheckedBusinessSubscription || !isBusinessProfile) return;
+
+    try {
+      setHasCheckedBusinessSubscription(true);
+      const response = await checkSubscription();
+      const status = String(response?.data?.subscription?.status || '').toUpperCase();
+      const hasActiveSubscription = Boolean(response?.success) && (status === 'ACTIVE' || status === 'TRIALING');
+
+      if (!hasActiveSubscription) {
+        setShowBusinessSubscriptionPrompt(true);
+      }
+    } catch (error) {
+      setShowBusinessSubscriptionPrompt(true);
+    }
+  }, [hasCheckedBusinessSubscription, isBusinessProfile]);
 
   // Initial load on screen focus - optimized to prevent redundant calls
   useEffect(() => {
@@ -441,6 +465,11 @@ export default function HomeScreen() {
   useEffect(() => {
     addFcmToken();
   }, [addFcmToken]);
+
+  useEffect(() => {
+    if (!isFocused || !isBusinessProfile) return;
+    checkBusinessSubscriptionStatus();
+  }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus]);
 
   // Listen for payment completion - optimized
   useEffect(() => {
@@ -618,6 +647,16 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <BusinessSubscriptionPrompt
+        visible={showBusinessSubscriptionPrompt}
+        onActivate={() => {
+          setShowBusinessSubscriptionPrompt(false);
+          navigation.navigate('ProfileMain', { screen: 'ManageSubscription' });
+        }}
+        onLater={() => {
+          setShowBusinessSubscriptionPrompt(false);
+        }}
+      />
 
       {/* Main Content with Pan Responder */}
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>

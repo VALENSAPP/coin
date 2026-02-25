@@ -55,11 +55,13 @@ import PrivacySettingsScreen from '../pages/wallet/PrivacySettings';
 import TwoFactorAuthScreen from '../pages/wallet/Two-FactorAuth';
 import LoginHistoryScreen from '../pages/wallet/LoginHistory';
 import SubventionSetupScreen from '../pages/wallet/Subscriptions';
+import KYCVerification from '../pages/authentication/kycVerification';
 import FlipsScreen from '../pages/reels';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../theme/useApptheme';
 import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 import { DeviceEventEmitter } from 'react-native';
+import PaymentScreen from '../pages/Stripe/PaymentScreen';
 
 
 
@@ -105,7 +107,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="PostUpload" component={PostUploadPage} options={{ headerShown: false }} />
         <Stack.Screen name="PostEditor" component={PostEditorScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SelectedPost" component={InstagramPostCreator} options={{ headerShown: false }} />
-        <Stack.Screen name="PostView" component={PostView} options={{ headerShown: false }} />
+        <Stack.Screen name="PostView" component={PostView} options={{ headerShown: false, }} />
         <Stack.Screen name="CreatorCoin" component={CreatorCoin} options={{ headerShown: false }} />
         <Stack.Screen name="ShareProfile" component={ShareProfile} options={{ headerShown: false }} />
         <Stack.Screen name="SavedPost" component={SavedPosts} options={{ headerShown: false }} />
@@ -115,6 +117,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="notificationEnable" component={Notification} options={{ headerShown: false }} />
         <Stack.Screen name="HidePosts" component={HidePosts} options={{ headerShown: false }} />
         <Stack.Screen name="subscription" component={subscription} options={{ headerShown: false }} />
+        <Stack.Screen name="ManageSubscription" component={PaymentScreen} options={{ headerShown: false }} />
         <Stack.Screen name="FlipsScreen" component={FlipsScreen} options={{
           headerShown: false,
           presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
@@ -217,11 +220,11 @@ export default function MainTabNavigator() {
             component={ActivityScreen}
             options={{ headerTitle: 'Activity' }}
           />
-          <Stack.Screen
+          {/* <Stack.Screen
             name="Creators"
             component={CreatorsScreen}
             options={{ headerTitle: 'Creators' }}
-          />
+          /> */}
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
@@ -241,6 +244,11 @@ export default function MainTabNavigator() {
             name="VerificationStatus"
             component={VerificationStatusScreen}
             options={{ headerTitle: 'Verification Status' }}
+          />
+          <Stack.Screen
+            name="kycverify"
+            component={KYCVerification}
+            options={{ headerTitle: 'KYC Verification' }}
           />
           <Stack.Screen
             name="PrivacySettings"

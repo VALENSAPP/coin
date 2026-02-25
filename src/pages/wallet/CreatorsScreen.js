@@ -72,29 +72,29 @@ export const CreatorsScreen = ({ navigation }) => {
       <View style={styles.creatorCardContent}>
         <View style={styles.creatorNameRow}>
           <Text style={styles.creatorCardName}>{item.name}</Text>
-          {/* {item.verified && <Ionicons name="checkmark-circle" size={16} color={text} />} */}
+          {item.verified && <Ionicons name="checkmark-circle" size={16} color={text} />}
         </View>
-        {/* <Text style={styles.creatorBio}>{item.bio}</Text> */}
+        <Text style={styles.creatorBio}>{item.bio}</Text>
 
-        {/* <View style={styles.creatorStats}> */}
-          {/* <View style={styles.statItem}>
+        <View style={styles.creatorStats}>
+          <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.price}</Text>
             <Text style={styles.statLabel}>Price</Text>
-          </View> */}
-          {/* <View style={styles.statItem}>
+          </View>
+          <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.marketCap}</Text>
             <Text style={styles.statLabel}>Market Cap</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.followers}</Text>
             <Text style={styles.statLabel}>Holders</Text>
-          </View> */}
-        {/* </View> */}
+          </View>
+        </View>
 
         <View style={styles.creatorActions}>
-          {/* <TouchableOpacity style={styles.followButton}>
-            <Text style={styles.followButtonText}>Vallow</Text>
-          </TouchableOpacity> */}
+          <TouchableOpacity style={styles.followButton}>
+            <Text style={styles.followButtonText}>Follow</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.viewProfileButton, {backgroundColor: text}]} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
             <Text style={styles.viewProfileButtonText}>View Profile</Text>
           </TouchableOpacity>
@@ -106,13 +106,13 @@ export const CreatorsScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* <View style={styles.header}>
-          <Text style={styles.headerTitle}>Creators</Text> */}
-          {/* <TouchableOpacity style={styles.createProfileButton}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Creators</Text> 
+          <TouchableOpacity style={styles.createProfileButton}>
             <Ionicons name="add" size={20} color="#fff" />
             <Text style={styles.createProfileButtonText}>Create Profile</Text>
-          </TouchableOpacity> */}
-        {/* </View> */}
+          </TouchableOpacity>
+        </View>
 
         {loading ? (
           <ActivityIndicator size="large" color={text} />

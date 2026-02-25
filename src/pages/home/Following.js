@@ -6,7 +6,7 @@ const Following = () => {
   const { bgStyle, textStyle } = useAppTheme();
   return (
     <SafeAreaView style={[{height:'100%'}, bgStyle]}>
-      <Text>vallowing</Text>
+      <Text>Following</Text>
     </SafeAreaView>
   )
 }

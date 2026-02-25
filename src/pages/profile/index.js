@@ -34,6 +34,7 @@ const ProfileScreen = () => {
 
   // Single function to fetch posts, profile info, and dashboard in parallel
   const fetchAllData = useCallback(async () => {
+     console.log('fetch profile----------');
     const id = await AsyncStorage.getItem('userId');
     if (!id) {
       showToastMessage(toast, 'danger', 'No userId in storage');
@@ -50,7 +51,8 @@ const ProfileScreen = () => {
         getUserCredentials(id),
         getUserDashboard(id),
       ]);
-
+      console.log('getpostbyyser----------',postsRes);
+      
       // Posts
       if (postsRes.statusCode === 200) {
         setPosts(postsRes.data);
@@ -184,6 +186,7 @@ const ProfileScreen = () => {
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
+          
           // executeFollowAction={executeFollowAction}
         />
         <View>

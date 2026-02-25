@@ -87,6 +87,7 @@ const ProfilePersonData = ({
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
@@ -99,9 +100,11 @@ const ProfilePersonData = ({
   const route = useRoute();
   // Get logged-in user's profile type from Redux (same as ThemeContext)
   const loggedInUserProfile = useSelector(state => state.userProfile.userProfile);
-  console.log(loggedInUserProfile,"loggegege00000000000000000000000000000000000")
+  console.log(loggedInUserProfile, "loggegege00000000000000000000000000000000000")
   const isLoggedInBusinessUser = loggedInUserProfile === 'company';
-
+  const isKycApproved =
+    userData?.kyc === true &&
+    userData?.kycStatus === "APPROVED";
   const Userdata = {
     Displayname: displayName || 'No Name',
     Username: username || 'Unknown User',
@@ -113,7 +116,7 @@ const ProfilePersonData = ({
     userId: userId,
   };
 
-  console.log(returnByTo,"returnToreturnTo")
+  console.log(returnByTo, "returnToreturnTo")
 
   const fetchAllData = async () => {
     try {
@@ -458,7 +461,7 @@ const ProfilePersonData = ({
 
   const handleWalletSelect = useCallback(async (wallet) => {
     setWalletSelectionVisible(false);
-    
+
     try {
       const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
         returnAddressOnly: true,
@@ -469,7 +472,7 @@ const ProfilePersonData = ({
         await AsyncStorage.setItem('walletAddress', connectedAddress);
         await AsyncStorage.setItem('walletType', wallet.id);
         setWalletAddress(connectedAddress);
-        
+
         // Show success modal with wallet info
         setConnectedWalletInfo({
           name: wallet.name,
@@ -487,14 +490,14 @@ const ProfilePersonData = ({
     setWalletConnectedModalVisible(false);
     const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
     const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-    
+
     // Open payment flow with the connected wallet
     await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
   }, [recipientWalletAddress]);
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) return;
-    setSupportModalVisible(false);
+    setSupportDisclaimerVisible(false);
     await handleMetaMaskSupportFlow({
       recipientWalletAddress,
       walletAddress,
@@ -506,9 +509,14 @@ const ProfilePersonData = ({
     });
   }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
 
+  const handleOpenSupportDisclaimer = useCallback(() => {
+    setSupportModalVisible(false);
+    setSupportDisclaimerVisible(true);
+  }, []);
+
   const handleFollowButtonPress = useCallback(async () => {
     if (isBusinessProfile && canSupport) {
-      await handleSupportNow();
+      setSupportModalVisible(true);
       return;
     }
 
@@ -519,7 +527,7 @@ const ProfilePersonData = ({
     if (success && shouldFollow && canSupport) {
       setSupportModalVisible(true);
     }
-  }, [isBusinessProfile, canSupport, handleSupportNow, isFollowing, executeFollowAction, onToggleFollow]);
+  }, [isBusinessProfile, canSupport, isFollowing, executeFollowAction, onToggleFollow]);
 
   useFocusEffect(
     useCallback(() => {
@@ -609,18 +617,18 @@ const ProfilePersonData = ({
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
 
-const handleBackPress = useCallback(() => {
-  const  returnTo = returnByTo;
-  console.log('is this wokreing buy',returnTo)
-  
-  if (returnTo) {
-    // console.log()
-    navigation.navigate(returnTo);
-    return;
-  }
-  // 3️⃣ Absolute fallback
-  navigation.goBack();
-}, []);
+  const handleBackPress = useCallback(() => {
+    const returnTo = returnByTo;
+    console.log('is this wokreing buy', returnTo)
+
+    if (returnTo) {
+      // console.log()
+      navigation.navigate(returnTo);
+      return;
+    }
+    // 3️⃣ Absolute fallback
+    navigation.goBack();
+  }, []);
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>
@@ -647,7 +655,9 @@ const handleBackPress = useCallback(() => {
               )}
               <View style={styles.userRow}>
                 <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
-                <DragonflyIcon width={22} height={22} style={styles.icon} />
+                {isKycApproved && (
+                  <DragonflyIcon width={22} height={22} style={styles.icon} />
+                )}
                 {!fromUsersProfile && (
                   <Ionicons
                     name="chevron-down"
@@ -735,7 +745,7 @@ const handleBackPress = useCallback(() => {
             <View style={styles.edit}>
               {fromUsersProfile ? (
                 <>
-                  <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
+                  {/* <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
                     {
                       !isBusinessProfile && (
                         userData?.profile !== 'company' && (
@@ -756,7 +766,7 @@ const handleBackPress = useCallback(() => {
                         )
                       )
                     }
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                   <TouchableOpacity
                     onPress={handleFollowButtonPress}
                     disabled={followBusy || isFollowing === null}
@@ -772,7 +782,7 @@ const handleBackPress = useCallback(() => {
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
                       <Text style={styles.buttonText}>
-                        {isBusinessProfile ? 'Support' : isFollowing ? 'Vallowing' : 'Vallow'}
+                        {isBusinessProfile ? 'Support' : isFollowing ? 'Following' : 'Follow'}
                         {followBusy ? '...' : ''}
                       </Text>
                     </LinearGradient>
@@ -895,7 +905,7 @@ const handleBackPress = useCallback(() => {
             <FontAwesome name="user" size={16} color="#444" />
             <Text style={[styles.statText, { color: text }]}>
               {' '}
-              Vallowers: {Userdata.Followers}
+              Followers: {Userdata.Followers}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -924,10 +934,13 @@ const handleBackPress = useCallback(() => {
             <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
             <Text style={[styles.statText, { color: text }]}>
               {' '}
-              Vallowing: {Userdata.Followings}
+              Following: {Userdata.Followings}
             </Text>
           </TouchableOpacity>
         </View>
+        {/* <TouchableOpacity style={styles.infoButton}>
+  <Ionicons name="information-circle-outline" size={22} color="#144c9b" />
+</TouchableOpacity> */}
       </View>
 
       {/* Modals */}
@@ -955,6 +968,13 @@ const handleBackPress = useCallback(() => {
         visible={supportModalVisible}
         creatorName={username || userData?.userName || 'Creator'}
         onClose={() => setSupportModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={username || userData?.userName || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
       <WelcomeValensModal
@@ -1119,5 +1139,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  infoButton: {
+
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F1FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

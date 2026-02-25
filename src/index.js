@@ -17,6 +17,8 @@ import { notificationListener, requestUserPermission } from './services/Notifica
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
 import { initializeSocket } from './services/socket';
+import { getUserCredentials } from './services/post';
+import WelcomeValensModal from './components/modals/WelcomeValensModal';
 // import { getUserCountry } from './hooks/countryLocation';
 
 const linking = {
@@ -38,8 +40,10 @@ export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [message, setMessage] = useState('');
   const userProfile = useSelector(state => state.userProfile.userProfile);
+  const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
   const dispatch = useDispatch();
   const toast = useToast();
   const navigationRef = useRef(null);
@@ -63,6 +67,57 @@ export default function Main() {
     notificationListener();
   }, []);
 
+  const checkKycAndShowWelcomeModal = React.useCallback(async () => {
+    try {
+      if (!isLoggedIn) {
+        return;
+      }
+
+      const hasShownWelcome = await AsyncStorage.getItem('kycWelcomeShown');
+      if (hasShownWelcome) {
+        return;
+      }
+
+      const id = await AsyncStorage.getItem('userId');
+      if (!id) {
+        return;
+      }
+
+      const response = await getUserCredentials(id);
+      if (response?.statusCode !== 200) {
+        return;
+      }
+
+      const userData = response?.data?.user || response?.data || response;
+      const isKycApproved =
+        userData?.kyc === true ||
+        (typeof userData?.kycStatus === 'string' &&
+          userData.kycStatus.toUpperCase() === 'APPROVED');
+
+      if (isKycApproved) {
+        setWelcomeModalVisible(true);
+        await AsyncStorage.setItem('kycWelcomeShown', 'true');
+      }
+    } catch (error) {
+      console.log('KYC polling check failed:', error?.message || error);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    checkKycAndShowWelcomeModal();
+    const intervalId = setInterval(() => {
+      checkKycAndShowWelcomeModal();
+    }, 90000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [checkKycAndShowWelcomeModal, isLoggedIn]);
+
   useEffect(() => {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
@@ -85,6 +140,9 @@ export default function Main() {
     // Track app state changes
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
       console.log('AppState changed:', appState.current, '->', nextAppState);
+      if (nextAppState === 'active') {
+        checkKycAndShowWelcomeModal();
+      }
       appState.current = nextAppState;
     });
 
@@ -167,7 +225,7 @@ export default function Main() {
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
-  }, [dispatch, toast, isNavigationReady]);
+  }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
 
   const fetchRefreshToken = async () => {
     const oldToken = await AsyncStorage.getItem('refreshToken');
@@ -248,6 +306,10 @@ export default function Main() {
             closeModal={closeModal}
           />
         }
+        <WelcomeValensModal
+          visible={welcomeModalVisible}
+          onClose={() => setWelcomeModalVisible(false)}
+        />
       </ThemeProvider>
     </>
   );

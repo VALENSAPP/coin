@@ -118,10 +118,13 @@ export async function unfollow(followingId) {
 }
 
 export async function HidePost(postId) {
+    console.log(HidePost,'hide post')
+
   return axiosInstance.post('post/hide', { postId })
 }
 
 export async function unHidePost(postId) {
+  console.log(unHidePost,'unhide post')
   return axiosInstance.post('post/unhide', { postId })
 }
 

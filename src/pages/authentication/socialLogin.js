@@ -308,59 +308,70 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
   try {
     const { selectedWalletDeepLink, universalUri, approval, uri } = await connectWallet(projectId, walletType);
 
-    try {
-      // Try to open the selected wallet's deep link first, or use universal URI
-      let deepLinkToOpen = selectedWalletDeepLink || universalUri;
-      
-      // Check if we can open the specific wallet deep link
-      if (walletType && walletType !== 'walletconnect') {
-        try {
-          const canOpen = await Linking.canOpenURL(deepLinkToOpen);
-          if (!canOpen) {
-            // Fall back to universal URI if specific deep link doesn't work
-            deepLinkToOpen = universalUri;
-          }
-        } catch (checkErr) {
-          // If check fails, use universal URI
-          deepLinkToOpen = universalUri;
-        }
-      }
-      
-      await Linking.openURL(deepLinkToOpen);
-      dispatch(hideLoader());
-    } catch (openErr) {
-      // fallback if wallet can't open
-      if (walletConfig.storeUrl) {
-        Alert.alert(
-          `${walletConfig.name} Not Installed`,
-          `${walletConfig.name} is not installed or cannot be opened. Would you like to install it?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Install', onPress: () => Linking.openURL(walletConfig.storeUrl) },
-          ]
-        );
-      } else {
-        // For universal WalletConnect, try to open in browser or show instructions
-        Alert.alert(
-          'Open Wallet',
-          'Please open your wallet app and connect using WalletConnect, or scan the QR code.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Try Universal Link', 
-              onPress: async () => {
-                try {
-                  await Linking.openURL(universalUri);
-                } catch (err) {
-                  showToastMessage(toast, 'danger', 'Please install a WalletConnect-compatible wallet app');
-                }
-              }
-            },
-          ]
-        );
-      }
-      dispatch(hideLoader());
+    if (!approval) {
+      showToastMessage(toast, 'danger', 'Wallet session could not be created');
       return;
+    }
+
+    // If a URI is present, the wallet must be opened to approve the session.
+    if (uri) {
+      try {
+        // Try to open the selected wallet deep link first; fallback to universal WalletConnect URI.
+        let deepLinkToOpen = selectedWalletDeepLink || universalUri;
+
+        if (walletType && walletType !== 'walletconnect' && deepLinkToOpen) {
+          try {
+            const canOpen = await Linking.canOpenURL(deepLinkToOpen);
+            if (!canOpen && universalUri) {
+              deepLinkToOpen = universalUri;
+            }
+          } catch (checkErr) {
+            if (universalUri) {
+              deepLinkToOpen = universalUri;
+            }
+          }
+        }
+
+        if (!deepLinkToOpen) {
+          showToastMessage(toast, 'danger', 'Could not build wallet deep link');
+          return;
+        }
+
+        await Linking.openURL(deepLinkToOpen);
+      } catch (openErr) {
+        // fallback if wallet can't open
+        if (walletConfig.storeUrl) {
+          Alert.alert(
+            `${walletConfig.name} Not Installed`,
+            `${walletConfig.name} is not installed or cannot be opened. Would you like to install it?`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Install', onPress: () => Linking.openURL(walletConfig.storeUrl) },
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Open Wallet',
+            'Please open your wallet app and connect using WalletConnect.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Try Universal Link',
+                onPress: async () => {
+                  try {
+                    if (universalUri) {
+                      await Linking.openURL(universalUri);
+                    }
+                  } catch (err) {
+                    showToastMessage(toast, 'danger', 'Please install a WalletConnect-compatible wallet app');
+                  }
+                }
+              },
+            ]
+          );
+        }
+        return;
+      }
     }
 
     const session = await approval();

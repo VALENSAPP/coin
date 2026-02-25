@@ -24,36 +24,36 @@ const WALLETS = [
       android: 'https://play.google.com/store/apps/details?id=org.toshi',
     },
   },
-  {
-    id: 'trust',
-    name: 'Trust Wallet',
-    icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Trust Wallet icon
-    deepLinkScheme: 'trust://',
-    storeUrl: {
-      ios: 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409',
-      android: 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp',
-    },
-  },
-  {
-    id: 'rainbow',
-    name: 'Rainbow',
-    icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Rainbow icon
-    deepLinkScheme: 'rainbow://',
-    storeUrl: {
-      ios: 'https://apps.apple.com/app/rainbow-ethereum-wallet/id1457119021',
-      android: 'https://play.google.com/store/apps/details?id=me.rainbow',
-    },
-  },
-  {
-    id: 'zerion',
-    name: 'Zerion',
-    icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Zerion icon
-    deepLinkScheme: 'zerion://',
-    storeUrl: {
-      ios: 'https://apps.apple.com/app/zerion-defi-wallet/id1456732568',
-      android: 'https://play.google.com/store/apps/details?id=io.zerion.android',
-    },
-  },
+  // {
+  //   id: 'trust',
+  //   name: 'Trust Wallet',
+  //   icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Trust Wallet icon
+  //   deepLinkScheme: 'trust://',
+  //   storeUrl: {
+  //     ios: 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409',
+  //     android: 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp',
+  //   },
+  // },
+  // {
+  //   id: 'rainbow',
+  //   name: 'Rainbow',
+  //   icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Rainbow icon
+  //   deepLinkScheme: 'rainbow://',
+  //   storeUrl: {
+  //     ios: 'https://apps.apple.com/app/rainbow-ethereum-wallet/id1457119021',
+  //     android: 'https://play.google.com/store/apps/details?id=me.rainbow',
+  //   },
+  // },
+  // {
+  //   id: 'zerion',
+  //   name: 'Zerion',
+  //   icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Zerion icon
+  //   deepLinkScheme: 'zerion://',
+  //   storeUrl: {
+  //     ios: 'https://apps.apple.com/app/zerion-defi-wallet/id1456732568',
+  //     android: 'https://play.google.com/store/apps/details?id=io.zerion.android',
+  //   },
+  // },
   {
     id: 'walletconnect',
     name: 'Other Wallet (WalletConnect)',

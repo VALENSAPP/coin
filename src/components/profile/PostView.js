@@ -52,7 +52,6 @@ export default function PostView({ postData = [] }) {
 
   const [posts, setPosts] = useState(() => normalizePosts(navPostData, postData));
 
-  console.log(route?.params?.returnTo, "PostViewScreen=>>>>>>>>>>>>>>>>>.")
 
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
@@ -69,7 +68,6 @@ export default function PostView({ postData = [] }) {
   const [hiddenById, setHiddenById] = useState({});
   const [hidingIds, setHidingIds] = useState(new Set());
   const [list, setList] = useState(posts);
-
   // follow state
   const [followingByUserId, setFollowingByUserId] = useState({});
   const [followingBusy, setFollowingBusy] = useState(new Set());
@@ -108,14 +106,12 @@ export default function PostView({ postData = [] }) {
   useEffect(() => {
     const fetchPostFromUserChat = async () => {
       const chatPostId = posts[0]?.id;
-      console.log(userChat, chatPostId, 'openthingx')
       // Check if we're coming from UserChat and have a postId
       if (userChat && chatPostId) {
         const postId = chatPostId;
-
+        
         try {
           const response = await getPostById(postId);
-          console.log(response)
           if (response?.statusCode === 200 ) {
             // Update the list with fresh data from API
             setList([response.data]);
@@ -172,7 +168,6 @@ export default function PostView({ postData = [] }) {
         // Format: { data: {...} } - direct post object
         freshPost = response.data;
       }
-
       if (freshPost && freshPost.id) {
         // Update the list
         setList(prev => prev.map(p =>
@@ -408,6 +403,7 @@ export default function PostView({ postData = [] }) {
           ? await apiUnhidePost(postId)
           : await apiHidePost(postId);
         const ok = resp?.statusCode === 200 && (resp?.success ?? true);
+        console.log(ok,resp,'ok respose in this ')
         if (!ok) {
           setHiddenById(prev => ({ ...prev, [postId]: isHidden }));
           showToastMessage(
@@ -417,6 +413,7 @@ export default function PostView({ postData = [] }) {
             resp?.message ||
             `Failed to ${isHidden ? 'unhide' : 'hide'} post`,
           );
+          console.log(ok,resp,'hide post here chcek the data ')
         } else {
           showToastMessage(
             toast,
@@ -651,7 +648,6 @@ export default function PostView({ postData = [] }) {
   // ─── Renderer ───────────────────────────────────────────────
   const renderFeedItem = useCallback(
     ({ item }) => {
-      console.log(item, 'item data came hererererererere')
       const mapped = {
         id: item.id,
         username: item.userName ?? 'Unknown',

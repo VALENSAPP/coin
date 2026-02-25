@@ -47,6 +47,7 @@ const ProfileTabs = memo(({
     (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData} />,
     [post, userData],
   );
+  console.log(post, 'post data in user profile ');
 
   const renderReelsScreen = useCallback(
     (navProps) => <ReelsScreen {...navProps} postCheck={post} userData={userData} />,
@@ -62,7 +63,6 @@ const ProfileTabs = memo(({
 
   // ✅ subscription confirmation handler
   const handleSubscription = () => {
-    console.log('User subscribed successfully!');
     setIsSubscribed(true);
     setShowSubscribeModal(false);
   };

@@ -475,6 +475,8 @@ const SubventionSetupScreen = () => {
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
                                 keyboardType="numeric"
+                                numberOfLines={4}
+                                multiline
                             />
                             <Text style={styles.perMonth}>/month</Text>
                         </View>
@@ -767,6 +769,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginVertical: 20,
+        flexWrap: 'wrap',
     },
     currencySymbol: {
         fontSize: 32,
@@ -783,6 +786,7 @@ const styles = StyleSheet.create({
         minWidth: 100,
         textAlign: 'center',
         padding: 8,
+         maxWidth: '70%', 
     },
     perMonth: {
         fontSize: 18,
