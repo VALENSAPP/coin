@@ -750,7 +750,7 @@ export default function PostView({ postData = [] }) {
         <FlatList
           ref={flatListRef}
           data={list.filter(item => !hiddenById[item.id])}
-          keyExtractor={p => p.id?.toString() || Math.random().toString()}
+          keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
           renderItem={renderFeedItem}
           contentContainerStyle={styles.feedContainer}
           showsVerticalScrollIndicator={false}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { normalTheme, businessTheme } from "./theme";
 import { useSelector } from "react-redux";
 
@@ -17,14 +17,19 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [userProfile]);
 
-  // Call this when user switches profile manually
-  const switchTheme = (profileType) => {
+  // Call this when user switches profile manually (stable reference to avoid consumer re-renders)
+  const switchTheme = useCallback((profileType) => {
     if (profileType === "company") setTheme(businessTheme);
     else setTheme(normalTheme);
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({ theme, switchTheme }),
+    [theme, switchTheme]
+  );
 
   return (
-    <ThemeContext.Provider value={{ theme, switchTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

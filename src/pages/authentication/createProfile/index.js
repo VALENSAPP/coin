@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 
 const { width } = Dimensions.get('window');
 const AVATAR_SIZE = 128;
@@ -32,7 +33,6 @@ const AVATAR_SIZE = 128;
 export default function CreateProfile() {
   const navigation = useNavigation();
   const toast = useToast();
-  const debounceRef = useRef(null);
   const route = useRoute();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -112,7 +112,6 @@ export default function CreateProfile() {
 
     return () => {
       isMounted = false;
-      clearTimeout(debounceRef.current);
     };
   }, []);
 
@@ -255,6 +254,8 @@ export default function CreateProfile() {
     }
   };
 
+  const debouncedCheckDisplayName = useDebouncedCallback(checkDisplayNameAvailability, 500);
+
   const naviGationButton = (data) => {
     if (data === 'termsCondition') {
       Linking.openURL('https://www.valens.app/terms-conditions')
@@ -276,20 +277,12 @@ export default function CreateProfile() {
   const handleDisplayNameChange = async text => {
     setDisplayName(text);
 
-    // Clear previous timeout
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
     // Basic validation
     const basicError = validateDisplayName(text);
     setErrors(prev => ({ ...prev, displayName: basicError }));
 
     if (!basicError && text.length >= 2) {
-      // Debounce API call
-      debounceRef.current = setTimeout(() => {
-        checkDisplayNameAvailability(text);
-      }, 500);
+      debouncedCheckDisplayName(text);
     } else {
       setDisplayNameStatus(null);
       setDisplayNameSuggestions([]);
