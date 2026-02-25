@@ -21,11 +21,17 @@ import { addMissionDonation, purchaseTokenWithUSD } from '../../services/tokens'
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import { setStripeSetupError } from '../../redux/actions/UserAction';
+import { useNavigation } from '@react-navigation/native';
 
 export default function MissionSupportScreen({ visible, onClose, item, onDonationSuccess }) {
     const { bgStyle, textStyle, bg } = useAppTheme();
     const dispatch = useDispatch();
     const toast = useToast();
+    const navigation = useNavigation();
+    const { requireStripeCustomerForPayment } = useStripeCustomer();
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
@@ -75,6 +81,13 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     }, [visible]); // ✅ Only depend on visible prop
 
     const handleConfirm = async () => {
+        const canProceed = await requireStripeCustomerForPayment(toast);
+        if (!canProceed) {
+            dispatch(setStripeSetupError(true));
+            if (onClose) onClose();
+            navigation.navigate('wallet', { screen: 'WalletMain' });
+            return;
+        }
         setIsButtonLoading(true);
 
         if (item?.profile === "user") {
@@ -96,40 +109,20 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                 console.log('Purchase request body:', requestBody);
                 const response = await purchaseTokenWithUSD(requestBody);
-                setTimeout(async() => {
-                    
-                    console.log(response, 'respone s s ssbshujj')
-                    if (response && response.statusCode === 200) {
-                        const url = response?.data?.sessionUrl;
-    
+                setTimeout(async () => {
+                    const url = getPaymentSessionUrl(response);
+                    if (url) {
                         try {
                             if (await InAppBrowser.isAvailable()) {
                                 paymentCompletedRef.current = false;
-                                await InAppBrowser.open(url, {
-                                    dismissButtonStyle: 'close',
-                                    preferredBarTintColor: '#ffffff',
-                                    preferredControlTintColor: '#000000',
-                                    readerMode: false,
-                                    animated: true,
-                                    modalPresentationStyle: 'fullScreen',
-                                    modalTransitionStyle: 'coverVertical',
-                                    enableBarCollapsing: false, // Changed to false
-                                    showTitle: true,
-                                    forceCloseOnRedirection: false, // Changed to false
-                                });
+                                await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
                                 if (!paymentCompletedRef.current) {
-                                    console.log('❌ Payment cancelled by user');
-    
                                     setIsButtonLoading(false);
                                     dispatch(hideLoader());
-                                    showToastMessage(toast, 'danger', 'Payment cancelled');
+                                    showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.PAYMENT_CANCELLED);
                                 }
-    
-                                // Don't reset here - event will handle it
-                                console.log('InAppBrowser closed - waiting for event');
                             } else {
                                 await Linking.openURL(url);
-                                // For external browser, reset immediately
                                 setCustomAmount('');
                                 setSelectedAmount(null);
                                 setNote('');
@@ -137,23 +130,23 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                                 onClose();
                                 dispatch(hideLoader());
                             }
-                        } catch (error) {
-                            console.warn(error);
-                             await InAppBrowser.close();
+                        } catch (err) {
+                            await InAppBrowser.close();
                             setIsButtonLoading(false);
                             dispatch(hideLoader());
+                            showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
                         }
-                    }
-                    else {
-                        showToastMessage(toast, 'danger', response.message);
+                    } else {
+                        const msg = response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY;
+                        showToastMessage(toast, 'danger', msg);
                         setIsButtonLoading(false);
                         dispatch(hideLoader());
                     }
                 }, 1000);
             } catch (error) {
                 console.error('Error creating payment session:', error);
-                alert('Failed to process payment. Please check your connection and try again.');
-                 await InAppBrowser.close();
+                showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+                await InAppBrowser.close();
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
@@ -178,34 +171,14 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             console.log('Mission Donation Request:', requestBody);
 
             const response = await addMissionDonation(requestBody);
-            console.log(response, 'Mission Donation session response');
+            const url = getPaymentSessionUrl(response);
 
-            if (response && response.statusCode === 200) {
-                const url = response?.data?.sessionUrl;
-
+            if (url) {
                 try {
-                    // ------------------------------
-                    // 🚀 USE IN-APP BROWSER (same as purchase flow)
-                    // ------------------------------
                     if (await InAppBrowser.isAvailable()) {
-                        await InAppBrowser.open(url, {
-                            dismissButtonStyle: 'close',
-                            preferredBarTintColor: '#ffffff',
-                            preferredControlTintColor: '#000000',
-                            readerMode: false,
-                            animated: true,
-                            modalPresentationStyle: 'fullScreen',
-                            modalTransitionStyle: 'coverVertical',
-                            enableBarCollapsing: false,
-                            showTitle: true,
-                            forceCloseOnRedirection: false,
-                        });
-
-                        console.log('Mission Donation InAppBrowser closed — waiting for event');
-                    }
-                    else {
+                        await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
+                    } else {
                         await Linking.openURL(url);
-
                         setCustomAmount('');
                         setSelectedAmount(null);
                         setNote('');
@@ -213,22 +186,19 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                         dispatch(hideLoader());
                         onClose();
                     }
-
-                } catch (error) {
-                    console.warn(error);
+                } catch (err) {
                     setIsButtonLoading(false);
                     dispatch(hideLoader());
+                    showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
                 }
-            }
-            else {
-                showToastMessage(toast, 'danger', response.message);
+            } else {
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
-
         } catch (error) {
             console.error('Error creating mission donation session:', error);
-            alert('Failed to process donation. Please try again.');
+            showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
             setIsButtonLoading(false);
             dispatch(hideLoader());
         }

@@ -13,6 +13,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
+import { setStripeCustomerId } from './redux/actions/UserAction';
 import { notificationListener, requestUserPermission } from './services/NotificationService';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
@@ -127,6 +128,10 @@ export default function Main() {
       const loggedI = await AsyncStorage.getItem('isLoggedIn');
       if (loggedI === 'true') {
         dispatch(loggedIn());
+        const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
+        if (storedStripeCustomerId) {
+          dispatch(setStripeCustomerId(storedStripeCustomerId));
+        }
       } else {
         dispatch(loggedOut());
       }

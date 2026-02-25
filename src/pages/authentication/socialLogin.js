@@ -18,6 +18,7 @@ import axios from 'axios';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { getProfile } from '../../services/createProfile';
 import { loggedIn } from '../../redux/actions/LoginAction';
+import { persistStripeCustomerId } from '../../hooks/useStripeCustomer';
 import { useToast } from 'react-native-toast-notifications';
 
 const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
@@ -202,6 +203,7 @@ const getProfileData = async (dispatch, navigation, toast) => {
         navigation.navigate('CreateProfile')
       }
       else {
+        await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
       }

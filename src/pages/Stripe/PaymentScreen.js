@@ -21,12 +21,15 @@ import { useSelector, useDispatch } from 'react-redux';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { createCheckoutSession } from '../../services/stirpe'; 
+import { createCheckoutSession } from '../../services/stirpe';
+import { getPaymentSessionUrl, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer'; 
 
 const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { requireStripeCustomerForPayment } = useStripeCustomer();
 
   useEffect(() => {
     const handleDeepLink = (event) => {
@@ -112,6 +115,8 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   };
 
   const createStripeSubscription = async () => {
+    const canProceed = await requireStripeCustomerForPayment(toast);
+    if (!canProceed) return;
     setLoading(true);
     try {
       const token = await getUserToken();
@@ -121,21 +126,20 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         return;
       }
 
-      // Your service should create a Checkout Session and return { success, statusCode, data: { url } }
       const response = await createCheckoutSession();
+      const url = getPaymentSessionUrl(response);
 
-      if (response?.success && response?.data?.url && response?.statusCode === 200) {
-        await openPaymentBrowser(response.data.url);
-        
+      if (url) {
+        await openPaymentBrowser(url);
       } else {
         showToastMessage(
           toast,
           'danger',
-          response?.error || response?.message || 'Failed to create payment session. Please try again.',
+          response?.error || response?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED,
         );
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Network error. Please check your internet connection and try again.');
+      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setLoading(false);
     }
@@ -160,7 +164,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         await Linking.openURL(url);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to open payment page. Please check your internet connection and try again.');
+      Alert.alert('Error', error?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
     }
   };
 
@@ -181,7 +185,8 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
               'walletAddress',
               'walletPrivateKey',
               'walletMnemonic',
-              'profile'
+              'profile',
+              'stripeCustomerId',
             ]);
             await AsyncStorage.setItem('isLoggedIn', 'false');
             dispatch(loggedOut());

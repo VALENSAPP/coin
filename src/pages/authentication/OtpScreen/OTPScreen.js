@@ -27,6 +27,7 @@ import { AuthHeader } from '../../../components/auth';
 import OTPTextInput from 'react-native-otp-textinput';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../../services/createProfile';
+import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
@@ -130,16 +131,14 @@ export default function OTPScreen() {
         registrationType: 'NORMAL',
       });
       if (response && response.statusCode == 200) {
-        console.log('login response ===================>', response);
         showToastMessage(toast, 'success', response.data.message);
         await AsyncStorage.setItem('userId', response?.data?.user?.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
-        // await AsyncStorage.setItem('kyc', response.data.user.kyc);
-
         await AsyncStorage.setItem(
           'refreshToken',
           response.data.user.refresh_token,
         );
+        await persistStripeCustomerId(response?.data?.user?.stripeCustomerId ?? null, dispatch);
         if (
           response.data.user.walletAddress &&
           response.data.user.walletPrivateKey &&
@@ -192,6 +191,7 @@ export default function OTPScreen() {
           navigation.navigate('CreateProfile');
         }
         else {
+          await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
         }
