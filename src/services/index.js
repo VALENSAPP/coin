@@ -15,14 +15,21 @@ export const authInterceptor = axiosInstance.interceptors.request.use(
         if (token) {
             config.headers['Authorization'] = 'Bearer ' + token
         }
-        {
-            if (config.url == "post/create" || config.url == "user/editProfile" || config.url == "story/upload") {
-                config.headers['Content-Type'] = 'multipart/form-data';
-            }
-            else {
-                config.headers['Content-Type'] = 'application/json';
-            }
+        const isFormData =
+            typeof FormData !== 'undefined' && config?.data instanceof FormData;
+
+        if (
+            isFormData ||
+            config.url == "post/create" ||
+            config.url == "user/editProfile" ||
+            config.url == "story/upload" ||
+            config.url == "company-profile/upload-documents"
+        ) {
+            config.headers['Content-Type'] = 'multipart/form-data';
+        } else {
+            config.headers['Content-Type'] = 'application/json';
         }
+
         return {
             ...config,
         };
