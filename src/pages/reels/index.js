@@ -763,7 +763,7 @@ export default function FlipsScreen() {
             </Text>
             <TouchableOpacity style={styles.followButton} onPress={() => switchFollowing(item.id)}
             >
-              <Text style={styles.followButtonText}>{!item.isFollowing ? 'Vallow' : 'Vallowing'}</Text>
+              <Text style={styles.followButtonText}>{!item.isFollowing ? 'Follow' : 'Following'}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
@@ -899,7 +899,7 @@ export default function FlipsScreen() {
             <View style={styles.arrowUp} />
             <TouchableOpacity style={styles.dropdownOption}>
               <Icon name="people-outline" size={22} color="#000" />
-              <Text style={styles.dropdownText}>Vallowing</Text>
+              <Text style={styles.dropdownText}>Following</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dropdownOption}>
               <Icon name="location-outline" size={22} color="#000" />

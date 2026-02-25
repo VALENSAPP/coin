@@ -19,49 +19,52 @@ export async function initWalletConnect(projectId) {
 }
 
 export async function connectWallet(projectId, walletType = null) {
-  const client = await initWalletConnect(projectId);
-  const { uri, approval } = await client.connect({
+  const walletConnectClient = await initWalletConnect(projectId);
+
+  const { uri, approval } = await walletConnectClient.connect({
     requiredNamespaces: {
       eip155: {
-        methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData'],
-        chains: ['eip155:1', 'eip155:137'], // Ethereum and Polygon
+        methods: [
+          'eth_sendTransaction',
+          'personal_sign',
+          'eth_signTypedData'
+        ],
+        chains: ['eip155:1', 'eip155:137'],
         events: ['chainChanged', 'accountsChanged'],
       },
     },
   });
 
-  if (uri) {
-    // Universal WalletConnect URI - works with all WalletConnect-compatible wallets
-    const universalUri = `wc:${uri}`;
-    
-    // Generate wallet-specific deep links for direct app opening
-    const deepLinks = {
-      metamask: `metamask://wc?uri=${encodeURIComponent(uri)}`,
-      coinbase: `cbwallet://wc?uri=${encodeURIComponent(uri)}`,
-      trust: `trust://wc?uri=${encodeURIComponent(uri)}`,
-      rainbow: `rainbow://wc?uri=${encodeURIComponent(uri)}`,
-      zerion: `zerion://wc?uri=${encodeURIComponent(uri)}`,
-      walletconnect: universalUri,
-    };
+  // `uri` can already include the `wc:` prefix. Do not prepend again.
+  const normalizedUri = uri
+    ? (uri.startsWith('wc:') ? uri : `wc:${uri}`)
+    : null;
+  const encodedUri = normalizedUri ? encodeURIComponent(normalizedUri) : null;
 
-    // If walletType is specified, use that deep link, otherwise use universal
-    const selectedDeepLink = walletType && deepLinks[walletType] 
-      ? deepLinks[walletType] 
-      : universalUri;
+  const deepLinks = {
+    metamask: encodedUri ? `metamask://wc?uri=${encodedUri}` : null,
+    coinbase: encodedUri ? `cbwallet://wc?uri=${encodedUri}` : null,
+    // trust: `trust://wc?uri=${encodedUri}`,
+    // rainbow: `rainbow://wc?uri=${encodedUri}`,
+    // zerion: `zerion://wc?uri=${encodedUri}`,
+    walletconnect: normalizedUri,
+  };
 
-    return { 
-      uri, 
-      approval, 
-      universalUri,
-      metamaskDeepLink: deepLinks.metamask,
-      coinbaseDeepLink: deepLinks.coinbase,
-      trustDeepLink: deepLinks.trust,
-      rainbowDeepLink: deepLinks.rainbow,
-      zerionDeepLink: deepLinks.zerion,
-      walletConnectDeepLink: universalUri,
-      selectedWalletDeepLink: selectedDeepLink,
-      allDeepLinks: deepLinks,
-    };
-  }
-  return { uri: null, approval: null };
-} 
+  const selectedWalletDeepLink =
+    walletType && deepLinks[walletType] ? deepLinks[walletType] : normalizedUri;
+
+  return {
+    connected: Boolean(approval),
+    uri: normalizedUri,
+    approval,
+    universalUri: normalizedUri,
+    metamaskDeepLink: deepLinks.metamask,
+    coinbaseDeepLink: deepLinks.coinbase,
+    trustDeepLink: deepLinks.trust,
+    rainbowDeepLink: deepLinks.rainbow,
+    zerionDeepLink: deepLinks.zerion,
+    walletConnectDeepLink: normalizedUri,
+    selectedWalletDeepLink,
+    allDeepLinks: deepLinks,
+  };
+}

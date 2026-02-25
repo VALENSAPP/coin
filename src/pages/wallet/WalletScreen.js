@@ -223,10 +223,10 @@ export default function WalletComponent() {
         setTokenAddress(selectedCreator?.tokenAddress || null);
         setSelectedCreator(selectedCreator?.vendorId || null);
         if (!currentlyFollowing) {
-            setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
+            // setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
         }
         else {
-            setTimeout(() => sellSheetRef.current?.open?.(), 0)
+            // setTimeout(() => sellSheetRef.current?.open?.(), 0)
         }
     };
 
@@ -344,12 +344,12 @@ export default function WalletComponent() {
                                         {item.username || 'Unknown'}
                                     </Text>
                                 </View>
-                                {/* <Text style={styles.creatorUsername}>
+                                <Text style={styles.creatorUsername}>
                                     {item.tokenAddress ? `${item.tokenAddress.slice(0, 15)}...` : ''}
                                 </Text>
                                 <Text style={styles.marketCapText}>
                                     Tokens: {item.tokenAmount || 0}
-                                </Text> */}
+                                </Text>
                             </View>
 
                             <View style={styles.priceSection}>
@@ -383,7 +383,7 @@ export default function WalletComponent() {
         return (
             <View style={[{ flex: 1 }, bgStyle]}>
                 <Text style={[styles.subHeader, {shadowColor: text}]}>{holdingsData.length} holdings</Text>
-                {/* <Text style={styles.note}>Your current creator investments</Text> */}
+                <Text style={styles.note}>Your current creator investments</Text>
 
                 <FlatList
                     data={holdingsData}

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     View,
     Text,
     ScrollView,
     SafeAreaView,
     StatusBar,
+    TouchableOpacity,
 } from 'react-native';
 import styles from './Style';
 import { useDispatch } from 'react-redux';
@@ -14,9 +15,11 @@ import { getUserCredentials } from '../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 const VerificationStatusScreen = () => {
     const [data, setData] = useState(null);
+    const navigation =useNavigation();
     const [verificationData, setVerificationData] = useState({
         emailVerified: false,
         kycVerified: false,
@@ -26,9 +29,11 @@ const VerificationStatusScreen = () => {
     const allVerified = Object.values(verificationData).every(v => v === true);
     const { bgStyle, textStyle } = useAppTheme();
 
-    useEffect(() => {
-        loadProfileData();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadProfileData();
+        }, [])
+    );
 
     const loadProfileData = async () => {
         dispatch(showLoader());
@@ -98,21 +103,26 @@ const VerificationStatusScreen = () => {
                     </View>
 
                     <View style={styles.verificationItem}>
-                        <View style={styles.verificationItemLeft}>
+                        <TouchableOpacity onPress={()=>{ 
+                            !verificationData.kycVerified && navigation.navigate('kycverify')
+                        }}style={styles.verificationItemLeft}>
                             <Text style={styles.verificationItemIcon}>🆔</Text>
                             <View>
                                 <Text style={styles.verificationItemTitle}>KYC Verification</Text>
                                 <Text style={styles.verificationItemSubtitle}>Government ID verified</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                         {verificationData.kycVerified ? (
                             <View style={styles.verifiedBadge}>
                                 <Text style={styles.verifiedText}>Verified</Text>
                             </View>
                         ) : (
+                            <TouchableOpacity onPress={()=>navigation.navigate('kycverify')}>
+
                             <View style={styles.unVerifiedBadge}>
                                 <Text style={styles.unVerifiedText}>Not Verified</Text>
                             </View>
+                            </TouchableOpacity>
                         )}
                     </View>
 

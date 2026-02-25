@@ -447,6 +447,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             resp?.message ||
             `Failed to ${isHidden ? 'unhide' : 'hide'} post`,
           );
+          console.log(resp,'hide the post in homese')
         } else {
           showToastMessage(
             toast,
@@ -858,8 +859,16 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const visibleSuggestions = useMemo(() => {
     const count = suggestPage * SUGGEST_PAGE_SIZE;
     const sliced = suggestAllUsers.slice(0, count);
-    return sliced.filter(u => !suggestDismissed.has(String(u.id)));
-  }, [suggestAllUsers, suggestPage, suggestDismissed]);
+    return sliced
+      .filter(u => !suggestDismissed.has(String(u.id)))
+      .map(u => {
+        const key = String(u.id);
+        if (typeof followingByUserId[key] === 'boolean') {
+          return { ...u, isFollow: followingByUserId[key] };
+        }
+        return u;
+      });
+  }, [suggestAllUsers, suggestPage, suggestDismissed, followingByUserId]);
 
   const handleDismissSuggestion = useCallback(userId => {
     setSuggestDismissed(prev => {

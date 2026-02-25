@@ -15,6 +15,7 @@ import OTPScreen from '../pages/authentication/OtpScreen/OTPScreen';
 import ForgetPassword from '../pages/authentication/ForgotPassword/ForgotPassword';
 import NewPasswordScreen from '../pages/authentication/createNewPassword/CreateNewPassword';
 import CreateProfile from '../pages/authentication/createProfile';
+import BusinessSetup from '../pages/authentication/BusinessSetup';
 import WalletScreen from '../pages/authentication/createProfile/wallet';
 import MainTabNavigator from './MainTabNavigator';
 import Splash from '../pages/splashSceen/Splash';
@@ -258,7 +259,7 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      <Drawer.Screen
+      {/* <Drawer.Screen
         name="DrawerCreators"
         component={DummyComponent}
         options={{
@@ -275,7 +276,7 @@ const GlobalDrawerNavigator = () => {
             });
           },
         })}
-      />
+      /> */}
       <Drawer.Screen
         name="DrawerSubscription"
         component={DummyComponent}
@@ -390,6 +391,7 @@ export default function MainStack() {
         <Stack.Screen name="ForgotPassword" component={ForgetPassword} />
         <Stack.Screen name="CreateNewPassword" component={NewPasswordScreen} />
         <Stack.Screen name="CreateProfile" component={CreateProfile} />
+        <Stack.Screen name="BusinessSetup" component={BusinessSetup} />
         <Stack.Screen name="kycverify" component={KYCVerification} />
         <Stack.Screen name="Wallet" component={WalletScreen} />
         <Stack.Screen name="Splash" component={Splash} />

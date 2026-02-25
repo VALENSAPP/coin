@@ -37,6 +37,7 @@ export default function FollowCard({
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const toast = useToast();
@@ -101,7 +102,7 @@ export default function FollowCard({
 
   const handleSupportNow = async () => {
     if (!canSupport) return;
-    setModalVisible(false);
+    setSupportDisclaimerVisible(false);
     await handleMetaMaskSupportFlow({
       recipientWalletAddress,
       walletAddress,
@@ -111,6 +112,11 @@ export default function FollowCard({
       dispatch,
       onShowWalletSelection: () => setWalletSelectionVisible(true),
     });
+  };
+
+  const handleOpenSupportDisclaimer = () => {
+    setModalVisible(false);
+    setSupportDisclaimerVisible(true);
   };
 
   // Hexagon dimensions for the card
@@ -187,7 +193,9 @@ export default function FollowCard({
             if (item.id === currentUserId) return;
 
             if (isBusinessProfile) {
-              await handleSupportNow();
+              if (canSupport) {
+                setModalVisible(true);
+              }
               return;
             }
 
@@ -212,7 +220,7 @@ export default function FollowCard({
           ) : (
             <Text style={styles.followText}>
               {isBusinessProfile ? "Support" :
-                isFollowing ? 'Vallowing' : 'Vallow'}
+                isFollowing ? 'Followed' : 'Follow'}
             </Text>
           )}
         </TouchableOpacity>
@@ -221,6 +229,13 @@ export default function FollowCard({
         visible={modalVisible}
         creatorName={username || 'Creator'}
         onClose={() => setModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={username || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
       <WalletSelectionModal

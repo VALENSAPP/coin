@@ -19,37 +19,17 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { captureRef } from 'react-native-view-shot';
-
-import {
-  Grayscale,
-  Sepia,
-  Saturate,
-  Contrast,
-  Brightness,
-} from 'react-native-color-matrix-image-filters';
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const FILTERS = [
-  { key: 'none', label: 'Original', Comp: ({ children }) => <>{children}</> },
-  { key: 'grayscale', label: 'Grayscale', Comp: (p) => <Grayscale {...p} /> },
-  { key: 'sepia', label: 'Sepia', Comp: (p) => <Sepia {...p} /> },
-  {
-    key: 'saturate',
-    label: 'Saturate',
-    Comp: p => <Saturate amount={2} {...p} />,
-  },
-  {
-    key: 'contrast',
-    label: 'Contrast',
-    Comp: p => <Contrast amount={1.5} {...p} />,
-  },
-  {
-    key: 'brightness',
-    label: 'Bright',
-    Comp: p => <Brightness amount={1.25} {...p} />,
-  },
+  { key: 'none', label: 'Original', overlay: null },
+  { key: 'grayscale', label: 'Grayscale', overlay: 'rgba(0,0,0,0.35)' },
+  { key: 'sepia', label: 'Sepia', overlay: 'rgba(112, 66, 20, 0.28)' },
+  { key: 'saturate', label: 'Saturate', overlay: 'rgba(255, 64, 128, 0.12)' },
+  { key: 'contrast', label: 'Contrast', overlay: 'rgba(0,0,0,0.22)' },
+  { key: 'brightness', label: 'Bright', overlay: 'rgba(255,255,255,0.22)' },
 ];
 
 const DEFAULT_FONTS = [
@@ -155,7 +135,8 @@ export default function StoryComposer({
 
   const currentMedia = mediaList[index];
   const currentFilterKey = filterPerIndex[index] || 'none';
-  const FilterComp = FILTERS.find(f => f.key === currentFilterKey)?.Comp || (({ children }) => <>{children}</>);
+  const currentFilterOverlay =
+    FILTERS.find(f => f.key === currentFilterKey)?.overlay || null;
 
   const selectFilter = filterKey => {
     console.log('Selecting filter:', filterKey);
@@ -285,13 +266,20 @@ export default function StoryComposer({
         >
           {currentMedia && !isVideo(currentMedia) ? (
             <View style={styles.imageContainer}>
-              <FilterComp>
-                <Image
-                  source={{ uri: currentMedia.uri }}
-                  style={styles.fullScreenImage}
-                  resizeMode="cover"
+              <Image
+                source={{ uri: currentMedia.uri }}
+                style={styles.fullScreenImage}
+                resizeMode="cover"
+              />
+              {currentFilterOverlay ? (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    { backgroundColor: currentFilterOverlay },
+                  ]}
                 />
-              </FilterComp>
+              ) : null}
             </View>
           ) : currentMedia ? (
             <View style={styles.videoWrap}>
@@ -387,7 +375,7 @@ export default function StoryComposer({
         </View>
 
         {/* Filters panel */}
-        {/* {activeTab === 'filters' && (
+        {activeTab === 'filters' && (
           <View style={[styles.bottomTools, bgStyle]}>
             <ScrollView
               horizontal
@@ -416,7 +404,7 @@ export default function StoryComposer({
               ))}
             </ScrollView>
           </View>
-        )} */}
+        )}
 
         {/* Stickers panel */}
         {activeTab === 'stickers' && (
@@ -492,7 +480,7 @@ export default function StoryComposer({
                   style={[
                     styles.colorDot,
                     { backgroundColor: c },
-                    textColor === c && styles.cazSSAZSSSolorDotActive,
+                    textColor === c && styles.colorDotActive,
                   ]}
                   activeOpacity={0.7}
                 />

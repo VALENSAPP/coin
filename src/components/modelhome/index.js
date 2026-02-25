@@ -15,7 +15,7 @@ export default function ModalHome({ visible, onClose }) {
         <View style={styles.modalContent}>
           <TouchableOpacity style={styles.option}>
             <Icon name="people-outline" size={22} color="#000" style={styles.optionIcon} />
-            <Text style={styles.optionText}>Vallowing</Text>
+            <Text style={styles.optionText}>Following</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.option}>
             <Icon name="star-outline" size={22} color="#000" style={styles.optionIcon} />

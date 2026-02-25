@@ -25,7 +25,7 @@ import { useToast } from 'react-native-toast-notifications';
 import StepHeader from '../createProfile/headerSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -42,10 +42,12 @@ const DOCUMENT_TYPES = [
 ];
 
 export default function KYCVerification({ route }) {
-    const { profileData, serverProfile } = route.params;
+    const profileData = route?.params?.profileData ?? null;
+    const serverProfile = route?.params?.serverProfile ?? null;
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
+    const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -62,12 +64,14 @@ export default function KYCVerification({ route }) {
     const progressValue = useRef(new Animated.Value(0)).current;
     const [progressPercent, setProgressPercent] = useState(0);
     const [hasOpenedBrowser, setHasOpenedBrowser] = useState(false);
+    const isOnboardingFlow = Boolean(profileData) || !isLoggedIn;
 
     const isFirstMount = useRef(true);
     const isFocused = useIsFocused();
     const progressTimerRef = useRef(null);
     const progressAnimationRef = useRef(null);
     const percentUpdateInterval = useRef(null);
+    const shouldReturnAfterStatusCheckRef = useRef(false);
 
     const { bgStyle, textStyle } = useAppTheme();
 
@@ -149,6 +153,11 @@ export default function KYCVerification({ route }) {
 
 
     const handleCreateProfile = async () => {
+        if (!profileData) {
+            // Opened from in-app wallet/settings flow; no onboarding profile payload to update.
+            return;
+        }
+
         try {
             const formData = new FormData();
             formData.append('userName', profileData.username);
@@ -283,6 +292,7 @@ export default function KYCVerification({ route }) {
             const response = await kycStart(getUserId, kycData);
             console.log('response in kyc start---->>>>>>>>>>>>', response.data);
             if (response.statusCode == 200) {
+                shouldReturnAfterStatusCheckRef.current = true;
                 const url = response.data.url;
 
                 if (await InAppBrowser.isAvailable()) {
@@ -364,10 +374,35 @@ export default function KYCVerification({ route }) {
                 const status = String(response?.data?.status || '').toUpperCase();
 
                 if (status === 'APPROVED') {
-                    navigation.navigate('Wallet', { profileData, serverProfile });
+                    setShowProgressModal(false);
+                    if (profileData) {
+                        navigation.navigate('Wallet', { profileData, serverProfile });
+                    } else if (!isOnboardingFlow && shouldReturnAfterStatusCheckRef.current && navigation.canGoBack()) {
+                        shouldReturnAfterStatusCheckRef.current = false;
+                        navigation.goBack();
+                    } else if (navigation.canGoBack()) {
+                        navigation.goBack();
+                    }
                 } else if (status === 'PENDING' || status === 'SUBMITTED' || status === false) {
+                    setShowProgressModal(false);
+
+                    if (!isOnboardingFlow) {
+                        if (shouldReturnAfterStatusCheckRef.current && navigation.canGoBack()) {
+                            shouldReturnAfterStatusCheckRef.current = false;
+                            navigation.goBack();
+                            return;
+                        }
+                        // Logged-in user opened KYC screen while current status is pending.
+                        // Keep them on this screen until they submit updated KYC.
+                        return;
+                    }
+
                     await AsyncStorage.setItem('isLoggedIn', 'true');
                     dispatch(loggedIn());
+                    if (navigation.canGoBack()) {
+                        navigation.goBack();
+                        return;
+                    }
                     showToastMessage(toast, 'warning', 'KYC is pending. You can explore the app while we review it.');
                 } else if (status === 'DECLINED' || status === 'REJECTED') {
                     Alert.alert(
@@ -732,7 +767,9 @@ export default function KYCVerification({ route }) {
                                 await fetchKycStatus();
                             }}
                         >
-                            <Text style={styles.cancelButtonText}>Go Back To Login Screen</Text>
+                            <Text style={styles.cancelButtonText}>
+                                {isOnboardingFlow ? 'Check KYC Status' : 'Check Status & Go Back'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>

@@ -86,7 +86,7 @@ export default function OptionsModal({
             </View>
 
             <View style={styles.innerContainer}>
-              {
+              {/* {
                 canDelete &&
                 <TouchableOpacity style={styles.innerRow} onPress={() => tap('hidePost')}>
                   <MaterialIcons name={isHidden ? 'visibility' : 'visibility-off'} size={20} color="#262626" />
@@ -94,7 +94,7 @@ export default function OptionsModal({
                     {hideBusy ? 'Please wait...' : isHidden ? 'Unhide post' : 'Hide post'}
                   </Text>
                 </TouchableOpacity>
-              }
+              } */}
 
               {fromHome && !canDelete ? (
                 <>

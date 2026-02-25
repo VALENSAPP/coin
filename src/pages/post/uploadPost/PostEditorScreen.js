@@ -37,6 +37,22 @@ const PostEditorScreen = () => {
   const toast = useToast();
   console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType, });
 
+  const getMediaUri = (media) =>
+    media?.processedUri ||
+    media?.originalUri ||
+    media?.path ||
+    media?.uri ||
+    media?.sourceURL ||
+    '';
+
+  const getMediaKey = (media, index) =>
+    media?.processedUri ||
+    media?.originalUri ||
+    media?.path ||
+    media?.uri ||
+    media?.sourceURL ||
+    `media-${index}`;
+
   useEffect(() => {
     const loadProfileType = async () => {
       const type = await AsyncStorage.getItem('profile');
@@ -82,9 +98,9 @@ const PostEditorScreen = () => {
       const payload = {
         caption: caption.trim(),
         media: images.map(img => ({
-          uri: img.processedUri || img.uri,
+          uri: getMediaUri(img),
           type: img.type,
-          name: (img.processedUri || img.uri).split('/').pop()
+          name: getMediaUri(img).split('/').pop()
 
         })),
         type: fromIcon == 'Flips' ? 'reel' : 'normal',
@@ -136,9 +152,9 @@ const PostEditorScreen = () => {
               contentContainerStyle={styles.imagesContainer}
             >
               {images.map((img, idx) => (
-                <View key={idx} style={styles.imageThumbWrapper}>
+                <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
                   <Image
-                    source={{ uri: img.processedUri || img.uri }}
+                    source={{ uri: getMediaUri(img) }}
                     style={styles.imageThumb}
                     resizeMode="cover"
                   />

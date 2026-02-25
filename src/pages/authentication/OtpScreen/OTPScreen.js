@@ -134,6 +134,8 @@ export default function OTPScreen() {
         showToastMessage(toast, 'success', response.data.message);
         await AsyncStorage.setItem('userId', response?.data?.user?.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
+        // await AsyncStorage.setItem('kyc', response.data.user.kyc);
+
         await AsyncStorage.setItem(
           'refreshToken',
           response.data.user.refresh_token,
@@ -175,12 +177,11 @@ export default function OTPScreen() {
 
       if (id) {
         const response = await getProfile(id);
-        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted"))
-        {
+        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
           showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
         }
-        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED"){
+        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
           navigation.navigate('CreateProfile');
         }
@@ -189,7 +190,7 @@ export default function OTPScreen() {
         }
         else if (response.statusCode === 200 && response.data.bio == null) {
           navigation.navigate('CreateProfile');
-        } 
+        }
         else {
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
@@ -279,6 +280,7 @@ export default function OTPScreen() {
                     return;
                   }
                   handleConfirm();
+
                 }}
                 disabled={loading || otp.length !== 6}
               >

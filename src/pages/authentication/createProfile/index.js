@@ -462,7 +462,7 @@ export default function CreateProfile() {
     );
   };
 
-  const continueNext = () => {
+  const continueNext = async () => {
     // Validate terms and privacy first
     const termsErrors = validateTermsAndPrivacy();
 
@@ -492,7 +492,16 @@ export default function CreateProfile() {
       agreementTimestamp: new Date().toISOString()
     };
 
-    // Navigate to KYC verification instead of Wallet
+    const storedProfileType = await AsyncStorage.getItem('profile');
+    const profileType = String(
+      serverProfile?.data?.profile || storedProfileType || '',
+    ).toLowerCase();
+    if (profileType === 'company') {
+      navigation.navigate('BusinessSetup', { profileData, serverProfile });
+      return;
+    }
+
+    // Navigate to KYC verification for non-company users
     navigation.navigate('kycverify', { profileData, serverProfile });
     //  navigation.navigate('Wallet', { profileData, serverProfile });
   };

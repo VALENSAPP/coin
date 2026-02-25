@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,7 +8,6 @@ import {
   Image,
   Dimensions,
   FlatList,
-  Animated,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,8 +24,6 @@ export default function Notifications() {
   const tabScrollRef = useRef(null);
   const dispatch = useDispatch();
 
-  // Track horizontal paging position
-  const scrollX = useRef(new Animated.Value(0)).current;
   const currentIndexRef = useRef(0);
   const { bgStyle, textStyle, text } = useAppTheme();
 
@@ -43,6 +40,7 @@ export default function Notifications() {
     // { key: 'comments', label: 'Comments' },
     { key: 'follows', label: 'Follows' }
   ];
+  const tradeTypes = useMemo(() => ['sale', 'bid', 'trade', 'token_purchase'], []);
 
 
   const getNotificationIcon = (type) => {
@@ -102,9 +100,6 @@ export default function Notifications() {
       }));
 
       setNotifications(mapped);
-      
-      // Wait for state update and re-render
-      await new Promise(resolve => setTimeout(resolve, 150));
 
     } catch (err) {
       console.log(err, 'error getting notifications');
@@ -168,11 +163,21 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  const scrollTabsToIndex = useCallback((index, animated = true) => {
+    if (!tabScrollRef.current) return;
+    const tabPosition = index * 90;
+    tabScrollRef.current.scrollTo({
+      x: Math.max(0, tabPosition - width / 2 + 45),
+      animated,
+    });
+  }, []);
+
   const switchToTab = useCallback((tabKey) => {
     const newIndex = tabs.findIndex(tab => tab.key === tabKey);
     if (newIndex < 0) return;
 
     setActiveTab(tabKey);
+    currentIndexRef.current = newIndex;
 
     const targetScrollX = newIndex * width;
     if (scrollViewRef.current) {
@@ -182,38 +187,25 @@ export default function Notifications() {
       });
     }
 
-    if (tabScrollRef.current) {
-      const tabPosition = newIndex * 90;
-      tabScrollRef.current.scrollTo({
-        x: Math.max(0, tabPosition - width / 2 + 45),
-        animated: true,
-      });
-    }
-  }, [tabs]);
+    scrollTabsToIndex(newIndex);
+  }, [tabs, scrollTabsToIndex]);
 
-  useEffect(() => {
-    const sub = scrollX.addListener(({ value }) => {
-      const index = Math.round(value / width);
-      if (index !== currentIndexRef.current && index >= 0 && index < tabs.length) {
-        currentIndexRef.current = index;
-        const newKey = tabs[index].key;
+  const tabDataMap = useMemo(() => ({
+    all: notifications,
+    trades: notifications.filter(n => tradeTypes.includes(n.type)),
+    follows: notifications.filter(n => !tradeTypes.includes(n.type)),
+  }), [notifications, tradeTypes]);
 
-        setActiveTab((prev) => (prev === newKey ? prev : newKey));
+  const handleMomentumScrollEnd = useCallback((event) => {
+    const x = event?.nativeEvent?.contentOffset?.x ?? 0;
+    const index = Math.round(x / width);
+    if (index < 0 || index >= tabs.length) return;
 
-        if (tabScrollRef.current) {
-          const tabPosition = index * 90;
-          tabScrollRef.current.scrollTo({
-            x: Math.max(0, tabPosition - width / 2 + 45),
-            animated: true,
-          });
-        }
-      }
-    });
-
-    return () => {
-      scrollX.removeListener(sub);
-    };
-  }, [scrollX, tabs]);
+    currentIndexRef.current = index;
+    const newKey = tabs[index].key;
+    setActiveTab((prev) => (prev === newKey ? prev : newKey));
+    scrollTabsToIndex(index);
+  }, [tabs, scrollTabsToIndex]);
 
   const EmptyState = ({ tabType }) => {
     const getEmptyStateContent = () => {
@@ -292,7 +284,7 @@ export default function Notifications() {
     </Modal>
   );
 
-  const renderTabContent = (tabData) => {
+  const renderTabContent = (tabData, tabKey) => {
     const renderItem = ({ item, index }) => (
       <TouchableOpacity
         style={[styles.notificationItem, !item.isRead && bgStyle]}
@@ -341,7 +333,7 @@ export default function Notifications() {
     return (
       <View style={styles.tabContentContainer}>
         {!isLoading && tabData.length === 0 ? (
-          <EmptyState tabType={activeTab} />
+          <EmptyState tabType={tabKey} />
         ) : isLoading ? (
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, textStyle]}>Loading notifications...</Text>
@@ -350,7 +342,7 @@ export default function Notifications() {
           <FlatList
             data={tabData}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
           />
@@ -412,33 +404,24 @@ export default function Notifications() {
       </View>
 
       {/* Swipeable Content Area */}
-      <Animated.ScrollView
+      <ScrollView
         ref={scrollViewRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
-        )}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
         style={styles.horizontalScrollView}
       >
         {tabs.map((tab) => {
-          const tabData = (() => {
-            if (tab.key === 'all') return notifications;
-            if (tab.key === 'trades') return notifications.filter(n => ['sale', 'bid', 'trade', 'token_purchase'].includes(n.type));
-            if (tab.key === 'follows') return notifications.filter(n => !['sale', 'bid', 'trade', 'token_purchase'].includes(n.type));
-            return notifications;
-          })();
+          const tabData = tabDataMap[tab.key] || notifications;
 
           return (
             <View key={tab.key} style={styles.tabPage}>
-              {renderTabContent(tabData)}
+              {renderTabContent(tabData, tab.key)}
             </View>
           );
         })}
-      </Animated.ScrollView>
+      </ScrollView>
       {renderPopup()}
     </SafeAreaView>
   );

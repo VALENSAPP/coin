@@ -227,7 +227,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                         isFollowingState ? (styles.followingText && textStyle) : styles.followText
                       }
                     >
-                      {isFollowingState ? 'Vallowing' : 'Vallow'}
+                      {isFollowingState ? 'Following' : 'Follow'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -266,7 +266,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
               activeTab === 'followers' && styles.tabTextActive,
             ]}
           >
-            Vallowers
+            Followers
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -283,7 +283,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
               activeTab === 'following' && styles.tabTextActive,
             ]}
           >
-            Vallowing
+            Following
           </Text>
         </TouchableOpacity>
       </View>
@@ -292,7 +292,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       <TextInput
         style={[styles.searchBar, { shadowColor: text }]}
         placeholder={
-          activeTab === 'followers' ? 'Search vallowers' : 'Search vallowing'
+          activeTab === 'followers' ? 'Search Followers' : 'Search Following'
         }
         placeholderTextColor="#888"
         value={search}
@@ -317,7 +317,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           ListEmptyComponent={() => (
             <View style={{ alignItems: 'center', paddingTop: 30 }}>
               <Text style={{ color: '#888' }}>
-                No {activeTab === 'followers' ? 'vallowers' : 'vallowing'} yet
+                No {activeTab === 'followers' ? 'Followers' : 'Following'} yet
               </Text>
             </View>
           )}

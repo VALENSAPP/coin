@@ -281,6 +281,25 @@ const ProfileEditScreen = () => {
     }
   };
 
+  useEffect(() => {
+      const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+        // Prevent default back behavior
+        e.preventDefault();
+  
+        // Navigate to your specific screen instead
+        navigation.navigate({
+              name: 'wallet',
+              state: {
+                routes: [{ name: returnScreen }],
+                index: 0
+              }
+            }); // 👈 Replace with your screen name
+      });
+  
+      return unsubscribe; // cleanup on unmount
+    }, [navigation]);
+  
+
   const pickImageFromGallery = () => {
     const options = {
       mediaType: 'photo',
