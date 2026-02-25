@@ -40,7 +40,6 @@ import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
-import { clampRGBA } from 'react-native-reanimated/lib/typescript/Colors';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
@@ -969,12 +968,12 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           commentsCount={postCommentsCount[item.id] || 0}
           liked={!!liked[item.id]}
           saved={!!saved[item.id]}
-          onToggleLike={() => handleToggleLike(item.id)}
+          onToggleLike={handleToggleLike}
           onToggleFollow={handleToggleFollow}
           followingBusy={followingBusy.has(String(item.UserId))}
-          onToggleSave={() => handleToggleSave(item.id)}
-          onComment={() => handleComment(item.id, item.UserId)}
-          onOptions={() => openOptionsModal(item.id)}
+          onToggleSave={handleToggleSave}
+          onComment={handleComment}
+          onOptions={openOptionsModal}
           isBusinessProfile={isBusinessProfile}
           executeFollowAction={executeFollowAction}
           raiseAmount={item.raiseAmount}
@@ -1009,6 +1008,22 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     ],
   );
 
+  const listKeyExtractor = useCallback(
+    (item, index) =>
+      item?.__type === 'suggestions' ? `suggestions-${index}` : item.id?.toString(),
+    []
+  );
+  const getItemLayout = useCallback(
+    (_, index) => ({ length: 600, offset: 600 * index, index }),
+    []
+  );
+  const viewabilityConfigRef = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 250,
+    waitForInteraction: true,
+  });
+  const viewabilityConfig = viewabilityConfigRef.current;
+
   const safeRender = () => {
     try {
       return (
@@ -1016,11 +1031,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           {/* Posts List */}
           <FlatList
             data={feedItems}
-            keyExtractor={(item, index) =>
-              item?.__type === 'suggestions'
-                ? `suggestions-${index}`
-                : item.id?.toString()
-            }
+            keyExtractor={listKeyExtractor}
             showsVerticalScrollIndicator={false}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
@@ -1029,16 +1040,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             windowSize={7}
             initialNumToRender={2}
             updateCellsBatchingPeriod={100}
-            getItemLayout={(data, index) => ({
-              length: 600,
-              offset: 600 * index,
-              index,
-            })}
-            viewabilityConfig={{
-              itemVisiblePercentThreshold: 60,
-              minimumViewTime: 250,
-              waitForInteraction: true,
-            }}
+            getItemLayout={getItemLayout}
+            viewabilityConfig={viewabilityConfig}
             onViewableItemsChanged={handleViewableItemsChanged}
             scrollEventThrottle={16}
           />
