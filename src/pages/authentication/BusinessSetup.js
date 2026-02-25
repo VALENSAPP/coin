@@ -10,6 +10,7 @@ import {
   Platform,
   Dimensions,
   Alert,
+  Image,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,10 +22,13 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import {
   CreateCompanyProfile,
   GetCompanyProfile,
+  UploadDocument,
   UpdateCompanyProfile,
 } from '../../services/companyProfile';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { pick } from '@react-native-documents/picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 
 const { height } = Dimensions.get('window');
 
@@ -51,6 +55,9 @@ const BusinessProfileForm = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExistingCompanyProfile, setHasExistingCompanyProfile] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -74,6 +81,11 @@ const BusinessProfileForm = () => {
     return message.includes('already created') || message.includes('use update');
   };
 
+  const isImageType = (type = '', uri = '') => {
+    if (String(type).startsWith('image/')) return true;
+    return /\.(png|jpe?g|webp|gif)$/i.test(String(uri));
+  };
+
   const mapCompanyProfileToForm = data => ({
     businessName: data?.businessName || '',
     ownerName: data?.ownerName || '',
@@ -86,20 +98,187 @@ const BusinessProfileForm = () => {
     gstNumber: data?.gstNumber || '',
   });
 
+  const clearDocumentError = () => {
+    if (errors.document) {
+      const next = { ...errors };
+      delete next.document;
+      setErrors(next);
+    }
+  };
+
+  const uploadDocumentNow = async file => {
+    if (!file?.uri) {
+      showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
+      return false;
+    }
+
+    const documentFormData = new FormData();
+    const fileUri =
+      Platform.OS === 'android' ? file.uri : file.uri?.replace('file://', '');
+
+    if (!fileUri) {
+      showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
+      return false;
+    }
+
+    documentFormData.append('documents', {
+      uri: fileUri,
+      name: file.name || `document-${Date.now()}`,
+      type: file.type || 'application/octet-stream',
+    });
+
+    setIsUploadingDocument(true);
+    dispatch(showLoader());
+    try {
+      const uploadResponse = await UploadDocument(documentFormData);
+      console.log(uploadResponse,'upload response');
+      
+      const uploadCode = uploadResponse?.statusCode;
+      if (uploadCode === 200 || uploadCode === 201) {
+        setIsDocumentUploaded(true);
+        showToastMessage(
+          toast,
+          'success',
+          uploadResponse?.message || 'Document uploaded successfully.',
+        );
+        return true;
+      }
+      setIsDocumentUploaded(false);
+      showToastMessage(
+        toast,
+        'danger',
+        uploadResponse?.message || 'Failed to upload document.',
+      );
+      return false;
+    } catch (error) {
+      setIsDocumentUploaded(false);
+      showToastMessage(toast, 'danger', 'Failed to upload document.');
+      return false;
+    } finally {
+      setIsUploadingDocument(false);
+      dispatch(hideLoader());
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        selectionLimit: 1,
+        includeBase64: false,
+        quality: 0.8,
+      });
+
+      if (result?.didCancel) return;
+      if (result?.errorCode) {
+        showToastMessage(toast, 'danger', result?.errorMessage || 'Failed to pick image.');
+        return;
+      }
+
+      const image = result?.assets?.[0];
+      if (image?.uri) {
+        const file = {
+          name: image?.fileName || `image-${Date.now()}.jpg`,
+          uri: image.uri,
+          type: image?.type || 'image/jpeg',
+          isImage: true,
+        };
+        setSelectedDocument(file);
+        setIsDocumentUploaded(false);
+        clearDocumentError();
+        await uploadDocumentNow(file);
+      }
+    } catch (error) {
+      showToastMessage(toast, 'danger', 'Failed to pick image.');
+    }
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const [file] = await pick({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain',
+          'image/jpeg',
+          'image/png',
+          'image/jpg',
+        ],
+      });
+      if (file) {
+        const uri = file?.uri || file?.fileCopyUri;
+        const selectedFile = {
+          name: file?.name || `document-${Date.now()}`,
+          uri,
+          type: file?.type || 'application/octet-stream',
+          isImage: String(file?.type || '').startsWith('image/'),
+        };
+        setSelectedDocument(selectedFile);
+        setIsDocumentUploaded(false);
+        clearDocumentError();
+        await uploadDocumentNow(selectedFile);
+      }
+    } catch (error) {
+      const errorCode = String(error?.code || '').toUpperCase();
+      if (errorCode.includes('CANCEL')) return;
+      showToastMessage(toast, 'danger', 'Failed to pick document.');
+    }
+  };
+
+  const handlePickDocument = () => {
+    Alert.alert('Upload Document', 'Choose upload source', [
+      { text: 'Gallery Image', onPress: handlePickImage },
+      { text: 'PDF/Document', onPress: handlePickFile },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const fetchCompanyProfile = async () => {
     try {
       const response = await GetCompanyProfile();
       const code = response?.statusCode;
       const companyData = response?.data || {};
+      const existingDocument =
+        companyData?.document ||
+        companyData?.documents?.[0] ||
+        companyData?.documents;
 
       if ((code === 200 || code === 201) && Object.keys(companyData).length > 0) {
         setForm(mapCompanyProfileToForm(companyData));
         setHasExistingCompanyProfile(true);
+        if (existingDocument) {
+          const existingUri =
+            typeof existingDocument === 'string'
+              ? existingDocument
+              : existingDocument?.url || existingDocument?.uri || '';
+          const documentName =
+            (typeof existingDocument === 'string'
+              ? existingDocument.split('/').pop()
+              : existingDocument?.name ||
+                existingDocument?.originalName ||
+                existingDocument?.fileName) || 'Uploaded document';
+          const existingType =
+            typeof existingDocument === 'string'
+              ? ''
+              : existingDocument?.type || 'application/octet-stream';
+          setSelectedDocument({
+            name: documentName,
+            uri: existingUri,
+            type: existingType,
+            isImage: isImageType(existingType, existingUri),
+          });
+          setIsDocumentUploaded(true);
+        }
       } else {
         setHasExistingCompanyProfile(false);
+        setSelectedDocument(null);
+        setIsDocumentUploaded(false);
       }
     } catch (error) {
       setHasExistingCompanyProfile(false);
+      setSelectedDocument(null);
+      setIsDocumentUploaded(false);
     }
   };
 
@@ -113,6 +292,7 @@ const BusinessProfileForm = () => {
     const nextErrors = {};
     if (!form.businessName.trim()) nextErrors.businessName = 'Business name is required';
     if (!form.phone.trim()) nextErrors.phone = 'Phone number is required';
+    if (!selectedDocument) nextErrors.document = 'Document is required';
 
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
@@ -136,6 +316,36 @@ const BusinessProfileForm = () => {
     setIsSubmitting(true);
     dispatch(showLoader());
     try {
+      if (!isDocumentUploaded) {
+        const documentFormData = new FormData();
+        const fileUri =
+          Platform.OS === 'android'
+            ? selectedDocument.uri
+            : selectedDocument.uri?.replace('file://', '');
+        if (!fileUri) {
+          showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
+          return;
+        }
+
+        documentFormData.append('documents', {
+          uri: fileUri,
+          name: selectedDocument.name || `document-${Date.now()}`,
+          type: selectedDocument.type || 'application/octet-stream',
+        });
+
+        const uploadResponse = await UploadDocument(documentFormData);
+        const uploadCode = uploadResponse?.statusCode;
+        if (!(uploadCode === 200 || uploadCode === 201)) {
+          showToastMessage(
+            toast,
+            'danger',
+            uploadResponse?.message || 'Failed to upload document.',
+          );
+          return;
+        }
+        setIsDocumentUploaded(true);
+      }
+
       if (hasExistingCompanyProfile) {
         const updateResponse = await UpdateCompanyProfile(payload);
         const updateCode = updateResponse?.statusCode;
@@ -286,15 +496,44 @@ const BusinessProfileForm = () => {
                     ) : null}
                   </View>
                 ))}
+
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputLabel}>Upload Document (Image/PDF) *</Text>
+                  <TouchableOpacity
+                    style={[styles.inputGroup, errors.document && styles.inputError]}
+                    onPress={handlePickDocument}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.uploadText,
+                        !selectedDocument && styles.uploadPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedDocument?.name || 'Tap to upload image or PDF'}
+                    </Text>
+                  </TouchableOpacity>
+                  {selectedDocument?.isImage && selectedDocument?.uri ? (
+                    <Image
+                      source={{ uri: selectedDocument.uri }}
+                      style={styles.documentPreview}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+                  {errors.document ? (
+                    <Text style={styles.errorText}>{errors.document}</Text>
+                  ) : null}
+                </View>
               </View>
 
               <TouchableOpacity
                 style={[styles.submitButton, { backgroundColor: text, shadowColor: text }]}
                 onPress={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploadingDocument}
               >
                 <Text style={styles.submitButtonText}>
-                  {isSubmitting ? 'Saving...' : 'Continue'}
+                  {isSubmitting ? 'Saving...' : isUploadingDocument ? 'Uploading...' : 'Continue'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -408,5 +647,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 17,
+  },
+  uploadText: {
+    color: '#1F2937',
+    fontSize: 15,
+  },
+  uploadPlaceholder: {
+    color: '#9CA3AF',
+  },
+  documentPreview: {
+    marginTop: 10,
+    width: 92,
+    height: 92,
+    borderRadius: 10,
+    backgroundColor: '#E5E7EB',
   },
 });
