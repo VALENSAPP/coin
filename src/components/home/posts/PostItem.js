@@ -23,6 +23,7 @@ import WalletConnectedModal from '../../modals/WalletConnectedModal';
 import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 import MissionSupportScreen from '../../modals/DonationModal';
+import { getProgressBarColor } from '../../../utils/progressBarUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +32,8 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
+  const baseScaleRef = useRef(1);
+  const scaleRef = useRef(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const imageSource = useMemo(
@@ -44,20 +47,23 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
   const [isZoomed, setIsZoomed] = useState(false);
 
+  const openFullScreen = useCallback(() => {
+    setIsModalVisible(true);
+    setIsZoomed(true);
+    onZoomChange?.(true);
+    baseScaleRef.current = 1;
+    scaleRef.current = 1;
+    scale.setValue(1);
+  }, [onZoomChange, scale]);
 
-  // useEffect(() => {
-  //   if (uri) {
-  //     Image.prefetch(uri).catch(err => console.warn('Prefetch failed:', err));
-  //   }
-  // }, [uri]);
+  const onPinchEvent = useCallback((e) => {
+    const gestureScale = e.nativeEvent.scale;
+    const newScale = Math.min(4, Math.max(0.5, baseScaleRef.current * gestureScale));
+    scale.setValue(newScale);
+    scaleRef.current = newScale;
+  }, [scale]);
 
-  const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale } }],
-    { useNativeDriver: true }
-  );
-
-  const closeModal = () => {
-    // Reset animations
+  const closeModal = useCallback(() => {
     Animated.parallel([
       Animated.spring(scale, {
         toValue: 1,
@@ -82,40 +88,43 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       setModalImageLoaded(false);
       setIsZoomed(false);
       onZoomChange?.(false);
-      // Reset values
       scale.setValue(1);
       translateY.setValue(0);
       opacity.setValue(1);
+      baseScaleRef.current = 1;
+      scaleRef.current = 1;
     });
-  };
+  }, [scale, translateY, opacity, onZoomChange]);
 
-  const resetScale = () => {
+  const resetScaleAndClose = useCallback((onComplete) => {
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 20,
+      speed: 18,
       bounciness: 0,
-    }).start();
-  };
+    }).start(() => {
+      baseScaleRef.current = 1;
+      scaleRef.current = 1;
+      onComplete?.();
+    });
+  }, [scale]);
 
-  const onPinchStateChange = ({ nativeEvent }) => {
+  const onPinchStateChange = useCallback(({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
     if (state === State.BEGAN) {
-      setIsModalVisible(true);
-      setIsZoomed(true);
-      onZoomChange?.(true);
+      baseScaleRef.current = scaleRef.current;
+      if (!isModalVisible) {
+        openFullScreen();
+      }
     }
-
     if (
       oldState === State.ACTIVE &&
-      (state === State.END ||
-        state === State.CANCELLED ||
-        state === State.FAILED)
+      (state === State.END || state === State.CANCELLED || state === State.FAILED)
     ) {
-      // Only reset scale, don't close modal on pinch end
-      resetScale();
+      // Smooth return to original scale, then close when user releases fingers
+      resetScaleAndClose(closeModal);
     }
-  };
+  }, [isModalVisible, openFullScreen, resetScaleAndClose, closeModal]);
 
   // Swipe down gesture handler to close modal
   const onSwipeGestureEvent = Animated.event(
@@ -123,46 +132,45 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
     { useNativeDriver: true }
   );
 
-  const onSwipeHandlerStateChange = ({ nativeEvent }) => {
+  const onSwipeHandlerStateChange = useCallback(({ nativeEvent }) => {
     const { state, translationY, velocityY } = nativeEvent;
-    
-    if (state === State.END) {
-      // If swiped down more than 100px or with high velocity, close modal
-      if (translationY > 100 || velocityY > 500) {
-        // Animate out
-        Animated.parallel([
-          Animated.timing(translateY, {
-            toValue: Dimensions.get('window').height,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          closeModal();
-        });
-      } else {
-        // Spring back to original position
-        Animated.parallel([
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            speed: 20,
-            bounciness: 0,
-          }),
-          Animated.spring(opacity, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 20,
-            bounciness: 0,
-          }),
-        ]).start();
-      }
+    if (state !== State.END) return;
+    if (translationY > 100 || velocityY > 500) {
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: Dimensions.get('window').height,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(closeModal);
+    } else {
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 20,
+          bounciness: 0,
+        }),
+        Animated.spring(opacity, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 20,
+          bounciness: 0,
+        }),
+      ]).start();
     }
-  };
+  }, [translateY, opacity, closeModal]);
+  const onTapStateChange = useCallback(({ nativeEvent }) => {
+    if (nativeEvent.state === State.END) {
+      openFullScreen();
+    }
+  }, [openFullScreen]);
+
   useEffect(() => {
     if (!uri) return;
 
@@ -175,20 +183,23 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   }, [uri, imageSource]);
   return (
     <View style={styles.mediaContainer}>
-      {/* INLINE IMAGE */}
-      <PinchGestureHandler
-        onGestureEvent={onPinchEvent}
-        onHandlerStateChange={onPinchStateChange}
-      >
-        <Animated.Image
-          source={imageSource}
-          style={[
-            styles.postMedia,
-            { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
-            // {opacity:1}
-          ]}
-        />
-      </PinchGestureHandler>
+      {/* INLINE IMAGE - tap opens full-screen, pinch also opens and zooms */}
+      <TapGestureHandler onHandlerStateChange={onTapStateChange} numberOfTaps={1}>
+        <PinchGestureHandler
+          onGestureEvent={onPinchEvent}
+          onHandlerStateChange={onPinchStateChange}
+        >
+          <Animated.View style={styles.mediaContainer}>
+            <Animated.Image
+              source={imageSource}
+              style={[
+                styles.postMedia,
+                { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
+              ]}
+            />
+          </Animated.View>
+        </PinchGestureHandler>
+      </TapGestureHandler>
 
       {/* FULLSCREEN MODAL */}
       <Modal
@@ -203,15 +214,6 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
           <TouchableWithoutFeedback onPress={closeModal}>
             <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
-
-          {/* Close button */}
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={closeModal}
-            activeOpacity={0.7}
-          >
-            <Icon name="close" size={28} color="#fff" />
-          </TouchableOpacity>
 
           {/* Swipe down gesture handler for image */}
           <PanGestureHandler
@@ -650,21 +652,19 @@ function PostItem({
   }, [heartScale]);
 
   const handleLike = useCallback(() => {
-    onToggleLike?.();
+    onToggleLike?.(item.id);
     animateHeart();
-  }, [onToggleLike, animateHeart]);
+  }, [onToggleLike, item.id, animateHeart]);
 
   // Use dynamic values for donation calculations
   const goalAmount = item.raiseAmount || 0; // Target amount to raise
   const currentRaised = totalDonation || 0; // Current amount raised from API
   const progressPercent = useMemo(() => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0, [goalAmount, currentRaised]);
 
-  const getProgressBarColor = useCallback(() => {
-    if (progressPercent >= 75) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 50) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 25) return '#FF9800';
-    return '#F44336';
-  }, [progressPercent, item?.profile]);
+  const progressBarColor = useMemo(
+    () => getProgressBarColor(progressPercent, item?.profile),
+    [progressPercent, item?.profile]
+  );
 
   const onMomentumEnd = useCallback((e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
@@ -789,7 +789,7 @@ function PostItem({
             {/* <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text> */}
           </View>
 
-          <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
+          <TouchableOpacity onPress={() => onOptions?.(item.id)} style={styles.moreButton}>
             <Feather name="more-vertical" size={20} color="#374151" />
           </TouchableOpacity>
         </View>
@@ -854,7 +854,7 @@ function PostItem({
               <Text style={styles.actionCount}>{likesCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => onComment?.()} style={styles.actionButton}>
+            <TouchableOpacity onPress={() => onComment?.(item.id, item.UserId)} style={styles.actionButton}>
               <Feather name="message-circle" size={24} color="#374151" />
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
@@ -943,7 +943,7 @@ function PostItem({
                     styles.progressBarFill,
                     {
                       width: `${Math.min(progressPercent, 100)}%`,
-                      backgroundColor: getProgressBarColor(),
+                      backgroundColor: progressBarColor,
                     },
                   ]}
                 />

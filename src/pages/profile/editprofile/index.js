@@ -24,6 +24,7 @@ import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -50,7 +51,6 @@ const ProfileEditScreen = () => {
   const refRBSheet = useRef();
   const refRBSheet1 = useRef();
   const toast = useToast();
-  const debounceRef = useRef(null);
   const dispatch = useDispatch();
   const { bgStyle, textStyle, text } = useAppTheme();
 
@@ -78,15 +78,6 @@ const ProfileEditScreen = () => {
       }
     }
   }, [userdata]);
-
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
 
   const validateField = (field, value) => {
     const newErrors = { ...errors };
@@ -179,23 +170,17 @@ const ProfileEditScreen = () => {
     }
   };
 
+  const debouncedCheckDisplayName = useDebouncedCallback(checkDisplayNameAvailability, 500);
+
   const handleNameChange = (text) => {
     setName(text);
-
-    // Clear previous timeout
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
 
     // Basic validation first
     validateField('name', text);
 
-    // If basic validation passes and length >= 2, check availability
+    // If basic validation passes and length >= 2, check availability (debounced)
     if (text.trim() && text.trim().length >= 2 && !errors.name) {
-      // Debounce API call
-      debounceRef.current = setTimeout(() => {
-        checkDisplayNameAvailability(text.trim());
-      }, 500);
+      debouncedCheckDisplayName(text.trim());
     } else {
       setDisplayNameStatus(null);
       setDisplayNameSuggestions([]);

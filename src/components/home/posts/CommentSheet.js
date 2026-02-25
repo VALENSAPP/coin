@@ -36,8 +36,6 @@ const CommentItem = memo(({ item, onMorePress, currentUserId, postOwnerId }) => 
   const isPostOwner = viewerId && ownerId === viewerId;
   const canModerate = isCommentAuthor || isPostOwner;
 
-  const profileImage = useSelector(state => state.profileImage?.profileImg);
-
   return (
     <View
       style={[styles.commentRow, item.isOptimistic && styles.optimisticComment]}
@@ -320,6 +318,19 @@ export default function CommentSheet({
     setSelectedComment(null);
   };
 
+  const commentKeyExtractor = useCallback((item) => item.id, []);
+  const renderCommentItem = useCallback(
+    ({ item }) => (
+      <CommentItem
+        item={item}
+        onMorePress={openActionsFor}
+        currentUserId={currentUser?.id ?? userId}
+        postOwnerId={postOwnerId}
+      />
+    ),
+    [openActionsFor, currentUser?.id, userId, postOwnerId]
+  );
+
   return (
     <View style={[styles.container, bgStyle]}>
       <Text style={styles.title}>Comments ({comments.length})</Text>
@@ -335,17 +346,10 @@ export default function CommentSheet({
       ) : (
         <FlatList
           data={comments}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <CommentItem
-              item={item}
-              onMorePress={openActionsFor}
-              currentUserId={currentUser?.id ?? userId}
-              postOwnerId={postOwnerId}
-            />
-          )}
+          keyExtractor={commentKeyExtractor}
+          renderItem={renderCommentItem}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 70 }}
+          contentContainerStyle={styles.commentsListContent}
         />
       )}
 
@@ -539,6 +543,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#888',
+  },
+  commentsListContent: {
+    paddingBottom: 70,
   },
   modalOverlay: {
     flex: 1,

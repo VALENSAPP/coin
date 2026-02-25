@@ -22,6 +22,7 @@ import OptionsModal from '../../components/home/posts/OptionsModal';
 
 import { getAllSavedPosts } from '../../services/settings';
 import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
+import { buildPostMaps } from '../../utils/postMaps';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -131,30 +132,13 @@ const SavedPostsScreen = ({ navigation }) => {
   };
 
   const seedMapsFromPosts = useCallback((list) => {
-    const nextLiked = {};
-    const nextSaved = {};
-    const nextLikeCounts = {};
-    const nextCommentCounts = {};
-    const nextFollowing = {};
-
-    for (const p of list) {
-      if (!p?.id) continue;
-      nextLiked[p.id] = !!(p.isLike ?? p.liked);
-      nextSaved[p.id] = !!(p.isSaved ?? true);
-      nextLikeCounts[p.id] = p.likesCount ?? p.likeCount ?? 0;
-      nextCommentCounts[p.id] = p.commentCount ?? 0;
-
-      if (p?.userId != null && typeof p.isFollow === 'boolean') {
-        nextFollowing[String(p.userId)] = p.isFollow;
-      }
-    }
-
-    setLiked(nextLiked);
-    setSaved(nextSaved);
-    setPostLikesCount(nextLikeCounts);
-    setPostCommentsCount(nextCommentCounts);
-    if (Object.keys(nextFollowing).length) {
-      setFollowingByUserId((prev) => ({ ...prev, ...nextFollowing }));
+    const maps = buildPostMaps(list, { includeSaved: true, includeHidden: false });
+    setLiked(maps.nextLiked);
+    setSaved(maps.nextSaved);
+    setPostLikesCount(maps.nextLikeCounts);
+    setPostCommentsCount(maps.nextCommentCounts);
+    if (Object.keys(maps.nextFollowing).length) {
+      setFollowingByUserId((prev) => ({ ...prev, ...maps.nextFollowing }));
     }
   }, []);
 

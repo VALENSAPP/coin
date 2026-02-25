@@ -25,19 +25,13 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import Video from 'react-native-video';
 import styles from './Style';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getProgressBarColor } from '../../utils/progressBarUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 /** Mission Progress Bar Component */
 const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised = 0, daysLeft = 0, profile = 'user' }) => {
-  const getProgressBarColor = () => {
-    if (progressPercent >= 75) return (profile === 'user' ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 50) return (profile === 'user' ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 25) return '#FF9800';
-    return '#F44336';
-  };
-
-  const fillColor = getProgressBarColor();
+  const fillColor = getProgressBarColor(progressPercent, profile);
 
   return (
     <View style={styles.progressSection}>
