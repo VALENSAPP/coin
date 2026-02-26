@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setStripeCustomerId } from '../redux/actions/UserAction';
 import { getUserCredentials } from '../services/post';
-import { openStripeOnboarding, STRIPE_ERROR_MESSAGES } from '../utils/stripeOnboarding';
+import { openStripeOnboarding } from '../utils/stripeOnboarding';
 
 const STRIPE_CUSTOMER_ID_KEY = 'stripeCustomerId';
 
@@ -29,7 +29,7 @@ export async function persistStripeCustomerId(stripeCustomerId, dispatch) {
  *   needsCustomerSetup: boolean,
  *   refreshStripeCustomer: () => Promise<void>,
  *   openPaymentConnectionAndRefresh: () => Promise<void>,
- *   requireStripeCustomerForPayment: (toast) => Promise<boolean>,
+ *   requireStripeCustomerForPayment: () => Promise<boolean>,
  * }}
  */
 export function useStripeCustomer() {
@@ -57,27 +57,16 @@ export function useStripeCustomer() {
 
   /**
    * Call before starting any payment. Refreshes from server, then if no stripeCustomerId
-   * shows both error toasts (same copy as design), calls create-onboarding-link, opens
-   * Stripe URL on current screen. No redirect to Wallet. Returns false so caller does not proceed.
+   * returns false. Caller should show StripePaymentMethodModal with message and
+   * "Connect to Stripe" button that calls openPaymentConnectionAndRefresh().
    */
   const requireStripeCustomerForPayment = useCallback(
-    async (toast) => {
+    async () => {
       const id = await refreshStripeCustomer();
       if (id != null && id !== '') return true;
-      if (toast?.show) {
-        toast.show(STRIPE_ERROR_MESSAGES.CUSTOMER_SETUP_FAILED, { type: 'danger' });
-        toast.show(STRIPE_ERROR_MESSAGES.CUSTOMER_SETUP_REQUIRED, { type: 'danger' });
-      }
-      try {
-        await openPaymentConnectionAndRefresh();
-      } catch (e) {
-        if (toast?.show) {
-          toast.show(e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED, { type: 'danger' });
-        }
-      }
       return false;
     },
-    [refreshStripeCustomer, openPaymentConnectionAndRefresh]
+    [refreshStripeCustomer]
   );
 
   return {

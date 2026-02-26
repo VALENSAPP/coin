@@ -23,7 +23,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
-import { setStripeSetupError } from '../../redux/actions/UserAction';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
 import { useNavigation } from '@react-navigation/native';
 
 export default function MissionSupportScreen({ visible, onClose, item, onDonationSuccess }) {
@@ -31,7 +31,8 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const dispatch = useDispatch();
     const toast = useToast();
     const navigation = useNavigation();
-    const { requireStripeCustomerForPayment } = useStripeCustomer();
+    const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
@@ -81,11 +82,9 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     }, [visible]); // ✅ Only depend on visible prop
 
     const handleConfirm = async () => {
-        const canProceed = await requireStripeCustomerForPayment(toast);
+        const canProceed = await requireStripeCustomerForPayment();
         if (!canProceed) {
-            dispatch(setStripeSetupError(true));
-            if (onClose) onClose();
-            navigation.navigate('wallet', { screen: 'WalletMain' });
+            setShowPaymentMethodModal(true);
             return;
         }
         setIsButtonLoading(true);
@@ -205,6 +204,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     };
 
     return (
+        <>
         <Modal
             visible={visible}
             transparent
@@ -308,6 +308,19 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 </View>
             </KeyboardAvoidingView>
         </Modal>
+
+        <StripePaymentMethodModal
+            visible={showPaymentMethodModal}
+            onClose={() => setShowPaymentMethodModal(false)}
+            onConnectStripe={async () => {
+                try {
+                    await openPaymentConnectionAndRefresh();
+                } catch (e) {
+                    showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+                }
+            }}
+        />
+    </>
     );
 }
 

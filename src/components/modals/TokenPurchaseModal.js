@@ -11,6 +11,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,7 +29,8 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const dispatch = useDispatch();
   const toast = useToast();
   const { textStyle, text } = useAppTheme();
-  const { requireStripeCustomerForPayment } = useStripeCustomer();
+  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const paymentCompletedRef = useRef(false);
   const calculateBreakdown = (inputAmount) => {
     const baseAmount = parseFloat(inputAmount) || 0;
@@ -212,8 +214,11 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
       return;
     }
 
-    const canProceed = await requireStripeCustomerForPayment(toast);
-    if (!canProceed) return;
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
 
     try {
       setIsProcessingPurchase(true);
@@ -326,6 +331,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   }
 
   return (
+    <>
     <KeyboardAwareScrollView
       contentContainerStyle={{ flexGrow: 1, marginBottom: -10 }}
       showsVerticalScrollIndicator={false}
@@ -484,6 +490,19 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         </TouchableOpacity>
       </View>
     </KeyboardAwareScrollView>
+
+    <StripePaymentMethodModal
+      visible={showPaymentMethodModal}
+      onClose={() => setShowPaymentMethodModal(false)}
+      onConnectStripe={async () => {
+        try {
+          await openPaymentConnectionAndRefresh();
+        } catch (e) {
+          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        }
+      }}
+    />
+    </>
   );
 };
 

@@ -23,13 +23,15 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { createCheckoutSession } from '../../services/stirpe';
 import { getPaymentSessionUrl, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
-import { useStripeCustomer } from '../../hooks/useStripeCustomer'; 
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from '../../components/modals/StripePaymentMethodModal'; 
 
 const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
-  const { requireStripeCustomerForPayment } = useStripeCustomer();
+  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   useEffect(() => {
     const handleDeepLink = (event) => {
@@ -115,8 +117,11 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   };
 
   const createStripeSubscription = async () => {
-    const canProceed = await requireStripeCustomerForPayment(toast);
-    if (!canProceed) return;
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
     setLoading(true);
     try {
       const token = await getUserToken();
@@ -228,6 +233,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const { width } = Dimensions.get('window');
 
   return (
+    <>
     <LinearGradient
       colors={['#667eea', '#764ba2', '#f093fb']}
       style={styles.container}
@@ -408,6 +414,19 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         </SafeAreaView>
       </ScrollView>
     </LinearGradient>
+
+    <StripePaymentMethodModal
+      visible={showPaymentMethodModal}
+      onClose={() => setShowPaymentMethodModal(false)}
+      onConnectStripe={async () => {
+        try {
+          await openPaymentConnectionAndRefresh();
+        } catch (e) {
+          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        }
+      }}
+    />
+    </>
   );
 };
 
