@@ -10,6 +10,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { Linking } from 'react-native';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useRoute } from '@react-navigation/native';
@@ -21,7 +22,8 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const toast = useToast();
   const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
-  const { requireStripeCustomerForPayment } = useStripeCustomer();
+  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -45,8 +47,11 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   const createStripeSubscription = async () => {
-    const canProceed = await requireStripeCustomerForPayment(toast);
-    if (!canProceed) return;
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
     dispatch(showLoader());
     try {
       const id = await AsyncStorage.getItem('userId');
@@ -103,6 +108,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   return (
+    <>
     <RBSheet
       ref={sheetRef}
       height={340}
@@ -167,6 +173,19 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         </TouchableOpacity>
       </View>
     </RBSheet>
+
+    <StripePaymentMethodModal
+      visible={showPaymentMethodModal}
+      onClose={() => setShowPaymentMethodModal(false)}
+      onConnectStripe={async () => {
+        try {
+          await openPaymentConnectionAndRefresh();
+        } catch (e) {
+          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        }
+      }}
+    />
+    </>
   );
 };
 

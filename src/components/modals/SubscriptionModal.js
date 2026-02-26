@@ -23,7 +23,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
-import { setStripeSetupError } from '../../redux/actions/UserAction';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
 import { useNavigation } from '@react-navigation/native';
 
 const SubscribeFlowModal = ({
@@ -54,7 +54,8 @@ const SubscribeFlowModal = ({
     const [fanId, setFanId] = useState();
     const navigation = useNavigation();
     const [comment, setComment] = useState('');
-    const { requireStripeCustomerForPayment } = useStripeCustomer();
+    const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
     useEffect(() => {
         fetchAllData();
@@ -132,13 +133,9 @@ const SubscribeFlowModal = ({
 
 
     const getSubscription = async () => {
-        const canProceed = await requireStripeCustomerForPayment(toast);
+        const canProceed = await requireStripeCustomerForPayment();
         if (!canProceed) {
-            dispatch(setStripeSetupError(true));
-            step1Ref.current?.close();
-            step2Ref.current?.close();
-            if (onClose) onClose();
-            navigation.navigate('wallet', { screen: 'WalletMain' });
+            setShowPaymentMethodModal(true);
             return;
         }
         dispatch(showLoader());
@@ -392,6 +389,17 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                 </ScrollView>
             </RBSheet>
 
+            <StripePaymentMethodModal
+                visible={showPaymentMethodModal}
+                onClose={() => setShowPaymentMethodModal(false)}
+                onConnectStripe={async () => {
+                    try {
+                        await openPaymentConnectionAndRefresh();
+                    } catch (e) {
+                        showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+                    }
+                }}
+            />
         </>
     );
 };
