@@ -38,108 +38,80 @@ const SubscribeFlowModal = ({
 }) => {
     const step1Ref = useRef(null);
     const step2Ref = useRef(null);
+
     const [acceptedTerms, setAcceptedTerms] = useState(false);
-    const [cardInfo, setCardInfo] = useState({
-        name: '',
-        number: '',
-        expiry: '',
-        cvv: '',
-    });
+    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+    const [subscriptionAmount, setSubscriptionAmount] = useState(null);
     const [userProfile, setUserProfile] = useState('');
+    const [comment, setComment] = useState('');
+
     const toast = useToast();
     const dispatch = useDispatch();
-    const isCompanyProfile = userProfile === 'company';
-    const [subscriptionAmount, setSubscriptionAmount] = useState(null);
-    const { bgStyle, textStyle, text } = useAppTheme();
-    const [fanId, setFanId] = useState();
     const navigation = useNavigation();
-    const [comment, setComment] = useState('');
+    const { bgStyle, textStyle, text } = useAppTheme();
     const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
-    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
+    const isCompanyProfile = userProfile === 'company';
+
+    /* =========================
+       PROPER MODAL RESET
+    ========================== */
+    const closeAllModals = () => {
+        step1Ref.current?.close();
+        step2Ref.current?.close();
+        setShowPaymentMethodModal(false);
+        setAcceptedTerms(false);
+        onClose?.();
+    };
+
+    /* =========================
+       HANDLE VISIBLE CHANGE
+    ========================== */
     useEffect(() => {
-        fetchAllData();
-        // getSubscription();
-        fetchSubscriptionByUserId();
-        fetchSubscriptionAmount();
-        if (visible) step1Ref.current?.open();
-        else {
-            step1Ref.current?.close();
-            step2Ref.current?.close();
+        if (visible) {
+            setAcceptedTerms(false);
+            setShowPaymentMethodModal(false);
+
+            setTimeout(() => {
+                step1Ref.current?.open();
+            }, 300);
+
+            fetchAllData();
+            fetchSubscriptionByUserId();
+            fetchSubscriptionAmount();
+        } else {
+            closeAllModals();
         }
     }, [visible]);
 
+    /* =========================
+       STEP FLOW
+    ========================== */
     const handleConfirm = () => {
-        // Trigger close animation of step 1
         step1Ref.current?.close();
+
+        setTimeout(() => {
+            step2Ref.current?.open();
+        }, 350);
     };
 
-    const handleStep1Close = () => {
-        // If user clicked “Yes, I’m In”, open next step
-        if (visible) {
-            setTimeout(() => step2Ref.current?.open(), 200);
-        } else {
-            onClose?.();
-        }
-    };
-
-   const openTerms = async() => {
-      const url = 'https://www.valenstechnologies.app/subscriberterms';
-        try {
-            const supported = await Linking.canOpenURL(url);
-            if (supported) {
-                await Linking.openURL(url);
-            } else {
-                console.log("Can't open URL:", url);
-            }
-        } catch (error) {
-            console.error('Error opening terms link:', error);
-        }
-    }
-
-    const fetchSubscriptionByUserId = async () => {
-        try {
-            const id = targetUserId;
-            dispatch(showLoader());
-            const response = await getSubscriptionByUserID(id);
-            console.log('getSubscriptionByUserID response:', response);
-
-
-            if (response?.statusCode === 200) {
-                const subscriptions = response?.data?.subscriptions;
-                setComment(subscriptions[0].comment)
-                if (subscriptions && subscriptions.length > 0) {
-                    const amount = subscriptions[0].subscriptionAmount;
-                    console.log("FIRST SUBSCRIPTION AMOUNT:", amount);
-                    setSubscriptionAmount(amount);
-                    
-                    // setPrice(amount)
-                } else {
-                    console.log("No subscriptions found");
-                    setSubscriptionAmount(null);
-                }
-            } else {
-                showToastMessage(toast, 'danger', response.data.message);
-            }
-
-        } catch (error) {
-            console.error('Error saving subscription:', error);
-            // showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
-        }
-        finally {
-            dispatch(hideLoader());
-        }
-    };
-
-
+    /* =========================
+       STRIPE SUBSCRIPTION FLOW
+    ========================== */
     const getSubscription = async () => {
         const canProceed = await requireStripeCustomerForPayment();
+
         if (!canProceed) {
             step1Ref.current?.close();
             step2Ref.current?.close();
-            setShowPaymentMethodModal(true);
+
+            setTimeout(() => {
+                setShowPaymentMethodModal(true);
+            }, 500);
+
             return;
         }
+
         dispatch(showLoader());
 
         try {
@@ -156,65 +128,66 @@ const SubscribeFlowModal = ({
 
             if (url) {
                 if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
-                    step1Ref.current?.close();
-                    step2Ref.current?.close();
+                    await InAppBrowser.open(url, {
+                        ...STRIPE_BROWSER_OPTIONS,
+                        forceCloseOnRedirection: true,
+                    });
                 } else {
                     await Linking.openURL(url);
                 }
+
+                closeAllModals();
             } else {
                 showToastMessage(
                     toast,
                     'danger',
-                    response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                    response?.message ||
+                    response?.data?.message ||
+                    STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
                 );
             }
         } catch (error) {
-            showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+            showToastMessage(
+                toast,
+                'danger',
+                error?.response?.data?.message ||
+                STRIPE_ERROR_MESSAGES.NETWORK_ERROR
+            );
         } finally {
             dispatch(hideLoader());
         }
     };
 
+    /* =========================
+       EXISTING API FUNCTIONS
+    ========================== */
+    const fetchSubscriptionByUserId = async () => {
+        try {
+            dispatch(showLoader());
+            const response = await getSubscriptionByUserID(targetUserId);
 
+            if (response?.statusCode === 200) {
+                const subscriptions = response?.data?.subscriptions;
 
-    const handlePayment = () => {
-        if (!acceptedTerms) {
-            alert('Please accept Terms & Conditions to continue');
-            return;
+                if (subscriptions?.length > 0) {
+                    setSubscriptionAmount(subscriptions[0].subscriptionAmount);
+                    setComment(subscriptions[0].comment);
+                }
+            }
+        } finally {
+            dispatch(hideLoader());
         }
-        onPaymentDone?.(cardInfo);
-        step2Ref.current?.close();
-        onClose?.();
     };
 
     const fetchAllData = async () => {
         try {
             dispatch(showLoader());
+            const profileResponse = await getUserCredentials(userData?.id);
 
-            // Run both API calls in parallel
-            const [profileResponse] = await Promise.all([
-                getUserCredentials(userData?.id)
-            ]);
-
-            // Handle profile response
             if (profileResponse?.statusCode === 200) {
-                let userDataToSet;
-                if (profileResponse.data && profileResponse.data.user) {
-                    userDataToSet = profileResponse.data.user;
-                } else if (profileResponse.data) {
-                    userDataToSet = profileResponse.data;
-                } else {
-                    userDataToSet = profileResponse;
-                }
-                setUserProfile(userDataToSet.profile || '');
-                await AsyncStorage.setItem('profile', userDataToSet?.profile);
-                // console.log('User profile:', userDataToSet.profile);
-            } else {
-                // showToastMessage(toast, 'danger', profileResponse.data.message);
+                const user = profileResponse?.data?.user || profileResponse?.data;
+                setUserProfile(user?.profile || '');
             }
-        } catch (error) {
-            console.error('Error fetching data:', error);
         } finally {
             dispatch(hideLoader());
         }
@@ -224,41 +197,42 @@ const SubscribeFlowModal = ({
         try {
             dispatch(showLoader());
             const id = await AsyncStorage.getItem('userId');
-            // Run both API calls in parallel
-            const response = await getUserSubscription(id);
-            console.log('getUserSubscription:-----------------', response);
-
-            // Handle profile response
-            if (response?.statusCode === 200) {
-            } else {
-                // showToastMessage(toast, 'danger', response.data);
-            }
-        } catch (error) {
-            console.error('Error fetching data:', error);
+            await getUserSubscription(id);
         } finally {
             dispatch(hideLoader());
         }
     };
 
-    const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile);
+    const openTerms = async () => {
+        const url = 'https://www.valenstechnologies.app/subscriberterms';
+        const supported = await Linking.canOpenURL(url);
+        if (supported) await Linking.openURL(url);
+    };
+
+    const DragonflyIcon = getDragonflyIcon(
+        dashboard?.totalFollowers,
+        isCompanyProfile
+    );
 
     return (
         <>
-            {/* Step 1: Confirmation */}
+            {/* STEP 1 */}
             <RBSheet
                 ref={step1Ref}
                 height={380}
                 closeOnPressMask={false}
-                onClose={handleStep1Close}
-                customStyles={{
-                    container: [styles.sheetContainer, bgStyle],
-                }}>
+                customStyles={{ container: [styles.sheetContainer, bgStyle] }}
+            >
                 <View style={styles.container}>
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
                         <Text style={[styles.header, textStyle]}>{displayName} </Text>
                         <DragonflyIcon width={22} height={22} />
                     </View>
-                    <Text style={[styles.subHeader, { color: text }]}>You’re about to Subscribe!</Text>
+
+                    <Text style={[styles.subHeader, { color: text }]}>
+                        You’re about to Subscribe!
+                    </Text>
+
                     <Text style={styles.bodyText}>
                         Unlock exclusive posts, private drops, and direct access to this
                         creator’s Valens world.{'\n\n'}
@@ -266,36 +240,38 @@ const SubscribeFlowModal = ({
                         their journey and yours.
                     </Text>
 
-                    <Text style={[styles.confirmText, textStyle]}>Confirm Subscription?</Text>
+                    <Text style={[styles.confirmText, textStyle]}>
+                        Confirm Subscription?
+                    </Text>
 
                     <TouchableOpacity
                         style={[styles.btn, { backgroundColor: text }]}
-                        onPress={handleConfirm}>
+                        onPress={handleConfirm}
+                    >
                         <Text style={styles.confirmTextBtn}>Yes, I’m In</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.btn, styles.cancelBtn]}
-                        onPress={onClose}>
-                        <Text style={[styles.cancelTextBtn, textStyle]}>Not Now</Text>
+                        onPress={closeAllModals}
+                    >
+                        <Text style={[styles.cancelTextBtn, textStyle]}>
+                            Not Now
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </RBSheet>
 
-            {/* Step 2: Payment */}
+            {/* STEP 2 */}
             <RBSheet
                 ref={step2Ref}
                 height={280}
                 closeOnPressMask={false}
-                customStyles={{
-                    container: styles.sheetContainer,
-                }}>
-                <ScrollView
-                    style={styles.container}
-                    showsVerticalScrollIndicator={false}
-                    scrollEnabled={true}
-                    nestedScrollEnabled={true}
-                >
+                customStyles={{ container: styles.sheetContainer }}
+            >
+                <ScrollView style={styles.container}
+                 showsVerticalScrollIndicator={false}>
+
                     <View style={styles.priceBox}>
                         <Text style={styles.priceLabel}>Membership</Text>
                         <Text style={[styles.priceValue, textStyle]}>
@@ -303,50 +279,14 @@ const SubscribeFlowModal = ({
                         </Text>
                     </View>
 
-                    {/* <View style={styles.termsContainer}>
-                        <ScrollView
-                            style={{ maxHeight: 240 }}
-                            showsVerticalScrollIndicator={true}
-                            nestedScrollEnabled={true}
-                            onScrollBeginDrag={() => {
-                                // Disable parent scroll when user starts scrolling terms
-                            }}
-                            onScrollEndDrag={() => {
-                                // Re-enable parent scroll when done
-                            }}
-                        >
-                            <Text style={styles.termsContent}>
-                                {`VALENS SUBSCRIBER TERMS & AGREEMENT\n
-For Members Purchasing a Creator's Subscription Plan\n
-By subscribing to a creator on Valens ("Plan Owner"), you ("Subscriber") agree to the following terms, in addition to the Valens Terms of Use, Master Subscription Policy, Privacy Policy, and Payout/Payment Policies.\n
-1. SUBSCRIPTION ACCESS\n
-By purchasing a subscription, you gain access to the creator's private channel, exclusive posts, content, messages, perks, and benefits defined by the creator. Your subscription is personal and non-transferable.\n
-2. MONTHLY BILLING & AUTO-RENEWAL\n
-You authorize Valens Technologies Inc. to charge your selected payment method monthly, automatically renew your subscription every billing cycle, and continue charging until you cancel. Prices may range from $9.99 to $100.00 USD per month.\n
-3. CANCELLATION POLICY\n
-Cancel anytime via Settings → Subscriptions → Manage. You will retain access until the end of your paid period. No refunds or partial credits are issued.\n
-4. NO REFUNDS\n
-All subscription payments are final, including partial months, unused time, accidental purchases, early cancellations, or creator content changes.\n
-5. CONTENT PROTECTION\n
-You may NOT screenshot, screen record, print, download, copy, redistribute, or share paid content. After 3 unauthorized attempts, your account may be blocked for review.\n
-6. SUBSCRIBER CONDUCT\n
-You must not harass creators, request prohibited content, engage in fraud, or violate privacy or intellectual property rights. Violations may result in restrictions, bans, loss of access, or legal action.\n
-7. RISK DISCLOSURE\n
-Creators manage their own content. Valens is not responsible for frequency, type of content, or communication between creators and subscribers.\n
-8. BILLING AUTHORIZATION\n
-By confirming, you authorize automated monthly payments through Valens payment partners.\n
-9. AGREEMENT\n
-By clicking "Agree & Subscribe," you confirm you have read and accept these terms and understand this is a recurring monthly payment.\n`}
-                            </Text>
-                        </ScrollView>
-                    </View> */}
-                       {comment ? (
-                        <Text style={styles.comment}>Comment: <Text style={styles.comments}>{comment}</Text></Text>
+                    {comment ? (
+                        <Text style={styles.comment}>
+                            Comment: <Text style={styles.comments}>{comment}</Text>
+                        </Text>
                     ) : null}
 
                     <TouchableOpacity
                         style={styles.checkboxRow}
-                        activeOpacity={0.8}
                         onPress={() => setAcceptedTerms(!acceptedTerms)}
                     >
                         <Ionicons
@@ -355,37 +295,32 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                             color={acceptedTerms ? '#000' : '#aaa'}
                             style={styles.checkboxIcon}
                         />
-                           {/* <Text onPress={() => {
-                            onClose();
-                            navigation.navigate('ProfileMain', {
-                                screen: 'TermConditionScreen'
-                            });
-                        }}
-                        style={[styles.termsText, { fontWeight: '700', textDecorationLine: 'underline' }]}>I accept Terms & Conditions</Text> */}
-
                         <Text style={styles.checkboxText}>
                             I agree to the{' '}
                             <Text style={styles.linkText} onPress={openTerms}>
                                 Valens Subscriber Terms
                             </Text>{' '}
                             and understand that subscriptions provide access to digital content only
-                            and are not investments or financial products. Subscription fees are billed
-                            monthly and are non-refundable except where required by law.
+                            and are not investments or financial products.
                         </Text>
                     </TouchableOpacity>
-                  
-                 
-  
-                      <View style={{ marginTop: 15 }} />
 
                     <TouchableOpacity
-                        style={[styles.btn, { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text }]}
-                        onPress={getSubscription}>
-                        <Text style={styles.doneText}>✅ Done — Complete Payment</Text>
+                        style={[
+                            styles.btn,
+                            { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text },
+                        ]}
+                        onPress={getSubscription}
+                    >
+                        <Text style={styles.doneText}>
+                            ✅ Done — Complete Payment
+                        </Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                         style={[styles.btn, styles.cancelBtn]}
-                        onPress={onClose}>
+                        onPress={closeAllModals}
+                    >
                         <Text style={styles.cancelTextBtn}>Not Now</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -398,7 +333,12 @@ By clicking "Agree & Subscribe," you confirm you have read and accept these term
                     try {
                         await openPaymentConnectionAndRefresh();
                     } catch (e) {
-                        showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+                        showToastMessage(
+                            toast,
+                            'danger',
+                            e?.message ||
+                            STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED
+                        );
                     }
                 }}
             />
@@ -524,37 +464,37 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 12,
-  },
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: 12,
+    },
 
-  checkboxIcon: {
-    marginTop: 3,
-    marginRight: 10,
-  },
+    checkboxIcon: {
+        marginTop: 3,
+        marginRight: 10,
+    },
 
-  checkboxText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#000',
-  },
+    checkboxText: {
+        flex: 1,
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#000',
+    },
 
-  linkText: {
-    color: '#5a2d82',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  comment: {
+    linkText: {
+        color: '#5a2d82',
+        fontWeight: '600',
+        textDecorationLine: 'underline',
+    },
+    comment: {
         fontSize: 14,
         color: '#6b7280',
         marginTop: 10,
-        fontWeight:600
+        fontWeight: 600
     },
-    comments:{
-        fontWeight:100,
-        fontSize:14,
-        color:'#000'
+    comments: {
+        fontWeight: 100,
+        fontSize: 14,
+        color: '#000'
     }
 });
