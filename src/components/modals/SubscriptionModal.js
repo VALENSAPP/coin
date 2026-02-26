@@ -135,6 +135,8 @@ const SubscribeFlowModal = ({
     const getSubscription = async () => {
         const canProceed = await requireStripeCustomerForPayment();
         if (!canProceed) {
+            step1Ref.current?.close();
+            step2Ref.current?.close();
             setShowPaymentMethodModal(true);
             return;
         }
