@@ -17,13 +17,15 @@ const selectedGridItemSize = (width - 64) / 2;
 export default function PostScreen({ navigation }) {
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [galleryImages, setGalleryImages] = useState([]);
-  const [showTypeModal, setShowTypeModal] = useState(true);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   const [postType, setPostType] = useState('normal');
   const [shared, setShared] = useState(false);
   const route = useRoute();
+  const isPrivatePost = route?.params?.postType;
   const fromIcon = route?.params?.fromIcon;
   const mediaType = route?.params?.type;
-  console.log(mediaType, 'mediaTypes--------------------------------')
+  console.log(isPrivatePost,'isPrivatePostisPrivatePostisPrivatePost');
+  
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
 
@@ -332,15 +334,24 @@ export default function PostScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      if (mediaType === 'Flips') {
-        setSelectedMedia([])
-        setShowTypeModal(false);
-        setPostType('flip');
-      } else {
-        setSelectedMedia([])
-        setShowTypeModal(true);
+      console.log('in post type screennnnnn', showTypeModal);
+      if (isPrivatePost == "private"){
+        console.log('in isPrivatePost screennnnnn', showTypeModal);
+        setPostType("private")
+        setShowTypeModal(false)
       }
-    }, [fromIcon])
+      else {
+        setShowTypeModal(true)
+        if (mediaType === 'Flips') {
+          setSelectedMedia([])
+          setShowTypeModal(false);
+          setPostType('flip');
+        } else {
+          setSelectedMedia([])
+          setShowTypeModal(true);
+        }
+      }
+    }, [fromIcon, showTypeModal])
   );
 
   useFocusEffect(

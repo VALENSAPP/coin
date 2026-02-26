@@ -106,6 +106,58 @@ const BusinessProfileForm = () => {
     }
   };
 
+  const isValidEmail = value =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
+  const isValidWebsite = value => {
+    const raw = String(value || '').trim();
+    if (!raw) return true;
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(normalized);
+  };
+
+  const normalizeWebsite = value => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  };
+
+  const validateForm = () => {
+    const nextErrors = {};
+    const businessName = form.businessName.trim();
+    const phoneDigits = form.phone.replace(/\D/g, '');
+    const email = form.email.trim();
+    const website = form.website.trim();
+
+    if (!businessName) {
+      nextErrors.businessName = 'Business name is required';
+    } else if (businessName.length < 2) {
+      nextErrors.businessName = 'Business name is too short';
+    }
+
+    if (!phoneDigits) {
+      nextErrors.phone = 'Phone number is required';
+    } else if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      nextErrors.phone = 'Enter a valid phone number';
+    }
+
+    if (email && !isValidEmail(email)) {
+      nextErrors.email = 'Enter a valid email address';
+    }
+
+    if (website && !isValidWebsite(website)) {
+      nextErrors.website = 'Enter a valid website URL';
+    }
+
+    if (!selectedDocument) {
+      nextErrors.document = 'Document is required';
+    } else if (!isDocumentUploaded) {
+      nextErrors.document = 'Please upload document before continuing';
+    }
+
+    return nextErrors;
+  };
+
   const uploadDocumentNow = async file => {
     if (!file?.uri) {
       showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
@@ -234,7 +286,7 @@ const BusinessProfileForm = () => {
     ]);
   };
 
-  const fetchCompanyProfile = async () => {
+  const fetchCompanyProfile = useCallback(async () => {
     try {
       const response = await GetCompanyProfile();
       const code = response?.statusCode;
@@ -280,23 +332,20 @@ const BusinessProfileForm = () => {
       setSelectedDocument(null);
       setIsDocumentUploaded(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchCompanyProfile();
-    }, []),
+    }, [fetchCompanyProfile]),
   );
 
   const handleSubmit = async () => {
-    const nextErrors = {};
-    if (!form.businessName.trim()) nextErrors.businessName = 'Business name is required';
-    if (!form.phone.trim()) nextErrors.phone = 'Phone number is required';
-    if (!selectedDocument) nextErrors.document = 'Document is required';
+    const nextErrors = validateForm();
 
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
-      Alert.alert('Missing details', 'Please complete all required fields.');
+      Alert.alert('Validation error', 'Please fix the highlighted fields.');
       return;
     }
 
@@ -304,12 +353,12 @@ const BusinessProfileForm = () => {
       businessName: form.businessName.trim(),
       ownerName: form.ownerName.trim(),
       email: form.email.trim(),
-      phone: form.phone.trim(),
-      phoneNumber: form.phone.trim(),
+      phone: form.phone.replace(/\D/g, ''),
+      phoneNumber: form.phone.replace(/\D/g, ''),
       category: form.category.trim(),
       address: form.address.trim(),
       description: form.description.trim(),
-      website: form.website.trim(),
+      website: normalizeWebsite(form.website),
       gstNumber: form.gstNumber.trim(),
     };
 
