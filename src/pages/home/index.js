@@ -749,28 +749,24 @@ const sidebarStyles = StyleSheet.create({
 const headerBadgeStyles = StyleSheet.create({
   badgeContainer: {
     position: 'absolute',
-    right: -4,
-    top: -4,
+    right: -6,
+    top: -6,
     backgroundColor: '#FF3B30',
-    borderRadius: 20,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    zIndex: 2,
+    borderRadius: 10,
     minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    elevation: 4,
   },
   badgeText: {
     color: '#fff',
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    includeFontPadding: false,   // Android fix
+    textAlignVertical: 'center', // ✅ fixed typo
   },
 });

@@ -54,6 +54,11 @@ const ProfileTabs = memo(({
     [post, userData],
   );
 
+  const renderPrivateContentScreen = useCallback(
+    (navProps) => <PrivateContentScreen {...navProps} postCheck={post} userData={userData} />,
+    [post, userData],
+  );
+
   const navigation = useNavigation();
 
   const handleModalClose = () => {
@@ -65,21 +70,6 @@ const ProfileTabs = memo(({
   const handleSubscription = () => {
     setIsSubscribed(true);
     setShowSubscribeModal(false);
-  };
-
-  // ✅ wrapper component for PrivateContent
-  const PrivateContentWrapper = (props) => {
-    const isFocused = useIsFocused();
-
-    useCallback(() => {
-      if (isFocused) {
-        if (!isSubscribed) {
-          setShowSubscribeModal(true);
-        }
-      }
-    }, [isSubscribed]);
-
-    return isSubscribed ? <PrivateContentScreen {...props} /> : <></>;
   };
 
   return (
@@ -165,11 +155,11 @@ const ProfileTabs = memo(({
         {/* ✅ Private Content with Subscription Modal */}
         <Tab.Screen
           name="PrivateContent"
-          component={
-            loggedInUserId === userData?.id || isSubscribed
-              ? PrivateContentScreen
-              : PrivateContentScreen
-          }
+          // component={
+          //   loggedInUserId === userData?.id || isSubscribed
+          //     ? PrivateContentScreen
+          //     : PrivateContentScreen
+          // }
           options={{
             tabBarIcon: ({ focused }) => (
               <LockKey
@@ -196,7 +186,9 @@ const ProfileTabs = memo(({
               }
             },
           }}
-        />
+          >
+          {renderPrivateContentScreen}
+        </Tab.Screen>
 
         <Tab.Screen
           name="Tagged"

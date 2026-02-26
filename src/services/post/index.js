@@ -45,12 +45,16 @@ export const createPost = async data => {
   return axiosInstance.post('post/create', formData);
 }
 
-export const getPostByUser = async userId => {
+export const getPostByUser = async (userId, type = '') => {
   if (!userId || typeof userId !== 'string') {
-    throw new Error('getPostsByUser: you must pass a valid userId');
+    throw new Error('getPostByUser: you must pass a valid userId');
   }
+
   return axiosInstance.get('post/by-user', {
-    params: { userId }
+    params: {
+      userId,
+      type,
+    },
   });
 };
 

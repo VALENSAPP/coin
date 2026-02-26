@@ -60,8 +60,7 @@ const BusinessSubscriptionPrompt = ({
     };
   }, [visible, subscriptionStatus]);
 
-  const shouldShowModal =
-    visible && resolvedSubscriptionStatus === 'INACTIVE';
+  const shouldShowModal = visible;
 
   const handleClose = () => {
     setStep(1);

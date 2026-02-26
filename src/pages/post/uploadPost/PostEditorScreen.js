@@ -103,8 +103,14 @@ const PostEditorScreen = () => {
           name: getMediaUri(img).split('/').pop()
 
         })),
-        type: fromIcon == 'Flips' ? 'reel' : 'normal',
-      };
+        type:
+        //  fromIcon === 'Flips'
+        //   ? 'reel'
+        //   : 
+          postType === 'private'
+            ? 'private'
+            : 'normal',
+        };
 
       try {
         const response = await createPost(payload);

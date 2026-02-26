@@ -24,7 +24,7 @@ const SubscriptionActivationPopup = ({
           <Text style={styles.title}>Become a Private Subscriber</Text>
 
           <Text style={styles.text}>
-            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90</Text>
+            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.99</Text>
             will be charged to activate your private subscriber account.
           </Text>
 
@@ -59,6 +59,8 @@ const SubscriptionActivationPopup = ({
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.acceptBtn} onPress={onConfirm}>
+              console.log('butoon presss');
+              
               <Text style={styles.acceptTxt}>Accept</Text>
             </TouchableOpacity>
           </View>

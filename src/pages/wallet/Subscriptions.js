@@ -29,6 +29,10 @@ import SubscriptionActivationPopup from '../../components/modals/SubscriptionAct
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
 import { STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { createCheckoutSession } from '../../services/stirpe';
+import { log } from 'console';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { getUserCredentials } from '../../services/post';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -42,6 +46,7 @@ const SubventionSetupScreen = () => {
     const toast = useToast();
     const dispatch = useDispatch();
     const { bgStyle, textStyle, text } = useAppTheme();
+    const [credential, setCredential] = useState(null);
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
@@ -62,11 +67,11 @@ const SubventionSetupScreen = () => {
         { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
     ];
 
-
     useFocusEffect(
         useCallback(() => {
             fetchSubscriptionByUserId();
-        }, [])
+            getCredential();
+        }, [fetchSubscriptionByUserId])
     );
 
     const formatPrice = (value) => {
@@ -87,8 +92,8 @@ const SubventionSetupScreen = () => {
         return `${formatted},00`;
     };
 
-    const openTerms = async() => {
-      const url = 'https://www.valenstechnologies.app/creatorterms';
+    const openTerms = async () => {
+        const url = 'https://www.valenstechnologies.app/creatorterms';
         try {
             const supported = await Linking.canOpenURL(url);
             if (supported) {
@@ -102,12 +107,40 @@ const SubventionSetupScreen = () => {
     }
 
 
+    const getCredential = async () => {
+        try {
+            const id = await AsyncStorage.getItem('userId');
+            if (!id) {
+                return;
+            }
+            const response = await getUserCredentials(id); // API call
+
+            console.log('User credentials:', response);
+
+            // Adjust according to API structure
+            const data = response?.data ?? response;
+
+            setCredential(data); // store in state
+            const status = data?.subscriptionStatus?.toUpperCase();
+
+            // ✅ Hide popup if already ACTIVE
+            if (status === "ACTIVE") {
+                setShowActivationPopup(false);
+            }
+
+        } catch (error) {
+            console.log('Get credential error:', error?.message);
+        } finally {
+        }
+    };
     const fetchSubscriptionByUserId = async () => {
+        console.log('setShowModal setShowModalsetShowModalsetShowModal');
+
         try {
             const id = await AsyncStorage.getItem('userId');
             dispatch(showLoader());
             const response = await getSubscriptionByUserID(id);
-            console.log('getSubscriptionByUserID response:', response);
+            console.log('getSubscriptionByUserID response:', id);
 
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
@@ -121,13 +154,14 @@ const SubventionSetupScreen = () => {
                     setRawAmount(amount.toString());
                     setHasExistingSubscription(true);
                     setShowModal(false)
+                    setShowActivationPopup(false)
                 } else {
                     console.log("No subscriptions found");
                     setSubscriptionAmount(null);
                     setSubscriptionId(null);
                     setHasExistingSubscription(false);
                     setShowModal(true)
-                    setShowActivationPopup(true)
+                    setShowActivationPopup(false)
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
@@ -166,6 +200,7 @@ const SubventionSetupScreen = () => {
         if (numValue < 9) finalValue = 9;
         if (numValue > 100) finalValue = 100;
 
+
         setRawAmount(finalValue.toString());
 
         console.log('Final value after blur:', finalValue, 'Has decimal:', hasDecimal);
@@ -177,6 +212,59 @@ const SubventionSetupScreen = () => {
         }
     };
 
+    const getUserSubscription = async () => {
+        let response;
+
+        try {
+            response = await createCheckoutSession();
+            console.log('Stripe response >>>', response);
+
+            // ✅ FIX: correct path
+            const checkoutUrl = response?.data?.url;
+
+            if (!checkoutUrl) {
+                throw new Error('Checkout URL not received');
+            }
+
+            // ✅ Open Stripe Checkout
+            if (await InAppBrowser.isAvailable()) {
+                await InAppBrowser.openAuth(checkoutUrl, {
+                    dismissButtonStyle: 'close',
+                    preferredBarTintColor: '#000',
+                    preferredControlTintColor: '#fff',
+                    showTitle: true,
+                    toolbarColor: '#000',
+                    enableUrlBarHiding: true,
+                    enableDefaultShare: false,
+                });
+            } else {
+                await Linking.openURL(checkoutUrl);
+            }
+
+            return response;
+
+        } catch (error) {
+            console.log('Subscription error:', error);
+
+            // ✅ Safe fallback
+            if (response?.data?.url) {
+                await Linking.openURL(response.data.url);
+            }
+
+            throw error;
+        }
+    };
+
+    const formatSubscriptionDate = (dateValue) => {
+        if (!dateValue) return 'N/A';
+        const parsed = new Date(dateValue);
+        if (Number.isNaN(parsed.getTime())) return 'N/A';
+        return parsed.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+        });
+    };
     const handlePrintAttempt = () => {
         const newAttempts = printAttempts + 1;
         setPrintAttempts(newAttempts);
@@ -335,29 +423,55 @@ const SubventionSetupScreen = () => {
     };
 
     const handleCreateContent = (contentType) => {
-        // Handle different actions based on content type
+        console.log('contenttype----->>>>>>>>>>>', contentType);
+
         switch (contentType) {
             case 'posts':
-                navigation.navigate('Add');
+                navigation.reset({
+                    index: 0,
+                    routes: [
+                        {
+                            name: 'Add',
+                            state: {
+                                routes: [{ name: 'Add', params: { postType: 'private', type: 'post' } }],
+                                index: 0,
+                            },
+                        },
+                    ],
+                });
                 break;
             case 'reels':
-                // Navigate to create reel screen
-                navigation.navigate('Add', {
-                    screen: 'Add',
-                    params: { type: 'Flips' },
+                navigation.reset({
+                    index: 0,
+                    routes: [
+                        {
+                            name: 'Add',
+                            state: {
+                                routes: [{ name: 'Add', params: { postType: 'private', type: 'Flips' } }],
+                                index: 0,
+                            },
+                        },
+                    ],
                 });
-                // Example: navigation.navigate('CreateReel');
-                break;
-            case 'stories':
-                // Call handleAddStory for stories
-                handleAddStory();
                 break;
             case 'videos':
-                navigation.navigate('Add', {
-                    screen: 'Add',
-                    params: { type: 'Flips' },
+                navigation.reset({
+                    index: 0,
+                    routes: [
+                        {
+                            name: 'Add',
+                            state: {
+                                routes: [{ name: 'Add', params: { postType: 'private', type: 'video' } }],
+                                index: 0,
+                            },
+                        },
+                    ],
                 });
                 break;
+            case 'stories':
+                handleAddStory();
+                break;
+
             default:
                 break;
         }
@@ -411,16 +525,16 @@ const SubventionSetupScreen = () => {
         try {
             const subscriptionAmount = parseFloat(rawAmount) || 0;
 
-            if (subscriptionAmount < 9 || subscriptionAmount > 100) {
-                showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
-                return;
-            }
+            // if (subscriptionAmount < 9 || subscriptionAmount > 100) {
+            //     showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
+            //     return;
+            // }
 
-            const status = await refreshOnboarding();
-            if (status?.canReceivePayments === false) {
-                setShowStripeSetupModal(true);
-                return;
-            }
+            // const status = await refreshOnboarding();
+            // if (status?.canReceivePayments === false) {
+            //     setShowStripeSetupModal(true);
+            //     return;
+            // }
 
             dispatch(showLoader());
 
@@ -432,15 +546,15 @@ const SubventionSetupScreen = () => {
                     subscriptionAmount: subscriptionAmount,
                     status: "ACTIVE",
                     isDelete: 0,
-                    comment:comment ||''
+                    comment: comment || ''
                 };
                 response = await setUserSubscription(dataToSend, subscriptionId);
-                console.log(response,'checkreponse')
+                console.log(response, 'checkreponse')
             } else {
                 const dataToSend = {
                     subscriptionAmount: subscriptionAmount,
                     status: "ACTIVE",
-                    comment:comment || ''
+                    comment: comment || ''
                 };
                 response = await setPrivateSubscription(dataToSend);
                 setShowActivationPopup(false);
@@ -464,6 +578,12 @@ const SubventionSetupScreen = () => {
             dispatch(hideLoader());
         }
     };
+
+    const subscriptionEndDate = formatSubscriptionDate(
+        credential?.subscriptionEnd || credential?.currentPeriodEnd
+    );
+    const subscriptionStatus = credential?.subscriptionStatus || 'INACTIVE';
+    const isSubscriptionActive = subscriptionStatus?.toUpperCase() === 'ACTIVE';
 
     return (
         <>
@@ -502,6 +622,24 @@ const SubventionSetupScreen = () => {
                             numberOfLines={4}
                             textAlignVertical="top"
                         />
+                        <View style={styles.subscriptionInfoCard}>
+                            <View>
+                                <Text style={styles.subscriptionInfoLabel}>Subscription ends</Text>
+                                <Text style={styles.subscriptionInfoValue}>{subscriptionEndDate}</Text>
+                            </View>
+                            <View
+                                style={[
+                                    styles.subscriptionStatusBadge,
+                                    isSubscriptionActive
+                                        ? styles.subscriptionStatusBadgeActive
+                                        : styles.subscriptionStatusBadgeInactive,
+                                ]}
+                            >
+                                <Text style={styles.subscriptionStatusText}>
+                                    {subscriptionStatus}
+                                </Text>
+                            </View>
+                        </View>
 
                     </View>
 
@@ -737,7 +875,9 @@ const SubventionSetupScreen = () => {
                 <SubscriptionActivationPopup
                     visible={showActivationPopup}
                     onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
-                    onConfirm={handleSaveSubscription}
+                    onConfirm={
+                        getUserSubscription
+                    }
                 />
                 <ConnectStripeModal
                     visible={showStripeSetupModal}
@@ -806,7 +946,7 @@ const styles = StyleSheet.create({
         minWidth: 100,
         textAlign: 'center',
         padding: 8,
-         maxWidth: '70%', 
+        maxWidth: '70%',
     },
     perMonth: {
         fontSize: 18,
@@ -1080,6 +1220,44 @@ const styles = StyleSheet.create({
         padding: 10,
         minHeight: 80,
         backgroundColor: '#fff',
+    },
+    subscriptionInfoCard: {
+        marginTop: 15,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 10,
+        backgroundColor: '#f9fafb',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    subscriptionInfoLabel: {
+        fontSize: 12,
+        color: '#6b7280',
+        marginBottom: 2,
+    },
+    subscriptionInfoValue: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#111827',
+    },
+    subscriptionStatusBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+    },
+    subscriptionStatusBadgeActive: {
+        backgroundColor: '#dcfce7',
+    },
+    subscriptionStatusBadgeInactive: {
+        backgroundColor: '#fee2e2',
+    },
+    subscriptionStatusText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#111827',
     },
 });
 
