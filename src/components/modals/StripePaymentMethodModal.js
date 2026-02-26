@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const MESSAGE = 'Please complete the Stripe setup to add a payment method.';
@@ -27,6 +27,8 @@ const StripePaymentMethodModal = ({
       visible={visible}
       animationType="fade"
       onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: card }]}>

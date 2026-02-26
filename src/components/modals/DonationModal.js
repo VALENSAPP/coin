@@ -206,7 +206,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     return (
         <>
         <Modal
-            visible={visible}
+            visible={visible && !showPaymentMethodModal}
             transparent
             animationType="fade"
             onRequestClose={onClose}
