@@ -30,10 +30,6 @@ const { width } = Dimensions.get('window');
 /* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-  const baseScaleRef = useRef(1);
-  const scaleRef = useRef(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const imageSource = useMemo(
@@ -46,221 +42,114 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
   const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
   const [isZoomed, setIsZoomed] = useState(false);
-
-  const openFullScreen = useCallback(() => {
-    setIsModalVisible(true);
-    setIsZoomed(true);
-    onZoomChange?.(true);
-    baseScaleRef.current = 1;
-    scaleRef.current = 1;
-    scale.setValue(1);
-  }, [onZoomChange, scale]);
-
-  const onPinchEvent = useCallback((e) => {
-    const gestureScale = e.nativeEvent.scale;
-    const newScale = Math.min(4, Math.max(0.5, baseScaleRef.current * gestureScale));
-    scale.setValue(newScale);
-    scaleRef.current = newScale;
-  }, [scale]);
-
-  const closeModal = useCallback(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 20,
-        bounciness: 0,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        speed: 20,
-        bounciness: 0,
-      }),
-      Animated.spring(opacity, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 20,
-        bounciness: 0,
-      }),
-    ]).start(() => {
-      setIsModalVisible(false);
-      setModalImageLoaded(false);
-      setIsZoomed(false);
-      onZoomChange?.(false);
-      scale.setValue(1);
-      translateY.setValue(0);
-      opacity.setValue(1);
-      baseScaleRef.current = 1;
-      scaleRef.current = 1;
-    });
-  }, [scale, translateY, opacity, onZoomChange]);
-
-  const resetScaleAndClose = useCallback((onComplete) => {
+ 
+ 
+  // useEffect(() => {
+  //   if (uri) {
+  //     Image.prefetch(uri).catch(err => console.warn('Prefetch failed:', err));
+  //   }
+  // }, [uri]);
+ 
+  const onPinchEvent = Animated.event(
+    [{ nativeEvent: { scale } }],
+    { useNativeDriver: true }
+  );
+ 
+  const resetScale = () => {
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 18,
+      speed: 20,
       bounciness: 0,
     }).start(() => {
-      baseScaleRef.current = 1;
-      scaleRef.current = 1;
-      onComplete?.();
+      setIsModalVisible(false);
+      setModalImageLoaded(false);
+      onZoomChange?.(false);
     });
-  }, [scale]);
-
-  const onPinchStateChange = useCallback(({ nativeEvent }) => {
+  };
+ 
+  const onPinchStateChange = ({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
     if (state === State.BEGAN) {
-      baseScaleRef.current = scaleRef.current;
-      if (!isModalVisible) {
-        openFullScreen();
-      }
+      setIsModalVisible(true);
+      onZoomChange?.(true);
     }
+ 
     if (
       oldState === State.ACTIVE &&
-      (state === State.END || state === State.CANCELLED || state === State.FAILED)
+      (state === State.END ||
+        state === State.CANCELLED ||
+        state === State.FAILED)
     ) {
-      // Smooth return to original scale, then close when user releases fingers
-      resetScaleAndClose(closeModal);
+      setIsModalVisible(false);
+      // setModalReady(false);
+      onZoomChange?.(false);
+      resetScale();
     }
-  }, [isModalVisible, openFullScreen, resetScaleAndClose, closeModal]);
-
-  // Swipe down gesture handler to close modal
-  const onSwipeGestureEvent = Animated.event(
-    [{ nativeEvent: { translationY: translateY } }],
-    { useNativeDriver: true }
-  );
-
-  const onSwipeHandlerStateChange = useCallback(({ nativeEvent }) => {
-    const { state, translationY, velocityY } = nativeEvent;
-    if (state !== State.END) return;
-    if (translationY > 100 || velocityY > 500) {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: Dimensions.get('window').height,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(closeModal);
-    } else {
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          speed: 20,
-          bounciness: 0,
-        }),
-        Animated.spring(opacity, {
-          toValue: 1,
-          useNativeDriver: true,
-          speed: 20,
-          bounciness: 0,
-        }),
-      ]).start();
-    }
-  }, [translateY, opacity, closeModal]);
-  const onTapStateChange = useCallback(({ nativeEvent }) => {
-    if (nativeEvent.state === State.END) {
-      openFullScreen();
-    }
-  }, [openFullScreen]);
-
-  useEffect(() => {
+  };
+useEffect(() => {
     if (!uri) return;
-
+ 
     // 1. Normal priority preload (good enough for most cases)
     FastImage.preload([imageSource]);
-
+ 
     // 2. Optional: even more aggressive (sometimes helps on slow networks)
     setTimeout(() => FastImage.preload([{ ...imageSource, priority: FastImage.priority.highest }]), 400);
-
+ 
   }, [uri, imageSource]);
   return (
     <View style={styles.mediaContainer}>
-      {/* INLINE IMAGE - tap opens full-screen, pinch also opens and zooms */}
-      <TapGestureHandler onHandlerStateChange={onTapStateChange} numberOfTaps={1}>
-        <PinchGestureHandler
-          onGestureEvent={onPinchEvent}
-          onHandlerStateChange={onPinchStateChange}
-        >
-          <Animated.View style={styles.mediaContainer}>
-            <Animated.Image
-              source={imageSource}
-              style={[
-                styles.postMedia,
-                { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
-              ]}
-            />
-          </Animated.View>
-        </PinchGestureHandler>
-      </TapGestureHandler>
-
+      {/* INLINE IMAGE */}
+      <PinchGestureHandler
+        onGestureEvent={onPinchEvent}
+        onHandlerStateChange={onPinchStateChange}
+      >
+        <Animated.Image
+          source={imageSource}
+          style={[
+            styles.postMedia,
+            { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
+            // {opacity:1}
+          ]}
+        />
+      </PinchGestureHandler>
+ 
       {/* FULLSCREEN MODAL */}
       <Modal
         visible={isModalVisible}
         transparent
-        animationType="fade"
+        animationType="none"
         statusBarTranslucent
-        onRequestClose={closeModal}
+      // onShow={() => setModalReady(true)}
       >
         <View style={styles.modalBackground}>
-          {/* Tap to close background */}
-          <TouchableWithoutFeedback onPress={closeModal}>
-            <View style={StyleSheet.absoluteFill} />
-          </TouchableWithoutFeedback>
-
-          {/* Swipe down gesture handler for image */}
-          <PanGestureHandler
-            onGestureEvent={onSwipeGestureEvent}
-            onHandlerStateChange={onSwipeHandlerStateChange}
-            activeOffsetY={10}
-            failOffsetX={[-50, 50]}
-            minPointers={1}
+          <PinchGestureHandler
+            onGestureEvent={onPinchEvent}
+            onHandlerStateChange={onPinchStateChange}
           >
-            <Animated.View
+            <AnimatedFastImage
+              // key={uri}
+              source={imageSource}
+              resizeMode="contain"
+              resizeMethod='resize'
+              fadeDuration={0}
+              //  onLoadEnd={() => setModalImageLoaded(true)}
               style={[
-                styles.imageContainer,
+                styles.fullScreenImage,
                 {
-                  transform: [
-                    { translateY },
-                  ],
-                  opacity,
+                  width: width,
+                  height: 500,
+                  transform: [{ scale }],
                 },
               ]}
-            >
-              <PinchGestureHandler
-                onGestureEvent={onPinchEvent}
-                onHandlerStateChange={onPinchStateChange}
-              >
-                <AnimatedFastImage
-                  source={imageSource}
-                  resizeMode="contain"
-                  resizeMethod='resize'
-                  fadeDuration={0}
-                  onLoadEnd={() => setModalImageLoaded(true)}
-                  style={[
-                    styles.fullScreenImage,
-                    {
-                      width: width,
-                      height: Dimensions.get('window').height,
-                      transform: [{ scale }],
-                    },
-                  ]}
-                />
-              </PinchGestureHandler>
-            </Animated.View>
-          </PanGestureHandler>
+            />
+          </PinchGestureHandler>
         </View>
       </Modal>
     </View>
   );
 }
+ 
 function PostItem({
   item,
   likesCount,

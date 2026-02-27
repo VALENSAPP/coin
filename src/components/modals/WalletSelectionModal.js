@@ -7,7 +7,7 @@ const WALLETS = [
   {
     id: 'metamask',
     name: 'MetaMask',
-    icon: require('../../assets/icons/pngicons/metamask.png'),
+    icon: require('../../assets/icons/pngicons/Emeta.png'),
     deepLinkScheme: 'metamask://',
     storeUrl: {
       ios: 'https://apps.apple.com/app/metamask/id1438144202',
@@ -17,7 +17,7 @@ const WALLETS = [
   {
     id: 'coinbase',
     name: 'Coinbase Wallet',
-    icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Coinbase icon
+    icon: require('../../assets/icons/pngicons/coin.png'), // Placeholder - add Coinbase icon
     deepLinkScheme: 'cbwallet://',
     storeUrl: {
       ios: 'https://apps.apple.com/app/coinbase-wallet/id1278383455',
@@ -57,7 +57,7 @@ const WALLETS = [
   {
     id: 'walletconnect',
     name: 'Other Wallet (WalletConnect)',
-    icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add WalletConnect icon
+    icon: require('../../assets/icons/pngicons/EWallet.png'), // Placeholder - add WalletConnect icon
     deepLinkScheme: 'wc://',
     storeUrl: null, // WalletConnect opens a browser/modal - works with ALL WalletConnect-compatible wallets
   },

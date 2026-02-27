@@ -20,9 +20,11 @@ import LavenderDragonfly from './lavenderDragonfly.svg'
 import LilacDragonfly from './lilacDragonfly.svg'
 import SoftGrayDragonfly from './softgrayDragonfly.svg'
 import WhiteSmokeDragonfly from './whitesmokeDragonfly.svg'
+import CoinBase from './coinBase.svg'
+
 
 export {
     Google, Twitter, Eyeopen, Eyeclosed, Metamask, Reels, Chat, ReelWhite, Thread, LogoIcon, Dragonfly,
     ProfileReelIcon, LockKey, AppleLogo, WhiteDragonfly, BlueDragonfly, GoldDragonfly,GoldLavenderDragonfly,
-    LavenderDragonfly, LilacDragonfly, SoftGrayDragonfly, WhiteSmokeDragonfly
+    LavenderDragonfly, LilacDragonfly, SoftGrayDragonfly, WhiteSmokeDragonfly,CoinBase
 };

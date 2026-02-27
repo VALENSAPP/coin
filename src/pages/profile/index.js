@@ -47,7 +47,7 @@ const ProfileScreen = () => {
     dispatch(showLoader());
     try {
       const [postsRes, userRes, dashRes] = await Promise.all([
-        getPostByUser(id),
+        getPostByUser(id,'normal'),
         getUserCredentials(id),
         getUserDashboard(id),
       ]);

@@ -126,6 +126,8 @@ const SubventionSetupScreen = () => {
             // ✅ Hide popup if already ACTIVE
             if (status === "ACTIVE") {
                 setShowActivationPopup(false);
+            }else{
+                setShowActivationPopup(true)
             }
 
         } catch (error) {
