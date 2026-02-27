@@ -7,6 +7,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { createCheckoutSession } from '../../services/stirpe';
 import { useAppTheme } from '../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createOnboardingLink, getOnboardingStatus } from '../../services/profile';
 
 
 const BusinessSubscriptionPrompt = ({
@@ -70,37 +71,101 @@ const BusinessSubscriptionPrompt = ({
   const handleActivateNow = async () => {
     try {
       setIsActivating(true);
-      const response = await createCheckoutSession();
 
-      if (response?.statusCode === 200 && response?.data?.url) {
-        if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(response.data.url, {
-            dismissButtonStyle: 'close',
-            preferredBarTintColor: '#ffffff',
-            preferredControlTintColor: '#000000',
-            readerMode: false,
-            animated: true,
-            modalPresentationStyle: 'fullScreen',
-            modalTransitionStyle: 'coverVertical',
-            enableBarCollapsing: false,
-            showTitle: true,
-            toolbarColor: '#ffffff',
-            secondaryToolbarColor: '#f0f0f0',
-            forceCloseOnRedirection: true,
-          });
-        } else {
-          await Linking.openURL(response.data.url);
+      const runSubscriptionCheckout = async () => {
+        const response = await createCheckoutSession();
+
+        if (response?.statusCode === 200 && response?.data?.url) {
+          if (await InAppBrowser.isAvailable()) {
+            await InAppBrowser.open(response.data.url, {
+              dismissButtonStyle: 'close',
+              preferredBarTintColor: '#ffffff',
+              preferredControlTintColor: '#000000',
+              readerMode: false,
+              animated: true,
+              modalPresentationStyle: 'fullScreen',
+              modalTransitionStyle: 'coverVertical',
+              enableBarCollapsing: false,
+              showTitle: true,
+              toolbarColor: '#ffffff',
+              secondaryToolbarColor: '#f0f0f0',
+              forceCloseOnRedirection: true,
+            });
+          } else {
+            await Linking.openURL(response.data.url);
+          }
+          return;
         }
-        // onActivate?.(response);
-      } else {
+
         showToastMessage(
           toast,
           'danger',
           response?.error || response?.message || 'Failed to create checkout session.',
         );
+      };
+
+      const onboardingStatusResponse = await getOnboardingStatus();
+      const onboardingStatus = onboardingStatusResponse?.data;
+      const canReceivePayments =
+        onboardingStatusResponse?.statusCode === 200 &&
+        onboardingStatus?.canReceivePayments === true &&
+        Boolean(onboardingStatus?.accountId);
+
+      if (canReceivePayments) {
+        await runSubscriptionCheckout();
+        return;
       }
+
+      const onboardingResponse = await createOnboardingLink();
+      const onboardingUrl =
+        onboardingResponse?.data?.onboardingUrl ?? onboardingResponse?.data?.data?.onboardingUrl;
+
+      if (!onboardingUrl) {
+        throw new Error('Unable to create Stripe onboarding link.');
+      }
+
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(onboardingUrl, {
+          dismissButtonStyle: 'close',
+          preferredBarTintColor: '#ffffff',
+          preferredControlTintColor: '#000000',
+          readerMode: false,
+          animated: true,
+          modalPresentationStyle: 'fullScreen',
+          modalTransitionStyle: 'coverVertical',
+          enableBarCollapsing: false,
+          showTitle: true,
+          toolbarColor: '#ffffff',
+          secondaryToolbarColor: '#f0f0f0',
+          forceCloseOnRedirection: true,
+        });
+      } else {
+        await Linking.openURL(onboardingUrl);
+      }
+
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const updatedStatusResponse = await getOnboardingStatus();
+        const updated = updatedStatusResponse?.data;
+        const isReady =
+          updatedStatusResponse?.statusCode === 200 &&
+          updated?.canReceivePayments === true &&
+          Boolean(updated?.accountId);
+
+        if (isReady) {
+          await runSubscriptionCheckout();
+          return;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Unable to start subscription. Please try again.');
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || error?.message || 'Unable to start subscription. Please try again.',
+      );
     } finally {
       setIsActivating(false);
     }

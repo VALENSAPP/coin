@@ -40,8 +40,11 @@ import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { log } from 'console';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
+  console.log(postData,'post data in post');
+  
 
   // All state hooks first - maintain consistent order
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);

@@ -105,6 +105,7 @@ const ProfilePersonData = ({
   const isKycApproved =
     userData?.kyc === true &&
     userData?.kycStatus === "APPROVED";
+  const isSubscriptionActive = userData?.subscriptionStatus !== "INACTIVE";
   const Userdata = {
     Displayname: displayName || 'No Name',
     Username: username || 'Unknown User',
@@ -115,8 +116,7 @@ const ProfilePersonData = ({
     Followings: dashboard?.totalFollowing ?? 'NA',
     userId: userId,
   };
-
-  console.log(returnByTo, "returnToreturnTo")
+  console.log(userData, 'userdata ehata');
 
   const fetchAllData = async () => {
     try {
@@ -655,7 +655,7 @@ const ProfilePersonData = ({
               )}
               <View style={styles.userRow}>
                 <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
-                {isKycApproved && (
+                {isKycApproved && isSubscriptionActive && (
                   <DragonflyIcon width={22} height={22} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
@@ -683,7 +683,7 @@ const ProfilePersonData = ({
             >
               <Ionicons name="share-outline" size={25} color="#111100" />
             </TouchableOpacity>
-            {!fromUsersProfile && (
+            {!fromUsersProfile &&(
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => setModalVisible(true)}
