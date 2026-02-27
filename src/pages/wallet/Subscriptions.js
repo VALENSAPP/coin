@@ -28,7 +28,7 @@ import TermCondition from '../../components/modals/Term&Condition';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
-import { STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { createOnboardingLink, getOnboardingStatus, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { createCheckoutSession } from '../../services/stirpe';
 import { log } from 'console';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -58,7 +58,7 @@ const SubventionSetupScreen = () => {
     const [rawAmount, setRawAmount] = useState('');
     const [comment, setComment] = useState('');
 
-    const { canReceivePayments, refresh: refreshOnboarding, openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
+    const { openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
 
     const contentTabs = [
         { id: 'posts', label: 'New Mint', icon: '📝' },
@@ -106,6 +106,108 @@ const SubventionSetupScreen = () => {
         }
     }
 
+
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
+
+    const GetInbordingstatus = async () => {
+        try {
+            const response = await getOnboardingStatus();
+            if (response?.statusCode === 200) {
+                return response?.data ?? null;
+            }
+            return null;
+        } catch (error) {
+            console.log('GetInbordingstatus error:', error?.message);
+            return null;
+        }
+    };
+
+    const GetInbordingLink = async () => {
+        const response = await createOnboardingLink();
+        const onboardingUrl = response?.data?.onboardingUrl ?? response?.data?.data?.onboardingUrl;
+
+        if (!onboardingUrl) {
+            throw new Error('Onboarding link not found');
+        }
+
+        if (await InAppBrowser.isAvailable()) {
+            return await InAppBrowser.open(onboardingUrl, {
+                dismissButtonStyle: 'close',
+                preferredBarTintColor: '#000',
+                preferredControlTintColor: '#fff',
+                showTitle: true,
+                toolbarColor: '#000',
+                enableUrlBarHiding: true,
+                enableDefaultShare: false,
+            });
+        } else {
+            await Linking.openURL(onboardingUrl);
+            return { type: 'opened_external' };
+        }
+    };
+
+    const waitForOnboardingCompletion = async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            const status = await GetInbordingstatus();
+            if (status?.canReceivePayments === true && status?.accountId) {
+                return status;
+            }
+            await delay(2000);
+        }
+        return null;
+    };
+
+    const navigateToWalletDashboard = () => {
+        navigation.navigate('MainApp', {
+            screen: 'wallet',
+            params: { screen: 'Dashboard' }
+        });
+    };
+
+    const handleActivationConfirm = async () => {
+        try {
+            dispatch(showLoader());
+
+            const onboardingStatus = await GetInbordingstatus();
+            if (onboardingStatus?.canReceivePayments === true && onboardingStatus?.accountId) {
+                const paymentResult = await getUserSubscription();
+                setShowActivationPopup(false);
+                navigateToWalletDashboard();
+                if (paymentResult?.cancelled) {
+                    return;
+                }
+                return;
+            }
+
+            const onboardingResult = await GetInbordingLink();
+            if (isBrowserCancelled(onboardingResult)) {
+                setShowActivationPopup(false);
+                navigateToWalletDashboard();
+                return;
+            }
+
+            const updatedStatus = await waitForOnboardingCompletion();
+            if (updatedStatus?.canReceivePayments === true && updatedStatus?.accountId) {
+                const paymentResult = await getUserSubscription();
+                setShowActivationPopup(false);
+                navigateToWalletDashboard();
+                if (paymentResult?.cancelled) {
+                    return;
+                }
+                return;
+            }
+
+            setShowActivationPopup(false);
+            navigateToWalletDashboard();
+            showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+        } catch (error) {
+            console.log('Activation flow error:', error);
+            showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
 
     const getCredential = async () => {
         try {
@@ -230,7 +332,7 @@ const SubventionSetupScreen = () => {
 
             // ✅ Open Stripe Checkout
             if (await InAppBrowser.isAvailable()) {
-                await InAppBrowser.openAuth(checkoutUrl, {
+                const browserResult = await InAppBrowser.openAuth(checkoutUrl, {
                     dismissButtonStyle: 'close',
                     preferredBarTintColor: '#000',
                     preferredControlTintColor: '#fff',
@@ -239,11 +341,14 @@ const SubventionSetupScreen = () => {
                     enableUrlBarHiding: true,
                     enableDefaultShare: false,
                 });
+                return {
+                    response,
+                    cancelled: isBrowserCancelled(browserResult),
+                };
             } else {
                 await Linking.openURL(checkoutUrl);
+                return { response, cancelled: false };
             }
-
-            return response;
 
         } catch (error) {
             console.log('Subscription error:', error);
@@ -878,7 +983,7 @@ const SubventionSetupScreen = () => {
                     visible={showActivationPopup}
                     onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
                     onConfirm={
-                        getUserSubscription
+                        handleActivationConfirm
                     }
                 />
                 <ConnectStripeModal

@@ -656,7 +656,10 @@ function PostItem({
       </View>
     );
   }, [currentIndex, isVideoUrl, videoStates, isZooming, isMuted]);
+  console.log(item,'item in post');
+  
   return (
+    
     <View style={styles.wrapper}>
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
