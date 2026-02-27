@@ -74,6 +74,7 @@ const InstagramPostCreator = () => {
   const routeImages = route.params?.selectedMedia || [];
   const postType = route.params?.postType || 'regular';
   const fromIcon = route.params?.fromIcon;
+  const isFlipPost = fromIcon === 'Flips';
   const [selectedImages, setSelectedImages] = useState(routeImages);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
@@ -875,6 +876,8 @@ const InstagramPostCreator = () => {
               navigation.navigate('PostEditor', {
                 images: fallbackImages,
                 imageEdits: imageEdits,
+                postType: postType,
+                fromIcon: fromIcon
               });
             }
           }
@@ -1504,7 +1507,7 @@ const InstagramPostCreator = () => {
 
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle]}>
-      {!fromIcon && (
+      {!isFlipPost && (
         <View style={styles.tabContainer}>
           {[
             { title: 'Text', icon: 'text-outline', disabled: false },
@@ -1772,7 +1775,7 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ height: fromIcon ? "82%" : "70%" }} showsVerticalScrollIndicator={false}>
+      <View style={{ height: isFlipPost ? "82%" : "70%" }} showsVerticalScrollIndicator={false}>
         {renderFilters()}
         {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}

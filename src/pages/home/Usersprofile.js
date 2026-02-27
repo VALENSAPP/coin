@@ -119,7 +119,7 @@ const Usersprofile = () => {
       ]);
 
       const [postsRes, userRes, dashRes] = await Promise.all([
-        getPostByUser(targetUserId),
+        getPostByUser(targetUserId,'normal'),
         getUserCredentials(targetUserId),
         getUserDashboard(targetUserId),
       ]);

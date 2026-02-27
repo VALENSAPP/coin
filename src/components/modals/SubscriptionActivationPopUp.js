@@ -58,9 +58,7 @@ const SubscriptionActivationPopup = ({
               <Text style={styles.cancelTxt}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.acceptBtn} onPress={onConfirm}>
-              console.log('butoon presss');
-              
+            <TouchableOpacity style={styles.acceptBtn} onPress={() => onConfirm?.()}>
               <Text style={styles.acceptTxt}>Accept</Text>
             </TouchableOpacity>
           </View>

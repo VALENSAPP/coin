@@ -106,19 +106,21 @@ const PostImage = memo(({ item }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({ postCheck, userData }) => {
+const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const canViewPrivateContent = loggedInUserId === userData?.id || isSubscribed;
 
   useEffect(() => {
-    if (userData?.id) {
+    if (userData?.id && canViewPrivateContent) {
       fetchPosts(userData.id);
     } else {
       setPosts([]);
+      setLoading(false);
     }
-  }, [userData?.id]);
+  }, [userData?.id, canViewPrivateContent]);
 
   const fetchPosts = async (id) => {
     try {
@@ -188,6 +190,22 @@ const PrivateContentScreen = ({ postCheck, userData }) => {
       <Text style={styles.emptySubtitle}>Private content will appear here</Text>
     </View>
   ), [textStyle]);
+
+  if (!canViewPrivateContent) {
+    return (
+      <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
+        <View style={styles.lockedCard}>
+          <Text style={styles.lockedIcon}>🔒</Text>
+          <Text style={[styles.lockedTitle, textStyle]}>
+            Subscribe to unlock private content
+          </Text>
+          <Text style={styles.lockedSubtitle}>
+            Exclusive posts are available only for active subscribers.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -310,5 +328,37 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  lockedContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  lockedCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  lockedIcon: {
+    fontSize: 28,
+    marginBottom: 10,
+  },
+  lockedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lockedSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

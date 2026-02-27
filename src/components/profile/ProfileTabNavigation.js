@@ -55,8 +55,16 @@ const ProfileTabs = memo(({
   );
 
   const renderPrivateContentScreen = useCallback(
-    (navProps) => <PrivateContentScreen {...navProps} postCheck={post} userData={userData} />,
-    [post, userData],
+    (navProps) => (
+      <PrivateContentScreen
+        {...navProps}
+        postCheck={post}
+        userData={userData}
+        isSubscribed={isSubscribed}
+        loggedInUserId={loggedInUserId}
+      />
+    ),
+    [post, userData, isSubscribed, loggedInUserId],
   );
 
   const navigation = useNavigation();
@@ -187,7 +195,7 @@ const ProfileTabs = memo(({
             },
           }}
           >
-          {renderPrivateContentScreen}
+          {renderPrivateContentScreen}  
         </Tab.Screen>
 
         <Tab.Screen
