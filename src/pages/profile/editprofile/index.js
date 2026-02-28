@@ -267,23 +267,23 @@ const ProfileEditScreen = () => {
   };
 
   useEffect(() => {
-      const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-        // Prevent default back behavior
-        e.preventDefault();
-  
-        // Navigate to your specific screen instead
-        navigation.navigate({
-              name: 'wallet',
-              state: {
-                routes: [{ name: returnScreen }],
-                index: 0
-              }
-            }); // 👈 Replace with your screen name
-      });
-  
-      return unsubscribe; // cleanup on unmount
-    }, [navigation]);
-  
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // Prevent default back behavior
+      e.preventDefault();
+
+      // Navigate to your specific screen instead
+      navigation.navigate({
+        name: 'wallet',
+        state: {
+          routes: [{ name: returnScreen }],
+          index: 0
+        }
+      }); // 👈 Replace with your screen name
+    });
+
+    return unsubscribe; // cleanup on unmount
+  }, [navigation]);
+
 
   const pickImageFromGallery = () => {
     const options = {
@@ -507,9 +507,9 @@ const ProfileEditScreen = () => {
                     ? { uri: profileImage }
                     : require('../../../assets/icons/pngicons/person.png')
                 }
-                style={[styles.profileImage, {borderColor: text}]}
+                style={[styles.profileImage, { borderColor: text }]}
               />
-              <View style={[styles.cameraIcon, {backgroundColor: text, shadowColor: text}]} >
+              <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]} >
                 <Text style={styles.cameraText}>📷</Text>
               </View>
             </View>
@@ -581,6 +581,17 @@ const ProfileEditScreen = () => {
             <Text style={styles.helperText}>
               Your wallet address cannot be changed here
             </Text>
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Website</Text>
+            <TextInput
+              placeholder="Enter your website URL"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
           </View>
         </View>
       </ScrollView>
@@ -661,7 +672,7 @@ const ProfileEditScreen = () => {
 
           <View style={styles.optionsContainer}>
             <TouchableOpacity
-              style={[styles.optionButton, {shadowColor: text}]}
+              style={[styles.optionButton, { shadowColor: text }]}
               onPress={pickImageFromGallery}
             >
               <View style={styles.optionIconContainer}>
@@ -675,7 +686,7 @@ const ProfileEditScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.optionButton, {shadowColor: text}]}
+              style={[styles.optionButton, { shadowColor: text }]}
               onPress={pickImageFromCamera}
             >
               <View style={styles.optionIconContainer}>

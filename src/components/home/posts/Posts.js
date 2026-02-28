@@ -43,7 +43,6 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
-  console.log(postData,'post data in post');
   
 
   // All state hooks first - maintain consistent order

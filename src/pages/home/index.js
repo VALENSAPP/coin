@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Stories from '../../components/home/story.js/Stories';
 import Posts from '../../components/home/posts/Posts';
-import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { Chat, LogoIcon } from '../../assets/icons';
 import { getposts } from '../../services/home';
 import { useToast } from 'react-native-toast-notifications';
@@ -586,11 +586,28 @@ export default function HomeScreen() {
     return () => subscription.remove();
   }, [onRefresh]);
 
+  const openGlobalDrawer = useCallback(() => {
+    let parentNav = navigation;
+    let attempts = 0;
+
+    while (parentNav && attempts < 6) {
+      const state = parentNav.getState?.();
+      if (state?.type === 'drawer') {
+        parentNav.dispatch(DrawerActions.openDrawer());
+        return;
+      }
+      parentNav = parentNav.getParent?.();
+      attempts += 1;
+    }
+
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerLeft}>
+        <TouchableOpacity style={styles.headerLeft} onPress={openGlobalDrawer}>
           <LogoIcon height={45} width={45} />
           <TextGradient
             style={{ fontWeight: 'bold', fontSize: 20 }}

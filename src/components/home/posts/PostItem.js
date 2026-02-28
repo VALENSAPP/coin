@@ -201,6 +201,8 @@ function PostItem({
   const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
   const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [isKycVerified, setIsKycVerified] = useState(false);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -285,6 +287,7 @@ function PostItem({
 
       if (profileResponse.status === 'fulfilled') {
         const data = profileResponse.value;
+        console.log('getUserCredentials API response:', data);
         if (data?.statusCode === 200) {
           let userDataToSet;
           if (data.data && data.data.user) {
@@ -296,6 +299,8 @@ function PostItem({
           }
           setUserProfile(userDataToSet.profile || '');
           setTargetWalletAddress(getSupportRecipientWalletAddress(userDataToSet) || '');
+          setIsKycVerified(userDataToSet?.kyc === true);
+          setIsSubscriptionActive(String(userDataToSet?.subscriptionStatus || '').toUpperCase() === 'ACTIVE');
         } else {
           console.warn('Profile fetch failed:', data?.data?.message);
         }
@@ -656,7 +661,6 @@ function PostItem({
       </View>
     );
   }, [currentIndex, isVideoUrl, videoStates, isZooming, isMuted]);
-  console.log(item,'item in post');
   
   return (
     
@@ -670,9 +674,11 @@ function PostItem({
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
               <Text style={styles.username}>{item.username}</Text>
-              <View style={styles.dragonflyIcon}>
-                <DragonflyIcon width={18} height={18} />
-              </View>
+              {isKycVerified && isSubscriptionActive && (
+                <View style={styles.dragonflyIcon}>
+                  <DragonflyIcon width={18} height={18} />
+                </View>
+              )}
             </View>
           </TouchableOpacity>
 
