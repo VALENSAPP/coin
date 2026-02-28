@@ -38,8 +38,10 @@ import { AuthHeader } from '../../../components/auth';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import DeviceInfo from 'react-native-device-info';
+import { getOnboardingStatus } from '../../../services/profile';
 
 const { width, height } = Dimensions.get('window');
+const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -63,6 +65,20 @@ export default function LoginScreen() {
       if (id) {
         const response = await getProfile(id);
         console.log('in profile response ----->>>>>>>>> ', response)
+        if (response?.statusCode === 200) {
+          try {
+            const onboardingStatusResponse = await getOnboardingStatus();
+            if (onboardingStatusResponse?.statusCode === 200) {
+              await AsyncStorage.setItem(
+                STRIPE_ONBOARDING_STATUS_KEY,
+                JSON.stringify(onboardingStatusResponse?.data ?? null),
+              );
+            }
+          } catch (onboardingError) {
+            console.log('getOnboardingStatus on login error:', onboardingError?.message);
+          }
+        }
+
         const normalizedKycStatus = String(response?.data?.kycStatus || '').toUpperCase();
         if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED')) {
           await AsyncStorage.setItem('isLoggedIn', 'true');

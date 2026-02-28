@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { useAppTheme } from "../../theme/useApptheme";
 
 const SubscriptionActivationPopup = ({
   visible,
@@ -14,35 +15,36 @@ const SubscriptionActivationPopup = ({
   onConfirm
 
 }) => {
-
   const navigation = useNavigation();
+  const { card, text } = useAppTheme();
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.box}>
+        <View style={[styles.box, { backgroundColor: card }]}>
 
-          <Text style={styles.title}>Become a Private Subscriber</Text>
+          <Text style={[styles.title, { color: text }]}>Become a Private Subscriber</Text>
 
-          <Text style={styles.text}>
+          <Text style={[styles.text, { color: text }]}>
             A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.99</Text>
             will be charged to activate your private subscriber account.
           </Text>
 
-          <Text style={styles.sectionTitle}>Platform Fees</Text>
+          <Text style={[styles.sectionTitle, { color: text }]}>Platform Fees</Text>
 
-          <Text style={styles.bullet}>• $19.99 Monthly Maintenance Fee</Text>
-          <Text style={styles.subText}>
+          <Text style={[styles.bullet, { color: text }]}>• $19.99 Monthly Maintenance Fee</Text>
+          <Text style={[styles.subText, { color: text }]}>
             For hosting and operating your private subscription channel.
           </Text>
 
-          <Text style={styles.bullet}>• 5% Withdrawal Fee</Text>
-          <Text style={styles.subText}>
+          <Text style={[styles.bullet, { color: text }]}>• 5% Withdrawal Fee</Text>
+          <Text style={[styles.subText, { color: text }]}>
             Applied to every payout request you make.
           </Text>
 
-          <Text style={styles.sectionTitle}>Billing Authorization</Text>
+          <Text style={[styles.sectionTitle, { color: text }]}>Billing Authorization</Text>
 
-          <Text style={styles.text}>
+          <Text style={[styles.text, { color: text }]}>
             By continuing, you authorize Valens to automatically charge the monthly
             maintenance fee and deduct the 5% withdrawal fee from your payouts.
           </Text>
@@ -58,7 +60,7 @@ const SubscriptionActivationPopup = ({
               <Text style={styles.cancelTxt}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.acceptBtn} onPress={() => onConfirm?.()}>
+            <TouchableOpacity style={[styles.acceptBtn, { backgroundColor: text }]} onPress={() => onConfirm?.()}>
               <Text style={styles.acceptTxt}>Accept</Text>
             </TouchableOpacity>
           </View>
@@ -81,7 +83,6 @@ const styles = StyleSheet.create({
   },
   box: {
     width: "100%",
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
   },
@@ -103,13 +104,11 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 14,
-    color: "#333",
     marginTop: 10,
   },
   subText: {
     fontSize: 14,
     marginLeft: 10,
-    color: "#555",
   },
   row: {
     flexDirection: "row",
@@ -128,7 +127,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#5a2d82",
     marginLeft: 10,
     alignItems: "center",
   },

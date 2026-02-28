@@ -665,6 +665,10 @@ export default function PostView({ postData = [] }) {
         raiseAmount: item.raiseAmount ?? 0,
         goalAmount: item.goalAmount ?? 100000,
         daysLeft: item.daysLeft ?? 0,
+        start_time: item.start_time ?? null,
+        end_time: item.end_time ?? null,
+        tokenBalance: item.tokenBalance ?? 0,
+        totalDonation: item.totalDonation ?? 0,
         profile:
           typeof item?.profile === 'string' && item.profile.toLowerCase() === 'company'
             ? 'company'

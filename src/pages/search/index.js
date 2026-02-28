@@ -29,9 +29,48 @@ import { getProgressBarColor } from '../../utils/progressBarUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+const parseNonNegativeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+const calculateMissionStats = (post) => {
+  const goalAmount =
+    parseNonNegativeNumber(post?.raiseAmount, NaN) ||
+    parseNonNegativeNumber(post?.goalAmount, NaN) ||
+    10000;
+
+  const currentRaised = parseNonNegativeNumber(post?.totalDonation ?? post?.tokenBalance, 0);
+  const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
+
+  let daysLeft = 0;
+  if (post?.end_time) {
+    try {
+      const end = new Date(post.end_time);
+      const start = post?.start_time ? new Date(post.start_time) : null;
+      const now = new Date();
+
+      if (!Number.isNaN(end.getTime())) {
+        // If campaign hasn't started yet, show full campaign window from start->end.
+        const baseline = start && !Number.isNaN(start.getTime()) && now < start ? start : now;
+        const diff = end - baseline;
+        daysLeft = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
+      }
+    } catch (err) {
+      daysLeft = 0;
+    }
+  }
+
+  return { goalAmount, currentRaised, progressPercent, daysLeft };
+};
+
+const formatAmount = (value) =>
+  parseNonNegativeNumber(value, 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
 /** Mission Progress Bar Component */
 const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised = 0, daysLeft = 0, profile = 'user' }) => {
   const fillColor = getProgressBarColor(progressPercent, profile);
+  const normalizedProgress = Math.min(progressPercent, 100);
 
   return (
     <View style={styles.progressSection}>
@@ -47,11 +86,11 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
 
         <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
-            <Text style={styles.statValueSmall}>{progressPercent.toFixed(1)}% FUNDED</Text>
+            <Text style={styles.statValueSmall}>{normalizedProgress.toFixed(1)}% FUNDED</Text>
           </View>
 
           <View style={styles.statAtCenter}>
-            <Text style={styles.statValueSmall}>${currentRaised} / ${goalAmount}</Text>
+            <Text style={styles.statValueSmall}>${formatAmount(currentRaised)} / ${formatAmount(goalAmount)} RAISED</Text>
           </View>
 
           <View style={styles.statAtEnd}>
@@ -468,21 +507,7 @@ const SearchScreen = () => {
         {isMissionPost && (
           <View style={styles.missionBadgeWrapper}>
             {(() => {
-              const goalAmount = post?.raiseAmount || post?.goalAmount || 10000;
-              const currentRaised = post?.tokenBalance ?? post?.totalDonation ?? 0;
-              const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
-              let daysLeft = 0;
-              if (post?.end_time) {
-                try {
-                  const end = new Date(post.end_time);
-                  const now = new Date();
-                  const diff = end - now;
-                  daysLeft = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
-                } catch (err) {
-                  daysLeft = 0;
-                }
-              }
-
+              const { goalAmount, currentRaised, progressPercent, daysLeft } = calculateMissionStats(post);
               return (
                 <MissionProgressBar
                   progressPercent={progressPercent}

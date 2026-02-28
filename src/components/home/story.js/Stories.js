@@ -1534,15 +1534,15 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     // If user has stories, show options dialog
     if (user.isUser && user.stories.length > 0) {
       Alert.alert(
-        'Your Story',
+        'Your Drops',
         'What would you like to do?',
         [
           {
-            text: 'View Story',
+            text: 'View Your Drops',
             onPress: () => openStoryViewer(user, userIndex),
           },
           {
-            text: 'Add Another Story',
+            text: 'Add Another Drops',
             onPress: () => handleAddNewStory(),
           },
           {

@@ -411,15 +411,15 @@ const Settings = () => {
           />
 
           <Text style={styles.sectionDescription}>
-            Manage your connected experiences and account settings across Meta
-            technologies.
+            Manage your connected experiences and account settings across Valens
+            technologies App.
             <Text style={styles.learnMore}> Learn more</Text>
           </Text>
         </View>
 
         {/* How you use Instagram section */}
         <View style={styles.section}>
-          <SectionHeader title="How you use Instagram" />
+          <SectionHeader title="How you Using Valens" />
 
           <SettingsItem
             icon="bookmark"

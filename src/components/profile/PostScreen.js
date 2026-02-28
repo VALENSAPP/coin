@@ -13,7 +13,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
-const SPACING = 2;
+const SPACING = 1;
 const IMAGE_SIZE = (screenWidth - SPACING * (numColumns + 1)) / numColumns;
 
 // URL normalization function
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    height: IMAGE_SIZE*1.2,
     backgroundColor: '#f0f0f0',
   },
   overlay: {

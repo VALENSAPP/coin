@@ -219,7 +219,7 @@ const SubscribeFlowModal = ({
             {/* STEP 1 */}
             <RBSheet
                 ref={step1Ref}
-                height={380}
+                height={400}
                 closeOnPressMask={false}
                 customStyles={{ container: [styles.sheetContainer, bgStyle] }}
             >
@@ -265,7 +265,7 @@ const SubscribeFlowModal = ({
             {/* STEP 2 */}
             <RBSheet
                 ref={step2Ref}
-                height={280}
+                height={370}
                 closeOnPressMask={false}
                 customStyles={{ container: styles.sheetContainer }}
             >
