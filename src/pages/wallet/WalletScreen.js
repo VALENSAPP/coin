@@ -486,9 +486,11 @@ export default function WalletComponent() {
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}>
-                            <Text style={styles.buyCreditsText}>Buy Credits</Text>
-                        </TouchableOpacity>
+                        {String(profile || '').toLowerCase() !== 'company' && (
+                            <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}>
+                                <Text style={styles.buyCreditsText}>Buy Credits</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </ScrollView>

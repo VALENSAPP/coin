@@ -67,6 +67,7 @@ const ProfileTabs = memo(({
         userData={userData}
         isSubscribed={isSubscribed}
         loggedInUserId={loggedInUserId}
+        onSubscribePress={() => setShowSubscribeModal(true)}
       />
     ),
     [post, userData, isSubscribed, loggedInUserId],

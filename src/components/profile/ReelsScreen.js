@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    height: IMAGE_SIZE*1.2,
     backgroundColor: '#f0f0f0',
   },
   overlay: {

@@ -173,6 +173,7 @@ function PostItem({
   hideDonationButton = false, // Add this prop with default false
 
 }) {
+  
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
@@ -222,9 +223,9 @@ function PostItem({
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
 
-  // Calculate days left from start_time and end_time
+  // Calculate days left from current time to end_time
   const calculateDaysLeft = useCallback(() => {
-    if (!item.start_time || !item.end_time) return 0;
+    if (!item.end_time) return 0;
 
     try {
       const now = new Date();
@@ -236,7 +237,17 @@ function PostItem({
       console.error('Error calculating days left:', error);
       return 0;
     }
-  }, [item.start_time, item.end_time]);
+  }, [item.end_time]);
+
+  useEffect(() => {
+    setDaysLeft(calculateDaysLeft());
+
+    const timer = setInterval(() => {
+      setDaysLeft(calculateDaysLeft());
+    }, 60 * 1000);
+
+    return () => clearInterval(timer);
+  }, [calculateDaysLeft]);
   const handleDonationSuccess = useCallback(() => {
     // Refresh donation total after successful donation
     fetchTotalDonation();
@@ -551,9 +562,20 @@ function PostItem({
   }, [onToggleLike, item.id, animateHeart]);
 
   // Use dynamic values for donation calculations
-  const goalAmount = item.raiseAmount || 0; // Target amount to raise
-  const currentRaised = totalDonation || 0; // Current amount raised from API
-  const progressPercent = useMemo(() => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0, [goalAmount, currentRaised]);
+  const goalAmount = useMemo(() => {
+    const parsedGoal = Number(item?.raiseAmount);
+    return Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : 0;
+  }, [item?.raiseAmount]);
+
+  const currentRaised = useMemo(() => {
+    const parsedRaised = Number(totalDonation);
+    return Number.isFinite(parsedRaised) && parsedRaised > 0 ? parsedRaised : 0;
+  }, [totalDonation]);
+
+  const progressPercent = useMemo(
+    () => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0,
+    [goalAmount, currentRaised]
+  );
 
   const progressBarColor = useMemo(
     () => getProgressBarColor(progressPercent, item?.profile),
@@ -855,7 +877,7 @@ function PostItem({
                 </View>
                 <View style={styles.statAtCenter}>
                   <Text style={styles.statValueSmall}>
-                    {isLoadingDonation ? 'Loading...' : `$${(goalAmount / 1000).toFixed(0)}K RAISED`}
+                    {isLoadingDonation ? 'Loading...' : `$${formatNumber(currentRaised)} / $${formatNumber(goalAmount)} RAISED`}
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
@@ -1210,7 +1232,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   statValueSmall: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: 2,

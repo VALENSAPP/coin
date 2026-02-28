@@ -107,7 +107,7 @@ const PostImage = memo(({ item }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId }) => {
+const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
@@ -210,7 +210,11 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
       {!canViewPrivateContent ?
       <>
       <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-        <View style={styles.lockedCard}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={onSubscribePress}
+          style={styles.lockedCard}
+        >
           <Text style={styles.lockedIcon}>🔒</Text>
           <Text style={[styles.lockedTitle, textStyle]}>
             Subscribe to unlock private content
@@ -218,7 +222,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
           <Text style={styles.lockedSubtitle}>
             Exclusive posts are available only for active subscribers.
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
       </>
       :
@@ -282,7 +286,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    height: IMAGE_SIZE*1.2,
     backgroundColor: '#f0f0f0',
   },
   overlay: {

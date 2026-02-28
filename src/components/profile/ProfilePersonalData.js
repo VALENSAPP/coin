@@ -804,6 +804,20 @@ const ProfilePersonData = ({
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSupportPress}>
+                    <LinearGradient
+                      colors={
+                        isLoggedInBusinessUser
+                          ? ['#D3B683', '#D3B683']
+                          : ['#513189bd', '#e54ba0']
+                      }
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.editbuttons, { shadowColor: text }]}
+                    >
+                      <Text style={styles.buttonText}> Total Support</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>

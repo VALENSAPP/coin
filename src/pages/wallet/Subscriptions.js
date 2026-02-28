@@ -30,9 +30,10 @@ import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
 import { createOnboardingLink, getOnboardingStatus, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { createCheckoutSession } from '../../services/stirpe';
-import { log } from 'console';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { getUserCredentials } from '../../services/post';
+
+const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -110,12 +111,26 @@ const SubventionSetupScreen = () => {
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
+    const isOnboardingReady = (status) => status?.canReceivePayments === true && Boolean(status?.accountId);
+
+    const getCachedOnboardingStatus = async () => {
+        try {
+            const raw = await AsyncStorage.getItem(STRIPE_ONBOARDING_STATUS_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            return null;
+        }
+    };
 
     const GetInbordingstatus = async () => {
         try {
             const response = await getOnboardingStatus();
             if (response?.statusCode === 200) {
-                return response?.data ?? null;
+                const latestStatus = response?.data ?? null;
+                if (latestStatus) {
+                    await AsyncStorage.setItem(STRIPE_ONBOARDING_STATUS_KEY, JSON.stringify(latestStatus));
+                }
+                return latestStatus;
             }
             return null;
         } catch (error) {
@@ -129,35 +144,39 @@ const SubventionSetupScreen = () => {
         const onboardingUrl = response?.data?.onboardingUrl ?? response?.data?.data?.onboardingUrl;
 
         if (!onboardingUrl) {
+            const latestStatus = await GetInbordingstatus();
+            if (isOnboardingReady(latestStatus)) {
+                return { alreadyOnboarded: true };
+            }
+
+            const cachedStatus = await getCachedOnboardingStatus();
+            if (isOnboardingReady(cachedStatus)) {
+                return { alreadyOnboarded: true };
+            }
+
             throw new Error('Onboarding link not found');
         }
-        else {
-            Alert.alert(onboardingUrl)
-            setTimeout(async() => {
-                
-                if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(onboardingUrl, {
-                        dismissButtonStyle: 'close',
-                        preferredBarTintColor: '#000',
-                        preferredControlTintColor: '#fff',
-                        showTitle: true,
-                        toolbarColor: '#000',
-                        enableUrlBarHiding: true,
-                        enableDefaultShare: false,
-                    });
-                } else {
-                    await Linking.openURL(onboardingUrl);
-                    return { type: 'opened_external' };
-                }
-            }, 20000);
+
+        if (await InAppBrowser.isAvailable()) {
+            return await InAppBrowser.open(onboardingUrl, {
+                dismissButtonStyle: 'close',
+                preferredBarTintColor: '#000',
+                preferredControlTintColor: '#fff',
+                showTitle: true,
+                toolbarColor: '#000',
+                enableUrlBarHiding: true,
+                enableDefaultShare: false,
+            });
         }
 
+        await Linking.openURL(onboardingUrl);
+        return { type: 'opened_external' };
     };
 
     const waitForOnboardingCompletion = async () => {
         for (let attempt = 0; attempt < 10; attempt += 1) {
             const status = await GetInbordingstatus();
-            if (status?.canReceivePayments === true && status?.accountId) {
+            if (isOnboardingReady(status)) {
                 return status;
             }
             await delay(2000);
@@ -177,7 +196,7 @@ const SubventionSetupScreen = () => {
             dispatch(showLoader());
 
             const onboardingStatus = await GetInbordingstatus();
-            if (onboardingStatus?.canReceivePayments === true && onboardingStatus?.accountId) {
+            if (isOnboardingReady(onboardingStatus)) {
                 const paymentResult = await getUserSubscription();
                 setShowActivationPopup(false);
                 navigateToWalletDashboard();
@@ -188,6 +207,16 @@ const SubventionSetupScreen = () => {
             }
 
             const onboardingResult = await GetInbordingLink();
+            if (onboardingResult?.alreadyOnboarded) {
+                const paymentResult = await getUserSubscription();
+                setShowActivationPopup(false);
+                navigateToWalletDashboard();
+                if (paymentResult?.cancelled) {
+                    return;
+                }
+                return;
+            }
+
             if (isBrowserCancelled(onboardingResult)) {
                 setShowActivationPopup(false);
                 navigateToWalletDashboard();
@@ -195,7 +224,7 @@ const SubventionSetupScreen = () => {
             }
 
             const updatedStatus = await waitForOnboardingCompletion();
-            if (updatedStatus?.canReceivePayments === true && updatedStatus?.accountId) {
+            if (isOnboardingReady(updatedStatus)) {
                 const paymentResult = await getUserSubscription();
                 setShowActivationPopup(false);
                 navigateToWalletDashboard();
