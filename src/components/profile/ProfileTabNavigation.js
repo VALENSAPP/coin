@@ -29,7 +29,7 @@ const ProfileTabs = memo(({
   loggedInUserId // Receive from parent
 }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(isSubscribedProp || false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [privateKey, setPrivatKey] = useState(0);
   const [activeTab, setActiveTab] = useState('Posts');
   const [currentTabIndex, setCurrentTabIndex] = useState(0);
@@ -39,8 +39,13 @@ const ProfileTabs = memo(({
 
   // Update local subscription state when prop changes
   useEffect(() => {
-    setIsSubscribed(isSubscribedProp);
+    const normalizedIsSubscribed =
+      isSubscribedProp === true ||
+      String(isSubscribedProp || '').toUpperCase() === 'ACTIVE' ||
+      String(isSubscribedProp || '').toLowerCase() === 'true';
+    setIsSubscribed(normalizedIsSubscribed);
   }, [isSubscribedProp]);
+  const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
@@ -185,7 +190,7 @@ const ProfileTabs = memo(({
               // Show subscription modal only if:
               // 1. User is not viewing their own profile
               // 2. User is not already subscribed
-              if (loggedInUserId !== userData?.id && !isSubscribed) {
+              if (!isOwnProfile && !isSubscribed) {
                 setPrivatKey(prev => prev + 1);
                 setShowSubscribeModal(false);
                 setTimeout(() => {

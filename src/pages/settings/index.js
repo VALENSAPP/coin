@@ -9,6 +9,7 @@ import {
   Alert,
   StatusBar,
   TextInput,
+  Linking,
 } from 'react-native';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useDispatch } from 'react-redux';
@@ -205,7 +206,15 @@ const Settings = () => {
   };
 
   const handleHelpPress = () => {
-    Alert.alert('Help', 'Navigate to Help Center');
+    const email = 'Support@valens.app';
+    const subject = 'App Support Request';
+    const body = 'Hi team,\n\nI need help with...';
+
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'No mail app found');
+    });
   };
 
   const handlePrivacyCentrePress = () => {
@@ -417,30 +426,12 @@ const Settings = () => {
             title="Saved"
             onPress={handleSavedPress}
           />
-
-          <SettingsItem
-            icon="delete-outline"
-            title="Archive"
-            onPress={handleArchivePress}
-          />
-
-          <SettingsItem
-            icon="bug-report"
-            title="Your activity"
-            onPress={handleActivityPress}
-          />
-
           <SettingsItem
             icon="notifications-active"
             title="Notifications"
             onPress={handleNotificationsPress}
           />
 
-          <SettingsItem
-            icon="schema"
-            title="Time management"
-            onPress={handleTimeManagementPress}
-          />
         </View>
 
         {/* Who can see your content section */}
@@ -451,204 +442,15 @@ const Settings = () => {
             icon="privacy-tip"
             title="Account privacy"
             rightText="Private"
-            onPress={handleAccountPrivacyPress}
+            // onPress={handleAccountPrivacyPress}
           />
-
-          <SettingsItem
-            icon="star"
-            title="Top Valens"
-            rightText="0"
-            onPress={handleCloseFriendsPress}
-          />
-
-          <SettingsItem
-            icon="add-box"
-            title="Crossposting"
-            onPress={handleCrosspostingPress}
-          />
-
-          <SettingsItem
-            icon="block"
-            title="Blocked"
-            rightText="18"
-            onPress={handleBlockedPress}
-          />
-
           <SettingsItem
             icon="visibility-off"
             title="Hide Posts"
             onPress={handleHideStoryPress}
           />
         </View>
-
-        {/* How others can interact with you section */}
-        <View style={styles.section}>
-          <SectionHeader title="How others can interact with you" />
-
-          <SettingsItem
-            icon="message"
-            title="Messages and story replies"
-            onPress={handleMessagesPress}
-          />
-
-          <SettingsItem
-            icon="alternate-email"
-            title="Tags and mentions"
-            onPress={handleTagsPress}
-          />
-
-          <SettingsItem
-            icon="comment"
-            title="Comments"
-            onPress={handleCommentsPress}
-          />
-
-          <SettingsItem
-            icon="share"
-            title="Sharing"
-            onPress={handleSharingPress}
-          />
-
-          <SettingsItem
-            icon="do-not-disturb"
-            title="Restricted"
-            rightText="4"
-            onPress={handleRestrictedPress}
-          />
-
-          <SettingsItem
-            icon="pause-circle-outline"
-            title="Limit interactions"
-            rightText="Off"
-            onPress={handleLimitInteractionsPress}
-          />
-
-          <SettingsItem
-            icon="text-fields"
-            title="Hidden words"
-            onPress={handleHiddenWordsPress}
-          />
-
-          <SettingsItem
-            icon="person-add"
-            title="Follow and invite friends"
-            onPress={handleFollowInvitePress}
-          />
-        </View>
-
-        {/* What you see section */}
-        <View style={styles.section}>
-          <SectionHeader title="What you see" />
-
-          <SettingsItem
-            icon="star-border"
-            title="Favourites"
-            rightText="0"
-            onPress={handleFavouritesPress}
-          />
-
-          <SettingsItem
-            icon="volume-off"
-            title="Muted accounts"
-            rightText="0"
-            onPress={handleMutedAccountsPress}
-          />
-
-          <SettingsItem
-            icon="settings"
-            title="Content preferences"
-            onPress={handleContentPreferencesPress}
-          />
-
-          <SettingsItem
-            icon="favorite-border"
-            title="Like and share counts"
-            onPress={handleLikeShareCountsPress}
-          />
-
-          <SettingsItem
-            icon="subscriptions"
-            title="Subscriptions"
-            onPress={handleSubscriptionsPress}
-          />
-        </View>
-
-        {/* Your app and media section */}
-        <View style={styles.section}>
-          <SectionHeader title="Your app and media" />
-
-          <SettingsItem
-            icon="smartphone"
-            title="Device permissions"
-            onPress={handleDevicePermissionsPress}
-          />
-
-          <SettingsItem
-            icon="cloud-download"
-            title="Archiving and downloading"
-            onPress={handleArchivingDownloadingPress}
-          />
-
-          <SettingsItem
-            icon="accessibility"
-            title="Accessibility"
-            onPress={handleAccessibilityPress}
-          />
-
-          <SettingsItem
-            icon="language"
-            title="Language and translations"
-            onPress={handleLanguagePress}
-          />
-
-          <SettingsItem
-            icon="data-usage"
-            title="Data usage and media quality"
-            onPress={handleDataUsagePress}
-          />
-
-          <SettingsItem
-            icon="web"
-            title="App website permissions"
-            onPress={handleAppWebsitePress}
-          />
-
-          <SettingsItem
-            icon="new-releases"
-            title="Early access to features"
-            onPress={handleEarlyAccessPress}
-          />
-        </View>
-
-        {/* For professionals section */}
-        <View style={styles.section}>
-          <SectionHeader title="For professionals" />
-
-          <SettingsItem
-            icon="work"
-            title="Account type and tools"
-            onPress={handleAccountTypePress}
-          />
-
-          {/* <SettingsItem
-            icon="verified"
-            title="Certified"
-            // rightText="Not subscribed"
-            onPress={handleMetaVerifiedPress}
-          /> */}
-        </View>
-
-        {/* Your orders and fundraisers section */}
-        {/* <View style={styles.section}>
-          <SectionHeader title="Your orders and fundraisers" />
-
-          <SettingsItem
-            icon="shopping-bag"
-            title="Orders and payments"
-            onPress={handleOrdersPaymentsPress}
-          />
-        </View> */}
-
+    
         {/* More info and support section */}
         <View style={styles.section}>
           <SectionHeader title="More info and support" />
@@ -658,19 +460,6 @@ const Settings = () => {
             title="Help"
             onPress={handleHelpPress}
           />
-
-          <SettingsItem
-            icon="privacy-tip"
-            title="Privacy Center"
-            onPress={handlePrivacyCentrePress}
-          />
-
-          <SettingsItem
-            icon="account-circle"
-            title="Account Status"
-            onPress={handleAccountStatusPress}
-          />
-
           <SettingsItem icon="info" title="About" onPress={handleAboutPress} />
         </View>
 

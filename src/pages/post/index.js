@@ -17,14 +17,15 @@ const selectedGridItemSize = (width - 64) / 2;
 export default function PostScreen({ navigation }) {
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [galleryImages, setGalleryImages] = useState([]);
-  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(true);
   const [postType, setPostType] = useState('normal');
   const [shared, setShared] = useState(false);
   const route = useRoute();
-  const isPrivatePost = route?.params?.postType;
-  const fromIcon = route?.params?.fromIcon;
-  const mediaType = route?.params?.type;
-  console.log(isPrivatePost,'isPrivatePostisPrivatePostisPrivatePost');
+  const rawPostTypeParam = route?.params?.postType;
+  const rawMediaTypeParam = route?.params?.type;
+  const isPrivateEntry = String(rawPostTypeParam || '').toLowerCase() === 'private';
+  const isFlipEntry = String(rawMediaTypeParam || '').toLowerCase() === 'flips';
+  const mediaType = rawMediaTypeParam;
   
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
@@ -334,24 +335,23 @@ export default function PostScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('in post type screennnnnn', showTypeModal);
-      if (isPrivatePost == "private"){
-        console.log('in isPrivatePost screennnnnn', showTypeModal);
-        setPostType("private")
-        setShowTypeModal(false)
+      setSelectedMedia([]);
+
+      if (isPrivateEntry) {
+        setPostType('private');
+        setShowTypeModal(false);
+        return;
       }
-      else {
-        setShowTypeModal(true)
-        if (mediaType === 'Flips') {
-          setSelectedMedia([])
-          setShowTypeModal(false);
-          setPostType('flip');
-        } else {
-          setSelectedMedia([])
-          setShowTypeModal(true);
-        }
+
+      if (isFlipEntry) {
+        setPostType('flip');
+        setShowTypeModal(false);
+        return;
       }
-    }, [fromIcon, showTypeModal])
+
+      setPostType('normal');
+      setShowTypeModal(true);
+    }, [isPrivateEntry, isFlipEntry])
   );
 
   useFocusEffect(
@@ -587,7 +587,7 @@ export default function PostScreen({ navigation }) {
         {galleryImages.length === 0 ? renderInitialGalleryPrompt() : renderMainContent()}
       </ScrollView>
       <PostTypeModal
-        visible={showTypeModal}
+        visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
         setShowTypeModal={setShowTypeModal}
         onClose={() => { setShowTypeModal(false); navigation.goBack(); }}
         onSelect={handleSelectType}
@@ -789,6 +789,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
+    textAlign:'center',
   },
   recentsSection: {
     paddingHorizontal: 16,

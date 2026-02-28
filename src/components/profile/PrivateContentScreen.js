@@ -46,6 +46,7 @@ const PostImage = memo(({ item }) => {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
 
+  
   if (!mediaUrl) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
@@ -111,7 +112,12 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme();
-  const canViewPrivateContent = loggedInUserId === userData?.id || isSubscribed;
+  const normalizedIsSubscribed =
+    isSubscribed === true ||
+    String(isSubscribed || '').toUpperCase() === 'ACTIVE' ||
+    String(isSubscribed || '').toLowerCase() === 'true';
+  const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
+  const canViewPrivateContent = isOwnProfile || normalizedIsSubscribed;
 
   useEffect(() => {
     if (userData?.id && canViewPrivateContent) {
@@ -191,8 +197,18 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     </View>
   ), [textStyle]);
 
-  if (!canViewPrivateContent) {
+  if (loading) {
     return (
+      <View style={[styles.loaderContainer, bgStyle]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.screen, bgStyle]}>
+      {!canViewPrivateContent ?
+      <>
       <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
         <View style={styles.lockedCard}>
           <Text style={styles.lockedIcon}>🔒</Text>
@@ -204,19 +220,8 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
           </Text>
         </View>
       </View>
-    );
-  }
-
-  if (loading) {
-    return (
-      <View style={[styles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.screen, bgStyle]}>
+      </>
+      :
       <FlatList
         data={posts}
         keyExtractor={keyExtractor}
@@ -237,6 +242,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
         updateCellsBatchingPeriod={50}
         disableVirtualization={false}
       />
+}
     </View>
   );
 };

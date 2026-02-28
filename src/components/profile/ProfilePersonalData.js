@@ -116,7 +116,6 @@ const ProfilePersonData = ({
     Followings: dashboard?.totalFollowing ?? 'NA',
     userId: userId,
   };
-  console.log(userData, 'userdata ehata');
 
   const fetchAllData = async () => {
     try {
@@ -859,7 +858,7 @@ const ProfilePersonData = ({
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}>Support</Text>
+                      <Text style={styles.buttonText}> Total Support</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </>

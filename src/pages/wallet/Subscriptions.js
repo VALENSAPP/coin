@@ -70,8 +70,9 @@ const SubventionSetupScreen = () => {
     useFocusEffect(
         useCallback(() => {
             fetchSubscriptionByUserId();
-            getCredential();
-        }, [fetchSubscriptionByUserId])
+                     getCredential();
+
+        }, [fetchSubscriptionByUserId,getCredential])
     );
 
     const formatPrice = (value) => {
@@ -130,21 +131,27 @@ const SubventionSetupScreen = () => {
         if (!onboardingUrl) {
             throw new Error('Onboarding link not found');
         }
-
-        if (await InAppBrowser.isAvailable()) {
-            return await InAppBrowser.open(onboardingUrl, {
-                dismissButtonStyle: 'close',
-                preferredBarTintColor: '#000',
-                preferredControlTintColor: '#fff',
-                showTitle: true,
-                toolbarColor: '#000',
-                enableUrlBarHiding: true,
-                enableDefaultShare: false,
-            });
-        } else {
-            await Linking.openURL(onboardingUrl);
-            return { type: 'opened_external' };
+        else {
+            Alert.alert(onboardingUrl)
+            setTimeout(async() => {
+                
+                if (await InAppBrowser.isAvailable()) {
+                    await InAppBrowser.open(onboardingUrl, {
+                        dismissButtonStyle: 'close',
+                        preferredBarTintColor: '#000',
+                        preferredControlTintColor: '#fff',
+                        showTitle: true,
+                        toolbarColor: '#000',
+                        enableUrlBarHiding: true,
+                        enableDefaultShare: false,
+                    });
+                } else {
+                    await Linking.openURL(onboardingUrl);
+                    return { type: 'opened_external' };
+                }
+            }, 20000);
         }
+
     };
 
     const waitForOnboardingCompletion = async () => {
@@ -228,7 +235,7 @@ const SubventionSetupScreen = () => {
             // ✅ Hide popup if already ACTIVE
             if (status === "ACTIVE") {
                 setShowActivationPopup(false);
-            }else{
+            } else {
                 setShowActivationPopup(true)
             }
 

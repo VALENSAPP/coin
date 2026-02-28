@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -16,12 +16,9 @@ import {
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import Feather from "react-native-vector-icons/Feather";
 import Clipboard from "@react-native-clipboard/clipboard";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import TradeModal from "../../components/modals/TradeModal";
-import TextGradient from "../../assets/textgradient/TextGradient";
 import { useDispatch, useSelector } from "react-redux";
 import { getUserCredentials, getUserDashboard } from "../../services/post";
 import { hideLoader, showLoader } from "../../redux/actions/LoaderAction";
@@ -32,15 +29,12 @@ import { getTopCreators, getTotalTokenPurchase } from "../../services/tokens";
 import RBSheet from "react-native-raw-bottom-sheet";
 import TokenPurchaseModal from "../../components/modals/TokenPurchaseModal";
 import { getCreditsLeft } from "../../services/wallet";
-import { createCheckoutSession } from "../../services/stirpe";
 import TokenSellModal from "../../components/modals/TokenSellModal";
-import InAppBrowser from "react-native-inappbrowser-reborn";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
 import { useAppTheme } from "../../theme/useApptheme";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
-const userVerificationStatus = { verified: true, level: "Dragonfly Verified" };
 
 const sharewallet = () => {
     Alert.alert('Shared', 'Wallet details shared successfully');
@@ -66,6 +60,16 @@ export default function WalletComponent() {
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
     const { bgStyle, textStyle, text } = useAppTheme();
+    const userVerificationStatus = useMemo(() => {
+        const verified =
+            userData?.kyc === true &&
+            String(userData?.subscriptionStatus || '').toUpperCase() === 'ACTIVE';
+
+        return {
+            verified,
+            level: verified ? 'Dragonfly Verified' : 'Profile Not Verified',
+        };
+    }, [userData?.kyc, userData?.subscriptionStatus]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -86,6 +90,7 @@ export default function WalletComponent() {
             }, 300);
         };
 
+       
         const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
 
         return () => {
@@ -448,9 +453,7 @@ export default function WalletComponent() {
                                     <Ionicons name="checkmark-circle" size={20} color={text} />
                                 )}
                             </View>
-                            {userVerificationStatus.verified && (
-                                <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text>
-                            )}
+                            <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text>
                             <View style={styles.idRow}>
                                 <Text style={[styles.walletAddress, textStyle]}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
                                 <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>
