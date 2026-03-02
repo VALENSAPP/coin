@@ -11,7 +11,8 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Platform,
-  Modal
+  Modal,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
@@ -116,7 +117,7 @@ const SearchScreen = () => {
   const [previewPost, setPreviewPost] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [isGrid, setIsGrid] = useState(false);
-  console.log(posts, 'data canme i post od search')
+  const [refreshing, setRefreshing] = useState(false);
 
   const searchTimeoutRef = useRef(null);
   const autoplayTimeoutRef = useRef(null);
@@ -447,6 +448,19 @@ const SearchScreen = () => {
     setPreviewPost(null);
   }, []);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (searchText.trim().length > 0) {
+        await searchUsers(searchText);
+      } else {
+        await fetchPosts();
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [searchText, searchUsers, fetchPosts]);
+
   /** 🔲 UI — render masonry post item */
   const renderMasonryItem = useCallback((layoutItem) => {
     const { post, index, height, top, columnIndex, width, spacing } = layoutItem;
@@ -611,6 +625,9 @@ const SearchScreen = () => {
                   keyExtractor={(item, idx) => String(item.id ?? idx)}
                   renderItem={isGrid ? renderGridItem : renderListItem}
                   showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                  }
                   ListHeaderComponent={renderListHeader}
                   contentContainerStyle={styles.listContent}
                   numColumns={isGrid ? 2 : 1}
@@ -639,6 +656,9 @@ const SearchScreen = () => {
                     item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`
                   }
                   showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                  }
                   contentContainerStyle={[
                     styles.masonryContainer,
                     { height: masonryLayout.maxHeight }

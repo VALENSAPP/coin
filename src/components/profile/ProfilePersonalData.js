@@ -17,7 +17,7 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
-import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly } from '../../assets/icons';
+import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly, Twitter, Tiktok, Linkedin } from '../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { showToastMessage } from '../displaytoastmessage';
@@ -58,12 +58,12 @@ const ProfilePersonData = ({
   returnByTo
 }) => {
 
-  useEffect(() => {
-    console.log(
-      { userData },
-      'ProfilePersonData props'
-    );
-  }, [displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId]);
+  // useEffect(() => {
+  //   console.log(
+  //     { userData },
+  //     'ProfilePersonData props'
+  //   );
+  // }, [displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId]);
 
   const navigation = useNavigation();
   const [profileImage, setProfileImage] = useState(null);
@@ -92,7 +92,6 @@ const ProfilePersonData = ({
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
   const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
-  // console.log('item----------------followers------------', item);
   const isCompanyProfile = userProfile === 'company';
   const dispatch = useDispatch();
   const toast = useToast();
@@ -100,12 +99,13 @@ const ProfilePersonData = ({
   const route = useRoute();
   // Get logged-in user's profile type from Redux (same as ThemeContext)
   const loggedInUserProfile = useSelector(state => state.userProfile.userProfile);
-  console.log(loggedInUserProfile, "loggegege00000000000000000000000000000000000")
   const isLoggedInBusinessUser = loggedInUserProfile === 'company';
   const isKycApproved =
-    userData?.kyc === true &&
-    userData?.kycStatus === "APPROVED";
-  const isSubscriptionActive = userData?.subscriptionStatus !== "INACTIVE";
+    userData?.kyc === true 
+    // &&
+    // userData?.kycStatus === "APPROVED";
+  const isSubscriptionActive = userData?.subscriptionStatus == "ACTIVE";
+  
   const Userdata = {
     Displayname: displayName || 'No Name',
     Username: username || 'Unknown User',
@@ -514,19 +514,14 @@ const ProfilePersonData = ({
   }, []);
 
   const handleFollowButtonPress = useCallback(async () => {
-    if (isBusinessProfile && canSupport) {
-      setSupportModalVisible(true);
-      return;
-    }
-
     const shouldFollow = !isFollowing;
     const followHandler = executeFollowAction || onToggleFollow;
     const success = await followHandler?.();
 
-    if (success && shouldFollow && canSupport) {
+    if (success && shouldFollow && isCompanyProfile && canSupport) {
       setSupportModalVisible(true);
     }
-  }, [isBusinessProfile, canSupport, isFollowing, executeFollowAction, onToggleFollow]);
+  }, [isCompanyProfile, canSupport, isFollowing, executeFollowAction, onToggleFollow]);
 
   useFocusEffect(
     useCallback(() => {
@@ -611,6 +606,17 @@ const ProfilePersonData = ({
 
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'No mail app found');
+    });
+  };
+  const socialUrls = {
+    twitter: 'https://x.com/valens_app',
+    tiktok: 'https://www.tiktok.com/@valens_app',
+    linkedin: 'https://www.linkedin.com/company/valens-app',
+  };
+
+  const handleOpenSocialUrl = (url) => {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Unable to open link');
     });
   };
 
@@ -781,7 +787,7 @@ const ProfilePersonData = ({
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
                       <Text style={styles.buttonText}>
-                        {isBusinessProfile ? 'Support' : isFollowing ? 'Following' : 'Follow'}
+                        { isFollowing ? 'Following' : 'Follow'}
                         {followBusy ? '...' : ''}
                       </Text>
                     </LinearGradient>
@@ -815,7 +821,8 @@ const ProfilePersonData = ({
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}> Total Support</Text>
+                      <Text style={styles.buttonText}> 
+                         {isBusinessProfile ? 'Total Earning':'Total Support' }</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </>
@@ -882,7 +889,40 @@ const ProfilePersonData = ({
 
           <View style={styles.biobox}>
             <Text style={styles.biotext}>{Userdata.Bio}</Text>
+            <View style={styles.socialRow}>
+            <TouchableOpacity
+              style={styles.socialIconButton}
+              activeOpacity={0.7}
+              onPress={() => handleOpenSocialUrl(socialUrls.tiktok)}
+            >
+              <Tiktok width={30} height={30} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialIconButton}
+              activeOpacity={0.7}
+              onPress={() => handleOpenSocialUrl(socialUrls.linkedin)}
+            >
+              <Linkedin width={30} height={30} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialIconButton}
+              activeOpacity={0.7}
+              onPress={() => handleOpenSocialUrl(socialUrls.twitter)}
+            >
+              <Twitter width={30} height={30} />
+            </TouchableOpacity>
           </View>
+          </View>
+
+
+          <TouchableOpacity
+            style={styles.bioLinkWrap}
+            activeOpacity={0.7}
+            onPress={() => handleOpenSocialUrl(socialUrls.twitter)}
+          >
+            <Text style={styles.bioLinkText}>{socialUrls.twitter}</Text>
+          </TouchableOpacity>
+
         </View>
 
         {/* Stats */}
@@ -1134,6 +1174,27 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#374151',
     fontSize: 14,
+  },
+  bioLinkWrap: {
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  bioLinkText: {
+    color: '#1D9BF0',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  socialRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: '100%',
+    alignSelf: 'flex-end',
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  socialIconButton: {
+    marginLeft: 10,
   },
 
   // --- Stats ---

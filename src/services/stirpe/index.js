@@ -16,8 +16,11 @@ export const buyCreditHits = async (data) => {
     return axiosInstance.post('billing/buy-hit', data);
 }
 
-export const FanPageSubscription = async () => {
-    return axiosInstance.post('billing/fans-page-subscription');
+// export const FanPageSubscription = async () => {
+//     return axiosInstance.post('billing/fans-page-subscription');
+// }
+export const FanPageSubscription = async (data = {}) => {
+    return axiosInstance.post('billing/pay-following', data);
 }
 
 export const getAllFanSubscriptionList = async (id) => {
@@ -27,3 +30,7 @@ export const getAllFanSubscriptionList = async (id) => {
 export const getMyFanSubscriptionList = async (id) => {
     return axiosInstance.get('billing/fan-subscription-user-list?userId=' + id);
 }
+
+export const getFansubscriptionStatus = async (id) => {
+  return axiosInstance.get(`billing/getfanSubscriptionStatus/${id}`);
+};

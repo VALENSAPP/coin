@@ -201,8 +201,8 @@ export default function FlipsScreen() {
       const transformedParamReel = {
         id: paramReel.id || `param_${Date.now()}`,
         video: paramReel.images?.[0] || paramReel.video || '',
-        user: paramReel.userName || 'Unknown User',
-        avatar: paramReel.userImage || 'https://randomuser.me/api/portraits/men/1.jpg',
+        user: paramReel.userName || paramReel.username || 'Unknown User',
+        avatar: paramReel.userImage || paramReel.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
         caption: paramReel.caption || paramReel.text || 'No caption',
         music: paramReel.music || 'Original Audio',
         likes: paramReel.likeCount || 0,
@@ -217,7 +217,7 @@ export default function FlipsScreen() {
         isRemixable: true,
         isSaved: paramReel.isSaved || false,
         isHide: paramReel.isHide || false,
-        userId: paramReel.userId,
+        userId: paramReel.userId || paramReel.UserId,
         hashtag: paramReel.hashtag || [],
         location: paramReel.location || null,
         taggedPeople: paramReel.taggedPeople || [],
@@ -333,6 +333,12 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
+    // Prefer stack back to return exactly to the previous screen instance.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
@@ -346,7 +352,7 @@ export default function FlipsScreen() {
         navigation.navigate(returnTo, returnParams);
       }
     } else {
-      navigation.goBack();
+      navigation.navigate('HomeMain');
     }
   }, [navigation, route.params]);
 
@@ -810,14 +816,17 @@ export default function FlipsScreen() {
 
   const handleUserNavigate = async (id) => {
     const userId = await AsyncStorage.getItem('userId');
-    const paramReel = route.params?.item;
+    const currentReel = reels[currentIndex];
+    const targetUserId = currentReel?.userId || route.params?.item?.userId || route.params?.item?.UserId;
 
-    if (userId === paramReel.userId) {
+    if (!targetUserId) return;
+
+    if (String(userId) === String(targetUserId)) {
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: { userId: paramReel.userId }
+        params: { userId: targetUserId }
       });
     }
   };

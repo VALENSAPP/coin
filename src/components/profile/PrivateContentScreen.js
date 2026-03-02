@@ -13,6 +13,7 @@ import Video from 'react-native-video';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPostByUser } from '../../services/post';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -110,6 +111,8 @@ const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme();
   const normalizedIsSubscribed =
@@ -117,16 +120,95 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     String(isSubscribed || '').toUpperCase() === 'ACTIVE' ||
     String(isSubscribed || '').toLowerCase() === 'true';
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
-  const canViewPrivateContent = isOwnProfile || normalizedIsSubscribed;
+  const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
+
+  const isActiveStatus = useCallback((value) => {
+    if (value === true) return true;
+    return String(value || '').toUpperCase() === 'ACTIVE';
+  }, []);
+
+  const getSubscriptionStatus = useCallback(async (id) => {
+    if (!id) return false;
+    try {
+      const response = await getFansubscriptionStatus(id);
+      const data = response?.data;
+
+      if (
+        isActiveStatus(response?.status) ||
+        isActiveStatus(data?.status) ||
+        isActiveStatus(data?.subscriptionStatus) ||
+        isActiveStatus(data?.subscription?.status) ||
+        isActiveStatus(data?.fanSubscription?.status)
+      ) {
+        return true;
+      }
+
+      if (typeof data?.isSubscribed === 'boolean') {
+        return data.isSubscribed;
+      }
+
+      if (Array.isArray(data?.subscriptions)) {
+        return data.subscriptions.some((sub) => isActiveStatus(sub?.status));
+      }
+
+      if (Array.isArray(data)) {
+        return data.some((sub) => isActiveStatus(sub?.status));
+      }
+    } catch (error) {
+      console.log('Private subscription status error:', error);
+    }
+    return false;
+  }, [isActiveStatus]);
 
   useEffect(() => {
-    if (userData?.id && canViewPrivateContent) {
+    setResolvedIsSubscribed(normalizedIsSubscribed);
+  }, [normalizedIsSubscribed]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkStatus = async () => {
+      if (!userData?.id) {
+        if (mounted) {
+          setResolvedIsSubscribed(false);
+          setStatusLoading(false);
+        }
+        return;
+      }
+
+      if (isOwnProfile) {
+        if (mounted) {
+          setResolvedIsSubscribed(true);
+          setStatusLoading(false);
+        }
+        return;
+      }
+
+      setStatusLoading(true);
+      const active = await getSubscriptionStatus(userData.id);
+      
+      if (mounted) {
+        setResolvedIsSubscribed(active);
+        setStatusLoading(false);
+      }
+    };
+
+    checkStatus();
+    return () => {
+      mounted = false;
+    };
+  }, [userData?.id, isOwnProfile, getSubscriptionStatus]);
+
+  useEffect(() => {
+    if (!userData?.id || statusLoading) return;
+
+    if (canViewPrivateContent) {
       fetchPosts(userData.id);
     } else {
       setPosts([]);
       setLoading(false);
     }
-  }, [userData?.id, canViewPrivateContent]);
+  }, [userData?.id, canViewPrivateContent, statusLoading]);
 
   const fetchPosts = async (id) => {
     try {
@@ -197,7 +279,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     </View>
   ), [textStyle]);
 
-  if (loading) {
+  if (loading || statusLoading) {
     return (
       <View style={[styles.loaderContainer, bgStyle]}>
         <ActivityIndicator size="large" />

@@ -894,6 +894,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 4,
+    textAlign:'center',
+    
   },
   galleryButtonSubtext: {
     fontSize: 14,

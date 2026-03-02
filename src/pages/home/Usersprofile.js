@@ -26,7 +26,7 @@ import TokenSellModal from '../../components/modals/TokenSellModal';
 import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getMyFanSubscriptionList } from '../../services/stirpe';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 
 const Usersprofile = () => {
   const route = useRoute();
@@ -67,30 +67,50 @@ const Usersprofile = () => {
     }
   }, []);
 
+  const isActiveStatus = useCallback((value) => {
+    if (value === true) return true;
+    return String(value || '').toUpperCase() === 'ACTIVE';
+  }, []);
+
   const checkSubscriptionStatus = useCallback(async (currentUserId) => {
-    if (!currentUserId || !targetUserId) return false;
+    if (!targetUserId) return false;
 
     try {
-      const response = await getMyFanSubscriptionList(targetUserId);
-      console.log(response,'respoens in this api');
-      
-      if (response?.statusCode === 200 && response?.data?.subscriptions) {
-        const subscriptions = response.data.subscriptions;
-        
-        const hasSubscription = subscriptions.some(
-          sub => sub.buyUserId === currentUserId && sub.status === 'ACTIVE'
-        );
+      const response = await getFansubscriptionStatus(targetUserId);
+      const data = response?.data;
+      let hasSubscription = false;
 
-        console.log('hasSubscription---------------',hasSubscription)
-        setIsSubscribed(hasSubscription);
-        return hasSubscription;
+      if (
+        isActiveStatus(response?.status) ||
+        isActiveStatus(data?.status) ||
+        isActiveStatus(data?.subscriptionStatus) ||
+        isActiveStatus(data?.subscription?.status) ||
+        isActiveStatus(data?.fanSubscription?.status)
+      ) {
+        hasSubscription = true;
+      } else if (typeof data?.isSubscribed === 'boolean') {
+        hasSubscription = data.isSubscribed;
+      } else if (Array.isArray(data?.subscriptions)) {
+        hasSubscription = data.subscriptions.some((sub) => {
+          const subscriberId = sub?.buyUserId || sub?.fanUserId || sub?.subscriberId;
+          const matchesCurrentUser = currentUserId
+            ? String(subscriberId || '') === String(currentUserId)
+            : true;
+          return matchesCurrentUser && isActiveStatus(sub?.status);
+        });
+      } else if (Array.isArray(data)) {
+        hasSubscription = data.some((sub) => isActiveStatus(sub?.status));
       }
+
+      setIsSubscribed(hasSubscription);
+      return hasSubscription;
     } catch (error) {
       console.error('Error checking subscription status:', error);
     }
     
+    setIsSubscribed(false);
     return false;
-  }, [targetUserId]);
+  }, [targetUserId, isActiveStatus]);
 
   const fetchProfile = useCallback(async () => {
     try {

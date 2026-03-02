@@ -119,6 +119,7 @@ export default function Notifications() {
 
       console.log(payload, 'payload being sent');
       const response = await readNotification(payload);
+      
       console.log(response, 'response received');
 
       if (response?.status === 200) {
@@ -160,6 +161,22 @@ export default function Notifications() {
     setSelectedNotification(selected);
     setPopupVisible(true);
   };
+
+  const getNotificationTargetUserId = useCallback((notification) => {
+    const type = notification?.raw?.data?.type;
+    if (type === 'follow' || type === 'unfollow') {
+      return notification?.raw?.data?.followerId || null;
+    }
+    return null;
+  }, []);
+
+  const handlePopupNavigateToProfile = useCallback(() => {
+    const targetUserId = getNotificationTargetUserId(SelectedNotification);
+    if (!targetUserId) return;
+
+    setPopupVisible(false);
+    navigation.navigate('UsersProfile', { userId: targetUserId });
+  }, [SelectedNotification, getNotificationTargetUserId, navigation]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -255,7 +272,9 @@ export default function Notifications() {
     );
   };
 
-  const renderPopup = () => (
+  const renderPopup = () => {
+    const targetUserId = getNotificationTargetUserId(SelectedNotification);
+    return (
     <Modal
       visible={popupVisible}
       transparent
@@ -268,10 +287,17 @@ export default function Notifications() {
           <View style={styles.popupBell}>
           <Text style={styles.popupBellIcon}>🔔</Text>
         </View>
-          <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
-          <Text style={styles.popupMessage}>
-            {SelectedNotification?.message}
-          </Text>
+          <TouchableOpacity
+            activeOpacity={targetUserId ? 0.7 : 1}
+            disabled={!targetUserId}
+            onPress={handlePopupNavigateToProfile}
+            style={styles.popupTextContainer}
+          >
+            <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
+            <Text style={[styles.popupMessage, { color: text }]}>
+              {SelectedNotification?.message}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.popupCloseButton}
@@ -282,7 +308,8 @@ export default function Notifications() {
         </View>
       </View>
     </Modal>
-  );
+    );
+  };
 
   const renderTabContent = (tabData, tabKey) => {
     const renderItem = ({ item, index }) => (
@@ -702,6 +729,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  popupTextContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
   },
   loadingContainer: {
     flex: 1,
