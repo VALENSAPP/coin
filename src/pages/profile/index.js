@@ -34,14 +34,12 @@ const ProfileScreen = () => {
 
   // Single function to fetch posts, profile info, and dashboard in parallel
   const fetchAllData = useCallback(async () => {
-     console.log('fetch profile----------');
     const id = await AsyncStorage.getItem('userId');
     if (!id) {
       showToastMessage(toast, 'danger', 'No userId in storage');
       return;
     }
     setUserId(id);
-    // console.log(id, 'this is userid from async storage in profile');
     
 
     dispatch(showLoader());
@@ -51,8 +49,7 @@ const ProfileScreen = () => {
         getUserCredentials(id),
         getUserDashboard(id),
       ]);
-      console.log('getpostbyyser----------',postsRes);
-      
+     
       // Posts
       if (postsRes.statusCode === 200) {
         setPosts(postsRes.data);
@@ -65,10 +62,9 @@ const ProfileScreen = () => {
       }
 
       // Profile data
-      console.log('getUserCredentials response:', userRes);
+      
       if (userRes.statusCode === 200) {
-        console.log('User data structure:', userRes.data);
-        console.log('Full response structure:', JSON.stringify(userRes, null, 2));
+       
         
         let userDataToSet;
         if (userRes.data && userRes.data.user) {
@@ -79,8 +75,7 @@ const ProfileScreen = () => {
           userDataToSet = userRes;
         }
         
-        console.log('Setting user data:', userDataToSet);
-        console.log('Profile image URL:', userDataToSet?.image);
+     
         
         // Ensure the image URL is properly formatted
         if (userDataToSet?.image) {
@@ -91,21 +86,16 @@ const ProfileScreen = () => {
           
           // If it's already a full URL, use as is
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
-            console.log('Image URL is already absolute:', formattedImageUrl);
           } else if (formattedImageUrl.startsWith('/')) {
             // If it's a relative URL starting with /
             formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
-            console.log('Converted relative URL to absolute:', formattedImageUrl);
           } else {
             // If it doesn't start with /, assume it's a relative path
             formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
-            console.log('Converted path to absolute URL:', formattedImageUrl);
           }
           
           userDataToSet.image = formattedImageUrl;
-          console.log('Final formatted image URL:', formattedImageUrl);
         }
-        console.log('Final user data to set:', userDataToSet);
         AsyncStorage.setItem('currentUsername', userDataToSet.displayName);
         setUserData(userDataToSet);
 

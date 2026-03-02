@@ -22,7 +22,7 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import createStyles from '../../../pages/home/Style';
 import HexAvatar from './HexAvatar';
@@ -40,6 +40,7 @@ import { showToastMessage } from '../../displaytoastmessage';
 import { Toast, useToast } from 'react-native-toast-notifications';
 import { getUserCredentials } from '../../../services/post';
 import Feather from 'react-native-vector-icons/Feather';
+import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
 
 // Import the new API functions
 import { postCommentStory, postLikeStory } from '../../../services/stories'; // Adjust path as needed
@@ -313,7 +314,8 @@ const StoryViewer = ({
   onReportUser,
   onDeleteStory,
   ownerProfileImage,
-  onDrawerClose
+  onDrawerClose,
+  onOpenUserProfile,
 }) => {
   const dispatch = useDispatch();
   const [paused, setPaused] = useState(false);
@@ -617,6 +619,17 @@ const StoryViewer = ({
     setAnalyticsVisible(true);
   };
 
+  const handleOpenUserProfile = () => {
+    if (isViewingOwnStory || !currentUser?.id) return;
+    stopAndResetProgress(true);
+    onClose?.();
+
+    setTimeout(() => {
+      if (onDrawerClose) onDrawerClose();
+      onOpenUserProfile?.(currentUser);
+    }, 120);
+  };
+
   const closeAnalytics = () => {
     setAnalyticsVisible(false);
     handleResume();
@@ -767,15 +780,27 @@ const StoryViewer = ({
         {/* Top bar */}
         <View style={modalStyles.topBar}>
           <View style={modalStyles.userInfo}>
-            <HexAvatar
-              uri={isViewingOwnStory ? (ownerProfileImage || currentUser.image) : currentUser.image}
-              isUser={!!currentUser.isUser}
-              size={36}
-              borderWidth={2}
-              borderColor={isViewingOwnStory ? '#4da3ff' : '#000'}
-            />
+            <TouchableOpacity
+              activeOpacity={isViewingOwnStory ? 1 : 0.7}
+              onPress={handleOpenUserProfile}
+              disabled={isViewingOwnStory}
+            >
+              <HexAvatar
+                uri={isViewingOwnStory ? (ownerProfileImage || currentUser.image) : currentUser.image}
+                isUser={!!currentUser.isUser}
+                size={36}
+                borderWidth={2}
+                borderColor={isViewingOwnStory ? '#4da3ff' : '#000'}
+              />
+            </TouchableOpacity>
 
-            <Text style={modalStyles.username}>{currentUser.username}</Text>
+            <TouchableOpacity
+              activeOpacity={isViewingOwnStory ? 1 : 0.7}
+              onPress={handleOpenUserProfile}
+              disabled={isViewingOwnStory}
+            >
+              <Text style={modalStyles.username}>{currentUser.username}</Text>
+            </TouchableOpacity>
             <Text style={modalStyles.time}>
               {formatTime(currentStory.timestamp)}
             </Text>
@@ -1121,6 +1146,7 @@ const formatTime = timestamp => {
 
 export default function Stories({ refreshTick, sidebarMode = false, onDrawerClose }) {
   const styles = createStyles();
+  const navigation = useNavigation();
   const [stories, setStories] = useState([]);
   const [likes, setLikes] = useState({});
   const [comments, setComments] = useState({});
@@ -1131,6 +1157,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const [composerVisible, setComposerVisible] = useState(false);
   const [composerMedia, setComposerMedia] = useState(null);
   const [composerList, setComposerList] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const toast = useToast()
   const dispatch = useDispatch();
@@ -1141,6 +1168,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const fetchStories = async () => {
     try {
       const id = await AsyncStorage.getItem('userId');
+      setCurrentUserId(id);
       dispatch(showLoader());
 
       // Fetch user's own stories
@@ -1673,6 +1701,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     dispatch(hideLoader());
   };
 
+  const handleOpenStoryUserProfile = useCallback((user) => {
+    if (!user?.id || user?.isUser) return;
+    navigation.navigate('UsersProfile', { userId: user.id });
+  }, [navigation]);
+
   // Delete story function
   const handleDeleteStory = async (storyId) => {
     try {
@@ -1749,9 +1782,13 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     try {
       // Extract the actual story ID (remove the _0 suffix that was added for display)
       const actualStoryId = storyId.replace('_0', '');
+      const cleanText = String(text || '').trim();
+
+      if (!cleanText) return;
+
       // Call the API
       const response = await postCommentStory({
-        comment: text,
+        comment: cleanText,
         storyId: actualStoryId
       });
 
@@ -1762,10 +1799,23 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           const arr = prev[key] || [];
           return {
             ...prev,
-            [key]: [...arr, { user: 'you', text, ts: Date.now() }],
+            [key]: [...arr, { user: 'you', text: cleanText, ts: Date.now() }],
           };
         });
 
+        // Also push the story reply into chat inbox of story owner.
+        try {
+          if (ownerId && currentUserId && String(ownerId) !== String(currentUserId)) {
+            await sendChatMessage({
+              senderId: currentUserId,
+              receiverId: ownerId,
+              message: cleanText,
+              type: 'CHAT',
+            });
+          }
+        } catch (chatError) {
+          console.warn('Failed to deliver story reply to inbox:', chatError);
+        }
       } else {
         // Handle API error
         console.error('Failed to add comment:', response);
@@ -1892,6 +1942,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         onDeleteStory={handleDeleteStory}
         ownerProfileImage={profileImage}
         onDrawerClose={onDrawerClose}
+        onOpenUserProfile={handleOpenStoryUserProfile}
       />
 
       <StoryComposer

@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import PrivateContentScreen from './PrivateContentScreen';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -46,13 +47,51 @@ const ProfileTabs = memo(({
     setIsSubscribed(normalizedIsSubscribed);
   }, [isSubscribedProp]);
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
+  const targetProfileId = targetUserId || userData?.id;
+
+  const isActiveStatus = useCallback((value) => {
+    if (value === true) return true;
+    return String(value || '').toUpperCase() === 'ACTIVE';
+  }, []);
+
+  const getSubscriptionStatus = useCallback(async (id) => {
+    if (!id || isOwnProfile) return true;
+
+    try {
+      const response = await getFansubscriptionStatus(id);
+      const data = response?.data;
+
+      let isActive = false;
+      if (
+        isActiveStatus(response?.status) ||
+        isActiveStatus(data?.status) ||
+        isActiveStatus(data?.subscriptionStatus) ||
+        isActiveStatus(data?.subscription?.status) ||
+        isActiveStatus(data?.fanSubscription?.status)
+      ) {
+        isActive = true;
+      } else if (typeof data?.isSubscribed === 'boolean') {
+        isActive = data.isSubscribed;
+      } else if (Array.isArray(data?.subscriptions)) {
+        isActive = data.subscriptions.some((sub) => isActiveStatus(sub?.status));
+      } else if (Array.isArray(data)) {
+        isActive = data.some((sub) => isActiveStatus(sub?.status));
+      }
+
+      setIsSubscribed(isActive);
+      return isActive;
+    } catch (error) {
+      console.log('Error checking fan subscription status:', error);
+      setIsSubscribed(false);
+      return false;
+    }
+  }, [isOwnProfile, isActiveStatus]);
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
     (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData} />,
     [post, userData],
   );
-  console.log(post, 'post data in user profile ');
 
   const renderReelsScreen = useCallback(
     (navProps) => <ReelsScreen {...navProps} postCheck={post} userData={userData} />,
@@ -184,14 +223,22 @@ const ProfileTabs = memo(({
             ),
           }}
           listeners={{
-            tabPress: () => {
+            tabPress: async () => {
               setPreviousTabIndex(currentTabIndex);
               setCurrentTabIndex(2);
 
-              // Show subscription modal only if:
-              // 1. User is not viewing their own profile
-              // 2. User is not already subscribed
-              if (!isOwnProfile && !isSubscribed) {
+              if (isOwnProfile || isSubscribed) {
+                setShowSubscribeModal(false);
+                return;
+              }
+
+              const hasActiveSubscription = await getSubscriptionStatus(targetProfileId);
+              if (hasActiveSubscription) {
+                setShowSubscribeModal(false);
+                return;
+              }
+
+              if (!isOwnProfile) {
                 setPrivatKey(prev => prev + 1);
                 setShowSubscribeModal(false);
                 setTimeout(() => {
@@ -204,7 +251,7 @@ const ProfileTabs = memo(({
           {renderPrivateContentScreen}  
         </Tab.Screen>
 
-        <Tab.Screen
+        {/* <Tab.Screen
           name="Tagged"
           component={TaggedScreen}
           options={{
@@ -222,7 +269,7 @@ const ProfileTabs = memo(({
               setCurrentTabIndex(3);
             }
           }}
-        />
+        /> */}
       </Tab.Navigator>
 
       {/* ✅ Subscription Modal - Only show if not subscribed */}

@@ -69,7 +69,16 @@ export default function FollowCard({
   }, [item?.id]);
 
   const recipientWalletAddress = useMemo(
-    () => getSupportRecipientWalletAddress({ ...item, walletAddress: targetWalletAddress || item?.walletAddress }),
+    () =>
+      targetWalletAddress ||
+      item?.walletAddress ||
+      item?.walletId ||
+      item?.wallet ||
+      item?.userWalletAddress ||
+      item?.creatorWalletAddress ||
+      item?.vendorWalletAddress ||
+      item?.receiverWalletAddress ||
+      null,
     [item, targetWalletAddress],
   );
   const canSupport = !!recipientWalletAddress;
@@ -192,13 +201,6 @@ export default function FollowCard({
           onPress={async () => {
             if (item.id === currentUserId) return;
 
-            if (isBusinessProfile) {
-              if (canSupport) {
-                setModalVisible(true);
-              }
-              return;
-            }
-
             const shouldFollow = !isFollowing;
             let success = false;
 
@@ -219,8 +221,7 @@ export default function FollowCard({
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.followText}>
-              {isBusinessProfile ? "Support" :
-                isFollowing ? 'Followed' : 'Follow'}
+              {isFollowing ? 'Followed' : 'Follow'}
             </Text>
           )}
         </TouchableOpacity>

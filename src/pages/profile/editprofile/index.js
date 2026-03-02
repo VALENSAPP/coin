@@ -273,7 +273,7 @@ const ProfileEditScreen = () => {
 
       // Navigate to your specific screen instead
       navigation.navigate({
-        name: 'wallet',
+        name: 'Profile',
         state: {
           routes: [{ name: returnScreen }],
           index: 0

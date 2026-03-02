@@ -164,7 +164,7 @@ function PostItem({
   followingBusy = false,
   isBusinessProfile,
   executeFollowAction,
-  isVisible = false,
+  isVisible = true,
   screenFocused = true,
   playingPostId,
   currentlyVisiblePostId,
@@ -173,6 +173,7 @@ function PostItem({
   hideDonationButton = false, // Add this prop with default false
 
 }) {
+  
   
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -396,11 +397,25 @@ function PostItem({
   //   };
   // }, [restoreUserId]);
 
-  const recipientWalletAddress = useMemo(
-    () => getSupportRecipientWalletAddress({ ...item, walletAddress: targetWalletAddress || item?.walletAddress }),
-    [item, targetWalletAddress],
+  const creatorWalletAddress = useMemo(
+    () =>
+      targetWalletAddress ||
+      item?.walletAddress ||
+      item?.walletId ||
+      item?.wallet ||
+      item?.userWalletAddress ||
+      item?.creatorWalletAddress ||
+      item?.vendorWalletAddress ||
+      item?.receiverWalletAddress ||
+      null,
+    [targetWalletAddress, item],
   );
-  const canSupport = !!recipientWalletAddress;
+
+  const recipientWalletAddress = useMemo(
+    () => getSupportRecipientWalletAddress({ ...item, walletAddress: creatorWalletAddress }),
+    [item, creatorWalletAddress],
+  );
+  const canSupport = !!creatorWalletAddress;
 
   const handleWalletSelect = useCallback(async (wallet) => {
     setWalletSelectionVisible(false);
@@ -477,13 +492,14 @@ function PostItem({
   useEffect(() => {
     if (mediaLength <= 0) return;
 
+    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
     const nextStates = {};
     for (let idx = 0; idx < mediaLength; idx++) {
       const shouldPause = !(
         idx === currentIndex &&
         isVisible &&
         screenFocused &&
-        String(playingPostId) === String(item.id)
+        (!hasPlayingTarget || String(playingPostId) === String(item.id))
       );
       nextStates[idx] = shouldPause;
     }
@@ -588,27 +604,51 @@ function PostItem({
     if (index !== currentIndex) setCurrentIndex(index);
   }, [currentIndex]);
 
+  const handleOpenReel = useCallback((mediaItem) => {
+    const uniqueKey = Date.now().toString();
+    const allMediaUrls = Array.isArray(item?.media)
+      ? item.media.map((m) => m?.url).filter(Boolean)
+      : [];
+
+    navigation.navigate('ProfileMain', {
+      screen: 'FlipsScreen',
+      params: {
+        item: {
+          ...item,
+          image: mediaItem?.url,
+          images: allMediaUrls.length > 0 ? allMediaUrls : (mediaItem?.url ? [mediaItem.url] : []),
+          isVideo: true,
+          type: 'video',
+          mediaType: 'video',
+          // Normalize user fields for FlipsScreen
+          userName: item?.userName || item?.username || 'Unknown User',
+          userImage: item?.userImage || item?.avatar || null,
+          userId: item?.userId || item?.UserId || null,
+        },
+        key: uniqueKey,
+        // Always return to the current screen context first (e.g. PostView/Home).
+        returnTo: route?.name || returnTo,
+        returnParams: route?.params || {},
+      },
+    });
+  }, [item, navigation, returnTo, route?.name, route?.params]);
+
   const handleFollowPress = useCallback(async () => {
     if (!item?.UserId || item.UserId === userId || followingBusy) return;
-
-    if (isBusinessProfile) {
-      await handleSupportNow();
-      return;
-    }
 
     const shouldFollow = !item.follow;
     const followHandler = executeFollowAction || onToggleFollow;
     if (!followHandler) return;
     const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
-    if (success && shouldFollow && canSupport) {
+    if (success && shouldFollow && isCompanyProfile && canSupport) {
       setModalVisible(true);
     }
-  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, isBusinessProfile, handleSupportNow, canSupport]);
+  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, isCompanyProfile, canSupport]);
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? true;
+    const isPaused = videoStates[index] ?? false;
 
     // Simplified shouldPlay - only check if not paused and current index
     const shouldPlay = index === currentIndex && !isPaused && !isZooming;
@@ -646,17 +686,7 @@ function PostItem({
             <TouchableOpacity
               style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
               activeOpacity={1}
-              onPress={() => {
-                console.log('Video overlay pressed, current isPaused:', isPaused);
-                setVideoStates((prev) => {
-                  const newState = {
-                    ...prev,
-                    [index]: !prev[index]
-                  };
-                  console.log('New video state for index', index, ':', newState[index]);
-                  return newState;
-                });
-              }}
+              onPress={() => handleOpenReel(mediaItem)}
             >
               {isPaused && (
                 <View style={styles.playButtonContainer}>
@@ -682,7 +712,7 @@ function PostItem({
         )}
       </View>
     );
-  }, [currentIndex, isVideoUrl, videoStates, isZooming, isMuted]);
+  }, [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted]);
   
   return (
     
@@ -807,7 +837,7 @@ function PostItem({
                 <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
               ) : (
                 <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                  {isBusinessProfile ? "Support" : item.follow ? 'Followed' : 'Follow'}
+                  { item.follow ? 'Followed' : 'Follow'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -1025,7 +1055,7 @@ const styles = StyleSheet.create({
   },
   mediaWrapper: {
     position: 'relative',
-    width: width,
+    width: '100%',
     height: 500,
     backgroundColor: '#000',
     overflow: 'hidden',
@@ -1245,7 +1275,7 @@ const styles = StyleSheet.create({
   },
   speakerButton: {
     position: 'absolute',
-    bottom: -130,
+    bottom: 12,
     right: 12,
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 8,
@@ -1256,7 +1286,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontWeight: '600',
-    textDecorationLine: 'underline',
+    // textDecorationLine: 'underline',
   },
   modalBackground: {
     flex: 1,

@@ -36,6 +36,7 @@ const SubscribeFlowModal = ({
     dashboard,
     targetUserId,
 }) => {
+    
     const step1Ref = useRef(null);
     const step2Ref = useRef(null);
 
@@ -100,6 +101,12 @@ const SubscribeFlowModal = ({
     ========================== */
     const getSubscription = async () => {
         const canProceed = await requireStripeCustomerForPayment();
+        const amount = Number(subscriptionAmount);
+
+        if (!amount || Number.isNaN(amount)) {
+            showToastMessage(toast, 'danger', 'Subscription amount is not available. Please try again.');
+            return;
+        }
 
         if (!canProceed) {
             step1Ref.current?.close();
@@ -115,15 +122,15 @@ const SubscribeFlowModal = ({
         dispatch(showLoader());
 
         try {
-            const userId = await AsyncStorage.getItem('userId');
-
             const payload = {
-                amount: subscriptionAmount,
-                buyUserId: targetUserId,
-                fanUserId: userId,
+                amount,
+                contentUserId: targetUserId,
+                // fanUserId: userId,
             };
 
             const response = await FanPageSubscription(payload);
+            console.log(response,'data in buy subcription');
+            
             const url = getPaymentSessionUrl(response);
 
             if (url) {
