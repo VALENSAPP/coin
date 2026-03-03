@@ -30,6 +30,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../displaytoastmessage';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { getAllUser } from '../../../services/users';
@@ -655,6 +656,20 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
       if (action === 'toggleSave') {
         await handleToggleSave(modalPostId);
+        closeOptionsModal();
+        return;
+      }
+
+      if (action === 'copyAddress') {
+        if (!modalPostId) {
+          showToastMessage(toast, 'danger', 'Post ID not found');
+          closeOptionsModal();
+          return;
+        }
+
+        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        Clipboard.setString(deepLink);
+        showToastMessage(toast, 'success', 'Post copied');
         closeOptionsModal();
         return;
       }

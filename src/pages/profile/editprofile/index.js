@@ -36,6 +36,8 @@ const ProfileEditScreen = () => {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [website_link, setWebsiteLink] = useState('');
+  const [socialLink, setSocialLink] = useState('');
   const [gender, setGender] = useState('OTHER');
   const [wallet, setWallet] = useState('');
   const [profileImage, setProfileImage] = useState(null);
@@ -60,14 +62,47 @@ const ProfileEditScreen = () => {
     { label: 'Other', value: 'OTHER', icon: '⚧️' },
   ];
 
+  const detectSocialPlatform = (url = '') => {
+    const normalized = String(url).toLowerCase();
+    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
+    if (normalized.includes('instagram.com')) return 'instagram';
+    if (normalized.includes('linkedin.com')) return 'linkedin';
+    if (normalized.includes('tiktok.com')) return 'tiktok';
+    if (normalized.includes('youtube.com') || normalized.includes('youtu.be')) return 'youtube';
+    if (normalized.includes('facebook.com') || normalized.includes('fb.com')) return 'facebook';
+    return 'website';
+  };
+
   useEffect(() => {
     if (userdata) {
       const u = userdata.user || userdata;
       const displayName = u.displayName || '';
+      let parsedSocialLinks = [];
+      try {
+        if (Array.isArray(u.socialLinks)) {
+          parsedSocialLinks = u.socialLinks;
+        } else if (typeof u.socialLinks === 'string') {
+          parsedSocialLinks = JSON.parse(u.socialLinks);
+        } else if (Array.isArray(u.social_media_links)) {
+          parsedSocialLinks = u.social_media_links;
+        } else if (typeof u.social_media_links === 'string') {
+          parsedSocialLinks = JSON.parse(u.social_media_links);
+        } else if (Array.isArray(u.social_links)) {
+          parsedSocialLinks = u.social_links;
+        } else if (typeof u.social_links === 'string') {
+          parsedSocialLinks = JSON.parse(u.social_links);
+        }
+      } catch (e) {
+        parsedSocialLinks = [];
+      }
+      const primarySocialLink = parsedSocialLinks.find(item => item?.url)?.url || '';
+
       setName(displayName);
       setOriginalDisplayName(displayName);
       setUsername(u.userName || '');
       setBio(u.bio || '');
+      setWebsiteLink(u.website_link || '');
+      setSocialLink(primarySocialLink);
       setGender(u.gender || 'OTHER');
       setWallet(u.walletAddress || '');
       setProfileImage(u.image || null);
@@ -202,6 +237,10 @@ const ProfileEditScreen = () => {
   const handleBioChange = text => {
     setBio(text);
     validateField('bio', text);
+  };
+
+  const handleSocialLinkChange = value => {
+    setSocialLink(value);
   };
 
   const isFormValid = () => {
@@ -395,6 +434,15 @@ const ProfileEditScreen = () => {
       formData.append('userName', username.trim());
       formData.append('bio', bio.trim());
       formData.append('gender', gender);
+      formData.append('website_link', website_link);
+      const trimmedSocialLink = socialLink.trim();
+      const formattedSocialLinks = trimmedSocialLink
+        ? [{ platform: detectSocialPlatform(trimmedSocialLink), url: trimmedSocialLink }]
+        : [];
+      const socialLinksPayload = JSON.stringify(formattedSocialLinks);
+      formData.append('social_media_links', socialLinksPayload);
+      formData.append('socialLinks', socialLinksPayload);
+
       if (profileImage?.startsWith('file://')) {
         formData.append('image', {
           uri: profileImage,
@@ -591,6 +639,21 @@ const ProfileEditScreen = () => {
               keyboardType="url"
               autoCapitalize="none"
               autoCorrect={false}
+              value={website_link}
+              onChangeText={setWebsiteLink}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Social Link</Text>
+            <TextInput
+              placeholder="https://your-social-link.com/username"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={socialLink}
+              onChangeText={handleSocialLinkChange}
             />
           </View>
         </View>

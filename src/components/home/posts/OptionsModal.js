@@ -31,6 +31,8 @@ export default function OptionsModal({
     onSelect?.(action, { postId });
     // sheetRef.current?.close();
   };
+  console.log(postId,'post it sgreaag');
+  
   const report = () => {
     sheetRef.current?.close();
 
@@ -73,16 +75,6 @@ export default function OptionsModal({
                 <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color="#262626" />
                 <Text style={styles.innerText}>{isSaved ? 'Unsave Post' : 'Save Post'}</Text>
               </TouchableOpacity>
-
-              {/* <Pressable style={styles.innerRow} onPress={() => tap('openExplorer')}>
-              <FontAwesomeIcon name="internet-explorer" size={20} color="#262626" />
-              <Text style={styles.innerText}>View in explorer</Text>
-            </Pressable>
-
-            <Pressable style={styles.innerRow} onPress={() => tap('openDexscreener')}>
-              <MaterialIcons name="screenshot-monitor" size={20} color="#262626" />
-              <Text style={styles.innerText}>View on Dexscreener</Text>
-            </Pressable> */}
             </View>
 
             <View style={styles.innerContainer}>

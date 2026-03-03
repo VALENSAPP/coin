@@ -387,7 +387,6 @@ export default StyleSheet.create({
     fontSize: 7,
     fontWeight: '400',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
   },
 
   progressContainer: {

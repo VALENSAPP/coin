@@ -126,6 +126,9 @@ const createStyles = () => {
     flatlistContainer: {
       marginBottom: 60,
     },
+    positiom: {
+      marginTop: '25%'
+    },
   });
   return styles;
 };

@@ -200,10 +200,24 @@ export default function Main() {
       try {
         const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
         const path = urlObj.pathname;
+        const postId = urlObj.searchParams.get('postId');
+        const fallbackTag = urlObj.searchParams.get('af');
 
         if (navigationRef.current && isNavigationReady) {
           setTimeout(() => {
-            if (path === '/wallet') {
+            if (postId && fallbackTag === 'dd') {
+              navigationRef.current.navigate('MainApp', {
+                screen: 'ProfileMain',
+                params: {
+                  screen: 'PostView',
+                  params: {
+                    userChat: true,
+                    fromScreen: 'DeepLink',
+                    postData: { id: String(postId) },
+                  },
+                },
+              });
+            } else if (path === '/wallet') {
               navigationRef.current.navigate('Wallet');
             } else if (path === '/home' || path === '/') {
               navigationRef.current.navigate('Home');

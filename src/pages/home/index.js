@@ -40,7 +40,7 @@ import { checkSubscription } from '../../services/stirpe';
 import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SIDEBAR_WIDTH = 110;
+const SIDEBAR_WIDTH = 130;
 
 export default function HomeScreen() {
   const styles = createStyles();
@@ -70,6 +70,8 @@ export default function HomeScreen() {
 
 
   const appState = useRef(AppState.currentState);
+
+  const formatBadgeCount = (count) => (count > 9 ? '9+' : count);
 
   // ✅ Get current user ID on mount and initialize socket
   useEffect(() => {
@@ -620,6 +622,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <View style={styles.headerIcons}>
           <TouchableOpacity
+            style={headerBadgeStyles.iconButton}
             onPress={() => {
               navigation.navigate('HeartNotification');
             }}
@@ -628,7 +631,7 @@ export default function HomeScreen() {
             {notificationUnreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
-                  {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                  {formatBadgeCount(notificationUnreadCount)}
                 </Text>
               </View>
             )}
@@ -637,15 +640,15 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             onPress={() => navigation.navigate('ChatMessages')}
-            style={{ position: 'relative', padding: 4 }}
+            style={headerBadgeStyles.iconButton}
           >
-            <Chat width={24} height={24} style={styles.headerIcon} />
+            <Chat width={24} height={24} />
 
             {/* Enhanced badge with animation */}
             {unreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {formatBadgeCount(unreadCount)}
                 </Text>
               </View>
             )}
@@ -742,7 +745,7 @@ const sidebarStyles = StyleSheet.create({
   sidebar: {
     position: 'absolute',
     right: 0,
-    top: Platform.OS == 'android' ? 40 : 57,
+    top: Platform.OS == 'android' ? 0 : 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
     borderLeftWidth: 1,
@@ -764,26 +767,32 @@ const sidebarStyles = StyleSheet.create({
 });
 
 const headerBadgeStyles = StyleSheet.create({
+  iconButton: {
+    position: 'relative',
+    padding: 4,
+    marginLeft: 16,
+  },
   badgeContainer: {
     position: 'absolute',
-    right: -6,
-    top: -6,
+    right: -2,
+    top: -2,
     backgroundColor: '#FF3B30',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
+    borderRadius: 15,
+    minWidth: 16,
+    height: 20,
+    paddingHorizontal: 3,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#fff',
     elevation: 4,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    includeFontPadding: false,   // Android fix
-    textAlignVertical: 'center', // ✅ fixed typo
+    lineHeight: 11,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });
