@@ -1507,71 +1507,69 @@ const InstagramPostCreator = () => {
 
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle]}>
-      {!isFlipPost && (
-        <View style={styles.tabContainer}>
-          {[
-            { title: 'Text', icon: 'text-outline', disabled: false },
-            { title: 'Overlay', icon: 'layers-outline', disabled: false },
-            { title: 'Filter', icon: 'color-filter-outline', disabled: false },
-            ...(!isCurrentMediaVideo()
-              ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
-              : []),
-          ].map(tab => (
-            <TouchableOpacity
-              key={tab.title}
-              style={[styles.tabButton, tab.disabled && styles.disabledTabButton]}
-              onPress={async () => {
-                if (tab.disabled) return;
-                if (tab.title !== 'Filter' && showFilters) {
-                  setShowFilters(false);
-                }
+      <View style={styles.tabContainer}>
+        {[
+          { title: 'Text', icon: 'text-outline', disabled: false },
+          { title: 'Overlay', icon: 'layers-outline', disabled: false },
+          { title: 'Filter', icon: 'color-filter-outline', disabled: false },
+          ...(!isCurrentMediaVideo()
+            ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
+            : []),
+        ].map(tab => (
+          <TouchableOpacity
+            key={tab.title}
+            style={[styles.tabButton, tab.disabled && styles.disabledTabButton]}
+            onPress={async () => {
+              if (tab.disabled) return;
+              if (tab.title !== 'Filter' && showFilters) {
+                setShowFilters(false);
+              }
 
-                if (tab.title === 'Draw') {
-                  if (isDrawing) {
-                    // Exiting draw mode → always save drawing first
-                    await captureAndMergeDrawing(true);
-                  } else {
-                    // Entering draw mode
-                    setIsDrawing(true);
-                    setIsScrollEnabled(false);
-                    setCanvasKey(prev => prev + 1);
-                  }
+              if (tab.title === 'Draw') {
+                if (isDrawing) {
+                  // Exiting draw mode → always save drawing first
+                  await captureAndMergeDrawing(true);
+                } else {
+                  // Entering draw mode
+                  setIsDrawing(true);
+                  setIsScrollEnabled(false);
+                  setCanvasKey(prev => prev + 1);
                 }
-                else if (tab.title === 'Filter') {
-                  setShowFilters(prev => !prev);
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                    setCanvasKey(prev => prev + 1);
-                  }
+              }
+              else if (tab.title === 'Filter') {
+                setShowFilters(prev => !prev);
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
                 }
-                else if (tab.title === 'Text') {
-                  setModalVisible2(true);
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                    setCanvasKey(prev => prev + 1);
-                  }
+              }
+              else if (tab.title === 'Text') {
+                setModalVisible2(true);
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
                 }
-                else if (tab.title === 'Overlay') {
-                  bottomSheetRef.current?.open();
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                    setCanvasKey(prev => prev + 1);
-                  }
+              }
+              else if (tab.title === 'Overlay') {
+                bottomSheetRef.current?.open();
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
                 }
+              }
 
-                setActiveTab(tab.title);
-              }}
-              disabled={tab.disabled}
-            >
-              <Icon name={tab.icon} size={15} color={tab.disabled ? '#555' : '#aaa'} style={{ marginBottom: 2 }} />
-              <Text style={[styles.tabButtonText, tab.disabled && styles.disabledTabButtonText]}>{tab.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+              setActiveTab(tab.title);
+            }}
+            disabled={tab.disabled}
+          >
+            <Icon name={tab.icon} size={15} color={tab.disabled ? '#555' : '#aaa'} style={{ marginBottom: 2 }} />
+            <Text style={[styles.tabButtonText, tab.disabled && styles.disabledTabButtonText]}>{tab.title}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <RBSheet
         ref={bottomSheetRef}
         closeOnDragDown={true}
@@ -1775,7 +1773,7 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ height: isFlipPost ? "82%" : "70%" }} showsVerticalScrollIndicator={false}>
+      <View style={{ height: isFlipPost ? "75%" : "70%" }} showsVerticalScrollIndicator={false}>
         {renderFilters()}
         {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}

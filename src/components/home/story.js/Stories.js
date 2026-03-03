@@ -1874,13 +1874,15 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
             style={sidebarMode ? sidebarStyles.verticalAddIcon : styles.addIcon}
           />
         )}
-        <HexAvatar
-          uri={item.isUser ? (profileImage || item.image) : item.image}
-          isUser={!!item.isUser}
-          size={sidebarMode ? 72 : 79}
-          borderWidth={item.isUser ? 3 : 2}
-          borderColor={item.isUser ? '#4da3ff' : '#000'}
-        />
+        <View style={styles.positiom}>
+          <HexAvatar
+            uri={item.isUser ? (profileImage || item.image) : item.image}
+            isUser={!!item.isUser}
+            size={sidebarMode ? 80 : 79}
+            borderWidth={item.isUser ? 3 : 2}
+            borderColor={item.isUser ? '#4da3ff' : '#000'}
+          />
+        </View>
         {item.isUser && item.stories.length > 0 && (
           <TouchableOpacity
             style={sidebarMode ? sidebarStyles.verticalAddStoryOverlay : styles.addStoryOverlay}

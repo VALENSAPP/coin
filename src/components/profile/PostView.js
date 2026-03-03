@@ -37,6 +37,8 @@ export default function PostView({ postData = [] }) {
   // ─── All hooks at the very top ───────────────────────────────
   const route = useRoute();
   const navigation = useNavigation();
+  console.log(postData,'post data in post view ');
+  
 
   // Extract params including the source screen info
   const routeParams = route.params || {};

@@ -712,12 +712,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 10,
+    
   },
   popupMessage: {
     fontSize: 14,
     color: '#555',
     textAlign: 'center',
     marginBottom: 20,
+    textDecorationLine:'underline',
+    textDecorationColor:'#3c0fdd'
   },
   popupCloseButton: {
     backgroundColor: '#5a2d82',

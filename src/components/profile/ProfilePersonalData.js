@@ -101,11 +101,11 @@ const ProfilePersonData = ({
   const loggedInUserProfile = useSelector(state => state.userProfile.userProfile);
   const isLoggedInBusinessUser = loggedInUserProfile === 'company';
   const isKycApproved =
-    userData?.kyc === true 
-    // &&
-    // userData?.kycStatus === "APPROVED";
+    userData?.kyc === true
+  // &&
+  // userData?.kycStatus === "APPROVED";
   const isSubscriptionActive = userData?.subscriptionStatus == "ACTIVE";
-  
+
   const Userdata = {
     Displayname: displayName || 'No Name',
     Username: username || 'Unknown User',
@@ -175,7 +175,7 @@ const ProfilePersonData = ({
       'What would you like to upload?',
       [
         {
-          text: 'Story',
+          text: 'Add Drops',
           onPress: () => handleStoryUpload(),
         },
         {
@@ -518,10 +518,10 @@ const ProfilePersonData = ({
     const followHandler = executeFollowAction || onToggleFollow;
     const success = await followHandler?.();
 
-    if (success && shouldFollow && isCompanyProfile && canSupport) {
+    if (success && shouldFollow && canSupport) {
       setSupportModalVisible(true);
     }
-  }, [isCompanyProfile, canSupport, isFollowing, executeFollowAction, onToggleFollow]);
+  }, [canSupport, isFollowing, executeFollowAction, onToggleFollow]);
 
   useFocusEffect(
     useCallback(() => {
@@ -597,30 +597,96 @@ const ProfilePersonData = ({
     }
   };
 
-  const handleSupportPress = () => {
-    const email = 'info@valens.app';
-    const subject = 'App Support Request';
-    const body = 'Hi team,\n\nI need help with...';
+  // const handleSupportPress = () => {
+  //   const email = 'info@valens.app';
+  //   const subject = 'App Support Request';
+  //   const body = 'Hi team,\n\nI need help with...';
 
-    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  //   const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'No mail app found');
-    });
-  };
+  //   Linking.openURL(url).catch(() => {
+  //     Alert.alert('Error', 'No mail app found');
+  //   });
+  // };
+  const detectPlatformFromUrl = useCallback((url = '') => {
+    const normalized = String(url).toLowerCase();
+    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
+    if (normalized.includes('tiktok.com')) return 'tiktok';
+    if (normalized.includes('linkedin.com')) return 'linkedin';
+    if (normalized.includes('instagram.com')) return 'instagram';
+    return '';
+  }, []);
+
+  const socialMediaLinks = useMemo(() => {
+    const source =
+      data?.social_media_links ??
+      userData?.social_media_links ??
+      data?.socialLinks ??
+      userData?.socialLinks ??
+      data?.social_links ??
+      userData?.social_links;
+    let list = [];
+    try {
+      if (Array.isArray(source)) {
+        list = source;
+      } else if (typeof source === 'string') {
+        list = JSON.parse(source);
+      }
+    } catch (e) {
+      list = [];
+    }
+
+    return list
+      .map(item => {
+        const url = String(item?.url || '').trim();
+        const platform = String(item?.platform || '').toLowerCase() || detectPlatformFromUrl(url);
+        return { platform, url };
+      })
+      .filter(item => item.url && ['twitter', 'tiktok', 'linkedin'].includes(item.platform));
+  }, [data?.social_media_links, userData?.social_media_links, detectPlatformFromUrl]);
+
   const socialUrls = {
-    twitter: 'https://x.com/valens_app',
-    tiktok: 'https://www.tiktok.com/@valens_app',
-    linkedin: 'https://www.linkedin.com/company/valens-app',
+    own: userData?.website_link,
   };
 
-  const handleOpenSocialUrl = (url) => {
-    Linking.openURL(url).catch(() => {
+  const handleOpenSocialUrl = async (url) => {
+    const raw = String(url || '').trim();
+    if (!raw) {
+      Alert.alert('Error', 'Link is empty');
+      return;
+    }
+
+    const normalizedUrl = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+    try {
+      const supported = await Linking.canOpenURL(normalizedUrl);
+      if (!supported) {
+        Alert.alert('Error', 'Invalid link');
+        return;
+      }
+      await Linking.openURL(normalizedUrl);
+    } catch (e) {
       Alert.alert('Error', 'Unable to open link');
-    });
+    }
   };
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
+  const usernameModalData = useMemo(() => {
+    return {
+      ...(userData || {}),
+      ...(data || {}),
+      id: data?.id || userData?.id || targetUserId || userId,
+      userId: data?.userId || userData?.userId || targetUserId || userId,
+      userName: data?.userName || userData?.userName || username || displayName,
+      displayName: data?.displayName || userData?.displayName || displayName || username,
+      walletAddress:
+        data?.walletAddress ||
+        userData?.walletAddress ||
+        userData?.walletId ||
+        walletAddress ||
+        '',
+    };
+  }, [data, userData, targetUserId, userId, username, displayName, walletAddress]);
 
   const handleBackPress = useCallback(() => {
     const returnTo = returnByTo;
@@ -688,7 +754,7 @@ const ProfilePersonData = ({
             >
               <Ionicons name="share-outline" size={25} color="#111100" />
             </TouchableOpacity>
-            {!fromUsersProfile &&(
+            {!fromUsersProfile && (
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => setModalVisible(true)}
@@ -787,7 +853,7 @@ const ProfilePersonData = ({
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
                       <Text style={styles.buttonText}>
-                        { isFollowing ? 'Following' : 'Follow'}
+                        {isFollowing ? 'Following' : 'Follow'}
                         {followBusy ? '...' : ''}
                       </Text>
                     </LinearGradient>
@@ -810,7 +876,7 @@ const ProfilePersonData = ({
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleSupportPress}>
+                  <TouchableOpacity >
                     <LinearGradient
                       colors={
                         isLoggedInBusinessUser
@@ -821,8 +887,8 @@ const ProfilePersonData = ({
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}> 
-                         {isBusinessProfile ? 'Total Earning':'Total Support' }</Text>
+                      <Text style={styles.buttonText}>
+                        {isBusinessProfile ? 'Total Earning' : 'Total Support'}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </>
@@ -868,7 +934,8 @@ const ProfilePersonData = ({
                       <Text style={styles.buttonText}> Invite</Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleSupportPress}>
+                  <TouchableOpacity
+                  >
                     <LinearGradient
                       colors={
                         isLoggedInBusinessUser
@@ -879,7 +946,7 @@ const ProfilePersonData = ({
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}> Total Support</Text>
+                      <Text style={styles.buttonText}> Total Market Cap</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </>
@@ -890,37 +957,28 @@ const ProfilePersonData = ({
           <View style={styles.biobox}>
             <Text style={styles.biotext}>{Userdata.Bio}</Text>
             <View style={styles.socialRow}>
-            <TouchableOpacity
-              style={styles.socialIconButton}
-              activeOpacity={0.7}
-              onPress={() => handleOpenSocialUrl(socialUrls.tiktok)}
-            >
-              <Tiktok width={30} height={30} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.socialIconButton}
-              activeOpacity={0.7}
-              onPress={() => handleOpenSocialUrl(socialUrls.linkedin)}
-            >
-              <Linkedin width={30} height={30} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.socialIconButton}
-              activeOpacity={0.7}
-              onPress={() => handleOpenSocialUrl(socialUrls.twitter)}
-            >
-              <Twitter width={30} height={30} />
-            </TouchableOpacity>
-          </View>
+              {socialMediaLinks.map(item => (
+                <TouchableOpacity
+                  key={`${item.platform}-${item.url}`}
+                  style={styles.socialIconButton}
+                  activeOpacity={0.7}
+                  onPress={() => handleOpenSocialUrl(item.url)}
+                >
+                  {item.platform === 'tiktok' && <Tiktok width={25} height={25} />}
+                  {item.platform === 'linkedin' && <Linkedin width={25} height={25} />}
+                  {item.platform === 'twitter' && <Twitter width={25} height={25} />}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
 
           <TouchableOpacity
             style={styles.bioLinkWrap}
             activeOpacity={0.7}
-            onPress={() => handleOpenSocialUrl(socialUrls.twitter)}
+            onPress={() => handleOpenSocialUrl(socialUrls?.own)}
           >
-            <Text style={styles.bioLinkText}>{socialUrls.twitter}</Text>
+            <Text style={styles.bioLinkText}>{userData?.website_link}</Text>
           </TouchableOpacity>
 
         </View>
@@ -1004,11 +1062,12 @@ const ProfilePersonData = ({
       <UsernameModal
         visible={usernameModalVisible}
         onClose={() => setUsernameModalVisible(false)}
+        data={usernameModalData}
       />
-      <TradeModal
+      {/* <TradeModal
         visible={tradeModalVisible}
         onClose={() => setTradeModalVisible(false)}
-      />
+      /> */}
 
       {/* Story Composer Modal */}
       <StoryComposer

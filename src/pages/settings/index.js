@@ -257,8 +257,9 @@ const Settings = () => {
     Alert.alert('Ray-Ban Meta', 'Navigate to Ray-Ban Meta');
   };
 
-  const handleAddAccountPress = () => {
-    Alert.alert('Add account', 'Navigate to Add account');
+  const handleAddAccountPress = async () => {
+    await AsyncStorage.setItem('isLoggedIn', 'false');
+    dispatch(loggedOut());
   };
 
   const handleLogoutPress = () => {
@@ -388,20 +389,10 @@ const Settings = () => {
             subtitle="Password, security, personal details, ad preferences"
             onPress={handleAccountsCentrePress}
           />
-          <SettingsItem
+          {/* <SettingsItem
             icon="account-circle"
             title="KYC Verification"
             onPress={handleKYCVerificationPress}
-          />
-          {/* <SettingsItem
-            icon="offline-bolt"
-            title="Quick Buy"
-            onPress={handleQuickBuy}
-          />
-          <SettingsItem
-            icon="currency-exchange"
-            title="Cash Out"
-            onPress={handleCashOut}
           /> */}
 
           <SettingsItem
@@ -413,7 +404,7 @@ const Settings = () => {
           <Text style={styles.sectionDescription}>
             Manage your connected experiences and account settings across Valens
             technologies App.
-            <Text style={styles.learnMore}> Learn more</Text>
+            {/* <Text style={styles.learnMore}> Learn more</Text> */}
           </Text>
         </View>
 
@@ -426,11 +417,7 @@ const Settings = () => {
             title="Saved"
             onPress={handleSavedPress}
           />
-          <SettingsItem
-            icon="notifications-active"
-            title="Notifications"
-            onPress={handleNotificationsPress}
-          />
+          
 
         </View>
 
@@ -468,20 +455,8 @@ const Settings = () => {
           <SectionHeader title="Login" />
 
           <ActionItem
-            title="Add account"
-            onPress={handleAddAccountPress}
-            isBlue={true}
-          />
-
-          <ActionItem
             title="Log out"
             onPress={handleLogoutPress}
-            isDestructive={true}
-          />
-
-          <ActionItem
-            title="Log out of all accounts"
-            onPress={handleLogoutAllPress}
             isDestructive={true}
           />
         </View>

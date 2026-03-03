@@ -734,7 +734,7 @@ export default function FlipsScreen() {
       {/* Bottom content */}
       <View style={styles.bottomContent}>
         {/* Try Remix button */}
-        {item.isRemixable && (
+        {/* {item.isRemixable && (
           <TouchableOpacity
             style={styles.remixButton}
             onPress={() => handleRemix(item)}
@@ -742,7 +742,7 @@ export default function FlipsScreen() {
             <MaterialIcons name="auto-awesome" size={16} color="#fff" />
             <Text style={styles.remixText}>Try Remix</Text>
           </TouchableOpacity>
-        )}
+        )} */}
 
         {/* User info */}
         <View style={styles.userInfo}>

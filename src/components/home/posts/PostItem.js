@@ -641,10 +641,10 @@ function PostItem({
     if (!followHandler) return;
     const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
-    if (success && shouldFollow && isCompanyProfile && canSupport) {
+    if (success && shouldFollow && canSupport) {
       setModalVisible(true);
     }
-  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, isCompanyProfile, canSupport]);
+  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, canSupport]);
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
