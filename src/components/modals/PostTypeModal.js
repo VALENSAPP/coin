@@ -149,7 +149,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
               {profile === 'company' ? '💸 Support' : '💸 Mission Mint'}
               (Credits Left - {creditsLeft ?? 0})
             </Text>
-            {creditsLeft === 0 && (
+            {creditsLeft === 0 && profile !== 'company' && (
               <Text style={styles.noCreditsText}>No credits available</Text>
             )}
           </TouchableOpacity>

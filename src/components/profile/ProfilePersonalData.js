@@ -14,7 +14,7 @@ import WelcomeValensModal from '../modals/WelcomeValensModal';
 import WalletSelectionModal from '../modals/WalletSelectionModal';
 import WalletConnectedModal from '../modals/WalletConnectedModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
 import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly, Twitter, Tiktok, Linkedin } from '../../assets/icons';
@@ -27,6 +27,9 @@ import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../pages/authentication/socialLogin';
+
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return GoldLavenderDragonfly;
@@ -45,6 +48,7 @@ const ProfilePersonData = ({
   username,
   profilepic,
   bio,
+  profileType,
   dashboard,
   fromUsersProfile = false,
   isFollowing = null,
@@ -57,6 +61,8 @@ const ProfilePersonData = ({
   executeFollowAction,
   returnByTo
 }) => {
+  
+  
 
   // useEffect(() => {
   //   console.log(
@@ -92,14 +98,17 @@ const ProfilePersonData = ({
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
   const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
-  const isCompanyProfile = userProfile === 'company';
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const effectiveProfileType = profileType || userData?.profile;
+  const normalizedProfileThemeType =
+    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
+  const isCompanyProfile = normalizedProfileThemeType === 'company';
+  const profileActionGradient = isCompanyProfile
+    ? ['#D3B683', '#D3B683']
+    : ['#513189bd', '#e54ba0'];
+  const { bgStyle, textStyle, text } = useAppTheme(effectiveProfileType);
   const route = useRoute();
-  // Get logged-in user's profile type from Redux (same as ThemeContext)
-  const loggedInUserProfile = useSelector(state => state.userProfile.userProfile);
-  const isLoggedInBusinessUser = loggedInUserProfile === 'company';
   const isKycApproved =
     userData?.kyc === true
   // &&
@@ -194,7 +203,7 @@ const ProfilePersonData = ({
   const handleStoryUpload = () => {
     Alert.alert(
       'Add Drops',
-      'Choose how to add your story',
+      'Choose how to add your Drops',
       [
         { text: 'Camera', onPress: () => openStoryCamera() },
         { text: 'Gallery', onPress: () => openStoryGallery() },
@@ -305,17 +314,17 @@ const ProfilePersonData = ({
       const response = await PostStory(formData);
 
       if (response?.success) {
-        showToastMessage(toast, 'success', 'Story Uploaded Successfully');
+        showToastMessage(toast, 'success', 'Drops Uploaded Successfully');
 
         // Call the callback to refresh stories if provided
         if (onStoryUploaded) {
           onStoryUploaded();
         }
       } else {
-        showToastMessage(toast, 'danger', 'Failed to upload story please try again');
+        showToastMessage(toast, 'danger', 'Failed to upload Drops please try again');
       }
     } catch (error) {
-      console.error('Error uploading story:', error);
+      console.error('Error uploading Drops:', error);
       showToastMessage(toast, 'danger', 'Something Went Wrong ! please try again');
     }
   };
@@ -548,18 +557,24 @@ const ProfilePersonData = ({
                 setProfileImage(response.data.image);
               }
             }
-            if (response?.data?.profile === 'company') {
-              setIsBusinessProfile(true);
-            }
+            setIsBusinessProfile(response?.data?.profile === 'company');
 
             // Check KYC approval status and show welcome modal
             if (!fromUsersProfile && response.data.kyc === true) {
-              const hasShownWelcome = await AsyncStorage.getItem('kycWelcomeShown');
+              const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+              const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
               if (!hasShownWelcome) {
+                if (hasShownLegacy) {
+                  await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
+                  return;
+                }
                 // Show welcome modal after a short delay to ensure UI is ready
                 setTimeout(() => {
                   setWelcomeModalVisible(true);
-                  AsyncStorage.setItem('kycWelcomeShown', 'true');
+                  AsyncStorage.multiSet([
+                    [KYC_WELCOME_SHOWN_KEY, 'true'],
+                    [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+                  ]);
                 }, 500);
               }
             }
@@ -592,9 +607,37 @@ const ProfilePersonData = ({
   };
 
   const redirect = () => {
-    if (data) {
-      navigation.navigate('ShareProfile', { userData: data });
+    const source = data?.id ? data : userData?.id ? userData : null;
+
+    if (!source) {
+      Alert.alert('Please wait', 'Profile data is still loading');
+      return;
     }
+
+    const normalizedSource = {
+      ...source,
+      id: source?.id || source?.userId || targetUserId,
+      userId: source?.userId || source?.id || targetUserId,
+      userName: source?.userName || username || displayName || '',
+      displayName: source?.displayName || displayName || source?.userName || '',
+      image: source?.image || profileImage || '',
+    };
+
+    const shareParams = {
+      userData: normalizedSource,
+      fromUsersProfile,
+      targetUserId,
+    };
+
+    if (fromUsersProfile) {
+      navigation.navigate('ProfileMain', {
+        screen: 'ShareProfile',
+        params: shareParams,
+      });
+      return;
+    }
+
+    navigation.navigate('ShareProfile', shareParams);
   };
 
   // const handleSupportPress = () => {
@@ -636,18 +679,47 @@ const ProfilePersonData = ({
       list = [];
     }
 
+    const supportedPlatforms = ['twitter', 'tiktok', 'linkedin'];
+
     return list
       .map(item => {
-        const url = String(item?.url || '').trim();
-        const platform = String(item?.platform || '').toLowerCase() || detectPlatformFromUrl(url);
-        return { platform, url };
+        const objectItem = item && typeof item === 'object' ? item : {};
+        const directUrl = String(
+          objectItem?.url ||
+          objectItem?.link ||
+          objectItem?.value ||
+          '',
+        ).trim();
+        const keyedPlatformEntry = supportedPlatforms.find(key => objectItem?.[key]);
+        const platform = String(
+          objectItem?.platform ||
+          keyedPlatformEntry ||
+          '',
+        ).toLowerCase();
+        const derivedUrl = directUrl || String(objectItem?.[platform] || '').trim();
+        const normalizedPlatform = platform || detectPlatformFromUrl(derivedUrl);
+        return { platform: normalizedPlatform, url: derivedUrl };
       })
-      .filter(item => item.url && ['twitter', 'tiktok', 'linkedin'].includes(item.platform));
-  }, [data?.social_media_links, userData?.social_media_links, detectPlatformFromUrl]);
+      .filter(item => item.url && supportedPlatforms.includes(item.platform));
+  }, [
+    data?.social_media_links,
+    userData?.social_media_links,
+    data?.socialLinks,
+    userData?.socialLinks,
+    data?.social_links,
+    userData?.social_links,
+    detectPlatformFromUrl,
+  ]);
 
-  const socialUrls = {
-    own: userData?.website_link,
-  };
+  const websiteLink = useMemo(() => {
+    return String(
+      userData?.website_link ??
+      data?.website_link ??
+      userData?.websiteLink ??
+      data?.websiteLink ??
+      '',
+    ).trim();
+  }, [userData?.website_link, data?.website_link, userData?.websiteLink, data?.websiteLink]);
 
   const handleOpenSocialUrl = async (url) => {
     const raw = String(url || '').trim();
@@ -726,7 +798,7 @@ const ProfilePersonData = ({
               )}
               <View style={styles.userRow}>
                 <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
-                {isKycApproved && isSubscriptionActive && (
+                {isKycApproved && (
                   <DragonflyIcon width={22} height={22} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
@@ -822,11 +894,7 @@ const ProfilePersonData = ({
                         userData?.profile !== 'company' && (
                           isFollowing && (
                             <LinearGradient
-                              colors={
-                                isLoggedInBusinessUser
-                                  ? ['#D3B683', '#D3B683']
-                                  : ['#513189bd', '#e54ba0']
-                              }
+                              colors={profileActionGradient}
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 0 }}
                               style={[styles.editbuttons, { shadowColor: text }]}
@@ -843,11 +911,7 @@ const ProfilePersonData = ({
                     disabled={followBusy || isFollowing === null}
                   >
                     <LinearGradient
-                      colors={
-                        isLoggedInBusinessUser
-                          ? ['#D3B683', '#D3B683']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -862,11 +926,7 @@ const ProfilePersonData = ({
                     onPress={() => UserMessageNavigation()}
                   >
                     <LinearGradient
-                      colors={
-                        isLoggedInBusinessUser
-                          ? ['#D3B683', '#D3B683']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -876,31 +936,25 @@ const ProfilePersonData = ({
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity >
-                    <LinearGradient
-                      colors={
-                        isLoggedInBusinessUser
-                          ? ['#D3B683', '#D3B683']
-                          : ['#513189bd', '#e54ba0']
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
-                    >
-                      <Text style={styles.buttonText}>
-                        {isBusinessProfile ? 'Total Earning' : 'Total Support'}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                  {normalizedProfileThemeType !== 'company' && (
+                    <TouchableOpacity >
+                      <LinearGradient
+                        colors={profileActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.editbuttons, { shadowColor: text }]}
+                      >
+                        <Text style={styles.buttonText}>
+                          Total Support</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                 </>
               ) : (
                 <>
                   <TouchableOpacity onPress={() => handleNavigate()}>
                     <LinearGradient
-                      colors={
-                        isLoggedInBusinessUser
-                          ? ['#D3B683', '#D3B683']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -917,11 +971,7 @@ const ProfilePersonData = ({
                     }
                   >
                     <LinearGradient
-                      colors={
-                        isLoggedInBusinessUser
-                          ? ['#D3B683', '#D3B683']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -934,21 +984,21 @@ const ProfilePersonData = ({
                       <Text style={styles.buttonText}> Invite</Text>
                     </LinearGradient>
                   </TouchableOpacity>
+                  {!isBusinessProfile&&(
+
+                 
                   <TouchableOpacity
                   >
                     <LinearGradient
-                      colors={
-                        isLoggedInBusinessUser
-                          ? ['#D3B683', '#D3B683']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}> Total Market Cap</Text>
+                      <Text style={styles.buttonText}> Total Support</Text>
                     </LinearGradient>
                   </TouchableOpacity>
+                   )}
                 </>
               )}
             </View>
@@ -973,13 +1023,15 @@ const ProfilePersonData = ({
           </View>
 
 
-          <TouchableOpacity
-            style={styles.bioLinkWrap}
-            activeOpacity={0.7}
-            onPress={() => handleOpenSocialUrl(socialUrls?.own)}
-          >
-            <Text style={styles.bioLinkText}>{userData?.website_link}</Text>
-          </TouchableOpacity>
+          {!!websiteLink && (
+            <TouchableOpacity
+              style={styles.bioLinkWrap}
+              activeOpacity={0.7}
+              onPress={() => handleOpenSocialUrl(websiteLink)}
+            >
+              <Text style={styles.bioLinkText}>{websiteLink}</Text>
+            </TouchableOpacity>
+          )}
 
         </View>
 
@@ -1091,7 +1143,13 @@ const ProfilePersonData = ({
       />
       <WelcomeValensModal
         visible={welcomeModalVisible}
-        onClose={() => setWelcomeModalVisible(false)}
+        onClose={async () => {
+          setWelcomeModalVisible(false);
+          await AsyncStorage.multiSet([
+            [KYC_WELCOME_SHOWN_KEY, 'true'],
+            [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+          ]);
+        }}
       />
       <WalletSelectionModal
         visible={walletSelectionVisible}

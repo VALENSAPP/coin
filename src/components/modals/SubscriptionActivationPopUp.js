@@ -26,8 +26,9 @@ const SubscriptionActivationPopup = ({
           <Text style={[styles.title, textStyle]}>Become a Private Subscriber</Text>
 
           <Text style={[styles.text, textStyle]}>
-            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.99</Text>
-            will be charged to activate your private subscriber account.
+            A monthly fee of <Text style={{ fontWeight: "bold" }}>$9.99 </Text>
+            
+           will be charged to activate your private subscriber account.
           </Text>
 
           <Text style={[styles.sectionTitle, textStyle]}>Platform Fees</Text>

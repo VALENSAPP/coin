@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -44,17 +44,44 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
   const [tokenAddress, setTokenAddress] = useState(null);
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [kpiData, setKpiData] = useState([
-    { title: 'Portfolio Value', value: '-', icon: 'wallet', color: '#5a2d82' },
-    { title: 'My Coin Price', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
-    { title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
-    { title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
+    { id: 'portfolio', title: 'Portfolio Value', value: '-', icon: 'wallet', color: '#5a2d82' },
+    { id: 'support', title: 'total support', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
+    { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
+    { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
+
+  const loadProfileType = useCallback(async () => {
+    try {
+      const profileType = await AsyncStorage.getItem('profile');
+      const normalized = String(profileType || '').toLowerCase();
+      setIsBusinessProfile(normalized === 'company' || normalized === 'business');
+    } catch (error) {
+      console.error('Error loading profile type:', error);
+      setIsBusinessProfile(false);
+    }
+  }, []);
+
+  const visibleKpiData = useMemo(() => {
+    if (isBusinessProfile) {
+      return kpiData.filter(item => item.id !== 'support');
+    }
+    return kpiData;
+  }, [kpiData, isBusinessProfile]);
+
+  const kpiGridData = useMemo(() => {
+    const list = [...visibleKpiData];
+    if (list.length % 2 !== 0) {
+      list.push({ id: 'kpi-placeholder', isPlaceholder: true });
+    }
+    return list;
+  }, [visibleKpiData]);
 
   useEffect(() => {
     let timeout;
@@ -85,7 +112,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         await Promise.allSettled([
           // fetchAllTransaction(),
           // fetchDashboardData(),
-          
+          loadProfileType(),
           fetchCreditsLeft(),
           fetchFollowers(),
           // fetchActivityOverview(),
@@ -104,7 +131,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return () => {
       // Cleanup if needed
     };
-  }, [dispatch]) // Add dispatch to dependency array
+  }, [dispatch, loadProfileType]) // Add dispatch to dependency array
 );
 
   // Remove the separate useEffect for activityPeriod
@@ -135,6 +162,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     
     await Promise.allSettled([
       // fetchAllTransaction(),
+      loadProfileType(),
       fetchDashboardData(),
       fetchCreditsLeft(),
       fetchFollowers(),
@@ -465,7 +493,11 @@ const fetchTopCreators = async () => {
   }, []);
 
   const renderKPICard = ({ item }) => {
-    const isCreditsCard = item.title === 'Credits Left';
+    if (item?.isPlaceholder) {
+      return <View style={[styles.kpiCard, styles.kpiCardPlaceholder]} />;
+    }
+
+    const isCreditsCard = item.id === 'credits';
     const isClickable = isCreditsCard && item.currentCredits < 1;
 
     return (
@@ -590,9 +622,9 @@ const fetchTopCreators = async () => {
         {/* KPI Cards */}
         <View style={styles.section}>
           <FlatList
-            data={kpiData}
+            data={kpiGridData}
             renderItem={renderKPICard}
-            keyExtractor={(item) => item.title}
+            keyExtractor={(item) => item.id || item.title}
             numColumns={2}
             columnWrapperStyle={styles.kpiRow}
             scrollEnabled={false}
@@ -836,6 +868,11 @@ const styles = StyleSheet.create({
     elevation: 2,
     flex: 1,
     marginHorizontal: 6,
+  },
+  kpiCardPlaceholder: {
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   kpiRow: {
     justifyContent: 'space-between',

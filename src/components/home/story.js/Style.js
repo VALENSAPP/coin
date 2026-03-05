@@ -1,14 +1,13 @@
 import { StyleSheet, Platform, Dimensions } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export const modalStyles = StyleSheet.create({
   modalBg: { flex: 1, backgroundColor: '#000' },
   overlay: {
-  ...StyleSheet.absoluteFillObject, 
-  backgroundColor: 'transparent',
-},
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
   progressContainer: {
     flexDirection: 'row',
     paddingHorizontal: 8,
@@ -33,8 +32,17 @@ export const modalStyles = StyleSheet.create({
   username: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 12 },
   time: { color: 'rgba(255,255,255,0.7)', fontSize: 14, marginLeft: 8 },
   closeBtn: { padding: 8 },
-  storyContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  storyMedia: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.75 },
+  storyContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 0,
+  },
+  // Reserve space for own-story bottom action bar (Delete/Share).
+  storyContentOwn: {
+    paddingBottom: Platform.OS === 'ios' ? 108 : 92,
+  },
+  storyMedia: { width: SCREEN_WIDTH, height: '100%' },
   loadingContainer: {
     position: 'absolute',
     top: '50%',

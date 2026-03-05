@@ -489,6 +489,23 @@ function PostItem({
     }
   }, []);
 
+  // Auto-mute whenever this post comes into active focus.
+  // User can still unmute manually via speaker button.
+  const wasPostActiveRef = useRef(false);
+  useEffect(() => {
+    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
+    const isPostActive =
+      isVisible &&
+      screenFocused &&
+      (!hasPlayingTarget || String(playingPostId) === String(item.id));
+
+    if (isPostActive && !wasPostActiveRef.current) {
+      setIsMuted(true);
+    }
+
+    wasPostActiveRef.current = isPostActive;
+  }, [isVisible, screenFocused, playingPostId, item.id]);
+
   useEffect(() => {
     if (mediaLength <= 0) return;
 
@@ -726,7 +743,7 @@ function PostItem({
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
               <Text style={styles.username}>{item.username}</Text>
-              {isKycVerified && isSubscriptionActive && (
+              {isKycVerified &&  (
                 <View style={styles.dragonflyIcon}>
                   <DragonflyIcon width={18} height={18} />
                 </View>

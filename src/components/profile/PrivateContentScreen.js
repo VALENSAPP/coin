@@ -39,10 +39,9 @@ const isVideoUrl = (url) => {
   return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
 };
 
-const PostImage = memo(({ item }) => {
+const PostImage = memo(({ item, themeTextStyle }) => {
   const mediaUrl = normalizeImageUrl(item?.images?.[0]);
   const isVideo = isVideoUrl(item?.images?.[0]);
-  const { textStyle } = useAppTheme();
   const [imageError, setImageError] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
@@ -51,7 +50,7 @@ const PostImage = memo(({ item }) => {
   if (!mediaUrl) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
-        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
+        <Text style={[styles.placeholderText, themeTextStyle]}>📷</Text>
       </View>
     );
   }
@@ -75,7 +74,7 @@ const PostImage = memo(({ item }) => {
 
         {(isVideoLoading || videoError) && (
           <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
-            <Text style={[styles.placeholderText, textStyle]}>🎬</Text>
+            <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
           </View>
         )}
 
@@ -91,7 +90,7 @@ const PostImage = memo(({ item }) => {
   if (imageError) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
-        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
+        <Text style={[styles.placeholderText, themeTextStyle]}>📷</Text>
       </View>
     );
   }
@@ -114,7 +113,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
   const normalizedIsSubscribed =
     isSubscribed === true ||
     String(isSubscribed || '').toUpperCase() === 'ACTIVE' ||
@@ -255,7 +254,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
         activeOpacity={0.95}
         onPress={() => openPosts(index)}
       >
-        <PostImage item={item} />
+        <PostImage item={item} themeTextStyle={textStyle} />
         <View style={styles.overlay} />
       </TouchableOpacity>
     );
@@ -341,6 +340,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: SPACING,
     paddingBottom: 100,
+   
   },
   emptyListContent: {
     flexGrow: 1,
@@ -349,6 +349,7 @@ const styles = StyleSheet.create({
     height: SPACING,
   },
   imageContainer: {
+    width: IMAGE_SIZE,
     marginBottom: SPACING,
     borderRadius: 12,
     overflow: 'hidden',
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-    marginRight: 7,
+    marginRight: 0,
     marginTop: 5,
   },
   firstColumn: {
@@ -365,10 +366,11 @@ const styles = StyleSheet.create({
   },
   otherColumn: {
     marginLeft: SPACING,
+    marginRight: 0,
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE*1.2,
+    height: IMAGE_SIZE*1.5,
     backgroundColor: '#f0f0f0',
   },
   overlay: {

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
+import { getTotalDonationAmount } from '../../services/tokens';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -22,13 +23,16 @@ const parseNonNegativeNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
-const calculateMissionStats = (post) => {
+const calculateMissionStats = (post, raisedAmountOverride = null) => {
   const goalAmount =
     parseNonNegativeNumber(post?.raiseAmount, NaN) ||
     parseNonNegativeNumber(post?.goalAmount, NaN) ||
     10000;
 
-  const currentRaised = parseNonNegativeNumber(post?.totalDonation ?? post?.tokenBalance, 0);
+  const currentRaised = parseNonNegativeNumber(
+    raisedAmountOverride ?? post?.totalDonation ?? post?.tokenBalance,
+    0,
+  );
   const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
 
   let daysLeft = 0;
@@ -75,7 +79,7 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
             <Text style={styles.statValueSmall}>{normalizedProgress.toFixed(1)}% FUNDED</Text>
           </View>
           <View style={styles.statAtCenter}>
-            <Text style={[styles.statValueSmall,]}>${formatAmount(currentRaised)} / ${formatAmount(goalAmount)} RAISED</Text>
+            <Text style={[styles.statValueSmall,]}>${formatAmount(currentRaised)}/ ${formatAmount(goalAmount)} {'\n'}  RAISED</Text>
           </View>
           <View style={styles.statAtEnd}>
             <Text style={styles.statValueSmall}>{daysLeft} DAYS LEFT</Text>
@@ -101,14 +105,13 @@ const isVideoUrl = (url) => {
 };
 
 // Memoized image component for better performance
-const PostImage = memo(({ item, index, onPress }) => {
+const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
-  const { bgStyle, textStyle, text } = useAppTheme();
   if (!imageUrl || imageError) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
-        <Text style={[styles.placeholderText, textStyle]}>📷</Text>
+        <Text style={[styles.placeholderText, themeTextStyle]}>📷</Text>
       </View>
     );
   }
@@ -130,8 +133,9 @@ const PostScreen = memo(({ postCheck, userData }) => {
   console.log(postCheck,'dta is posts ');
   
   const [posts, setPosts] = useState(postCheck);
+  const [donationTotals, setDonationTotals] = useState({});
   const navigation = useNavigation();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
     const onlyImagePosts = (postCheck || []).filter((post) => {
@@ -140,6 +144,49 @@ const PostScreen = memo(({ postCheck, userData }) => {
     });
     setPosts(onlyImagePosts);
   }, [postCheck]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchDonationTotals = async () => {
+      const missionPostIds = [
+        ...new Set(
+          (posts || [])
+            .filter(post =>
+              post?.id &&
+              (post?.isMission === true || post?.type === 'crowdfunding' || Number(post?.raiseAmount) > 0),
+            )
+            .map(post => String(post.id)),
+        ),
+      ];
+
+      if (missionPostIds.length === 0) {
+        if (isActive) setDonationTotals({});
+        return;
+      }
+
+      const responses = await Promise.allSettled(
+        missionPostIds.map(postId => getTotalDonationAmount({ postId })),
+      );
+
+      if (!isActive) return;
+
+      const nextTotals = {};
+      responses.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value?.statusCode === 200) {
+          const postId = missionPostIds[idx];
+          nextTotals[postId] = Number(res.value?.data?.totalDonation) || 0;
+        }
+      });
+      setDonationTotals(nextTotals);
+    };
+
+    fetchDonationTotals();
+
+    return () => {
+      isActive = false;
+    };
+  }, [posts]);
 
   const openPosts = useCallback((index) => {
     navigation.getParent().navigate('ProfileMain', {
@@ -158,7 +205,8 @@ const PostScreen = memo(({ postCheck, userData }) => {
       item?.isMission === true ||
       item?.type === 'crowdfunding' ||
       Number(item?.raiseAmount) > 0;
-    const stats = isMissionPost ? calculateMissionStats(item) : null;
+    const raisedAmount = donationTotals[String(item?.id)];
+    const stats = isMissionPost ? calculateMissionStats(item, raisedAmount) : null;
 
     return (
       <TouchableOpacity
@@ -169,7 +217,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
         activeOpacity={0.95}
         onPress={() => openPosts(index)}
       >
-        <PostImage item={item} index={index} />
+        <PostImage item={item} index={index} themeTextStyle={textStyle} />
         <View style={styles.overlay} />
         {isMissionPost && stats && (
           <View style={styles.missionBadgeWrapper}>
@@ -184,7 +232,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
         )}
       </TouchableOpacity>
     );
-  }, [openPosts, text]);
+  }, [openPosts, text, donationTotals]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
@@ -253,6 +301,7 @@ const styles = StyleSheet.create({
 
   // --- Grid Images ---
   imageContainer: {
+    width: IMAGE_SIZE,
     marginBottom: SPACING,
     borderRadius: 12, // rounded corners
     overflow: 'hidden',
@@ -261,12 +310,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-    marginRight: 7,
+    marginRight: 0,
     marginTop: 5
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE*1.2,
+    height: IMAGE_SIZE*1.5,
     backgroundColor: '#f0f0f0',
   },
   overlay: {
@@ -325,6 +374,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
     fontWeight: '400',
     color: '#FFFFFF',
+    
   },
   placeholderImage: {
     justifyContent: 'center',

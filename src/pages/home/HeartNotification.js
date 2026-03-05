@@ -274,6 +274,12 @@ export default function Notifications() {
 
   const renderPopup = () => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
+    const message = SelectedNotification?.message ?? '';
+    const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?)\b/i;
+    const followMatch = message.match(followRegex);
+    const splitIndex = followMatch?.index ?? -1;
+    const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
+    const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
     return (
     <Modal
       visible={popupVisible}
@@ -295,7 +301,12 @@ export default function Notifications() {
           >
             <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
             <Text style={[styles.popupMessage, { color: text }]}>
-              {SelectedNotification?.message}
+              {!!beforeFollowText && (
+                <Text style={styles.popupMessageHighlight}>
+                  {`${beforeFollowText} `}
+                </Text>
+              )}
+              <Text>{afterFollowText}</Text>
             </Text>
           </TouchableOpacity>
 
@@ -719,8 +730,10 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
     marginBottom: 20,
-    textDecorationLine:'underline',
-    textDecorationColor:'#3c0fdd'
+  },
+  popupMessageHighlight: {
+    textDecorationLine: 'underline',
+    textDecorationColor: '#3c0fdd',
   },
   popupCloseButton: {
     backgroundColor: '#5a2d82',

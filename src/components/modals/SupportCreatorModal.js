@@ -18,7 +18,7 @@ const SupportCreatorModal = ({
         bullets={[
           'This is not an investment.',
           'No profit, rewards, or financial benefits are promised.',
-          'Support NFTs are personal, non-transferable, and automatically removed if you unfollow.',
+          'The support crypto nft is non- transferable and automatic donated to the user, you can donate many  you want.',
           'Funds move directly from your wallet to the creator\u2019s wallet.',
           'Valens does not hold or manage your funds.',
         ]}

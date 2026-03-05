@@ -35,11 +35,10 @@ const isVideoUrl = (url) => {
 };
 
 // Memoized image component for better performance
-const PostImage = memo(({ item, index, onPress }) => {
+const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
   const isVideo = isVideoUrl(item?.images?.[0]);
-  const { bgStyle, textStyle, text } = useAppTheme();
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
 
@@ -64,7 +63,7 @@ const PostImage = memo(({ item, index, onPress }) => {
         {/* FALLBACK / LOADING ICON: Shown while loading OR if error occurs */}
         {isVideoLoading && (
           <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
-            <Text style={[styles.placeholderText, textStyle]}>🎬</Text>
+            <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
           </View>
         )}
 
@@ -90,7 +89,7 @@ const PostImage = memo(({ item, index, onPress }) => {
       {/* If there's an error loading the image or video fallback, show the placeholder */}
       {(videoError || !imageUrl) && (
         <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
-          <Text style={[styles.placeholderText, textStyle]}>🎬</Text>
+          <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
         </View>
       )}
     </View>
@@ -102,7 +101,7 @@ PostImage.displayName = 'PostImage';
 const ReelsScreen = memo(({ postCheck, userData }) => {
   const [posts, setPosts] = useState([]);
   const navigation = useNavigation();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
     // Filter posts to only show those with MP4 videos
@@ -134,7 +133,7 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
       activeOpacity={0.95}
       onPress={() => openPosts(index)}
     >
-      <PostImage item={item} index={index} />
+      <PostImage item={item} index={index} themeTextStyle={textStyle} />
       <View style={styles.overlay} />
     </TouchableOpacity>
   ), [openPosts, text]);
@@ -206,6 +205,7 @@ const styles = StyleSheet.create({
 
   // --- Grid Images ---
   imageContainer: {
+    width: IMAGE_SIZE,
     marginBottom: SPACING,
     borderRadius: 12,
     overflow: 'hidden',
@@ -214,12 +214,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-    marginRight: 7,
+    marginRight: 0,
     marginTop: 5
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE*1.2,
+    height: IMAGE_SIZE*1.5,
     backgroundColor: '#f0f0f0',
   },
   overlay: {

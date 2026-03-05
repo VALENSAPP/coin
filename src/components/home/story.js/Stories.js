@@ -657,9 +657,16 @@ const StoryViewer = ({
   const userAnalyticsStyles = {
     bottomContainer: {
       position: 'absolute',
-      bottom: 100,
-      left: 20,
-      right: 20,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: 'rgba(255,255,255,0.35)',
+      paddingHorizontal: 14,
+      paddingTop: 10,
+      paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+      zIndex: 20,
     },
     analyticsButton: {
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -678,8 +685,14 @@ const StoryViewer = ({
     },
     statsRow: {
       flexDirection: 'row',
-      marginTop: 10,
+      marginTop: 0,
+      marginBottom: 8,
       flexWrap: 'wrap',
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
     },
     statItem: {
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -698,15 +711,31 @@ const StoryViewer = ({
     },
     deleteButton: {
       backgroundColor: 'rgba(255, 107, 107, 0.8)',
-      paddingHorizontal: 16,
+      paddingHorizontal: 14,
       paddingVertical: 12,
       borderRadius: 25,
       flexDirection: 'row',
       alignItems: 'center',
-      alignSelf: 'flex-start',
-      marginTop: 10,
+      justifyContent: 'center',
+      flex: 1,
     },
     deleteText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+      marginLeft: 8,
+    },
+    shareButton: {
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 25,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+    },
+    shareText: {
       color: '#fff',
       fontSize: 14,
       fontWeight: '600',
@@ -827,13 +856,18 @@ const StoryViewer = ({
         </View>
 
         {/* Story content with tap handling */}
-        <View style={modalStyles.storyContent}>
+        <View
+          style={[
+            modalStyles.storyContent,
+            isViewingOwnStory && modalStyles.storyContentOwn,
+          ]}
+        >
 
           {currentStory.type === 'image' ? (
             <Image
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
-              resizeMode="contain"
+              resizeMode="cover"
               onLoad={onImageLoaded}
               onError={onMediaError}
               pointerEvents="none"
@@ -843,7 +877,7 @@ const StoryViewer = ({
               ref={videoRef}
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
-              resizeMode="contain"
+              resizeMode="cover"
               paused={paused}
               onLoad={onVideoLoaded}
               onError={onMediaError}
@@ -927,33 +961,38 @@ const StoryViewer = ({
 
             </View>
 
-            {/* Delete Story Button */}
-            <TouchableOpacity
-              style={userAnalyticsStyles.deleteButton}
-              onPress={handleDeleteStory}
-            >
-              <Icon name="trash-outline" size={18} color="#fff" />
-              <Text style={userAnalyticsStyles.deleteText}>Delete Story</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ position: 'absolute', right: 5, bottom: 5, backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 10, }}
-              onPress={() => {
-                handlePause();
-                shareRef.current?.open?.();
-                // Include user information with the story
-                const storyWithUser = {
-                  ...currentStory,
-                  userName: currentUser?.username,
-                  userImage: currentUser?.avatar,
-                  user: {
-                    id: currentUser?.id,
-                    displayName: currentUser?.username,
-                    image: currentUser?.avatar
-                  }
-                };
-                setSelectedPostId(storyWithUser);
-              }}>
-              <Feather name="send" size={24} color="#000" />
-            </TouchableOpacity>
+            <View style={userAnalyticsStyles.actionsRow}>
+              <TouchableOpacity
+                style={userAnalyticsStyles.deleteButton}
+                onPress={handleDeleteStory}
+              >
+                <Icon name="trash-outline" size={18} color="#fff" />
+                <Text style={userAnalyticsStyles.deleteText}>Delete</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={userAnalyticsStyles.shareButton}
+                onPress={() => {
+                  handlePause();
+                  shareRef.current?.open?.();
+                  // Include user information with the story
+                  const storyWithUser = {
+                    ...currentStory,
+                    userName: currentUser?.username,
+                    userImage: currentUser?.avatar,
+                    user: {
+                      id: currentUser?.id,
+                      displayName: currentUser?.username,
+                      image: currentUser?.avatar
+                    }
+                  };
+                  setSelectedPostId(storyWithUser);
+                }}
+              >
+                <Feather name="send" size={18} color="#fff" />
+                <Text style={userAnalyticsStyles.shareText}>Share</Text>
+              </TouchableOpacity>
+            </View>
             <ShareModal
               ref={shareRef}
               story={selectedPostId}

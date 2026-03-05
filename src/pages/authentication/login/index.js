@@ -281,7 +281,7 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               {/* Email Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Email or Username</Text>
+                <Text style={styles.inputLabel}>Email</Text>
                 <View
                   style={[
                     styles.inputGroup,

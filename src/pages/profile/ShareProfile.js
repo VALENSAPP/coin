@@ -24,10 +24,14 @@ const { width, height } = Dimensions.get('window');
 
 const ShareProfile = ({ navigation }) => {
   const toast = useToast();
-  const { userData } = useRoute().params || {};
-  const profile = userData?.user;
+  const routeParams = useRoute().params || {};
+  const { userData, targetUserId } = routeParams;
+  const profile =
+    userData?.user && typeof userData.user === 'object'
+      ? userData.user
+      : (userData || {});
   const [username, setUsername] = useState('');
-  const profileImage = useSelector(state => state.profileImage?.profileImg);
+  const ownProfileImage = useSelector(state => state.profileImage?.profileImg);
   const { bgStyle, textStyle } = useAppTheme();
 
   const copyToClipboard = () => {
@@ -37,16 +41,50 @@ const ShareProfile = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      if (!profile) return;
-      console.log('ShareProfile got:', profile);
-      setUsername(profile.userName);
+      const nextUsername = String(
+        profile?.userName ||
+        profile?.username ||
+        '',
+      ).trim();
+      setUsername(nextUsername);
     }, [profile])
   );
 
   const onShare = async () => {
     try {
+      const resolvedUsername = String(
+        username ||
+        profile?.userName ||
+        profile?.username ||
+        '',
+      ).trim();
+      const resolvedUserId = String(
+        profile?.id ||
+        profile?.userId ||
+        userData?.id ||
+        userData?.userId ||
+        targetUserId ||
+        '',
+      ).trim();
+      const encodedUsername = encodeURIComponent(resolvedUsername);
+      const encodedUserId = encodeURIComponent(resolvedUserId);
+
+      const deepLink = resolvedUserId
+        ? `com.valens://profile?userId=${encodedUserId}&username=${encodedUsername}`
+        : `com.valens://profile?username=${encodedUsername}`;
+      const webFallback = resolvedUsername
+        ? `https://www.valenscorp.com/profile/${encodedUsername}`
+        : resolvedUserId
+          ? `https://www.valenscorp.com/profile?userId=${encodedUserId}`
+          : 'https://www.valenscorp.com/profile';
+
       const result = await Share.share({
-        message: `Check out @${username} on Valens!\nhttps://valens.app/profile/${username}`,
+        message: [
+          `Check out @${resolvedUsername || 'valens'} on Valens!`,
+          '',
+          `Open in app: ${deepLink}`,
+          `Web fallback: ${webFallback}`,
+        ].join('\n'),
       });
 
       if (result.action === Share.sharedAction) {
@@ -64,22 +102,22 @@ const ShareProfile = ({ navigation }) => {
   };
 
   const actionButtons = [
-    {
-      id: 'copy',
-      icon: 'link',
-      iconFamily: 'Feather',
-      onPress: copyToClipboard,
-      label: 'Copy Link',
-      color: '#4A90E2',
-    },
-    {
-      id: 'twitter',
-      icon: 'logo-twitter',
-      iconFamily: 'Ionicons',
-      onPress: () => Linking.openURL('https://x.com/i/flow/signup?lang=en'),
-      label: 'Twitter',
-      color: '#1DA1F2',
-    },
+    // {
+    //   id: 'copy',
+    //   icon: 'link',
+    //   iconFamily: 'Feather',
+    //   onPress: copyToClipboard,
+    //   label: 'Copy Link',
+    //   color: '#4A90E2',
+    // },
+    // {
+    //   id: 'twitter',
+    //   icon: 'logo-twitter',
+    //   iconFamily: 'Ionicons',
+    //   onPress: () => Linking.openURL('https://x.com/i/flow/signup?lang=en'),
+    //   label: 'Twitter',
+    //   color: '#1DA1F2',
+    // },
     {
       id: 'home',
       icon: 'home',
@@ -136,7 +174,13 @@ const ShareProfile = ({ navigation }) => {
         <View style={[styles.profileCard, bgStyle]}>
           <View style={styles.profileImageContainer}>
             <Image
-              source={{ uri: profileImage || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }}
+              source={{
+                uri:
+                  profile?.image ||
+                  profile?.profileImage ||
+                  ownProfileImage ||
+                  'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+              }}
               style={styles.profileImage}
             />
             <LinearGradient
@@ -147,7 +191,7 @@ const ShareProfile = ({ navigation }) => {
           
           <View style={styles.profileInfo}>
             <Text style={styles.appName}>valens</Text>
-            <Text style={styles.username}>@{username}</Text>
+            <Text style={styles.username}>@{username || 'valens'}</Text>
             <Text style={styles.subtitle}>Share this profile with friends</Text>
           </View>
         </View>

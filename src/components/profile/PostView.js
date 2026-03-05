@@ -32,6 +32,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getTotalDonationAmount } from '../../services/tokens';
 
 export default function PostView({ postData = [] }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -73,6 +74,7 @@ export default function PostView({ postData = [] }) {
   // follow state
   const [followingByUserId, setFollowingByUserId] = useState({});
   const [followingBusy, setFollowingBusy] = useState(new Set());
+  const [donationTotalsByPostId, setDonationTotalsByPostId] = useState({});
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -269,6 +271,56 @@ export default function PostView({ postData = [] }) {
   // Update list when posts change
   useEffect(() => {
     setList(posts || []);
+  }, [posts]);
+
+  // ─── Fetch latest raised amount for mission posts ───────────────────────
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchDonationTotals = async () => {
+      const sourcePosts = Array.isArray(posts) ? posts : [];
+      const missionPostIds = [
+        ...new Set(
+          sourcePosts
+            .filter(post =>
+              post?.id &&
+              (
+                post?.isMission === true ||
+                post?.type === 'crowdfunding' ||
+                Number(post?.raiseAmount) > 0
+              ),
+            )
+            .map(post => String(post.id)),
+        ),
+      ];
+
+      if (missionPostIds.length === 0) {
+        if (isActive) setDonationTotalsByPostId({});
+        return;
+      }
+
+      const responses = await Promise.allSettled(
+        missionPostIds.map(postId => getTotalDonationAmount({ postId })),
+      );
+
+      if (!isActive) return;
+
+      const nextTotals = {};
+      responses.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value?.statusCode === 200) {
+          const postId = missionPostIds[idx];
+          nextTotals[postId] = Number(res.value?.data?.totalDonation) || 0;
+        }
+      });
+
+      setDonationTotalsByPostId(nextTotals);
+    };
+
+    fetchDonationTotals();
+
+    return () => {
+      isActive = false;
+    };
   }, [posts]);
 
   // ─── Auto-scroll to startIndex when component mounts ────────
@@ -670,7 +722,7 @@ export default function PostView({ postData = [] }) {
         start_time: item.start_time ?? null,
         end_time: item.end_time ?? null,
         tokenBalance: item.tokenBalance ?? 0,
-        totalDonation: item.totalDonation ?? 0,
+        totalDonation: donationTotalsByPostId[String(item.id)] ?? item.totalDonation ?? 0,
         profile:
           typeof item?.profile === 'string' && item.profile.toLowerCase() === 'company'
             ? 'company'
@@ -712,6 +764,7 @@ export default function PostView({ postData = [] }) {
       saved,
       postLikesCount,
       postCommentsCount,
+      donationTotalsByPostId,
       followingByUserId,
       followingBusy,
       handleToggleFollow,
