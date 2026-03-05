@@ -24,6 +24,7 @@ const ProfileTabs = memo(({
   post,
   displayName,
   userData,
+  profileType,
   dashboard,
   targetUserId,
   isSubscribed: isSubscribedProp, // Receive from parent
@@ -36,7 +37,8 @@ const ProfileTabs = memo(({
   const [currentTabIndex, setCurrentTabIndex] = useState(0);
   const [previousTabIndex, setPreviousTabIndex] = useState(0);
 
-  const { textStyle, text } = useAppTheme();
+  const effectiveProfileType = profileType || userData?.profile;
+  const { textStyle, text } = useAppTheme(effectiveProfileType);
 
   // Update local subscription state when prop changes
   useEffect(() => {

@@ -20,6 +20,9 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
+
 const ProfileScreen = () => {
   const [posts, setPosts] = useState([]);
   const [userId, setUserId] = useState();
@@ -101,12 +104,20 @@ const ProfileScreen = () => {
 
         // Check KYC approval status and show welcome modal
         if (userDataToSet.kyc === true) {
-          const hasShownWelcome = await AsyncStorage.getItem('kycWelcomeShown');
+          const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+          const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
           if (!hasShownWelcome) {
+            if (hasShownLegacy) {
+              await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
+              return;
+            }
             // Show welcome modal after a short delay to ensure UI is ready
             setTimeout(() => {
               setWelcomeModalVisible(true);
-              AsyncStorage.setItem('kycWelcomeShown', 'true');
+              AsyncStorage.multiSet([
+                [KYC_WELCOME_SHOWN_KEY, 'true'],
+                [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+              ]);
             }, 500);
           }
         }
@@ -186,7 +197,13 @@ const ProfileScreen = () => {
       </ScrollView>
       <WelcomeValensModal
         visible={welcomeModalVisible}
-        onClose={() => setWelcomeModalVisible(false)}
+        onClose={async () => {
+          setWelcomeModalVisible(false);
+          await AsyncStorage.multiSet([
+            [KYC_WELCOME_SHOWN_KEY, 'true'],
+            [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+          ]);
+        }}
       />
     </SafeAreaView>
   );

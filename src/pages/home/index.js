@@ -745,7 +745,7 @@ const sidebarStyles = StyleSheet.create({
   sidebar: {
     position: 'absolute',
     right: 0,
-    top: Platform.OS == 'android' ? 0 : 0,
+    top: Platform.OS == 'android' ? 20 : 20,
     bottom: 0,
     width: SIDEBAR_WIDTH,
     borderLeftWidth: 1,
@@ -755,6 +755,9 @@ const sidebarStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 1000,
+    borderTopLeftRadius: 60,
+    // borderBottomLeftRadius: 60,      
+    overflow: 'hidden',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -780,7 +783,7 @@ const headerBadgeStyles = StyleSheet.create({
     borderRadius: 15,
     minWidth: 16,
     height: 20,
-    paddingHorizontal: 3,
+    paddingHorizontal: 5.5,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

@@ -383,12 +383,12 @@ const Settings = () => {
             {/* <Text style={styles.metaText}>Meta</Text> */}
           </View>
 
-          <SettingsItem
+          {/* <SettingsItem
             icon="account-circle"
             title="Accounts Center"
             subtitle="Password, security, personal details, ad preferences"
             onPress={handleAccountsCentrePress}
-          />
+          /> */}
           {/* <SettingsItem
             icon="account-circle"
             title="KYC Verification"
@@ -410,7 +410,7 @@ const Settings = () => {
 
         {/* How you use Instagram section */}
         <View style={styles.section}>
-          <SectionHeader title="How you Using Valens" />
+          <SectionHeader title=" Using Valens" />
 
           <SettingsItem
             icon="bookmark"

@@ -13,6 +13,7 @@ import {
   Platform,
   Modal,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
@@ -27,6 +28,7 @@ import Video from 'react-native-video';
 import styles from './Style';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
+import { getTotalDonationAmount } from '../../services/tokens';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -35,13 +37,16 @@ const parseNonNegativeNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
-const calculateMissionStats = (post) => {
+const calculateMissionStats = (post, raisedAmountOverride = null) => {
   const goalAmount =
     parseNonNegativeNumber(post?.raiseAmount, NaN) ||
     parseNonNegativeNumber(post?.goalAmount, NaN) ||
     10000;
 
-  const currentRaised = parseNonNegativeNumber(post?.totalDonation ?? post?.tokenBalance, 0);
+  const currentRaised = parseNonNegativeNumber(
+    raisedAmountOverride ?? post?.totalDonation ?? post?.tokenBalance,
+    0,
+  );
   const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
 
   let daysLeft = 0;
@@ -118,11 +123,15 @@ const SearchScreen = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [isGrid, setIsGrid] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [donationTotals, setDonationTotals] = useState({});
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const searchTimeoutRef = useRef(null);
   const autoplayTimeoutRef = useRef(null);
   const scrollOffsetRef = useRef(0);
   const toastRef = useRef(toast);
+  const activeSearchRequestIdRef = useRef(0);
   const { bgStyle, textStyle } = useAppTheme();
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
@@ -135,24 +144,38 @@ const SearchScreen = () => {
   const searchUsers = useCallback(async (searchQuery) => {
     if (!searchQuery.trim()) {
       setFilteredUsers([]);
+      setIsSearching(false);
+      setHasSearched(false);
       return;
     }
 
+    const requestId = Date.now();
+    activeSearchRequestIdRef.current = requestId;
+    setIsSearching(true);
+    setHasSearched(false);
+
     try {
-      dispatch(showLoader());
+      // dispatch(showLoader());
 
       const res = await getAllUser({ userName: searchQuery });
+      if (activeSearchRequestIdRef.current !== requestId) return;
+
       if (res.statusCode === 200 || res.status === 200) {
         setFilteredUsers(res?.data?.users ?? []);
-        console.log(res, 'responsse user profile')
+        console.log(res, 'responsse user profile');
       } else {
         setFilteredUsers([]);
       }
     } catch (err) {
+      if (activeSearchRequestIdRef.current !== requestId) return;
       console.error('Search error:', err);
       setFilteredUsers([]);
     } finally {
-      dispatch(hideLoader());
+      if (activeSearchRequestIdRef.current === requestId) {
+        setIsSearching(false);
+        setHasSearched(true);
+      }
+      // dispatch(hideLoader());
     }
   }, [dispatch]);
 
@@ -160,6 +183,15 @@ const SearchScreen = () => {
   const handleSearch = useCallback((text) => {
     setSearchText(text);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (!text.trim()) {
+      activeSearchRequestIdRef.current = 0;
+      setFilteredUsers([]);
+      setIsSearching(false);
+      setHasSearched(false);
+      return;
+    }
+
     searchTimeoutRef.current = setTimeout(() => searchUsers(text), 500);
   }, [searchUsers]);
 
@@ -206,6 +238,34 @@ const SearchScreen = () => {
         });
         console.log('Flattened posts:', flattenedPosts.length);
         setPosts(flattenedPosts);
+
+        const missionPostIds = [
+          ...new Set(
+            flattenedPosts
+              .filter(post =>
+                post?.id &&
+                (post?.isMission === true || post?.type === 'crowdfunding' || Number(post?.raiseAmount) > 0),
+              )
+              .map(post => String(post.id)),
+          ),
+        ];
+
+        if (missionPostIds.length > 0) {
+          const responses = await Promise.allSettled(
+            missionPostIds.map(postId => getTotalDonationAmount({ postId })),
+          );
+
+          const nextTotals = {};
+          responses.forEach((res, idx) => {
+            if (res.status === 'fulfilled' && res.value?.statusCode === 200) {
+              const postId = missionPostIds[idx];
+              nextTotals[postId] = Number(res.value?.data?.totalDonation) || 0;
+            }
+          });
+          setDonationTotals(nextTotals);
+        } else {
+          setDonationTotals({});
+        }
       } else {
         showToastMessage(toastRef.current, 'danger', response?.data?.message || 'Failed to fetch posts');
       }
@@ -298,13 +358,17 @@ const SearchScreen = () => {
 
   const handleUserProfile = useCallback(
     (user) => {
-      if (!user?.id) return;
+      const targetId = user?.id || user?.userId || user?._id;
+      if (!targetId) {
+        showToastMessage(toastRef.current, 'danger', 'Unable to open profile');
+        return;
+      }
 
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',   
         params: {
-          userId: user.id,        
-          username: user.username, 
+          userId: String(targetId),
+          username: user?.userName || user?.username || '',
           returnTo: route?.name,   
         },
       });
@@ -472,6 +536,7 @@ const SearchScreen = () => {
       playingVideoIndexes.has(index);
     const imageUrl = normalizeImageUrl(post?.mediaUrl || post?.image || (post?.images && post.images[0]));
     const isMissionPost = post?.isMission === true || post?.type === "crowdfunding";
+    const raisedAmount = donationTotals[String(post?.id)];
 
     if (!imageUrl) {
       return null;
@@ -521,7 +586,7 @@ const SearchScreen = () => {
         {isMissionPost && (
           <View style={styles.missionBadgeWrapper}>
             {(() => {
-              const { goalAmount, currentRaised, progressPercent, daysLeft } = calculateMissionStats(post);
+              const { goalAmount, currentRaised, progressPercent, daysLeft } = calculateMissionStats(post, raisedAmount);
               return (
                 <MissionProgressBar
                   progressPercent={progressPercent}
@@ -537,7 +602,7 @@ const SearchScreen = () => {
 
       </TouchableOpacity>
     );
-  }, [playingVideoIndexes, handlePostPress, openPreview, isVideoPost, isScreenFocused, previewVisible, isSearchActive]);
+  }, [playingVideoIndexes, handlePostPress, openPreview, isVideoPost, isScreenFocused, previewVisible, isSearchActive, donationTotals]);
 
   /** 👥 Render empty state for search results */
   const renderEmptyState = useCallback(() => {
@@ -546,6 +611,15 @@ const SearchScreen = () => {
         <Icon name="search-outline" size={60} color="#ddd" />
         <Text style={styles.emptyTitle}>No users found</Text>
         <Text style={styles.emptySubtitle}>Try searching for a different user</Text>
+      </View>
+    );
+  }, []);
+
+  const renderLoadingState = useCallback(() => {
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color="#999" />
+        <Text style={styles.emptySubtitle}>Loading users...</Text>
       </View>
     );
   }, []);
@@ -575,7 +649,7 @@ const SearchScreen = () => {
     return (
       <TouchableOpacity
         style={styles.userGridItem}
-        onPress={() => handleUserProfile(item.id)}
+        onPress={() => handleUserProfile(item)}
         activeOpacity={0.7}
       >
         <Image
@@ -619,7 +693,9 @@ const SearchScreen = () => {
 
           {searchText.trim().length > 0 ? (
             <View style={styles.resultsContainer}>
-              {filteredUsers.length > 0 ? (
+              {isSearching ? (
+                renderLoadingState()
+              ) : filteredUsers.length > 0 ? (
                 <FlatList
                   data={filteredUsers}
                   keyExtractor={(item, idx) => String(item.id ?? idx)}
@@ -638,9 +714,10 @@ const SearchScreen = () => {
                   windowSize={5}
                   removeClippedSubviews={Platform.OS === 'android'}
                 />
-              ) : (
+              ) : hasSearched ? (
                 renderEmptyState()
-              )}
+              ) : null
+              }
             </View>
           ) : null}
 

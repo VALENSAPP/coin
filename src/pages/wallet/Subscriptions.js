@@ -368,7 +368,7 @@ const SubventionSetupScreen = () => {
 
             // ✅ Open Stripe Checkout
             if (await InAppBrowser.isAvailable()) {
-                const browserResult = await InAppBrowser.openAuth(checkoutUrl, {
+                const browserResult = await InAppBrowser.open(checkoutUrl, {
                     dismissButtonStyle: 'close',
                     preferredBarTintColor: '#000',
                     preferredControlTintColor: '#fff',

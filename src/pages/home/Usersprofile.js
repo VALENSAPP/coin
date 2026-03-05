@@ -52,7 +52,7 @@ const Usersprofile = () => {
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle } = useAppTheme(userData?.profile);
 
   console.log(route,"ProfileScreenroute===>>>>>>");
 
@@ -309,6 +309,7 @@ const Usersprofile = () => {
           username={userData?.userName}
           profilepic={userData?.image}
           bio={userData?.bio}
+          profileType={userData?.profile}
           dashboard={userDashboard}
           fromUsersProfile={true}
           isFollowing={isFollowing}
@@ -319,6 +320,7 @@ const Usersprofile = () => {
           userData={userData}
           executeFollowAction={executeFollowAction}
           returnByTo={returnTo}
+         
         />
 
         <View>
@@ -329,6 +331,7 @@ const Usersprofile = () => {
           post={posts} 
           displayName={userData?.userName} 
           userData={userData} 
+          profileType={userData?.profile}
           dashboard={userDashboard} 
           targetUserId={targetUserId}
           isSubscribed={isSubscribed}
