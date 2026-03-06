@@ -21,6 +21,7 @@ import { initializeSocket } from './services/socket';
 import { getUserCredentials } from './services/post';
 import { getAllUser } from './services/users';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
+import { ensureCurrentAccountSaved } from './utils/accountSession';
 // import { getUserCountry } from './hooks/countryLocation';
 
 const linking = {
@@ -152,6 +153,7 @@ export default function Main() {
       const loggedI = await AsyncStorage.getItem('isLoggedIn');
       if (loggedI === 'true') {
         dispatch(loggedIn());
+        await ensureCurrentAccountSaved();
         const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
         if (storedStripeCustomerId) {
           dispatch(setStripeCustomerId(storedStripeCustomerId));
@@ -348,6 +350,7 @@ export default function Main() {
         console.log('response in refreshtoken------->>>>>>>>>>>>>>>', response);
         await AsyncStorage.setItem('token', response.data.access_token);
         await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
+        await ensureCurrentAccountSaved();
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }

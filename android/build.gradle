@@ -10,6 +10,7 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+      maven { url "https://maven.sumsub.com/repository/maven-public/" }
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
@@ -20,3 +21,11 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://maven.sumsub.com/repository/maven-public/" }
+    }
+}

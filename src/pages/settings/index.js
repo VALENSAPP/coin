@@ -1,17 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   Alert,
   StatusBar,
-  TextInput,
   Linking,
+  Modal,
+  Image,
+  StyleSheet,
 } from 'react-native';
-import { loggedOut } from '../../redux/actions/LoginAction';
+import { loggedIn, loggedOut } from '../../redux/actions/LoginAction';
 import { useDispatch } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -21,13 +22,23 @@ import data from '../../list.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme/useApptheme';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
+import {
+  ADDING_ACCOUNT_FLAG_KEY,
+  applyAccountSession,
+  clearSavedAccounts,
+  ensureCurrentAccountSaved,
+  getSavedAccounts,
+  removeSavedAccount,
+} from '../../utils/accountSession';
 
 const Settings = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const styles = createStyles();
   const refRBSheet = useRef();
-  const { bgStyle, textStyle, bg } = useAppTheme();
+  const [accountSwitcherVisible, setAccountSwitcherVisible] = useState(false);
+  const [switchableAccounts, setSwitchableAccounts] = useState([]);
+  const { bgStyle, textStyle, bg, text, card } = useAppTheme();
 
   // Handler functions for all menu items
   const handleAccountsCentrePress = () => {
@@ -257,9 +268,39 @@ const Settings = () => {
     Alert.alert('Ray-Ban Meta', 'Navigate to Ray-Ban Meta');
   };
 
-  const handleAddAccountPress = async () => {
+  const moveToLoginForAddingAccount = async () => {
+    await AsyncStorage.setItem(ADDING_ACCOUNT_FLAG_KEY, 'true');
     await AsyncStorage.setItem('isLoggedIn', 'false');
     dispatch(loggedOut());
+  };
+
+  const switchAccount = async account => {
+    await applyAccountSession(account);
+    dispatch(setUserProfile(account?.profile || 'normal'));
+    setAccountSwitcherVisible(false);
+    dispatch(loggedOut());
+    setTimeout(() => {
+      dispatch(loggedIn());
+    }, 50);
+  };
+
+  const handleAddAccountPress = async () => {
+    try {
+      await ensureCurrentAccountSaved();
+      const currentUserId = await AsyncStorage.getItem('userId');
+      const accounts = await getSavedAccounts();
+      const filteredAccounts = accounts.filter(account => account.userId !== currentUserId);
+
+      if (!filteredAccounts.length) {
+        await moveToLoginForAddingAccount();
+        return;
+      }
+
+      setSwitchableAccounts(filteredAccounts.slice(0, 6));
+      setAccountSwitcherVisible(true);
+    } catch (error) {
+      Alert.alert('Error', 'Unable to open account switcher right now.');
+    }
   };
 
   const handleLogoutPress = () => {
@@ -269,19 +310,29 @@ const Settings = () => {
         text: 'Log Out',
         style: 'destructive',
         onPress: () => {
-          dispatch(setUserProfile('normal'))
-          AsyncStorage.setItem('isLoggedIn', 'false');
-          AsyncStorage.removeItem('token');
-          AsyncStorage.removeItem('firebaseToken');
-          AsyncStorage.removeItem('userId');
-          AsyncStorage.removeItem('username');
-          AsyncStorage.removeItem('email');
-          AsyncStorage.removeItem('walletAddress');
-          AsyncStorage.removeItem('walletPrivateKey');
-          AsyncStorage.removeItem('walletMnemonic');
-          AsyncStorage.removeItem('profile');
-          AsyncStorage.removeItem('stripeCustomerId');
-          dispatch(loggedOut());
+          (async () => {
+            dispatch(setUserProfile('normal'));
+            const currentUserId = await AsyncStorage.getItem('userId');
+            if (currentUserId) {
+              await removeSavedAccount(currentUserId);
+            }
+            await AsyncStorage.setItem('isLoggedIn', 'false');
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('refreshToken');
+            await AsyncStorage.removeItem('firebaseToken');
+            await AsyncStorage.removeItem('userId');
+            await AsyncStorage.removeItem('username');
+            await AsyncStorage.removeItem('email');
+            await AsyncStorage.removeItem('walletAddress');
+            await AsyncStorage.removeItem('walletPrivateKey');
+            await AsyncStorage.removeItem('walletMnemonic');
+            await AsyncStorage.removeItem('walletChainId');
+            await AsyncStorage.removeItem('walletType');
+            await AsyncStorage.removeItem('profile');
+            await AsyncStorage.removeItem('stripeCustomerId');
+            await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
+            dispatch(loggedOut());
+          })();
         },
       },
     ]);
@@ -297,11 +348,26 @@ const Settings = () => {
           text: 'Log Out All',
           style: 'destructive',
           onPress: () => {
-            dispatch(setUserProfile('normal'))
-            AsyncStorage.setItem('isLoggedIn', 'false');
-            AsyncStorage.removeItem('profile');
-            AsyncStorage.removeItem('stripeCustomerId');
-            dispatch(loggedOut());
+            (async () => {
+              dispatch(setUserProfile('normal'));
+              await AsyncStorage.setItem('isLoggedIn', 'false');
+              await AsyncStorage.removeItem('token');
+              await AsyncStorage.removeItem('refreshToken');
+              await AsyncStorage.removeItem('firebaseToken');
+              await AsyncStorage.removeItem('userId');
+              await AsyncStorage.removeItem('username');
+              await AsyncStorage.removeItem('email');
+              await AsyncStorage.removeItem('walletAddress');
+              await AsyncStorage.removeItem('walletPrivateKey');
+              await AsyncStorage.removeItem('walletMnemonic');
+              await AsyncStorage.removeItem('walletChainId');
+              await AsyncStorage.removeItem('walletType');
+              await AsyncStorage.removeItem('profile');
+              await AsyncStorage.removeItem('stripeCustomerId');
+              await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
+              await clearSavedAccounts();
+              dispatch(loggedOut());
+            })();
           },
         },
       ],
@@ -417,7 +483,7 @@ const Settings = () => {
             title="Saved"
             onPress={handleSavedPress}
           />
-          
+
 
         </View>
 
@@ -429,7 +495,7 @@ const Settings = () => {
             icon="privacy-tip"
             title="Account privacy"
             rightText="Private"
-            // onPress={handleAccountPrivacyPress}
+          // onPress={handleAccountPrivacyPress}
           />
           <SettingsItem
             icon="visibility-off"
@@ -437,7 +503,7 @@ const Settings = () => {
             onPress={handleHideStoryPress}
           />
         </View>
-    
+
         {/* More info and support section */}
         <View style={styles.section}>
           <SectionHeader title="More info and support" />
@@ -453,7 +519,11 @@ const Settings = () => {
         {/* Login section */}
         <View style={styles.section}>
           <SectionHeader title="Login" />
-
+           <ActionItem
+            title="Add accounts"
+            onPress={handleAddAccountPress}
+            isDestructive={true}
+          />
           <ActionItem
             title="Log out"
             onPress={handleLogoutPress}
@@ -482,7 +552,7 @@ const Settings = () => {
               {data.grids.map(grid => (
                 <TouchableOpacity
                   key={grid.icon}
-                  onPress={() => refScrollable.current.close()}
+                  onPress={() => refRBSheet.current?.close()}
                   style={styles.gridButtonContainer}
                 >
                   <Text style={styles.gridLabel}>{grid.label}</Text>
@@ -492,8 +562,165 @@ const Settings = () => {
           </ScrollView>
         </RBSheet>
       </ScrollView>
+
+      <Modal
+        visible={accountSwitcherVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAccountSwitcherVisible(false)}
+      >
+        <View style={switcherStyles.overlay}>
+          <View style={[switcherStyles.card, { backgroundColor: card }]}>
+            <Text style={[switcherStyles.title, { color: text }]}>Switch account</Text>
+            <Text style={[switcherStyles.subtitle, { color: text }]}>Select account or add another one</Text>
+
+            <ScrollView
+              style={switcherStyles.list}
+              contentContainerStyle={switcherStyles.listContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {switchableAccounts.map(account => {
+                const label =
+                  account.displayName ||
+                  account.username ||
+                  account.email ||
+                  `Account ${account.userId}`;
+                const avatarUri = account.image || account.userImage || account.profileImage;
+                const initial = (label?.trim?.()?.charAt(0) || 'U').toUpperCase();
+
+                return (
+                  <TouchableOpacity
+                    key={account.userId}
+                    style={[switcherStyles.accountRow, { backgroundColor: bg }]}
+                    onPress={() => switchAccount(account)}
+                  >
+                    {avatarUri ? (
+                      <Image source={{ uri: avatarUri }} style={switcherStyles.avatar} />
+                    ) : (
+                      <View style={[switcherStyles.avatarFallback, { backgroundColor: text }]}>
+                        <Text style={switcherStyles.avatarInitial}>{initial}</Text>
+                      </View>
+                    )}
+                    <Text style={[switcherStyles.accountName, { color: text }]} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[switcherStyles.addBtn, { backgroundColor: text }]}
+              onPress={async () => {
+                setAccountSwitcherVisible(false);
+                await moveToLoginForAddingAccount();
+              }}
+            >
+              <Text style={switcherStyles.addBtnText}>Add another account</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[switcherStyles.cancelBtn, { borderColor: text }]}
+              onPress={() => setAccountSwitcherVisible(false)}
+            >
+              <Text style={[switcherStyles.cancelBtnText, { color: text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
+
+const switcherStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: '72%',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#151515',
+  },
+  subtitle: {
+    marginTop: 4,
+    marginBottom: 12,
+    fontSize: 13,
+    color: '#6F6F6F',
+  },
+  list: {
+    maxHeight: 250,
+  },
+  listContent: {
+    gap: 8,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F7F7F7',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+  },
+  avatarFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#222222',
+  },
+  avatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  accountName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#202020',
+  },
+  addBtn: {
+    marginTop: 12,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    backgroundColor: '#131313',
+  },
+  addBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelBtn: {
+    marginTop: 8,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DEDEDE',
+  },
+  cancelBtnText: {
+    color: '#404040',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
 
 export default Settings;

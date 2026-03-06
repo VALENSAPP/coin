@@ -30,39 +30,57 @@ const { width } = Dimensions.get('window');
 
 /* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange }) {
+
   const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
+
+  const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
+
   const imageSource = useMemo(
     () => ({
       uri,
-      priority: FastImage.priority.high,           // ← helps a lot
-      cache: FastImage.cacheControl.immutable,     // ← very important!
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
     }),
     [uri]
   );
-  const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
-  const [isZoomed, setIsZoomed] = useState(false);
 
-
-  // useEffect(() => {
-  //   if (uri) {
-  //     Image.prefetch(uri).catch(err => console.warn('Prefetch failed:', err));
-  //   }
-  // }, [uri]);
+  const width = Dimensions.get("window").width;
 
   const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale } }],
+    [
+      {
+        nativeEvent: {
+          scale: scale,
+          focalX: translateX,
+          focalY: translateY,
+        },
+      },
+    ],
     { useNativeDriver: true }
   );
 
   const resetScale = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 20,
-      bounciness: 0,
-    }).start(() => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 0,
+      }),
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setIsModalVisible(false);
       setModalImageLoaded(false);
       onZoomChange?.(false);
@@ -71,6 +89,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const onPinchStateChange = ({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
+
     if (state === State.BEGAN) {
       setIsModalVisible(true);
       onZoomChange?.(true);
@@ -82,25 +101,28 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         state === State.CANCELLED ||
         state === State.FAILED)
     ) {
-      setIsModalVisible(false);
-      // setModalReady(false);
       onZoomChange?.(false);
       resetScale();
     }
   };
+
   useEffect(() => {
     if (!uri) return;
 
-    // 1. Normal priority preload (good enough for most cases)
     FastImage.preload([imageSource]);
 
-    // 2. Optional: even more aggressive (sometimes helps on slow networks)
-    setTimeout(() => FastImage.preload([{ ...imageSource, priority: FastImage.priority.highest }]), 400);
-
+    setTimeout(() => {
+      FastImage.preload([
+        { ...imageSource, priority: FastImage.priority.highest },
+      ]);
+    }, 400);
   }, [uri, imageSource]);
+
   return (
     <View style={styles.mediaContainer}>
+
       {/* INLINE IMAGE */}
+
       <PinchGestureHandler
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
@@ -110,18 +132,17 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
           style={[
             styles.postMedia,
             { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
-            // {opacity:1}
           ]}
         />
       </PinchGestureHandler>
 
       {/* FULLSCREEN MODAL */}
+
       <Modal
         visible={isModalVisible}
         transparent
         animationType="none"
         statusBarTranslucent
-      // onShow={() => setModalReady(true)}
       >
         <View style={styles.modalBackground}>
           <PinchGestureHandler
@@ -129,18 +150,31 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
             onHandlerStateChange={onPinchStateChange}
           >
             <AnimatedFastImage
-              // key={uri}
               source={imageSource}
               resizeMode="contain"
-              resizeMethod='resize'
               fadeDuration={0}
-              //  onLoadEnd={() => setModalImageLoaded(true)}
               style={[
                 styles.fullScreenImage,
                 {
                   width: width,
                   height: 500,
-                  transform: [{ scale }],
+                  transform: [
+                    { translateX: Animated.subtract(translateX, width / 2) },
+                    { translateY: Animated.subtract(translateY, 250) },
+                    { scale },
+                    {
+                      translateX: Animated.multiply(
+                        Animated.subtract(translateX, width / 2),
+                        -1
+                      ),
+                    },
+                    {
+                      translateY: Animated.multiply(
+                        Animated.subtract(translateY, 250),
+                        -1
+                      ),
+                    },
+                  ],
                 },
               ]}
             />
@@ -150,6 +184,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
     </View>
   );
 }
+
 
 function PostItem({
   item,
@@ -303,7 +338,6 @@ function PostItem({
 
       if (profileResponse.status === 'fulfilled') {
         const data = profileResponse.value;
-        console.log('getUserCredentials API response:', data);
         if (data?.statusCode === 200) {
           let userDataToSet;
           if (data.data && data.data.user) {
@@ -453,8 +487,8 @@ function PostItem({
         returnAddressOnly: true,
         walletType: wallet.id,
       });
-      console.log(connectedAddress,'chcek connected waalete adress heree');
-      
+      console.log(connectedAddress, 'chcek connected waalete adress heree');
+
 
       if (connectedAddress) {
         await AsyncStorage.setItem('walletAddress', connectedAddress);
@@ -997,7 +1031,7 @@ function PostItem({
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {!hideDonationButton && ((totalDonation < goalAmount) && (item.UserId !== userId)) &&(daysLeft > 0)  &&  (
+              {!hideDonationButton && ((totalDonation < goalAmount) && (item.UserId !== userId)) && (daysLeft > 0) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
