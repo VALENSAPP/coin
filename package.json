@@ -30,6 +30,7 @@
     "@reduxjs/toolkit": "^2.8.2",
     "@sourcetoad/react-native-sketch-canvas": "^2.3.0",
     "@stripe/stripe-react-native": "^0.51.0",
+    "@sumsub/react-native-mobilesdk-module": "^1.41.1",
     "@walletconnect/sign-client": "^2.21.4",
     "axios": "^1.10.0",
     "date-fns": "^4.1.0",

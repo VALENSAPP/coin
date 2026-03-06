@@ -13,18 +13,12 @@ export const UpdateCompanyProfile = async (data) => {
 }
 
 export const UploadDocument = async (data) => {
-    console.log(UploadDocument,'UploadDocument>>>>>>>>>>>.');
-    
     return axiosInstance.post('company-profile/upload-documents', data);
 }
 
-export const startVerification = async (data) => {
-    console.log(startVerification,'UploadDocument>>>>>>>>>>>.');
-    
+export const startVerification = async (data) => { 
     return axiosInstance.post('sumsub-verification/start', data);
 }
-export const CheckVerificationStatus = async (data) => {
-    console.log(CheckVerificationStatus,'UploadDocument>>>>>>>>>>>.');
-    
-    return axiosInstance.get('sumsub-verification/status', data);
+export const CheckVerificationStatus = async () => {
+    return axiosInstance.get('sumsub-verification/status');
 }

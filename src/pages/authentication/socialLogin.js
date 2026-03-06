@@ -20,6 +20,7 @@ import { getProfile } from '../../services/createProfile';
 import { loggedIn } from '../../redux/actions/LoginAction';
 import { persistStripeCustomerId } from '../../hooks/useStripeCustomer';
 import { useToast } from 'react-native-toast-notifications';
+import { ensureCurrentAccountSaved } from '../../utils/accountSession';
 
 const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
 
@@ -204,6 +205,11 @@ const getProfileData = async (dispatch, navigation, toast) => {
       }
       else {
         await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
+        await ensureCurrentAccountSaved({
+          profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
+          username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+          email: response?.data?.email || (await AsyncStorage.getItem('email')),
+        });
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
       }
@@ -242,6 +248,12 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
       }
       else {
         await AsyncStorage.setItem('userId', response.data.id)
+        if (response?.data?.userName || response?.data?.username) {
+          await AsyncStorage.setItem('username', response?.data?.userName || response?.data?.username);
+        }
+        if (response?.data?.email) {
+          await AsyncStorage.setItem('email', response?.data?.email);
+        }
         // showToastMessage(toast, 'success', response.data.message);
         await handleLoginSuccess(
           response.data.access_token,

@@ -24,11 +24,14 @@ import {
   GetCompanyProfile,
   UploadDocument,
   UpdateCompanyProfile,
+  startVerification,
+  CheckVerificationStatus,
 } from '../../services/companyProfile';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { pick } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
+import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 
 const { height } = Dimensions.get('window');
 
@@ -58,6 +61,7 @@ const BusinessProfileForm = () => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -183,8 +187,8 @@ const BusinessProfileForm = () => {
     dispatch(showLoader());
     try {
       const uploadResponse = await UploadDocument(documentFormData);
-      console.log(uploadResponse,'upload response');
-      
+      console.log(uploadResponse, 'upload response');
+
       const uploadCode = uploadResponse?.statusCode;
       if (uploadCode === 200 || uploadCode === 201) {
         setIsDocumentUploaded(true);
@@ -245,6 +249,44 @@ const BusinessProfileForm = () => {
     }
   };
 
+  const launchSumsub = async () => {
+    if (isLaunchingSumsub) return;
+    setIsLaunchingSumsub(true);
+    try {
+      const response = await startVerification();
+      const accessToken = response?.data?.token;
+
+      if (!accessToken) {
+        showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
+        return;
+      }
+
+      const snsMobileSDK = SNSMobileSDK.init(accessToken, () => accessToken)
+        .withHandlers({
+          onStatusChanged: event => {
+            console.log('Sumsub status:', event);
+          },
+        })
+        .withDebug(true)
+        .build();
+
+      await snsMobileSDK.launch();
+    }
+    catch (error) {
+      showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+      console.log(error, 'Sumsub launch error');
+    } finally {
+      setIsLaunchingSumsub(false);
+    }
+  };
+  const getVerificationStatus = useCallback(async () => {
+    try {
+      const response = await CheckVerificationStatus();
+      console.log(response, 'response in status');
+    } catch (err) {
+      console.log(err, 'error in get status');
+    }
+  }, []);
   const handlePickFile = async () => {
     try {
       const [file] = await pick({
@@ -308,8 +350,8 @@ const BusinessProfileForm = () => {
             (typeof existingDocument === 'string'
               ? existingDocument.split('/').pop()
               : existingDocument?.name ||
-                existingDocument?.originalName ||
-                existingDocument?.fileName) || 'Uploaded document';
+              existingDocument?.originalName ||
+              existingDocument?.fileName) || 'Uploaded document';
           const existingType =
             typeof existingDocument === 'string'
               ? ''
@@ -337,7 +379,8 @@ const BusinessProfileForm = () => {
   useFocusEffect(
     useCallback(() => {
       fetchCompanyProfile();
-    }, [fetchCompanyProfile]),
+      getVerificationStatus();
+    }, [fetchCompanyProfile, getVerificationStatus]),
   );
 
   const handleSubmit = async () => {
@@ -575,6 +618,17 @@ const BusinessProfileForm = () => {
                   ) : null}
                 </View>
               </View>
+              <View />
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: text, shadowColor: text }]}
+                onPress={launchSumsub}
+                disabled={isLaunchingSumsub}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isLaunchingSumsub ? 'Opening...' : 'Verfiy your Busines Profile'}
+                </Text>
+              </TouchableOpacity>
+              <View />
 
               <TouchableOpacity
                 style={[styles.submitButton, { backgroundColor: text, shadowColor: text }]}
