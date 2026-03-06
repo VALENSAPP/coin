@@ -22,6 +22,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { current } from '@reduxjs/toolkit';
 
 // Currency mapping by country code
 const CURRENCY_MAP = {
@@ -146,6 +147,7 @@ const CreateMission = () => {
   const [activeField, setActiveField] = useState(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(null);
+  const [initialCurrency, setInitialCurrency] = useState('USD');
 
   const navigation = useNavigation();
   const dispatch = useDispatch();
@@ -170,6 +172,15 @@ const CreateMission = () => {
     }
   }, [userProfile, selectedCountry]);
 
+  useEffect(() => {
+  if (userProfile?.country) {
+    const countryCode = userProfile.country.toUpperCase();
+    const currency = CURRENCY_MAP[countryCode] || CURRENCY_MAP['US'];
+
+    setSelectedCountry({ cca2: countryCode });
+    setInitialCurrency(currency.code);
+  }
+}, [userProfile]);
   const showDatePicker = (mode, setFieldValue, setFieldTouched) => {
     setPickerMode(mode);
     setActiveField({ setFieldValue, setFieldTouched });
@@ -236,85 +247,85 @@ const CreateMission = () => {
   };
 
   const handlePost = async (values, { setFieldError, setFieldTouched, validateForm }) => {
-  // Mark all fields as touched first
-  setFieldTouched('raiseAmount', true, false);
-  setFieldTouched('startTime', true, false);
-  setFieldTouched('endTime', true, false);
-  setFieldTouched('currency', true, false);
-  
-  // Manually validate and set errors for null dates
-  let hasErrors = false;
-  
-  if (!values.raiseAmount) {
-    setFieldError('raiseAmount', 'Raise amount is required');
-    hasErrors = true;
-  }
-  
-  if (!values.startTime) {
-    setFieldError('startTime', 'Start date is required');
-    hasErrors = true;
-  }
-  
-  if (!values.endTime) {
-    setFieldError('endTime', 'End date is required');
-    hasErrors = true;
-  } else if (values.startTime && values.endTime && values.endTime <= values.startTime) {
-    setFieldError('endTime', 'End date must be after start date');
-    hasErrors = true;
-  }
-  
-  if (!values.currency) {
-    setFieldError('currency', 'Currency is required');
-    hasErrors = true;
-  }
-  
-  // Stop here if there are any errors
-  if (hasErrors) {
-    return;
-  }
-  
-  // Validate amount format
-  const numericValue = parseFloat(values.raiseAmount.replace(/,/g, ''));
-  if (isNaN(numericValue) || numericValue <= 0) {
-    setFieldError('raiseAmount', 'Please enter a valid amount');
-    return;
-  }
-  
-  dispatch(showLoader());
+    // Mark all fields as touched first
+    setFieldTouched('raiseAmount', true, false);
+    setFieldTouched('startTime', true, false);
+    setFieldTouched('endTime', true, false);
+    setFieldTouched('currency', true, false);
 
-  const profileType = await AsyncStorage.getItem('profile');
+    // Manually validate and set errors for null dates
+    let hasErrors = false;
 
-  const payload = {
-    caption: caption.trim(),
-    media: images.map(img => ({
-      uri: img.processedUri || img.uri,
-      type: img.type,
-      name: (img.processedUri || img.uri).split('/').pop()
-    })),
-    link: link ? link.trim() : '',
-    type: profileType === 'company' ? 'support' : 'crowdfunding',
-    raiseAmount: numericValue,
-    start_time: formatDateTime(values.startTime),
-    end_time: formatDateTime(values.endTime)
-  };
-
-  try {
-    const response = await createPost(payload);
-    console.log('create post response', response);
-
-    if (response.statusCode == 200) {
-      showToastMessage(toast, 'success', 'Post created successfully');
-      navigation.navigate('HomeMain');
-    } else {
-      showToastMessage(toast, 'danger', response.message || 'Please try again');
+    if (!values.raiseAmount) {
+      setFieldError('raiseAmount', 'Raise amount is required');
+      hasErrors = true;
     }
-  } catch (err) {
-    console.error('Post creation error:', err);
-    showToastMessage(toast, 'danger', err.response?.message || 'An error occurred');
-  } finally {
-    dispatch(hideLoader());
-  }
-};
+
+    if (!values.startTime) {
+      setFieldError('startTime', 'Start date is required');
+      hasErrors = true;
+    }
+
+    if (!values.endTime) {
+      setFieldError('endTime', 'End date is required');
+      hasErrors = true;
+    } else if (values.startTime && values.endTime && values.endTime <= values.startTime) {
+      setFieldError('endTime', 'End date must be after start date');
+      hasErrors = true;
+    }
+
+    if (!values.currency) {
+      setFieldError('currency', 'Currency is required');
+      hasErrors = true;
+    }
+
+    // Stop here if there are any errors
+    if (hasErrors) {
+      return;
+    }
+
+    // Validate amount format
+    const numericValue = parseFloat(values.raiseAmount.replace(/,/g, ''));
+    if (isNaN(numericValue) || numericValue <= 0) {
+      setFieldError('raiseAmount', 'Please enter a valid amount');
+      return;
+    }
+
+    dispatch(showLoader());
+
+    const profileType = await AsyncStorage.getItem('profile');
+
+    const payload = {
+      caption: caption.trim(),
+      media: images.map(img => ({
+        uri: img.processedUri || img.uri,
+        type: img.type,
+        name: (img.processedUri || img.uri).split('/').pop()
+      })),
+      link: link ? link.trim() : '',
+      type: profileType === 'company' ? 'support' : 'crowdfunding',
+      raiseAmount: numericValue,
+      start_time: formatDateTime(values.startTime),
+      end_time: formatDateTime(values.endTime)
+    };
+
+    try {
+      const response = await createPost(payload);
+      console.log('create post response', response);
+
+      if (response.statusCode == 200) {
+        showToastMessage(toast, 'success', 'Post created successfully');
+        navigation.navigate('HomeMain');
+      } else {
+        showToastMessage(toast, 'danger', response.message || 'Please try again');
+      }
+    } catch (err) {
+      console.error('Post creation error:', err);
+      showToastMessage(toast, 'danger', err.response?.message || 'An error occurred');
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -332,7 +343,8 @@ const CreateMission = () => {
           raiseAmount: '',
           startTime: null,
           endTime: null,
-          currency: selectedCountry ? getCurrencyInfo(selectedCountry.cca2).code : 'USD',
+          // currency: selectedCountry ? getCurrencyInfo(selectedCountry.cca2).code : 'USD',
+          current:initialCurrency,
         }}
         enableReinitialize={true}
         validationSchema={validationSchema}
@@ -400,16 +412,16 @@ const CreateMission = () => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Start Date</Text>
                 <TouchableOpacity
-  style={[
-    styles.dateButton, 
-    touched.startTime && errors.startTime && styles.inputError
-  ]}
-  onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}>
-  <Text style={[styles.dateText, !values.startTime && styles.placeholderText]}>
-    {values.startTime ? formatDateDisplay(values.startTime) : 'Select start date'}
-  </Text>
-  <Icon name="calendar-outline" size={20} color="#666" />
-</TouchableOpacity>
+                  style={[
+                    styles.dateButton,
+                    touched.startTime && errors.startTime && styles.inputError
+                  ]}
+                  onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}>
+                  <Text style={[styles.dateText, !values.startTime && styles.placeholderText]}>
+                    {values.startTime ? formatDateDisplay(values.startTime) : 'Select start date'}
+                  </Text>
+                  <Icon name="calendar-outline" size={20} color="#666" />
+                </TouchableOpacity>
                 {touched.startTime && errors.startTime && (
                   <Text style={styles.errorText}>{errors.startTime}</Text>
                 )}
@@ -419,16 +431,16 @@ const CreateMission = () => {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>End Date</Text>
                 <TouchableOpacity
-  style={[
-    styles.dateButton, 
-    touched.endTime && errors.endTime && styles.inputError
-  ]}
-  onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}>
-  <Text style={[styles.dateText, !values.endTime && styles.placeholderText]}>
-    {values.endTime ? formatDateDisplay(values.endTime) : 'Select end date'}
-  </Text>
-  <Icon name="calendar-outline" size={20} color="#666" />
-</TouchableOpacity>
+                  style={[
+                    styles.dateButton,
+                    touched.endTime && errors.endTime && styles.inputError
+                  ]}
+                  onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}>
+                  <Text style={[styles.dateText, !values.endTime && styles.placeholderText]}>
+                    {values.endTime ? formatDateDisplay(values.endTime) : 'Select end date'}
+                  </Text>
+                  <Icon name="calendar-outline" size={20} color="#666" />
+                </TouchableOpacity>
                 {touched.endTime && errors.endTime && (
                   <Text style={styles.errorText}>{errors.endTime}</Text>
                 )}
@@ -467,7 +479,7 @@ const CreateMission = () => {
             <CustomButton
               title="Continue"
               onPress={handleSubmit}
-              style={[styles.socialBtn, styles.instagramBtn, {backgroundColor: text, borderColor: text}]}
+              style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, borderColor: text }]}
               textStyle={styles.socialBtnText}
             />
           </>
@@ -583,8 +595,8 @@ const styles = StyleSheet.create({
     display: 'none',
   },
   placeholderText: {
-  color: '#999',
-},
+    color: '#999',
+  },
 });
 
 export default CreateMission;

@@ -27,6 +27,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { connectWalletLogin } from '../authentication/socialLogin';
+import { updateWallet } from '../../services/wallet';
 import {
   getSupportRecipientWalletAddress,
   handleMetaMaskSupportFlow,
@@ -227,6 +228,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         await AsyncStorage.setItem('walletAddress', connectedAddress);
         await AsyncStorage.setItem('walletType', wallet.id);
         setWalletAddress(connectedAddress);
+        try {
+          await updateWallet({ walletAddress: connectedAddress });
+        } catch (walletUpdateError) {
+          console.error('Wallet update API error:', walletUpdateError);
+        }
 
         setConnectedWalletInfo({
           name: wallet.name,

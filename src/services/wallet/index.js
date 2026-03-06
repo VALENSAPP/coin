@@ -55,3 +55,6 @@ export const verifyTwoFactorAuth = async (data) => {
 export const disableTwoFactorAuth = async (data) => {
   return axiosInstance.get('/user/disable-two-factor', data);
 }
+export const updateWallet = async (data) => {
+  return axiosInstance.patch('user/updateWalletAddress', data);
+}

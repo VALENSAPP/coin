@@ -36,6 +36,7 @@ import {
   Brightness,
 } from 'react-native-color-matrix-image-filters';
 import { useAppTheme } from '../../../theme/useApptheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const fonts = [
   { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
@@ -79,7 +80,7 @@ const InstagramPostCreator = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
   const bottomSheetRef = useRef();
-  console.log(fromIcon, 'from icon came here')
+  const [profile, setProfile] = useState(null);
 
   const [selectedFilter, setSelectedFilter] = useState('none');
   const [isZooming, setIsZooming] = useState(false);
@@ -126,6 +127,19 @@ const InstagramPostCreator = () => {
     maxY: IMAGE_SIZE - 50,
   };
 
+  const getProfile = async () => {
+    try {
+      const value = await AsyncStorage.getItem('profile');
+      console.log(value,'value in here ');
+        setProfile(value);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  useEffect(() => {
+    getProfile();
+  }, []);
   const IMAGE_OVERLAY_BOUNDS = {
     minX: 0,
     minY: 0,
@@ -435,7 +449,7 @@ const InstagramPostCreator = () => {
     );
   };
 
-  // Enhanced video play/pause handler
+  // Enhanced video play/pause handlerF
   const handleVideoPress = (index) => {
     setVideoPaused(prev => ({
       ...prev,
@@ -1406,8 +1420,9 @@ const InstagramPostCreator = () => {
                   <Text style={styles.controlButtonText}>✕</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() =>{ 
-                    captureAndMergeDrawing(true)}} // Now just exits cleanly
+                  onPress={() => {
+                    captureAndMergeDrawing(true)
+                  }} // Now just exits cleanly
                   style={[styles.controlButton, { backgroundColor: 'rgba(0,128,0,0.8)' }]}
                 >
                   <Text style={styles.controlButtonText}>✓</Text>
@@ -1757,7 +1772,7 @@ const InstagramPostCreator = () => {
       )}
 
       <View style={[styles.NextButtonView]}>
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <TouchableOpacity style={[styles.nextButton, { backgroundColor: profile === 'company' ? '#D3B683' : '#5a2d82', }]} onPress={handleNext}>
           <Text style={styles.nextButtonText}>Next</Text>
           <Text style={styles.nextArrow}>→</Text>
         </TouchableOpacity>
@@ -2135,7 +2150,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   nextButton: {
-    backgroundColor: '#5a2d82',
+    // backgroundColor: '#5a2d82',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
