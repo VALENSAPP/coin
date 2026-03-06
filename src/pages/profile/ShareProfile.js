@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,10 +26,11 @@ const ShareProfile = ({ navigation }) => {
   const toast = useToast();
   const routeParams = useRoute().params || {};
   const { userData, targetUserId } = routeParams;
-  const profile =
+  const profile = useMemo(() => (
     userData?.user && typeof userData.user === 'object'
       ? userData.user
-      : (userData || {});
+      : (userData || {})
+  ), [userData]);
   const [username, setUsername] = useState('');
   const ownProfileImage = useSelector(state => state.profileImage?.profileImg);
   const { bgStyle, textStyle } = useAppTheme();
@@ -69,21 +70,31 @@ const ShareProfile = ({ navigation }) => {
       const encodedUsername = encodeURIComponent(resolvedUsername);
       const encodedUserId = encodeURIComponent(resolvedUserId);
 
-      const deepLink = resolvedUserId
-        ? `com.valens://profile?userId=${encodedUserId}&username=${encodedUsername}`
-        : `com.valens://profile?username=${encodedUsername}`;
+      const deepLinkParams = [];
+      if (resolvedUserId) deepLinkParams.push(`userId=${encodedUserId}`);
+      if (resolvedUsername) deepLinkParams.push(`username=${encodedUsername}`);
+      const deepLink = deepLinkParams.length
+        ? `com.valens://profile?${deepLinkParams.join('&')}`
+        : 'com.valens://profile';
       const webFallback = resolvedUsername
-        ? `https://www.valenscorp.com/profile/${encodedUsername}`
+        ? resolvedUserId
+          ? `https://www.valenscorp.com/profile/${encodedUsername}?userId=${encodedUserId}`
+          : `https://www.valenscorp.com/profile/${encodedUsername}`
         : resolvedUserId
           ? `https://www.valenscorp.com/profile?userId=${encodedUserId}`
           : 'https://www.valenscorp.com/profile';
 
       const result = await Share.share({
         message: [
-          `Check out @${resolvedUsername || 'valens'} on Valens!`,
+          `✨ Check out @${resolvedUsername || 'valens'} on Valens`,
           '',
-          `Open in app: ${deepLink}`,
-          `Web fallback: ${webFallback}`,
+          `Discover posts, stories and updates.`,
+          '',
+          `Open in Valens:`,
+          `${deepLink}`,
+          '',
+          // `No app? Open on web:`,
+          // `${webFallback}`,
         ].join('\n'),
       });
 
@@ -188,7 +199,7 @@ const ShareProfile = ({ navigation }) => {
               style={styles.imageOverlay}
             />
           </View>
-          
+
           <View style={styles.profileInfo}>
             <Text style={styles.appName}>valens</Text>
             <Text style={styles.username}>@{username || 'valens'}</Text>

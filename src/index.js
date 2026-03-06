@@ -19,6 +19,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
 import { initializeSocket } from './services/socket';
 import { getUserCredentials } from './services/post';
+import { getAllUser } from './services/users';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
 // import { getUserCountry } from './hooks/countryLocation';
 
@@ -26,7 +27,10 @@ const linking = {
   prefixes: [
     'https://www.valenscorp.com',
     'https://valenscorp.com',
+    'https://www.valens.app',
+    'https://valens.app',
     'com.valens://',
+    'valens://',
   ],
   config: {
     screens: {
@@ -193,7 +197,10 @@ export default function Main() {
         // Parse query params to check payment status
         let status = 'success';
         try {
-          const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+          const normalizedCallbackUrl = url
+            .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+            .replace(/^valens:\/\//i, 'https://dummy.com/');
+          const urlObj = new URL(normalizedCallbackUrl);
           status = urlObj.searchParams.get('status') || 'success';
           console.log('📋 Payment status from URL:', status);
         } catch (error) {
@@ -216,10 +223,45 @@ export default function Main() {
         return;
       }
 
+      const normalizeDeepLinkUrl = (incomingUrl = '') => incomingUrl
+        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+        .replace(/^valens:\/\//i, 'https://dummy.com/');
+
+      const navigateToUserProfile = (resolvedUserId) => {
+        if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
+        navigationRef.current.navigate('MainApp', {
+          screen: 'HomeMain',
+          params: {
+            screen: 'UsersProfile',
+            params: {
+              userId: String(resolvedUserId),
+            },
+          },
+        });
+      };
+
+      const resolveUserIdFromUsername = async (incomingUsername) => {
+        const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
+        if (!cleanUsername) return null;
+        try {
+          const response = await getAllUser({ userName: cleanUsername });
+          const users = response?.data?.users ?? [];
+          const exactMatch = users.find((u) =>
+            String(u?.userName || u?.username || '').toLowerCase() === cleanUsername.toLowerCase()
+          );
+          const fallbackUser = exactMatch || users[0];
+          return fallbackUser?.id || fallbackUser?._id || fallbackUser?.userId || null;
+        } catch (error) {
+          console.log('Username resolution failed:', error?.message || error);
+          return null;
+        }
+      };
+
       // Handle other deep links normally if needed
       try {
-        const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+        const urlObj = new URL(normalizeDeepLinkUrl(url));
         const path = urlObj.pathname;
+        const normalizedPath = String(path || '').toLowerCase();
         const postId = urlObj.searchParams.get('postId');
         const fallbackTag = urlObj.searchParams.get('af');
 
@@ -237,18 +279,27 @@ export default function Main() {
                   },
                 },
               });
-            } else if (path === '/profile') {
-              const deepLinkUserId = urlObj.searchParams.get('userId');
+            } else if (normalizedPath === '/profile' || normalizedPath.startsWith('/profile/')) {
+              const deepLinkUserId = String(urlObj.searchParams.get('userId') || '').trim();
+              const queryUsername = String(urlObj.searchParams.get('username') || '').trim();
+              const pathUsername = decodeURIComponent(path.split('/').filter(Boolean)[1] || '').trim();
+              const resolvedUsername = queryUsername || pathUsername;
 
               if (deepLinkUserId) {
-                navigationRef.current.navigate('MainApp', {
-                  screen: 'HomeMain',
-                  params: {
-                    screen: 'UsersProfile',
-                    params: {
-                      userId: String(deepLinkUserId),
-                    },
-                  },
+                navigateToUserProfile(deepLinkUserId);
+              } else if (resolvedUsername) {
+                resolveUserIdFromUsername(resolvedUsername).then((resolvedUserId) => {
+                  if (resolvedUserId) {
+                    navigateToUserProfile(resolvedUserId);
+                  } else if (navigationRef.current && isNavigationReady) {
+                    navigationRef.current.navigate('MainApp', {
+                      screen: 'ProfileMain',
+                      params: {
+                        screen: 'Profile',
+                      },
+                    });
+                    showToastMessage(toast, 'danger', 'Unable to open this profile from link.');
+                  }
                 });
               } else {
                 navigationRef.current.navigate('MainApp', {

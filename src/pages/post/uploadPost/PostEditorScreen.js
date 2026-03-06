@@ -321,7 +321,6 @@ const styles = StyleSheet.create({
   },
   instagramBtn: {
     color: '#fff',
-    borderWidth: 1,
     marginLeft: 20
   },
   socialBtn: {

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert } from 'react-native';
 import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -20,10 +20,11 @@ import FastImage from 'react-native-fast-image'
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
 import WalletSelectionModal from '../../modals/WalletSelectionModal';
 import WalletConnectedModal from '../../modals/WalletConnectedModal';
-import { getSupportRecipientWalletAddress, handleMetaMaskSupportFlow, openWalletPayment } from '../../../utils/metaMaskSupport';
+import { getSupportRecipientWalletAddress, openWalletPayment } from '../../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
+import { updateWallet } from '../../../services/wallet';
 
 const { width } = Dimensions.get('window');
 
@@ -42,19 +43,19 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
   const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
   const [isZoomed, setIsZoomed] = useState(false);
- 
- 
+
+
   // useEffect(() => {
   //   if (uri) {
   //     Image.prefetch(uri).catch(err => console.warn('Prefetch failed:', err));
   //   }
   // }, [uri]);
- 
+
   const onPinchEvent = Animated.event(
     [{ nativeEvent: { scale } }],
     { useNativeDriver: true }
   );
- 
+
   const resetScale = () => {
     Animated.spring(scale, {
       toValue: 1,
@@ -67,14 +68,14 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       onZoomChange?.(false);
     });
   };
- 
+
   const onPinchStateChange = ({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
     if (state === State.BEGAN) {
       setIsModalVisible(true);
       onZoomChange?.(true);
     }
- 
+
     if (
       oldState === State.ACTIVE &&
       (state === State.END ||
@@ -87,15 +88,15 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       resetScale();
     }
   };
-useEffect(() => {
+  useEffect(() => {
     if (!uri) return;
- 
+
     // 1. Normal priority preload (good enough for most cases)
     FastImage.preload([imageSource]);
- 
+
     // 2. Optional: even more aggressive (sometimes helps on slow networks)
     setTimeout(() => FastImage.preload([{ ...imageSource, priority: FastImage.priority.highest }]), 400);
- 
+
   }, [uri, imageSource]);
   return (
     <View style={styles.mediaContainer}>
@@ -113,7 +114,7 @@ useEffect(() => {
           ]}
         />
       </PinchGestureHandler>
- 
+
       {/* FULLSCREEN MODAL */}
       <Modal
         visible={isModalVisible}
@@ -149,7 +150,7 @@ useEffect(() => {
     </View>
   );
 }
- 
+
 function PostItem({
   item,
   likesCount,
@@ -173,8 +174,8 @@ function PostItem({
   hideDonationButton = false, // Add this prop with default false
 
 }) {
-  
-  
+
+
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
@@ -203,8 +204,11 @@ function PostItem({
   const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
   const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -417,61 +421,94 @@ function PostItem({
   );
   const canSupport = !!creatorWalletAddress;
 
+  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
+    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
+
+    if (!currentWalletAddress) {
+      if (openSupportModalOnSuccess) {
+        setPendingSupportPromptAfterWalletConnect(true);
+      }
+      setWalletSelectionVisible(true);
+      return false;
+    }
+
+    if (currentWalletAddress !== walletAddress) {
+      setWalletAddress(currentWalletAddress);
+    }
+
+    if (!canSupport) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      setPendingSupportPromptAfterWalletConnect(false);
+      return false;
+    }
+
+    return true;
+  }, [walletAddress, canSupport]);
+
   const handleWalletSelect = useCallback(async (wallet) => {
     setWalletSelectionVisible(false);
-    
+
     try {
       const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
         returnAddressOnly: true,
         walletType: wallet.id,
       });
+      console.log(connectedAddress,'chcek connected waalete adress heree');
+      
 
       if (connectedAddress) {
         await AsyncStorage.setItem('walletAddress', connectedAddress);
         await AsyncStorage.setItem('walletType', wallet.id);
         setWalletAddress(connectedAddress);
-        
-        // Show success modal with wallet info
+        try {
+          await updateWallet({ walletAddress: connectedAddress });
+        } catch (walletUpdateError) {
+          console.error('Wallet update API error:', walletUpdateError);
+        }
+
+        if (pendingSupportPromptAfterWalletConnect) {
+          setPendingSupportPromptAfterWalletConnect(false);
+          if (!canSupport) {
+            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+            return;
+          }
+          setModalVisible(true);
+          return;
+        }
+
         setConnectedWalletInfo({
           name: wallet.name,
           address: connectedAddress,
         });
         setWalletConnectedModalVisible(true);
-        
-        const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-        const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-        
-        // Open payment flow with the connected wallet after user acknowledges
-        // This will be handled in the modal's onContinue callback
       }
     } catch (error) {
       console.error('Wallet connection error:', error);
       showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
     }
-  }, [toast, navigation, dispatch, setWalletAddress]);
+  }, [toast, navigation, dispatch, pendingSupportPromptAfterWalletConnect, canSupport]);
 
   const handleWalletConnectedContinue = useCallback(async () => {
     setWalletConnectedModalVisible(false);
     const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
     const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-    
+
     // Open payment flow with the connected wallet
     await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
   }, [recipientWalletAddress]);
 
   const handleSupportNow = useCallback(async () => {
-    if (!canSupport) return;
+    if (!canSupport) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      return;
+    }
     setSupportDisclaimerVisible(false);
-    await handleMetaMaskSupportFlow({
-      recipientWalletAddress,
-      walletAddress,
-      setWalletAddress,
-      toast,
-      navigation,
-      dispatch,
-      onShowWalletSelection: () => setWalletSelectionVisible(true),
-    });
-  }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
+    const ready = await ensureSupportFlowReady();
+    if (!ready) return;
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     setModalVisible(false);
@@ -658,10 +695,13 @@ function PostItem({
     if (!followHandler) return;
     const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
-    if (success && shouldFollow && canSupport) {
+    if (!success || !shouldFollow) return;
+
+    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
+    if (ready) {
       setModalVisible(true);
     }
-  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, canSupport]);
+  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
@@ -730,9 +770,9 @@ function PostItem({
       </View>
     );
   }, [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted]);
-  
+
   return (
-    
+
     <View style={styles.wrapper}>
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
@@ -743,7 +783,7 @@ function PostItem({
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
               <Text style={styles.username}>{item.username}</Text>
-              {isKycVerified &&  (
+              {isKycVerified && (
                 <View style={styles.dragonflyIcon}>
                   <DragonflyIcon width={18} height={18} />
                 </View>
@@ -832,18 +872,18 @@ function PostItem({
             </TouchableOpacity>
           </View>
 
-           {item.UserId !== userId && (
+          {item.UserId !== userId && (
             // Convert both to strings for reliable comparison
             // const itemUserIdStr = String(item.UserId);
             // const currentUserIdStr = userId ? String(userId) : '';
             // // Show button if post is from a different user (or if userId is not set yet)
             // const isDifferentUser = !currentUserIdStr || itemUserIdStr !== currentUserIdStr;
-            
+
             // if (!isDifferentUser) return null;
             // console.log(item,'item for follow ß')
             // return (
-              <TouchableOpacity
-                onPress={handleFollowPress}
+            <TouchableOpacity
+              onPress={handleFollowPress}
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
@@ -854,11 +894,11 @@ function PostItem({
                 <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
               ) : (
                 <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                  { item.follow ? 'Followed' : 'Follow'}
+                  {item.follow ? 'Followed' : 'Follow'}
                 </Text>
               )}
             </TouchableOpacity>
-             )}
+          )}
         </View>
 
         {(() => {
@@ -866,34 +906,60 @@ function PostItem({
           const currentUserId = userId ? String(userId) : null;
           return itemUserId && itemUserId !== currentUserId;
         })() && (
-          <>
-            {buyerList.length > 0 && (
-              <TouchableOpacity
-                style={styles.buyersSection}
-                activeOpacity={0.8}
-                onPress={() => setShowBuyersModal(true)}
-              >
-                <View style={styles.avatarsContainer}>
-                  {buyerList.slice(0, 3).map((buyer, idx) => (
-                    <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
-                      <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.buyersText} numberOfLines={1}>
-                  Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
-                  {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+            <>
+              {buyerList.length > 0 && (
+                <TouchableOpacity
+                  style={styles.buyersSection}
+                  activeOpacity={0.8}
+                  onPress={() => setShowBuyersModal(true)}
+                >
+                  <View style={styles.avatarsContainer}>
+                    {buyerList.slice(0, 3).map((buyer, idx) => (
+                      <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
+                        <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={styles.buyersText} numberOfLines={1}>
+                    Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
+                    {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
         <View style={styles.captionSection}>
-          <Text>
-            <Text style={[styles.captionUsername, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{item.username} </Text>
-            <Text style={styles.captionText}>{item.caption}</Text>
+          <Text
+            numberOfLines={expanded ? undefined : 1}
+            onTextLayout={(e) => {
+              if (e.nativeEvent.lines.length > 1) {
+                setShowMore(true);
+              }
+            }}
+          >
+            <Text
+              style={[
+                styles.captionUsername,
+                { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
+              ]}
+            >
+              {item.username}{' '}
+            </Text>
+
+            <Text style={styles.captionText}>
+              {item.caption}
+            </Text>
           </Text>
+
+          {showMore && (
+            <Text
+              style={{ color: '#999', marginTop: 2 }}
+              onPress={() => setExpanded(!expanded)}
+            >
+              {expanded ? 'See less' : 'More'}
+            </Text>
+          )}
           {item.link ? (
             <TouchableOpacity onPress={() => Linking.openURL(item.link)}>
               <Text style={styles.linkText}>Link - {item.link}</Text>
@@ -931,7 +997,7 @@ function PostItem({
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              { !hideDonationButton &&((totalDonation < goalAmount) && (item.UserId !== userId)) && (
+              {!hideDonationButton && ((totalDonation < goalAmount) && (item.UserId !== userId)) &&(daysLeft > 0)  &&  (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
@@ -956,7 +1022,7 @@ function PostItem({
           </View>
         )}
       </View>
-       <MissionSupportScreen
+      <MissionSupportScreen
         visible={donation}
         onClose={() => setDonation(false)}
         item={item}
