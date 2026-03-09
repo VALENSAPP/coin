@@ -83,16 +83,8 @@ export default function Main() {
         return;
       }
 
-      const [hasShownWelcome, hasShownLegacy] = await Promise.all([
-        AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY),
-        AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY),
-      ]);
 
       if (hasShownWelcome) {
-        return;
-      }
-      if (hasShownLegacy) {
-        await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
         return;
       }
 
@@ -105,16 +97,14 @@ export default function Main() {
       if (response?.statusCode !== 200) {
         return;
       }
-
       const userData = response?.data?.user || response?.data || response;
       const isKycApproved = userData?.kyc === true;
-
+      const kycStatus = userData?.kycStatus;
+      // kycStatus !== "APPROVED"
       if (isKycApproved) {
         setWelcomeModalVisible(true);
-        await AsyncStorage.multiSet([
-          [KYC_WELCOME_SHOWN_KEY, 'true'],
-          [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-        ]);
+      } else {
+        setWelcomeModalVisible(false);
       }
     } catch (error) {
       console.log('KYC polling check failed:', error?.message || error);
@@ -123,10 +113,6 @@ export default function Main() {
 
   const handleWelcomeModalClose = React.useCallback(async () => {
     setWelcomeModalVisible(false);
-    await AsyncStorage.multiSet([
-      [KYC_WELCOME_SHOWN_KEY, 'true'],
-      [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-    ]);
   }, []);
 
   useEffect(() => {
@@ -422,6 +408,7 @@ export default function Main() {
         }
         <WelcomeValensModal
           visible={welcomeModalVisible}
+
           onClose={handleWelcomeModalClose}
         />
       </ThemeProvider>
