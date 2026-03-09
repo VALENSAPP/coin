@@ -18,7 +18,7 @@ import {
   followers as apiFollowers,
   following as apiFollowing,
 } from '../../services/profile';
-import { follow, unfollow } from '../../services/post';
+import { follow, unfollow, getUserCredentials } from '../../services/post';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
 import WalletSelectionModal from '../../components/modals/WalletSelectionModal';
 import WalletConnectedModal from '../../components/modals/WalletConnectedModal';
@@ -81,6 +81,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     id: String(u?.id ?? u?._id ?? u?.userId ?? ''),
     username: u?.userName ?? u?.username ?? 'unknown',
     fullName: u?.displayName ?? u?.fullName ?? '',
+    profile: u?.profile ?? u?.accountType ?? '',
     avatar: u?.image ?? u?.avatar ?? DEFAULT_AVATAR,
     isFollowing: typeof u?.isFollowing === 'boolean' ? u.isFollowing : !!defaultFollowing,
     tokenAddress: u?.userTokens?.[0]?.tokenAddress,
@@ -95,6 +96,26 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       null,
   });
 
+  const enrichUsersWithProfile = useCallback(async (users = []) => {
+    const safeUsers = Array.isArray(users) ? users : [];
+    const updated = await Promise.all(
+      safeUsers.map(async (user) => {
+        if (!user?.id) return user;
+        try {
+          const response = await getUserCredentials(String(user.id));
+          const apiData = response?.data?.data ?? response?.data ?? {};
+          return {
+            ...user,
+            profile: apiData?.profile ?? user.profile ?? '',
+          };
+        } catch (_err) {
+          return user;
+        }
+      }),
+    );
+    return updated;
+  }, []);
+
   const loadData = useCallback(
     async (tab, { silent = false } = {}) => {
       const profileUserId = profileUserIdFromRoute || selfUserId;
@@ -107,12 +128,15 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       try {
         if (tab === 'followers') {
           const res = await apiFollowers(profileUserId);
+          console.log(res, 'reposne in folowing liststst');
+
           const rows = res?.data?.data ?? res?.data ?? [];
           const users = rows
             .map(rel => rel?.follower || rel?.followerUser || rel?.user || null)
             .filter(Boolean)
             .map(u => shapeUser(u, { defaultFollowing: !!u?.isFollowing }));
-          setFollowersList(users);
+          const usersWithProfile = await enrichUsersWithProfile(users);
+          setFollowersList(usersWithProfile);
         } else {
           const res = await apiFollowing(profileUserId);
 
@@ -121,7 +145,8 @@ export default function FollowersFollowingScreen({ navigation, route }) {
             .map(rel => rel?.following || rel?.user || null)
             .filter(Boolean)
             .map(u => shapeUser(u, { defaultFollowing: true }));
-          setFollowingList(users);
+          const usersWithProfile = await enrichUsersWithProfile(users);
+          setFollowingList(usersWithProfile);
         }
       } catch (e) {
         console.log(e);
@@ -133,7 +158,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         if (!silent) setLoading(false);
       }
     },
-    [profileUserIdFromRoute, selfUserId],
+    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile],
   );
 
   useEffect(() => {
@@ -288,6 +313,12 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     );
   }, [search, followingList]);
 
+  const getUserAccentColor = useCallback((profileType) => {
+    return String(profileType || '').toLowerCase() === 'company'
+      ? '#D3B683'
+      : '#5a2d82';
+  }, []);
+
   const goToUserProfile = useCallback(
     (user) => {
       if (!user?.id) return;
@@ -310,28 +341,34 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     tab =>
       ({ item }) => {
         const isFollowingState = !!item.isFollowing;
+        const accentColor = getUserAccentColor(item?.profile);
 
         return (
-          <TouchableOpacity style={[styles.userRow, { shadowColor: text }]} activeOpacity={0.7} onPress={() => goToUserProfile(item)}>
+          <TouchableOpacity style={[styles.userRow, { shadowColor: accentColor }]} activeOpacity={0.7} onPress={() => goToUserProfile(item)}>
             <Image
               source={{
                 uri: !imageError && item.avatar ? item.avatar : DEFAULT_AVATAR,
               }}
-              style={[styles.avatar, { borderColor: text }]}
+              style={[styles.avatar, { borderColor: accentColor }]}
               onError={() => setImageError(true)}
             />
             <View style={styles.userInfo}>
-              <Text style={[styles.username, textStyle]}>{item.username}</Text>
+              <Text style={[styles.username,{color:accentColor} ]}>{item.username}</Text>
               {!!item.fullName && (
                 <Text style={styles.fullName}>{item.fullName}</Text>
               )}
+              {/* {!!item.profile && (
+                <Text style={[styles.profileType, { color: accentColor }]}>{item.profile}</Text>
+              )} */}
             </View>
 
             {String(item.id) !== String(selfUserId) && (
               <TouchableOpacity
                 style={[
                   styles.followBtn,
-                  isFollowingState ? [styles.following, { borderColor: text }] : [styles.follow, { backgroundColor: text }],
+                  isFollowingState
+                    ? [styles.following, { borderColor: accentColor }]
+                    : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
                 ]}
                 onPress={(e) => {
                   e?.stopPropagation?.();
@@ -339,7 +376,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                 }}
                 disabled={!!followBusyById[item.id]}
               >
-                <Text style={isFollowingState ? [styles.followingText, textStyle] : styles.followText}>
+                <Text style={isFollowingState ? [styles.followingText, { color: accentColor }] : styles.followText}>
                   {followBusyById[item.id] ? '...' : isFollowingState ? 'Following' : 'Follow'}
                 </Text>
               </TouchableOpacity>
@@ -551,6 +588,7 @@ const styles = StyleSheet.create({
   userInfo: { flex: 1 },
   username: { fontWeight: '700', fontSize: 16 },
   fullName: { color: '#6B7280', fontSize: 14 },
+  profileType: { color: '#8B5CF6', fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   // Follow button
   followBtn: {
@@ -566,7 +604,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   follow: {
-    backgroundColor: '#5a2d82',
+    // backgroundColor: '#5a2d82',
   },
   followText: {
     color: '#fff',

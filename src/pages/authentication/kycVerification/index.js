@@ -26,12 +26,13 @@ import StepHeader from '../createProfile/headerSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
-import { kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
+import { getKycToken, kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { EditProfile } from '../../../services/createProfile';
 import { loggedIn } from '../../../redux/actions/LoginAction';
+import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,6 +55,7 @@ export default function KYCVerification({ route }) {
     const [documentType, setDocumentType] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const [errors, setErrors] = useState({});
+    const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
 
     // Modal states
     const [showModal, setShowModal] = useState(false);
@@ -151,6 +153,37 @@ export default function KYCVerification({ route }) {
         }
     };
 
+    const launchSumsub = async () => {
+        if (isLaunchingSumsub) return;
+        setIsLaunchingSumsub(true);
+        try {
+            const response = await getKycToken();
+            const accessToken = response?.data?.token;
+            console.log(response,accessToken,'data in kyc ')
+
+            if (!accessToken) {
+                showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
+                return;
+            }
+
+            const snsMobileSDK = SNSMobileSDK.init(accessToken, () => accessToken)
+                .withHandlers({
+                    onStatusChanged: event => {
+                        console.log('Sumsub status:', event);
+                    },
+                })
+                .withDebug(true)
+                .build();
+
+            await snsMobileSDK.launch();
+        }
+        catch (error) {
+            showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+            console.log(error, 'Sumsub launch error');
+        } finally {
+            setIsLaunchingSumsub(false);
+        }
+    };
 
     const handleCreateProfile = async () => {
         if (!profileData) {
@@ -690,6 +723,21 @@ export default function KYCVerification({ route }) {
                             </Text>
                         </View>
 
+
+                        {/* <TouchableOpacity
+                            onPress={launchSumsub}
+                            style={[styles.continueButton, isValid && styles.continueButtonActive]}
+                            // disabled={!isValid}
+                        >
+                            <Text
+                                style={[
+                                    styles.continueButtonText,
+                                    isValid && styles.continueButtonTextActive,
+                                ]}
+                            >
+                             Continue
+                            </Text>
+                        </TouchableOpacity> */}
                         {/* Continue Button */}
                         <TouchableOpacity
                             onPress={continueNext}

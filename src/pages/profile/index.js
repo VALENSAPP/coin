@@ -195,7 +195,7 @@ const ProfileScreen = () => {
         </View>
         <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} loggedInUserId={userId}/>
       </ScrollView>
-      <WelcomeValensModal
+      {/* <WelcomeValensModal
         visible={welcomeModalVisible}
         onClose={async () => {
           setWelcomeModalVisible(false);
@@ -204,7 +204,7 @@ const ProfileScreen = () => {
             [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
           ]);
         }}
-      />
+      /> */}
     </SafeAreaView>
   );
 };

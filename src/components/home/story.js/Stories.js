@@ -1914,33 +1914,45 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           />
         )}
         <View style={styles.positiom}>
-          <HexAvatar
-            uri={item.isUser ? (profileImage || item.image) : item.image}
-            isUser={!!item.isUser}
-            size={sidebarMode ? 80 : 79}
-            borderWidth={item.isUser ? 3 : 2}
-            borderColor={item.isUser ? '#4da3ff' : '#000'}
-          />
+          <View style={styles.avatarContainer}>
+            <HexAvatar
+              uri={item.isUser ? (profileImage || item.image) : item.image}
+              isUser={!!item.isUser}
+              size={sidebarMode ? 80 : 79}
+              borderWidth={item.isUser ? 3 : 2}
+              borderColor={item.isUser ? '#4da3ff' : '#000'}
+            />
+
+            {item.isUser && item.stories.length > 0 && (
+              <TouchableOpacity
+                style={sidebarMode ? sidebarStyles.verticalAddStoryOverlay : styles.addStoryOverlay}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleAddNewStory();
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={sidebarMode ? sidebarStyles.verticalAddStoryButton : styles.addStoryButton}>
+                  <Icon name="add" size={sidebarMode ? 12 : 16} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        {item.isUser && item.stories.length > 0 && (
-          <TouchableOpacity
-            style={sidebarMode ? sidebarStyles.verticalAddStoryOverlay : styles.addStoryOverlay}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleAddNewStory();
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={sidebarMode ? sidebarStyles.verticalAddStoryButton : styles.addStoryButton}>
-              <Icon name="add" size={sidebarMode ? 12 : 16} color="#fff" />
-            </View>
-          </TouchableOpacity>
-        )}
       </View>
-      {!sidebarMode && (
-        <Text style={styles.storyUsername} numberOfLines={1}>
-          {item.username}
+      {item.isUser ? (
+        <Text
+          style={sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText}
+          numberOfLines={1}
+        >
+          Drops
         </Text>
+      ) : (
+        !sidebarMode && (
+          <Text style={styles.storyUsername} numberOfLines={1}>
+            {item.username}
+          </Text>
+        )
       )}
     </TouchableOpacity>
   );
@@ -2036,5 +2048,12 @@ const sidebarStyles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  verticalDropsText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#6b6b6b',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

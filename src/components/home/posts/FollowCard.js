@@ -32,7 +32,8 @@ export default function FollowCard({
   onClose,
   isBusinessProfile,
   executeFollowAction,
-  item
+  item,
+  type,
 }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [walletAddress, setWalletAddress] = useState('');
@@ -45,7 +46,7 @@ export default function FollowCard({
   const dispatch = useDispatch();
   const toast = useToast();
   const { textStyle, text } = useAppTheme();
-  
+
   const handleUserProfile = userId => {
     navigation.navigate('UsersProfile', { userId });
   };
@@ -112,7 +113,7 @@ export default function FollowCard({
 
   const handleWalletSelect = async (wallet) => {
     setWalletSelectionVisible(false);
-    
+
     try {
       const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
         returnAddressOnly: true,
@@ -187,9 +188,9 @@ export default function FollowCard({
 
   return (
     <View style={[styles.cardContainer, { width: cardWidth, height: cardHeight, shadowColor: text }]}>
-      <Svg 
-        width={cardWidth} 
-        height={cardHeight} 
+      <Svg
+        width={cardWidth}
+        height={cardHeight}
         style={styles.hexagonBackground}
       >
         <Defs>
@@ -208,7 +209,7 @@ export default function FollowCard({
         />
       </Svg>
 
-      <View 
+      <View
         style={styles.card}
         pointerEvents="box-none"
       >
@@ -218,7 +219,7 @@ export default function FollowCard({
         </TouchableOpacity>
 
         {/* Hexagonal Avatar */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => handleUserProfile(userId)}
           style={styles.avatarContainer}
         >
@@ -237,7 +238,10 @@ export default function FollowCard({
 
         {/* Follow Button */}
         <TouchableOpacity
-          style={[styles.followButton, isFollowing && styles.unfollowButton, {backgroundColor: text, shadowColor: text}]}
+          style={[styles.followButton, isFollowing && styles.unfollowButton, {
+            backgroundColor: type ==
+              "company" ? '#D3B683' : '#5a2d82', shadowColor: text
+          }]}
           onPress={async () => {
             if (item.id === currentUserId) return;
 

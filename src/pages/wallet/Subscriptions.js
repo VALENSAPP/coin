@@ -27,6 +27,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import TermCondition from '../../components/modals/Term&Condition';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
+import { BusinessPlanModal, BusinessReminderModal, BusinessSuccessModal } from '../../components/modals/BusinessPlanModals';
 import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
 import { createOnboardingLink, getOnboardingStatus, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { createCheckoutSession } from '../../services/stirpe';
@@ -55,6 +56,9 @@ const SubventionSetupScreen = () => {
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [showActivationPopup, setShowActivationPopup] = useState(false);
+    const [showBusinessReminderPopup, setShowBusinessReminderPopup] = useState(false);
+    const [showBusinessSuccessPopup, setShowBusinessSuccessPopup] = useState(false);
+    const [isBusinessProfile, setIsBusinessProfile] = useState(false);
     const [showStripeSetupModal, setShowStripeSetupModal] = useState(false);
     const [rawAmount, setRawAmount] = useState('');
     const [comment, setComment] = useState('');
@@ -245,6 +249,92 @@ const SubventionSetupScreen = () => {
         }
     };
 
+    const closeBusinessFlow = () => {
+        setShowActivationPopup(false);
+        setShowBusinessReminderPopup(false);
+    };
+
+    const handleBusinessActivatedSuccess = async () => {
+        await AsyncStorage.setItem('businessPlanMode', 'active');
+        closeBusinessFlow();
+        setShowBusinessSuccessPopup(true);
+        setTimeout(() => {
+            setShowBusinessSuccessPopup(false);
+            navigateToWalletDashboard();
+        }, 1400);
+    };
+
+    const handleBusinessActivationConfirm = async () => {
+        try {
+            dispatch(showLoader());
+
+            const onboardingStatus = await GetInbordingstatus();
+            if (isOnboardingReady(onboardingStatus)) {
+                const paymentResult = await getUserSubscription();
+                if (paymentResult?.cancelled) {
+                    closeBusinessFlow();
+                    navigateToWalletDashboard();
+                    return;
+                }
+                await handleBusinessActivatedSuccess();
+                return;
+            }
+
+            const onboardingResult = await GetInbordingLink();
+            if (onboardingResult?.alreadyOnboarded) {
+                const paymentResult = await getUserSubscription();
+                if (paymentResult?.cancelled) {
+                    closeBusinessFlow();
+                    navigateToWalletDashboard();
+                    return;
+                }
+                await handleBusinessActivatedSuccess();
+                return;
+            }
+
+            if (isBrowserCancelled(onboardingResult)) {
+                closeBusinessFlow();
+                navigateToWalletDashboard();
+                return;
+            }
+
+            const updatedStatus = await waitForOnboardingCompletion();
+            if (isOnboardingReady(updatedStatus)) {
+                const paymentResult = await getUserSubscription();
+                if (paymentResult?.cancelled) {
+                    closeBusinessFlow();
+                    navigateToWalletDashboard();
+                    return;
+                }
+                await handleBusinessActivatedSuccess();
+                return;
+            }
+
+            closeBusinessFlow();
+            navigateToWalletDashboard();
+            showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+        } catch (error) {
+            console.log('Business activation flow error:', error);
+            showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        } finally {
+            dispatch(hideLoader());
+        }
+    };
+
+    const handleBusinessContinueBasic = () => {
+        setShowBusinessReminderPopup(true);
+    };
+
+    const handleBusinessContinueLimited = async () => {
+        await AsyncStorage.setItem('businessPlanMode', 'basic');
+        closeBusinessFlow();
+        showToastMessage(
+            toast,
+            'warning',
+            'Your business profile is active in Basic Mode. You can upgrade anytime to unlock all business features.',
+        );
+    };
+
     const getCredential = async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
@@ -260,11 +350,17 @@ const SubventionSetupScreen = () => {
 
             setCredential(data); // store in state
             const status = data?.subscriptionStatus?.toUpperCase();
+            const storedProfileType = (await AsyncStorage.getItem('profile')) || '';
+            const apiProfileType = data?.profile || data?.user?.profile || '';
+            const effectiveProfileType = String(apiProfileType || storedProfileType).toLowerCase();
+            setIsBusinessProfile(effectiveProfileType === 'company' || effectiveProfileType === 'business');
 
             // ✅ Hide popup if already ACTIVE
             if (status === "ACTIVE") {
                 setShowActivationPopup(false);
+                setShowBusinessReminderPopup(false);
             } else {
+                setShowBusinessReminderPopup(false);
                 setShowActivationPopup(true)
             }
 
@@ -376,7 +472,7 @@ const SubventionSetupScreen = () => {
                     toolbarColor: '#000',
                     enableUrlBarHiding: true,
                     enableDefaultShare: false,
-                });
+                }); 
                 return {
                     response,
                     cancelled: isBrowserCancelled(browserResult),
@@ -399,7 +495,7 @@ const SubventionSetupScreen = () => {
     };
 
     const formatSubscriptionDate = (dateValue) => {
-        if (!dateValue) return 'N/A';
+        if (!dateValue) return 'N/A';  
         const parsed = new Date(dateValue);
         if (Number.isNaN(parsed.getTime())) return 'N/A';
         return parsed.toLocaleDateString('en-US', {
@@ -1015,13 +1111,29 @@ const SubventionSetupScreen = () => {
                         setShowActivationPopup(true)
                     }}
                 /> */}
-                <SubscriptionActivationPopup
-                    visible={showActivationPopup}
-                    onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
-                    onConfirm={
-                        handleActivationConfirm
-                    }
-                />
+                {isBusinessProfile ? (
+                    <>
+                        <BusinessPlanModal
+                            visible={showActivationPopup && !showBusinessReminderPopup}
+                            onClose={closeBusinessFlow}
+                            onActivate={handleBusinessActivationConfirm}
+                            onContinue={handleBusinessContinueBasic}
+                        />
+                        <BusinessReminderModal
+                            visible={showActivationPopup && showBusinessReminderPopup}
+                            onClose={closeBusinessFlow}
+                            onUpgrade={handleBusinessActivationConfirm}
+                            onContinue={handleBusinessContinueLimited}
+                        />
+                        <BusinessSuccessModal visible={showBusinessSuccessPopup} />
+                    </>
+                ) : (
+                    <SubscriptionActivationPopup
+                        visible={showActivationPopup}
+                        onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
+                        onConfirm={handleActivationConfirm}
+                    />
+                )}
                 <ConnectStripeModal
                     visible={showStripeSetupModal}
                     onClose={() => setShowStripeSetupModal(false)}
