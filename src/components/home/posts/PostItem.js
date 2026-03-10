@@ -37,6 +37,24 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
+  const [imageHeight, setImageHeight] = useState(500);
+  const screenWidth = Dimensions.get("window").width;
+  useEffect(() => {
+    if (!uri) return;
+
+    Image.getSize(uri, (w, h) => {
+      const ratio = screenWidth / w;
+      const newHeight = h * ratio;
+
+      const maxHeight = screenWidth * 1.25;
+      const minHeight = screenWidth * 0.56;
+
+      const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+
+      setImageHeight(finalHeight);
+    });
+  }, [uri]);
+
 
   const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
 
@@ -130,10 +148,15 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         <Animated.Image
           source={imageSource}
           style={[
-            styles.postMedia,
+            {
+              width: '100%',
+              height: imageHeight,
+              resizeMode: "contain",
+            },
             { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
           ]}
         />
+
       </PinchGestureHandler>
 
       {/* FULLSCREEN MODAL */}
@@ -227,6 +250,8 @@ function PostItem({
   const [isMuted, setIsMuted] = useState(true);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [videoHeight, setVideoHeight] = useState(500);
+  const [videoLoaded, setVideoLoaded] = useState({});
 
 
   // New donation states
@@ -259,6 +284,18 @@ function PostItem({
     console.warn('PostItem received invalid item:', item);
     return null;
   }
+ const width = Dimensions.get("window").width;
+  useEffect(() => {
+    const firstVideo = item?.media?.find(m => m.thumbnail);
+
+    if (!firstVideo?.thumbnail) return;
+
+    Image.getSize(firstVideo.thumbnail, (w, h) => {
+      const ratio = width / w;
+      setVideoHeight(h * ratio);
+    });
+  }, [item]);
+
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
@@ -747,19 +784,31 @@ function PostItem({
     return (
       <View style={styles.mediaContainer}>
         {isVideo ? (
-          <View style={{ flex: 1 }}>
+          <View style={{ width, height: videoHeight }}>
+            {!videoLoaded && mediaItem.thumbnail && (
+              <Image
+                source={{ uri: mediaItem.thumbnail }}
+                style={{
+                  width: width,
+                  height: videoHeight,
+                  position: "absolute",
+                }}
+                resizeMode="cover"
+              />
+            )}
             <Video
               ref={(ref) => {
-                if (ref) {
-                  videoRefsMap.current[index] = ref;
-                }
+                if (ref) videoRefsMap.current[index] = ref;
               }}
               source={{ uri: mediaItem.url }}
-              style={styles.postMedia}
-              resizeMode="contain"
+              style={{
+                width: width,
+                height: videoHeight
+              }}
+              resizeMode='cover'
               repeat
               paused={!shouldPlay}
-              muted={isMuted}
+              muted={true}
               controls={false}
               onError={(error) => {
                 console.log('Video error:', error);
@@ -785,12 +834,13 @@ function PostItem({
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
+            {/* Removed speaker button to keep videos always muted */}
+            {/* <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
             >
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         ) : (
           <InstagramZoomableImage
@@ -1170,23 +1220,35 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F9FAFB',
   },
+  // mediaWrapper: {
+  //   position: 'relative',
+  //   // width: '100%',
+
+  //   // height: 500,
+  //   backgroundColor: '#000',
+  //   overflow: 'hidden',
+  // },
   mediaWrapper: {
-    position: 'relative',
-    width: '100%',
-    height: 500,
-    backgroundColor: '#000',
-    overflow: 'hidden',
+    width: "100%",
+    backgroundColor: "#000",
+
   },
+  // mediaContainer: {
+  //   width,
+  //   height: 500,
+  //   position: 'relative',
+  // },
   mediaContainer: {
     width,
-    height: 500,
-    position: 'relative',
+    justifyContent: "center",
+    alignItems: "center",
   },
   postMedia: {
-    width: '100%',
-    height: 500,
-    resizeMode: 'contain',
-    // aspectRatio:1,
+    width: width,
+    // height: 500,
+    // resizeMode: 'contain',
+    // height: 450,
+    aspectRatio: 1,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
