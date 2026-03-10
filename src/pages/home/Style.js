@@ -80,11 +80,13 @@ const createStyles = () => {
       backgroundColor: '#eee',
     },
     storyUsername: {
-      fontSize: 12,
+      fontSize: 10,
       color: '#222',
       maxWidth: 60,
       textAlign: 'center',
-      marginTop: 4
+      marginTop: 4,
+      fontWeight:'500'
+
     },
     addIcon: {
       position: 'absolute',
@@ -128,6 +130,11 @@ const createStyles = () => {
     },
     positiom: {
       marginTop: '25%'
+    },
+    dropsText:{
+      fontWeight:'500',
+      fontSize:15,
+      color:'#000'
     },
   });
   return styles;

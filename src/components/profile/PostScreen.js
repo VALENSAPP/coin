@@ -104,6 +104,58 @@ const isVideoUrl = (url) => {
   return /\.(mp4|mov|avi|mkv|webm|m4v|3gp)(\?|$)/i.test(url);
 };
 
+const getPreviewMedia = (post) => {
+  const candidates = [
+    ...(Array.isArray(post?.media) ? post.media : []),
+    ...(Array.isArray(post?.images) ? post.images : []),
+    post?.image,
+    post?.video,
+    post?.thumbnail,
+    post?.poster,
+  ].filter(Boolean);
+
+  const firstCandidate = candidates[0];
+  const normalizedCandidate =
+    typeof firstCandidate === 'string'
+      ? { url: firstCandidate }
+      : firstCandidate;
+
+  const mediaUrl = normalizeImageUrl(
+    normalizedCandidate?.url ||
+    normalizedCandidate?.uri ||
+    normalizedCandidate?.path ||
+    normalizedCandidate?.image ||
+    normalizedCandidate?.video ||
+    post?.image ||
+    post?.video,
+  );
+
+  const posterUrl = normalizeImageUrl(
+    normalizedCandidate?.thumbnail ||
+    normalizedCandidate?.poster ||
+    normalizedCandidate?.previewUri ||
+    post?.thumbnail ||
+    post?.poster ||
+    post?.previewUri,
+  );
+
+  const mediaType = String(
+    normalizedCandidate?.type ||
+    normalizedCandidate?.mediaType ||
+    normalizedCandidate?.mime ||
+    post?.mediaType ||
+    post?.type ||
+    '',
+  ).toLowerCase();
+
+  const isVideo =
+    mediaType.includes('video') ||
+    normalizedCandidate?.isVideo === true ||
+    isVideoUrl(mediaUrl);
+
+  return { mediaUrl, posterUrl, isVideo };
+};
+
 const isFlipPost = (post) => {
   const flipLikeValues = ['flip', 'flips', 'reel', 'reels'];
   const typeCandidates = [
@@ -126,8 +178,7 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
-  const mediaUrl = normalizeImageUrl(item?.images?.[0] || item?.image || item?.video);
-  const isVideo = isVideoUrl(mediaUrl);
+  const { mediaUrl, posterUrl, isVideo } = getPreviewMedia(item);
 
   if (isVideo) {
     return (
@@ -139,6 +190,12 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
             paused={true}
             muted={true}
             resizeMode="cover"
+            repeat={false}
+            controls={false}
+            playWhenInactive={false}
+            ignoreSilentSwitch="ignore"
+            poster={posterUrl || undefined}
+            posterResizeMode="cover"
             onLoad={() => setIsVideoLoading(false)}
             onError={() => {
               setVideoError(true);
@@ -149,13 +206,13 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
         )}
 
         {(isVideoLoading || videoError || !mediaUrl) && (
-          <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
+          <View style={[StyleSheet.absoluteFill, styles.videoPlaceholderOverlay]}>
             <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
           </View>
         )}
 
         {!isVideoLoading && !videoError && (
-          <View style={styles.videoBadge}>
+          <View style={[styles.videoBadge, styles.videoBadgeOverlay]}>
             <Text style={styles.videoBadgeText}>▶</Text>
           </View>
         )}
@@ -284,7 +341,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
         )}
       </TouchableOpacity>
     );
-  }, [openPosts, text, donationTotals]);
+  }, [openPosts, text, textStyle, donationTotals]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
@@ -299,7 +356,7 @@ const PostScreen = memo(({ postCheck, userData }) => {
       <Text style={[styles.emptyTitle, textStyle]}>No posts yet</Text>
       <Text style={styles.emptySubtitle}>Share your first moment</Text>
     </View>
-  ), []);
+  ), [textStyle]);
 
   if (!posts || posts.length === 0) {
     return (
@@ -433,9 +490,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f3e9fb', // soft purple pastel
   },
+  videoPlaceholderOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3e9fb',
+  },
   placeholderText: {
     fontSize: 22,
     opacity: 0.6,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   videoBadge: {
     flexDirection:'row',
@@ -445,6 +514,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+  },
+  videoBadgeOverlay: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   videoBadgeText: {
     color: '#fff',
