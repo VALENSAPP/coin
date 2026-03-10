@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { AuthHeader } from '../../components/auth';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import CountryPicker from 'react-native-country-picker-modal';
 import {
   CreateCompanyProfile,
   GetCompanyProfile,
@@ -33,6 +32,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { pick } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
+import CountryPicker, { getAllCountries } from 'react-native-country-picker-modal';
 
 const { height } = Dimensions.get('window');
 
@@ -59,11 +59,16 @@ const BusinessProfileForm = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExistingCompanyProfile, setHasExistingCompanyProfile] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState({
+    cca2: 'US',
+    callingCode: ['1'],
+  });
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
-  const [countryCode, setCountryCode] = useState("+91");
+  const sumsubLaunchLockRef = useRef(false);
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -72,6 +77,64 @@ const BusinessProfileForm = () => {
       delete next[key];
       setErrors(next);
     }
+  };
+
+  const getDialCode = useCallback(
+    () => `+${selectedCountry?.callingCode?.[0] || '1'}`,
+    [selectedCountry],
+  );
+
+  const normalizePhoneWithCountryCode = useCallback(
+    rawPhone => {
+      const value = String(rawPhone || '').trim();
+      const digits = value.replace(/\D/g, '');
+      const dialCodeDigits = getDialCode().replace(/\D/g, '');
+
+      if (!digits) return '';
+      if (value.startsWith('+')) return `+${digits}`;
+      if (digits.startsWith(dialCodeDigits)) return `+${digits}`;
+
+      return `+${dialCodeDigits}${digits}`;
+    },
+    [getDialCode],
+  );
+
+  const getPhoneInputValue = useCallback(() => {
+    const phoneValue = String(form.phone || '');
+    const dialCodeDigits = getDialCode().replace(/\D/g, '');
+    const phoneDigits = phoneValue.replace(/\D/g, '');
+
+    if (phoneDigits.startsWith(dialCodeDigits)) {
+      return phoneDigits.slice(dialCodeDigits.length);
+    }
+
+    return phoneValue.replace(/[^\d\s\-()]/g, '');
+  }, [form.phone, getDialCode]);
+
+  const handlePhoneChange = value => {
+    const sanitizedLocalNumber = String(value || '').replace(/[^\d\s\-()]/g, '');
+    const localDigits = sanitizedLocalNumber.replace(/\D/g, '');
+    const dialCodeDigits = getDialCode().replace(/\D/g, '');
+    const combinedDigits = `${dialCodeDigits}${localDigits}`;
+
+    handleChange('phone', combinedDigits ? `+${combinedDigits}` : '');
+  };
+
+  const handleCountrySelect = country => {
+    const nextCountry = {
+      cca2: country?.cca2 || 'US',
+      callingCode: country?.callingCode?.length ? country.callingCode : ['1'],
+    };
+
+    const currentPhoneDigits = String(form.phone || '').replace(/\D/g, '');
+    const currentDialCodeDigits = getDialCode().replace(/\D/g, '');
+    const localDigits = currentPhoneDigits.startsWith(currentDialCodeDigits)
+      ? currentPhoneDigits.slice(currentDialCodeDigits.length)
+      : currentPhoneDigits;
+    const nextDialCodeDigits = nextCountry.callingCode[0];
+
+    setSelectedCountry(nextCountry);
+    handleChange('phone', localDigits ? `+${nextDialCodeDigits}${localDigits}` : `+${nextDialCodeDigits}`);
   };
 
   const proceedToKyc = () => {
@@ -92,17 +155,42 @@ const BusinessProfileForm = () => {
     return /\.(png|jpe?g|webp|gif)$/i.test(String(uri));
   };
 
-  const mapCompanyProfileToForm = data => ({
-    businessName: data?.businessName || '',
-    ownerName: data?.ownerName || '',
-    email: data?.email || '',
-    phone: data?.phoneNumber || data?.phone || '',
-    category: data?.category || '',
-    address: data?.address || '',
-    description: data?.description || '',
-    website: data?.website || '',
-    gstNumber: data?.gstNumber || '',
-  });
+  const mapCompanyProfileToForm = useCallback(
+    data => ({
+      businessName: data?.businessName || '',
+      ownerName: data?.ownerName || '',
+      email: data?.email || '',
+      phone: normalizePhoneWithCountryCode(data?.phoneNumber || data?.phone || ''),
+      category: data?.category || '',
+      address: data?.address || '',
+      description: data?.description || '',
+      website: data?.website || '',
+      gstNumber: data?.gstNumber || '',
+    }),
+    [normalizePhoneWithCountryCode],
+  );
+
+  const syncCountryCodeFromPhone = useCallback(async phoneValue => {
+    const normalizedPhone = String(phoneValue || '').trim();
+    if (!normalizedPhone.startsWith('+')) return;
+
+    const digits = normalizedPhone.replace(/\D/g, '');
+    const countries = await getAllCountries();
+
+    for (let length = 4; length >= 1; length -= 1) {
+      const candidate = digits.slice(0, length);
+      if (!candidate) continue;
+
+      const country = countries.find(item => item?.callingCode?.includes(candidate));
+      if (country?.cca2) {
+        setSelectedCountry({
+          cca2: country.cca2,
+          callingCode: [candidate],
+        });
+        return;
+      }
+    }
+  }, []);
 
   const clearDocumentError = () => {
     if (errors.document) {
@@ -252,7 +340,8 @@ const BusinessProfileForm = () => {
   };
 
   const launchSumsub = async () => {
-    if (isLaunchingSumsub) return;
+    if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
+    sumsubLaunchLockRef.current = true;
     setIsLaunchingSumsub(true);
     try {
       const response = await startVerification();
@@ -275,9 +364,15 @@ const BusinessProfileForm = () => {
       await snsMobileSDK.launch();
     }
     catch (error) {
-      showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+      const errorMessage = String(error?.message || error || '').toLowerCase();
+      if (errorMessage.includes('another instance is in use')) {
+        showToastMessage(toast, 'warning', 'Verification is already open. Please complete it first.');
+      } else {
+        showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+      }
       console.log(error, 'Sumsub launch error');
     } finally {
+      sumsubLaunchLockRef.current = false;
       setIsLaunchingSumsub(false);
     }
   };
@@ -341,7 +436,9 @@ const BusinessProfileForm = () => {
         companyData?.documents;
 
       if ((code === 200 || code === 201) && Object.keys(companyData).length > 0) {
-        setForm(mapCompanyProfileToForm(companyData));
+        const mappedForm = mapCompanyProfileToForm(companyData);
+        setForm(mappedForm);
+        await syncCountryCodeFromPhone(mappedForm.phone);
         setHasExistingCompanyProfile(true);
         if (existingDocument) {
           const existingUri =
@@ -376,7 +473,7 @@ const BusinessProfileForm = () => {
       setSelectedDocument(null);
       setIsDocumentUploaded(false);
     }
-  }, []);
+  }, [mapCompanyProfileToForm, syncCountryCodeFromPhone]);
 
   useFocusEffect(
     useCallback(() => {
@@ -394,12 +491,14 @@ const BusinessProfileForm = () => {
       return;
     }
 
+    const normalizedPhone = normalizePhoneWithCountryCode(form.phone);
+
     const payload = {
       businessName: form.businessName.trim(),
       ownerName: form.ownerName.trim(),
       email: form.email.trim(),
-      phone: form.phone.replace(/\D/g, ''),
-      phoneNumber: form.phone.replace(/\D/g, ''),
+      phone: normalizedPhone,
+      phoneNumber: normalizedPhone,
       category: form.category.trim(),
       address: form.address.trim(),
       description: form.description.trim(),
@@ -525,7 +624,14 @@ const BusinessProfileForm = () => {
       keyboardType: 'phone-pad',
     },
     { key: 'category', label: 'Business Category', placeholder: 'Ex: Retail, Services, Food' },
-    { key: 'address', label: 'Business Address', placeholder: 'Enter business address' },
+    {
+      key: 'address',
+      label: 'Business Address',
+      placeholder: 'Street, city, state, postal code, country',
+      multiline: true,
+      numberOfLines: 3,
+      autoCapitalize: 'words',
+    },
     {
       key: 'description',
       label: 'Business Description',
@@ -568,68 +674,60 @@ const BusinessProfileForm = () => {
               </View>
 
               <View style={styles.inputContainer}>
-               {fields.map(field => (
-  <View key={field.key} style={styles.inputWrapper}>
-    <Text style={styles.inputLabel}>{field.label}</Text>
-
-    <View style={[styles.inputGroup, errors[field.key] && styles.inputError]}>
-      
-      {field.key === "phone" ? (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          
-          <TouchableOpacity
-            style={styles.countryPicker}
-            onPress={() => setShowCountryPicker(true)}
-          >
-            <CountryPicker
-              countryCode={countryCode}
-              withFlag
-              withCallingCode
-              withFilter
-              visible={showCountryPicker}
-              onSelect={(country) => {
-                setCountryCode(country.cca2);
-                setCallingCode(country.callingCode[0]);
-                setShowCountryPicker(false);
-              }}
-              onClose={() => setShowCountryPicker(false)}
-            />
-
-            <Text style={styles.countryCodeText}>+{callingCode}</Text>
-          </TouchableOpacity>
-
-          <TextInput
-            style={[styles.textInput, { flex: 1 }]}
-            placeholder={field.placeholder}
-            placeholderTextColor="#9CA3AF"
-            value={form.phone}
-            onChangeText={(value) => handleChange("phone", value)}
-            keyboardType="phone-pad"
-          />
-        </View>
-      ) : (
-        <TextInput
-          style={[styles.textInput, field.multiline && styles.textArea]}
-          placeholder={field.placeholder}
-          placeholderTextColor="#9CA3AF"
-          value={form[field.key]}
-          onChangeText={(value) => handleChange(field.key, value)}
-          keyboardType={field.keyboardType || 'default'}
-          autoCapitalize={field.autoCapitalize || 'sentences'}
-          multiline={field.multiline}
-          numberOfLines={field.numberOfLines}
-          textAlignVertical={field.multiline ? 'top' : 'center'}
-        />
-      )}
-
-    </View>
-
-    {errors[field.key] ? (
-      <Text style={styles.errorText}>{errors[field.key]}</Text>
-    ) : null}
-  </View>
-))}
-
+                {fields.map(field => (
+                  <View key={field.key} style={styles.inputWrapper}>
+                    <Text style={styles.inputLabel}>{field.label}</Text>
+                    <View style={[styles.inputGroup, errors[field.key] && styles.inputError]}>
+                      {field.key === 'phone' ? (
+                        <View style={styles.phoneInputRow}>
+                          <TouchableOpacity
+                            style={styles.countryCodeButton}
+                            onPress={() => setShowCountryPicker(true)}
+                            activeOpacity={0.8}
+                          >
+                            <CountryPicker
+                              countryCode={selectedCountry.cca2}
+                              withFlag
+                              withCallingCode={false}
+                              withFilter
+                              withEmoji
+                              visible={showCountryPicker}
+                              onClose={() => setShowCountryPicker(false)}
+                              onSelect={handleCountrySelect}
+                            />
+                            <Text style={styles.countryCodeText}>{getDialCode()}</Text>
+                          </TouchableOpacity>
+                          <TextInput
+                            style={[styles.textInput, styles.phoneTextInput]}
+                            placeholder={field.placeholder}
+                            placeholderTextColor="#9CA3AF"
+                            value={getPhoneInputValue()}
+                            onChangeText={handlePhoneChange}
+                            keyboardType={field.keyboardType || 'phone-pad'}
+                            autoCapitalize="none"
+                            textAlignVertical="center"
+                          />
+                        </View>
+                      ) : (
+                        <TextInput
+                          style={[styles.textInput, field.multiline && styles.textArea]}
+                          placeholder={field.placeholder}
+                          placeholderTextColor="#9CA3AF"
+                          value={form[field.key]}
+                          onChangeText={value => handleChange(field.key, value)}
+                          keyboardType={field.keyboardType || 'default'}
+                          autoCapitalize={field.autoCapitalize || 'sentences'}
+                          multiline={field.multiline}
+                          numberOfLines={field.numberOfLines}
+                          textAlignVertical={field.multiline ? 'top' : 'center'}
+                        />
+                      )}
+                    </View>
+                    {errors[field.key] ? (
+                      <Text style={styles.errorText}>{errors[field.key]}</Text>
+                    ) : null}
+                  </View>
+                ))}
 
                 <View style={styles.inputWrapper}>
                   <Text style={styles.inputLabel}>Upload Document (Image/PDF) *</Text>
@@ -763,6 +861,27 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     fontSize: 16,
     paddingVertical: 0,
+  },
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  countryCodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    paddingRight: 12,
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+  },
+  countryCodeText: {
+    marginLeft: 8,
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  phoneTextInput: {
+    paddingVertical: 14,
   },
   textArea: {
     minHeight: 100,

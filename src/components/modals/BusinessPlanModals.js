@@ -1,27 +1,30 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) => {
+  const { bgStyle, textStyle, text } = useAppTheme();
+
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Your Business Mission Starts Here</Text>
+        <View style={[styles.container, bgStyle]}>
+          <Text style={[styles.title, textStyle]}>Your Business Mission Starts Here</Text>
 
-          <Text style={styles.message}>
+          <Text style={[styles.message, textStyle, styles.messageMuted]}>
             Valens was built for businesses that want more than followers.
             {'\n\n'}
             Activate your Business Plan to unlock mission posts, subscriber channels, brand analytics, and tools designed to turn attention into real engagement.
           </Text>
 
-          <Text style={styles.price}>Business Plan: $9.90/month</Text>
+          <Text style={[styles.price, { color: text }]}>Business Plan: $9.90/month</Text>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={onActivate}>
+          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={onActivate}>
             <Text style={styles.primaryText}>Activate Business Tools</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue}>
-            <Text style={styles.secondaryText}>Continue with Basic Profile</Text>
+            <Text style={[styles.secondaryText, { color: text }]}>Continue with Basic Profile</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -30,13 +33,15 @@ export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) 
 };
 
 export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose }) => {
+  const { bgStyle, textStyle, text } = useAppTheme();
+
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Business Plan - $9.90/month</Text>
+        <View style={[styles.container, bgStyle]}>
+          <Text style={[styles.title, textStyle]}>Business Plan - $9.90/month</Text>
 
-          <Text style={styles.message}>
+          <Text style={[styles.message, textStyle, styles.messageMuted]}>
             You can continue with a basic business profile, but some features will remain locked until you activate the Business Plan.
             {'\n\n'}
             Without the Business Plan you will not have access to:
@@ -50,12 +55,12 @@ export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose 
             Activate the Business Plan to unlock the full Valens experience.
           </Text>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={onUpgrade}>
+          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={onUpgrade}>
             <Text style={styles.primaryText}>Unlock Business Features</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue}>
-            <Text style={styles.secondaryText}>Continue with Limited Profile</Text>
+            <Text style={[styles.secondaryText, { color: text }]}>Continue with Limited Profile</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -64,11 +69,13 @@ export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose 
 };
 
 export const BusinessSuccessModal = ({ visible }) => {
+  const { bgStyle, textStyle } = useAppTheme();
+
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Congratulations - Your Business Plan is Active</Text>
+        <View style={[styles.container, bgStyle]}>
+          <Text style={[styles.title, textStyle]}>Congratulations - Your Business Plan is Active</Text>
         </View>
       </View>
     </Modal>
@@ -98,9 +105,11 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: '#444',
     marginBottom: 15,
     lineHeight: 20,
+  },
+  messageMuted: {
+    opacity: 0.85,
   },
   price: {
     fontSize: 16,
@@ -125,7 +134,6 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     textAlign: 'center',
-    color: '#666',
     fontWeight: '500',
   },
 });
