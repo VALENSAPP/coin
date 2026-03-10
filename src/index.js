@@ -74,6 +74,7 @@ export default function Main() {
   useEffect(() => {
     requestUserPermission();
     notificationListener();
+    checkKycAndShowWelcomeModal();
   }, []);
 
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
@@ -84,28 +85,24 @@ export default function Main() {
       }
 
 
-      if (hasShownWelcome) {
-        return;
-      }
-
       const id = await AsyncStorage.getItem('userId');
       if (!id) {
         return;
       }
 
       const response = await getUserCredentials(id);
+      console.log(response,'respones in this parts what it get ');
+      
       if (response?.statusCode !== 200) {
         return;
       }
       const userData = response?.data?.user || response?.data || response;
-      const isKycApproved = userData?.kyc === true;
-      const kycStatus = userData?.kycStatus;
-      // kycStatus !== "APPROVED"
-      if (isKycApproved) {
-        setWelcomeModalVisible(true);
-      } else {
-        setWelcomeModalVisible(false);
-      }
+      const canAccessPlatform = userData?.canAccessPlatform;
+      const isKycApproved =
+        canAccessPlatform === true ||
+        String(canAccessPlatform || '').toLowerCase() === 'true';
+
+      setWelcomeModalVisible(isKycApproved);
     } catch (error) {
       console.log('KYC polling check failed:', error?.message || error);
     }

@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
+import Video from 'react-native-video';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
@@ -54,7 +55,6 @@ const calculateMissionStats = (post, raisedAmountOverride = null) => {
 
   return { goalAmount, currentRaised, progressPercent, daysLeft };
 };
-
 const formatAmount = (value) =>
   parseNonNegativeNumber(value, 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -104,11 +104,66 @@ const isVideoUrl = (url) => {
   return /\.(mp4|mov|avi|mkv|webm|m4v|3gp)(\?|$)/i.test(url);
 };
 
+const isFlipPost = (post) => {
+  const flipLikeValues = ['flip', 'flips', 'reel', 'reels'];
+  const typeCandidates = [
+    post?.type,
+    post?.postType,
+    post?.post_type,
+    post?.mediaType,
+    post?.media_type,
+    post?.contentType,
+  ];
+
+  return typeCandidates.some(
+    (value) =>
+      typeof value === 'string' && flipLikeValues.includes(value.trim().toLowerCase()),
+  );
+};
+
 // Memoized image component for better performance
 const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
-  const imageUrl = normalizeImageUrl(item?.images?.[0]);
-  if (!imageUrl || imageError) {
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+  const mediaUrl = normalizeImageUrl(item?.images?.[0] || item?.image || item?.video);
+  const isVideo = isVideoUrl(mediaUrl);
+
+  if (isVideo) {
+    return (
+      <View style={[styles.image, styles.placeholderImage]}>
+        {!!mediaUrl && !videoError && (
+          <Video
+            source={{ uri: mediaUrl }}
+            style={StyleSheet.absoluteFill}
+            paused={true}
+            muted={true}
+            resizeMode="cover"
+            onLoad={() => setIsVideoLoading(false)}
+            onError={() => {
+              setVideoError(true);
+              setIsVideoLoading(false);
+            }}
+            playInBackground={false}
+          />
+        )}
+
+        {(isVideoLoading || videoError || !mediaUrl) && (
+          <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
+            <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
+          </View>
+        )}
+
+        {!isVideoLoading && !videoError && (
+          <View style={styles.videoBadge}>
+            <Text style={styles.videoBadgeText}>▶</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  if (!mediaUrl || imageError) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
         <Text style={[styles.placeholderText, themeTextStyle]}>📷</Text>
@@ -118,7 +173,7 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
   return (
     <Image
-      source={{ uri: imageUrl }}
+      source={{ uri: mediaUrl }}
       style={styles.image}
       resizeMode="cover"
       onError={() => setImageError(true)}
@@ -132,17 +187,14 @@ PostImage.displayName = 'PostImage';
 const PostScreen = memo(({ postCheck, userData }) => {
   console.log(postCheck,'dta is posts ');
   
-  const [posts, setPosts] = useState(postCheck);
+  const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
-    const onlyImagePosts = (postCheck || []).filter((post) => {
-      const firstMedia = post?.images?.[0] || '';
-      return !isVideoUrl(firstMedia);
-    });
-    setPosts(onlyImagePosts);
+    const withoutFlips = (postCheck || []).filter((post) => !isFlipPost(post));
+    setPosts(withoutFlips);
   }, [postCheck]);
 
   useEffect(() => {
@@ -384,6 +436,20 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 22,
     opacity: 0.6,
+  },
+  videoBadge: {
+    flexDirection:'row',
+    justifyContent:'center',
+    alignSelf:'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  videoBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
   },
 
   // --- Empty State ---

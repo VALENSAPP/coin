@@ -816,7 +816,7 @@ function PostItem({
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
-              <Text style={styles.username}>{item.username}</Text>
+              <Text style={[styles.username,{color:item?.profile === "user" ? '#5a2d82' : '#D3B683'}]}>{item.username}</Text>
               {isKycVerified && (
                 <View style={styles.dragonflyIcon}>
                   <DragonflyIcon width={18} height={18} />
@@ -1146,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: '700',
-    color: '#1F2937',
+    // color: '#1F2937',
     fontSize: 16,
     marginRight: 6,
   },

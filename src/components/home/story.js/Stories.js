@@ -2050,8 +2050,8 @@ const sidebarStyles = StyleSheet.create({
     borderColor: '#fff',
   },
   verticalDropsText: {
-    marginTop: 4,
-    fontSize: 11,
+    marginTop: 2,
+    fontSize: 16,
     color: '#6b6b6b',
     fontWeight: '600',
     textAlign: 'center',
