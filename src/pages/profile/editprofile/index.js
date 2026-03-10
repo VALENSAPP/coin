@@ -646,7 +646,7 @@ const ProfileEditScreen = () => {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Social Link</Text>
             <TextInput
-              placeholder="https://your-social-link.com/username"
+              placeholder="Enter your social link"
               placeholderTextColor="#9CA3AF"
               style={styles.input}
               keyboardType="url"

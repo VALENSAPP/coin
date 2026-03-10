@@ -62,8 +62,8 @@ const ProfilePersonData = ({
   executeFollowAction,
   returnByTo
 }) => {
-  
-  
+
+
 
   // useEffect(() => {
   //   console.log(
@@ -1000,12 +1000,15 @@ const ProfilePersonData = ({
                         end={{ x: 1, y: 0 }}
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
-                        <Text style={styles.buttonText}>
-                          Total Support</Text>
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Text style={styles.buttonText}>Total Support</Text>
+                        </View>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
                 </>
+
               ) : (
                 <>
                   <TouchableOpacity onPress={() => handleNavigate()}>
@@ -1040,21 +1043,24 @@ const ProfilePersonData = ({
                       <Text style={styles.buttonText}> Invite</Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  {!isBusinessProfile&&(
+                  {!isBusinessProfile && (
 
-                 
-                  <TouchableOpacity
-                  >
-                    <LinearGradient
-                      colors={profileActionGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
+
+                    <TouchableOpacity
                     >
-                      <Text style={styles.buttonText}> Total Support</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                   )}
+                      <LinearGradient
+                        colors={profileActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.editbuttons, { shadowColor: text }]}
+                      >
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Text style={styles.buttonText}>Total Support</Text>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </View>
@@ -1393,5 +1399,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F1FF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
 });
