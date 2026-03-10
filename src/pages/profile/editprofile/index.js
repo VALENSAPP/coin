@@ -25,6 +25,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -471,7 +472,7 @@ const ProfileEditScreen = () => {
       dispatch(hideLoader());
     }
   };
-
+const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   const renderDisplayNameInput = () => {
     return (
       <View style={styles.inputContainer}>
@@ -542,7 +543,12 @@ const ProfileEditScreen = () => {
 
   return (
     <>
-      <ScrollView style={[styles.container, bgStyle]} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView style={[styles.container, bgStyle]} contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={120}
+        showsVerticalScrollIndicator={false}>
         <View style={[styles.avatarContainer, bgStyle]}>
           <TouchableOpacity
             onPress={() => refRBSheet1.current.open()}
@@ -553,7 +559,7 @@ const ProfileEditScreen = () => {
                 source={
                   profileImage
                     ? { uri: profileImage }
-                    : require('../../../assets/icons/pngicons/person.png')
+                    : require('../../../assets/icons/pngicons/user.png')
                 }
                 style={[styles.profileImage, { borderColor: text }]}
               />
@@ -657,7 +663,7 @@ const ProfileEditScreen = () => {
             />
           </View>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <RBSheet
         ref={refRBSheet}

@@ -19,6 +19,7 @@ import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { AuthHeader } from '../../components/auth';
 import { showToastMessage } from '../../components/displaytoastmessage';
+import CountryPicker from 'react-native-country-picker-modal';
 import {
   CreateCompanyProfile,
   GetCompanyProfile,
@@ -62,6 +63,7 @@ const BusinessProfileForm = () => {
   const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
+  const [countryCode, setCountryCode] = useState("+91");
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -566,28 +568,68 @@ const BusinessProfileForm = () => {
               </View>
 
               <View style={styles.inputContainer}>
-                {fields.map(field => (
-                  <View key={field.key} style={styles.inputWrapper}>
-                    <Text style={styles.inputLabel}>{field.label}</Text>
-                    <View style={[styles.inputGroup, errors[field.key] && styles.inputError]}>
-                      <TextInput
-                        style={[styles.textInput, field.multiline && styles.textArea]}
-                        placeholder={field.placeholder}
-                        placeholderTextColor="#9CA3AF"
-                        value={form[field.key]}
-                        onChangeText={value => handleChange(field.key, value)}
-                        keyboardType={field.keyboardType || 'default'}
-                        autoCapitalize={field.autoCapitalize || 'sentences'}
-                        multiline={field.multiline}
-                        numberOfLines={field.numberOfLines}
-                        textAlignVertical={field.multiline ? 'top' : 'center'}
-                      />
-                    </View>
-                    {errors[field.key] ? (
-                      <Text style={styles.errorText}>{errors[field.key]}</Text>
-                    ) : null}
-                  </View>
-                ))}
+               {fields.map(field => (
+  <View key={field.key} style={styles.inputWrapper}>
+    <Text style={styles.inputLabel}>{field.label}</Text>
+
+    <View style={[styles.inputGroup, errors[field.key] && styles.inputError]}>
+      
+      {field.key === "phone" ? (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          
+          <TouchableOpacity
+            style={styles.countryPicker}
+            onPress={() => setShowCountryPicker(true)}
+          >
+            <CountryPicker
+              countryCode={countryCode}
+              withFlag
+              withCallingCode
+              withFilter
+              visible={showCountryPicker}
+              onSelect={(country) => {
+                setCountryCode(country.cca2);
+                setCallingCode(country.callingCode[0]);
+                setShowCountryPicker(false);
+              }}
+              onClose={() => setShowCountryPicker(false)}
+            />
+
+            <Text style={styles.countryCodeText}>+{callingCode}</Text>
+          </TouchableOpacity>
+
+          <TextInput
+            style={[styles.textInput, { flex: 1 }]}
+            placeholder={field.placeholder}
+            placeholderTextColor="#9CA3AF"
+            value={form.phone}
+            onChangeText={(value) => handleChange("phone", value)}
+            keyboardType="phone-pad"
+          />
+        </View>
+      ) : (
+        <TextInput
+          style={[styles.textInput, field.multiline && styles.textArea]}
+          placeholder={field.placeholder}
+          placeholderTextColor="#9CA3AF"
+          value={form[field.key]}
+          onChangeText={(value) => handleChange(field.key, value)}
+          keyboardType={field.keyboardType || 'default'}
+          autoCapitalize={field.autoCapitalize || 'sentences'}
+          multiline={field.multiline}
+          numberOfLines={field.numberOfLines}
+          textAlignVertical={field.multiline ? 'top' : 'center'}
+        />
+      )}
+
+    </View>
+
+    {errors[field.key] ? (
+      <Text style={styles.errorText}>{errors[field.key]}</Text>
+    ) : null}
+  </View>
+))}
+
 
                 <View style={styles.inputWrapper}>
                   <Text style={styles.inputLabel}>Upload Document (Image/PDF) *</Text>
