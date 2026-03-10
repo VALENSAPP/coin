@@ -81,7 +81,7 @@ export default function LoginScreen() {
         }
 
         const normalizedKycStatus = String(response?.data?.kycStatus || '').toUpperCase();
-        if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED')) {
+        if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED' && normalizedKycStatus === 'true')) {
           await ensureCurrentAccountSaved({
             profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
             username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
@@ -90,7 +90,7 @@ export default function LoginScreen() {
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
-          showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+          // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
         }
         else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {

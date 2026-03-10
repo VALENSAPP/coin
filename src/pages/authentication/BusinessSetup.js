@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -62,6 +62,7 @@ const BusinessProfileForm = () => {
   const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
+  const sumsubLaunchLockRef = useRef(false);
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -250,7 +251,8 @@ const BusinessProfileForm = () => {
   };
 
   const launchSumsub = async () => {
-    if (isLaunchingSumsub) return;
+    if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
+    sumsubLaunchLockRef.current = true;
     setIsLaunchingSumsub(true);
     try {
       const response = await startVerification();
@@ -273,9 +275,15 @@ const BusinessProfileForm = () => {
       await snsMobileSDK.launch();
     }
     catch (error) {
-      showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+      const errorMessage = String(error?.message || error || '').toLowerCase();
+      if (errorMessage.includes('another instance is in use')) {
+        showToastMessage(toast, 'warning', 'Verification is already open. Please complete it first.');
+      } else {
+        showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+      }
       console.log(error, 'Sumsub launch error');
     } finally {
+      sumsubLaunchLockRef.current = false;
       setIsLaunchingSumsub(false);
     }
   };

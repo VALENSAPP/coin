@@ -702,6 +702,12 @@ const ProfilePersonData = ({
     return '';
   }, []);
 
+  const getSocialPlatform = useCallback((platform = '', url = '') => {
+    const normalizedPlatform = String(platform || '').trim().toLowerCase();
+    if (normalizedPlatform) return normalizedPlatform;
+    return detectPlatformFromUrl(url);
+  }, [detectPlatformFromUrl]);
+
   const socialMediaLinks = useMemo(() => {
     const source =
       data?.social_media_links ??
@@ -721,7 +727,7 @@ const ProfilePersonData = ({
       list = [];
     }
 
-    const supportedPlatforms = ['twitter', 'tiktok', 'linkedin'];
+    const knownPlatformKeys = ['twitter', 'tiktok', 'linkedin', 'instagram'];
 
     return list
       .map(item => {
@@ -732,17 +738,17 @@ const ProfilePersonData = ({
           objectItem?.value ||
           '',
         ).trim();
-        const keyedPlatformEntry = supportedPlatforms.find(key => objectItem?.[key]);
+        const keyedPlatformEntry = knownPlatformKeys.find(key => objectItem?.[key]);
         const platform = String(
           objectItem?.platform ||
           keyedPlatformEntry ||
           '',
         ).toLowerCase();
         const derivedUrl = directUrl || String(objectItem?.[platform] || '').trim();
-        const normalizedPlatform = platform || detectPlatformFromUrl(derivedUrl);
+        const normalizedPlatform = getSocialPlatform(platform, derivedUrl);
         return { platform: normalizedPlatform, url: derivedUrl };
       })
-      .filter(item => item.url && supportedPlatforms.includes(item.platform));
+      .filter(item => item.url);
   }, [
     data?.social_media_links,
     userData?.social_media_links,
@@ -750,8 +756,16 @@ const ProfilePersonData = ({
     userData?.socialLinks,
     data?.social_links,
     userData?.social_links,
-    detectPlatformFromUrl,
+    getSocialPlatform,
   ]);
+
+  const renderSocialIcon = useCallback((platform) => {
+    if (platform === 'tiktok') return <Tiktok width={25} height={25} />;
+    if (platform === 'linkedin') return <Linkedin width={25} height={25} />;
+    if (platform === 'twitter') return <Twitter width={25} height={25} />;
+    if (platform === 'instagram') return <FontAwesome name="instagram" size={23} color="#E1306C" />;
+    return <Feather name="link-2" size={22} color="#374151" />;
+  }, []);
 
   const websiteLink = useMemo(() => {
     return String(
@@ -1056,9 +1070,7 @@ const ProfilePersonData = ({
                   activeOpacity={0.7}
                   onPress={() => handleOpenSocialUrl(item.url)}
                 >
-                  {item.platform === 'tiktok' && <Tiktok width={25} height={25} />}
-                  {item.platform === 'linkedin' && <Linkedin width={25} height={25} />}
-                  {item.platform === 'twitter' && <Twitter width={25} height={25} />}
+                  {renderSocialIcon(item.platform)}
                 </TouchableOpacity>
               ))}
             </View>
