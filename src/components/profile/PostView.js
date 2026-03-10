@@ -750,7 +750,7 @@ export default function PostView({ postData = [] }) {
             onToggleFollow={handleToggleFollow}
             followingBusy={followingBusy.has(String(mapped.UserId))}
             onComment={() => handleComment(item.id, mapped.UserId)}
-            onOptions={() => openOptions(item.id)}
+            onOptions={() => openOptions(item.id)} 
             onSuggest={[]}
             returnTo={route?.params?.returnTo}
             shareCount={item.shareCount}
