@@ -436,7 +436,7 @@ export default function KYCVerification({ route }) {
                         navigation.goBack();
                         return;
                     }
-                    showToastMessage(toast, 'warning', 'KYC is pending. You can explore the app while we review it.');
+                    // showToastMessage(toast, 'warning', 'KYC is pending. You can explore the app while we review it.');
                 } else if (status === 'DECLINED' || status === 'REJECTED') {
                     Alert.alert(
                         'KYC Rejected',
@@ -816,7 +816,7 @@ export default function KYCVerification({ route }) {
                             }}
                         >
                             <Text style={styles.cancelButtonText}>
-                                {isOnboardingFlow ? 'Check KYC Status' : 'Check Status & Go Back'}
+                                {isOnboardingFlow ? 'Explore the app ' : 'Check Status & Go Back'}
                             </Text>
                         </TouchableOpacity>
                     </View>

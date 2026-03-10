@@ -31,7 +31,7 @@ export default function OptionsModal({
     onSelect?.(action, { postId });
     // sheetRef.current?.close();
   };
-  console.log(postId,'post it sgreaag');
+  // console.log(postId,'post it sgreaag');
   
   const report = () => {
     sheetRef.current?.close();
@@ -53,7 +53,7 @@ export default function OptionsModal({
       <RBSheet
         ref={sheetRef}
         draggable
-        height={280}
+        height={250}
         onClose={onClose}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
@@ -90,10 +90,10 @@ export default function OptionsModal({
 
               {fromHome && !canDelete ? (
                 <>
-                  <TouchableOpacity style={styles.innerRow} onPress={muteUser}>
+                  {/* <TouchableOpacity style={styles.innerRow} onPress={muteUser}>
                     <FontAwesome5Icon name="volume-mute" size={20} color="red" />
                     <Text style={[styles.innerText, { color: 'red' }]}>Mute (username)</Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                   <TouchableOpacity style={styles.innerRow} onPress={report}>
                     <MaterialIcons name="report-gmailerrorred" size={20} color="red" />
                     <Text style={[styles.innerText, { color: 'red' }]}>Report</Text>
