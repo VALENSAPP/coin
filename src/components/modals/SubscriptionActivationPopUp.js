@@ -26,14 +26,14 @@ const SubscriptionActivationPopup = ({
           <Text style={[styles.title, textStyle]}>Become a Private Subscriber</Text>
 
           <Text style={[styles.text, textStyle]}>
-            A monthly fee of <Text style={{ fontWeight: "bold" }}>$9.90 </Text>
+            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90 </Text>
             
            will be charged to activate your private subscriber account.
           </Text>
 
           <Text style={[styles.sectionTitle, textStyle]}>Platform Fees</Text>
 
-          <Text style={[styles.bullet, textStyle]}>• $9.90 Monthly Maintenance Fee</Text>
+          <Text style={[styles.bullet, textStyle]}>• $19.90 Monthly Maintenance Fee</Text>
           <Text style={[styles.subText, textStyle]}>
             For hosting and operating your private subscription channel.
           </Text>
