@@ -26,7 +26,7 @@ import TokenSellModal from '../../components/modals/TokenSellModal';
 import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getMyFanSubscriptionList } from '../../services/stirpe';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 
 const Usersprofile = () => {
   const route = useRoute();
@@ -52,7 +52,7 @@ const Usersprofile = () => {
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle } = useAppTheme(userData?.profile);
 
   console.log(route,"ProfileScreenroute===>>>>>>");
 
@@ -67,28 +67,50 @@ const Usersprofile = () => {
     }
   }, []);
 
+  const isActiveStatus = useCallback((value) => {
+    if (value === true) return true;
+    return String(value || '').toUpperCase() === 'ACTIVE';
+  }, []);
+
   const checkSubscriptionStatus = useCallback(async (currentUserId) => {
-    if (!currentUserId || !targetUserId) return false;
+    if (!targetUserId) return false;
 
     try {
-      const response = await getMyFanSubscriptionList(targetUserId);
-      if (response?.statusCode === 200 && response?.data?.subscriptions) {
-        const subscriptions = response.data.subscriptions;
-        
-        const hasSubscription = subscriptions.some(
-          sub => sub.buyUserId === currentUserId && sub.status === 'ACTIVE'
-        );
+      const response = await getFansubscriptionStatus(targetUserId);
+      const data = response?.data;
+      let hasSubscription = false;
 
-        console.log('hasSubscription---------------',hasSubscription)
-        setIsSubscribed(hasSubscription);
-        return hasSubscription;
+      if (
+        isActiveStatus(response?.status) ||
+        isActiveStatus(data?.status) ||
+        isActiveStatus(data?.subscriptionStatus) ||
+        isActiveStatus(data?.subscription?.status) ||
+        isActiveStatus(data?.fanSubscription?.status)
+      ) {
+        hasSubscription = true;
+      } else if (typeof data?.isSubscribed === 'boolean') {
+        hasSubscription = data.isSubscribed;
+      } else if (Array.isArray(data?.subscriptions)) {
+        hasSubscription = data.subscriptions.some((sub) => {
+          const subscriberId = sub?.buyUserId || sub?.fanUserId || sub?.subscriberId;
+          const matchesCurrentUser = currentUserId
+            ? String(subscriberId || '') === String(currentUserId)
+            : true;
+          return matchesCurrentUser && isActiveStatus(sub?.status);
+        });
+      } else if (Array.isArray(data)) {
+        hasSubscription = data.some((sub) => isActiveStatus(sub?.status));
       }
+
+      setIsSubscribed(hasSubscription);
+      return hasSubscription;
     } catch (error) {
       console.error('Error checking subscription status:', error);
     }
     
+    setIsSubscribed(false);
     return false;
-  }, [targetUserId]);
+  }, [targetUserId, isActiveStatus]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -96,6 +118,7 @@ const Usersprofile = () => {
       if (response?.statusCode === 200 && response?.data) {
         setTokenAddress(response.data.data?.tokenAddress);
       }
+      console.log(response,'data for the user profiule other ß')
     } catch (err) {
       console.error('Error fetching profile token info:', err);
     }
@@ -118,7 +141,7 @@ const Usersprofile = () => {
       ]);
 
       const [postsRes, userRes, dashRes] = await Promise.all([
-        getPostByUser(targetUserId),
+        getPostByUser(targetUserId,'normal'),
         getUserCredentials(targetUserId),
         getUserDashboard(targetUserId),
       ]);
@@ -176,10 +199,7 @@ const Usersprofile = () => {
   };
 
   const executeFollowAction = async () => {
-    console.log('isFollowing----->>>>>>>>>>>>>>>>>>>',isFollowing);
-    
     if (!targetUserId) return;
-    const key = String(targetUserId);
 
     try {
       const res = !isFollowing
@@ -189,25 +209,25 @@ const Usersprofile = () => {
       const ok = res?.statusCode === 200 && (res?.success ?? true);
 
       if (!ok) {
-        setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
         showToastMessage(
           toast,
           'danger',
           res?.data?.message || res?.message || 'Unable to update follow',
         );
+        return false;
       } else {
         const serverVal = res?.data?.following;
-        if (typeof serverVal === 'boolean') {
-          setIsFollowing(prev => ({ ...prev, [key]: serverVal }));
-        }
+        const resolvedFollowing = typeof serverVal === 'boolean' ? serverVal : !isFollowing;
+        setIsFollowing(resolvedFollowing);
+        return true;
       }
     } catch (e) {
-      setIsFollowing(prev => ({ ...prev, [key]: !isFollowing }));
       showToastMessage(
         toast,
         'danger',
         e?.response?.data?.message || 'Something went wrong',
       );
+      return false;
     } finally {
       setFollowBusy(false);
       onRefresh();
@@ -218,6 +238,11 @@ const Usersprofile = () => {
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
       console.log('✅ Payment completed event received in Usersprofile:', data);
+      const paymentStatus = String(data?.status || '').toLowerCase();
+      const isPaymentSuccess = !['failed', 'cancelled', 'canceled'].includes(paymentStatus);
+      if (isPaymentSuccess) {
+        setIsSubscribed(true);
+      }
       fetchAllData();
     });
 
@@ -284,6 +309,7 @@ const Usersprofile = () => {
           username={userData?.userName}
           profilepic={userData?.image}
           bio={userData?.bio}
+          profileType={userData?.profile}
           dashboard={userDashboard}
           fromUsersProfile={true}
           isFollowing={isFollowing}
@@ -294,6 +320,7 @@ const Usersprofile = () => {
           userData={userData}
           executeFollowAction={executeFollowAction}
           returnByTo={returnTo}
+         
         />
 
         <View>
@@ -304,6 +331,7 @@ const Usersprofile = () => {
           post={posts} 
           displayName={userData?.userName} 
           userData={userData} 
+          profileType={userData?.profile}
           dashboard={userDashboard} 
           targetUserId={targetUserId}
           isSubscribed={isSubscribed}

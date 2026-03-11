@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { useAppTheme } from "../../theme/useApptheme";
 
 const SubscriptionActivationPopup = ({
   visible,
@@ -14,52 +15,54 @@ const SubscriptionActivationPopup = ({
   onConfirm
 
 }) => {
-
   const navigation = useNavigation();
+  const { bgStyle, textStyle, card, text } = useAppTheme();
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.box}>
+        <View style={[styles.box, bgStyle, { backgroundColor: card }]}>
 
-          <Text style={styles.title}>Become a Private Subscriber</Text>
+          <Text style={[styles.title, textStyle]}>Become a Private Subscriber</Text>
 
-          <Text style={styles.text}>
-            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90</Text>
-            will be charged to activate your private subscriber account.
+          <Text style={[styles.text, textStyle]}>
+            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90 </Text>
+            
+           will be charged to activate your private subscriber account.
           </Text>
 
-          <Text style={styles.sectionTitle}>Platform Fees</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Platform Fees</Text>
 
-          <Text style={styles.bullet}>• $19.99 Monthly Maintenance Fee</Text>
-          <Text style={styles.subText}>
+          <Text style={[styles.bullet, textStyle]}>• $19.90 Monthly Maintenance Fee</Text>
+          <Text style={[styles.subText, textStyle]}>
             For hosting and operating your private subscription channel.
           </Text>
 
-          <Text style={styles.bullet}>• 5% Withdrawal Fee</Text>
-          <Text style={styles.subText}>
+          <Text style={[styles.bullet, textStyle]}>• 5% Withdrawal Fee</Text>
+          <Text style={[styles.subText, textStyle]}>
             Applied to every payout request you make.
           </Text>
 
-          <Text style={styles.sectionTitle}>Billing Authorization</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>Billing Authorization</Text>
 
-          <Text style={styles.text}>
+          <Text style={[styles.text, textStyle]}>
             By continuing, you authorize Valens to automatically charge the monthly
             maintenance fee and deduct the 5% withdrawal fee from your payouts.
           </Text>
 
           <View style={styles.row}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+            <TouchableOpacity style={[styles.cancelBtn, { borderColor: text }]} onPress={() => {
               onClose();
               navigation.navigate('MainApp', {
                 screen: 'wallet',
                 params: { screen: 'Dashboard' }
               });
             }}>
-              <Text style={styles.cancelTxt}>Cancel</Text>
+              <Text style={[styles.cancelTxt, { color: text }]}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.acceptBtn} onPress={onConfirm}>
-              <Text style={styles.acceptTxt}>Accept</Text>
+            <TouchableOpacity style={[styles.acceptBtn, { backgroundColor: text }]} onPress={() => onConfirm?.()}>
+              <Text style={[styles.acceptTxt, { color: card || "#fff" }]}>Accept</Text>
             </TouchableOpacity>
           </View>
 
@@ -81,7 +84,6 @@ const styles = StyleSheet.create({
   },
   box: {
     width: "100%",
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
   },
@@ -103,13 +105,11 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 14,
-    color: "#333",
     marginTop: 10,
   },
   subText: {
     fontSize: 14,
     marginLeft: 10,
-    color: "#555",
   },
   row: {
     flexDirection: "row",
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#ddd",
+    borderWidth: 1,
     marginRight: 10,
     alignItems: "center",
   },
@@ -128,18 +128,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#5a2d82",
     marginLeft: 10,
     alignItems: "center",
   },
   cancelTxt: {
     fontSize: 16,
-    color: "#000",
     fontWeight: "600",
   },
   acceptTxt: {
     fontSize: 16,
-    color: "#fff",
     fontWeight: "600",
   },
 });

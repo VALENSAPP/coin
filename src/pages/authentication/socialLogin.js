@@ -18,7 +18,9 @@ import axios from 'axios';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { getProfile } from '../../services/createProfile';
 import { loggedIn } from '../../redux/actions/LoginAction';
+import { persistStripeCustomerId } from '../../hooks/useStripeCustomer';
 import { useToast } from 'react-native-toast-notifications';
+import { ensureCurrentAccountSaved } from '../../utils/accountSession';
 
 const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
 
@@ -202,6 +204,12 @@ const getProfileData = async (dispatch, navigation, toast) => {
         navigation.navigate('CreateProfile')
       }
       else {
+        await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
+        await ensureCurrentAccountSaved({
+          profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
+          username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+          email: response?.data?.email || (await AsyncStorage.getItem('email')),
+        });
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
       }
@@ -240,6 +248,12 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
       }
       else {
         await AsyncStorage.setItem('userId', response.data.id)
+        if (response?.data?.userName || response?.data?.username) {
+          await AsyncStorage.setItem('username', response?.data?.userName || response?.data?.username);
+        }
+        if (response?.data?.email) {
+          await AsyncStorage.setItem('email', response?.data?.email);
+        }
         // showToastMessage(toast, 'success', response.data.message);
         await handleLoginSuccess(
           response.data.access_token,
@@ -257,39 +271,150 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
   }
 };
 
-export const MetasmaskLogin = async (toast, navigation, dispatch) => {
+// Generic wallet connection function that works for all wallet types
+export const connectWalletLogin = async (toast, navigation, dispatch, options = {}) => {
+  const returnAddressOnly = options?.returnAddressOnly === true;
+  const walletType = options?.walletType || null; // null means use universal WalletConnect URI
   const projectId = '53707e25e6a88c4f83d2d0dba0904606';
-  const storeUrl =
-    Platform.OS === 'ios'
-      ? 'https://apps.apple.com/app/metamask/id1438144202'
-      : 'https://play.google.com/store/apps/details?id=io.metamask';
+
+  const walletConfigs = {
+    metamask: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/metamask/id1438144202'
+        : 'https://play.google.com/store/apps/details?id=io.metamask',
+      name: 'MetaMask',
+    },
+    coinbase: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/coinbase-wallet/id1278383455'
+        : 'https://play.google.com/store/apps/details?id=org.toshi',
+      name: 'Coinbase Wallet',
+    },
+    trust: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409'
+        : 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp',
+      name: 'Trust Wallet',
+    },
+    walletconnect: {
+      storeUrl: null,
+      name: 'WalletConnect',
+    },
+    rainbow: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/rainbow-ethereum-wallet/id1457119021'
+        : 'https://play.google.com/store/apps/details?id=me.rainbow',
+      name: 'Rainbow',
+    },
+    zerion: {
+      storeUrl: Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/zerion-defi-wallet/id1456732568'
+        : 'https://play.google.com/store/apps/details?id=io.zerion.android',
+      name: 'Zerion',
+    },
+  };
+
+  // If walletType is null, use universal WalletConnect (works with all wallets)
+  const walletConfig = walletType ? (walletConfigs[walletType] || walletConfigs.metamask) : { name: 'Wallet', storeUrl: null };
 
   dispatch(showLoader());
 
   try {
-    const { metamaskDeepLink, approval } = await connectWallet(projectId);
+    const { selectedWalletDeepLink, universalUri, approval, uri } = await connectWallet(projectId, walletType);
 
-    try {
-      await Linking.openURL(metamaskDeepLink); // attempt to open MetaMask
-      dispatch(hideLoader());
-    } catch (openErr) {
-      // fallback if MetaMask can't open
-      Alert.alert(
-        'MetaMask Not Installed',
-        'MetaMask is not installed or cannot be opened. Would you like to install it?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Install', onPress: () => Linking.openURL(storeUrl) },
-        ]
-      );
-      dispatch(hideLoader());
+    if (!approval) {
+      showToastMessage(toast, 'danger', 'Wallet session could not be created');
       return;
     }
 
-    const session = await approval();
-    const address = session.namespaces.eip155.accounts[0].split(':')[2];
+    // If a URI is present, the wallet must be opened to approve the session.
+    if (uri) {
+      try {
+        // Try to open the selected wallet deep link first; fallback to universal WalletConnect URI.
+        let deepLinkToOpen = selectedWalletDeepLink || universalUri;
 
-    if (address && navigation !== 'createProfile') {
+        if (walletType && walletType !== 'walletconnect' && deepLinkToOpen) {
+          try {
+            const canOpen = await Linking.canOpenURL(deepLinkToOpen);
+            if (!canOpen && universalUri) {
+              deepLinkToOpen = universalUri;
+            }
+          } catch (checkErr) {
+            if (universalUri) {
+              deepLinkToOpen = universalUri;
+            }
+          }
+        }
+
+        if (!deepLinkToOpen) {
+          showToastMessage(toast, 'danger', 'Could not build wallet deep link');
+          return;
+        }
+
+        await Linking.openURL(deepLinkToOpen);
+      } catch (openErr) {
+        // fallback if wallet can't open
+        if (walletConfig.storeUrl) {
+          Alert.alert(
+            `${walletConfig.name} Not Installed`,
+            `${walletConfig.name} is not installed or cannot be opened. Would you like to install it?`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Install', onPress: () => Linking.openURL(walletConfig.storeUrl) },
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Open Wallet',
+            'Please open your wallet app and connect using WalletConnect.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Try Universal Link',
+                onPress: async () => {
+                  try {
+                    if (universalUri) {
+                      await Linking.openURL(universalUri);
+                    }
+                  } catch (err) {
+                    showToastMessage(toast, 'danger', 'Please install a WalletConnect-compatible wallet app');
+                  }
+                }
+              },
+            ]
+          );
+        }
+        return;
+      }
+    }
+
+    const session = await approval();
+    const accounts = session?.namespaces?.eip155?.accounts || [];
+    console.log('All accounts from session:', accounts);
+
+    const accountOnPreferredChain =
+      accounts.find((item) => item.startsWith('eip155:137:')) ||
+      accounts.find((item) => item.startsWith('eip155:1:')) ||
+      accounts[0] ||
+      '';
+
+    const parts = accountOnPreferredChain.split(':');
+    const connectedChainId = parts[1]; // "1" or "137"
+    const address = parts[2];          // "0xABC..."
+
+    console.log('Connected Chain ID:', connectedChainId);
+    console.log('Connected Address:', address);
+
+    if (connectedChainId) {
+      await AsyncStorage.setItem('walletChainId', connectedChainId);
+    }
+    if (address) {
+      await AsyncStorage.setItem('walletAddress', address);
+      // Store wallet type if specified, otherwise store as 'walletconnect' for universal connection
+      await AsyncStorage.setItem('walletType', walletType || 'walletconnect');
+    }
+
+    if (address && !returnAddressOnly && navigation !== 'createProfile') {
       await signupReference('WALLET', address, toast, dispatch, navigation);
     } else {
       return address;
@@ -300,6 +425,11 @@ export const MetasmaskLogin = async (toast, navigation, dispatch) => {
   } finally {
     dispatch(hideLoader());
   }
+};
+
+// Keep MetasmaskLogin for backward compatibility
+export const MetasmaskLogin = async (toast, navigation, dispatch, options = {}) => {
+  return connectWalletLogin(toast, navigation, dispatch, { ...options, walletType: 'metamask' });
 };
 
 export const exchangeCodeForToken = async (code, dispatch, toast, navigation, profile) => {

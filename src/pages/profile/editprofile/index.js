@@ -24,6 +24,8 @@ import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -35,6 +37,8 @@ const ProfileEditScreen = () => {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [website_link, setWebsiteLink] = useState('');
+  const [socialLink, setSocialLink] = useState('');
   const [gender, setGender] = useState('OTHER');
   const [wallet, setWallet] = useState('');
   const [profileImage, setProfileImage] = useState(null);
@@ -50,7 +54,6 @@ const ProfileEditScreen = () => {
   const refRBSheet = useRef();
   const refRBSheet1 = useRef();
   const toast = useToast();
-  const debounceRef = useRef(null);
   const dispatch = useDispatch();
   const { bgStyle, textStyle, text } = useAppTheme();
 
@@ -60,14 +63,47 @@ const ProfileEditScreen = () => {
     { label: 'Other', value: 'OTHER', icon: '⚧️' },
   ];
 
+  const detectSocialPlatform = (url = '') => {
+    const normalized = String(url).toLowerCase();
+    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
+    if (normalized.includes('instagram.com')) return 'instagram';
+    if (normalized.includes('linkedin.com')) return 'linkedin';
+    if (normalized.includes('tiktok.com')) return 'tiktok';
+    if (normalized.includes('youtube.com') || normalized.includes('youtu.be')) return 'youtube';
+    if (normalized.includes('facebook.com') || normalized.includes('fb.com')) return 'facebook';
+    return 'website';
+  };
+
   useEffect(() => {
     if (userdata) {
       const u = userdata.user || userdata;
       const displayName = u.displayName || '';
+      let parsedSocialLinks = [];
+      try {
+        if (Array.isArray(u.socialLinks)) {
+          parsedSocialLinks = u.socialLinks;
+        } else if (typeof u.socialLinks === 'string') {
+          parsedSocialLinks = JSON.parse(u.socialLinks);
+        } else if (Array.isArray(u.social_media_links)) {
+          parsedSocialLinks = u.social_media_links;
+        } else if (typeof u.social_media_links === 'string') {
+          parsedSocialLinks = JSON.parse(u.social_media_links);
+        } else if (Array.isArray(u.social_links)) {
+          parsedSocialLinks = u.social_links;
+        } else if (typeof u.social_links === 'string') {
+          parsedSocialLinks = JSON.parse(u.social_links);
+        }
+      } catch (e) {
+        parsedSocialLinks = [];
+      }
+      const primarySocialLink = parsedSocialLinks.find(item => item?.url)?.url || '';
+
       setName(displayName);
       setOriginalDisplayName(displayName);
       setUsername(u.userName || '');
       setBio(u.bio || '');
+      setWebsiteLink(u.website_link || '');
+      setSocialLink(primarySocialLink);
       setGender(u.gender || 'OTHER');
       setWallet(u.walletAddress || '');
       setProfileImage(u.image || null);
@@ -78,15 +114,6 @@ const ProfileEditScreen = () => {
       }
     }
   }, [userdata]);
-
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
 
   const validateField = (field, value) => {
     const newErrors = { ...errors };
@@ -179,23 +206,17 @@ const ProfileEditScreen = () => {
     }
   };
 
+  const debouncedCheckDisplayName = useDebouncedCallback(checkDisplayNameAvailability, 500);
+
   const handleNameChange = (text) => {
     setName(text);
-
-    // Clear previous timeout
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
 
     // Basic validation first
     validateField('name', text);
 
-    // If basic validation passes and length >= 2, check availability
+    // If basic validation passes and length >= 2, check availability (debounced)
     if (text.trim() && text.trim().length >= 2 && !errors.name) {
-      // Debounce API call
-      debounceRef.current = setTimeout(() => {
-        checkDisplayNameAvailability(text.trim());
-      }, 500);
+      debouncedCheckDisplayName(text.trim());
     } else {
       setDisplayNameStatus(null);
       setDisplayNameSuggestions([]);
@@ -217,6 +238,10 @@ const ProfileEditScreen = () => {
   const handleBioChange = text => {
     setBio(text);
     validateField('bio', text);
+  };
+
+  const handleSocialLinkChange = value => {
+    setSocialLink(value);
   };
 
   const isFormValid = () => {
@@ -280,6 +305,25 @@ const ProfileEditScreen = () => {
       navigation.goBack();
     }
   };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // Prevent default back behavior
+      e.preventDefault();
+
+      // Navigate to your specific screen instead
+      navigation.navigate({
+        name: 'Profile',
+        state: {
+          routes: [{ name: returnScreen }],
+          index: 0
+        }
+      }); // 👈 Replace with your screen name
+    });
+
+    return unsubscribe; // cleanup on unmount
+  }, [navigation]);
+
 
   const pickImageFromGallery = () => {
     const options = {
@@ -391,6 +435,15 @@ const ProfileEditScreen = () => {
       formData.append('userName', username.trim());
       formData.append('bio', bio.trim());
       formData.append('gender', gender);
+      formData.append('website_link', website_link);
+      const trimmedSocialLink = socialLink.trim();
+      const formattedSocialLinks = trimmedSocialLink
+        ? [{ platform: detectSocialPlatform(trimmedSocialLink), url: trimmedSocialLink }]
+        : [];
+      const socialLinksPayload = JSON.stringify(formattedSocialLinks);
+      formData.append('social_media_links', socialLinksPayload);
+      formData.append('socialLinks', socialLinksPayload);
+
       if (profileImage?.startsWith('file://')) {
         formData.append('image', {
           uri: profileImage,
@@ -419,7 +472,7 @@ const ProfileEditScreen = () => {
       dispatch(hideLoader());
     }
   };
-
+const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   const renderDisplayNameInput = () => {
     return (
       <View style={styles.inputContainer}>
@@ -490,7 +543,12 @@ const ProfileEditScreen = () => {
 
   return (
     <>
-      <ScrollView style={[styles.container, bgStyle]} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView style={[styles.container, bgStyle]} contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={120}
+        showsVerticalScrollIndicator={false}>
         <View style={[styles.avatarContainer, bgStyle]}>
           <TouchableOpacity
             onPress={() => refRBSheet1.current.open()}
@@ -501,11 +559,11 @@ const ProfileEditScreen = () => {
                 source={
                   profileImage
                     ? { uri: profileImage }
-                    : require('../../../assets/icons/pngicons/person.png')
+                    : require('../../../assets/icons/pngicons/user.png')
                 }
-                style={[styles.profileImage, {borderColor: text}]}
+                style={[styles.profileImage, { borderColor: text }]}
               />
-              <View style={[styles.cameraIcon, {backgroundColor: text, shadowColor: text}]} >
+              <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]} >
                 <Text style={styles.cameraText}>📷</Text>
               </View>
             </View>
@@ -578,8 +636,34 @@ const ProfileEditScreen = () => {
               Your wallet address cannot be changed here
             </Text>
           </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Website</Text>
+            <TextInput
+              placeholder="Enter your website URL"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={website_link}
+              onChangeText={setWebsiteLink}
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Social Link</Text>
+            <TextInput
+              placeholder="Enter your social link"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={socialLink}
+              onChangeText={handleSocialLinkChange}
+            />
+          </View>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <RBSheet
         ref={refRBSheet}
@@ -657,7 +741,7 @@ const ProfileEditScreen = () => {
 
           <View style={styles.optionsContainer}>
             <TouchableOpacity
-              style={[styles.optionButton, {shadowColor: text}]}
+              style={[styles.optionButton, { shadowColor: text }]}
               onPress={pickImageFromGallery}
             >
               <View style={styles.optionIconContainer}>
@@ -671,7 +755,7 @@ const ProfileEditScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.optionButton, {shadowColor: text}]}
+              style={[styles.optionButton, { shadowColor: text }]}
               onPress={pickImageFromCamera}
             >
               <View style={styles.optionIconContainer}>

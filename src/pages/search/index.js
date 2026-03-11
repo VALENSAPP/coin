@@ -11,33 +11,72 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Platform,
-  Modal
+  Modal,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getAllUser } from '../../services/users';
 import { getposts } from '../../services/home';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import Video from 'react-native-video';
 import styles from './Style';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getProgressBarColor } from '../../utils/progressBarUtils';
+import { getTotalDonationAmount } from '../../services/tokens';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+const parseNonNegativeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+const calculateMissionStats = (post, raisedAmountOverride = null) => {
+  const goalAmount =
+    parseNonNegativeNumber(post?.raiseAmount, NaN) ||
+    parseNonNegativeNumber(post?.goalAmount, NaN) ||
+    10000;
+
+  const currentRaised = parseNonNegativeNumber(
+    raisedAmountOverride ?? post?.totalDonation ?? post?.tokenBalance,
+    0,
+  );
+  const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
+
+  let daysLeft = 0;
+  if (post?.end_time) {
+    try {
+      const end = new Date(post.end_time);
+      const start = post?.start_time ? new Date(post.start_time) : null;
+      const now = new Date();
+
+      if (!Number.isNaN(end.getTime())) {
+        // If campaign hasn't started yet, show full campaign window from start->end.
+        const baseline = start && !Number.isNaN(start.getTime()) && now < start ? start : now;
+        const diff = end - baseline;
+        daysLeft = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
+      }
+    } catch (err) {
+      daysLeft = 0;
+    }
+  }
+
+  return { goalAmount, currentRaised, progressPercent, daysLeft };
+};
+
+const formatAmount = (value) =>
+  parseNonNegativeNumber(value, 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
 /** Mission Progress Bar Component */
 const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised = 0, daysLeft = 0, profile = 'user' }) => {
-  const getProgressBarColor = () => {
-    if (progressPercent >= 75) return (profile === 'user' ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 50) return (profile === 'user' ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 25) return '#FF9800';
-    return '#F44336';
-  };
-
-  const fillColor = getProgressBarColor();
+  const fillColor = getProgressBarColor(progressPercent, profile);
+  const normalizedProgress = Math.min(progressPercent, 100);
 
   return (
     <View style={styles.progressSection}>
@@ -53,11 +92,11 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
 
         <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
-            <Text style={styles.statValueSmall}>{progressPercent.toFixed(1)}% FUNDED</Text>
+            <Text style={styles.statValueSmall}>{normalizedProgress.toFixed(1)}% FUNDED</Text>
           </View>
 
           <View style={styles.statAtCenter}>
-            <Text style={styles.statValueSmall}>${currentRaised} / ${goalAmount}</Text>
+            <Text style={styles.statValueSmall}>${formatAmount(currentRaised)} / ${formatAmount(goalAmount)} RAISED</Text>
           </View>
 
           <View style={styles.statAtEnd}>
@@ -79,46 +118,64 @@ const SearchScreen = () => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [posts, setPosts] = useState([]);
-  const [playingIndex, setPlayingIndex] = useState(null);
+  const [playingVideoIndexes, setPlayingVideoIndexes] = useState(new Set());
   const [previewPost, setPreviewPost] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [isGrid, setIsGrid] = useState(false);
-  console.log(posts,'data canme i post od search')
+  const [refreshing, setRefreshing] = useState(false);
+  const [donationTotals, setDonationTotals] = useState({});
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const searchTimeoutRef = useRef(null);
+  const autoplayTimeoutRef = useRef(null);
+  const scrollOffsetRef = useRef(0);
+  const toastRef = useRef(toast);
+  const activeSearchRequestIdRef = useRef(0);
   const { bgStyle, textStyle } = useAppTheme();
+  const isScreenFocused = useIsFocused();
+  const isSearchActive = searchText.trim().length > 0;
 
   useEffect(() => {
-    const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
-    };
-    fetchUserId();
-    fetchPosts();
-  }, [fetchPosts]);
+    toastRef.current = toast;
+  }, [toast]);
 
   /** 🔍 User search logic */
   const searchUsers = useCallback(async (searchQuery) => {
     if (!searchQuery.trim()) {
       setFilteredUsers([]);
+      setIsSearching(false);
+      setHasSearched(false);
       return;
     }
 
+    const requestId = Date.now();
+    activeSearchRequestIdRef.current = requestId;
+    setIsSearching(true);
+    setHasSearched(false);
+
     try {
-      dispatch(showLoader());
+      // dispatch(showLoader());
 
       const res = await getAllUser({ userName: searchQuery });
+      if (activeSearchRequestIdRef.current !== requestId) return;
+
       if (res.statusCode === 200 || res.status === 200) {
         setFilteredUsers(res?.data?.users ?? []);
-        console.log(res, 'responsse user profile')
+        console.log(res, 'responsse user profile');
       } else {
         setFilteredUsers([]);
       }
     } catch (err) {
+      if (activeSearchRequestIdRef.current !== requestId) return;
       console.error('Search error:', err);
       setFilteredUsers([]);
     } finally {
-      dispatch(hideLoader());
+      if (activeSearchRequestIdRef.current === requestId) {
+        setIsSearching(false);
+        setHasSearched(true);
+      }
+      // dispatch(hideLoader());
     }
   }, [dispatch]);
 
@@ -126,12 +183,22 @@ const SearchScreen = () => {
   const handleSearch = useCallback((text) => {
     setSearchText(text);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (!text.trim()) {
+      activeSearchRequestIdRef.current = 0;
+      setFilteredUsers([]);
+      setIsSearching(false);
+      setHasSearched(false);
+      return;
+    }
+
     searchTimeoutRef.current = setTimeout(() => searchUsers(text), 500);
   }, [searchUsers]);
 
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (autoplayTimeoutRef.current) clearTimeout(autoplayTimeoutRef.current);
     };
   }, []);
 
@@ -171,16 +238,53 @@ const SearchScreen = () => {
         });
         console.log('Flattened posts:', flattenedPosts.length);
         setPosts(flattenedPosts);
+
+        const missionPostIds = [
+          ...new Set(
+            flattenedPosts
+              .filter(post =>
+                post?.id &&
+                (post?.isMission === true || post?.type === 'crowdfunding' || Number(post?.raiseAmount) > 0),
+              )
+              .map(post => String(post.id)),
+          ),
+        ];
+
+        if (missionPostIds.length > 0) {
+          const responses = await Promise.allSettled(
+            missionPostIds.map(postId => getTotalDonationAmount({ postId })),
+          );
+
+          const nextTotals = {};
+          responses.forEach((res, idx) => {
+            if (res.status === 'fulfilled' && res.value?.statusCode === 200) {
+              const postId = missionPostIds[idx];
+              nextTotals[postId] = Number(res.value?.data?.totalDonation) || 0;
+            }
+          });
+          setDonationTotals(nextTotals);
+        } else {
+          setDonationTotals({});
+        }
       } else {
-        showToastMessage(toast, 'danger', response?.data?.message || 'Failed to fetch posts');
+        showToastMessage(toastRef.current, 'danger', response?.data?.message || 'Failed to fetch posts');
       }
     } catch (error) {
       console.log('Posts fetch error:', error);
-      showToastMessage(toast, 'danger', error?.response?.message ?? 'Something went wrong');
+      showToastMessage(toastRef.current, 'danger', error?.response?.message ?? 'Something went wrong');
     } finally {
       dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [dispatch]);
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+    fetchUserId();
+    fetchPosts();
+  }, [fetchPosts]);
 
   /** 🏗️ Masonry layout: Organize posts into columns with some items spanning 2 rows */
   const masonryLayout = useMemo(() => {
@@ -237,19 +341,43 @@ const SearchScreen = () => {
   }, [masonryLayout]);
 
   /** 👤 Navigate to user profile */
-  const handleUserProfile = (id) => {
-    if (userId === id) {
-      navigation.navigate('ProfileStack', { screen: 'FlipsScreen' });
-    } else {
-      navigation.navigate('ProfileStack', {
-        screen: 'FlipsScreen',
-        params: { userId: id }
+  // const handleUserProfile = (id) => {
+  //    if (userId === id) {
+  //   navigation.navigate('HomeMain', {
+  //     screen: 'ProfileStack',
+  //     params: {
+  //       screen: 'UserProfile', // 👈 profile screen only
+  //     },
+  //   // }); else {
+  //   //   navigation.navigate('ProfileStack', {
+  //   //     screen: 'FlipsScreen',
+  //   //     params: { userId: id }
+  //   //   });
+  //   // }
+  // };
+
+  const handleUserProfile = useCallback(
+    (user) => {
+      const targetId = user?.id || user?.userId || user?._id;
+      if (!targetId) {
+        showToastMessage(toastRef.current, 'danger', 'Unable to open profile');
+        return;
+      }
+
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',   
+        params: {
+          userId: String(targetId),
+          username: user?.userName || user?.username || '',
+          returnTo: route?.name,   
+        },
       });
-    }
-  };
+    },
+    [navigation, route?.name],
+  );
 
   /** 🎬 Handle post press (image or video) */
-  const handlePostPress = (item, isVideo) => {
+  const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
     if (isVideo) {
       navigation.navigate('ProfileMain', {
@@ -266,7 +394,7 @@ const SearchScreen = () => {
       navigation.navigate('ProfileMain', {
         screen: 'PostView',
         params: {
-          postData: [item],
+          postData: item,
           startIndex: 0,
           returnTo: route.name,
           returnParams: route.params,
@@ -276,19 +404,72 @@ const SearchScreen = () => {
 
       });
     }
-  };
+  }, [navigation, route?.name, route?.params]);
 
-  const viewabilityConfig = {
-    itemVisiblePercentThreshold: 50
-  };
-
-  const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      const firstVisible = viewableItems[0];
-      const nextPlaying = firstVisible?.item?.index ?? firstVisible?.index ?? 0;
-      setPlayingIndex(nextPlaying);
-    }
+  const isVideoPost = useCallback((post) => {
+    if (!post) return false;
+    const mediaUrl = post?.mediaUrl || post?.image || (Array.isArray(post?.images) ? post.images[0] : '');
+    const lowerMediaUrl = (mediaUrl || '').toLowerCase();
+    return (
+      post?.isVideo ||
+      post?.type === 'video' ||
+      post?.mediaType === 'video' ||
+      lowerMediaUrl.includes('.mp4') ||
+      lowerMediaUrl.includes('.mov') ||
+      lowerMediaUrl.includes('.avi') ||
+      lowerMediaUrl.includes('.mkv') ||
+      lowerMediaUrl.includes('.webm')
+    );
   }, []);
+
+  const syncVisibleVideos = useCallback((offsetY = 0) => {
+    if (!isScreenFocused || previewVisible || isSearchActive) {
+      setPlayingVideoIndexes((prev) => (prev.size === 0 ? prev : new Set()));
+      return;
+    }
+
+    const viewportTop = offsetY;
+    const viewportBottom = offsetY + SCREEN_HEIGHT;
+    const nextPlayingIndexes = new Set();
+
+    for (const layoutItem of masonryItems) {
+      if (!isVideoPost(layoutItem?.post)) continue;
+
+      const itemTop = layoutItem?.top ?? 0;
+      const itemBottom = itemTop + (layoutItem?.height ?? 0);
+      const visibleHeight = Math.min(itemBottom, viewportBottom) - Math.max(itemTop, viewportTop);
+      if (visibleHeight > 0) nextPlayingIndexes.add(layoutItem?.index);
+    }
+
+    setPlayingVideoIndexes((prev) => {
+      if (prev.size === nextPlayingIndexes.size) {
+        let same = true;
+        for (const idx of nextPlayingIndexes) {
+          if (!prev.has(idx)) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return nextPlayingIndexes;
+    });
+  }, [isScreenFocused, previewVisible, isSearchActive, masonryItems, isVideoPost]);
+
+  const onMasonryScroll = useCallback((event) => {
+    const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
+    scrollOffsetRef.current = offsetY;
+
+    if (autoplayTimeoutRef.current) clearTimeout(autoplayTimeoutRef.current);
+    autoplayTimeoutRef.current = setTimeout(() => {
+      syncVisibleVideos(offsetY);
+      autoplayTimeoutRef.current = null;
+    }, 80);
+  }, [syncVisibleVideos]);
+
+  useEffect(() => {
+    syncVisibleVideos(scrollOffsetRef.current);
+  }, [syncVisibleVideos]);
 
   /** Normalize image URL */
   const normalizeImageUrl = (url) => {
@@ -331,12 +512,31 @@ const SearchScreen = () => {
     setPreviewPost(null);
   }, []);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (searchText.trim().length > 0) {
+        await searchUsers(searchText);
+      } else {
+        await fetchPosts();
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [searchText, searchUsers, fetchPosts]);
+
   /** 🔲 UI — render masonry post item */
   const renderMasonryItem = useCallback((layoutItem) => {
     const { post, index, height, top, columnIndex, width, spacing } = layoutItem;
-    const isVideo = post?.isVideo || post?.type === 'video' || post?.mediaType === 'video';
+    const isVideo = isVideoPost(post);
+    const shouldPlay =
+      isScreenFocused &&
+      !previewVisible &&
+      !isSearchActive &&
+      playingVideoIndexes.has(index);
     const imageUrl = normalizeImageUrl(post?.mediaUrl || post?.image || (post?.images && post.images[0]));
     const isMissionPost = post?.isMission === true || post?.type === "crowdfunding";
+    const raisedAmount = donationTotals[String(post?.id)];
 
     if (!imageUrl) {
       return null;
@@ -369,7 +569,7 @@ const SearchScreen = () => {
               style={styles.media}
               resizeMode="cover"
               repeat
-              paused={playingIndex !== index}
+              paused={!shouldPlay}
               muted={true}
             />
             <View style={styles.videoIconOverlay}>
@@ -386,21 +586,7 @@ const SearchScreen = () => {
         {isMissionPost && (
           <View style={styles.missionBadgeWrapper}>
             {(() => {
-              const goalAmount = post?.raiseAmount || post?.goalAmount || 10000;
-              const currentRaised = post?.tokenBalance ?? post?.totalDonation ?? 0;
-              const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
-              let daysLeft = 0;
-              if (post?.end_time) {
-                try {
-                  const end = new Date(post.end_time);
-                  const now = new Date();
-                  const diff = end - now;
-                  daysLeft = diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
-                } catch (err) {
-                  daysLeft = 0;
-                }
-              }
-
+              const { goalAmount, currentRaised, progressPercent, daysLeft } = calculateMissionStats(post, raisedAmount);
               return (
                 <MissionProgressBar
                   progressPercent={progressPercent}
@@ -416,7 +602,7 @@ const SearchScreen = () => {
 
       </TouchableOpacity>
     );
-  }, [playingIndex, handlePostPress, openPreview]);
+  }, [playingVideoIndexes, handlePostPress, openPreview, isVideoPost, isScreenFocused, previewVisible, isSearchActive, donationTotals]);
 
   /** 👥 Render empty state for search results */
   const renderEmptyState = useCallback(() => {
@@ -429,12 +615,21 @@ const SearchScreen = () => {
     );
   }, []);
 
+  const renderLoadingState = useCallback(() => {
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color="#999" />
+        <Text style={styles.emptySubtitle}>Loading users...</Text>
+      </View>
+    );
+  }, []);
+
   /** 👤 Render list  for user search results */
   const renderListItem = useCallback(({ item }) => {
     return (
       <TouchableOpacity
         style={styles.userListItem}
-        onPress={() => handleUserProfile(item.id)}
+        onPress={() => handleUserProfile(item)}
         activeOpacity={0.7}
       >
         <Image
@@ -454,7 +649,7 @@ const SearchScreen = () => {
     return (
       <TouchableOpacity
         style={styles.userGridItem}
-        onPress={() => handleUserProfile(item.id)}
+        onPress={() => handleUserProfile(item)}
         activeOpacity={0.7}
       >
         <Image
@@ -498,12 +693,17 @@ const SearchScreen = () => {
 
           {searchText.trim().length > 0 ? (
             <View style={styles.resultsContainer}>
-              {filteredUsers.length > 0 ? (
+              {isSearching ? (
+                renderLoadingState()
+              ) : filteredUsers.length > 0 ? (
                 <FlatList
                   data={filteredUsers}
                   keyExtractor={(item, idx) => String(item.id ?? idx)}
                   renderItem={isGrid ? renderGridItem : renderListItem}
                   showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                  }
                   ListHeaderComponent={renderListHeader}
                   contentContainerStyle={styles.listContent}
                   numColumns={isGrid ? 2 : 1}
@@ -514,9 +714,10 @@ const SearchScreen = () => {
                   windowSize={5}
                   removeClippedSubviews={Platform.OS === 'android'}
                 />
-              ) : (
+              ) : hasSearched ? (
                 renderEmptyState()
-              )}
+              ) : null
+              }
             </View>
           ) : null}
 
@@ -532,6 +733,9 @@ const SearchScreen = () => {
                     item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`
                   }
                   showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                  }
                   contentContainerStyle={[
                     styles.masonryContainer,
                     { height: masonryLayout.maxHeight }
@@ -539,8 +743,8 @@ const SearchScreen = () => {
                   removeClippedSubviews={true}
                   initialNumToRender={12}
                   windowSize={10}
-                  viewabilityConfig={viewabilityConfig}
-                  onViewableItemsChanged={handleViewableItemsChanged}
+                  onScroll={onMasonryScroll}
+                  scrollEventThrottle={16}
                 />
               </View>
             ) : (

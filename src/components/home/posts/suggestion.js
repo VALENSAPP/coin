@@ -114,6 +114,7 @@ export default function Suggestion({
               item={item}
               isBusinessProfile={isBusinessProfile}
               executeFollowAction={executeFollowAction}
+              type={item?.profile}
             />
           );
         }}

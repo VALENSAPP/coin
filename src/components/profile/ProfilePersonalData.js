@@ -1,5 +1,5 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking } from 'react-native';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
@@ -9,11 +9,15 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import ProfileModal from '../modals/ProfileModal';
 import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
+import SupportCreatorModal from '../modals/SupportCreatorModal';
+import WelcomeValensModal from '../modals/WelcomeValensModal';
+import WalletSelectionModal from '../modals/WalletSelectionModal';
+import WalletConnectedModal from '../modals/WalletConnectedModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
-import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly } from '../../assets/icons';
+import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly, Twitter, Tiktok, Linkedin } from '../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { showToastMessage } from '../displaytoastmessage';
@@ -21,6 +25,12 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getSupportRecipientWalletAddress, openWalletPayment } from '../../utils/metaMaskSupport';
+import { connectWalletLogin } from '../../pages/authentication/socialLogin';
+import { updateWallet } from '../../services/wallet';
+
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return GoldLavenderDragonfly;
@@ -39,6 +49,7 @@ const ProfilePersonData = ({
   username,
   profilepic,
   bio,
+  profileType,
   dashboard,
   fromUsersProfile = false,
   isFollowing = null,
@@ -52,12 +63,14 @@ const ProfilePersonData = ({
   returnByTo
 }) => {
 
-  useEffect(() => {
-    console.log(
-      { userData },
-      'ProfilePersonData props'
-    );
-  }, [displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId]);
+
+
+  // useEffect(() => {
+  //   console.log(
+  //     { userData },
+  //     'ProfilePersonData props'
+  //   );
+  // }, [displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId]);
 
   const navigation = useNavigation();
   const [profileImage, setProfileImage] = useState(null);
@@ -77,14 +90,32 @@ const ProfilePersonData = ({
   const [composerList, setComposerList] = useState([]);
   const [data, setData] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [walletAddress, setWalletAddress] = useState('');
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
-  // console.log('item----------------followers------------', item);
-  const isCompanyProfile = userProfile === 'company';
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
+  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
+  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
+  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const effectiveProfileType = profileType || userData?.profile;
+  const normalizedProfileThemeType =
+    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
+  const isCompanyProfile = normalizedProfileThemeType === 'company';
+  const profileActionGradient = isCompanyProfile
+    ? ['#D3B683', '#D3B683']
+    : ['#513189bd', '#e54ba0'];
+  const { bgStyle, textStyle, text } = useAppTheme(effectiveProfileType);
   const route = useRoute();
+  const isKycApproved =
+    userData?.kyc === true
+  // &&
+  // userData?.kycStatus === "APPROVED";
+  const isSubscriptionActive = userData?.subscriptionStatus == "ACTIVE";
 
   const Userdata = {
     Displayname: displayName || 'No Name',
@@ -96,8 +127,6 @@ const ProfilePersonData = ({
     Followings: dashboard?.totalFollowing ?? 'NA',
     userId: userId,
   };
-
-  console.log(returnByTo,"returnToreturnTo")
 
   const fetchAllData = async () => {
     try {
@@ -157,7 +186,7 @@ const ProfilePersonData = ({
       'What would you like to upload?',
       [
         {
-          text: 'Story',
+          text: 'Add Drops',
           onPress: () => handleStoryUpload(),
         },
         {
@@ -176,7 +205,7 @@ const ProfilePersonData = ({
   const handleStoryUpload = () => {
     Alert.alert(
       'Add Drops',
-      'Choose how to add your story',
+      'Choose how to add your Drops',
       [
         { text: 'Camera', onPress: () => openStoryCamera() },
         { text: 'Gallery', onPress: () => openStoryGallery() },
@@ -287,17 +316,17 @@ const ProfilePersonData = ({
       const response = await PostStory(formData);
 
       if (response?.success) {
-        showToastMessage(toast, 'success', 'Story Uploaded Successfully');
+        showToastMessage(toast, 'success', 'Drops Uploaded Successfully');
 
         // Call the callback to refresh stories if provided
         if (onStoryUploaded) {
           onStoryUploaded();
         }
       } else {
-        showToastMessage(toast, 'danger', 'Failed to upload story please try again');
+        showToastMessage(toast, 'danger', 'Failed to upload Drops please try again');
       }
     } catch (error) {
-      console.error('Error uploading story:', error);
+      console.error('Error uploading Drops:', error);
       showToastMessage(toast, 'danger', 'Something Went Wrong ! please try again');
     }
   };
@@ -434,6 +463,117 @@ const ProfilePersonData = ({
     });
   }
 
+  const recipientWalletAddress = useMemo(
+    () => getSupportRecipientWalletAddress(userData),
+    [userData],
+  );
+  const canSupport = !!recipientWalletAddress;
+
+  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
+    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
+
+    if (!currentWalletAddress) {
+      if (openSupportModalOnSuccess) {
+        setPendingSupportPromptAfterWalletConnect(true);
+      }
+      setWalletSelectionVisible(true);
+      return false;
+    }
+
+    if (currentWalletAddress !== walletAddress) {
+      setWalletAddress(currentWalletAddress);
+    }
+
+    if (!canSupport) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      setPendingSupportPromptAfterWalletConnect(false);
+      return false;
+    }
+
+    return true;
+  }, [walletAddress, canSupport]);
+
+  const handleWalletSelect = useCallback(async (wallet) => {
+    setWalletSelectionVisible(false);
+
+    try {
+      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
+        returnAddressOnly: true,
+        walletType: wallet.id,
+      });
+
+      if (connectedAddress) {
+        await AsyncStorage.setItem('walletAddress', connectedAddress);
+        await AsyncStorage.setItem('walletType', wallet.id);
+        setWalletAddress(connectedAddress);
+        try {
+          await updateWallet({ walletAddress: connectedAddress });
+        } catch (walletUpdateError) {
+          console.error('Wallet update API error:', walletUpdateError);
+        }
+
+        if (pendingSupportPromptAfterWalletConnect) {
+          setPendingSupportPromptAfterWalletConnect(false);
+          if (!canSupport) {
+            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+            return;
+          }
+          setSupportModalVisible(true);
+          return;
+        }
+
+        setConnectedWalletInfo({
+          name: wallet.name,
+          address: connectedAddress,
+        });
+        setWalletConnectedModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
+    }
+  }, [toast, navigation, dispatch, pendingSupportPromptAfterWalletConnect, canSupport]);
+
+  const handleWalletConnectedContinue = useCallback(async () => {
+    setWalletConnectedModalVisible(false);
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+
+    // Open payment flow with the connected wallet
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [recipientWalletAddress]);
+
+  const handleSupportNow = useCallback(async () => {
+    if (!canSupport) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      return;
+    }
+    setSupportDisclaimerVisible(false);
+    const ready = await ensureSupportFlowReady();
+    if (!ready) return;
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
+
+  const handleOpenSupportDisclaimer = useCallback(() => {
+    setSupportModalVisible(false);
+    setSupportDisclaimerVisible(true);
+  }, []);
+
+  const handleFollowButtonPress = useCallback(async () => {
+    const shouldFollow = !isFollowing;
+    const followHandler = executeFollowAction || onToggleFollow;
+    const result = await followHandler?.();
+    const success = typeof result === 'boolean' ? result : true;
+    if (!success || !shouldFollow) return;
+
+    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
+    if (ready) {
+      setSupportModalVisible(true);
+    }
+  }, [isFollowing, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
+
   useFocusEffect(
     useCallback(() => {
       // if (fromUsersProfile) return;
@@ -443,7 +583,9 @@ const ProfilePersonData = ({
         try {
           dispatch(showLoader());
           const id = await AsyncStorage.getItem('userId');
+          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
           setUserId(id);
+          setWalletAddress(storedWalletAddress || '');
           if (!id) return;
 
           const response = await getProfile(id);
@@ -457,8 +599,26 @@ const ProfilePersonData = ({
                 setProfileImage(response.data.image);
               }
             }
-            if (response?.data?.profile === 'company') {
-              setIsBusinessProfile(true);
+            setIsBusinessProfile(response?.data?.profile === 'company');
+
+            // Check KYC approval status and show welcome modal
+            if (!fromUsersProfile && response.data.kyc === true) {
+              const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+              const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
+              if (!hasShownWelcome) {
+                if (hasShownLegacy) {
+                  await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
+                  return;
+                }
+                // Show welcome modal after a short delay to ensure UI is ready
+                setTimeout(() => {
+                  setWelcomeModalVisible(true);
+                  AsyncStorage.multiSet([
+                    [KYC_WELCOME_SHOWN_KEY, 'true'],
+                    [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+                  ]);
+                }, 500);
+              }
             }
           }
         } catch (err) {
@@ -489,37 +649,185 @@ const ProfilePersonData = ({
   };
 
   const redirect = () => {
-    if (data) {
-      navigation.navigate('ShareProfile', { userData: data });
+    const source = data?.id ? data : userData?.id ? userData : null;
+
+    if (!source) {
+      Alert.alert('Please wait', 'Profile data is still loading');
+      return;
+    }
+
+    const normalizedSource = {
+      ...source,
+      id: source?.id || source?.userId || targetUserId,
+      userId: source?.userId || source?.id || targetUserId,
+      userName: source?.userName || username || displayName || '',
+      displayName: source?.displayName || displayName || source?.userName || '',
+      image: source?.image || profileImage || '',
+    };
+
+    const shareParams = {
+      userData: normalizedSource,
+      fromUsersProfile,
+      targetUserId,
+    };
+
+    if (fromUsersProfile) {
+      navigation.navigate('ProfileMain', {
+        screen: 'ShareProfile',
+        params: shareParams,
+      });
+      return;
+    }
+
+    navigation.navigate('ShareProfile', shareParams);
+  };
+
+  // const handleSupportPress = () => {
+  //   const email = 'info@valens.app';
+  //   const subject = 'App Support Request';
+  //   const body = 'Hi team,\n\nI need help with...';
+
+  //   const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  //   Linking.openURL(url).catch(() => {
+  //     Alert.alert('Error', 'No mail app found');
+  //   });
+  // };
+  const detectPlatformFromUrl = useCallback((url = '') => {
+    const normalized = String(url).toLowerCase();
+    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
+    if (normalized.includes('tiktok.com')) return 'tiktok';
+    if (normalized.includes('linkedin.com')) return 'linkedin';
+    if (normalized.includes('instagram.com')) return 'instagram';
+    return '';
+  }, []);
+
+  const getSocialPlatform = useCallback((platform = '', url = '') => {
+    const normalizedPlatform = String(platform || '').trim().toLowerCase();
+    if (normalizedPlatform) return normalizedPlatform;
+    return detectPlatformFromUrl(url);
+  }, [detectPlatformFromUrl]);
+
+  const socialMediaLinks = useMemo(() => {
+    const source =
+      data?.social_media_links ??
+      userData?.social_media_links ??
+      data?.socialLinks ??
+      userData?.socialLinks ??
+      data?.social_links ??
+      userData?.social_links;
+    let list = [];
+    try {
+      if (Array.isArray(source)) {
+        list = source;
+      } else if (typeof source === 'string') {
+        list = JSON.parse(source);
+      }
+    } catch (e) {
+      list = [];
+    }
+
+    const knownPlatformKeys = ['twitter', 'tiktok', 'linkedin', 'instagram'];
+
+    return list
+      .map(item => {
+        const objectItem = item && typeof item === 'object' ? item : {};
+        const directUrl = String(
+          objectItem?.url ||
+          objectItem?.link ||
+          objectItem?.value ||
+          '',
+        ).trim();
+        const keyedPlatformEntry = knownPlatformKeys.find(key => objectItem?.[key]);
+        const platform = String(
+          objectItem?.platform ||
+          keyedPlatformEntry ||
+          '',
+        ).toLowerCase();
+        const derivedUrl = directUrl || String(objectItem?.[platform] || '').trim();
+        const normalizedPlatform = getSocialPlatform(platform, derivedUrl);
+        return { platform: normalizedPlatform, url: derivedUrl };
+      })
+      .filter(item => item.url);
+  }, [
+    data?.social_media_links,
+    userData?.social_media_links,
+    data?.socialLinks,
+    userData?.socialLinks,
+    data?.social_links,
+    userData?.social_links,
+    getSocialPlatform,
+  ]);
+
+  const renderSocialIcon = useCallback((platform) => {
+    if (platform === 'tiktok') return <Tiktok width={25} height={25} />;
+    if (platform === 'linkedin') return <Linkedin width={25} height={25} />;
+    if (platform === 'twitter') return <Twitter width={25} height={25} />;
+    if (platform === 'instagram') return <FontAwesome name="instagram" size={23} color="#E1306C" />;
+    return <Feather name="link-2" size={22} color="#374151" />;
+  }, []);
+
+  const websiteLink = useMemo(() => {
+    return String(
+      userData?.website_link ??
+      data?.website_link ??
+      userData?.websiteLink ??
+      data?.websiteLink ??
+      '',
+    ).trim();
+  }, [userData?.website_link, data?.website_link, userData?.websiteLink, data?.websiteLink]);
+
+  const handleOpenSocialUrl = async (url) => {
+    const raw = String(url || '').trim();
+    if (!raw) {
+      Alert.alert('Error', 'Link is empty');
+      return;
+    }
+
+    const normalizedUrl = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+    try {
+      const supported = await Linking.canOpenURL(normalizedUrl);
+      if (!supported) {
+        Alert.alert('Error', 'Invalid link');
+        return;
+      }
+      await Linking.openURL(normalizedUrl);
+    } catch (e) {
+      Alert.alert('Error', 'Unable to open link');
     }
   };
 
-  const handleSupportPress = () => {
-    const email = 'info@valens.app';
-    const subject = 'App Support Request';
-    const body = 'Hi team,\n\nI need help with...';
-
-    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'No mail app found');
-    });
-  };
-
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
+  const usernameModalData = useMemo(() => {
+    return {
+      ...(userData || {}),
+      ...(data || {}),
+      id: data?.id || userData?.id || targetUserId || userId,
+      userId: data?.userId || userData?.userId || targetUserId || userId,
+      userName: data?.userName || userData?.userName || username || displayName,
+      displayName: data?.displayName || userData?.displayName || displayName || username,
+      walletAddress:
+        data?.walletAddress ||
+        userData?.walletAddress ||
+        userData?.walletId ||
+        walletAddress ||
+        '',
+    };
+  }, [data, userData, targetUserId, userId, username, displayName, walletAddress]);
 
-const handleBackPress = useCallback(() => {
-  const  returnTo = returnByTo;
-  console.log('is this wokreing buy',returnTo)
-  
-  if (returnTo) {
-    // console.log()
-    navigation.navigate(returnTo);
-    return;
-  }
-  // 3️⃣ Absolute fallback
-  navigation.goBack();
-}, []);
+  const handleBackPress = useCallback(() => {
+    const returnTo = returnByTo;
+    console.log('is this wokreing buy', returnTo)
+
+    if (returnTo) {
+      // console.log()
+      navigation.navigate(returnTo);
+      return;
+    }
+    // 3️⃣ Absolute fallback
+    navigation.goBack();
+  }, []);
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>
@@ -546,7 +854,9 @@ const handleBackPress = useCallback(() => {
               )}
               <View style={styles.userRow}>
                 <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
-                <DragonflyIcon width={22} height={22} style={styles.icon} />
+                {isKycApproved && (
+                  <DragonflyIcon width={22} height={22} style={styles.icon} />
+                )}
                 {!fromUsersProfile && (
                   <Ionicons
                     name="chevron-down"
@@ -634,17 +944,13 @@ const handleBackPress = useCallback(() => {
             <View style={styles.edit}>
               {fromUsersProfile ? (
                 <>
-                  <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
+                  {/* <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
                     {
                       !isBusinessProfile && (
                         userData?.profile !== 'company' && (
                           isFollowing && (
                             <LinearGradient
-                              colors={
-                                userData?.profile === 'company'
-                                  ? ['#D3B683', '#e54ba0']
-                                  : ['#513189bd', '#e54ba0']
-                              }
+                              colors={profileActionGradient}
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 0 }}
                               style={[styles.editbuttons, { shadowColor: text }]}
@@ -655,29 +961,19 @@ const handleBackPress = useCallback(() => {
                         )
                       )
                     }
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                   <TouchableOpacity
-                    onPress={
-                      isBusinessProfile
-                        ? undefined
-                        : (userData?.profile == 'company'
-                          ? executeFollowAction
-                          : onToggleFollow)
-                    }
+                    onPress={handleFollowButtonPress}
                     disabled={followBusy || isFollowing === null}
                   >
                     <LinearGradient
-                      colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
                       <Text style={styles.buttonText}>
-                        {isBusinessProfile ? 'Support' : isFollowing ? 'Vallowing' : 'Vallow'}
+                        {isFollowing ? 'Following' : 'Follow'}
                         {followBusy ? '...' : ''}
                       </Text>
                     </LinearGradient>
@@ -686,11 +982,7 @@ const handleBackPress = useCallback(() => {
                     onPress={() => UserMessageNavigation()}
                   >
                     <LinearGradient
-                      colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -700,16 +992,28 @@ const handleBackPress = useCallback(() => {
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
+                  {normalizedProfileThemeType !== 'company' && (
+                    <TouchableOpacity >
+                      <LinearGradient
+                        colors={profileActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.editbuttons, { shadowColor: text }]}
+                      >
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Text style={styles.buttonText}>Total Support</Text>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                 </>
+
               ) : (
                 <>
                   <TouchableOpacity onPress={() => handleNavigate()}>
                     <LinearGradient
-                      colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -726,11 +1030,7 @@ const handleBackPress = useCallback(() => {
                     }
                   >
                     <LinearGradient
-                      colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
-                          : ['#513189bd', '#e54ba0']
-                      }
+                      colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
@@ -743,20 +1043,24 @@ const handleBackPress = useCallback(() => {
                       <Text style={styles.buttonText}> Invite</Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleSupportPress}>
-                    <LinearGradient
-                      colors={
-                        userData?.profile === 'company'
-                          ? ['#D3B683', '#e54ba0']
-                          : ['#513189bd', '#e54ba0']
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
+                  {!isBusinessProfile && (
+
+
+                    <TouchableOpacity
                     >
-                      <Text style={styles.buttonText}>Support</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <LinearGradient
+                        colors={profileActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.editbuttons, { shadowColor: text }]}
+                      >
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Text style={styles.buttonText}>Total Support</Text>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </View>
@@ -764,7 +1068,31 @@ const handleBackPress = useCallback(() => {
 
           <View style={styles.biobox}>
             <Text style={styles.biotext}>{Userdata.Bio}</Text>
+            <View style={styles.socialRow}>
+              {socialMediaLinks.map(item => (
+                <TouchableOpacity
+                  key={`${item.platform}-${item.url}`}
+                  style={styles.socialIconButton}
+                  activeOpacity={0.7}
+                  onPress={() => handleOpenSocialUrl(item.url)}
+                >
+                  {renderSocialIcon(item.platform)}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
+
+
+          {!!websiteLink && (
+            <TouchableOpacity
+              style={styles.bioLinkWrap}
+              activeOpacity={0.7}
+              onPress={() => handleOpenSocialUrl(websiteLink)}
+            >
+              <Text style={styles.bioLinkText}>{websiteLink}</Text>
+            </TouchableOpacity>
+          )}
+
         </View>
 
         {/* Stats */}
@@ -800,7 +1128,7 @@ const handleBackPress = useCallback(() => {
             <FontAwesome name="user" size={16} color="#444" />
             <Text style={[styles.statText, { color: text }]}>
               {' '}
-              Vallowers: {Userdata.Followers}
+              Followers: {Userdata.Followers}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -829,10 +1157,13 @@ const handleBackPress = useCallback(() => {
             <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
             <Text style={[styles.statText, { color: text }]}>
               {' '}
-              Vallowing: {Userdata.Followings}
+              Following: {Userdata.Followings}
             </Text>
           </TouchableOpacity>
         </View>
+        {/* <TouchableOpacity style={styles.infoButton}>
+  <Ionicons name="information-circle-outline" size={22} color="#144c9b" />
+</TouchableOpacity> */}
       </View>
 
       {/* Modals */}
@@ -843,11 +1174,12 @@ const handleBackPress = useCallback(() => {
       <UsernameModal
         visible={usernameModalVisible}
         onClose={() => setUsernameModalVisible(false)}
+        data={usernameModalData}
       />
-      <TradeModal
+      {/* <TradeModal
         visible={tradeModalVisible}
         onClose={() => setTradeModalVisible(false)}
-      />
+      /> */}
 
       {/* Story Composer Modal */}
       <StoryComposer
@@ -855,6 +1187,41 @@ const handleBackPress = useCallback(() => {
         mediaList={composerList}
         onCancel={() => setComposerVisible(false)}
         onDone={handleComposerDone}
+      />
+      <SupportCreatorModal
+        visible={supportModalVisible}
+        creatorName={username || userData?.userName || 'Creator'}
+        onClose={() => setSupportModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={username || userData?.userName || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
+        onSupport={handleSupportNow}
+      />
+      <WelcomeValensModal
+        visible={welcomeModalVisible}
+        onClose={async () => {
+          setWelcomeModalVisible(false);
+          await AsyncStorage.multiSet([
+            [KYC_WELCOME_SHOWN_KEY, 'true'],
+            [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+          ]);
+        }}
+      />
+      <WalletSelectionModal
+        visible={walletSelectionVisible}
+        onClose={() => setWalletSelectionVisible(false)}
+        onSelectWallet={handleWalletSelect}
+      />
+      <WalletConnectedModal
+        visible={walletConnectedModalVisible}
+        onClose={() => setWalletConnectedModalVisible(false)}
+        walletName={connectedWalletInfo.name}
+        walletAddress={connectedWalletInfo.address}
+        onContinue={handleWalletConnectedContinue}
       />
     </View>
   );
@@ -985,6 +1352,27 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 14,
   },
+  bioLinkWrap: {
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  bioLinkText: {
+    color: '#1D9BF0',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  socialRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: '100%',
+    alignSelf: 'flex-end',
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  socialIconButton: {
+    marginLeft: 10,
+  },
 
   // --- Stats ---
   statsRow: {
@@ -1002,5 +1390,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  infoButton: {
+
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F1FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
 });

@@ -9,6 +9,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
+  Image,
+  Dimensions,
+  Modal,
+  StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -18,23 +22,27 @@ import OptionsModal from '../../components/home/posts/OptionsModal';
 
 import { getAllSavedPosts } from '../../services/settings';
 import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
+import { buildPostMaps } from '../../utils/postMaps';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
+import Video from 'react-native-video';
 
+const { width, height } = Dimensions.get('window');
+const GRID_ITEM_SIZE = (width - 6) / 3;
 const SavedPostsScreen = ({ navigation }) => {
   // Data
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Per-post UI state (keep same shapes)
+  // Per-post UI state
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
   const [postLikesCount, setPostLikesCount] = useState({});
   const [postCommentsCount, setPostCommentsCount] = useState({});
 
-  // Follow state (same as Posts)
+  // Follow state
   const [followingByUserId, setFollowingByUserId] = useState({});
   const [followingBusy, setFollowingBusy] = useState(new Set());
 
@@ -52,10 +60,20 @@ const SavedPostsScreen = ({ navigation }) => {
   const commentSheetRef = useRef(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
 
+  // Full-screen post viewer state
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [initialPostIndex, setInitialPostIndex] = useState(0);
+  const flatListRef = useRef(null);
+
   const toast = useToast();
   const { bgStyle, textStyle } = useAppTheme();
 
-  // Helpers (unchanged UI)
+  const formatUrl = (url) => {
+    if (!url || typeof url !== 'string') return '';
+    if (url.startsWith('http')) return url;
+    return `https://${url}`;
+  };
+
   const getMediaType = (url) => {
     if (!url || typeof url !== 'string') return 'image';
     const lowerUrl = url.toLowerCase();
@@ -69,64 +87,61 @@ const SavedPostsScreen = ({ navigation }) => {
     return isVideo ? 'video' : 'image';
   };
 
-  // Normalize each API record to PostItem props (keep UI intact)
-  const mapApiPostToPostItem = useCallback(
-    (p) => {
-      const userKey = String(p.userId ?? '');
-      return {
-        id: p.id,
-        username: p.userName ?? 'Unknown',
-        avatar: p.userImage ?? 'https://randomuser.me/api/portraits/men/4.jpg',
-        media: (p.images || []).map((url) => ({
-          type: getMediaType(url),
-          url,
-        })),
-        caption: p.caption || p.text || '',
-        PostsProfile: 'Vallow',
-        createdAt: p.createdAt,
-        // keep both keys; PostItem uses `UserId`
-        UserId: p.userId,
-        userId: p.userId,
-        boughtBy: p.boughtBy || [],
-        follow:
-          typeof followingByUserId[userKey] === 'boolean'
-            ? followingByUserId[userKey]
-            : !!p.isFollow,
-      };
-    },
-    [followingByUserId]
-  );
+  const mapPostForPostItem = ({
+    item,
+    followingByUserId = {},
+    route,
+  }) => {
+    return {
+      id: item.id,
 
-  // Seed maps from API
+      username: item.userName ?? 'Unknown',
+
+      avatar: item.userImage
+        ? formatUrl(item.userImage)
+        : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+
+      media: (item.images || item.media || []).map(m =>
+        typeof m === 'string'
+          ? { type: getMediaType(m), url: formatUrl(m) }
+          : { type: m.type, url: formatUrl(m.url) }
+      ),
+
+      caption: item.caption ?? '',
+
+      PostsProfile: item.PostsProfile ?? 'Support',
+
+      link: item.link,
+      raiseAmount: item.raiseAmount ?? 0,
+      goalAmount: item.goalAmount ?? 100000,
+      daysLeft: item.daysLeft ?? 0,
+      profile: item.profile,
+      createdAt: item.createdAt,
+      UserId: item.userId,
+      userId: item.userId,
+      boughtBy: item.boughtBy || [],
+      returnTo: route?.params?.returnTo,
+      tokenBalance: item.tokenBalance || 0,
+
+      follow:
+        typeof followingByUserId[String(item.userId)] === 'boolean'
+          ? followingByUserId[String(item.userId)]
+          : !!item.isFollow,
+      shareCount: item.shareCount ?? 0,
+    };
+  };
+
   const seedMapsFromPosts = useCallback((list) => {
-    const nextLiked = {};
-    const nextSaved = {};
-    const nextLikeCounts = {};
-    const nextCommentCounts = {};
-    const nextFollowing = {};
-
-    for (const p of list) {
-      if (!p?.id) continue;
-      nextLiked[p.id] = !!(p.isLike ?? p.liked);
-      nextSaved[p.id] = !!(p.isSaved ?? true);
-      nextLikeCounts[p.id] = p.likesCount ?? p.likeCount ?? 0;
-      nextCommentCounts[p.id] = p.commentCount ?? 0;
-
-      if (p?.userId != null && typeof p.isFollow === 'boolean') {
-        nextFollowing[String(p.userId)] = p.isFollow;
-      }
-    }
-
-    setLiked(nextLiked);
-    setSaved(nextSaved);
-    setPostLikesCount(nextLikeCounts);
-    setPostCommentsCount(nextCommentCounts);
-    if (Object.keys(nextFollowing).length) {
-      setFollowingByUserId((prev) => ({ ...prev, ...nextFollowing }));
+    const maps = buildPostMaps(list, { includeSaved: true, includeHidden: false });
+    setLiked(maps.nextLiked);
+    setSaved(maps.nextSaved);
+    setPostLikesCount(maps.nextLikeCounts);
+    setPostCommentsCount(maps.nextCommentCounts);
+    if (Object.keys(maps.nextFollowing).length) {
+      setFollowingByUserId((prev) => ({ ...prev, ...maps.nextFollowing }));
     }
   }, []);
 
-  // Fetch saved posts
   const fetchSavedPosts = useCallback(async () => {
     try {
       if (!refreshing) setLoading(true);
@@ -134,8 +149,8 @@ const SavedPostsScreen = ({ navigation }) => {
 
       if (response?.success && response?.statusCode === 200) {
         const raw = Array.isArray(response.data) ? response.data : [];
-        setPosts(raw);            // keep raw to avoid UI changes
-        seedMapsFromPosts(raw);   // seed auxiliary maps
+        setPosts(raw);
+        seedMapsFromPosts(raw);
       } else {
         Alert.alert('Error', response?.message || 'Failed to fetch saved posts');
       }
@@ -157,14 +172,12 @@ const SavedPostsScreen = ({ navigation }) => {
     fetchSavedPosts();
   }, [fetchSavedPosts]);
 
-  // Follow / Unfollow (same functionality as Posts)
   const handleToggleFollow = useCallback(
     async (targetUserId, shouldFollow) => {
       if (!targetUserId) return;
       const key = String(targetUserId);
       if (followingBusy.has(key)) return;
 
-      // optimistic update
       setFollowingByUserId((prev) => ({ ...prev, [key]: shouldFollow }));
       setFollowingBusy((prev) => new Set(prev).add(key));
 
@@ -173,7 +186,6 @@ const SavedPostsScreen = ({ navigation }) => {
         const ok = res?.statusCode === 200 && (res?.success ?? true);
 
         if (!ok) {
-          // revert on failure
           setFollowingByUserId((prev) => ({ ...prev, [key]: !shouldFollow }));
           showToastMessage(
             toast,
@@ -181,7 +193,6 @@ const SavedPostsScreen = ({ navigation }) => {
             res?.data?.message || res?.message || 'Unable to update follow'
           );
         } else {
-          // trust server boolean if present
           const serverVal = res?.data?.following;
           if (typeof serverVal === 'boolean') {
             setFollowingByUserId((prev) => ({ ...prev, [key]: serverVal }));
@@ -205,16 +216,13 @@ const SavedPostsScreen = ({ navigation }) => {
     [toast, followingBusy]
   );
 
-  // Like (unchanged functionality)
   const toggleLike = useCallback(
     async (postId) => {
-      if (!postId) return;
-      if (likingIds.has(postId)) return;
+      if (!postId || likingIds.has(postId)) return;
 
       const wasLiked = !!liked[postId];
       const prevCount = postLikesCount[postId] ?? 0;
 
-      // Optimistic
       setLiked((prev) => ({ ...prev, [postId]: !wasLiked }));
       setPostLikesCount((prev) => ({
         ...prev,
@@ -234,14 +242,12 @@ const SavedPostsScreen = ({ navigation }) => {
           if (serverCount !== undefined) {
             setPostLikesCount((prev) => ({ ...prev, [postId]: serverCount }));
           }
-
           showToastMessage(
             toast,
             'success',
             res?.data?.message || (serverLiked ? 'Post liked' : 'Post unliked')
           );
         } else {
-          // revert
           setLiked((prev) => ({ ...prev, [postId]: wasLiked }));
           setPostLikesCount((prev) => ({ ...prev, [postId]: prevCount }));
           showToastMessage(toast, 'danger', res?.data?.message || 'Failed to toggle like');
@@ -261,11 +267,9 @@ const SavedPostsScreen = ({ navigation }) => {
     [liked, postLikesCount, likingIds, toast]
   );
 
-  // Save / Unsave (unchanged functionality)
   const handleToggleSave = useCallback(
     async (id) => {
-      if (!id) return;
-      if (savingIds.has(id)) return;
+      if (!id || savingIds.has(id)) return;
 
       setSavingIds((prev) => new Set(prev).add(id));
       const isCurrentlySaved = !!saved[id];
@@ -276,9 +280,15 @@ const SavedPostsScreen = ({ navigation }) => {
           showToastMessage(toast, 'success', resp?.data?.message || 'Updated');
           setSaved((prev) => ({ ...prev, [id]: !isCurrentlySaved }));
 
-          // If user unsaves from Saved screen, remove it from the list
           if (isCurrentlySaved) {
             setPosts((prev) => prev.filter((p) => p.id !== id));
+            // Close viewer if current post was removed
+            if (viewerVisible) {
+              const currentIndex = posts.findIndex(p => p.id === id);
+              if (currentIndex === initialPostIndex) {
+                setViewerVisible(false);
+              }
+            }
           }
         } else {
           showToastMessage(toast, 'danger', resp?.data?.message || 'Failed');
@@ -293,10 +303,9 @@ const SavedPostsScreen = ({ navigation }) => {
         });
       }
     },
-    [saved, savingIds, toast]
+    [saved, savingIds, toast, viewerVisible, posts, initialPostIndex]
   );
 
-  // Options modal
   const openOptions = useCallback((id) => {
     setModalPostId(id);
     setModalVisible(true);
@@ -310,20 +319,17 @@ const SavedPostsScreen = ({ navigation }) => {
   const onOptionsSelect = useCallback(
     async (action) => {
       if (!modalPostId) return;
-
       if (action === 'toggleSave') {
         await handleToggleSave(modalPostId);
         closeOptions();
         return;
       }
-
       Alert.alert('Action', String(action));
       closeOptions();
     },
     [closeOptions, handleToggleSave, modalPostId]
   );
 
-  // Comments
   const handleComment = useCallback((postId, ownerId) => {
     setCommentPostId(postId);
     setCommentPostOwnerId(ownerId);
@@ -349,44 +355,139 @@ const SavedPostsScreen = ({ navigation }) => {
     commentSheetRef.current?.close();
   }, [commentText]);
 
-  // Render
-  const renderPostItem = useCallback(
-    ({ item }) => {
-      // map here so follow flag reflects any latest local follow changes
-      const mapped = mapApiPostToPostItem(item);
+  // Open full-screen viewer
+  const openPostViewer = useCallback((index) => {
+    setInitialPostIndex(index);
+    setViewerVisible(true);
+  }, []);
+
+  // Close viewer
+  const closePostViewer = useCallback(() => {
+    setViewerVisible(false);
+  }, []);
+
+  // Grid item renderer
+  const renderGridItem = useCallback(
+    ({ item, index }) => {
+      const images = item.images || [];
+      const firstMedia = images[0];
+      const hasMultiple = images.length > 1;
+      const isVideo = firstMedia ? getMediaType(firstMedia) === 'video' : false;
+      const tokenPrice = item.tokenBalance || 0;
+
+      // Fallback if no media
+      if (!firstMedia) {
+        return (
+          <TouchableOpacity style={styles.gridItem} activeOpacity={0.7} onPress={() => openPostViewer(index)}>
+            <View style={[styles.gridImage, { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }]}>
+              <Icon name="image-outline" size={40} color="#555" />
+            </View>
+            {hasMultiple && <Icon name="copy-outline" size={20} color="#fff" style={styles.multiOverlay} />}
+          </TouchableOpacity>
+        );
+      }
+
       return (
-        <PostItem
-          item={mapped}
-          liked={!!liked[item.id]}
-          likesCount={postLikesCount[item.id] || 0}
-          commentsCount={postCommentsCount[item.id] || 0}
-          saved={!!saved[item.id]}
-          onToggleLike={() => toggleLike(item.id)}
-          onToggleSave={() => handleToggleSave(item.id)}
-          onToggleFollow={handleToggleFollow}
-          followingBusy={followingBusy.has(String(mapped.UserId))}  
-          onComment={() => handleComment(item.id, mapped.UserId)}    
-          onOptions={() => openOptions(item.id)}
-          onSuggest={[]}
-        />
+        <TouchableOpacity
+          style={styles.gridItem}
+          activeOpacity={0.7}
+          onPress={() => openPostViewer(index)}
+        >
+          {/* Video: Show first frame as static thumbnail */}
+          {isVideo ? (
+            <Video
+              source={{ uri: firstMedia }}
+              style={styles.gridImage}
+              resizeMode="cover"
+              paused={true}
+              muted={true}
+              repeat={false}
+              controls={false}
+              playInBackground={false}
+              playWhenInactive={false}
+              ignoreSilentSwitch="ignore"
+              poster="https://via.placeholder.com/300/1a1a1a/666666?text=Video"
+              onError={(e) => console.log('Video thumbnail error:', e)}
+            />
+          ) : (
+            /* Image: Normal fast loading */
+            <Image
+              source={{ uri: firstMedia }}
+              style={styles.gridImage}
+              resizeMode="cover"
+              defaultSource={{ uri: 'https://via.placeholder.com/300/1a1a1a/666666?text=Loading...' }}
+            />
+          )}
+
+          {/* Play Icon for Videos */}
+          {isVideo && (
+            <View style={styles.videoOverlay}>
+              <Icon name="play-circle" size={36} color="#fff" />
+            </View>
+          )}
+
+          {/* Multiple Media Indicator */}
+          {hasMultiple && (
+            <View style={styles.multiOverlay}>
+              <Icon name="copy-outline" size={20} color="#fff" />
+            </View>
+          )}
+
+          {/* Token Price Overlay */}
+          {/* {tokenPrice > 0 && (
+            <View style={styles.tokenPriceOverlay}>
+              <Text style={styles.tokenPriceText}>${tokenPrice}</Text>
+            </View>
+          )} */}
+        </TouchableOpacity>
+      );
+    },
+    [openPostViewer]
+  );
+
+
+  // Full-screen post renderer
+  const renderFullPost = useCallback(
+    ({ item }) => {
+      const mapped = mapPostForPostItem({
+        item,
+        followingByUserId,
+      });
+
+      return (
+        <View style={styles.postContainer}>
+          <PostItem
+            item={mapped}
+            liked={!!liked[item.id]}
+            likesCount={postLikesCount[item.id] || 0}
+            commentsCount={postCommentsCount[item.id] || 0}
+            saved={!!saved[item.id]}
+            onToggleLike={() => toggleLike(item.id)}
+            onToggleSave={() => handleToggleSave(item.id)}
+            onToggleFollow={handleToggleFollow}
+            followingBusy={followingBusy.has(String(mapped.UserId))}
+            onComment={() => handleComment(item.id, mapped.UserId)}
+            onOptions={() => openOptions(item.id)}
+            onSuggest={[]}
+            shareCount={mapped.shareCount}
+            hideDonationButton={true}
+          />
+        </View>
       );
     },
     [
-      mapApiPostToPostItem,
       liked,
       saved,
       postLikesCount,
       postCommentsCount,
-      toggleLike,
-      handleToggleSave,
-      handleToggleFollow,
-      followingBusy,
-      handleComment,
-      openOptions,
+      followingByUserId,
     ]
   );
 
-  const keyExtractor = useCallback((item) => item.id?.toString() || item._id?.toString(), []);
+
+  const keyExtractor = useCallback((item, index) => {
+    return item.id?.toString() || item._id?.toString() || `post-${index}`;
+  }, []);
 
   const EmptyState = useCallback(
     () => (
@@ -403,13 +504,18 @@ const SavedPostsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()}>
+        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color="#262626" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Saved Posts</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
+      {/* Grid View */}
       {loading && posts.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4d2a88" />
@@ -418,18 +524,76 @@ const SavedPostsScreen = ({ navigation }) => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={renderPostItem}
+          renderItem={renderGridItem}
           keyExtractor={keyExtractor}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          numColumns={3}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#4d2a88"
+            />
+          }
           ListEmptyComponent={!loading ? <EmptyState /> : null}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews
-          maxToRenderPerBatch={5}
+          contentContainerStyle={posts.length === 0 ? styles.emptyContainer : styles.gridContainer}
+          columnWrapperStyle={posts.length > 0 ? styles.gridRow : null}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={12}
           windowSize={10}
-          initialNumToRender={3}
+          initialNumToRender={9}
         />
       )}
 
+      {/* Full-screen Post Viewer Modal */}
+      <Modal
+        visible={viewerVisible}
+        animationType="slide"
+        onRequestClose={closePostViewer}
+        statusBarTranslucent
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+          {/* Viewer Header */}
+          <View style={styles.viewerHeader}>
+            <TouchableOpacity onPress={closePostViewer} style={styles.closeButton}>
+              <Icon name="arrow-back" size={24} color="#262626" />
+            </TouchableOpacity>
+            <Text style={styles.viewerHeaderTitle}>All Posts</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          {/* Vertical Scrollable Posts */}
+          <FlatList
+            ref={flatListRef}
+            data={posts}
+            renderItem={renderFullPost}
+            keyExtractor={keyExtractor}
+            showsVerticalScrollIndicator={false}
+            initialScrollIndex={initialPostIndex}
+            getItemLayout={(data, index) => ({
+              length: height * 0.85,
+              offset: height * 0.85 * index,
+              index,
+            })}
+            onScrollToIndexFailed={(info) => {
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: false,
+                });
+              }, 100);
+            }}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={3}
+            windowSize={5}
+            initialNumToRender={2}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Options Modal */}
       <OptionsModal
         visible={modalVisible}
         onClose={closeOptions}
@@ -439,6 +603,7 @@ const SavedPostsScreen = ({ navigation }) => {
         isSaved={!!(modalPostId && saved[String(modalPostId)])}
       />
 
+      {/* Comment Sheet */}
       <RBSheet
         ref={commentSheetRef}
         height={500}
@@ -447,10 +612,11 @@ const SavedPostsScreen = ({ navigation }) => {
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: [{
+          container: {
             borderTopLeftRadius: 18,
             borderTopRightRadius: 18,
-          }, bgStyle],
+            ...bgStyle,
+          },
           draggableIcon: {
             backgroundColor: '#ccc',
             width: 60,
@@ -472,29 +638,46 @@ const SavedPostsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1},
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 15,
-    marginTop: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e0e0e0',
+  },
+  backButton: {
+    padding: 4,
   },
   headerTitle: {
-    flex: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: 'black',
-    marginLeft: 15,
+    color: '#262626',
+    flex: 1,
+    // textAlign: 'center',
+    marginLeft: 10,
+  },
+  headerSpacer: {
+    width: 32,
   },
   loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 300,
   },
   loadingText: {
     color: '#9a8fb6',
     fontSize: 16,
-    marginTop: 10,
+    marginTop: 12,
+  },
+  emptyContainer: {
+    flexGrow: 1,
   },
   emptyState: {
     flex: 1,
@@ -515,6 +698,70 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  // Grid styles
+  gridContainer: {
+    paddingVertical: 2,
+  },
+  gridRow: {
+    gap: 2,
+  },
+  gridItem: {
+    width: GRID_ITEM_SIZE,
+    height: GRID_ITEM_SIZE,
+    position: 'relative',
+    backgroundColor: '#f0f0f0',
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  multiOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 4,
+    padding: 4,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  viewerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e0e0e0',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  viewerHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#262626',
+    flex: 1,
+    // textAlign: 'center',
+    marginLeft: 10,
+  },
+  postContainer: {
+    minHeight: height * 0.85,
   },
 });
 

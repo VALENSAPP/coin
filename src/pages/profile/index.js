@@ -18,6 +18,10 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { getPostByUser, getUserCredentials, getUserDashboard } from '../../services/post';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
+
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const ProfileScreen = () => {
   const [posts, setPosts] = useState([]);
@@ -25,6 +29,7 @@ const ProfileScreen = () => {
   const [userDashboard, setUserDashboard] = useState();
   const [userData, setUserData] = useState();
   const [refreshing, setRefreshing] = useState(false);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -38,17 +43,16 @@ const ProfileScreen = () => {
       return;
     }
     setUserId(id);
-    // console.log(id, 'this is userid from async storage in profile');
     
 
     dispatch(showLoader());
     try {
       const [postsRes, userRes, dashRes] = await Promise.all([
-        getPostByUser(id),
+        getPostByUser(id,'normal'),
         getUserCredentials(id),
         getUserDashboard(id),
       ]);
-
+     
       // Posts
       if (postsRes.statusCode === 200) {
         setPosts(postsRes.data);
@@ -61,10 +65,9 @@ const ProfileScreen = () => {
       }
 
       // Profile data
-      console.log('getUserCredentials response:', userRes);
+      
       if (userRes.statusCode === 200) {
-        console.log('User data structure:', userRes.data);
-        console.log('Full response structure:', JSON.stringify(userRes, null, 2));
+       
         
         let userDataToSet;
         if (userRes.data && userRes.data.user) {
@@ -75,8 +78,7 @@ const ProfileScreen = () => {
           userDataToSet = userRes;
         }
         
-        console.log('Setting user data:', userDataToSet);
-        console.log('Profile image URL:', userDataToSet?.image);
+     
         
         // Ensure the image URL is properly formatted
         if (userDataToSet?.image) {
@@ -87,23 +89,38 @@ const ProfileScreen = () => {
           
           // If it's already a full URL, use as is
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
-            console.log('Image URL is already absolute:', formattedImageUrl);
           } else if (formattedImageUrl.startsWith('/')) {
             // If it's a relative URL starting with /
             formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
-            console.log('Converted relative URL to absolute:', formattedImageUrl);
           } else {
             // If it doesn't start with /, assume it's a relative path
             formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
-            console.log('Converted path to absolute URL:', formattedImageUrl);
           }
           
           userDataToSet.image = formattedImageUrl;
-          console.log('Final formatted image URL:', formattedImageUrl);
         }
-        console.log('Final user data to set:', userDataToSet);
         AsyncStorage.setItem('currentUsername', userDataToSet.displayName);
         setUserData(userDataToSet);
+
+        // Check KYC approval status and show welcome modal
+        if (userDataToSet.kyc === true) {
+          const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+          const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
+          if (!hasShownWelcome) {
+            if (hasShownLegacy) {
+              await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
+              return;
+            }
+            // Show welcome modal after a short delay to ensure UI is ready
+            setTimeout(() => {
+              setWelcomeModalVisible(true);
+              AsyncStorage.multiSet([
+                [KYC_WELCOME_SHOWN_KEY, 'true'],
+                [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+              ]);
+            }, 500);
+          }
+        }
       } else {
         showToastMessage(
           toast,
@@ -170,6 +187,7 @@ const ProfileScreen = () => {
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
+          
           // executeFollowAction={executeFollowAction}
         />
         <View>
@@ -177,6 +195,16 @@ const ProfileScreen = () => {
         </View>
         <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} loggedInUserId={userId}/>
       </ScrollView>
+      {/* <WelcomeValensModal
+        visible={welcomeModalVisible}
+        onClose={async () => {
+          setWelcomeModalVisible(false);
+          await AsyncStorage.multiSet([
+            [KYC_WELCOME_SHOWN_KEY, 'true'],
+            [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+          ]);
+        }}
+      /> */}
     </SafeAreaView>
   );
 };

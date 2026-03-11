@@ -38,7 +38,7 @@ export default function BuyersListModal({
     if (!visible) setQuery('');
   }, [visible]);
 
-  const title = profileType === 'user' ? 'Vallowed by' : 'Supported by';
+  const title = profileType === 'user' ? 'Followed by' : 'Supported by';
 
   const filteredBuyers = useMemo(() => {
     const q = normalizeString(query);

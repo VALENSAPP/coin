@@ -1281,7 +1281,6 @@ const handleContentSizeChange = () => {
 
 
   const renderMessage = ({ item, index }) => {
-    console.log(item, 'checkItem What i get')
     const isUser = item.sender === 'user';
     const showTime =
       index === 0 ||
@@ -1486,9 +1485,10 @@ const handleContentSizeChange = () => {
                             postData: [postData],
                             startIndex: 0,
                             returnTo: 'HomeMain',
+                            userChat: true, // Add this flag to indicate coming from UserChat
                             returnParams: {
                               screen: 'UserChat',
-                              params: { userId: targetUserId, user }
+                              params: { userId: targetUserId, postData}
                             }
                           }
                         });
@@ -1575,7 +1575,6 @@ const handleContentSizeChange = () => {
 
             {(item.type === 'reel_share' || item.type === 'reel') && (
               (() => {
-                console.log(item, 'checkItem What i get');
                 const reelData = item.reel || item.rawData?.reel || item.rawData?.post || {};
 
                 // Extract proper data with fallbacks
@@ -1628,6 +1627,8 @@ const handleContentSizeChange = () => {
                             item: reelData,
                             reelId: reelId,
                             initialIndex: 0,
+                                userChat: true, // Add this flag to indicate coming from UserChat
+
                             returnTo: 'HomeMain',
                             returnParams: {
                               screen: 'UserChat',

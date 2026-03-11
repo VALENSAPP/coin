@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
@@ -10,26 +10,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import ActivateMissionPost from './ActivateMissionPost';
 
 const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
   const [profile, setProfile] = useState(null);
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
+  const [showActivateMissionModal, setShowActivateMissionModal] = useState(false);
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const navigation = useNavigation();
-   const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, card } = useAppTheme();
+
+  const resetNestedModals = useCallback(() => {
+    setShowActivateMissionModal(false);
+    setShowBuyCreditsModal(false);
+  }, []);
 
   useEffect(() => {
-    fetchCreditsLeft();
-    loadProfileType();
     if (visible) {
+      fetchCreditsLeft();
+      loadProfileType();
+      resetNestedModals();
       sheetRef.current?.open();
     } else {
+      resetNestedModals();
       sheetRef.current?.close();
     }
-  }, [visible]);
+  }, [visible, resetNestedModals]);
 
 
 
@@ -64,12 +73,32 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
 
   const handleCrowdfundingSelect = () => {
-     if (!creditsLeft ||  creditsLeft === 0) {
-      setShowBuyCreditsModal(true);
-    } else {
-      onSelect('crowdfunding');
-      setShowTypeModal(false);
+    if (creditsLeft === null) {
+      return;
     }
+
+    // User has credits: pick mission/support type and continue without extra modal.
+    if (creditsLeft > 0) {
+      onSelect('crowdfunding');
+      resetNestedModals();
+      setShowTypeModal(false);
+      return;
+    }
+
+    // No credits: show the activation flow modal.
+    setShowBuyCreditsModal(false);
+    setShowActivateMissionModal(false);
+    requestAnimationFrame(() => setShowActivateMissionModal(true));
+  };
+
+  const handleLaunchBusinessMission = () => {
+    setShowActivateMissionModal(false);
+    requestAnimationFrame(() => setShowBuyCreditsModal(true));
+  };
+
+  const handlePostTypeSheetClose = () => {
+    resetNestedModals();
+    setShowTypeModal(false);
   };
 
   const handleBuyCredits = () => {
@@ -90,7 +119,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         ref={sheetRef}
         height={260}
         draggable={false}
-        onClose={() => setShowTypeModal(false)}
+        onClose={handlePostTypeSheetClose}
         customStyles={{
           container: [{
             borderTopLeftRadius: 16,
@@ -105,7 +134,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         <View style={styles.container}>
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Icon name="close-outline" size={28} color="#000" />
+              <Icon name="close-outline" size={28} color={text} />
             </TouchableOpacity>
 
             <Text style={[styles.title, textStyle]}>Choose Mint Type</Text>
@@ -117,23 +146,26 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
           <TouchableOpacity
             style={[
               styles.optionBtn,
+              { backgroundColor: card, borderColor: text },
               creditsLeft === 0 && styles.disabledOption
             ]}
             onPress={handleCrowdfundingSelect}
+            disabled={creditsLeft === null}
           >
             <Text style={[styles.optionText, textStyle]}>
               {profile === 'company' ? '💸 Support' : '💸 Mission Mint'}
               (Credits Left - {creditsLeft ?? 0})
             </Text>
-            {creditsLeft === 0 && (
+            {creditsLeft === 0 && profile !== 'company' && (
               <Text style={styles.noCreditsText}>No credits available</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.optionBtn}
+            style={[styles.optionBtn, { backgroundColor: card, borderColor: text }]}
             onPress={() => {
               onSelect('regular');
+              resetNestedModals();
               setShowTypeModal(false);
             }}
           >
@@ -154,13 +186,13 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
           activeOpacity={1}
           onPress={() => { }}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, bgStyle]}>
             <View style={styles.modalHeader}>
               <Icon name="wallet-outline" size={50} color={text} />
             </View>
 
-            <Text style={styles.modalTitle}>No Credits Available</Text>
-              <Text style={styles.modalMessage}>
+            <Text style={[styles.modalTitle, textStyle]}>No Credits Available</Text>
+              <Text style={[styles.modalMessage, textStyle]}>
                 You need credits to create a {profile === 'company' ? 'Support' : 'Mission Mint'}.
                 Purchase credits to continue.
               </Text>
@@ -176,7 +208,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
               <TouchableOpacity
                 style={[styles.cancelButton, bgStyle]}
-                onPress={() => { setShowBuyCreditsModal(false); navigation.goBack(); }}
+                onPress={() => setShowBuyCreditsModal(false)}
               >
                 <Text style={[styles.cancelButtonText, textStyle]}>Cancel</Text>
               </TouchableOpacity>
@@ -184,6 +216,12 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <ActivateMissionPost
+        visible={showActivateMissionModal}
+        onClose={() => setShowActivateMissionModal(false)}
+        onLaunch={handleLaunchBusinessMission}
+      />
     </>
   );
 };
@@ -200,12 +238,10 @@ const styles = StyleSheet.create({
   },
   optionBtn: {
     paddingVertical: 14,
-    backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
   },
   disabledOption: {
     backgroundColor: '#f5f5f5',
@@ -230,7 +266,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 24,
     width: '100%',
@@ -248,13 +283,11 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#222',
     marginBottom: 12,
     textAlign: 'center',
   },
   modalMessage: {
     fontSize: 15,
-    color: '#666',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -287,7 +320,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#cfcfcf',
   },
   cancelButtonText: {
     fontSize: 16,

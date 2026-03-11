@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,23 +9,31 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import RBSheet from 'react-native-raw-bottom-sheet';
 
 import {
   followers as apiFollowers,
   following as apiFollowing,
 } from '../../services/profile';
-import TokenSellModal from '../../components/modals/TokenSellModal';
+import { follow, unfollow, getUserCredentials } from '../../services/post';
+import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
+import WalletSelectionModal from '../../components/modals/WalletSelectionModal';
+import WalletConnectedModal from '../../components/modals/WalletConnectedModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useDispatch } from 'react-redux';
+import { connectWalletLogin } from '../authentication/socialLogin';
+import { updateWallet } from '../../services/wallet';
+import {
+  getSupportRecipientWalletAddress,
+  handleMetaMaskSupportFlow,
+  openWalletPayment,
+} from '../../utils/metaMaskSupport';
 
-const BRAND = '#4c2a88ab';
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 export default function FollowersFollowingScreen({ navigation, route }) {
@@ -48,25 +56,24 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [followingList, setFollowingList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Token sell modal state
-  const sellSheetRef = useRef();
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [userTokens, setUserTokens] = useState(1000);
-  const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
+  const [followBusyById, setFollowBusyById] = useState({});
+  const [walletAddress, setWalletAddress] = useState('');
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
+  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
+  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
+  const [selectedSupportUser, setSelectedSupportUser] = useState(null);
   const toast = useToast();
+  const dispatch = useDispatch();
   const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     (async () => {
       const id = await AsyncStorage.getItem('userId');
+      const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
       setSelfUserId(id ? String(id) : null);
-
-      // Load user's token balance
-      const tokens = await AsyncStorage.getItem('PlatFormToken');
-      if (tokens) {
-        setUserTokens(parseInt(tokens) || 0);
-      }
+      setWalletAddress(storedWalletAddress || '');
     })();
   }, []);
 
@@ -74,10 +81,40 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     id: String(u?.id ?? u?._id ?? u?.userId ?? ''),
     username: u?.userName ?? u?.username ?? 'unknown',
     fullName: u?.displayName ?? u?.fullName ?? '',
+    profile: u?.profile ?? u?.accountType ?? '',
     avatar: u?.image ?? u?.avatar ?? DEFAULT_AVATAR,
     isFollowing: typeof u?.isFollowing === 'boolean' ? u.isFollowing : !!defaultFollowing,
-    tokenAddress: u?.userTokens?.[0]?.tokenAddress
+    tokenAddress: u?.userTokens?.[0]?.tokenAddress,
+    walletAddress:
+      u?.walletAddress ||
+      u?.walletId ||
+      u?.wallet ||
+      u?.userWalletAddress ||
+      u?.creatorWalletAddress ||
+      u?.vendorWalletAddress ||
+      u?.receiverWalletAddress ||
+      null,
   });
+
+  const enrichUsersWithProfile = useCallback(async (users = []) => {
+    const safeUsers = Array.isArray(users) ? users : [];
+    const updated = await Promise.all(
+      safeUsers.map(async (user) => {
+        if (!user?.id) return user;
+        try {
+          const response = await getUserCredentials(String(user.id));
+          const apiData = response?.data?.data ?? response?.data ?? {};
+          return {
+            ...user,
+            profile: apiData?.profile ?? user.profile ?? '',
+          };
+        } catch (_err) {
+          return user;
+        }
+      }),
+    );
+    return updated;
+  }, []);
 
   const loadData = useCallback(
     async (tab, { silent = false } = {}) => {
@@ -91,22 +128,25 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       try {
         if (tab === 'followers') {
           const res = await apiFollowers(profileUserId);
+          console.log(res, 'reposne in folowing liststst');
+
           const rows = res?.data?.data ?? res?.data ?? [];
           const users = rows
             .map(rel => rel?.follower || rel?.followerUser || rel?.user || null)
             .filter(Boolean)
             .map(u => shapeUser(u, { defaultFollowing: !!u?.isFollowing }));
-          setFollowersList(users);
+          const usersWithProfile = await enrichUsersWithProfile(users);
+          setFollowersList(usersWithProfile);
         } else {
           const res = await apiFollowing(profileUserId);
 
           const rows = res?.data?.data ?? res?.data ?? [];
-          console.log('res in following list-------->>>>>>>>>', rows);
           const users = rows
             .map(rel => rel?.following || rel?.user || null)
             .filter(Boolean)
             .map(u => shapeUser(u, { defaultFollowing: true }));
-          setFollowingList(users);
+          const usersWithProfile = await enrichUsersWithProfile(users);
+          setFollowingList(usersWithProfile);
         }
       } catch (e) {
         console.log(e);
@@ -118,7 +158,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         if (!silent) setLoading(false);
       }
     },
-    [profileUserIdFromRoute, selfUserId],
+    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile],
   );
 
   useEffect(() => {
@@ -133,25 +173,125 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     setRefreshing(false);
   }, [activeTab, loadData]);
 
-  // Updated function to handle opening TokenSellModal instead of API calls
-  const handleVallowingClick = useCallback(
-    (user, tab) => {
-      if (!user?.id) return;
+  const updateFollowState = useCallback((targetUserId, nextFollowing) => {
+    setFollowersList(prev =>
+      prev.map(u => (String(u.id) === String(targetUserId) ? { ...u, isFollowing: nextFollowing } : u)),
+    );
+    setFollowingList(prev =>
+      prev.map(u => (String(u.id) === String(targetUserId) ? { ...u, isFollowing: nextFollowing } : u)),
+    );
+  }, []);
 
-      console.log('Opening TokenSellModal for user:', user);
-      console.log('User token address:', user?.tokenAddress);
-      setSelectedUser(user);
-      sellSheetRef.current?.open();
+  const handleVallowingClick = useCallback(
+    async (user) => {
+      if (!user?.id) return;
+      if (followBusyById[user.id]) return;
+
+      const shouldFollow = !user.isFollowing;
+      setFollowBusyById(prev => ({ ...prev, [user.id]: true }));
+
+      try {
+        const res = shouldFollow ? await follow(user.id) : await unfollow(user.id);
+        const ok = res?.statusCode === 200 && (res?.success ?? true);
+
+        if (!ok) {
+          showToastMessage(
+            toast,
+            'danger',
+            res?.data?.message || res?.message || 'Unable to update follow',
+          );
+          return;
+        }
+
+        const serverVal = res?.data?.following;
+        const resolvedFollowing =
+          typeof serverVal === 'boolean' ? serverVal : shouldFollow;
+        updateFollowState(user.id, resolvedFollowing);
+
+        if (resolvedFollowing && shouldFollow) {
+          const recipientWalletAddress = getSupportRecipientWalletAddress(user);
+          if (recipientWalletAddress) {
+            setSelectedSupportUser({ ...user, isFollowing: true });
+            setSupportModalVisible(true);
+          }
+        }
+      } catch (e) {
+        showToastMessage(
+          toast,
+          'danger',
+          e?.response?.data?.message || 'Something went wrong',
+        );
+      } finally {
+        setFollowBusyById(prev => ({ ...prev, [user.id]: false }));
+      }
     },
-    [],
+    [followBusyById, toast, updateFollowState],
   );
 
-  // Handle successful token sell
-  const handleTokenSell = useCallback(() => {
-    sellSheetRef.current?.close();
-    showToastMessage(toast, 'success', 'Tokens sold successfully!');
-    onRefresh();
-  }, [onRefresh]);
+  const recipientWalletAddress = useMemo(
+    () => (selectedSupportUser ? getSupportRecipientWalletAddress(selectedSupportUser) : null),
+    [selectedSupportUser],
+  );
+
+  const canSupport = !!recipientWalletAddress;
+
+  const handleOpenSupportDisclaimer = useCallback(() => {
+    setSupportModalVisible(false);
+    setSupportDisclaimerVisible(true);
+  }, []);
+
+  const handleWalletSelect = useCallback(async (wallet) => {
+    setWalletSelectionVisible(false);
+
+    try {
+      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
+        returnAddressOnly: true,
+        walletType: wallet.id,
+      });
+
+      if (connectedAddress) {
+        await AsyncStorage.setItem('walletAddress', connectedAddress);
+        await AsyncStorage.setItem('walletType', wallet.id);
+        setWalletAddress(connectedAddress);
+        try {
+          await updateWallet({ walletAddress: connectedAddress });
+        } catch (walletUpdateError) {
+          console.error('Wallet update API error:', walletUpdateError);
+        }
+
+        setConnectedWalletInfo({
+          name: wallet.name,
+          address: connectedAddress,
+        });
+        setWalletConnectedModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
+    }
+  }, [toast, navigation, dispatch]);
+
+  const handleWalletConnectedContinue = useCallback(async () => {
+    setWalletConnectedModalVisible(false);
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [recipientWalletAddress]);
+
+  const handleSupportNow = useCallback(async () => {
+    if (!canSupport) return;
+    setSupportDisclaimerVisible(false);
+    await handleMetaMaskSupportFlow({
+      recipientWalletAddress,
+      walletAddress,
+      setWalletAddress,
+      toast,
+      navigation,
+      dispatch,
+      onShowWalletSelection: () => setWalletSelectionVisible(true),
+    });
+  }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
 
   const filteredFollowers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -173,48 +313,74 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     );
   }, [search, followingList]);
 
+  const getUserAccentColor = useCallback((profileType) => {
+    return String(profileType || '').toLowerCase() === 'company'
+      ? '#D3B683'
+      : '#5a2d82';
+  }, []);
+
+  const goToUserProfile = useCallback(
+    (user) => {
+      if (!user?.id) return;
+
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: user.id,
+          username: user.username,
+          // returnTo: route?.name,
+          // stackName: 'ProfileMain',
+        },
+      });
+    },
+    [navigation],
+  );
+
+
   const renderItem =
     tab =>
       ({ item }) => {
         const isFollowingState = !!item.isFollowing;
+        const accentColor = getUserAccentColor(item?.profile);
 
         return (
-          <TouchableOpacity style={[styles.userRow, { shadowColor: text }]} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.userRow, { shadowColor: accentColor }]} activeOpacity={0.7} onPress={() => goToUserProfile(item)}>
             <Image
               source={{
                 uri: !imageError && item.avatar ? item.avatar : DEFAULT_AVATAR,
               }}
-              style={[styles.avatar, { borderColor: text }]}
+              style={[styles.avatar, { borderColor: accentColor }]}
               onError={() => setImageError(true)}
             />
             <View style={styles.userInfo}>
-              <Text style={[styles.username, textStyle]}>{item.username}</Text>
+              <Text style={[styles.username,{color:accentColor} ]}>{item.username}</Text>
               {!!item.fullName && (
                 <Text style={styles.fullName}>{item.fullName}</Text>
               )}
+              {/* {!!item.profile && (
+                <Text style={[styles.profileType, { color: accentColor }]}>{item.profile}</Text>
+              )} */}
             </View>
 
-            {isFollowingState &&
-              <>
-                {String(item.id) !== String(selfUserId) && (
-                  <TouchableOpacity
-                    style={[
-                      styles.followBtn,
-                      isFollowingState ? (styles.following && { borderColor: text }) : (styles.follow && { backgroundColor: text }),
-                    ]}
-                    onPress={() => handleVallowingClick(item, tab)}
-                  >
-                    <Text
-                      style={
-                        isFollowingState ? (styles.followingText && textStyle) : styles.followText
-                      }
-                    >
-                      {isFollowingState ? 'Vallowing' : 'Vallow'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            }
+            {String(item.id) !== String(selfUserId) && (
+              <TouchableOpacity
+                style={[
+                  styles.followBtn,
+                  isFollowingState
+                    ? [styles.following, { borderColor: accentColor }]
+                    : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
+                ]}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  handleVallowingClick(item);
+                }}
+                disabled={!!followBusyById[item.id]}
+              >
+                <Text style={isFollowingState ? [styles.followingText, { color: accentColor }] : styles.followText}>
+                  {followBusyById[item.id] ? '...' : isFollowingState ? 'Following' : 'Follow'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         );
       };
@@ -248,13 +414,13 @@ export default function FollowersFollowingScreen({ navigation, route }) {
               activeTab === 'followers' && styles.tabTextActive,
             ]}
           >
-            Vallowers
+            Followers
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.tabBtn,
-            activeTab === 'following' && styles.tabBtnActive,
+            activeTab === 'following' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
           ]}
           onPress={() => setActiveTab('following')}
         >
@@ -265,7 +431,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
               activeTab === 'following' && styles.tabTextActive,
             ]}
           >
-            Vallowing
+            Following
           </Text>
         </TouchableOpacity>
       </View>
@@ -274,7 +440,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       <TextInput
         style={[styles.searchBar, { shadowColor: text }]}
         placeholder={
-          activeTab === 'followers' ? 'Search vallowers' : 'Search vallowing'
+          activeTab === 'followers' ? 'Search Followers' : 'Search Following'
         }
         placeholderTextColor="#888"
         value={search}
@@ -299,47 +465,39 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           ListEmptyComponent={() => (
             <View style={{ alignItems: 'center', paddingTop: 30 }}>
               <Text style={{ color: '#888' }}>
-                No {activeTab === 'followers' ? 'vallowers' : 'vallowing'} yet
+                No {activeTab === 'followers' ? 'Followers' : 'Following'} yet
               </Text>
             </View>
           )}
         />
       )}
 
-      {/* Token Sell Modal */}
-      <RBSheet
-        ref={sellSheetRef}
-        height={530}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        onOpen={() => setPurchaseAutoFocus(true)}
-        onClose={() => {
-          Keyboard.dismiss();
-          setPurchaseAutoFocus(false);
-          setSelectedUser(null);
-        }}
-        customStyles={{
-          container: [{
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            bottom: -30,
-          }, bgStyle],
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
-        }}
-      >
-        {selectedUser && (
-          <TokenSellModal
-            onSell={handleTokenSell}
-            userId={selectedUser?.id}
-            tokenAddress={selectedUser?.tokenAddress}
-          />
-        )}
-      </RBSheet>
+      <SupportCreatorModal
+        visible={supportModalVisible}
+        creatorName={selectedSupportUser?.username || 'Creator'}
+        onClose={() => setSupportModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={selectedSupportUser?.username || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
+        onSupport={handleSupportNow}
+      />
+      <WalletSelectionModal
+        visible={walletSelectionVisible}
+        onClose={() => setWalletSelectionVisible(false)}
+        onSelectWallet={handleWalletSelect}
+      />
+      <WalletConnectedModal
+        visible={walletConnectedModalVisible}
+        onClose={() => setWalletConnectedModalVisible(false)}
+        walletName={connectedWalletInfo.name}
+        walletAddress={connectedWalletInfo.address}
+        onContinue={handleWalletConnectedContinue}
+      />
+
     </SafeAreaView>
   );
 }
@@ -430,6 +588,7 @@ const styles = StyleSheet.create({
   userInfo: { flex: 1 },
   username: { fontWeight: '700', fontSize: 16 },
   fullName: { color: '#6B7280', fontSize: 14 },
+  profileType: { color: '#8B5CF6', fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   // Follow button
   followBtn: {
@@ -443,6 +602,9 @@ const styles = StyleSheet.create({
   following: {
     backgroundColor: '#f3f0f7',
     borderWidth: 1.5,
+  },
+  follow: {
+    // backgroundColor: '#5a2d82',
   },
   followText: {
     color: '#fff',

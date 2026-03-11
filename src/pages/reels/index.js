@@ -201,8 +201,8 @@ export default function FlipsScreen() {
       const transformedParamReel = {
         id: paramReel.id || `param_${Date.now()}`,
         video: paramReel.images?.[0] || paramReel.video || '',
-        user: paramReel.userName || 'Unknown User',
-        avatar: paramReel.userImage || 'https://randomuser.me/api/portraits/men/1.jpg',
+        user: paramReel.userName || paramReel.username || 'Unknown User',
+        avatar: paramReel.userImage || paramReel.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
         caption: paramReel.caption || paramReel.text || 'No caption',
         music: paramReel.music || 'Original Audio',
         likes: paramReel.likeCount || 0,
@@ -217,7 +217,7 @@ export default function FlipsScreen() {
         isRemixable: true,
         isSaved: paramReel.isSaved || false,
         isHide: paramReel.isHide || false,
-        userId: paramReel.userId,
+        userId: paramReel.userId || paramReel.UserId,
         hashtag: paramReel.hashtag || [],
         location: paramReel.location || null,
         taggedPeople: paramReel.taggedPeople || [],
@@ -333,6 +333,12 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
+    // Prefer stack back to return exactly to the previous screen instance.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
@@ -346,7 +352,7 @@ export default function FlipsScreen() {
         navigation.navigate(returnTo, returnParams);
       }
     } else {
-      navigation.goBack();
+      navigation.navigate('HomeMain');
     }
   }, [navigation, route.params]);
 
@@ -355,7 +361,20 @@ export default function FlipsScreen() {
 
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 95 });
 
-  // Handlers
+  // Handle scroll to prevent scrolling beyond last reel
+  const handleScroll = useCallback((event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const maxScroll = (reels.length - 1) * SCREEN_HEIGHT;
+    
+    // If trying to scroll beyond the last reel, prevent it
+    if (offsetY > maxScroll + 50) { // 50px threshold
+      flatListRef.current?.scrollToIndex({
+        index: reels.length - 1,
+        animated: false
+      });
+    }
+  }, [reels.length]);
+
   const handleLike = useCallback(
     async (id) => {
       if (!id) return;
@@ -474,7 +493,6 @@ export default function FlipsScreen() {
         resp = isCurrentlySaved
           ? await unSavePost(reelId)
           : await savePost(reelId);
-          console.log(resp,'respose get in this paiiapaiaiaa baa ')
         if (resp && resp.statusCode === 200) {
           showToastMessage(toast, 'success', resp.data.message);
           Alert.alert(resp?.data?.message)
@@ -716,7 +734,7 @@ export default function FlipsScreen() {
       {/* Bottom content */}
       <View style={styles.bottomContent}>
         {/* Try Remix button */}
-        {item.isRemixable && (
+        {/* {item.isRemixable && (
           <TouchableOpacity
             style={styles.remixButton}
             onPress={() => handleRemix(item)}
@@ -724,7 +742,7 @@ export default function FlipsScreen() {
             <MaterialIcons name="auto-awesome" size={16} color="#fff" />
             <Text style={styles.remixText}>Try Remix</Text>
           </TouchableOpacity>
-        )}
+        )} */}
 
         {/* User info */}
         <View style={styles.userInfo}>
@@ -751,7 +769,7 @@ export default function FlipsScreen() {
             </Text>
             <TouchableOpacity style={styles.followButton} onPress={() => switchFollowing(item.id)}
             >
-              <Text style={styles.followButtonText}>{!item.isFollowing ? 'Vallow' : 'Vallowing'}</Text>
+              <Text style={styles.followButtonText}>{!item.isFollowing ? 'Follow' : 'Following'}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
@@ -798,14 +816,17 @@ export default function FlipsScreen() {
 
   const handleUserNavigate = async (id) => {
     const userId = await AsyncStorage.getItem('userId');
-    const paramReel = route.params?.item;
+    const currentReel = reels[currentIndex];
+    const targetUserId = currentReel?.userId || route.params?.item?.userId || route.params?.item?.UserId;
 
-    if (userId === paramReel.userId) {
+    if (!targetUserId) return;
+
+    if (String(userId) === String(targetUserId)) {
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: { userId: paramReel.userId }
+        params: { userId: targetUserId }
       });
     }
   };
@@ -839,12 +860,27 @@ export default function FlipsScreen() {
         pagingEnabled
         showsVerticalScrollIndicator={false}
         decelerationRate={0.98}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         onViewableItemsChanged={onViewableItemsChanged}
         onMomentumScrollEnd={(e) => {
           const offsetY = e.nativeEvent.contentOffset.y || 0;
           const idx = Math.round(offsetY / SCREEN_HEIGHT);
-          if (idx !== currentIndex) {
-            setCurrentIndex(idx);
+          const maxIndex = reels.length - 1;
+          
+          // Ensure we don't go beyond the last reel
+          const validIdx = Math.min(idx, maxIndex);
+          
+          if (validIdx !== currentIndex) {
+            setCurrentIndex(validIdx);
+          }
+          
+          // If scrolled beyond last reel, snap back
+          if (idx > maxIndex) {
+            flatListRef.current?.scrollToIndex({
+              index: maxIndex,
+              animated: true
+            });
           }
         }}
         viewabilityConfig={viewConfigRef.current}
@@ -856,6 +892,10 @@ export default function FlipsScreen() {
           offset: SCREEN_HEIGHT * index,
           index,
         })}
+        overScrollMode='never'
+        bounces={false}
+        scrollEnabled={reels.length > 0}
+        removeClippedSubviews={true}
       />
 
       {/* Dropdown Menu */}
@@ -868,7 +908,7 @@ export default function FlipsScreen() {
             <View style={styles.arrowUp} />
             <TouchableOpacity style={styles.dropdownOption}>
               <Icon name="people-outline" size={22} color="#000" />
-              <Text style={styles.dropdownText}>Vallowing</Text>
+              <Text style={styles.dropdownText}>Following</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dropdownOption}>
               <Icon name="location-outline" size={22} color="#000" />
@@ -1060,8 +1100,7 @@ export default function FlipsScreen() {
         </ScrollView>
       </RBSheet>
 
-      <ShareModal ref={shareRef} reel={reels[currentIndex]}
-        reelId={reels[currentIndex]?.id} />
+      <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
       <ReportFlowScreen ref={reportSheetRef} />
     </SafeAreaView>
   );
@@ -1071,7 +1110,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    marginBottom:'10%'
+    // marginBottom:'10%'
   },
   reelContainer: {
     width: SCREEN_WIDTH,
@@ -1126,7 +1165,7 @@ const styles = StyleSheet.create({
     top: 5,
     left: 0,
     right: 0,
-    zIndex:100,
+    zIndex: 100,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1150,6 +1189,9 @@ const styles = StyleSheet.create({
   headerIconButton: {
     padding: 8,
   },
+  buttons: {
+    padding: 8,
+  },
   sideActions: {
     position: 'absolute',
     right: 12,
@@ -1168,7 +1210,7 @@ const styles = StyleSheet.create({
   },
   musicDisc: {
     marginTop: 10,
-    marginBottom:'10%'
+    marginBottom: '10%'
   },
   discContainer: {
     width: 30,
@@ -1592,15 +1634,9 @@ const styles = StyleSheet.create({
     top: 7,
     left: 5,
   },
-  marqueeText: {
-    fontSize: 12,
-    color: '#fff',
-    width: 100,
-  },
   musicIcon: {
     marginTop: 4
-  }
-  ,
+  },
   dragHandle: {
     width: 40,
     height: 4,

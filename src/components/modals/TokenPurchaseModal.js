@@ -9,6 +9,9 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,14 +22,16 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const [loading, setLoading] = useState(true);
   const [bottomPad, setBottomPad] = useState(0);
   const [activeInput, setActiveInput] = useState('amount');
-  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false); // Add this state
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
 
   const updateInProgress = useRef(false);
   const amountInputRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const { textStyle, text } = useAppTheme();
-
+  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const paymentCompletedRef = useRef(false);
   const calculateBreakdown = (inputAmount) => {
     const baseAmount = parseFloat(inputAmount) || 0;
     const platformFee = baseAmount * 0.05;
@@ -129,18 +134,18 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   };
 
 
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
-      setBottomPad(e?.endCoordinates?.height ?? 0);
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      requestAnimationFrame(() => setBottomPad(0));
-    });
-    return () => {
-      showSub?.remove?.();
-      hideSub?.remove?.();
-    };
-  }, []);
+  // useEffect(() => {
+  //   const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+  //     setBottomPad(e?.endCoordinates?.height ?? 0);
+  //   });
+  //   const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+  //     requestAnimationFrame(() => setBottomPad(0));
+  //   });
+  //   return () => {
+  //     showSub?.remove?.();
+  //     hideSub?.remove?.();
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (!updateInProgress.current && activeInput === 'amount' && !loading && tokenRate > 0) {
@@ -209,6 +214,12 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
       return;
     }
 
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
+
     try {
       setIsProcessingPurchase(true);
       dispatch(showLoader());
@@ -226,45 +237,36 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
 
       console.log('Purchase request body:', requestBody);
       const response = await purchaseTokenWithUSD(requestBody);
+      const url = getPaymentSessionUrl(response);
 
-      if (response && response.statusCode === 200) {
-        const url = response?.data?.sessionUrl;
-
+      if (url) {
         try {
           if (await InAppBrowser.isAvailable()) {
-            await InAppBrowser.open(url, {
-              dismissButtonStyle: 'close',
-              preferredBarTintColor: '#ffffff',
-              preferredControlTintColor: '#000000',
-              readerMode: false,
-              animated: true,
-              modalPresentationStyle: 'fullScreen',
-              modalTransitionStyle: 'coverVertical',
-              enableBarCollapsing: false,
-              showTitle: true,
-              forceCloseOnRedirection: false,
-            });
-
-            console.log('InAppBrowser closed');
-            // Event will handle refresh
+            paymentCompletedRef.current = false;
+            await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
+            if (!paymentCompletedRef.current) {
+              setIsProcessingPurchase(false);
+              dispatch(hideLoader());
+              showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.PAYMENT_CANCELLED);
+            }
           } else {
             await Linking.openURL(url);
             setIsProcessingPurchase(false);
             dispatch(hideLoader());
           }
-        } catch (error) {
-          console.error('InAppBrowser error:', error);
+        } catch (err) {
           setIsProcessingPurchase(false);
           dispatch(hideLoader());
+          showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
         }
       } else {
-        showToastMessage(toast, 'danger', response?.message || 'Payment failed');
+        showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
         setIsProcessingPurchase(false);
         dispatch(hideLoader());
       }
     } catch (error) {
       console.error('Payment error:', error);
-      showToastMessage(toast, 'danger', 'Payment failed');
+      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
       setIsProcessingPurchase(false);
       dispatch(hideLoader());
     }
@@ -329,12 +331,15 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   }
 
   return (
+    <>
     <KeyboardAwareScrollView
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomPad + 24 }}
+      contentContainerStyle={{ flexGrow: 1, marginBottom: -10 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       enableOnAndroid={true}
-      extraScrollHeight={16}
+      extraScrollHeight={0}
+      extraHeight={0}
+      enableAutomaticScroll={false}
     >
       <View style={styles.content}>
         {/* Token Info */}
@@ -485,6 +490,19 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         </TouchableOpacity>
       </View>
     </KeyboardAwareScrollView>
+
+    <StripePaymentMethodModal
+      visible={showPaymentMethodModal}
+      onClose={() => setShowPaymentMethodModal(false)}
+      onConnectStripe={async () => {
+        try {
+          await openPaymentConnectionAndRefresh();
+        } catch (e) {
+          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        }
+      }}
+    />
+    </>
   );
 };
 
@@ -547,6 +565,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingTop: 16,
+    marginBottom: 10,
+    // paddingBottom:20,
   },
 
   // Token Info Section

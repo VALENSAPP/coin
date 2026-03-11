@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity, Alert } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
@@ -31,6 +31,8 @@ export default function OptionsModal({
     onSelect?.(action, { postId });
     // sheetRef.current?.close();
   };
+  // console.log(postId,'post it sgreaag');
+  
   const report = () => {
     sheetRef.current?.close();
 
@@ -38,14 +40,20 @@ export default function OptionsModal({
       reportRef.current?.open();
     }, 300);
   };
-
+  const muteUser = () => {
+  sheetRef.current?.close();
+  Alert.alert(
+    'User Muted',
+    'You will no longer receive notifications from this user.'
+  );
+};
 
   return (
     <>
       <RBSheet
         ref={sheetRef}
         draggable
-        height={280}
+        height={250}
         onClose={onClose}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
@@ -58,54 +66,44 @@ export default function OptionsModal({
         <ScrollView>
           <View style={[styles.mainContainer, bgStyle]}>
             <View style={[styles.innerContainer, bgStyle]}>
-              <Pressable style={styles.innerRow} onPress={() => tap('copyAddress')}>
+              <TouchableOpacity style={styles.innerRow} onPress={() => tap('copyAddress')}>
                 <FontAwesomeIcon name="copy" size={20} color="#262626" />
                 <Text style={styles.innerText}>Copy address</Text>
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable style={styles.innerRow} onPress={() => tap('toggleSave')}>
+              <TouchableOpacity style={styles.innerRow} onPress={() => tap('toggleSave')}>
                 <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color="#262626" />
                 <Text style={styles.innerText}>{isSaved ? 'Unsave Post' : 'Save Post'}</Text>
-              </Pressable>
-
-              {/* <Pressable style={styles.innerRow} onPress={() => tap('openExplorer')}>
-              <FontAwesomeIcon name="internet-explorer" size={20} color="#262626" />
-              <Text style={styles.innerText}>View in explorer</Text>
-            </Pressable>
-
-            <Pressable style={styles.innerRow} onPress={() => tap('openDexscreener')}>
-              <MaterialIcons name="screenshot-monitor" size={20} color="#262626" />
-              <Text style={styles.innerText}>View on Dexscreener</Text>
-            </Pressable> */}
+              </TouchableOpacity>
             </View>
 
             <View style={styles.innerContainer}>
-              {
+              {/* {
                 canDelete &&
-                <Pressable style={styles.innerRow} onPress={() => tap('hidePost')}>
+                <TouchableOpacity style={styles.innerRow} onPress={() => tap('hidePost')}>
                   <MaterialIcons name={isHidden ? 'visibility' : 'visibility-off'} size={20} color="#262626" />
                   <Text style={styles.innerText}>
                     {hideBusy ? 'Please wait...' : isHidden ? 'Unhide post' : 'Hide post'}
                   </Text>
-                </Pressable>
-              }
+                </TouchableOpacity>
+              } */}
 
               {fromHome && !canDelete ? (
                 <>
-                  <Pressable style={styles.innerRow} onPress={() => tap('muteUser')}>
+                  {/* <TouchableOpacity style={styles.innerRow} onPress={muteUser}>
                     <FontAwesome5Icon name="volume-mute" size={20} color="red" />
                     <Text style={[styles.innerText, { color: 'red' }]}>Mute (username)</Text>
-                  </Pressable>
-                  <Pressable style={styles.innerRow} onPress={report}>
+                  </TouchableOpacity> */}
+                  <TouchableOpacity style={styles.innerRow} onPress={report}>
                     <MaterialIcons name="report-gmailerrorred" size={20} color="red" />
                     <Text style={[styles.innerText, { color: 'red' }]}>Report</Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 </>
               ) : (
-                <Pressable style={styles.innerRow} onPress={() => tap('deletePost')}>
+                <TouchableOpacity style={styles.innerRow} onPress={() => tap('deletePost')}>
                   <MaterialIcons name="delete" size={20} color="red" />
                   <Text style={[styles.innerText, { color: 'red' }]}>Delete Post</Text>
-                </Pressable>
+                </TouchableOpacity>
               )}
             </View>
           </View>

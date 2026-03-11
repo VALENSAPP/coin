@@ -36,9 +36,13 @@ import { loggedIn } from '../../../redux/actions/LoginAction';
 import TextGradient from '../../../assets/textgradient/TextGradient';
 import { AuthHeader } from '../../../components/auth';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
+import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import DeviceInfo from 'react-native-device-info';
+import { getOnboardingStatus } from '../../../services/profile';
+import { ensureCurrentAccountSaved, ADDING_ACCOUNT_FLAG_KEY } from '../../../utils/accountSession';
 
 const { width, height } = Dimensions.get('window');
+const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -62,11 +66,34 @@ export default function LoginScreen() {
       if (id) {
         const response = await getProfile(id);
         console.log('in profile response ----->>>>>>>>> ', response)
-        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
-          showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+        if (response?.statusCode === 200) {
+          try {
+            const onboardingStatusResponse = await getOnboardingStatus();
+            if (onboardingStatusResponse?.statusCode === 200) {
+              await AsyncStorage.setItem(
+                STRIPE_ONBOARDING_STATUS_KEY,
+                JSON.stringify(onboardingStatusResponse?.data ?? null),
+              );
+            }
+          } catch (onboardingError) {
+            console.log('getOnboardingStatus on login error:', onboardingError?.message);
+          }
+        }
+
+        const normalizedKycStatus = String(response?.data?.kycStatus || '').toUpperCase();
+        if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED' && normalizedKycStatus === 'true')) {
+          await ensureCurrentAccountSaved({
+            profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
+            username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+            email: response?.data?.email || (await AsyncStorage.getItem('email')),
+          });
+          await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
+          await AsyncStorage.setItem('isLoggedIn', 'true');
+          dispatch(loggedIn());
+          // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
         }
-        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
+        else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
           navigation.navigate('CreateProfile');
         }
@@ -89,9 +116,13 @@ export default function LoginScreen() {
           navigation.navigate('CreateProfile');
         }
         else {
-          // const profile = response?.data?.profile
-          // await AsyncStorage.setItem('profile', profile);
-          // dispatch(setUserProfile(profile));
+          await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
+          await ensureCurrentAccountSaved({
+            profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
+            username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+            email: response?.data?.email || (await AsyncStorage.getItem('email')),
+          });
+          await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
           showToastMessage(toast, 'success', 'User logged in successfully');
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
@@ -189,13 +220,22 @@ export default function LoginScreen() {
         registrationType: 'NORMAL',
       });
       if (response && response.statusCode == 200) {
-        console.log('login response ===================>', response);
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
         await AsyncStorage.setItem(
           'refreshToken',
           response.data.user.refresh_token,
         );
+        if (response?.data?.user?.userName || response?.data?.user?.username) {
+          await AsyncStorage.setItem(
+            'username',
+            response?.data?.user?.userName || response?.data?.user?.username,
+          );
+        }
+        if (response?.data?.user?.email) {
+          await AsyncStorage.setItem('email', response?.data?.user?.email);
+        }
+        await persistStripeCustomerId(response.data.user.stripeCustomerId ?? null, dispatch);
         if (
           response.data.user.walletAddress &&
           response.data.user.walletPrivateKey &&
@@ -263,7 +303,7 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               {/* Email Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Email or Username</Text>
+                <Text style={styles.inputLabel}>Email</Text>
                 <View
                   style={[
                     styles.inputGroup,

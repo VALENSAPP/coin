@@ -11,6 +11,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Video from 'react-native-video';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../../components/customButton/customButton';
@@ -36,6 +37,38 @@ const PostEditorScreen = () => {
 
   const toast = useToast();
   console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType, });
+
+  const getMediaUri = (media) =>
+    media?.processedUri ||
+    media?.originalUri ||
+    media?.path ||
+    media?.uri ||
+    media?.sourceURL ||
+    '';
+
+  const getMediaKey = (media, index) =>
+    media?.processedUri ||
+    media?.originalUri ||
+    media?.path ||
+    media?.uri ||
+    media?.sourceURL ||
+    `media-${index}`;
+
+  const isMediaVideo = (media) => {
+    if (!media) return false;
+    if (media?.isVideo === true) return true;
+    if (typeof media?.type === 'string' && media.type.toLowerCase().includes('video')) return true;
+    if (Number(media?.duration) > 0) return true;
+    const uri = getMediaUri(media).toLowerCase();
+    return ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp'].some(ext => uri.includes(ext));
+  };
+
+  const getVideoPosterUri = (media) =>
+    media?.thumbnail ||
+    media?.thumb ||
+    media?.poster ||
+    media?.previewUri ||
+    '';
 
   useEffect(() => {
     const loadProfileType = async () => {
@@ -82,13 +115,19 @@ const PostEditorScreen = () => {
       const payload = {
         caption: caption.trim(),
         media: images.map(img => ({
-          uri: img.processedUri || img.uri,
+          uri: getMediaUri(img),
           type: img.type,
-          name: (img.processedUri || img.uri).split('/').pop()
+          name: getMediaUri(img).split('/').pop()
 
         })),
-        type: fromIcon == 'Flips' ? 'reel' : 'normal',
-      };
+        type:
+        //  fromIcon === 'Flips'
+        //   ? 'reel'
+        //   : 
+          postType === 'private'
+            ? 'private'
+            : 'normal',
+        };
 
       try {
         const response = await createPost(payload);
@@ -136,12 +175,29 @@ const PostEditorScreen = () => {
               contentContainerStyle={styles.imagesContainer}
             >
               {images.map((img, idx) => (
-                <View key={idx} style={styles.imageThumbWrapper}>
-                  <Image
-                    source={{ uri: img.processedUri || img.uri }}
-                    style={styles.imageThumb}
-                    resizeMode="cover"
-                  />
+                <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
+                  {isMediaVideo(img) ? (
+                    <View style={styles.videoThumbContainer}>
+                      <Video
+                        source={{ uri: getMediaUri(img) }}
+                        style={styles.imageThumb}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        controls={false}
+                        poster={getVideoPosterUri(img) || undefined}
+                      />
+                      <View style={styles.videoBadge}>
+                        <Icon name="play" size={14} color="#fff" />
+                      </View>
+                    </View>
+                  ) : (
+                    <Image
+                      source={{ uri: getMediaUri(img) }}
+                      style={styles.imageThumb}
+                      resizeMode="cover"
+                    />
+                  )}
                   {img.appliedFilter && img.appliedFilter !== 'none' && (
                     <View style={styles.filterBadge}>
                       <Text style={styles.filterBadgeText}>{img.filterName}</Text>
@@ -185,6 +241,7 @@ const PostEditorScreen = () => {
             onChangeText={setCaption}
             multiline
             textAlignVertical="top"
+            placeholderTextColor={'#e0e0e0'}
           />
         </View>
 
@@ -253,6 +310,20 @@ const styles = StyleSheet.create({
     height: screenWidth * 0.3,
     borderRadius: 8
   },
+  videoThumbContainer: {
+    position: 'relative',
+  },
+  videoBadge: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   filterBadge: {
     position: 'absolute',
     top: 6,
@@ -299,7 +370,6 @@ const styles = StyleSheet.create({
   },
   instagramBtn: {
     color: '#fff',
-    borderWidth: 1,
     marginLeft: 20
   },
   socialBtn: {

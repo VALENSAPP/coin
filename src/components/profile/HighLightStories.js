@@ -12,17 +12,17 @@ const HighlightStories = ({ userData }) => {
   
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={[styles.card, { shadowColor: text }]} onPress={() => { navigation.navigate('CreatorCoin') }}>
-        <Text style={[styles.cardTitle, { color: text }]}>Score</Text>
-        <Text style={styles.cardValue}>${userData?.tokenBalance}</Text>
+      {/* <TouchableOpacity style={[styles.card, { shadowColor: text }]} onPress={() => { navigation.navigate('CreatorCoin') }}> */}
+        {/* <Text style={[styles.cardTitle, { color: text }]}>Score</Text> */}
+        {/* <Text style={styles.cardValue}>${userData?.tokenBalance}</Text> */}
         {/* <Ionicons name="chevron-forward" size={18} color="#000" style={styles.cardIcon} /> */}
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.card, { shadowColor: text }]} activeOpacity={0.5}
+      {/* </TouchableOpacity> */}
+      {/* <TouchableOpacity style={[styles.card, { shadowColor: text }]} activeOpacity={0.5}
         onPress={() => setModalVisible(true)}>
         <Text style={[styles.cardTitle, { color: text }]}>Top holders</Text>
         {/* <Text style={styles.cardValue}>NEW</Text> */}
-        <Ionicons name="chevron-forward" size={18} color="#000" style={[textStyle]} />
-      </TouchableOpacity>
+        {/* <Ionicons name="chevron-forward" size={18} color="#000" style={[textStyle]} />
+      </TouchableOpacity> */} 
 
       <TopHoldersModal
         visible={modalVisible}

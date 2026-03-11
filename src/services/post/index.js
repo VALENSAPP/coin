@@ -45,12 +45,16 @@ export const createPost = async data => {
   return axiosInstance.post('post/create', formData);
 }
 
-export const getPostByUser = async userId => {
+export const getPostByUser = async (userId, type = '') => {
   if (!userId || typeof userId !== 'string') {
-    throw new Error('getPostsByUser: you must pass a valid userId');
+    throw new Error('getPostByUser: you must pass a valid userId');
   }
+
   return axiosInstance.get('post/by-user', {
-    params: { userId }
+    params: {
+      userId,
+      type,
+    },
   });
 };
 
@@ -58,7 +62,7 @@ export const getPostById = async (postId) => {
   if (!postId || typeof postId !== 'string') {
     throw new Error('getPostById: you must pass a valid postId');
   }
-  return await axiosInstance.get(`post/${postId}`);
+  return await axiosInstance.get(`post/by-id/${postId}`);
 
 };
 
@@ -118,10 +122,13 @@ export async function unfollow(followingId) {
 }
 
 export async function HidePost(postId) {
+    console.log(HidePost,'hide post')
+
   return axiosInstance.post('post/hide', { postId })
 }
 
 export async function unHidePost(postId) {
+  console.log(unHidePost,'unhide post')
   return axiosInstance.post('post/unhide', { postId })
 }
 
