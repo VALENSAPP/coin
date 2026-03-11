@@ -26,12 +26,13 @@ import { ensureCurrentAccountSaved } from './utils/accountSession';
 
 const linking = {
   prefixes: [
-    'https://www.valenscorp.com',
-    'https://valenscorp.com',
-    'https://www.valens.app',
-    'https://valens.app',
+    // 'https://www.valenscorp.com',
+    // 'https://valenscorp.com',
+    // 'https://www.valens.app',
+    // 'https://valens.app',
+    'https://valensApp.com',
     'com.valens://',
-    'valens://',
+    // 'valens://',
   ],
   config: {
     screens: {
@@ -42,8 +43,6 @@ const linking = {
   },
 };
 
-const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
-const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
@@ -91,8 +90,8 @@ export default function Main() {
       }
 
       const response = await getUserCredentials(id);
-      console.log(response,'respones in this parts what it get ');
-      
+      console.log(response, 'respones in this parts what it get ');
+
       if (response?.statusCode !== 200) {
         return;
       }

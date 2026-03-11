@@ -950,7 +950,7 @@ export default function FlipsScreen() {
       {/* More Options Bottom Sheet */}
       <RBSheet
         ref={moreOptionsSheetRef}
-        height={400}
+        height={350}
         openDuration={250}
         customStyles={{
           container: {
@@ -967,7 +967,7 @@ export default function FlipsScreen() {
             <Text style={styles.moreOptionsTitle}>More Options</Text>
           </View>
           <ScrollView style={styles.moreOptionsList}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.moreOption}
               onPress={() => {
                 moreOptionsSheetRef.current?.close();
@@ -977,7 +977,7 @@ export default function FlipsScreen() {
               <MaterialIcons name="library-music" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Music Templates</Text>
               <Icon name="chevron-forward" size={20} color="#666" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={styles.moreOption}
               onPress={() => {

@@ -78,11 +78,11 @@ const ShareProfile = ({ navigation }) => {
         : 'com.valens://profile';
       const webFallback = resolvedUsername
         ? resolvedUserId
-          ? `https://www.valenscorp.com/profile/${encodedUsername}?userId=${encodedUserId}`
-          : `https://www.valenscorp.com/profile/${encodedUsername}`
+          ? `https://valens.app/profile/${encodedUsername}?userId=${encodedUserId}`
+          : `https://valens.app/profile/${encodedUsername}`
         : resolvedUserId
-          ? `https://www.valenscorp.com/profile?userId=${encodedUserId}`
-          : 'https://www.valenscorp.com/profile';
+          ? `https://valens.app/profile?userId=${encodedUserId}`
+          : 'https://valens.app/profile';
 
       const result = await Share.share({
         message: [
@@ -93,8 +93,8 @@ const ShareProfile = ({ navigation }) => {
           `Open in Valens:`,
           `${deepLink}`,
           '',
-          // `No app? Open on web:`,
-          // `${webFallback}`,
+          `Open on web:`,
+          `${webFallback}`,
         ].join('\n'),
       });
 

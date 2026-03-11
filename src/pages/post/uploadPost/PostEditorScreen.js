@@ -79,13 +79,11 @@ const PostEditorScreen = () => {
     loadProfileType();
   }, []);
   const handlePost = async () => {
-    // if user is business profile, only navigate to CreateMission
-    if (profile == 'company') {
+    if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
         showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
         return;
       }
-
 
       navigation.navigate('CreateMission', {
         images,
@@ -95,56 +93,39 @@ const PostEditorScreen = () => {
       return;
     }
 
+    dispatch(showLoader());
+    const payload = {
+      caption: caption.trim(),
+      media: images.map(img => ({
+        uri: getMediaUri(img),
+        type: img.type,
+        name: getMediaUri(img).split('/').pop()
 
-    else {
-      if (postType == 'crowdfunding') {
-        if (link && !isValidLink(link)) {
-          showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
-          return;
-        }
+      })),
+      type:
+      //  fromIcon === 'Flips'
+      //   ? 'reel'
+      //   : 
+        postType === 'private'
+          ? 'private'
+          : 'normal',
+      };
 
-        navigation.navigate('CreateMission', {
-          images,
-          caption,
-          link
-        });
-        return;
+    try {
+      const response = await createPost(payload);
+      console.log('Post creation response:', response);
+
+      if (response.statusCode == 200) {
+        showToastMessage(toast, 'success', 'Post created successfully');
+        navigation.navigate('HomeMain');
+      } else {
+        showToastMessage(toast, 'danger', response.message || 'Please try again');
       }
-
-      dispatch(showLoader());
-      const payload = {
-        caption: caption.trim(),
-        media: images.map(img => ({
-          uri: getMediaUri(img),
-          type: img.type,
-          name: getMediaUri(img).split('/').pop()
-
-        })),
-        type:
-        //  fromIcon === 'Flips'
-        //   ? 'reel'
-        //   : 
-          postType === 'private'
-            ? 'private'
-            : 'normal',
-        };
-
-      try {
-        const response = await createPost(payload);
-        console.log('Post creation response:', response);
-
-        if (response.statusCode == 200) {
-          showToastMessage(toast, 'success', 'Post created successfully');
-          navigation.navigate('HomeMain');
-        } else {
-          showToastMessage(toast, 'danger', response.message || 'Please try again');
-        }
-      } catch (err) {
-        console.error('Post creation error:', err);
-        showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
-      } finally {
-        dispatch(hideLoader());
-      }
+    } catch (err) {
+      console.error('Post creation error:', err);
+      showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
+    } finally {
+      dispatch(hideLoader());
     }
   };
 

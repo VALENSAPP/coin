@@ -343,8 +343,7 @@ const CreateMission = () => {
           raiseAmount: '',
           startTime: null,
           endTime: null,
-          // currency: selectedCountry ? getCurrencyInfo(selectedCountry.cca2).code : 'USD',
-          current:initialCurrency,
+          currency: selectedCountry ? getCurrencyInfo(selectedCountry.cca2).code : initialCurrency,
         }}
         enableReinitialize={true}
         validationSchema={validationSchema}

@@ -284,7 +284,7 @@ function PostItem({
     console.warn('PostItem received invalid item:', item);
     return null;
   }
- const width = Dimensions.get("window").width;
+  const width = Dimensions.get("window").width;
   useEffect(() => {
     const firstVideo = item?.media?.find(m => m.thumbnail);
 
@@ -612,41 +612,41 @@ function PostItem({
     }
 
     wasPostActiveRef.current = isPostActive;
-  }, [isVisible, screenFocused, playingPostId, item.id]);
+  }, [isVisible, screenFocused, playingPostId, currentlyVisiblePostId, item.id]);
 
-  useEffect(() => {
-    if (mediaLength <= 0) return;
+  // useEffect(() => {
+  //   if (mediaLength <= 0) return;
 
-    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
-    const nextStates = {};
-    for (let idx = 0; idx < mediaLength; idx++) {
-      const shouldPause = !(
-        idx === currentIndex &&
-        isVisible &&
-        screenFocused &&
-        (!hasPlayingTarget || String(playingPostId) === String(item.id))
-      );
-      nextStates[idx] = shouldPause;
-    }
+  //   const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
+  //   const nextStates = {};
+  //   for (let idx = 0; idx < mediaLength; idx++) {
+  //     const shouldPause = !(
+  //       idx === currentIndex &&
+  //       isVisible &&
+  //       screenFocused &&
+  //       (!hasPlayingTarget || String(playingPostId) === String(item.id))
+  //     );
+  //     nextStates[idx] = shouldPause;
+  //   }
 
-    setVideoStates(prev => {
-      const hasChanged = Object.keys(nextStates).some(
-        key => prev[key] !== nextStates[key]
-      );
-      return hasChanged ? nextStates : prev;
-    });
+  //   setVideoStates(prev => {
+  //     const hasChanged = Object.keys(nextStates).some(
+  //       key => prev[key] !== nextStates[key]
+  //     );
+  //     return hasChanged ? nextStates : prev;
+  //   });
 
-    // Use requestAnimationFrame for better performance
-    const rafId = requestAnimationFrame(() => {
-      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-        if (shouldPause) {
-          safeVideoPause(parseInt(idx));
-        }
-      });
-    });
+  //   // Use requestAnimationFrame for better performance
+  //   const rafId = requestAnimationFrame(() => {
+  //     Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+  //       if (shouldPause) {
+  //         safeVideoPause(parseInt(idx));
+  //       }
+  //     });
+  //   });
 
-    return () => cancelAnimationFrame(rafId);
-  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
+  //   return () => cancelAnimationFrame(rafId);
+  // }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
 
   useEffect(() => {
     return () => {
@@ -777,15 +777,22 @@ function PostItem({
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
     const isPaused = videoStates[index] ?? false;
+    const isVideoReady = !!videoLoaded[index];
 
     // Simplified shouldPlay - only check if not paused and current index
-    const shouldPlay = index === currentIndex && !isPaused && !isZooming;
+   const isThisPostActive =
+  screenFocused &&
+  (playingPostId === undefined ||
+    playingPostId === null ||
+    String(playingPostId) === String(item.id));
+
+const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
 
     return (
       <View style={styles.mediaContainer}>
         {isVideo ? (
           <View style={{ width, height: videoHeight }}>
-            {!videoLoaded && mediaItem.thumbnail && (
+            {!isVideoReady && mediaItem.thumbnail && (
               <Image
                 source={{ uri: mediaItem.thumbnail }}
                 style={{
@@ -801,27 +808,30 @@ function PostItem({
                 if (ref) videoRefsMap.current[index] = ref;
               }}
               source={{ uri: mediaItem.url }}
-              style={{
-                width: width,
-                height: videoHeight
-              }}
-              resizeMode='cover'
+              style={{ width, height: videoHeight }}
+              resizeMode="cover"
               repeat
               paused={!shouldPlay}
-              muted={true}
+              muted={isMuted}        // <-- now respects state
               controls={false}
+              onLoadStart={() => {
+                setVideoLoaded(prev => ({ ...prev, [index]: false }));
+              }}
+              onLoad={() => {
+                setVideoLoaded(prev => ({ ...prev, [index]: true }));
+              }}
               onError={(error) => {
                 console.log('Video error:', error);
               }}
               playWhenInactive={false}
               progressUpdateInterval={1000}
               bufferConfig={{
-                minBufferMs: 15000,
-                maxBufferMs: 50000,
-                bufferForPlaybackMs: 2500,
-                bufferForPlaybackAfterRebufferMs: 5000
+                minBufferMs: 2000,
+                maxBufferMs: 10000,
+                bufferForPlaybackMs: 1000,
+                bufferForPlaybackAfterRebufferMs: 2000,
               }}
-              maxBitRate={2000000}
+              maxBitRate={1200000}
             />
             <TouchableOpacity
               style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
@@ -835,12 +845,12 @@ function PostItem({
               )}
             </TouchableOpacity>
             {/* Removed speaker button to keep videos always muted */}
-            {/* <TouchableOpacity
+            <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
             >
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity> */}
+            </TouchableOpacity>
           </View>
         ) : (
           <InstagramZoomableImage
@@ -866,7 +876,7 @@ function PostItem({
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
-              <Text style={[styles.username,{color:item?.profile === "user" ? '#5a2d82' : '#D3B683'}]}>{item.username}</Text>
+              <Text style={[styles.username, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{item.username}</Text>
               {isKycVerified && (
                 <View style={styles.dragonflyIcon}>
                   <DragonflyIcon width={18} height={18} />
