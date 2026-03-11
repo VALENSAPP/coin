@@ -1940,20 +1940,16 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           </View>
         </View>
       </View>
-      {item.isUser ? (
-        <Text
-          style={sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText}
-          numberOfLines={1}
-        >
-          Drops
-        </Text>
-      ) : (
-        !sidebarMode && (
-          <Text style={styles.storyUsername} numberOfLines={1}>
-            {item.username}
-          </Text>
-        )
-      )}
+      <Text
+        style={
+          item.isUser
+            ? (sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText)
+            : styles.storyUsername
+        }
+        numberOfLines={1}
+      >
+        {item.username || (item.isUser ? 'Drops' : '')}
+      </Text>
     </TouchableOpacity>
   );
 

@@ -652,7 +652,7 @@ const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.pn
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Social Link</Text>
             <TextInput
-              placeholder="https://your-social-link.com/username"
+              placeholder="Enter your social link"
               placeholderTextColor="#9CA3AF"
               style={styles.input}
               keyboardType="url"

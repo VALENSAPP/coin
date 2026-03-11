@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Keyboard,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../home/posts/PostItem';
 import CommentSheet from '../home/posts/CommentSheet';
@@ -71,6 +71,9 @@ export default function PostView({ postData = [] }) {
   const [hiddenById, setHiddenById] = useState({});
   const [hidingIds, setHidingIds] = useState(new Set());
   const [list, setList] = useState(posts);
+  const [currentlyVisiblePostId, setCurrentlyVisiblePostId] = useState(null);
+  const [screenFocused, setScreenFocused] = useState(true);
+  const [playingPostId, setPlayingPostId] = useState(null);
   // follow state
   const [followingByUserId, setFollowingByUserId] = useState({});
   const [followingBusy, setFollowingBusy] = useState(new Set());
@@ -80,6 +83,7 @@ export default function PostView({ postData = [] }) {
   const dispatch = useDispatch();
   const commentSheetRef = useRef();
   const flatListRef = useRef();
+  const playingDebounceRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
@@ -272,6 +276,16 @@ export default function PostView({ postData = [] }) {
   useEffect(() => {
     setList(posts || []);
   }, [posts]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      return () => {
+        setScreenFocused(false);
+        setPlayingPostId(null);
+      };
+    }, [])
+  );
 
   // ─── Fetch latest raised amount for mission posts ───────────────────────
   useEffect(() => {
@@ -737,6 +751,7 @@ export default function PostView({ postData = [] }) {
             ? followingByUserId[String(item.userId)]
             : !!item.isFollow,
       };
+      const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
       return (
         <View>
           <PostItem
@@ -754,6 +769,10 @@ export default function PostView({ postData = [] }) {
             onSuggest={[]}
             returnTo={route?.params?.returnTo}
             shareCount={item.shareCount}
+            isVisible={isPostVisible}
+            screenFocused={screenFocused}
+            playingPostId={playingPostId}
+            currentlyVisiblePostId={currentlyVisiblePostId}
           />
 
         </View>
@@ -768,6 +787,9 @@ export default function PostView({ postData = [] }) {
       followingByUserId,
       followingBusy,
       handleToggleFollow,
+      currentlyVisiblePostId,
+      screenFocused,
+      playingPostId,
     ],
   );
 
@@ -790,6 +812,59 @@ export default function PostView({ postData = [] }) {
     const progressHeight = 100;
     const totalHeight = baseHeight + mediaHeight + progressHeight;
     return { length: totalHeight, offset: totalHeight * index, index };
+  }, []);
+
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }) => {
+      if (!viewableItems || viewableItems.length === 0) {
+        setCurrentlyVisiblePostId(null);
+        setPlayingPostId(null);
+        return;
+      }
+
+      let mostVisiblePost = null;
+      let highestPercentage = 0;
+
+      for (const viewableItem of viewableItems) {
+        if (viewableItem.isViewable && viewableItem.item?.id) {
+          const percentage = viewableItem.percentVisible ?? 100;
+          if (percentage > highestPercentage) {
+            highestPercentage = percentage;
+            mostVisiblePost = viewableItem.item.id;
+          }
+        }
+      }
+
+      if (mostVisiblePost !== currentlyVisiblePostId) {
+        setCurrentlyVisiblePostId(mostVisiblePost);
+
+        if (playingDebounceRef.current) {
+          clearTimeout(playingDebounceRef.current);
+        }
+
+        setPlayingPostId(null);
+        playingDebounceRef.current = setTimeout(() => {
+          setPlayingPostId(mostVisiblePost);
+          playingDebounceRef.current = null;
+        }, 250);
+      }
+    },
+    [currentlyVisiblePostId]
+  );
+
+  const viewabilityConfigRef = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 250,
+    waitForInteraction: true,
+  });
+  const viewabilityConfig = viewabilityConfigRef.current;
+
+  useEffect(() => {
+    return () => {
+      if (playingDebounceRef.current) {
+        clearTimeout(playingDebounceRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -816,6 +891,8 @@ export default function PostView({ postData = [] }) {
           initialScrollIndex={getInitialScrollIndex()}
           onScrollToIndexFailed={onScrollToIndexFailed}
           getItemLayout={getItemLayout}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={handleViewableItemsChanged}
           removeClippedSubviews={true}
           maxToRenderPerBatch={3}
           windowSize={5}
