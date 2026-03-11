@@ -10,7 +10,7 @@ const TaggedScreen = memo(() => {
     <View style={[styles.container, bgStyle]}>
       <Ionicons name="person-outline" size={80} color='#666' style={styles.icon}/>
       <Text style={styles.message}>
-        Photos and videos show here where you were tagged.
+      Coming Soon.
       </Text>
     </View>
   );

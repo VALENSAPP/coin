@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Stories from '../../components/home/story.js/Stories';
 import Posts from '../../components/home/posts/Posts';
-import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { Chat, LogoIcon } from '../../assets/icons';
 import { getposts } from '../../services/home';
 import { useToast } from 'react-native-toast-notifications';
@@ -36,9 +36,11 @@ import { unReadNotification, updateFcmToken } from '../../services/notifications
 import { getSocket, initializeSocket } from '../../services/socket';
 import useSocket from '../../hooks/useSocket';
 import { clampRGBA } from 'react-native-reanimated/lib/typescript/Colors';
+import { checkSubscription } from '../../services/stirpe';
+import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SIDEBAR_WIDTH = 110;
+const SIDEBAR_WIDTH = 130;
 
 export default function HomeScreen() {
   const styles = createStyles();
@@ -48,10 +50,14 @@ export default function HomeScreen() {
   const [storyRefreshTick, setStoryRefreshTick] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [showBusinessSubscriptionPrompt, setShowBusinessSubscriptionPrompt] = useState(false);
+  const [hasCheckedBusinessSubscription, setHasCheckedBusinessSubscription] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const scrollViewRef = useRef(null);
+
 
   // Track conversations to calculate unread properly
   const conversationsRef = useRef([]);
@@ -64,6 +70,8 @@ export default function HomeScreen() {
 
 
   const appState = useRef(AppState.currentState);
+
+  const formatBadgeCount = (count) => (count > 9 ? '9+' : count);
 
   // ✅ Get current user ID on mount and initialize socket
   useEffect(() => {
@@ -153,7 +161,7 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      unreadNotification();   
+      unreadNotification();
     }, [])
   );
 
@@ -277,7 +285,6 @@ export default function HomeScreen() {
       console.log('Error in unreadNotification:', err);
     }
   };
-  console.log(notificationUnreadCount, 'data gte hre kys ?')
 
   // ✅ Periodic refresh to catch any missed messages
   useEffect(() => {
@@ -299,29 +306,30 @@ export default function HomeScreen() {
     };
   }, [currentUserId, socketReady, isFocused]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchData();
-    setStoryRefreshTick(t => t + 1);
-
-    // Refresh unread count on pull-to-refresh
-    if (currentUserId && socketReady) {
-      const socket = getSocket();
-      if (socket?.connected) {
-        console.log('🔄 HomeScreen: Manual refresh - requesting chat box');
-        socket.emit('getUserChatBox', { userId: currentUserId });
-      }
+    try {
+      await Promise.all([
+        fetchData(),
+        currentUserId && socketReady ? (() => {
+          const socket = getSocket();
+          if (socket?.connected) {
+            console.log('🔄 HomeScreen: Manual refresh - requesting chat box');
+            socket.emit('getUserChatBox', { userId: currentUserId });
+          }
+        })() : Promise.resolve()
+      ]);
+      setStoryRefreshTick(t => t + 1);
+    } finally {
+      setRefreshing(false);
     }
-    
-    setRefreshing(false);
-  }, [currentUserId, socketReady]);
+  }, [currentUserId, socketReady, fetchData]);
 
   const fetchData = useCallback(async () => {
     try {
-      dispatch(showLoader());
       const response = await getposts();
       if (response?.statusCode === 200) {
-        console.log('✅ HomeScreen: Posts fetched successfully');
+        console.log('✅ HomeScreen: Posts fetched successfully', response);
         setPosts(response.data);
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -332,14 +340,11 @@ export default function HomeScreen() {
         'danger',
         error?.response?.message ?? 'Something went wrong',
       );
-    } finally {
-      dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [toast]);
 
   const fetchProfileData = useCallback(async () => {
     try {
-      dispatch(showLoader());
       const id = await AsyncStorage.getItem('userId');
       if (!id) return;
 
@@ -352,12 +357,14 @@ export default function HomeScreen() {
         dispatch(setProfileImg(raw));
         if (response?.data?.profile === 'company') {
           setIsBusinessProfile(true);
+        } else {
+          setIsBusinessProfile(false);
+          setShowBusinessSubscriptionPrompt(false);
+          setHasCheckedBusinessSubscription(false);
         }
       }
     } catch (err) {
       console.error('❌ Profile fetch error:', err);
-    } finally {
-      dispatch(hideLoader());
     }
   }, [dispatch]);
 
@@ -365,7 +372,6 @@ export default function HomeScreen() {
     let fcmToken = await AsyncStorage.getItem('fcmToken')
     if (fcmToken) {
       try {
-        dispatch(showLoader());
         const response = await updateFcmToken({ fcmToken: fcmToken });
         if (response?.statusCode === 200) {
           console.log('✅ FCM token updated successfully');
@@ -378,19 +384,38 @@ export default function HomeScreen() {
           'danger',
           error?.response?.message ?? 'Something went wrong',
         );
-      } finally {
-        dispatch(hideLoader());
       }
     }
-  }, [dispatch, toast]);
+  }, [toast]);
 
-  // Initial load on screen focus
+  const checkBusinessSubscriptionStatus = useCallback(async () => {
+    if (hasCheckedBusinessSubscription || !isBusinessProfile) return;
+
+    try {
+      setHasCheckedBusinessSubscription(true);
+      const response = await checkSubscription();
+      const status = String(response?.data?.subscription?.status || '').toUpperCase();
+      const hasActiveSubscription = Boolean(response?.success) && (status === 'ACTIVE' || status === 'TRIALING');
+
+      if (!hasActiveSubscription) {
+        setShowBusinessSubscriptionPrompt(true);
+      }
+    } catch (error) {
+      setShowBusinessSubscriptionPrompt(true);
+    }
+  }, [hasCheckedBusinessSubscription, isBusinessProfile]);
+
+  // Initial load on screen focus - optimized to prevent redundant calls
   useEffect(() => {
     if (isFocused) {
       console.log('👁️ HomeScreen focused - fetching data');
       setStoryRefreshTick(t => t + 1);
-      fetchData();
-      fetchProfileData();
+
+      // Batch data fetching
+      Promise.all([
+        fetchData(),
+        fetchProfileData()
+      ]).catch(err => console.error('Error fetching initial data:', err));
 
       // Request unread count when screen becomes focused
       if (currentUserId && socketReady) {
@@ -401,9 +426,9 @@ export default function HomeScreen() {
         }
       }
     }
-  }, [isFocused, fetchData, fetchProfileData, currentUserId, socketReady]);
+  }, [isFocused, currentUserId, socketReady]);
 
-  // AppState listener
+  // AppState listener - optimized
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       console.log('📱 AppState changed:', appState.current, '→', nextAppState);
@@ -414,8 +439,13 @@ export default function HomeScreen() {
         isFocused
       ) {
         console.log('🔄 App resumed while HomeScreen focused - refreshing');
-        fetchData();
-        fetchProfileData();
+
+        // Batch operations
+        Promise.all([
+          fetchData(),
+          fetchProfileData()
+        ]).catch(err => console.error('Error on app resume:', err));
+
         setStoryRefreshTick(t => t + 1);
 
         // Refresh unread count on app resume
@@ -432,13 +462,18 @@ export default function HomeScreen() {
     });
 
     return () => subscription.remove();
-  }, [isFocused, fetchData, fetchProfileData, currentUserId, socketReady]);
+  }, [isFocused, currentUserId, socketReady]);
 
   useEffect(() => {
     addFcmToken();
   }, [addFcmToken]);
 
-  // Listen for payment completion
+  useEffect(() => {
+    if (!isFocused || !isBusinessProfile) return;
+    checkBusinessSubscriptionStatus();
+  }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus]);
+
+  // Listen for payment completion - optimized
   useEffect(() => {
     if (!isFocused) return;
 
@@ -447,8 +482,11 @@ export default function HomeScreen() {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
       console.log('🔔 HomeScreen: PAYMENT_COMPLETED event received!', data);
 
-      fetchData();
-      fetchProfileData();
+      Promise.all([
+        fetchData(),
+        fetchProfileData()
+      ]).catch(err => console.error('Error on payment completion:', err));
+
       setStoryRefreshTick(t => t + 1);
     });
 
@@ -456,7 +494,7 @@ export default function HomeScreen() {
       console.log('🔇 HomeScreen: Removing PAYMENT_COMPLETED listener');
       subscription.remove();
     };
-  }, [isFocused, fetchData, fetchProfileData]);
+  }, [isFocused]);
 
   useFocusEffect(
     useCallback(() => {
@@ -530,11 +568,48 @@ export default function HomeScreen() {
       },
     }),
   ).current;
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      'HOME_TAB_PRESS',
+      () => {
+        console.log('🏠 Home tab pressed again');
+
+        // ⬆️ Scroll to top
+        scrollViewRef.current?.scrollTo({
+          y: 0,
+          animated: true,
+        });
+
+        // 🔄 Refresh posts + stories
+        onRefresh();
+      }
+    );
+
+    return () => subscription.remove();
+  }, [onRefresh]);
+
+  const openGlobalDrawer = useCallback(() => {
+    let parentNav = navigation;
+    let attempts = 0;
+
+    while (parentNav && attempts < 6) {
+      const state = parentNav.getState?.();
+      if (state?.type === 'drawer') {
+        parentNav.dispatch(DrawerActions.openDrawer());
+        return;
+      }
+      parentNav = parentNav.getParent?.();
+      attempts += 1;
+    }
+
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerLeft}>
+        <TouchableOpacity style={styles.headerLeft} onPress={openGlobalDrawer}>
           <LogoIcon height={45} width={45} />
           <TextGradient
             style={{ fontWeight: 'bold', fontSize: 20 }}
@@ -547,6 +622,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <View style={styles.headerIcons}>
           <TouchableOpacity
+            style={headerBadgeStyles.iconButton}
             onPress={() => {
               navigation.navigate('HeartNotification');
             }}
@@ -555,7 +631,7 @@ export default function HomeScreen() {
             {notificationUnreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
-                  {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                  {formatBadgeCount(notificationUnreadCount)}
                 </Text>
               </View>
             )}
@@ -564,15 +640,15 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             onPress={() => navigation.navigate('ChatMessages')}
-            style={{ position: 'relative', padding: 4 }}
+            style={headerBadgeStyles.iconButton}
           >
-            <Chat width={24} height={24} style={styles.headerIcon} />
+            <Chat width={24} height={24} />
 
             {/* Enhanced badge with animation */}
             {unreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {formatBadgeCount(unreadCount)}
                 </Text>
               </View>
             )}
@@ -591,10 +667,22 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <BusinessSubscriptionPrompt
+        visible={showBusinessSubscriptionPrompt}
+        onActivate={() => {
+          setShowBusinessSubscriptionPrompt(false);
+          navigation.navigate('ProfileMain', { screen: 'ManageSubscription' });
+        }}
+        onLater={() => {
+          setShowBusinessSubscriptionPrompt(false);
+        }}
+      />
 
       {/* Main Content with Pan Responder */}
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>
         <ScrollView
+          ref={scrollViewRef}
+
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -634,6 +722,14 @@ export default function HomeScreen() {
             <Stories
               refreshTick={storyRefreshTick}
               sidebarMode={true}
+              onDrawerClose={() => {
+                // Close the drawer when story is shared and chat opens
+                setSidebarVisible(false);
+                Animated.spring(sidebarAnim, {
+                  toValue: SIDEBAR_WIDTH,
+                  useNativeDriver: true,
+                }).start();
+              }}
             />
           </Animated.View>
         </View>
@@ -649,7 +745,7 @@ const sidebarStyles = StyleSheet.create({
   sidebar: {
     position: 'absolute',
     right: 0,
-    top: Platform.OS == 'android' ? 40 : 57,
+    top: Platform.OS == 'android' ? 20 : 20,
     bottom: 0,
     width: SIDEBAR_WIDTH,
     borderLeftWidth: 1,
@@ -659,6 +755,9 @@ const sidebarStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 1000,
+    borderTopLeftRadius: 60,
+    // borderBottomLeftRadius: 60,      
+    overflow: 'hidden',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -671,30 +770,32 @@ const sidebarStyles = StyleSheet.create({
 });
 
 const headerBadgeStyles = StyleSheet.create({
+  iconButton: {
+    position: 'relative',
+    padding: 4,
+    marginLeft: 16,
+  },
   badgeContainer: {
     position: 'absolute',
-    right: -4,
-    top: -4,
+    right: -2,
+    top: -2,
     backgroundColor: '#FF3B30',
-    borderRadius: 20,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    zIndex: 2,
-    minWidth: 18,
+    borderRadius: 15,
+    minWidth: 16,
+    height: 20,
+    paddingHorizontal: 5.5,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    elevation: 4,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    lineHeight: 11,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });

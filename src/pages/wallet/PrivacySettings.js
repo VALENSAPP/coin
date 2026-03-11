@@ -86,6 +86,7 @@ const PrivacySettingsScreen = () => {
                 AsyncStorage.removeItem('walletPrivateKey');
                 AsyncStorage.removeItem('walletMnemonic');
                 AsyncStorage.removeItem('profile');
+                AsyncStorage.removeItem('stripeCustomerId');
                 dispatch(loggedOut());
             } else {
                 showToastMessage(toast, 'danger', resp?.message || 'Failed to delete account');

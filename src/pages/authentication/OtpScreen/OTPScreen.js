@@ -27,7 +27,10 @@ import { AuthHeader } from '../../../components/auth';
 import OTPTextInput from 'react-native-otp-textinput';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../../services/createProfile';
+import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { loggedIn } from '../../../redux/actions/LoginAction';
+import { ensureCurrentAccountSaved } from '../../../utils/accountSession';
 
 const { width, height } = Dimensions.get('window');
 
@@ -130,7 +133,6 @@ export default function OTPScreen() {
         registrationType: 'NORMAL',
       });
       if (response && response.statusCode == 200) {
-        console.log('login response ===================>', response);
         showToastMessage(toast, 'success', response.data.message);
         await AsyncStorage.setItem('userId', response?.data?.user?.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
@@ -138,6 +140,16 @@ export default function OTPScreen() {
           'refreshToken',
           response.data.user.refresh_token,
         );
+        if (response?.data?.user?.userName || response?.data?.user?.username) {
+          await AsyncStorage.setItem(
+            'username',
+            response?.data?.user?.userName || response?.data?.user?.username,
+          );
+        }
+        if (response?.data?.user?.email) {
+          await AsyncStorage.setItem('email', response?.data?.user?.email);
+        }
+        await persistStripeCustomerId(response?.data?.user?.stripeCustomerId ?? null, dispatch);
         if (
           response.data.user.walletAddress &&
           response.data.user.walletPrivateKey &&
@@ -175,12 +187,11 @@ export default function OTPScreen() {
 
       if (id) {
         const response = await getProfile(id);
-        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted"))
-        {
+        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
           showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
         }
-        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED"){
+        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
           navigation.navigate('CreateProfile');
         }
@@ -189,8 +200,14 @@ export default function OTPScreen() {
         }
         else if (response.statusCode === 200 && response.data.bio == null) {
           navigation.navigate('CreateProfile');
-        } 
+        }
         else {
+          await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
+          await ensureCurrentAccountSaved({
+            profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
+            username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+            email: response?.data?.email || (await AsyncStorage.getItem('email')),
+          });
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
         }
@@ -279,6 +296,7 @@ export default function OTPScreen() {
                     return;
                   }
                   handleConfirm();
+
                 }}
                 disabled={loading || otp.length !== 6}
               >

@@ -25,12 +25,14 @@ import { useToast } from 'react-native-toast-notifications';
 import StepHeader from '../createProfile/headerSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
-import { useDispatch } from 'react-redux';
-import { kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
+import { useDispatch, useSelector } from 'react-redux';
+import { getKycToken, kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { EditProfile } from '../../../services/createProfile';
+import { loggedIn } from '../../../redux/actions/LoginAction';
+import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,16 +43,19 @@ const DOCUMENT_TYPES = [
 ];
 
 export default function KYCVerification({ route }) {
-    const { profileData, serverProfile } = route.params;
+    const profileData = route?.params?.profileData ?? null;
+    const serverProfile = route?.params?.serverProfile ?? null;
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
+    const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [documentType, setDocumentType] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const [errors, setErrors] = useState({});
+    const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
 
     // Modal states
     const [showModal, setShowModal] = useState(false);
@@ -61,12 +66,14 @@ export default function KYCVerification({ route }) {
     const progressValue = useRef(new Animated.Value(0)).current;
     const [progressPercent, setProgressPercent] = useState(0);
     const [hasOpenedBrowser, setHasOpenedBrowser] = useState(false);
+    const isOnboardingFlow = Boolean(profileData) || !isLoggedIn;
 
     const isFirstMount = useRef(true);
     const isFocused = useIsFocused();
     const progressTimerRef = useRef(null);
     const progressAnimationRef = useRef(null);
     const percentUpdateInterval = useRef(null);
+    const shouldReturnAfterStatusCheckRef = useRef(false);
 
     const { bgStyle, textStyle } = useAppTheme();
 
@@ -146,8 +153,44 @@ export default function KYCVerification({ route }) {
         }
     };
 
+    const launchSumsub = async () => {
+        if (isLaunchingSumsub) return;
+        setIsLaunchingSumsub(true);
+        try {
+            const response = await getKycToken();
+            const accessToken = response?.data?.token;
+            console.log(response,accessToken,'data in kyc ')
+
+            if (!accessToken) {
+                showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
+                return;
+            }
+
+            const snsMobileSDK = SNSMobileSDK.init(accessToken, () => accessToken)
+                .withHandlers({
+                    onStatusChanged: event => {
+                        console.log('Sumsub status:', event);
+                    },
+                })
+                .withDebug(true)
+                .build();
+
+            await snsMobileSDK.launch();
+        }
+        catch (error) {
+            showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+            console.log(error, 'Sumsub launch error');
+        } finally {
+            setIsLaunchingSumsub(false);
+        }
+    };
 
     const handleCreateProfile = async () => {
+        if (!profileData) {
+            // Opened from in-app wallet/settings flow; no onboarding profile payload to update.
+            return;
+        }
+
         try {
             const formData = new FormData();
             formData.append('userName', profileData.username);
@@ -282,6 +325,7 @@ export default function KYCVerification({ route }) {
             const response = await kycStart(getUserId, kycData);
             console.log('response in kyc start---->>>>>>>>>>>>', response.data);
             if (response.statusCode == 200) {
+                shouldReturnAfterStatusCheckRef.current = true;
                 const url = response.data.url;
 
                 if (await InAppBrowser.isAvailable()) {
@@ -360,24 +404,50 @@ export default function KYCVerification({ route }) {
 
             if (response?.statusCode === 200) {
                 console.log('KYC Webhook Response', response.data);
-                if (response.data.status == "APPROVED") {
-                    navigation.navigate('Wallet', { profileData, serverProfile });
-                }
-                else {
-                    if (isFirstMount.current) {
-                        isFirstMount.current = false;
+                const status = String(response?.data?.status || '').toUpperCase();
+
+                if (status === 'APPROVED') {
+                    setShowProgressModal(false);
+                    if (profileData) {
+                        navigation.navigate('Wallet', { profileData, serverProfile });
+                    } else if (!isOnboardingFlow && shouldReturnAfterStatusCheckRef.current && navigation.canGoBack()) {
+                        shouldReturnAfterStatusCheckRef.current = false;
+                        navigation.goBack();
+                    } else if (navigation.canGoBack()) {
+                        navigation.goBack();
+                    }
+                } else if (status === 'PENDING' || status === 'SUBMITTED' || status === false) {
+                    setShowProgressModal(false);
+
+                    if (!isOnboardingFlow) {
+                        if (shouldReturnAfterStatusCheckRef.current && navigation.canGoBack()) {
+                            shouldReturnAfterStatusCheckRef.current = false;
+                            navigation.goBack();
+                            return;
+                        }
+                        // Logged-in user opened KYC screen while current status is pending.
+                        // Keep them on this screen until they submit updated KYC.
                         return;
                     }
+
+                    await AsyncStorage.setItem('isLoggedIn', 'true');
+                    dispatch(loggedIn());
+                    if (navigation.canGoBack()) {
+                        navigation.goBack();
+                        return;
+                    }
+                    // showToastMessage(toast, 'warning', 'KYC is pending. You can explore the app while we review it.');
+                } else if (status === 'DECLINED' || status === 'REJECTED') {
                     Alert.alert(
-                        "KYC Not Verified",
-                        "Your KYC is not verified. Please try again.",
+                        'KYC Rejected',
+                        'Your KYC was rejected. Please submit your KYC again.',
                         [
                             {
-                                text: "Cancel",
-                                style: "cancel"
+                                text: 'Cancel',
+                                style: 'cancel'
                             },
                             {
-                                text: "Retry",
+                                text: 'Retry',
                                 onPress: () => {
                                     handleSubmitKYC();
                                 }
@@ -385,6 +455,12 @@ export default function KYCVerification({ route }) {
                         ],
                         { cancelable: true }
                     );
+                } else {
+                    if (isFirstMount.current) {
+                        isFirstMount.current = false;
+                        return;
+                    }
+                    Alert.alert('KYC Not Verified', 'Unable to verify KYC status. Please try again.');
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
@@ -647,6 +723,21 @@ export default function KYCVerification({ route }) {
                             </Text>
                         </View>
 
+
+                        {/* <TouchableOpacity
+                            onPress={launchSumsub}
+                            style={[styles.continueButton, isValid && styles.continueButtonActive]}
+                            // disabled={!isValid}
+                        >
+                            <Text
+                                style={[
+                                    styles.continueButtonText,
+                                    isValid && styles.continueButtonTextActive,
+                                ]}
+                            >
+                             Continue
+                            </Text>
+                        </TouchableOpacity> */}
                         {/* Continue Button */}
                         <TouchableOpacity
                             onPress={continueNext}
@@ -719,12 +810,14 @@ export default function KYCVerification({ route }) {
                         </TouchableOpacity> */}
                         <TouchableOpacity
                             style={[styles.modalButton, styles.cancelButton]}
-                            onPress={() => {
+                            onPress={async () => {
                                 setShowProgressModal(false);
-                                navigation.navigate('Login')
+                                await fetchKycStatus();
                             }}
                         >
-                            <Text style={styles.cancelButtonText}>Go Back To Login Screen</Text>
+                            <Text style={styles.cancelButtonText}>
+                                {isOnboardingFlow ? 'Explore the app ' : 'Check Status & Go Back'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>

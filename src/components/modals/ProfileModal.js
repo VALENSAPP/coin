@@ -221,10 +221,10 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
           params: { type: 'Flips' },
         });
         break;
-      case 'ai':
-        navigation.navigate('');
-        hideModal();
-        break;
+      // case 'ai':
+      //   navigation.navigate('');
+      //   hideModal();
+      //   break;
       case 'drops': // Story
         handleAddStory();
         break;
@@ -232,10 +232,10 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         navigation.navigate('');
         hideModal();
         break;
-      case 'live':
-        navigation.navigate('');
-        hideModal();
-        break;
+      // case 'live':
+      //   navigation.navigate('');
+      //   hideModal();
+      //   break;
       default:
         break;
     }
@@ -302,18 +302,6 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
                 <Feather name="circle" size={20} color="#111100" />
                 <Text style={styles.lText}>drops highlights</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('live')}>
-                <Image
-                  source={require('../../assets/icons/pngicons/live.png')}
-                  style={{ width: 20, height: 20 }}
-                  resizeMode="contain"
-                />
-                <Text style={styles.lText}>Live</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('ai')}>
-                <Feather name="star" size={20} color="#111100" />
-                <Text style={styles.lText}>AI</Text>
-              </TouchableOpacity>
             </View>
           </Animated.View>
         </View>
@@ -339,7 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    height: 450,
+    height: 330,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 15,

@@ -29,7 +29,9 @@ import { isFirstDayOfMonth } from 'date-fns';
 import { useAppTheme } from '../../theme/useApptheme';
 import WithdrawalModal from '../../components/modals/WithdrawModal';
 import RBSheet from 'react-native-raw-bottom-sheet';
-import { createOnboardingLink, getWithdrawalHistory } from '../../services/profile';
+import { getOnboardingStatus, getWithdrawalHistory } from '../../services/profile';
+import { openStripeOnboarding, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const ITEMS_PER_PAGE = 10;
@@ -43,7 +45,9 @@ export default function CreatorCoin() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [showConnectStripeModal, setShowConnectStripeModal] = useState(false);
   const [pendingWithdrawal, setPendingWithdrawal] = useState(null);
+  const [onboardingStatus, setOnboardingStatus] = useState(null);
 
   const navigation = useNavigation();
   const toast = useToast();
@@ -126,10 +130,11 @@ export default function CreatorCoin() {
     try {
       dispatch(showLoader());
 
-      const [profileResponse, dashboardRes, withdrawRes] = await Promise.all([
+      const [profileResponse, dashboardRes, withdrawRes, onboardingRes] = await Promise.all([
         getUserCredentials(id),
         getUserDashboard(id),
         getWithdrawalHistory(),
+        getOnboardingStatus().catch(() => null),
       ]);
 
       if (profileResponse?.statusCode === 200) {
@@ -154,7 +159,6 @@ export default function CreatorCoin() {
       }
 
       if (withdrawRes?.statusCode === 200) {
-        console.log('withdrawal history----------------', withdrawRes)
         const history = withdrawRes.data.withdrawals || withdrawRes.data || [];
         setWithdrawHistory(history);
         const firstPageData = history.slice(0, ITEMS_PER_PAGE);
@@ -162,6 +166,15 @@ export default function CreatorCoin() {
       } else {
         setWithdrawHistory([]);
         setDisplayedTransactions([]);
+      }
+
+      if (onboardingRes?.statusCode === 200 && onboardingRes?.data) {
+        setOnboardingStatus({
+          canReceivePayments: !!onboardingRes.data.canReceivePayments,
+          accountId: onboardingRes.data.accountId || null,
+        });
+      } else {
+        setOnboardingStatus(null);
       }
 
     } catch (error) {
@@ -206,43 +219,9 @@ export default function CreatorCoin() {
   const handleOnboardingClick = async () => {
     try {
       dispatch(showLoader());
-      const response = await createOnboardingLink();
-      console.log('createOnboardingLink---------------', response)
-      if (response.statusCode === 200) {
-        const url = response.data.onboardingUrl;
-
-        if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(url, {
-            dismissButtonStyle: 'close',
-            preferredBarTintColor: '#ffffff',
-            preferredControlTintColor: '#000000',
-            readerMode: false,
-            animated: true,
-            modalPresentationStyle: 'fullScreen',
-            modalTransitionStyle: 'coverVertical',
-            enableBarCollapsing: false,
-            showTitle: true,
-            toolbarColor: '#ffffff',
-            secondaryToolbarColor: '#f0f0f0',
-            forceCloseOnRedirection: false, // ✅ Changed to false
-          });
-
-          // This will run when browser closes
-          console.log('InAppBrowser closed - refreshing data');
-          fetchAllData();
-        } else {
-          await Linking.openURL(url);
-        }
-      } else {
-        showToastMessage(toast, 'danger', response.message);
-      }
-
+      await openStripeOnboarding({ onComplete: fetchAllData });
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.response?.message ?? 'Failed to initiate onboarding'
-      );
+      showToastMessage(toast, 'danger', error?.message ?? STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
     } finally {
       dispatch(hideLoader());
     }
@@ -362,6 +341,29 @@ export default function CreatorCoin() {
             <Text style={styles.balanceValue}>${data?.tokenBalance}</Text>
           </View>
         </View>
+
+        {/* Stripe payment status */}
+        {onboardingStatus != null && (
+          <View style={[styles.stripeStatusBox, bgStyle]}>
+            <View style={styles.stripeStatusRow}>
+              <Text style={styles.detailLabel}>Stripe payments</Text>
+              <Text style={[styles.stripeStatusBadge, { color: onboardingStatus.canReceivePayments ? '#10b981' : '#f59e0b' }]}>
+                {onboardingStatus.canReceivePayments ? 'Active' : 'Setup required'}
+              </Text>
+            </View>
+            {onboardingStatus.accountId ? (
+              <View style={styles.stripeStatusRow}>
+                <Text style={styles.detailLabel}>Stripe account</Text>
+                <Text style={styles.detailValue} numberOfLines={1}>{onboardingStatus.accountId}</Text>
+              </View>
+            ) : null}
+            {!onboardingStatus.canReceivePayments && (
+              <TouchableOpacity style={[styles.stripeSetupButton, { backgroundColor: text }]} onPress={() => setShowConnectStripeModal(true)}>
+                <Text style={styles.stripeSetupButtonText}>Complete Stripe setup to receive payments</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Stats */}
         <View style={styles.statsRow}>
@@ -527,6 +529,15 @@ export default function CreatorCoin() {
           </View>
         </View>
       </Modal>
+
+      <ConnectStripeModal
+        visible={showConnectStripeModal}
+        onClose={() => setShowConnectStripeModal(false)}
+        onConnectStripe={() => {
+          setShowConnectStripeModal(false);
+          handleOnboardingClick();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -576,6 +587,27 @@ const styles = StyleSheet.create({
   balanceAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
   balanceTitle: { fontSize: 14, color: 'gray' },
   balanceValue: { fontSize: 16, fontWeight: '600', color: 'black' },
+  stripeStatusBox: {
+    marginHorizontal: 15,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+  },
+  stripeStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  stripeStatusBadge: { fontSize: 14, fontWeight: '600' },
+  stripeSetupButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  stripeSetupButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   smallBtn: {
     flexDirection: 'row',
     alignItems: 'center',

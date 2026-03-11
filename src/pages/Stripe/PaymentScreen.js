@@ -21,12 +21,17 @@ import { useSelector, useDispatch } from 'react-redux';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import { createCheckoutSession } from '../../services/stirpe'; 
+import { createCheckoutSession } from '../../services/stirpe';
+import { getPaymentSessionUrl, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from '../../components/modals/StripePaymentMethodModal'; 
 
 const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   useEffect(() => {
     const handleDeepLink = (event) => {
@@ -112,6 +117,11 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   };
 
   const createStripeSubscription = async () => {
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
     setLoading(true);
     try {
       const token = await getUserToken();
@@ -121,21 +131,20 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         return;
       }
 
-      // Your service should create a Checkout Session and return { success, statusCode, data: { url } }
       const response = await createCheckoutSession();
+      const url = getPaymentSessionUrl(response);
 
-      if (response?.success && response?.data?.url && response?.statusCode === 200) {
-        await openPaymentBrowser(response.data.url);
-        
+      if (url) {
+        await openPaymentBrowser(url);
       } else {
         showToastMessage(
           toast,
           'danger',
-          response?.error || response?.message || 'Failed to create payment session. Please try again.',
+          response?.error || response?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED,
         );
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Network error. Please check your internet connection and try again.');
+      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setLoading(false);
     }
@@ -160,7 +169,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         await Linking.openURL(url);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to open payment page. Please check your internet connection and try again.');
+      Alert.alert('Error', error?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
     }
   };
 
@@ -181,7 +190,8 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
               'walletAddress',
               'walletPrivateKey',
               'walletMnemonic',
-              'profile'
+              'profile',
+              'stripeCustomerId',
             ]);
             await AsyncStorage.setItem('isLoggedIn', 'false');
             dispatch(loggedOut());
@@ -223,6 +233,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const { width } = Dimensions.get('window');
 
   return (
+    <>
     <LinearGradient
       colors={['#667eea', '#764ba2', '#f093fb']}
       style={styles.container}
@@ -275,17 +286,17 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
                   </View>
                   <Text style={styles.feature}>Premium creator features</Text>
                 </View>
+                {/* <View style={styles.featureRow}> */}
+                  {/* <View style={styles.checkmarkContainer}>
+                    <Text style={styles.checkmark}>✓</Text>
+                  </View>
+                  {/* <Text style={styles.feature}>Built-in secure wallet</Text> */}
+                {/* </View> */} 
                 <View style={styles.featureRow}>
                   <View style={styles.checkmarkContainer}>
                     <Text style={styles.checkmark}>✓</Text>
                   </View>
-                  <Text style={styles.feature}>Built-in secure wallet</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>5 free coin credits monthly</Text>
+                  <Text style={styles.feature}>5 free Post credits monthly</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <View style={styles.checkmarkContainer}>
@@ -403,6 +414,19 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         </SafeAreaView>
       </ScrollView>
     </LinearGradient>
+
+    <StripePaymentMethodModal
+      visible={showPaymentMethodModal}
+      onClose={() => setShowPaymentMethodModal(false)}
+      onConnectStripe={async () => {
+        try {
+          await openPaymentConnectionAndRefresh();
+        } catch (e) {
+          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        }
+      }}
+    />
+    </>
   );
 };
 

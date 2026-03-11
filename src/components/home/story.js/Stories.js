@@ -22,7 +22,7 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import createStyles from '../../../pages/home/Style';
 import HexAvatar from './HexAvatar';
@@ -40,6 +40,7 @@ import { showToastMessage } from '../../displaytoastmessage';
 import { Toast, useToast } from 'react-native-toast-notifications';
 import { getUserCredentials } from '../../../services/post';
 import Feather from 'react-native-vector-icons/Feather';
+import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
 
 // Import the new API functions
 import { postCommentStory, postLikeStory } from '../../../services/stories'; // Adjust path as needed
@@ -313,6 +314,8 @@ const StoryViewer = ({
   onReportUser,
   onDeleteStory,
   ownerProfileImage,
+  onDrawerClose,
+  onOpenUserProfile,
 }) => {
   const dispatch = useDispatch();
   const [paused, setPaused] = useState(false);
@@ -616,6 +619,17 @@ const StoryViewer = ({
     setAnalyticsVisible(true);
   };
 
+  const handleOpenUserProfile = () => {
+    if (isViewingOwnStory || !currentUser?.id) return;
+    stopAndResetProgress(true);
+    onClose?.();
+
+    setTimeout(() => {
+      if (onDrawerClose) onDrawerClose();
+      onOpenUserProfile?.(currentUser);
+    }, 120);
+  };
+
   const closeAnalytics = () => {
     setAnalyticsVisible(false);
     handleResume();
@@ -643,9 +657,16 @@ const StoryViewer = ({
   const userAnalyticsStyles = {
     bottomContainer: {
       position: 'absolute',
-      bottom: 100,
-      left: 20,
-      right: 20,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: 'rgba(255,255,255,0.35)',
+      paddingHorizontal: 14,
+      paddingTop: 10,
+      paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+      zIndex: 20,
     },
     analyticsButton: {
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -664,8 +685,14 @@ const StoryViewer = ({
     },
     statsRow: {
       flexDirection: 'row',
-      marginTop: 10,
+      marginTop: 0,
+      marginBottom: 8,
       flexWrap: 'wrap',
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
     },
     statItem: {
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -684,15 +711,31 @@ const StoryViewer = ({
     },
     deleteButton: {
       backgroundColor: 'rgba(255, 107, 107, 0.8)',
-      paddingHorizontal: 16,
+      paddingHorizontal: 14,
       paddingVertical: 12,
       borderRadius: 25,
       flexDirection: 'row',
       alignItems: 'center',
-      alignSelf: 'flex-start',
-      marginTop: 10,
+      justifyContent: 'center',
+      flex: 1,
     },
     deleteText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+      marginLeft: 8,
+    },
+    shareButton: {
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 25,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+    },
+    shareText: {
       color: '#fff',
       fontSize: 14,
       fontWeight: '600',
@@ -766,15 +809,27 @@ const StoryViewer = ({
         {/* Top bar */}
         <View style={modalStyles.topBar}>
           <View style={modalStyles.userInfo}>
-            <HexAvatar
-              uri={isViewingOwnStory ? (ownerProfileImage || currentUser.image) : currentUser.image}
-              isUser={!!currentUser.isUser}
-              size={36}
-              borderWidth={2}
-              borderColor={isViewingOwnStory ? '#4da3ff' : '#000'}
-            />
+            <TouchableOpacity
+              activeOpacity={isViewingOwnStory ? 1 : 0.7}
+              onPress={handleOpenUserProfile}
+              disabled={isViewingOwnStory}
+            >
+              <HexAvatar
+                uri={isViewingOwnStory ? (ownerProfileImage || currentUser.image) : currentUser.image}
+                isUser={!!currentUser.isUser}
+                size={36}
+                borderWidth={2}
+                borderColor={isViewingOwnStory ? '#4da3ff' : '#000'}
+              />
+            </TouchableOpacity>
 
-            <Text style={modalStyles.username}>{currentUser.username}</Text>
+            <TouchableOpacity
+              activeOpacity={isViewingOwnStory ? 1 : 0.7}
+              onPress={handleOpenUserProfile}
+              disabled={isViewingOwnStory}
+            >
+              <Text style={modalStyles.username}>{currentUser.username}</Text>
+            </TouchableOpacity>
             <Text style={modalStyles.time}>
               {formatTime(currentStory.timestamp)}
             </Text>
@@ -801,13 +856,18 @@ const StoryViewer = ({
         </View>
 
         {/* Story content with tap handling */}
-        <View style={modalStyles.storyContent}>
+        <View
+          style={[
+            modalStyles.storyContent,
+            isViewingOwnStory && modalStyles.storyContentOwn,
+          ]}
+        >
 
           {currentStory.type === 'image' ? (
             <Image
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
-              resizeMode="contain"
+              resizeMode="cover"
               onLoad={onImageLoaded}
               onError={onMediaError}
               pointerEvents="none"
@@ -817,7 +877,7 @@ const StoryViewer = ({
               ref={videoRef}
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
-              resizeMode="contain"
+              resizeMode="cover"
               paused={paused}
               onLoad={onVideoLoaded}
               onError={onMediaError}
@@ -898,36 +958,41 @@ const StoryViewer = ({
                   </Text>
                 </View>
               )}
-              
+
             </View>
 
-            {/* Delete Story Button */}
-            <TouchableOpacity
-              style={userAnalyticsStyles.deleteButton}
-              onPress={handleDeleteStory}
-            >
-              <Icon name="trash-outline" size={18} color="#fff" />
-              <Text style={userAnalyticsStyles.deleteText}>Delete Story</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ position: 'absolute', right: 5, bottom: 5, backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 10, }}
-              onPress={() => {
-                handlePause();
-                shareRef.current?.open?.();
-                // Include user information with the story
-                const storyWithUser = {
-                  ...currentStory,
-                  userName: currentUser?.username,
-                  userImage: currentUser?.avatar,
-                  user: {
-                    id: currentUser?.id,
-                    displayName: currentUser?.username,
-                    image: currentUser?.avatar
-                  }
-                };
-                setSelectedPostId(storyWithUser);
-              }}>
-              <Feather name="send" size={24} color="#000" />
-            </TouchableOpacity>
+            <View style={userAnalyticsStyles.actionsRow}>
+              <TouchableOpacity
+                style={userAnalyticsStyles.deleteButton}
+                onPress={handleDeleteStory}
+              >
+                <Icon name="trash-outline" size={18} color="#fff" />
+                <Text style={userAnalyticsStyles.deleteText}>Delete</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={userAnalyticsStyles.shareButton}
+                onPress={() => {
+                  handlePause();
+                  shareRef.current?.open?.();
+                  // Include user information with the story
+                  const storyWithUser = {
+                    ...currentStory,
+                    userName: currentUser?.username,
+                    userImage: currentUser?.avatar,
+                    user: {
+                      id: currentUser?.id,
+                      displayName: currentUser?.username,
+                      image: currentUser?.avatar
+                    }
+                  };
+                  setSelectedPostId(storyWithUser);
+                }}
+              >
+                <Feather name="send" size={18} color="#fff" />
+                <Text style={userAnalyticsStyles.shareText}>Share</Text>
+              </TouchableOpacity>
+            </View>
             <ShareModal
               ref={shareRef}
               story={selectedPostId}
@@ -935,7 +1000,14 @@ const StoryViewer = ({
                 onClose(); // Close stories viewer using the prop
               }}
               onShare={() => {
-                onClose(); // Close stories viewer after sharing using the prop
+                // Close story viewer first
+                stopAndResetProgress(true);
+                onClose();
+
+                // Close drawer after navigation starts
+                setTimeout(() => {
+                  if (onDrawerClose) onDrawerClose();
+                }, 150);
               }}
             />
           </View>
@@ -1059,7 +1131,14 @@ const StoryViewer = ({
                 onClose(); // Close stories viewer using the prop
               }}
               onShare={() => {
-                onClose(); // Close stories viewer after sharing using the prop
+                // Close story viewer first
+                stopAndResetProgress(true);
+                onClose();
+
+                // Close drawer after navigation starts
+                setTimeout(() => {
+                  if (onDrawerClose) onDrawerClose();
+                }, 150);
               }}
             />
           </>
@@ -1104,8 +1183,9 @@ const formatTime = timestamp => {
   return `${Math.floor(hours / 24)}d`;
 };
 
-export default function Stories({ refreshTick, sidebarMode = false }) {
+export default function Stories({ refreshTick, sidebarMode = false, onDrawerClose }) {
   const styles = createStyles();
+  const navigation = useNavigation();
   const [stories, setStories] = useState([]);
   const [likes, setLikes] = useState({});
   const [comments, setComments] = useState({});
@@ -1116,6 +1196,7 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
   const [composerVisible, setComposerVisible] = useState(false);
   const [composerMedia, setComposerMedia] = useState(null);
   const [composerList, setComposerList] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const toast = useToast()
   const dispatch = useDispatch();
@@ -1126,6 +1207,7 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
   const fetchStories = async () => {
     try {
       const id = await AsyncStorage.getItem('userId');
+      setCurrentUserId(id);
       dispatch(showLoader());
 
       // Fetch user's own stories
@@ -1519,15 +1601,15 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
     // If user has stories, show options dialog
     if (user.isUser && user.stories.length > 0) {
       Alert.alert(
-        'Your Story',
+        'Your Drops',
         'What would you like to do?',
         [
           {
-            text: 'View Story',
+            text: 'View Your Drops',
             onPress: () => openStoryViewer(user, userIndex),
           },
           {
-            text: 'Add Another Story',
+            text: 'Add Another Drops',
             onPress: () => handleAddNewStory(),
           },
           {
@@ -1658,6 +1740,11 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
     dispatch(hideLoader());
   };
 
+  const handleOpenStoryUserProfile = useCallback((user) => {
+    if (!user?.id || user?.isUser) return;
+    navigation.navigate('UsersProfile', { userId: user.id });
+  }, [navigation]);
+
   // Delete story function
   const handleDeleteStory = async (storyId) => {
     try {
@@ -1734,9 +1821,13 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
     try {
       // Extract the actual story ID (remove the _0 suffix that was added for display)
       const actualStoryId = storyId.replace('_0', '');
+      const cleanText = String(text || '').trim();
+
+      if (!cleanText) return;
+
       // Call the API
       const response = await postCommentStory({
-        comment: text,
+        comment: cleanText,
         storyId: actualStoryId
       });
 
@@ -1747,10 +1838,23 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
           const arr = prev[key] || [];
           return {
             ...prev,
-            [key]: [...arr, { user: 'you', text, ts: Date.now() }],
+            [key]: [...arr, { user: 'you', text: cleanText, ts: Date.now() }],
           };
         });
 
+        // Also push the story reply into chat inbox of story owner.
+        try {
+          if (ownerId && currentUserId && String(ownerId) !== String(currentUserId)) {
+            await sendChatMessage({
+              senderId: currentUserId,
+              receiverId: ownerId,
+              message: cleanText,
+              type: 'CHAT',
+            });
+          }
+        } catch (chatError) {
+          console.warn('Failed to deliver story reply to inbox:', chatError);
+        }
       } else {
         // Handle API error
         console.error('Failed to add comment:', response);
@@ -1809,33 +1913,43 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
             style={sidebarMode ? sidebarStyles.verticalAddIcon : styles.addIcon}
           />
         )}
-        <HexAvatar
-          uri={item.isUser ? (profileImage || item.image) : item.image}
-          isUser={!!item.isUser}
-          size={sidebarMode ? 72 : 79}
-          borderWidth={item.isUser ? 3 : 2}
-          borderColor={item.isUser ? '#4da3ff' : '#000'}
-        />
-        {item.isUser && item.stories.length > 0 && (
-          <TouchableOpacity
-            style={sidebarMode ? sidebarStyles.verticalAddStoryOverlay : styles.addStoryOverlay}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleAddNewStory();
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={sidebarMode ? sidebarStyles.verticalAddStoryButton : styles.addStoryButton}>
-              <Icon name="add" size={sidebarMode ? 12 : 16} color="#fff" />
-            </View>
-          </TouchableOpacity>
-        )}
+        <View style={styles.positiom}>
+          <View style={styles.avatarContainer}>
+            <HexAvatar
+              uri={item.isUser ? (profileImage || item.image) : item.image}
+              isUser={!!item.isUser}
+              size={sidebarMode ? 80 : 79}
+              borderWidth={item.isUser ? 3 : 2}
+              borderColor={item.isUser ? '#4da3ff' : '#000'}
+            />
+
+            {item.isUser && item.stories.length > 0 && (
+              <TouchableOpacity
+                style={sidebarMode ? sidebarStyles.verticalAddStoryOverlay : styles.addStoryOverlay}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleAddNewStory();
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={sidebarMode ? sidebarStyles.verticalAddStoryButton : styles.addStoryButton}>
+                  <Icon name="add" size={sidebarMode ? 12 : 16} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
-      {!sidebarMode && (
-        <Text style={styles.storyUsername} numberOfLines={1}>
-          {item.username}
-        </Text>
-      )}
+      <Text
+        style={
+          item.isUser
+            ? (sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText)
+            : styles.storyUsername
+        }
+        numberOfLines={1}
+      >
+        {item.username || (item.isUser ? 'Drops' : '')}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -1876,6 +1990,8 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
         onReportUser={onReportUser}
         onDeleteStory={handleDeleteStory}
         ownerProfileImage={profileImage}
+        onDrawerClose={onDrawerClose}
+        onOpenUserProfile={handleOpenStoryUserProfile}
       />
 
       <StoryComposer
@@ -1883,8 +1999,8 @@ export default function Stories({ refreshTick, sidebarMode = false }) {
         mediaList={composerList}
         onCancel={() => {
           setComposerVisible(false);
-          setComposerList([]);        // Clear list
-          setComposerMedia(null);     // Clear single media if any
+          setComposerList([]);
+          setComposerMedia(null);
         }}
         onDone={handleComposerDone}
       />
@@ -1928,5 +2044,12 @@ const sidebarStyles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  verticalDropsText: {
+    marginTop: 2,
+    fontSize: 16,
+    color: '#6b6b6b',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

@@ -3,11 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { buyCreditHits, createCheckoutSession } from '../../services/stirpe';
+import { buyCreditHits } from '../../services/stirpe';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { Linking } from 'react-native';
+import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { useStripeCustomer } from '../../hooks/useStripeCustomer';
+import StripePaymentMethodModal from './StripePaymentMethodModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useRoute } from '@react-navigation/native';
@@ -19,6 +22,8 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const toast = useToast();
   const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -42,7 +47,11 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   const createStripeSubscription = async () => {
-    console.log('Creating Stripe checkout session for', creditsToBuy, 'credits');
+    const canProceed = await requireStripeCustomerForPayment();
+    if (!canProceed) {
+      setShowPaymentMethodModal(true);
+      return;
+    }
     dispatch(showLoader());
     try {
       const id = await AsyncStorage.getItem('userId');
@@ -54,49 +63,20 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         userId: id
       };
       const response = await buyCreditHits(dataToSend);
-      console.log('Response from buyCreditHits:', response);
-      if (response?.statusCode === 200 && response?.data?.url) {
+      const url = getPaymentSessionUrl(response);
+      if (url) {
         await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
-        const url = response.data.url;
-
         if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(url, {
-            dismissButtonStyle: 'close',
-            preferredBarTintColor: '#ffffff',
-            preferredControlTintColor: '#000000',
-            readerMode: false,
-            animated: true,
-            modalPresentationStyle: 'fullScreen',
-            modalTransitionStyle: 'coverVertical',
-            enableBarCollapsing: false,
-            showTitle: true,
-            toolbarColor: '#ffffff',
-            secondaryToolbarColor: '#f0f0f0',
-            forceCloseOnRedirection: true,
-          });
-
-          // Call the callback after successful payment flow
-          if (onPurchaseComplete) {
-            onPurchaseComplete();
-          }
+          await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+          if (onPurchaseComplete) onPurchaseComplete();
         } else {
           await Linking.openURL(url);
         }
       } else {
-        showToastMessage(
-          toast,
-          'danger',
-          response?.error ||
-          response?.message ||
-          'Failed to create payment session. Please try again.'
-        );
+        showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
       }
     } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        'Network error. Please check your internet connection and try again.'
-      );
+      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       dispatch(hideLoader());
     }
@@ -128,6 +108,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   return (
+    <>
     <RBSheet
       ref={sheetRef}
       height={340}
@@ -192,6 +173,19 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         </TouchableOpacity>
       </View>
     </RBSheet>
+
+    <StripePaymentMethodModal
+      visible={showPaymentMethodModal}
+      onClose={() => setShowPaymentMethodModal(false)}
+      onConnectStripe={async () => {
+        try {
+          await openPaymentConnectionAndRefresh();
+        } catch (e) {
+          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+        }
+      }}
+    />
+    </>
   );
 };
 

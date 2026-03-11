@@ -36,6 +36,7 @@ import {
   Brightness,
 } from 'react-native-color-matrix-image-filters';
 import { useAppTheme } from '../../../theme/useApptheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const fonts = [
   { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
@@ -74,11 +75,12 @@ const InstagramPostCreator = () => {
   const routeImages = route.params?.selectedMedia || [];
   const postType = route.params?.postType || 'regular';
   const fromIcon = route.params?.fromIcon;
+  const isFlipPost = fromIcon === 'Flips';
   const [selectedImages, setSelectedImages] = useState(routeImages);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
   const bottomSheetRef = useRef();
-  console.log(fromIcon, 'from icon came here')
+  const [profile, setProfile] = useState(null);
 
   const [selectedFilter, setSelectedFilter] = useState('none');
   const [isZooming, setIsZooming] = useState(false);
@@ -102,6 +104,9 @@ const InstagramPostCreator = () => {
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+  const [canvasKey, setCanvasKey] = useState(0);
+  const [isOverlayTransforming, setIsOverlayTransforming] = useState(false);
+  const [editorCanvasHeight, setEditorCanvasHeight] = useState(IMAGE_SIZE);
 
   // Video related states
   const [videoPaused, setVideoPaused] = useState({});
@@ -111,9 +116,11 @@ const InstagramPostCreator = () => {
 
   // Add refs for capturing filtered images
   const imageViewRefs = useRef({});
+  const drawingSurfaceRefs = useRef({});
 
   // Store animated values separately to avoid modification issues
   const animatedValues = useRef({});
+  const overlayGestureState = useRef({});
 
   const TEXT_OVERLAY_BOUNDS = {
     minX: 0,
@@ -122,11 +129,127 @@ const InstagramPostCreator = () => {
     maxY: IMAGE_SIZE - 50,
   };
 
+  const getProfile = async () => {
+    try {
+      const value = await AsyncStorage.getItem('profile');
+      console.log(value,'value in here ');
+        setProfile(value);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  useEffect(() => {
+    getProfile();
+  }, []);
+
+  useEffect(() => {
+    const currentMedia = selectedImages[currentImageIndex];
+    if (!currentMedia) return;
+    setEditorCanvasHeight(getCanvasHeightForMedia(currentMedia));
+  }, [currentImageIndex, selectedImages]);
+
+  useEffect(() => () => {
+    if (zoomTimeout.current) {
+      clearTimeout(zoomTimeout.current);
+    }
+  }, []);
   const IMAGE_OVERLAY_BOUNDS = {
     minX: 0,
     minY: 0,
     maxX: IMAGE_SIZE - 100,
     maxY: IMAGE_SIZE - 100,
+  };
+
+  const getMediaKey = (media, index) => {
+    return media?.path || media?.uri || media?.sourceURL || `media-${index}`;
+  };
+
+  const getCanvasHeightForMedia = (media) => {
+    const mediaWidth = Number(media?.width) || IMAGE_SIZE;
+    const mediaHeight = Number(media?.height) || IMAGE_SIZE;
+    if (!mediaWidth || !mediaHeight) {
+      return IMAGE_SIZE;
+    }
+
+    return Math.min(450, Math.max(220, (IMAGE_SIZE * mediaHeight) / mediaWidth));
+  };
+
+  const getOverlayBounds = (size = 100) => ({
+    minX: 0,
+    minY: 0,
+    maxX: Math.max(0, IMAGE_SIZE - size),
+    maxY: Math.max(0, editorCanvasHeight - size),
+  });
+
+  const getTextBounds = () => ({
+  minX: 0,
+  minY: 0,
+  maxX: IMAGE_SIZE - 50,  // Changed from IMAGE_SIZE - 140
+  maxY: editorCanvasHeight - 50,  // Changed from editorCanvasHeight - 60
+});
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const getTouchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const [a, b] = touches;
+    return Math.hypot(b.pageX - a.pageX, b.pageY - a.pageY);
+  };
+
+  const getTouchAngle = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const [a, b] = touches;
+    return Math.atan2(b.pageY - a.pageY, b.pageX - a.pageX);
+  };
+
+  const getTouchCenter = (touches) => {
+    if (!touches || touches.length < 2) return { x: 0, y: 0 };
+    const [a, b] = touches;
+    return {
+      x: (a.pageX + b.pageX) / 2,
+      y: (a.pageY + b.pageY) / 2,
+    };
+  };
+
+  const buildCanvasSource = (uri) => {
+    if (!uri) return undefined;
+    const normalized = String(uri).replace('file://', '');
+    const lastSlash = normalized.lastIndexOf('/');
+    if (lastSlash === -1) {
+      return {
+        filename: normalized,
+        directory: '',
+        mode: 'AspectFill',
+      };
+    }
+
+    return {
+      filename: normalized.slice(lastSlash + 1),
+      directory: normalized.slice(0, lastSlash),
+      mode: 'AspectFill',
+    };
+  };
+
+  const updateOverlayImageById = (imageIndex, overlayId, updater) => {
+    setImageEdits(prev => {
+      const imageEdit = prev[imageIndex] || {
+        textOverlays: [],
+        overlayImages: [],
+        filter: 'none',
+        drawings: null,
+        processedImageUri: null,
+      };
+
+      return {
+        ...prev,
+        [imageIndex]: {
+          ...imageEdit,
+          overlayImages: imageEdit.overlayImages.map(overlay =>
+            overlay.id === overlayId ? updater(overlay) : overlay
+          ),
+        },
+      };
+    });
   };
 
   // Helper function to check if current media is video
@@ -260,6 +383,65 @@ const InstagramPostCreator = () => {
     updateCurrentImageEdits({ filter: filterValue });
   };
 
+  const captureAndMergeDrawing = async (shouldExitDrawMode = true) => {
+    if (!isDrawing || isCurrentMediaVideo() || !canvasRef.current) return;
+
+    try {
+      const drawingSurfaceRef = drawingSurfaceRefs.current[currentImageIndex];
+      if (!drawingSurfaceRef) {
+        throw new Error('Drawing surface not ready');
+      }
+
+      const mergedUri = await captureRef(drawingSurfaceRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+
+      updateCurrentImageEdits({
+        processedImageUri: mergedUri,
+        drawings: mergedUri,
+      });
+
+      // Clear canvas after save completes
+      if (canvasRef.current) {
+        canvasRef.current.clear();
+      }
+
+      if (shouldExitDrawMode) {
+        setIsDrawing(false);
+        setIsScrollEnabled(true);
+        setActiveTab('null');
+        setCanvasKey(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error('Drawing save error:', err);
+      Alert.alert('Error', 'Failed to save drawing.');
+    }
+  };
+  const handleImageChange = async (newIndex) => {
+    if (newIndex === currentImageIndex) return;
+
+    // Auto-merge current drawing before switching
+    if (isDrawing) {
+      await captureAndMergeDrawing(false); // false = don't exit draw mode yet
+    }
+
+    setCurrentImageIndex(newIndex);
+    loadImageEdits(newIndex);
+    setCanvasKey(prev => prev + 1);
+    if (isDrawing) {
+      setCanvasKey(prev => prev + 1);
+    }
+
+    // Re-enter draw mode if user was drawing
+    if (isDrawing) {
+      setIsDrawing(true);
+      setIsScrollEnabled(false);
+
+    }
+  };
+
   // Function to capture filtered image
   const captureFilteredImage = async (imageIndex) => {
     try {
@@ -287,11 +469,11 @@ const InstagramPostCreator = () => {
 
 
   const renderFilters = () => {
-    // Hide filters if current media is video or filters are not shown
-    if (!showFilters || isCurrentMediaVideo()) return null;
+    if (!showFilters) return null;
 
     const currentEdits = getCurrentImageEdits();
     const imageUri = selectedImages[currentImageIndex]?.path || selectedImages[currentImageIndex]?.uri;
+    const currentMediaIsVideo = isCurrentMediaVideo();
 
     // List of filter names (we'll show names + simple preview style instead of live filter)
     const filterPreviews = [
@@ -321,12 +503,16 @@ const InstagramPostCreator = () => {
                 currentEdits.filter === filter.value && styles.selectedFilter,
               ]}
             >
-              {/* Simple preview using original image with overlay effect */}
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.filterPreviewImage}
-              // resizeMode="cover"
-              />
+              {currentMediaIsVideo ? (
+                <View style={[styles.filterPreviewImage, styles.videoFilterPreview]}>
+                  <Icon name="videocam" size={18} color="#fff" />
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.filterPreviewImage}
+                />
+              )}
               {/* Visual indicator overlay for each filter */}
               <View style={[
                 StyleSheet.absoluteFillObject,
@@ -350,7 +536,7 @@ const InstagramPostCreator = () => {
     );
   };
 
-  // Enhanced video play/pause handler
+  // Enhanced video play/pause handlerF
   const handleVideoPress = (index) => {
     setVideoPaused(prev => ({
       ...prev,
@@ -376,8 +562,10 @@ const InstagramPostCreator = () => {
             return {
               id: overlayId,
               uri: img.path,
-              // Store position as plain object, create animated value when needed
               position: { x: 50, y: 50 },
+              scale: 1,
+              rotation: 0,
+              baseSize: 100,
             };
           })
           .filter(Boolean);
@@ -391,125 +579,182 @@ const InstagramPostCreator = () => {
   };
 
   const createPanResponder = (id) => {
-    const currentEdits = getCurrentImageEdits();
+    const imageIndex = currentImageIndex;
+    const currentEdits = imageEdits[imageIndex] || getCurrentImageEdits();
     const target = currentEdits.overlayImages.find(o => o.id === id);
     if (!target) {
       return PanResponder.create({ onStartShouldSetPanResponder: () => false });
     }
 
-    // Get or create animated value for this overlay
-    const animatedPosition = getAnimatedValue(currentImageIndex, id, target.position.x, target.position.y);
-
     return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) =>
-        Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
-      onPanResponderGrant: () => {
-        animatedPosition.setOffset({
-          x: animatedPosition.x._value,
-          y: animatedPosition.y._value,
-        });
-        animatedPosition.setValue({ x: 0, y: 0 });
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        const currentOverlay = (imageEdits[imageIndex] || getCurrentImageEdits())
+          .overlayImages
+          .find(o => o.id === id) || target;
+
+        overlayGestureState.current[id] = {
+          mode: touches.length >= 2 ? 'transform' : 'drag',
+          startPosition: { ...(currentOverlay.position || { x: 50, y: 50 }) },
+          startScale: currentOverlay.scale || 1,
+          startRotation: currentOverlay.rotation || 0,
+          startDistance: getTouchDistance(touches),
+          startAngle: getTouchAngle(touches),
+          startCenter: getTouchCenter(touches),
+        };
+
+        setIsOverlayTransforming(true);
+        setIsScrollEnabled(false);
       },
       onPanResponderMove: (evt, gestureState) => {
-        const currentX = animatedPosition.x._offset + gestureState.dx;
-        const currentY = animatedPosition.y._offset + gestureState.dy;
+        const touches = evt.nativeEvent.touches;
+        const session = overlayGestureState.current[id];
+        if (!session) return;
+        const overlayBounds = getOverlayBounds(target.baseSize || 100);
 
-        const boundedX = Math.max(
-          IMAGE_OVERLAY_BOUNDS.minX,
-          Math.min(IMAGE_OVERLAY_BOUNDS.maxX, currentX),
-        );
-        const boundedY = Math.max(
-          IMAGE_OVERLAY_BOUNDS.minY,
-          Math.min(IMAGE_OVERLAY_BOUNDS.maxY, currentY),
-        );
+        if (touches.length >= 2) {
+          if (session.mode !== 'transform') {
+            const currentOverlay = (imageEdits[imageIndex] || getCurrentImageEdits())
+              .overlayImages
+              .find(o => o.id === id) || target;
 
-        animatedPosition.setValue({
-          x: boundedX - animatedPosition.x._offset,
-          y: boundedY - animatedPosition.y._offset,
-        });
+            session.mode = 'transform';
+            session.startPosition = { ...(currentOverlay.position || { x: 50, y: 50 }) };
+            session.startScale = currentOverlay.scale || 1;
+            session.startRotation = currentOverlay.rotation || 0;
+            session.startDistance = getTouchDistance(touches);
+            session.startAngle = getTouchAngle(touches);
+            session.startCenter = getTouchCenter(touches);
+          }
+
+          const distance = getTouchDistance(touches);
+          const angle = getTouchAngle(touches);
+          const center = getTouchCenter(touches);
+          const scaleRatio = session.startDistance > 0 ? distance / session.startDistance : 1;
+
+          updateOverlayImageById(imageIndex, id, overlay => ({
+            ...overlay,
+            position: {
+              x: clamp(
+                session.startPosition.x + (center.x - session.startCenter.x),
+                overlayBounds.minX,
+                overlayBounds.maxX,
+              ),
+              y: clamp(
+                session.startPosition.y + (center.y - session.startCenter.y),
+                overlayBounds.minY,
+                overlayBounds.maxY,
+              ),
+            },
+            scale: clamp(session.startScale * scaleRatio, 0.35, 4),
+            rotation: session.startRotation + (angle - session.startAngle),
+          }));
+          return;
+        }
+
+        if (session.mode !== 'drag') {
+          const currentOverlay = (imageEdits[imageIndex] || getCurrentImageEdits())
+            .overlayImages
+            .find(o => o.id === id) || target;
+          session.mode = 'drag';
+          session.startPosition = { ...(currentOverlay.position || { x: 50, y: 50 }) };
+        }
+
+        updateOverlayImageById(imageIndex, id, overlay => ({
+          ...overlay,
+          position: {
+            x: clamp(
+              session.startPosition.x + gestureState.dx,
+              overlayBounds.minX,
+              overlayBounds.maxX,
+            ),
+            y: clamp(
+              session.startPosition.y + gestureState.dy,
+              overlayBounds.minY,
+              overlayBounds.maxY,
+            ),
+          },
+        }));
       },
       onPanResponderRelease: () => {
-        animatedPosition.flattenOffset();
-        // Update the stored position
-        const currentEdits = getCurrentImageEdits();
-        const updatedOverlays = currentEdits.overlayImages.map(overlay => {
-          if (overlay.id === id) {
-            return {
-              ...overlay,
-              position: {
-                x: animatedPosition.x._value,
-                y: animatedPosition.y._value,
-              }
-            };
-          }
-          return overlay;
-        });
-        updateCurrentImageEdits({ overlayImages: updatedOverlays });
+        delete overlayGestureState.current[id];
+        setIsOverlayTransforming(false);
+        setIsScrollEnabled(true);
+      },
+      onPanResponderTerminate: () => {
+        delete overlayGestureState.current[id];
+        setIsOverlayTransforming(false);
+        setIsScrollEnabled(true);
       },
     });
   };
 
   const createTextPanResponder = (id) => {
-    const currentEdits = getCurrentImageEdits();
-    const overlay = currentEdits.textOverlays.find(o => o.id === id);
-    if (!overlay) {
-      return PanResponder.create({ onStartShouldSetPanResponder: () => false });
-    }
+  const currentEdits = getCurrentImageEdits();
+  const overlay = currentEdits.textOverlays.find(o => o.id === id);
+  if (!overlay) {
+    return PanResponder.create({ onStartShouldSetPanResponder: () => false });
+  }
 
-    // Get or create animated value for this text overlay
-    const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
+  const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
 
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gs) =>
-        Math.abs(gs.dx) > 5 || Math.abs(gs.dy) > 5,
+  return PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (evt, gs) => {
+      return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
+    },
+    onPanResponderGrant: () => {
+      setIsScrollEnabled(false);
+      animatedPosition.setOffset({
+        x: animatedPosition.x._value,
+        y: animatedPosition.y._value,
+      });
+      animatedPosition.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: Animated.event(
+      [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
+      {
+        useNativeDriver: false,
+        // REMOVED the listener that was clamping values during drag
+      }
+    ),
+    onPanResponderRelease: (evt, gestureState) => {
+      setIsScrollEnabled(true);
+      animatedPosition.flattenOffset();
 
-      onPanResponderGrant: () => {
-        animatedPosition.setOffset({
-          x: animatedPosition.x._value,
-          y: animatedPosition.y._value,
-        });
-        animatedPosition.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const currentX = animatedPosition.x._offset + gestureState.dx;
-        const currentY = animatedPosition.y._offset + gestureState.dy;
+      // Get the final position
+      const finalX = animatedPosition.x._value;
+      const finalY = animatedPosition.y._value;
 
-        const boundedX = Math.max(
-          TEXT_OVERLAY_BOUNDS.minX,
-          Math.min(TEXT_OVERLAY_BOUNDS.maxX, currentX),
-        );
-        const boundedY = Math.max(
-          TEXT_OVERLAY_BOUNDS.minY,
-          Math.min(TEXT_OVERLAY_BOUNDS.maxY, currentY),
-        );
+      // Apply boundaries only on release
+      const boundedX = Math.max(0, Math.min(IMAGE_SIZE - 50, finalX));
+      const boundedY = Math.max(0, Math.min(editorCanvasHeight - 50, finalY));
 
-        animatedPosition.setValue({
-          x: boundedX - animatedPosition.x._offset,
-          y: boundedY - animatedPosition.y._offset,
-        });
-      },
-      onPanResponderRelease: () => {
-        animatedPosition.flattenOffset();
-        // Update the stored position
-        const currentEdits = getCurrentImageEdits();
-        const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
-          if (textOverlay.id === id) {
-            return {
-              ...textOverlay,
-              position: {
-                x: animatedPosition.x._value,
-                y: animatedPosition.y._value,
-              }
-            };
-          }
-          return textOverlay;
-        });
-        updateCurrentImageEdits({ textOverlays: updatedOverlays });
-      },
-    });
-  };
+      // Update the position
+      const currentEdits = getCurrentImageEdits();
+      const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
+        if (textOverlay.id === id) {
+          return {
+            ...textOverlay,
+            position: {
+              x: boundedX,
+              y: boundedY,
+            }
+          };
+        }
+        return textOverlay;
+      });
+      updateCurrentImageEdits({ textOverlays: updatedOverlays });
+    },
+    onPanResponderTerminate: () => {
+      setIsScrollEnabled(true);
+    },
+  });
+};
 
   const filterOptions = [
     { name: 'Original', value: 'none', component: React.Fragment },
@@ -604,13 +849,14 @@ const InstagramPostCreator = () => {
       setEditingOverlayId(null);
     } else {
       const { x, y } = pan.__getValue();
+      const textBounds = getTextBounds();
       const boundedX = Math.max(
-        TEXT_OVERLAY_BOUNDS.minX,
-        Math.min(TEXT_OVERLAY_BOUNDS.maxX, x),
+        textBounds.minX,
+        Math.min(textBounds.maxX, x),
       );
       const boundedY = Math.max(
-        TEXT_OVERLAY_BOUNDS.minY,
-        Math.min(TEXT_OVERLAY_BOUNDS.maxY, y),
+        textBounds.minY,
+        Math.min(textBounds.maxY, y),
       );
 
       const newId = Date.now().toString() + Math.random();
@@ -698,29 +944,10 @@ const InstagramPostCreator = () => {
     }
   };
 
-  const saveCurrentDrawing = () => {
-    if (canvasRef.current && isDrawing) {
-      try {
-        canvasRef.current.save('png', false, 'Sketches', String(Date.now()), false, false, false);
-      } catch (error) {
-        console.log('Error calling save():', error);
-      }
-    }
-  };
-
-  const handleImageChange = async (newIndex) => {
-    if (newIndex === currentImageIndex) return;
-
-    // Save current drawing before switching
-    await saveCurrentDrawing();
-
-    setCurrentImageIndex(newIndex);
-
-    // Load edits for the new image
-    loadImageEdits(newIndex);
-  };
-
   const handleNext = async () => {
+    if (isDrawing) {
+      await captureAndMergeDrawing(false);
+    }
     try {
       const processedImages = await Promise.all(
         selectedImages.map(async (image, index) => {
@@ -729,16 +956,15 @@ const InstagramPostCreator = () => {
             overlayImages: [],
             filter: 'none',
             drawings: null,
+            processedImageUri: null,
           };
-
-          let processedUri = image.path || image.uri;
-
-          // Skip capture for videos or if no edits are applied
+          let processedUri = edits.processedImageUri || image.path || image.uri;
           const isVideo = isMediaVideo(image);
           const hasEdits =
             edits.textOverlays.length > 0 ||
             edits.overlayImages.length > 0 ||
             edits.drawings ||
+            edits.processedImageUri ||
             (edits.filter && edits.filter !== 'none');
 
           if (!isVideo && hasEdits) {
@@ -806,12 +1032,13 @@ const InstagramPostCreator = () => {
                   overlayImages: [],
                   filter: 'none',
                   drawings: null,
+                  processedImageUri: null,
                 };
 
                 return {
                   ...image,
                   originalUri: image.path || image.uri,
-                  processedUri: image.path || image.uri,
+                  processedUri: edits.processedImageUri || image.path || image.uri,
                   filter: edits.filter,
                   isVideo: isMediaVideo(image),
                   textOverlays: edits.textOverlays.map(overlay => ({
@@ -830,6 +1057,8 @@ const InstagramPostCreator = () => {
               navigation.navigate('PostEditor', {
                 images: fallbackImages,
                 imageEdits: imageEdits,
+                postType: postType,
+                fromIcon: fromIcon
               });
             }
           }
@@ -877,6 +1106,7 @@ const InstagramPostCreator = () => {
 
   const renderImageCarousel = () => {
     const currentEdits = getCurrentImageEdits();
+    const currentCanvasHeight = getCanvasHeightForMedia(selectedImages[currentImageIndex]);
     const FilterComponent =
       filterOptions.find(f => f.value === selectedFilter)?.component ||
       React.Fragment;
@@ -902,7 +1132,7 @@ const InstagramPostCreator = () => {
     return (
       <View style={styles.imageContainer}>
         {selectedImages.length > 0 ? (
-          <View style={styles.mainImageContainer}>
+          <View style={[styles.mainImageContainer, { height: currentCanvasHeight }]}>
             <ScrollView
               ref={mainScrollViewRef}
               horizontal
@@ -910,22 +1140,30 @@ const InstagramPostCreator = () => {
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={handleMainImageScroll}
               scrollEventThrottle={16}
-              style={styles.mainScrollView}
-              contentContainerStyle={styles.mainScrollContent}
+              style={[styles.mainScrollView, { height: currentCanvasHeight }]}
+              contentContainerStyle={[styles.mainScrollContent, { height: currentCanvasHeight }]}
               scrollEnabled={isScrollEnabled}   // ← THIS LINE
             >
               {selectedImages.map((image, index) => (
-                <View key={index} style={[styles.imageSlide, { width: IMAGE_SIZE }]}>
+                <View
+                  key={getMediaKey(image, index)}
+                  style={[styles.imageSlide, { width: IMAGE_SIZE, height: currentCanvasHeight }]}
+                >
                   <View
                     ref={ref => {
                       if (ref) {
                         imageViewRefs.current[index] = ref;
                       }
                     }}
+                    onLayout={(event) => {
+                      const { height } = event.nativeEvent.layout;
+                      if (height > 0 && index === currentImageIndex && Math.abs(height - editorCanvasHeight) > 1) {
+                        setEditorCanvasHeight(height);
+                      }
+                    }}
                     style={{
                       width: IMAGE_SIZE,
-                      height: "100%",
-
+                      height: currentCanvasHeight,
                       position: 'relative'
                     }}
                     collapsable={false}
@@ -941,7 +1179,7 @@ const InstagramPostCreator = () => {
                           }}
                           source={{ uri: image.path || image.uri }}
                           style={styles.mainImage}
-                          resizeMode="cover"
+                          resizeMode='cover'
                           paused={videoPaused[index] !== false}
                           muted={videoMuted}
                           repeat={true}
@@ -990,157 +1228,188 @@ const InstagramPostCreator = () => {
                             />
                           </TouchableOpacity>
                         </View>
+
+                        {selectedFilter !== 'none' && index === currentImageIndex && (
+                          <View
+                            pointerEvents="none"
+                            style={[
+                              StyleSheet.absoluteFillObject,
+                              {
+                                backgroundColor:
+                                  selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                    selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                      selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                        selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                          selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                            'transparent',
+                              }
+                            ]}
+                          />
+                        )}
+                      </View>
+                    ) : isDrawing && index === currentImageIndex ? (
+                      <View
+                        ref={ref => {
+                          if (ref) {
+                            drawingSurfaceRefs.current[index] = ref;
+                          }
+                        }}
+                        collapsable={false}
+                        style={styles.drawingSurface}
+                      >
+                        <View style={styles.staticImageCanvas}>
+                        {(() => {
+                          const slideEdits = imageEdits[index] || {};
+                          const currentImageUri =
+                            slideEdits.processedImageUri ||
+                            image.path ||
+                            image.uri;
+
+                          return (
+                            <Image
+                              source={{ uri: currentImageUri }}
+                              style={styles.mainImage}
+                              resizeMode='cover'
+                            />
+                          );
+                        })()}
+
+                        {selectedFilter !== 'none' && (
+                          <View
+                            pointerEvents="none"
+                            style={[
+                              StyleSheet.absoluteFillObject,
+                              styles.filterOverlay,
+                              {
+                                backgroundColor:
+                                  selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                    selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                      selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                        selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                          selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                            'transparent',
+                              }
+                            ]}
+                          />
+                        )}
+                        </View>
+
+                        <SketchCanvas
+                          key={`canvas-${currentImageIndex}-${canvasKey}`}
+                          ref={canvasRef}
+                          style={[StyleSheet.absoluteFill, styles.activeDrawCanvas]}
+                          strokeColor={drawColor}
+                          strokeWidth={5}
+                          touchEnabled={true}
+                          pointerEvents="auto"
+                        />
                       </View>
                     ) : (
                       // Image with zoom functionality
                       <ImageZoom
-                        {...(!isDrawing ? panResponder.panHandlers : {})}
+                        {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})}
                         cropWidth={IMAGE_SIZE}
-                        cropHeight={IMAGE_SIZE}
+                        cropHeight={currentCanvasHeight}
                         imageWidth={IMAGE_SIZE}
-                        imageHeight={IMAGE_SIZE}
-                        enableImageZoom={!isDrawing}
+                        imageHeight={currentCanvasHeight}
+                        enableImageZoom={!isDrawing && !isOverlayTransforming}
                         minScale={0.5}
                         maxScale={4}
-                        pinchToZoom={!isDrawing}
-                        enableDoubleClickZoom={!isDrawing}
+                        pinchToZoom={!isDrawing && !isOverlayTransforming}
+                        enableDoubleClickZoom={!isDrawing && !isOverlayTransforming}
                         doubleClickInterval={175}
                         style={styles.imageZoomContainer}
                         onStartShouldSetPanResponder={evt => {
                           if (isDrawing) return false;
                           return (
-                            evt.nativeEvent.target._owner?.memoizedProps?.testID !==
-                            'overlay-element'
+                            evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
                           );
                         }}
                         onMoveShouldSetPanResponder={evt => {
                           if (isDrawing) return false;
                           return (
-                            evt.nativeEvent.target._owner?.memoizedProps?.testID !==
-                            'overlay-element'
+                            evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
                           );
                         }}
                         onPanResponderGrant={handleZoomStart}
                         onPanResponderRelease={handleZoomEnd}
                         onMove={({ scale }) => handleZoomChange(scale)}
                       >
-                        {/* Filtered image */}
-                        {!isMediaVideo(image) ? (
-                          <View style={styles.mainImage}>
-                            <Image
-                              source={{ uri: image.path || image.uri }}
-                              style={styles.mainImage}
-                              resizeMode="cover"
-                            />
-                            {/* Filter overlay */}
-                            {selectedFilter !== 'none' && (
-                              <View
-                                pointerEvents="none"
-                                style={[
-                                  StyleSheet.absoluteFillObject,
-                                  {
-                                    backgroundColor:
-                                      selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
-                                        selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
-                                          selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
-                                            selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
-                                              selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
-                                                'transparent',
-                                    mixBlendMode: 'multiply',
-                                  }
-                                ]} />
-                            )}
-                            {/* Optional: Duplicate image with tint for stronger effect */}
-                            {/* {selectedFilter === 'grayscale' && (
+                        <View style={styles.staticImageCanvas}>
+                          {/* Use processedImageUri if drawing was saved, otherwise original */}
+                          {(() => {
+                            const slideEdits = imageEdits[index] || {};
+                            const currentImageUri =
+                              slideEdits.processedImageUri ||
+                              image.path ||
+                              image.uri;
+
+                            return (
                               <Image
-                                source={{ uri: image.path || image.uri }}
-                                style={[styles.mainImage, { tintColor: '#808080', opacity: 0.8 }]}
-                                resizeMode="cover"
+                                source={{ uri: currentImageUri }}
+                                style={styles.mainImage}
+                                resizeMode='cover'
                               />
-                            )} */}
-                          </View>
-                        ) : (
-                          <Image
-                            source={{ uri: image.path || image.uri }}
-                            style={styles.mainImage}
-                            resizeMode="cover"
-                          />
-                        )}
+                            );
+                          })()}
+
+                          {/* Fake filter overlay (your current visual effect) */}
+                          {selectedFilter !== 'none' && (
+                            <View
+                              pointerEvents="none"
+                              style={[
+                                StyleSheet.absoluteFillObject,
+                                styles.filterOverlay,
+                                {
+                                backgroundColor:
+                                    selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                      selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                        selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                          selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                            selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                              'transparent',
+                                }
+                              ]}
+                            />
+                          )}
+                        </View>
                       </ImageZoom>
                     )}
 
-                    {/* Only show overlays for current image */}
                     {index === currentImageIndex && (
                       <>
-                        {/* Drawing Canvas - only for images, not videos */}
-                        {isDrawing && !isMediaVideo(image) && (
-                          <SketchCanvas
-                            ref={canvasRef}
-                            style={[
-                              StyleSheet.absoluteFill,
-                              {
-                                backgroundColor: 'rgba(0,0,0,0)', // Completely transparent
-                              }
-                            ]}
-                            strokeColor={drawColor}
-                            strokeWidth={5}
-                            pointerEvents="box-only"
-                            // Force transparent background
-                            defaultBackground="transparent"
-                            backgroundColor="rgba(0,0,0,0)"
-                            onStrokeEnd={() => {
-                              setTimeout(() => {
-                                saveCurrentDrawing();
-                              }, 100);
-                            }}
-                            onSketchSaved={async (success, path) => {
-                              if (success) {
-                                const base64 = await RNFS.readFile(path, 'base64');
-                                updateCurrentImageEdits({
-                                  drawings: `data:image/png;base64,${base64}`,
-                                });
-                              }
-                            }}
-                          />
-                        )}
-
-                        {/* Overlay Images */}
                         {currentEdits.overlayImages.map(img => {
                           const panResponder = createPanResponder(img.id);
-                          const animatedPosition = getAnimatedValue(currentImageIndex, img.id, img.position.x, img.position.y);
                           return (
-                            <Animated.View
+                            <View
                               key={img.id}
                               {...panResponder.panHandlers}
                               testID="overlay-element"
                               style={[
+                                styles.overlayImageWrapper,
                                 {
-                                  position: 'absolute',
-                                  width: 100,
-                                  height: 100,
-                                  zIndex: 999,
+                                  left: img.position?.x || 0,
+                                  top: img.position?.y || 0,
+                                  width: img.baseSize || 100,
+                                  height: img.baseSize || 100,
+                                  transform: [
+                                    { scale: img.scale || 1 },
+                                    { rotate: `${img.rotation || 0}rad` },
+                                  ],
                                 },
-                                animatedPosition.getLayout(),
                               ]}
                             >
                               <TouchableOpacity
                                 onLongPress={() => removeOverlay(img.id)}
-                                style={{ flex: 1 }}
+                                activeOpacity={1}
+                                style={styles.overlayTouchTarget}
                               >
                                 <Image
                                   source={{ uri: img.uri }}
-                                  style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    opacity: 0.8,
-                                    resizeMode: 'contain',
-                                    borderWidth: 2,
-                                    borderColor: 'rgba(255,255,255,0.5)',
-                                    borderRadius: 4,
-                                  }}
+                                  style={styles.overlayImage}
                                 />
                               </TouchableOpacity>
-                            </Animated.View>
+                            </View>
                           );
                         })}
 
@@ -1237,24 +1506,6 @@ const InstagramPostCreator = () => {
                             </Text>
                           </Animated.View>
                         )}
-
-                        {/* Current image drawing overlay - only for images */}
-                        {currentEdits.drawings && !isMediaVideo(image) && (
-                          <Image
-                            source={{ uri: currentEdits.drawings }}
-                            style={[
-                              StyleSheet.absoluteFill,
-                              {
-                                backgroundColor: 'transparent',
-                                // Use blend mode to only show colored pixels
-                                mixBlendMode: 'multiply', // or 'overlay', 'screen'
-                              }
-                            ]}
-                            resizeMode="cover"
-                            // Make only non-white pixels visible
-                            blendMode="normal"
-                          />
-                        )}
                       </>
                     )}
 
@@ -1265,24 +1516,23 @@ const InstagramPostCreator = () => {
                         {imageEdits[index].overlayImages?.map(img => (
                           <View
                             key={`saved-overlay-${img.id}`}
-                            style={{
-                              position: 'absolute',
-                              width: 100,
-                              height: 100,
-                              left: img.position?.x || 0,
-                              top: img.position?.y || 0,
-                              zIndex: 999,
-                            }}
+                            style={[
+                              styles.overlayImageWrapper,
+                              {
+                                width: img.baseSize || 100,
+                                height: img.baseSize || 100,
+                                left: img.position?.x || 0,
+                                top: img.position?.y || 0,
+                                transform: [
+                                  { scale: img.scale || 1 },
+                                  { rotate: `${img.rotation || 0}rad` },
+                                ],
+                              },
+                            ]}
                           >
                             <Image
                               source={{ uri: img.uri }}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                opacity: 0.8,
-                                resizeMode: 'contain',
-                                borderRadius: 4,
-                              }}
+                              style={styles.savedOverlayImage}
                             />
                           </View>
                         ))}
@@ -1318,15 +1568,6 @@ const InstagramPostCreator = () => {
                             </Text>
                           </View>
                         ))}
-
-                        {/* Show saved drawings for this specific image - only for images */}
-                        {imageEdits[index]?.drawings && !isMediaVideo(selectedImages[index]) && (
-                          <Image
-                            source={{ uri: imageEdits[index].drawings }}
-                            style={StyleSheet.absoluteFill}
-                            resizeMode="cover"
-                          />
-                        )}
                       </>
                     )}
                   </View>
@@ -1341,7 +1582,6 @@ const InstagramPostCreator = () => {
                   onPress={() => {
                     if (canvasRef.current) {
                       canvasRef.current.undo();
-                      setTimeout(() => saveCurrentDrawing(), 100);
                     }
                   }}
                   style={styles.controlButton}
@@ -1349,11 +1589,16 @@ const InstagramPostCreator = () => {
                   <Text style={styles.controlButtonText}>↩</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => {
+                  onPress={async () => {
+                    // Always save/merge drawing first (even on cancel)
                     if (canvasRef.current) {
-                      canvasRef.current.clear();
-                      updateCurrentImageEdits({ drawings: null });
+                      await captureAndMergeDrawing(false); // false = don't exit yet
                     }
+                    // Then exit draw mode
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    // setActiveTab('null');
+                    // setCanvasKey(prev => prev + 1);
                   }}
                   style={[
                     styles.controlButton,
@@ -1363,42 +1608,33 @@ const InstagramPostCreator = () => {
                   <Text style={styles.controlButtonText}>✕</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={async () => {
-                    await saveCurrentDrawing();
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                  }}
-                  style={[
-                    styles.controlButton,
-                    { backgroundColor: 'rgba(0,128,0,0.7)' },
-                  ]}
+                  onPress={() => {
+                    captureAndMergeDrawing(true)
+                  }} // Now just exits cleanly
+                  style={[styles.controlButton, { backgroundColor: 'rgba(0,128,0,0.8)' }]}
                 >
                   <Text style={styles.controlButtonText}>✓</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Color palette - only show for images */}
             {isDrawing && !isCurrentMediaVideo() && (
               <ScrollView
                 horizontal
                 style={styles.colorPalette}
-                contentContainerStyle={{ alignItems: 'center' }}
                 showsHorizontalScrollIndicator={false}
               >
-                {['red', 'blue', 'green', 'yellow', 'white', 'black'].map(
-                  color => (
-                    <TouchableOpacity
-                      key={color}
-                      style={[
-                        styles.colorOption,
-                        { backgroundColor: color },
-                        drawColor === color && styles.activeColorOption,
-                      ]}
-                      onPress={() => setDrawColor(color)}
-                    />
-                  ),
-                )}
+                {['red', 'blue', 'green', 'yellow', 'white', 'black'].map(color => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorOption,
+                      { backgroundColor: color },
+                      drawColor === color && styles.activeColorOption,
+                    ]}
+                    onPress={() => setDrawColor(color)}
+                  />
+                ))}
               </ScrollView>
             )}
 
@@ -1416,7 +1652,7 @@ const InstagramPostCreator = () => {
               <View style={styles.pageIndicator}>
                 {selectedImages.map((_, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={`${getMediaKey(selectedImages[index], index)}-dot`}
                     onPress={() => scrollToImage(index)}
                     style={[
                       styles.dot,
@@ -1445,7 +1681,7 @@ const InstagramPostCreator = () => {
           >
             {selectedImages.map((image, index) => (
               <TouchableOpacity
-                key={index}
+                key={`${getMediaKey(image, index)}-thumb`}
                 onPress={() => scrollToImage(index)}
                 style={[
                   styles.thumbnail,
@@ -1474,61 +1710,69 @@ const InstagramPostCreator = () => {
 
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle]}>
-      {!fromIcon && (
+      <View style={styles.tabContainer}>
+        {[
+          { title: 'Text', icon: 'text-outline', disabled: false },
+          { title: 'Overlay', icon: 'layers-outline', disabled: false },
+          { title: 'Filter', icon: 'color-filter-outline', disabled: false },
+          ...(!isCurrentMediaVideo()
+            ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
+            : []),
+        ].map(tab => (
+          <TouchableOpacity
+            key={tab.title}
+            style={[styles.tabButton, tab.disabled && styles.disabledTabButton]}
+            onPress={async () => {
+              if (tab.disabled) return;
+              if (tab.title !== 'Filter' && showFilters) {
+                setShowFilters(false);
+              }
 
+              if (tab.title === 'Draw') {
+                if (isDrawing) {
+                  // Exiting draw mode → always save drawing first
+                  await captureAndMergeDrawing(true);
+                } else {
+                  // Entering draw mode
+                  setIsDrawing(true);
+                  setIsScrollEnabled(false);
+                  setCanvasKey(prev => prev + 1);
+                }
+              }
+              else if (tab.title === 'Filter') {
+                setShowFilters(prev => !prev);
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
+                }
+              }
+              else if (tab.title === 'Text') {
+                setModalVisible2(true);
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
+                }
+              }
+              else if (tab.title === 'Overlay') {
+                bottomSheetRef.current?.open();
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
+                }
+              }
 
-        <View style={styles.tabContainer}>
-          {[
-            { title: 'Text', icon: 'text-outline', disabled: isCurrentMediaVideo() },
-            { title: 'Overlay', icon: 'layers-outline', disabled: isCurrentMediaVideo() },
-            { title: 'Filter', icon: 'color-filter-outline', disabled: isCurrentMediaVideo() },
-            { title: 'Draw', icon: 'create-outline', disabled: isCurrentMediaVideo() },
-          ].map(tab => (
-            <TabButton
-              key={tab.title}
-              title={tab.title}
-              icon={tab.icon}
-              isActive={activeTab === tab.title}
-              disabled={tab.disabled}
-              onPress={() => {
-                if (tab.disabled) return;
-                if (tab.title !== 'Filter' && showFilters) {
-                  setShowFilters(false);
-                }
-
-                if (tab.title === 'Draw') {
-                  const newDrawingMode = !isDrawing;
-                  setIsDrawing(newDrawingMode);
-                  setIsScrollEnabled(!newDrawingMode); 
-                }
-                else if (tab.title === 'Filter') {
-                  setShowFilters(prev => !prev);
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                  }
-                }
-                else if (tab.title === 'Text') {
-                  setModalVisible2(true);
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                  }
-                }
-                else if (tab.title === 'Overlay') {
-                  bottomSheetRef.current?.open();
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                  }
-                }
-
-                setActiveTab(tab.title);
-              }}
-            />
-          ))}
-        </View>
-      )}
+              setActiveTab(tab.title);
+            }}
+            disabled={tab.disabled}
+          >
+            <Icon name={tab.icon} size={15} color={tab.disabled ? '#555' : '#aaa'} style={{ marginBottom: 2 }} />
+            <Text style={[styles.tabButtonText, tab.disabled && styles.disabledTabButtonText]}>{tab.title}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <RBSheet
         ref={bottomSheetRef}
         closeOnDragDown={true}
@@ -1716,7 +1960,7 @@ const InstagramPostCreator = () => {
       )}
 
       <View style={[styles.NextButtonView]}>
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <TouchableOpacity style={[styles.nextButton, { backgroundColor: profile === 'company' ? '#D3B683' : '#5a2d82', }]} onPress={handleNext}>
           <Text style={styles.nextButtonText}>Next</Text>
           <Text style={styles.nextArrow}>→</Text>
         </TouchableOpacity>
@@ -1732,7 +1976,7 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ height: fromIcon ? "82%" : "70%" }} showsVerticalScrollIndicator={false}>
+      <View style={{ height: isFlipPost ? "75%" : "70%" }} showsVerticalScrollIndicator={false}>
         {renderFilters()}
         {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}
@@ -1770,6 +2014,8 @@ const styles = StyleSheet.create({
     height: '80%',
     paddingHorizontal: 16,
     paddingBottom: 12,
+    zIndex: 1,
+    elevation: 1,
     // backgroundColor:'#ed1010ff'
 
 
@@ -1791,7 +2037,7 @@ const styles = StyleSheet.create({
     // alignSelf: 'center',
   },
   imageSlide: {
-    //  height: IMAGE_SIZE ,
+    //  height: '100%' ,
     // justifyContent: 'center',
     // alignItems: 'center',
     height: "100%",
@@ -1805,7 +2051,7 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     width: IMAGE_SIZE,
-    // height: IMAGE_SIZE ,
+    height: IMAGE_SIZE ,
     position: 'relative',
     borderRadius: 8,
     overflow: 'hidden',
@@ -1860,7 +2106,55 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   imageZoomContainer: {
+    width: IMAGE_SIZE,
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  staticImageCanvas: {
+    width: IMAGE_SIZE,
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 8,
+    backgroundColor: '#000',
+  },
+  drawingSurface: {
+    width: IMAGE_SIZE,
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 8,
+    backgroundColor: '#000',
+  },
+  filterOverlay: {
+    borderRadius: 8,
+  },
+  activeDrawCanvas: {
+    zIndex: 3000,
+    elevation: 20,
+  },
+  overlayImageWrapper: {
+    position: 'absolute',
+    zIndex: 999,
+  },
+  overlayTouchTarget: {
     flex: 1,
+  },
+  overlayImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.9,
+    resizeMode: 'contain',
+    // borderWidth: 2,
+    // borderColor: 'rgba(255,255,255,0.55)',
+    // borderRadius: 4,
+  },
+  savedOverlayImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.9,
+    resizeMode: 'contain',
+    borderRadius: 4,
   },
   drawControls: {
     position: 'absolute',
@@ -1955,8 +2249,11 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 20,
-
+    paddingVertical: 12,
+    marginBottom: 8,
+    zIndex: 20,
+    elevation: 20,
+    flexGrow: 0,
   },
   filterOption: {
     alignItems: 'center',
@@ -1976,6 +2273,11 @@ const styles = StyleSheet.create({
   filterPreviewImage: {
     width: '100%',
     height: '100%',
+  },
+  videoFilterPreview: {
+    backgroundColor: '#1f1f1f',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterName: {
     fontSize: 12,
@@ -2085,7 +2387,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   nextButton: {
-    backgroundColor: '#5a2d82',
+    // backgroundColor: '#5a2d82',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

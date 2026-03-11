@@ -2,6 +2,7 @@ import { useFocusEffect, useRoute } from '@react-navigation/native';
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform } from 'react-native';
 import ImagePicker from 'react-native-image-crop-picker';
+import Video from 'react-native-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import PostTypeModal from '../../components/modals/PostTypeModal';
@@ -20,11 +21,13 @@ export default function PostScreen({ navigation }) {
   const [postType, setPostType] = useState('normal');
   const [shared, setShared] = useState(false);
   const route = useRoute();
-  const fromIcon = route?.params?.fromIcon;
-  const mediaType = route?.params?.type;
-  console.log(mediaType, 'mediaTypes--------------------------------')
+  const rawPostTypeParam = route?.params?.postType;
+  const rawMediaTypeParam = route?.params?.type;
+  const isPrivateEntry = String(rawPostTypeParam || '').toLowerCase() === 'private';
+  const isFlipEntry = String(rawMediaTypeParam || '').toLowerCase() === 'flips';
+  const mediaType = rawMediaTypeParam;
+  
   const { bgStyle, textStyle, text } = useAppTheme();
-  const [previewLoaded, setPreviewLoaded] = useState(false);
   const dispatch = useDispatch();
 
 
@@ -123,8 +126,6 @@ export default function PostScreen({ navigation }) {
       .then((response) => {
         if (!response) return;
         dispatch(hideLoader());
-        // setPreviewLoaded(false);
-
         const assets = Array.isArray(response) ? response : [response];
 
         // 🧠 For Flip posts: validate duration
@@ -334,15 +335,23 @@ export default function PostScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      if (mediaType === 'Flips') {
-        setSelectedMedia([])
+      setSelectedMedia([]);
+
+      if (isPrivateEntry) {
+        setPostType('private');
         setShowTypeModal(false);
-        setPostType('flip');
-      } else {
-        setSelectedMedia([])
-        setShowTypeModal(true);
+        return;
       }
-    }, [fromIcon])
+
+      if (isFlipEntry) {
+        setPostType('flip');
+        setShowTypeModal(false);
+        return;
+      }
+
+      setPostType('normal');
+      setShowTypeModal(true);
+    }, [isPrivateEntry, isFlipEntry])
   );
 
   useFocusEffect(
@@ -450,21 +459,13 @@ export default function PostScreen({ navigation }) {
             <View key={`selected_${media.uri}_${index}`} style={styles.selectedGridItemHorizontal}>
               {media.type && media.type.startsWith('video') ? (
                 <View style={styles.selectedVideoItem}>
-                  <Image
+                  <Video
                     source={{ uri: media.uri }}
                     style={styles.selectedGridImageHorizontal}
-                  // onLoadEnd={() => {
-                  //   if (!previewLoaded) {
-                  //     setPreviewLoaded(true);
-                  //     dispatch(hideLoader());
-                  //   }
-                  // }}
-                  // onError={() => {
-                  //   if (!previewLoaded) {
-                  //     setPreviewLoaded(true);
-                  //     dispatch(hideLoader());
-                  //   }
-                  // }}
+                    paused={true}
+                    muted={true}
+                    repeat={false}
+                    resizeMode="cover"
                   />
 
                   <View style={styles.selectedVideoPlay}>
@@ -586,7 +587,7 @@ export default function PostScreen({ navigation }) {
         {galleryImages.length === 0 ? renderInitialGalleryPrompt() : renderMainContent()}
       </ScrollView>
       <PostTypeModal
-        visible={showTypeModal}
+        visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
         setShowTypeModal={setShowTypeModal}
         onClose={() => { setShowTypeModal(false); navigation.goBack(); }}
         onSelect={handleSelectType}
@@ -788,6 +789,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
+    textAlign:'center',
   },
   recentsSection: {
     paddingHorizontal: 16,
@@ -892,6 +894,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 4,
+    textAlign:'center',
+    
   },
   galleryButtonSubtext: {
     fontSize: 14,

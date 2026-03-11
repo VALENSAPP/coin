@@ -100,6 +100,8 @@
 #import "RNHapticFeedbackSpecJSI.h"
 #import "RNImagePickerSpec/RNImagePickerSpec.h"
 #import "RNImagePickerSpecJSI.h"
+#import "RNLocalizeSpec/RNLocalizeSpec.h"
+#import "RNLocalizeSpecJSI.h"
 #import "RNPermissionsSpec/RNPermissionsSpec.h"
 #import "RNPermissionsSpecJSI.h"
 #import "rnreanimated/rnreanimated.h"

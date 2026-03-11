@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -35,26 +35,53 @@ const { width } = Dimensions.get('window');
 
 export const WalletDashboardScreen = ({ navigation }) => {
   const [activityPeriod, setActivityPeriod] = useState('Weekly');
-  const [walletTransactions, setWalletTransactions] = useState();
+  const [walletTransactions, setWalletTransactions] = useState(0);
   const [selectedPrice, setSelectedPrice] = useState(0);
-  const [priceHistory, setPriceHistory] = useState([]);
+  const [priceHistory, setPriceHistory] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [recentActivities, setRecentActivities] = useState([]);
+  const [recentActivities, setRecentActivities] = useState(0);
   const [topCreators, setTopCreators] = useState([]);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
   const [tokenAddress, setTokenAddress] = useState(null);
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [kpiData, setKpiData] = useState([
-    { title: 'Portfolio Value', value: '-', icon: 'wallet', color: '#5a2d82' },
-    { title: 'My Coin Price', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
-    { title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
-    { title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
+    { id: 'portfolio', title: 'Portfolio Value', value: '-', icon: 'wallet', color: '#5a2d82' },
+    { id: 'support', title: 'total support', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
+    { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
+    { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
+
+  const loadProfileType = useCallback(async () => {
+    try {
+      const profileType = await AsyncStorage.getItem('profile');
+      const normalized = String(profileType || '').toLowerCase();
+      setIsBusinessProfile(normalized === 'company' || normalized === 'business');
+    } catch (error) {
+      console.error('Error loading profile type:', error);
+      setIsBusinessProfile(false);
+    }
+  }, []);
+
+  const visibleKpiData = useMemo(() => {
+    if (isBusinessProfile) {
+      return kpiData.filter(item => item.id !== 'support');
+    }
+    return kpiData;
+  }, [kpiData, isBusinessProfile]);
+
+  const kpiGridData = useMemo(() => {
+    const list = [...visibleKpiData];
+    if (list.length % 2 !== 0) {
+      list.push({ id: 'kpi-placeholder', isPlaceholder: true });
+    }
+    return list;
+  }, [visibleKpiData]);
 
   useEffect(() => {
     let timeout;
@@ -83,13 +110,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
         dispatch(showLoader()); // Show loader once at the beginning
         
         await Promise.allSettled([
-          fetchAllTransaction(),
-          fetchDashboardData(),
+          // fetchAllTransaction(),
+          // fetchDashboardData(),
+          loadProfileType(),
           fetchCreditsLeft(),
           fetchFollowers(),
-          fetchActivityOverview(),
+          // fetchActivityOverview(),
           fetchTopCreators(),
-          fetchActivities(),
+          // fetchActivities(),
         ]);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -103,29 +131,29 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return () => {
       // Cleanup if needed
     };
-  }, [dispatch]) // Add dispatch to dependency array
+  }, [dispatch, loadProfileType]) // Add dispatch to dependency array
 );
 
   // Remove the separate useEffect for activityPeriod
   // and replace with this one that properly triggers:
-  useEffect(() => {
-    if (activityPeriod) {
-      fetchActivityOverview();
-    }
-  }, [activityPeriod]);
+  // useEffect(() => {
+  //   if (activityPeriod) {
+  //     fetchActivityOverview();
+  //   }
+  // }, [activityPeriod]);
 
   // Update fetchAllData to remove the useCallback wrapper
-  const fetchAllData = async () => {
-    await Promise.all([
-      fetchAllTransaction(),
-      fetchDashboardData(),
-      fetchCreditsLeft(),
-      fetchFollowers(),
-      fetchActivityOverview(),
-      fetchTopCreators(),
-      fetchActivities(),
-    ]);
-  };
+  // const fetchAllData = async () => {
+  //   await Promise.all([
+  //     fetchAllTransaction(),
+  //     fetchDashboardData(),
+  //     fetchCreditsLeft(),
+  //     fetchFollowers(),
+  //     fetchActivityOverview(),
+  //     fetchTopCreators(),
+  //     fetchActivities(),
+  //   ]);
+  // };
 
   const onRefresh = async () => {
   setRefreshing(true);
@@ -133,13 +161,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
     dispatch(showLoader());
     
     await Promise.allSettled([
-      fetchAllTransaction(),
+      // fetchAllTransaction(),
+      loadProfileType(),
       fetchDashboardData(),
       fetchCreditsLeft(),
       fetchFollowers(),
-      fetchActivityOverview(),
+      // fetchActivityOverview(),
       fetchTopCreators(),
-      fetchActivities(),
+      // fetchActivities(),
     ]);
   } catch (error) {
     console.error('Error refreshing data:', error);
@@ -208,50 +237,50 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   };
 
-  const fetchDashboardData = async () => {
-  const storedPrice = await AsyncStorage.getItem('priceInUsd');
-  try {
-    const response = await getTotalTokenPurchase();
+//   const fetchDashboardData = async () => {
+//   const storedPrice = await AsyncStorage.getItem('priceInUsd');
+//   try {
+//     const response = await getTotalTokenPurchase();
 
-    console.log('getTotalTokenPurchasegetTotalTokenPurchase',response)
-    if (response?.statusCode === 200) {
-      const totalPortfolioValue = response.data.reduce(
-        (sum, item) => sum + (item.totalTokenAmount || 0),
-        0
-      );
-      console.log("portfolio value----------------", totalPortfolioValue);
-      setKpiData(prevKpiData => {
-        const newKpiData = [...prevKpiData];
-        newKpiData[0] = {
-          ...newKpiData[0],
-          value: `$ ${totalPortfolioValue.toFixed(4)}`
-        };
-        newKpiData[1] = {
-          ...newKpiData[1],
-          value: `$ ${Number(storedPrice).toFixed(4)}`
-        };
-        return newKpiData;
-      });
-    } else {
-      showToastMessage(toast, 'danger', response?.message);
-    }
-  } catch (error) {
-    console.error('Error in fetchDashboardData:', error);
-  }
-};
+//     console.log('getTotalTokenPurchasegetTotalTokenPurchase',response)
+//     if (response?.statusCode === 200) {
+//       const totalPortfolioValue = response.data.reduce(
+//         (sum, item) => sum + (item.totalTokenAmount || 0),
+//         0
+//       );
+//       console.log("portfolio value----------------", totalPortfolioValue);
+//       setKpiData(prevKpiData => {
+//         const newKpiData = [...prevKpiData];
+//         newKpiData[0] = {
+//           ...newKpiData[0],
+//           value: `$ ${totalPortfolioValue.toFixed(4)}`
+//         };
+//         newKpiData[1] = {
+//           ...newKpiData[1],
+//           value: `$ ${Number(storedPrice).toFixed(4)}`
+//         };
+//         return newKpiData;
+//       });
+//     } else {
+//       showToastMessage(toast, 'danger', response?.message);
+//     }
+//   } catch (error) {
+//     console.error('Error in fetchDashboardData:', error);
+//   }
+// };
 
-const fetchAllTransaction = async () => {
-  try {
-    const response = await getLatestTransactions();
-    if (response?.statusCode === 200) {
-      setWalletTransactions(response.data.transactions);
-    } else {
-      showToastMessage(toast, 'danger', response.data.message);
-    }
-  } catch (error) {
-    console.error('Error in fetchAllTransaction:', error);
-  }
-};
+// const fetchAllTransaction = async () => {
+//   try {
+//     const response = await getLatestTransactions();
+//     if (response?.statusCode === 200) {
+//       setWalletTransactions(response.data.transactions);
+//     } else {
+//       showToastMessage(toast, 'danger', response.data.message);
+//     }
+//   } catch (error) {
+//     console.error('Error in fetchAllTransaction:', error);
+//   }
+// };
 
 const fetchCreditsLeft = async () => {
   try {
@@ -274,53 +303,53 @@ const fetchCreditsLeft = async () => {
   }
 };
 
-  const fetchActivityOverview = async () => {
-  const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
+//   const fetchActivityOverview = async () => {
+//   const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
 
-  const periodMap = {
-    'Weekly': 'week',
-    'Monthly': 'month',
-    'Yearly': 'year'
-  };
+//   const periodMap = {
+//     'Weekly': 'week',
+//     'Monthly': 'month',
+//     'Yearly': 'year'
+//   };
 
-  try {
-    const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
+//   try {
+//     const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
 
-    if (response?.statusCode === 200) {
-      if (response.data.history && Array.isArray(response.data.history)) {
-        // Sort by date first
-        const sortedHistory = [...response.data.history].sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
+//     if (response?.statusCode === 200) {
+//       if (response.data.history && Array.isArray(response.data.history)) {
+//         // Sort by date first
+//         const sortedHistory = [...response.data.history].sort(
+//           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+//         );
 
-        // Use balanceAfter to show actual portfolio value over time
-        const formattedData = sortedHistory.map(item => ({
-          timestamp: new Date(item.date).getTime(),
-          value: parseFloat(item.balanceAfter || 0) // Use balanceAfter instead of amount
-        })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
+//         // Use balanceAfter to show actual portfolio value over time
+//         const formattedData = sortedHistory.map(item => ({
+//           timestamp: new Date(item.date).getTime(),
+//           value: parseFloat(item.balanceAfter || 0) // Use balanceAfter instead of amount
+//         })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
 
-        if (formattedData.length > 0) {
-          setPriceHistory(formattedData);
-          setSelectedPrice(formattedData[formattedData.length - 1].value);
-        } else {
-          setPriceHistory([]);
-          setSelectedPrice(0);
-        }
-      } else {
-        setPriceHistory([]);
-        setSelectedPrice(0);
-      }
-    } else {
-      showToastMessage(toast, 'danger', response.data.message);
-      setPriceHistory([]);
-      setSelectedPrice(0);
-    }
-  } catch (error) {
-    console.error('Error in fetchActivityOverview:', error);
-    setPriceHistory([]);
-    setSelectedPrice(0);
-  }
-};
+//         if (formattedData.length > 0) {
+//           setPriceHistory(formattedData);
+//           setSelectedPrice(formattedData[formattedData.length - 1].value);
+//         } else {
+//           setPriceHistory([]);
+//           setSelectedPrice(0);
+//         }
+//       } else {
+//         setPriceHistory([]);
+//         setSelectedPrice(0);
+//       }
+//     } else {
+//       showToastMessage(toast, 'danger', response.data.message);
+//       setPriceHistory([]);
+//       setSelectedPrice(0);
+//     }
+//   } catch (error) {
+//     console.error('Error in fetchActivityOverview:', error);
+//     setPriceHistory([]);
+//     setSelectedPrice(0);
+//   }
+// };
 
 const fetchFollowers = async () => {
   const id = await AsyncStorage.getItem('userId');
@@ -365,101 +394,110 @@ const fetchTopCreators = async () => {
   }
 };
 
-  const fetchActivities = async () => {
-  try {
-    const response = await getRecentActivities();
-    if (response?.statusCode === 200) {
-      console.log('Recent activities', response.data);
+//   const fetchActivities = async () => {
+//   try {
+//     const response = await getRecentActivities();
+//     if (response?.statusCode === 200) {
+//       console.log('Recent activities', response.data);
 
-      const formattedActivities = [];
-      let activityId = 1;
+//       const formattedActivities = [];
+//       let activityId = 1;
 
-      if (response.data.activities) {
-        const activities = response.data.activities;
+//       if (response.data.activities) {
+//         const activities = response.data.activities;
 
-        if (activities.purchase && Array.isArray(activities.purchase)) {
-          activities.purchase.forEach(purchase => {
-            formattedActivities.push({
-              id: activityId++,
-              action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
-              time: formatTime(purchase.createdAt),
-              type: 'buy',
-              createdAt: new Date(purchase.createdAt).getTime(),
-              rawData: purchase
-            });
-          });
-        }
+//         if (activities.purchase && Array.isArray(activities.purchase)) {
+//           activities.purchase.forEach(purchase => {
+//             formattedActivities.push({
+//               id: activityId++,
+//               action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
+//               time: formatTime(purchase.createdAt),
+//               type: 'buy',
+//               createdAt: new Date(purchase.createdAt).getTime(),
+//               rawData: purchase
+//             });
+//           });
+//         }
 
-        if (activities.sell && Array.isArray(activities.sell)) {
-          activities.sell.forEach(sell => {
-            formattedActivities.push({
-              id: activityId++,
-              action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
-              time: formatTime(sell.createdAt),
-              type: 'sell',
-              createdAt: new Date(sell.createdAt).getTime(),
-              rawData: sell
-            });
-          });
-        }
+//         if (activities.sell && Array.isArray(activities.sell)) {
+//           activities.sell.forEach(sell => {
+//             formattedActivities.push({
+//               id: activityId++,
+//               action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
+//               time: formatTime(sell.createdAt),
+//               type: 'sell',
+//               createdAt: new Date(sell.createdAt).getTime(),
+//               rawData: sell
+//             });
+//           });
+//         }
 
-        if (activities.following && Array.isArray(activities.following)) {
-          activities.following.forEach(follow => {
-            formattedActivities.push({
-              id: activityId++,
-              action: `${follow.followerName || 'Someone'} followed you`,
-              time: formatTime(follow.createdAt),
-              type: 'follow',
-              createdAt: new Date(follow.createdAt).getTime(),
-              rawData: follow
-            });
-          });
-        }
-      }
+//         if (activities.following && Array.isArray(activities.following)) {
+//           activities.following.forEach(follow => {
+//             formattedActivities.push({
+//               id: activityId++,
+//               action: `${follow.followerName || 'Someone'} followed you`,
+//               time: formatTime(follow.createdAt),
+//               type: 'follow',
+//               createdAt: new Date(follow.createdAt).getTime(),
+//               rawData: follow
+//             });
+//           });
+//         }
+//       }
 
-      formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
+//       formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
 
-      formattedActivities.forEach((activity, index) => {
-        activity.id = index + 1;
-      });
+//       formattedActivities.forEach((activity, index) => {
+//         activity.id = index + 1;
+//       });
 
-      setRecentActivities(formattedActivities.slice(0, 6));
-    } else {
-      showToastMessage(toast, 'danger', response.data.message);
-    }
-  } catch (error) {
-    console.error('Error in fetchActivities:', error);
-  }
-}
+//       setRecentActivities(formattedActivities.slice(0, 6));
+//     } else {
+//       showToastMessage(toast, 'danger', response.data.message);
+//     }
+//   } catch (error) {
+//     console.error('Error in fetchActivities:', error);
+//   }
+// }
 
   const handleTokenModalClose = () => {
+        console.log(doesNotMatch,'done')
+
     purchaseSheetRef.current?.close?.();
     setPendingFollowUserId(null);
   };
 
   const handleTokenPurchase = async () => {
-    try {
-      purchaseSheetRef.current?.close?.();
-    } catch (error) {
-      showToastMessage(
-        toast,
-        'danger',
-        error?.message || 'Token purchase failed',
-      );
-    } finally {
-      dispatch(hideLoader());
-      setPendingFollowUserId(null);
-    }
+        console.log(doesNotMatch,'done')
+
+    // try {
+    //   purchaseSheetRef.current?.close?.();
+    // } catch (error) {
+    //   showToastMessage(
+    //     toast,
+    //     'danger',
+    //     error?.message || 'Token purchase failed',
+    //   );
+    // } finally {
+    //   dispatch(hideLoader());
+    //   setPendingFollowUserId(null);
+    // }
   }
 
   const handleTokenSell = useCallback(() => {
-    sellSheetRef.current?.close();
+    // sellSheetRef.current?.close();
+    console.log(doesNotMatch,'done')
     showToastMessage(toast, 'success', 'Tokens sold successfully!');
     onRefresh();
   }, []);
 
   const renderKPICard = ({ item }) => {
-    const isCreditsCard = item.title === 'Credits Left';
+    if (item?.isPlaceholder) {
+      return <View style={[styles.kpiCard, styles.kpiCardPlaceholder]} />;
+    }
+
+    const isCreditsCard = item.id === 'credits';
     const isClickable = isCreditsCard && item.currentCredits < 1;
 
     return (
@@ -584,9 +622,9 @@ const fetchTopCreators = async () => {
         {/* KPI Cards */}
         <View style={styles.section}>
           <FlatList
-            data={kpiData}
+            data={kpiGridData}
             renderItem={renderKPICard}
-            keyExtractor={(item) => item.title}
+            keyExtractor={(item) => item.id || item.title}
             numColumns={2}
             columnWrapperStyle={styles.kpiRow}
             scrollEnabled={false}
@@ -830,6 +868,11 @@ const styles = StyleSheet.create({
     elevation: 2,
     flex: 1,
     marginHorizontal: 6,
+  },
+  kpiCardPlaceholder: {
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   kpiRow: {
     justifyContent: 'space-between',

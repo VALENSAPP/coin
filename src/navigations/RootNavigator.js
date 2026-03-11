@@ -15,6 +15,7 @@ import OTPScreen from '../pages/authentication/OtpScreen/OTPScreen';
 import ForgetPassword from '../pages/authentication/ForgotPassword/ForgotPassword';
 import NewPasswordScreen from '../pages/authentication/createNewPassword/CreateNewPassword';
 import CreateProfile from '../pages/authentication/createProfile';
+import BusinessSetup from '../pages/authentication/BusinessSetup';
 import WalletScreen from '../pages/authentication/createProfile/wallet';
 import MainTabNavigator from './MainTabNavigator';
 import Splash from '../pages/splashSceen/Splash';
@@ -222,7 +223,7 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      <Drawer.Screen
+      {/* <Drawer.Screen
         name="DrawerMarket"
         component={DummyComponent}
         options={{
@@ -239,7 +240,7 @@ const GlobalDrawerNavigator = () => {
             });
           },
         })}
-      />
+      /> */}
       <Drawer.Screen
         name="DrawerActivity"
         component={DummyComponent}
@@ -258,7 +259,7 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      <Drawer.Screen
+      {/* <Drawer.Screen
         name="DrawerCreators"
         component={DummyComponent}
         options={{
@@ -275,7 +276,7 @@ const GlobalDrawerNavigator = () => {
             });
           },
         })}
-      />
+      /> */}
       <Drawer.Screen
         name="DrawerSubscription"
         component={DummyComponent}
@@ -318,68 +319,68 @@ const GlobalDrawerNavigator = () => {
 
 export default function MainStack() {
   const isLogin = useSelector(state => state.login.IS_LOGGED_IN);
-  const toast = useToast();
-  const dispatch = useDispatch();
+  // const toast = useToast();
+  // const dispatch = useDispatch();
 
-  useEffect(() => {
-    if (isLogin) {
-      setupUserToken();
-    } else {
-      dispatch(hideLoader());
-    }
-  }, [isLogin]);
+  // useEffect(() => {
+  //   if (isLogin) {
+  //     setupUserToken();
+  //   } else {
+  //     dispatch(hideLoader());
+  //   }
+  // }, [isLogin]);
 
-  const setupUserToken = async () => {
-    try {
-      dispatch(showLoader());
-      const userId = await AsyncStorage.getItem('userId');
-      console.log('userId for token setup:', userId);
+  // const setupUserToken = async () => {
+  //   try {
+  //     dispatch(showLoader());
+  //     const userId = await AsyncStorage.getItem('userId');
+  //     console.log('userId for token setup:', userId);
 
-      if (!userId) return;
+  //     if (!userId) return;
 
-      // Try creating a new token
-      const response = await createToken({ userId });
-      console.log('Create token response:', response);
+  //     // Try creating a new token
+  //     const response = await createToken({ userId });
+  //     console.log('Create token response:', response);
 
-      if (response && response.statusCode === 200) {
-        await getPriceOfToken(response.data?.tokenAddress);
-        AsyncStorage.setItem('PlatFormToken', response.data.tokenAddress);
-        return;
-      }
+  //     if (response && response.statusCode === 200) {
+  //       await getPriceOfToken(response.data?.tokenAddress);
+  //       AsyncStorage.setItem('PlatFormToken', response.data.tokenAddress);
+  //       return;
+  //     }
 
-      // Fallback → get token by userId
-      const tokenRes = await getTokenByUserId(userId);
-      console.log('Get token by userId response:', tokenRes);
+  //     // Fallback → get token by userId
+  //     const tokenRes = await getTokenByUserId(userId);
+  //     console.log('Get token by userId response:', tokenRes);
 
-      if (tokenRes && tokenRes.statusCode === 200) {
-        await getPriceOfToken(tokenRes.data?.data?.tokenAddress);
-        AsyncStorage.setItem('PlatFormToken', tokenRes.data?.data?.tokenAddress);
-      } else {
-        showToastMessage(toast, 'danger', 'User token not found.');
-      }
-    } catch (error) {
-      showToastMessage(toast, 'danger', 'Failed to setup token.');
-    } finally {
-      dispatch(hideLoader());
-    }
-  };
+  //     if (tokenRes && tokenRes.statusCode === 200) {
+  //       await getPriceOfToken(tokenRes.data?.data?.tokenAddress);
+  //       AsyncStorage.setItem('PlatFormToken', tokenRes.data?.data?.tokenAddress);
+  //     } else {
+  //       showToastMessage(toast, 'danger', 'User token not found.');
+  //     }
+  //   } catch (error) {
+  //     showToastMessage(toast, 'danger', 'Failed to setup token.');
+  //   } finally {
+  //     dispatch(hideLoader());
+  //   }
+  // };
 
-  const getPriceOfToken = async (tokenAddress) => {
-    try {
-      if (!tokenAddress) return;
-      dispatch(showLoader());
-      const response = await getTokenPrice({ tokenAddress });
-      if (response.statusCode === 200) {
-        console.log('Token price fetched:', response.data);
-        await AsyncStorage.setItem('priceInUsd', JSON.stringify(response?.data?.priceInUsd));
-        await AsyncStorage.setItem('priceInWei', response?.data?.priceInWei);
-      }
-    } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to fetch token price');
-    } finally {
-      dispatch(hideLoader());
-    }
-  };
+  // const getPriceOfToken = async (tokenAddress) => {
+  //   try {
+  //     if (!tokenAddress) return;
+  //     dispatch(showLoader());
+  //     const response = await getTokenPrice({ tokenAddress });
+  //     if (response.statusCode === 200) {
+  //       console.log('Token price fetched:', response.data);
+  //       await AsyncStorage.setItem('priceInUsd', JSON.stringify(response?.data?.priceInUsd));
+  //       await AsyncStorage.setItem('priceInWei', response?.data?.priceInWei);
+  //     }
+  //   } catch (err) {
+  //     Alert.alert('Error', err.message || 'Failed to fetch token price');
+  //   } finally {
+  //     dispatch(hideLoader());
+  //   }
+  // };
 
   if (!isLogin) {
     return (
@@ -390,6 +391,7 @@ export default function MainStack() {
         <Stack.Screen name="ForgotPassword" component={ForgetPassword} />
         <Stack.Screen name="CreateNewPassword" component={NewPasswordScreen} />
         <Stack.Screen name="CreateProfile" component={CreateProfile} />
+        <Stack.Screen name="BusinessSetup" component={BusinessSetup} />
         <Stack.Screen name="kycverify" component={KYCVerification} />
         <Stack.Screen name="Wallet" component={WalletScreen} />
         <Stack.Screen name="Splash" component={Splash} />

@@ -6,24 +6,29 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
-  Dimensions,
 } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { cancelSubscription, checkSubscription } from '../../services/stirpe';
 import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
-
-const { width } = Dimensions.get('window');
 
 const Subscription = () => {
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const navigation = useNavigation();
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle, bg, text, card } = useAppTheme();
+  const themeColors = {
+    bg,
+    text,
+    card,
+    border: `${text}22`,
+    subText: `${text}B0`,
+    warning: '#FF6B35',
+    warningBg: '#FFF4EA',
+  };
 
   useEffect(() => {
     loadSubscriptionData();
@@ -79,18 +84,6 @@ const Subscription = () => {
     } finally {
       setCancelling(false);
     }
-  };
-
-  const formatDate = timestamp => {
-    if (!timestamp) return 'N/A';
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const formatDateISO = isoString => {
@@ -152,43 +145,28 @@ const Subscription = () => {
     return 'Unknown';
   };
 
-  const getCancelledMessage = subscription => {
-    if (subscription.subscription && subscription.subscription.status === "CANCELED") {
-      return `You can use your subscription until ${formatDate(subscription.subscription.currentPeriodEnd)}`;
-    }
-    return '';
-  };
-
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          style={styles.loadingGradient}
-        >
-          <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Loading subscription details...</Text>
-        </LinearGradient>
+      <View style={[styles.loadingContainer, bgStyle]}>
+        <ActivityIndicator size="large" color={themeColors.text} />
+        <Text style={[styles.loadingText, textStyle]}>Loading subscription details...</Text>
       </View>
     );
   }
 
   if (!subscriptionData) {
     return (
-      <View style={styles.errorContainer}>
-        <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          style={styles.errorGradient}
-        >
-          <Icon name="alert-circle-outline" size={64} color="#fff" />
-        <Text style={styles.errorText}>No subscription data found</Text>
+      <View style={[styles.errorContainer, bgStyle]}>
+        <View style={[styles.errorCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Icon name="alert-circle-outline" size={64} color={themeColors.text} />
+        <Text style={[styles.errorText, textStyle]}>No subscription data found</Text>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[styles.retryButton, { backgroundColor: themeColors.text }]}
           onPress={loadSubscriptionData}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -201,30 +179,24 @@ const Subscription = () => {
   const statusColor = getStatusColor(status, isCancelledSubscription);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        style={styles.headerGradient}
-      >
+    <View style={[styles.container, bgStyle]}>
+      <View style={[styles.headerGradient, { backgroundColor: themeColors.card, borderBottomColor: themeColors.border }]}>
       <View style={styles.header}>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}
             onPress={() => navigation?.goBack()}
           >
-            <Icon name="arrow-back" size={24} color="#fff" />
+            <Icon name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-          <Text style={styles.headerTitle}>Subscription Details</Text>
+          <Text style={[styles.headerTitle, textStyle]}>Subscription Details</Text>
           <View style={styles.headerPlaceholder} />
       </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView style={[styles.scrollContainer, bgStyle]} showsVerticalScrollIndicator={false}>
       {/* Status Card */}
-        <View style={styles.statusCard}>
-          <LinearGradient
-            colors={[statusColor, statusColor + '80']}
-            style={styles.statusGradient}
-          >
+        <View style={[styles.statusCard, { shadowColor: themeColors.text }]}>
+          <View style={[styles.statusGradient, { backgroundColor: statusColor }]}>
             <View style={styles.statusContent}>
               <View style={styles.statusIconContainer}>
                 <Icon 
@@ -235,11 +207,11 @@ const Subscription = () => {
               </View>
               <Text style={styles.statusText}>{status}</Text>
         </View>
-          </LinearGradient>
+          </View>
 
         {isCancelledSubscription && (
-          <View style={styles.warningContainer}>
-              <Icon name="warning" size={20} color="#FF6B35" />
+          <View style={[styles.warningContainer, { backgroundColor: themeColors.warningBg, borderLeftColor: themeColors.warning }]}>
+              <Icon name="warning" size={20} color={themeColors.warning} />
             <Text style={styles.warningText}>
                 Your subscription has been cancelled but you can use subscription until the end of your billing period.
             </Text>
@@ -248,111 +220,108 @@ const Subscription = () => {
       </View>
 
       {/* Plan Details Card */}
-        <View style={styles.detailsCard}>
+        <View style={[styles.detailsCard, { backgroundColor: themeColors.card, shadowColor: themeColors.text }]}>
           <View style={styles.cardHeader}>
-            <Icon name="card-outline" size={24} color="#667eea" />
-        <Text style={styles.cardTitle}>Plan Details</Text>
+            <Icon name="card-outline" size={24} color={themeColors.text} />
+        <Text style={[styles.cardTitle, textStyle]}>Plan Details</Text>
           </View>
 
         {isCancelledSubscription ? (
           <>
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
-                  <Icon name="checkmark-circle" size={16} color="#FF6B35" />
+                  <Icon name="checkmark-circle" size={16} color={themeColors.warning} />
                 </View>
-              <Text style={styles.detailLabel}>Status:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Status:</Text>
+              <Text style={[styles.detailValue, textStyle]}>
                 {subscription?.status || 'N/A'}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
-                  <Icon name="calendar" size={16} color="#667eea" />
+                  <Icon name="calendar" size={16} color={themeColors.text} />
                 </View>
-              <Text style={styles.detailLabel}>Started:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Started:</Text>
+              <Text style={[styles.detailValue, textStyle]}>
                 {formatDateISO(subscription?.start)}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
-                  <Icon name="time" size={16} color="#667eea" />
+                  <Icon name="time" size={16} color={themeColors.text} />
                 </View>
-              <Text style={styles.detailLabel}>Current Period Ends:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Current Period Ends:</Text>
+              <Text style={[styles.detailValue, textStyle]}>
                 {formatDateISO(subscription?.currentPeriodEnd)}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
-                  <Icon name="stopwatch" size={16} color="#FF6B35" />
+                  <Icon name="stopwatch" size={16} color={themeColors.warning} />
                 </View>
-              <Text style={styles.detailLabel}>Access Until:</Text>
-              <Text style={[styles.detailValue, styles.highlightText]}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Access Until:</Text>
+              <Text style={[styles.detailValue, styles.highlightText, { color: themeColors.warning }]}>
                 {formatDateISO(subscription?.currentPeriodEnd)}
               </Text>
             </View>
           </>
         ) : (
           <>
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="checkmark-circle" size={16} color="#4CAF50" />
                 </View>
-              <Text style={styles.detailLabel}>Status:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Status:</Text>
+              <Text style={[styles.detailValue, textStyle]}>
                 {subscription?.status || 'N/A'}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
-                  <Icon name="calendar" size={16} color="#667eea" />
+                  <Icon name="calendar" size={16} color={themeColors.text} />
                 </View>
-              <Text style={styles.detailLabel}>Started:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Started:</Text>
+              <Text style={[styles.detailValue, textStyle]}>
                 {formatDateISO(subscription?.start)}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
-                  <Icon name="time" size={16} color="#667eea" />
+                  <Icon name="time" size={16} color={themeColors.text} />
                 </View>
-              <Text style={styles.detailLabel}>Subscription Ends:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Subscription Ends:</Text>
+              <Text style={[styles.detailValue, textStyle]}>
                 {formatDateISO(subscription?.currentPeriodEnd)}
               </Text>
             </View>
             </>
           )}
 
-            <View style={styles.timeRemainingContainer}>
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              style={styles.timeRemainingGradient}
-            >
-              <Icon name="clock" size={24} color="#fff" />
-              <Text style={styles.timeRemainingLabel}>Time Remaining</Text>
-              <Text style={styles.timeRemainingValue}>
+            <View style={[styles.timeRemainingContainer, { borderColor: themeColors.border }]}>
+            <View style={[styles.timeRemainingGradient, { backgroundColor: themeColors.bg }]}>
+              {/* <Icon name="clock" size={24} color={themeColors.text} /> */}
+              <Text style={[styles.timeRemainingLabel, { color: themeColors.subText }]}>Time Remaining</Text>
+              <Text style={[styles.timeRemainingValue, textStyle]}>
                 {getTimeRemaining(
                   isCancelledSubscription 
                     ? subscription?.currentPeriodEnd
                     : subscription?.currentPeriodEnd
                 )}
               </Text>
-            </LinearGradient>
+            </View>
             </View>
       </View>
 
       {/* Legal Links */}
-        <View style={styles.legalCard}>
+        <View style={[styles.legalCard, { backgroundColor: themeColors.card, shadowColor: themeColors.text }]}>
           <View style={styles.cardHeader}>
-            <Icon name="document-text" size={24} color="#667eea" />
-            <Text style={styles.cardTitle}>Important Information</Text>
+            <Icon name="document-text" size={24} color={themeColors.text} />
+            <Text style={[styles.cardTitle, textStyle]}>Important Information</Text>
           </View>
           
         <View style={styles.legalLinksRow}>
@@ -360,30 +329,24 @@ const Subscription = () => {
             style={styles.legalLink}
             onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
           >
-              <LinearGradient
-                colors={['#667eea', '#764ba2']}
-                style={styles.legalLinkGradient}
-              >
-                <Icon name="document-text" size={16} color="#fff" />
-            <Text style={styles.legalLinkText}>Terms & Conditions</Text>
-              </LinearGradient>
+              <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
+                <Icon name="document-text" size={16} color={themeColors.text} />
+            <Text style={[styles.legalLinkText, textStyle]}>Terms & Conditions</Text>
+              </View>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.legalLink}
             onPress={() => Linking.openURL('https://www.valens.app/privacy-policy')}
           >
-              <LinearGradient
-                colors={['#667eea', '#764ba2']}
-                style={styles.legalLinkGradient}
-              >
-                <Icon name="shield-checkmark" size={16} color="#fff" />
-            <Text style={styles.legalLinkText}>Privacy Policy</Text>
-              </LinearGradient>
+              <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
+                <Icon name="shield-checkmark" size={16} color={themeColors.text} />
+            <Text style={[styles.legalLinkText, textStyle]}>Privacy Policy</Text>
+              </View>
           </TouchableOpacity>
         </View>
           
-        <Text style={styles.legalLinksNote}>
+        <Text style={[styles.legalLinksNote, { color: themeColors.subText }]}>
           Please review our terms and privacy policy before making changes to your subscription.
         </Text>
       </View>
@@ -393,14 +356,10 @@ const Subscription = () => {
 
         {!isCancelledSubscription && subscription?.status === 'ACTIVE' && (
           <TouchableOpacity
-            style={styles.cancelButton}
+            style={[styles.cancelButton, { backgroundColor: themeColors.warning }]}
             onPress={handleCancelSubscription}
             disabled={cancelling}
             >
-              <LinearGradient
-                colors={['#ff6b35', '#f7931e']}
-                style={styles.cancelButtonGradient}
-          >
             {cancelling ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -409,21 +368,15 @@ const Subscription = () => {
               <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
                   </>
             )}
-              </LinearGradient>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={styles.refreshButton}
+          style={[styles.refreshButton, { backgroundColor: themeColors.text }]}
           onPress={loadSubscriptionData}
         >
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              style={styles.refreshButtonGradient}
-            >
-              <Icon name="refresh" size={20} color="#fff" />
+          <Icon name="refresh" size={20} color="#fff" />
           <Text style={styles.refreshButtonText}>Refresh</Text>
-            </LinearGradient>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -434,11 +387,11 @@ const Subscription = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   headerGradient: {
     paddingTop: 50,
     paddingBottom: 20,
+    borderBottomWidth: 1,
   },
   header: {
     flexDirection: 'row',
@@ -449,12 +402,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
     textAlign: 'center',
   },
   headerPlaceholder: {
@@ -466,42 +418,39 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-  },
-  loadingGradient: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#fff',
     fontWeight: '500',
   },
   errorContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  errorGradient: {
-    flex: 1,
+  errorCard: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   errorText: {
     fontSize: 18,
-    color: '#fff',
     marginTop: 16,
     marginBottom: 24,
     textAlign: 'center',
     fontWeight: '500',
   },
   retryButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   retryButtonText: {
     color: '#fff',
@@ -513,7 +462,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -540,24 +488,20 @@ const styles = StyleSheet.create({
   warningContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff3cd',
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF6B35',
   },
   warningText: {
-    color: '#856404',
     fontSize: 14,
     lineHeight: 20,
     marginLeft: 8,
     flex: 1,
+    color: '#8A4B16',
   },
   detailsCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -574,7 +518,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
     marginLeft: 12,
   },
   detailRow: {
@@ -582,7 +525,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   detailIconContainer: {
     width: 24,
@@ -591,25 +533,23 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 16,
-    color: '#666',
     flex: 1,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '600',
     flex: 2,
     textAlign: 'right',
   },
   highlightText: {
-    color: '#FF6B35',
     fontWeight: 'bold',
   },
   timeRemainingContainer: {
     marginTop: 20,
     borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
   },
   timeRemainingGradient: {
     padding: 20,
@@ -617,7 +557,6 @@ const styles = StyleSheet.create({
   },
   timeRemainingLabel: {
     fontSize: 14,
-    color: '#fff',
     marginTop: 8,
     marginBottom: 4,
     fontWeight: '500',
@@ -625,15 +564,12 @@ const styles = StyleSheet.create({
   timeRemainingValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
     textAlign: 'center',
   },
   legalCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -646,7 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'space-between',
     marginBottom: 16,
-    gap:10 
+    gap: 10,
   },
   legalLink: {
     flex: 1,
@@ -659,16 +595,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 25,
+    borderWidth: 1,
   },
   legalLinkText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
   },
   legalLinksNote: {
     fontSize: 12,
-    color: '#666',
     textAlign: 'center',
     lineHeight: 16,
     fontStyle: 'italic',
@@ -677,30 +612,9 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 40,
   },
-  upgradeButton: {
-    marginBottom: 12,
-    borderRadius: 25,
-    overflow: 'hidden',
-  },
-  upgradeButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  upgradeButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
   cancelButton: {
     marginBottom: 12,
     borderRadius: 25,
-    overflow: 'hidden',
-  },
-  cancelButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -715,9 +629,6 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     borderRadius: 25,
-    overflow: 'hidden',
-  },
-  refreshButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -730,7 +641,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
- 
 });
 
 export default Subscription;

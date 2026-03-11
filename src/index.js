@@ -13,16 +13,25 @@ import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
+import { setStripeCustomerId } from './redux/actions/UserAction';
 import { notificationListener, requestUserPermission } from './services/NotificationService';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
 import { initializeSocket } from './services/socket';
+import { getUserCredentials } from './services/post';
+import { getAllUser } from './services/users';
+import WelcomeValensModal from './components/modals/WelcomeValensModal';
+import { ensureCurrentAccountSaved } from './utils/accountSession';
+// import { getUserCountry } from './hooks/countryLocation';
 
 const linking = {
   prefixes: [
     'https://www.valenscorp.com',
     'https://valenscorp.com',
+    'https://www.valens.app',
+    'https://valens.app',
     'com.valens://',
+    'valens://',
   ],
   config: {
     screens: {
@@ -33,12 +42,17 @@ const linking = {
   },
 };
 
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
+
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [message, setMessage] = useState('');
   const userProfile = useSelector(state => state.userProfile.userProfile);
+  const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
   const dispatch = useDispatch();
   const toast = useToast();
   const navigationRef = useRef(null);
@@ -48,6 +62,8 @@ export default function Main() {
     const setup = async () => {
       try {
         await initializeSocket();
+        // const country = await getUserCountry();
+        // console.log(country,'checkWhichCountryuserare........')
       } catch (e) {
         console.warn("Socket init failed", e);
       }
@@ -58,7 +74,58 @@ export default function Main() {
   useEffect(() => {
     requestUserPermission();
     notificationListener();
+    checkKycAndShowWelcomeModal();
   }, []);
+
+  const checkKycAndShowWelcomeModal = React.useCallback(async () => {
+    try {
+      if (!isLoggedIn) {
+        setWelcomeModalVisible(false);
+        return;
+      }
+
+
+      const id = await AsyncStorage.getItem('userId');
+      if (!id) {
+        return;
+      }
+
+      const response = await getUserCredentials(id);
+      console.log(response,'respones in this parts what it get ');
+      
+      if (response?.statusCode !== 200) {
+        return;
+      }
+      const userData = response?.data?.user || response?.data || response;
+      const canAccessPlatform = userData?.canAccessPlatform;
+      const isKycApproved =
+        canAccessPlatform === true ||
+        String(canAccessPlatform || '').toLowerCase() === 'true';
+
+      setWelcomeModalVisible(isKycApproved);
+    } catch (error) {
+      console.log('KYC polling check failed:', error?.message || error);
+    }
+  }, [isLoggedIn]);
+
+  const handleWelcomeModalClose = React.useCallback(async () => {
+    setWelcomeModalVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    checkKycAndShowWelcomeModal();
+    const intervalId = setInterval(() => {
+      checkKycAndShowWelcomeModal();
+    }, 90000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [checkKycAndShowWelcomeModal, isLoggedIn]);
 
   useEffect(() => {
     dispatch(setUserProfile('normal'));
@@ -69,6 +136,11 @@ export default function Main() {
       const loggedI = await AsyncStorage.getItem('isLoggedIn');
       if (loggedI === 'true') {
         dispatch(loggedIn());
+        await ensureCurrentAccountSaved();
+        const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
+        if (storedStripeCustomerId) {
+          dispatch(setStripeCustomerId(storedStripeCustomerId));
+        }
       } else {
         dispatch(loggedOut());
       }
@@ -82,6 +154,9 @@ export default function Main() {
     // Track app state changes
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
       console.log('AppState changed:', appState.current, '->', nextAppState);
+      if (nextAppState === 'active') {
+        checkKycAndShowWelcomeModal();
+      }
       appState.current = nextAppState;
     });
 
@@ -107,7 +182,10 @@ export default function Main() {
         // Parse query params to check payment status
         let status = 'success';
         try {
-          const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+          const normalizedCallbackUrl = url
+            .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+            .replace(/^valens:\/\//i, 'https://dummy.com/');
+          const urlObj = new URL(normalizedCallbackUrl);
           status = urlObj.searchParams.get('status') || 'success';
           console.log('📋 Payment status from URL:', status);
         } catch (error) {
@@ -130,14 +208,93 @@ export default function Main() {
         return;
       }
 
+      const normalizeDeepLinkUrl = (incomingUrl = '') => incomingUrl
+        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+        .replace(/^valens:\/\//i, 'https://dummy.com/');
+
+      const navigateToUserProfile = (resolvedUserId) => {
+        if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
+        navigationRef.current.navigate('MainApp', {
+          screen: 'HomeMain',
+          params: {
+            screen: 'UsersProfile',
+            params: {
+              userId: String(resolvedUserId),
+            },
+          },
+        });
+      };
+
+      const resolveUserIdFromUsername = async (incomingUsername) => {
+        const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
+        if (!cleanUsername) return null;
+        try {
+          const response = await getAllUser({ userName: cleanUsername });
+          const users = response?.data?.users ?? [];
+          const exactMatch = users.find((u) =>
+            String(u?.userName || u?.username || '').toLowerCase() === cleanUsername.toLowerCase()
+          );
+          const fallbackUser = exactMatch || users[0];
+          return fallbackUser?.id || fallbackUser?._id || fallbackUser?.userId || null;
+        } catch (error) {
+          console.log('Username resolution failed:', error?.message || error);
+          return null;
+        }
+      };
+
       // Handle other deep links normally if needed
       try {
-        const urlObj = new URL(url.replace('com.valens://', 'https://dummy.com/'));
+        const urlObj = new URL(normalizeDeepLinkUrl(url));
         const path = urlObj.pathname;
+        const normalizedPath = String(path || '').toLowerCase();
+        const postId = urlObj.searchParams.get('postId');
+        const fallbackTag = urlObj.searchParams.get('af');
 
         if (navigationRef.current && isNavigationReady) {
           setTimeout(() => {
-            if (path === '/wallet') {
+            if (postId && fallbackTag === 'dd') {
+              navigationRef.current.navigate('MainApp', {
+                screen: 'ProfileMain',
+                params: {
+                  screen: 'PostView',
+                  params: {
+                    userChat: true,
+                    fromScreen: 'DeepLink',
+                    postData: { id: String(postId) },
+                  },
+                },
+              });
+            } else if (normalizedPath === '/profile' || normalizedPath.startsWith('/profile/')) {
+              const deepLinkUserId = String(urlObj.searchParams.get('userId') || '').trim();
+              const queryUsername = String(urlObj.searchParams.get('username') || '').trim();
+              const pathUsername = decodeURIComponent(path.split('/').filter(Boolean)[1] || '').trim();
+              const resolvedUsername = queryUsername || pathUsername;
+
+              if (deepLinkUserId) {
+                navigateToUserProfile(deepLinkUserId);
+              } else if (resolvedUsername) {
+                resolveUserIdFromUsername(resolvedUsername).then((resolvedUserId) => {
+                  if (resolvedUserId) {
+                    navigateToUserProfile(resolvedUserId);
+                  } else if (navigationRef.current && isNavigationReady) {
+                    navigationRef.current.navigate('MainApp', {
+                      screen: 'ProfileMain',
+                      params: {
+                        screen: 'Profile',
+                      },
+                    });
+                    showToastMessage(toast, 'danger', 'Unable to open this profile from link.');
+                  }
+                });
+              } else {
+                navigationRef.current.navigate('MainApp', {
+                  screen: 'ProfileMain',
+                  params: {
+                    screen: 'Profile',
+                  },
+                });
+              }
+            } else if (path === '/wallet') {
               navigationRef.current.navigate('Wallet');
             } else if (path === '/home' || path === '/') {
               navigationRef.current.navigate('Home');
@@ -164,7 +321,7 @@ export default function Main() {
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
-  }, [dispatch, toast, isNavigationReady]);
+  }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
 
   const fetchRefreshToken = async () => {
     const oldToken = await AsyncStorage.getItem('refreshToken');
@@ -176,6 +333,7 @@ export default function Main() {
         console.log('response in refreshtoken------->>>>>>>>>>>>>>>', response);
         await AsyncStorage.setItem('token', response.data.access_token);
         await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
+        await ensureCurrentAccountSaved();
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }
@@ -245,6 +403,11 @@ export default function Main() {
             closeModal={closeModal}
           />
         }
+        <WelcomeValensModal
+          visible={welcomeModalVisible}
+
+          onClose={handleWelcomeModalClose}
+        />
       </ThemeProvider>
     </>
   );

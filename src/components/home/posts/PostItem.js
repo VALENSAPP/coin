@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator } from 'react-native';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert } from 'react-native';
 import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -9,182 +9,207 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
 import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
-import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { getUserCredentials, getUserDashboard } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
-import MissionSupportScreen from '../../modals/DonationModal';
-import axios from 'axios';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
+import FastImage from 'react-native-fast-image'
+import SupportCreatorModal from '../../modals/SupportCreatorModal';
+import WalletSelectionModal from '../../modals/WalletSelectionModal';
+import WalletConnectedModal from '../../modals/WalletConnectedModal';
+import { getSupportRecipientWalletAddress, openWalletPayment } from '../../../utils/metaMaskSupport';
+import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
+import MissionSupportScreen from '../../modals/DonationModal';
+import { getProgressBarColor } from '../../../utils/progressBarUtils';
+import { updateWallet } from '../../../services/wallet';
 
 const { width } = Dimensions.get('window');
 
 /* ----------------------------------------- */
-function InstagramZoomableImage({ uri, onZoomChange, onDoubleTap, onOpenViewer }) {
-  const pinchRef = useRef();
-  const hasOpenedRef = useRef(false);
-  const MIN_SCALE_TO_OPEN = 0.8;
+function InstagramZoomableImage({ uri, onZoomChange }) {
 
-  const onPinchEvent = (e) => {
-    const { scale = 1, numberOfPointers = 0, state } = e.nativeEvent || {};
-    if (!hasOpenedRef.current && numberOfPointers >= 2 && scale > MIN_SCALE_TO_OPEN) {
-      hasOpenedRef.current = true;
-      onZoomChange?.(true);
-      onOpenViewer?.(uri);
-    }
-  };
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
 
-  const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.oldState === State.ACTIVE) {
-      onZoomChange?.(false);
-      hasOpenedRef.current = false;
-    }
-  };
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [modalImageLoaded, setModalImageLoaded] = useState(false);
+  const [imageHeight, setImageHeight] = useState(500);
+  const screenWidth = Dimensions.get("window").width;
+  useEffect(() => {
+    if (!uri) return;
 
-  const onDoubleTapStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.ACTIVE) {
-      onDoubleTap?.(uri);
-    }
-  };
+    Image.getSize(uri, (w, h) => {
+      const ratio = screenWidth / w;
+      const newHeight = h * ratio;
 
-  return (
-    <PinchGestureHandler
-      ref={pinchRef}
-      onGestureEvent={onPinchEvent}
-      onHandlerStateChange={onPinchStateChange}
-    >
-      <TapGestureHandler
-        numberOfTaps={2}
-        onHandlerStateChange={onDoubleTapStateChange}
-      >
-        <Image source={{ uri }} style={styles.postMedia} />
-      </TapGestureHandler>
-    </PinchGestureHandler>
+      const maxHeight = screenWidth * 1.25;
+      const minHeight = screenWidth * 0.56;
+
+      const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+
+      setImageHeight(finalHeight);
+    });
+  }, [uri]);
+
+
+  const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
+
+  const imageSource = useMemo(
+    () => ({
+      uri,
+      priority: FastImage.priority.high,
+      cache: FastImage.cacheControl.immutable,
+    }),
+    [uri]
   );
-}
 
-/* ----------------------------------------- */
-function InlineFullscreenViewer({ uri, visible, onRequestClose }) {
-  if (!visible) return null;
-
-  const screen = Dimensions.get('window');
-  const pinchScale = useRef(new Animated.Value(1)).current;
-  const panX = useRef(new Animated.Value(0)).current;
-  const panY = useRef(new Animated.Value(0)).current;
-  const focalX = useRef(new Animated.Value(0)).current;
-  const focalY = useRef(new Animated.Value(0)).current;
-  const panOffsetX = useRef(0);
-  const panOffsetY = useRef(0);
-  const pinchRef = useRef();
-  const panRef = useRef();
-
-  const clampedScale = pinchScale.interpolate({
-    inputRange: [1, 4],
-    outputRange: [1, 4],
-    extrapolate: 'clamp',
-  });
+  const width = Dimensions.get("window").width;
 
   const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale: pinchScale, focalX: focalX, focalY: focalY } }],
-    { useNativeDriver: false }
+    [
+      {
+        nativeEvent: {
+          scale: scale,
+          focalX: translateX,
+          focalY: translateY,
+        },
+      },
+    ],
+    { useNativeDriver: true }
   );
 
-  const onPanEvent = Animated.event(
-    [{ nativeEvent: { translationX: panX, translationY: panY } }],
-    { useNativeDriver: false }
-  );
-
-  const onPanStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.BEGAN) {
-      panX.setOffset(panOffsetX.current);
-      panY.setOffset(panOffsetY.current);
-      panX.setValue(0);
-      panY.setValue(0);
-    }
-    if (nativeEvent.state === State.END || nativeEvent.state === State.CANCELLED || nativeEvent.oldState === State.ACTIVE) {
-      panOffsetX.current = panOffsetX.current + (nativeEvent.translationX || 0);
-      panOffsetY.current = panOffsetY.current + (nativeEvent.translationY || 0);
-      panX.setOffset(panOffsetX.current);
-      panY.setOffset(panOffsetY.current);
-      panX.setValue(0);
-      panY.setValue(0);
-    }
-  };
-
-  const resetTransform = (cb) => {
+  const resetScale = () => {
     Animated.parallel([
-      Animated.spring(pinchScale, { toValue: 1, useNativeDriver: false }),
-      Animated.spring(panX, { toValue: 0, useNativeDriver: false }),
-      Animated.spring(panY, { toValue: 0, useNativeDriver: false }),
-    ]).start(cb);
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 0,
+      }),
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsModalVisible(false);
+      setModalImageLoaded(false);
+      onZoomChange?.(false);
+    });
   };
 
   const onPinchStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.oldState === State.ACTIVE) {
-      panOffsetX.current = 0;
-      panOffsetY.current = 0;
-      panX.setOffset(0);
-      panY.setOffset(0);
-      resetTransform(onRequestClose);
+    const { state, oldState } = nativeEvent;
+
+    if (state === State.BEGAN) {
+      setIsModalVisible(true);
+      onZoomChange?.(true);
+    }
+
+    if (
+      oldState === State.ACTIVE &&
+      (state === State.END ||
+        state === State.CANCELLED ||
+        state === State.FAILED)
+    ) {
+      onZoomChange?.(false);
+      resetScale();
     }
   };
 
-  const onDoubleTapStateChange = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.ACTIVE) {
-      resetTransform(onRequestClose);
-    }
-  };
+  useEffect(() => {
+    if (!uri) return;
+
+    FastImage.preload([imageSource]);
+
+    setTimeout(() => {
+      FastImage.preload([
+        { ...imageSource, priority: FastImage.priority.highest },
+      ]);
+    }, 400);
+  }, [uri, imageSource]);
 
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 9999 }]}>
+    <View style={styles.mediaContainer}>
+
+      {/* INLINE IMAGE */}
+
       <PinchGestureHandler
-        ref={pinchRef}
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
       >
-        <PanGestureHandler
-          ref={panRef}
-          simultaneousHandlers={pinchRef}
-          onGestureEvent={onPanEvent}
-          onHandlerStateChange={(e) => {
-            onPanStateChange({ nativeEvent: e.nativeEvent });
-            if (e.nativeEvent.state === State.END || e.nativeEvent.state === State.CANCELLED || e.nativeEvent.oldState === State.ACTIVE) {
-              panOffsetX.current = 0;
-              panOffsetY.current = 0;
-              panX.setOffset(0);
-              panY.setOffset(0);
-              resetTransform(onRequestClose);
-            }
-          }}
-        >
-          <TapGestureHandler
-            numberOfTaps={2}
-            onHandlerStateChange={onDoubleTapStateChange}
-          >
-            <Animated.Image
-              source={{ uri }}
-              style={{
-                width: screen.width,
-                height: screen.height,
-                transform: [
-                  { translateX: panX },
-                  { translateY: panY },
-                  { scale: clampedScale },
-                ],
-              }}
-              resizeMode="contain"
-            />
-          </TapGestureHandler>
-        </PanGestureHandler>
+        <Animated.Image
+          source={imageSource}
+          style={[
+            {
+              width: '100%',
+              height: imageHeight,
+              resizeMode: "contain",
+            },
+            { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
+          ]}
+        />
+
       </PinchGestureHandler>
+
+      {/* FULLSCREEN MODAL */}
+
+      <Modal
+        visible={isModalVisible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+      >
+        <View style={styles.modalBackground}>
+          <PinchGestureHandler
+            onGestureEvent={onPinchEvent}
+            onHandlerStateChange={onPinchStateChange}
+          >
+            <AnimatedFastImage
+              source={imageSource}
+              resizeMode="contain"
+              fadeDuration={0}
+              style={[
+                styles.fullScreenImage,
+                {
+                  width: width,
+                  height: 500,
+                  transform: [
+                    { translateX: Animated.subtract(translateX, width / 2) },
+                    { translateY: Animated.subtract(translateY, 250) },
+                    { scale },
+                    {
+                      translateX: Animated.multiply(
+                        Animated.subtract(translateX, width / 2),
+                        -1
+                      ),
+                    },
+                    {
+                      translateY: Animated.multiply(
+                        Animated.subtract(translateY, 250),
+                        -1
+                      ),
+                    },
+                  ],
+                },
+              ]}
+            />
+          </PinchGestureHandler>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-export default function PostItem({
+
+function PostItem({
   item,
   likesCount,
   commentsCount,
@@ -198,12 +223,17 @@ export default function PostItem({
   followingBusy = false,
   isBusinessProfile,
   executeFollowAction,
-  isVisible = false,
+  isVisible = true,
   screenFocused = true,
   playingPostId,
   currentlyVisiblePostId,
   returnTo,
+  shareCount,
+  hideDonationButton = false, // Add this prop with default false
+
 }) {
+
+
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
@@ -211,22 +241,34 @@ export default function PostItem({
   const [userProfile, setUserProfile] = useState('');
   const isCompanyProfile = userProfile === 'company';
   const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
-
+  const [donation, setDonation] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [videoStates, setVideoStates] = useState({});
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [isZooming, setIsZooming] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerUri, setViewerUri] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [donation, setDonation] = useState(false);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [videoHeight, setVideoHeight] = useState(500);
+  const [videoLoaded, setVideoLoaded] = useState({});
+
 
   // New donation states
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
   const [daysLeft, setDaysLeft] = useState(0);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [targetWalletAddress, setTargetWalletAddress] = useState('');
+  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
+  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
+  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
+  const [isKycVerified, setIsKycVerified] = useState(false);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -236,19 +278,31 @@ export default function PostItem({
   const isMountedRef = useRef(true);
   const route = useRoute();
   const [selectedPostId, setSelectedPostId] = useState(null);
-
+  const [dataFetched, setDataFetched] = useState(false); // To prevent redundant fetches
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
     return null;
   }
+ const width = Dimensions.get("window").width;
+  useEffect(() => {
+    const firstVideo = item?.media?.find(m => m.thumbnail);
+
+    if (!firstVideo?.thumbnail) return;
+
+    Image.getSize(firstVideo.thumbnail, (w, h) => {
+      const ratio = width / w;
+      setVideoHeight(h * ratio);
+    });
+  }, [item]);
+
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
 
-  // Calculate days left from start_time and end_time
+  // Calculate days left from current time to end_time
   const calculateDaysLeft = useCallback(() => {
-    if (!item.start_time || !item.end_time) return 0;
+    if (!item.end_time) return 0;
 
     try {
       const now = new Date();
@@ -260,7 +314,21 @@ export default function PostItem({
       console.error('Error calculating days left:', error);
       return 0;
     }
-  }, [item.start_time, item.end_time]);
+  }, [item.end_time]);
+
+  useEffect(() => {
+    setDaysLeft(calculateDaysLeft());
+
+    const timer = setInterval(() => {
+      setDaysLeft(calculateDaysLeft());
+    }, 60 * 1000);
+
+    return () => clearInterval(timer);
+  }, [calculateDaysLeft]);
+  const handleDonationSuccess = useCallback(() => {
+    // Refresh donation total after successful donation
+    fetchTotalDonation();
+  }, [fetchTotalDonation]);
 
   // Fetch total donation for this post
   const fetchTotalDonation = useCallback(async () => {
@@ -281,48 +349,14 @@ export default function PostItem({
     }
   }, [item.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      const fetchUserId = async () => {
-        try {
-          const id = await AsyncStorage.getItem('userId');
-          if (isActive) setUserId(id);
-        } catch (error) {
-          console.error('Error fetching userId:', error);
-        }
-      };
-
-      const initializeData = async () => {
-        await fetchUserId();
-
-        if (item?.UserId) {
-          await fetchAllData();
-        }
-
-        const days = calculateDaysLeft();
-        if (isActive) setDaysLeft(days);
-
-        await fetchTotalDonation();
-      };
-
-      initializeData();
-
-      return () => {
-        isActive = false;
-      };
-    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation])
-  );
-
-  const fetchAllData = async () => {
+  // Memoize fetchAllData
+  const fetchAllData = useCallback(async () => {
     if (!item?.UserId) {
       console.warn('No UserId available for fetching data');
       return;
     }
 
     try {
-      dispatch(showLoader());
       const [dashboardResponse, profileResponse] = await Promise.allSettled([
         getUserDashboard(item.UserId),
         getUserCredentials(item.UserId)
@@ -351,6 +385,9 @@ export default function PostItem({
             userDataToSet = data;
           }
           setUserProfile(userDataToSet.profile || '');
+          setTargetWalletAddress(getSupportRecipientWalletAddress(userDataToSet) || '');
+          setIsKycVerified(userDataToSet?.kyc === true);
+          setIsSubscriptionActive(String(userDataToSet?.subscriptionStatus || '').toUpperCase() === 'ACTIVE');
         } else {
           console.warn('Profile fetch failed:', data?.data?.message);
         }
@@ -365,9 +402,189 @@ export default function PostItem({
         error?.response?.message ?? 'Failed to load user data',
       );
     } finally {
-      dispatch(hideLoader());
+      // dispatch(hideLoader());
     }
-  };
+  }, [item?.UserId, toast]);
+
+  // Function to restore userId from AsyncStorage
+  const restoreUserId = useCallback(async () => {
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      const currentUserId = userId ? String(userId) : null;
+      const newUserId = id ? String(id) : null;
+      if (newUserId !== currentUserId) {
+        setUserId(newUserId);
+      }
+    } catch (error) {
+      console.error('Error restoring userId:', error);
+    }
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const initializeData = async () => {
+        try {
+          const id = await AsyncStorage.getItem('userId');
+          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
+          if (isActive) setUserId(id ? String(id) : null);
+          if (isActive) setWalletAddress(storedWalletAddress || '');
+
+          if (item?.UserId && !dataFetched) {
+            await fetchAllData();
+            setDataFetched(true);
+          }
+
+          const days = calculateDaysLeft();
+          if (isActive) setDaysLeft(days);
+
+          if (!dataFetched) {
+            await fetchTotalDonation();
+          }
+        } catch (error) {
+          console.error('Error initializing PostItem data:', error);
+        }
+      };
+
+      initializeData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched])
+  );
+
+  // Listen for app state changes to restore userId when returning from MetaMask
+  // useEffect(() => {
+  //   const subscription = AppState.addEventListener('change', (nextAppState) => {
+  //     if (nextAppState === 'active') {
+  //       // App has come to the foreground, restore userId
+  //       restoreUserId();
+  //     }
+  //   });
+
+  //   // Also restore on mount
+  //   restoreUserId();
+
+  //   return () => {
+  //     subscription?.remove();
+  //   };
+  // }, [restoreUserId]);
+
+  const creatorWalletAddress = useMemo(
+    () =>
+      targetWalletAddress ||
+      item?.walletAddress ||
+      item?.walletId ||
+      item?.wallet ||
+      item?.userWalletAddress ||
+      item?.creatorWalletAddress ||
+      item?.vendorWalletAddress ||
+      item?.receiverWalletAddress ||
+      null,
+    [targetWalletAddress, item],
+  );
+
+  const recipientWalletAddress = useMemo(
+    () => getSupportRecipientWalletAddress({ ...item, walletAddress: creatorWalletAddress }),
+    [item, creatorWalletAddress],
+  );
+  const canSupport = !!creatorWalletAddress;
+
+  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
+    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
+
+    if (!currentWalletAddress) {
+      if (openSupportModalOnSuccess) {
+        setPendingSupportPromptAfterWalletConnect(true);
+      }
+      setWalletSelectionVisible(true);
+      return false;
+    }
+
+    if (currentWalletAddress !== walletAddress) {
+      setWalletAddress(currentWalletAddress);
+    }
+
+    if (!canSupport) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      setPendingSupportPromptAfterWalletConnect(false);
+      return false;
+    }
+
+    return true;
+  }, [walletAddress, canSupport]);
+
+  const handleWalletSelect = useCallback(async (wallet) => {
+    setWalletSelectionVisible(false);
+
+    try {
+      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
+        returnAddressOnly: true,
+        walletType: wallet.id,
+      });
+      console.log(connectedAddress, 'chcek connected waalete adress heree');
+
+
+      if (connectedAddress) {
+        await AsyncStorage.setItem('walletAddress', connectedAddress);
+        await AsyncStorage.setItem('walletType', wallet.id);
+        setWalletAddress(connectedAddress);
+        try {
+          await updateWallet({ walletAddress: connectedAddress });
+        } catch (walletUpdateError) {
+          console.error('Wallet update API error:', walletUpdateError);
+        }
+
+        if (pendingSupportPromptAfterWalletConnect) {
+          setPendingSupportPromptAfterWalletConnect(false);
+          if (!canSupport) {
+            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+            return;
+          }
+          setModalVisible(true);
+          return;
+        }
+
+        setConnectedWalletInfo({
+          name: wallet.name,
+          address: connectedAddress,
+        });
+        setWalletConnectedModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error);
+      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
+    }
+  }, [toast, navigation, dispatch, pendingSupportPromptAfterWalletConnect, canSupport]);
+
+  const handleWalletConnectedContinue = useCallback(async () => {
+    setWalletConnectedModalVisible(false);
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+
+    // Open payment flow with the connected wallet
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [recipientWalletAddress]);
+
+  const handleSupportNow = useCallback(async () => {
+    if (!canSupport) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      return;
+    }
+    setSupportDisclaimerVisible(false);
+    const ready = await ensureSupportFlowReady();
+    if (!ready) return;
+    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
+    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+  }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
+
+  const handleOpenSupportDisclaimer = useCallback(() => {
+    setModalVisible(false);
+    setSupportDisclaimerVisible(true);
+  }, []);
 
   const safeVideoPause = useCallback((index) => {
     try {
@@ -380,16 +597,34 @@ export default function PostItem({
     }
   }, []);
 
+  // Auto-mute whenever this post comes into active focus.
+  // User can still unmute manually via speaker button.
+  const wasPostActiveRef = useRef(false);
+  useEffect(() => {
+    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
+    const isPostActive =
+      isVisible &&
+      screenFocused &&
+      (!hasPlayingTarget || String(playingPostId) === String(item.id));
+
+    if (isPostActive && !wasPostActiveRef.current) {
+      setIsMuted(true);
+    }
+
+    wasPostActiveRef.current = isPostActive;
+  }, [isVisible, screenFocused, playingPostId, item.id]);
+
   useEffect(() => {
     if (mediaLength <= 0) return;
 
+    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
     const nextStates = {};
     for (let idx = 0; idx < mediaLength; idx++) {
       const shouldPause = !(
         idx === currentIndex &&
         isVisible &&
         screenFocused &&
-        String(playingPostId) === String(item.id)
+        (!hasPlayingTarget || String(playingPostId) === String(item.id))
       );
       nextStates[idx] = shouldPause;
     }
@@ -401,14 +636,16 @@ export default function PostItem({
       return hasChanged ? nextStates : prev;
     });
 
-    setTimeout(() => {
+    // Use requestAnimationFrame for better performance
+    const rafId = requestAnimationFrame(() => {
       Object.entries(nextStates).forEach(([idx, shouldPause]) => {
         if (shouldPause) {
           safeVideoPause(parseInt(idx));
         }
       });
-    }, 100);
+    });
 
+    return () => cancelAnimationFrame(rafId);
   }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
 
   useEffect(() => {
@@ -420,7 +657,7 @@ export default function PostItem({
     };
   }, [safeVideoPause]);
 
-  const handleUserProfile = (id) => {
+  const handleUserProfile = useCallback((id) => {
     console.log("handleUserProfile==>>>>>")
     // const origin = {
     //   returnTo: returnTo,
@@ -437,59 +674,109 @@ export default function PostItem({
       });
       console.log(userId, 'can user id came heree')
     }
-  };
-  const formatNumber = (n) => {
+  }, [userId, navigation, returnTo]);
+
+  const formatNumber = useCallback((n) => {
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
+  }, []);
 
-  const isVideoUrl = (url) => {
+  const isVideoUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.toLowerCase().split('?')[0];
     const exts = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'];
     return exts.some((ext) => lower.endsWith(`.${ext}`));
-  };
+  }, []);
 
-  const buyerList = Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [];
+  const buyerList = useMemo(() => Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [], [item.boughtBy, item.buyers]);
 
-  const animateHeart = () => {
+  const animateHeart = useCallback(() => {
     Animated.sequence([
       Animated.timing(heartScale, { toValue: 1.2, duration: 80, useNativeDriver: true }),
       Animated.timing(heartScale, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
-  };
+  }, [heartScale]);
 
-  const handleLike = () => {
-    onToggleLike?.();
+  const handleLike = useCallback(() => {
+    onToggleLike?.(item.id);
     animateHeart();
-  };
+  }, [onToggleLike, item.id, animateHeart]);
 
   // Use dynamic values for donation calculations
-  const goalAmount = item.raiseAmount || 0; // Target amount to raise
-  const currentRaised = totalDonation || 0; // Current amount raised from API
-  const progressPercent = goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0;
+  const goalAmount = useMemo(() => {
+    const parsedGoal = Number(item?.raiseAmount);
+    return Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : 0;
+  }, [item?.raiseAmount]);
 
-  const getProgressBarColor = () => {
-    if (progressPercent >= 75) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 50) return (item?.profile === "user" ? '#5a2d82' : '#D3B683');
-    if (progressPercent >= 25) return '#FF9800';
-    return '#F44336';
-  };
+  const currentRaised = useMemo(() => {
+    const parsedRaised = Number(totalDonation);
+    return Number.isFinite(parsedRaised) && parsedRaised > 0 ? parsedRaised : 0;
+  }, [totalDonation]);
 
-  const onMomentumEnd = (e) => {
+  const progressPercent = useMemo(
+    () => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0,
+    [goalAmount, currentRaised]
+  );
+
+  const progressBarColor = useMemo(
+    () => getProgressBarColor(progressPercent, item?.profile),
+    [progressPercent, item?.profile]
+  );
+
+  const onMomentumEnd = useCallback((e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
     if (index !== currentIndex) setCurrentIndex(index);
-  };
+  }, [currentIndex]);
 
-  const handleDonationSuccess = () => {
-    // Refresh donation total after successful donation
-    fetchTotalDonation();
-  };
+  const handleOpenReel = useCallback((mediaItem) => {
+    const uniqueKey = Date.now().toString();
+    const allMediaUrls = Array.isArray(item?.media)
+      ? item.media.map((m) => m?.url).filter(Boolean)
+      : [];
 
-  const renderMedia = ({ item: mediaItem, index }) => {
+    navigation.navigate('ProfileMain', {
+      screen: 'FlipsScreen',
+      params: {
+        item: {
+          ...item,
+          image: mediaItem?.url,
+          images: allMediaUrls.length > 0 ? allMediaUrls : (mediaItem?.url ? [mediaItem.url] : []),
+          isVideo: true,
+          type: 'video',
+          mediaType: 'video',
+          // Normalize user fields for FlipsScreen
+          userName: item?.userName || item?.username || 'Unknown User',
+          userImage: item?.userImage || item?.avatar || null,
+          userId: item?.userId || item?.UserId || null,
+        },
+        key: uniqueKey,
+        // Always return to the current screen context first (e.g. PostView/Home).
+        returnTo: route?.name || returnTo,
+        returnParams: route?.params || {},
+      },
+    });
+  }, [item, navigation, returnTo, route?.name, route?.params]);
+
+  const handleFollowPress = useCallback(async () => {
+    if (!item?.UserId || item.UserId === userId || followingBusy) return;
+
+    const shouldFollow = !item.follow;
+    const followHandler = executeFollowAction || onToggleFollow;
+    if (!followHandler) return;
+    const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
+    const success = typeof result === 'boolean' ? result : true;
+    if (!success || !shouldFollow) return;
+
+    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
+    if (ready) {
+      setModalVisible(true);
+    }
+  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
+
+  const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? true;
+    const isPaused = videoStates[index] ?? false;
 
     // Simplified shouldPlay - only check if not paused and current index
     const shouldPlay = index === currentIndex && !isPaused && !isZooming;
@@ -497,40 +784,49 @@ export default function PostItem({
     return (
       <View style={styles.mediaContainer}>
         {isVideo ? (
-          <>
+          <View style={{ width, height: videoHeight }}>
+            {!videoLoaded && mediaItem.thumbnail && (
+              <Image
+                source={{ uri: mediaItem.thumbnail }}
+                style={{
+                  width: width,
+                  height: videoHeight,
+                  position: "absolute",
+                }}
+                resizeMode="cover"
+              />
+            )}
             <Video
               ref={(ref) => {
-                if (ref) {
-                  videoRefsMap.current[index] = ref;
-                }
+                if (ref) videoRefsMap.current[index] = ref;
               }}
               source={{ uri: mediaItem.url }}
-              style={styles.postMedia}
-              resizeMode="contain"
+              style={{
+                width: width,
+                height: videoHeight
+              }}
+              resizeMode='cover'
               repeat
               paused={!shouldPlay}
-              muted={isMuted}
+              muted={true}
               controls={false}
               onError={(error) => {
                 console.log('Video error:', error);
               }}
               playWhenInactive={false}
-              progressUpdateInterval={500}
+              progressUpdateInterval={1000}
+              bufferConfig={{
+                minBufferMs: 15000,
+                maxBufferMs: 50000,
+                bufferForPlaybackMs: 2500,
+                bufferForPlaybackAfterRebufferMs: 5000
+              }}
+              maxBitRate={2000000}
             />
             <TouchableOpacity
               style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
               activeOpacity={1}
-              onPress={() => {
-                console.log('Video overlay pressed, current isPaused:', isPaused);
-                setVideoStates((prev) => {
-                  const newState = {
-                    ...prev,
-                    [index]: !prev[index]
-                  };
-                  console.log('New video state for index', index, ':', newState[index]);
-                  return newState;
-                });
-              }}
+              onPress={() => handleOpenReel(mediaItem)}
             >
               {isPaused && (
                 <View style={styles.playButtonContainer}>
@@ -538,13 +834,14 @@ export default function PostItem({
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
+            {/* Removed speaker button to keep videos always muted */}
+            {/* <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
             >
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity>
-          </>
+            </TouchableOpacity> */}
+          </View>
         ) : (
           <InstagramZoomableImage
             uri={mediaItem.url}
@@ -552,26 +849,15 @@ export default function PostItem({
               setIsZooming(zoomed);
               setScrollEnabled(!zoomed);
             }}
-            onDoubleTap={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
-            onOpenViewer={(uri) => {
-              setViewerUri(uri);
-              setViewerOpen(true);
-              setScrollEnabled(false);
-            }}
           />
         )}
       </View>
     );
-  };
+  }, [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted]);
 
   return (
-    <View style={styles.wrapper}>
-      {isZooming && <View style={styles.zoomBackdrop} pointerEvents="none" />}
 
+    <View style={styles.wrapper}>
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
@@ -580,19 +866,21 @@ export default function PostItem({
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
-              <Text style={styles.username}>{item.username}</Text>
-              <View style={styles.dragonflyIcon}>
-                <DragonflyIcon width={18} height={18} />
-              </View>
+              <Text style={[styles.username,{color:item?.profile === "user" ? '#5a2d82' : '#D3B683'}]}>{item.username}</Text>
+              {isKycVerified && (
+                <View style={styles.dragonflyIcon}>
+                  <DragonflyIcon width={18} height={18} />
+                </View>
+              )}
             </View>
           </TouchableOpacity>
 
           <View style={styles.priceSection}>
             {/* <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} /> */}
-            <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text>
+            {/* <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text> */}
           </View>
 
-          <TouchableOpacity onPress={() => onOptions?.(item.id, item.UserId)} style={styles.moreButton}>
+          <TouchableOpacity onPress={() => onOptions?.(item.id)} style={styles.moreButton}>
             <Feather name="more-vertical" size={20} color="#374151" />
           </TouchableOpacity>
         </View>
@@ -605,7 +893,7 @@ export default function PostItem({
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            scrollEnabled={scrollEnabled}
+            scrollEnabled={scrollEnabled && safeMedia.length > 1}
             onMomentumScrollEnd={onMomentumEnd}
             decelerationRate="fast"
             snapToInterval={width}
@@ -617,6 +905,10 @@ export default function PostItem({
               index
             })}
             renderItem={renderMedia}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            initialNumToRender={1}
           />
 
           {item.media && item.media.length > 1 && (
@@ -653,28 +945,29 @@ export default function PostItem({
               <Text style={styles.actionCount}>{likesCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => onComment?.()} style={styles.actionButton}>
+            <TouchableOpacity onPress={() => onComment?.(item.id, item.UserId)} style={styles.actionButton}>
               <Feather name="message-circle" size={24} color="#374151" />
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => { shareRef.current?.open?.(), setSelectedPostId(item) }} style={styles.actionButton}>
               <Feather name="send" size={24} color="#374151" />
-              <Text style={styles.actionCount}>{item.sharesCount || 0}</Text>
+              <Text style={styles.actionCount}>{shareCount}</Text>
             </TouchableOpacity>
           </View>
 
           {item.UserId !== userId && (
+            // Convert both to strings for reliable comparison
+            // const itemUserIdStr = String(item.UserId);
+            // const currentUserIdStr = userId ? String(userId) : '';
+            // // Show button if post is from a different user (or if userId is not set yet)
+            // const isDifferentUser = !currentUserIdStr || itemUserIdStr !== currentUserIdStr;
+
+            // if (!isDifferentUser) return null;
+            // console.log(item,'item for follow ß')
+            // return (
             <TouchableOpacity
-              onPress={() => {
-                if (!isBusinessProfile && item.UserId !== userId) {
-                  if (item.profile === 'company') {
-                    executeFollowAction(item.UserId, !item.follow);
-                  } else {
-                    onToggleFollow?.(item.UserId, !item.follow, item.userTokenAddress);
-                  }
-                }
-              }}
+              onPress={handleFollowPress}
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
@@ -685,42 +978,72 @@ export default function PostItem({
                 <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
               ) : (
                 <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                  {isBusinessProfile ? "Support" : item.follow ? 'Vallowing' : 'Vallow'}
+                  {item.follow ? 'Followed' : 'Follow'}
                 </Text>
               )}
             </TouchableOpacity>
           )}
         </View>
 
-        {item.UserId !== userId && (
-          <>
-            {buyerList.length > 0 && (
-              <TouchableOpacity
-                style={styles.buyersSection}
-                activeOpacity={0.8}
-                onPress={() => setShowBuyersModal(true)}
-              >
-                <View style={styles.avatarsContainer}>
-                  {buyerList.slice(0, 3).map((buyer, idx) => (
-                    <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
-                      <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.buyersText} numberOfLines={1}>
-                  Vallowed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
-                  {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+        {(() => {
+          const itemUserId = item?.UserId ? String(item.UserId) : null;
+          const currentUserId = userId ? String(userId) : null;
+          return itemUserId && itemUserId !== currentUserId;
+        })() && (
+            <>
+              {buyerList.length > 0 && (
+                <TouchableOpacity
+                  style={styles.buyersSection}
+                  activeOpacity={0.8}
+                  onPress={() => setShowBuyersModal(true)}
+                >
+                  <View style={styles.avatarsContainer}>
+                    {buyerList.slice(0, 3).map((buyer, idx) => (
+                      <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
+                        <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={styles.buyersText} numberOfLines={1}>
+                    Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
+                    {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
         <View style={styles.captionSection}>
-          <Text>
-            <Text style={[styles.captionUsername, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{item.username} </Text>
-            <Text style={styles.captionText}>{item.caption}</Text>
+          <Text
+            numberOfLines={expanded ? undefined : 1}
+            onTextLayout={(e) => {
+              if (e.nativeEvent.lines.length > 1) {
+                setShowMore(true);
+              }
+            }}
+          >
+            <Text
+              style={[
+                styles.captionUsername,
+                { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
+              ]}
+            >
+              {item.username}{' '}
+            </Text>
+
+            <Text style={styles.captionText}>
+              {item.caption}
+            </Text>
           </Text>
+
+          {showMore && (
+            <Text
+              style={{ color: '#999', marginTop: 2 }}
+              onPress={() => setExpanded(!expanded)}
+            >
+              {expanded ? 'See less' : 'More'}
+            </Text>
+          )}
           {item.link ? (
             <TouchableOpacity onPress={() => Linking.openURL(item.link)}>
               <Text style={styles.linkText}>Link - {item.link}</Text>
@@ -737,7 +1060,7 @@ export default function PostItem({
                     styles.progressBarFill,
                     {
                       width: `${Math.min(progressPercent, 100)}%`,
-                      backgroundColor: getProgressBarColor(),
+                      backgroundColor: progressBarColor,
                     },
                   ]}
                 />
@@ -751,14 +1074,14 @@ export default function PostItem({
                 </View>
                 <View style={styles.statAtCenter}>
                   <Text style={styles.statValueSmall}>
-                    {isLoadingDonation ? 'Loading...' : `$${(goalAmount / 1000).toFixed(0)}K RAISED`}
+                    {isLoadingDonation ? 'Loading...' : `$${formatNumber(currentRaised)} / $${formatNumber(goalAmount)} RAISED`}
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {((totalDonation < goalAmount) && (item.UserId !== userId)) && (
+              {!hideDonationButton && ((totalDonation < goalAmount) && (item.UserId !== userId)) && (daysLeft > 0) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
@@ -783,23 +1106,13 @@ export default function PostItem({
           </View>
         )}
       </View>
-
-      {viewerOpen && (
-        <InlineFullscreenViewer
-          uri={viewerUri}
-          visible={viewerOpen}
-          onRequestClose={() => {
-            setViewerOpen(false);
-            setScrollEnabled(true);
-          }}
-        />
-      )}
       <MissionSupportScreen
         visible={donation}
         onClose={() => setDonation(false)}
         item={item}
         onDonationSuccess={handleDonationSuccess}
       />
+
       <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
       <BuyersListModal
         visible={showBuyersModal}
@@ -811,24 +1124,41 @@ export default function PostItem({
           handleUserProfile(id);
         }}
       />
-
+      <SupportCreatorModal
+        visible={modalVisible}
+        creatorName={item?.username || 'Creator'}
+        onClose={() => setModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={item?.username || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
+        onSupport={handleSupportNow}
+      />
+      <WalletSelectionModal
+        visible={walletSelectionVisible}
+        onClose={() => setWalletSelectionVisible(false)}
+        onSelectWallet={handleWalletSelect}
+      />
+      <WalletConnectedModal
+        visible={walletConnectedModalVisible}
+        onClose={() => setWalletConnectedModalVisible(false)}
+        walletName={connectedWalletInfo.name}
+        walletAddress={connectedWalletInfo.address}
+        onContinue={handleWalletConnectedContinue}
+      />
     </View>
   );
 }
+
+export default React.memo(PostItem);
 
 const styles = StyleSheet.create({
   wrapper: {
     paddingBottom: 8,
     position: 'relative',
-  },
-  zoomBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    zIndex: 999,
   },
   postCard: {
     backgroundColor: '#FFFFFF',
@@ -866,7 +1196,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: '700',
-    color: '#1F2937',
+    // color: '#1F2937',
     fontSize: 16,
     marginRight: 6,
   },
@@ -890,32 +1220,41 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F9FAFB',
   },
+  // mediaWrapper: {
+  //   position: 'relative',
+  //   // width: '100%',
+
+  //   // height: 500,
+  //   backgroundColor: '#000',
+  //   overflow: 'hidden',
+  // },
   mediaWrapper: {
-    position: 'relative',
-    width: '100%',
-    height: 500,
-    backgroundColor: '#000',
-    overflow: 'hidden',
+    width: "100%",
+    backgroundColor: "#000",
+
   },
+  // mediaContainer: {
+  //   width,
+  //   height: 500,
+  //   position: 'relative',
+  // },
   mediaContainer: {
     width,
-    height: 340,
-    position: 'relative',
+    justifyContent: "center",
+    alignItems: "center",
   },
   postMedia: {
-    width: '100%',
-    height: 500,
-    resizeMode: 'contain',
-    // aspectRatio:1,
+    width: width,
+    // height: 500,
+    // resizeMode: 'contain',
+    // height: 450,
+    aspectRatio: 1,
   },
   videoOverlay: {
-    position: 'absolute',
-    top: 150,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   videoOverlayTransparent: {},
   playButtonContainer: {
@@ -946,20 +1285,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    justifyContent: 'center'
   },
   mediaCounterText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  dotsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   dot: {
     width: 8,
@@ -1110,7 +1441,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   statValueSmall: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: 2,
@@ -1123,7 +1454,7 @@ const styles = StyleSheet.create({
   },
   speakerButton: {
     position: 'absolute',
-    bottom: -130,
+    bottom: 12,
     right: 12,
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 8,
@@ -1134,6 +1465,47 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontWeight: '600',
-    textDecorationLine: 'underline',
+    // textDecorationLine: 'underline',
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: width,
+    height: 500,
+    resizeMode: 'contain',
+  },
+  imageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });

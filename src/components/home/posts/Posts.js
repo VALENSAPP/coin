@@ -23,12 +23,14 @@ import {
   unfollow,
   HidePost as apiHidePost,
   unHidePost as apiUnhidePost,
+  sharePost,
 } from '../../../services/post';
 
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../displaytoastmessage';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { getAllUser } from '../../../services/users';
@@ -39,8 +41,11 @@ import TokenSellModal from '../../modals/TokenSellModal';
 import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { log } from 'console';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
+  
+
   // All state hooks first - maintain consistent order
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [list, setList] = useState(postData);
@@ -133,23 +138,18 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     const fetchFollowingStatus = async () => {
       if (!list || list.length === 0) return;
 
-      const followingPromises = list.map(async (item) => {
-        // Add safety check
-        if (!item || !item.userId) {
-          return {
-            userId: null,
-            isFollowing: false,
-            tokenAddress: null,
-            image: null
-          };
-        }
+      // Extract unique user IDs to avoid duplicate API calls
+      const uniqueUserIds = [...new Set(list.map(item => item?.userId).filter(Boolean))];
+      
+      if (uniqueUserIds.length === 0) return;
 
+      const followingPromises = uniqueUserIds.map(async (userId) => {
         try {
-          const res = await apiFollowing(item.userId);
+          const res = await apiFollowing(userId);
           const rows = res?.data?.data ?? res?.data ?? [];
 
           const followingRow = Array.isArray(rows)
-            ? rows.find(r => r?.followingId === item.userId)
+            ? rows.find(r => r?.followingId === userId)
             : null;
 
           const isFollowing = !!followingRow;
@@ -157,7 +157,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           const followingImage = followingRow?.following?.image ?? null;
 
           return {
-            userId: item.userId,
+            userId,
             isFollowing,
             tokenAddress,
             image: followingImage
@@ -166,7 +166,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           console.log('Error checking follow status for user:', item.userId, e);
           // Return safe default instead of throwing
           return {
-            userId: item.userId,
+            userId,
             isFollowing: false,
             tokenAddress: null,
             image: null
@@ -175,7 +175,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       });
 
       try {
-        // Use Promise.allSettled instead of Promise.all
         const results = await Promise.allSettled(followingPromises);
         const followingMap = {};
 
@@ -196,27 +195,33 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       }
     };
 
-    fetchFollowingStatus();
-    loadSuggestions();
+    // Debounce to prevent rapid successive calls
+    const timer = setTimeout(() => {
+      fetchFollowingStatus();
+      loadSuggestions();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [list]);
 
-  // -------- Fetch followers for each post (for "Vallowed by" section) --------
+  // -------- Fetch followers for each post (for "Vallowed by" section) - optimized --------
   useEffect(() => {
     const fetchPostFollowers = async () => {
       if (!list || list.length === 0) return;
 
-      const followersPromises = list.map(async (item) => {
-        if (!item || !item.userId) {
-          return { userId: null, followers: [] };
-        }
+      // Extract unique user IDs
+      const uniqueUserIds = [...new Set(list.map(item => item?.userId).filter(Boolean))];
+      
+      if (uniqueUserIds.length === 0) return;
 
+      const followersPromises = uniqueUserIds.map(async (userId) => {
         try {
-          const res = await apiFollowers(item.userId);
+          const res = await apiFollowers(userId);
           let followersData = res?.data?.data || res?.data || [];
 
           if (!Array.isArray(followersData)) {
             console.warn('Non-array followers data:', followersData);
-            return { userId: item.userId, followers: [] };
+            return { userId, followers: [] };
           }
 
           const transformedFollowers = followersData
@@ -232,17 +237,16 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             });
 
           return {
-            userId: item.userId,
+            userId,
             followers: transformedFollowers
           };
         } catch (e) {
-          console.error('Error fetching followers for user:', item.userId, e);
-          return { userId: item.userId, followers: [] };
+          console.error('Error fetching followers for user:', userId, e);
+          return { userId, followers: [] };
         }
       });
 
       try {
-        // Use Promise.allSettled instead of Promise.all
         const results = await Promise.allSettled(followersPromises);
         const followersMap = {};
 
@@ -259,17 +263,25 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       }
     };
 
-    fetchPostFollowers();
+    // Debounce to prevent rapid successive calls
+    const timer = setTimeout(fetchPostFollowers, 300);
+    return () => clearTimeout(timer);
   }, [list]);
 
   // Update the mappedPosts useMemo to use the state instead of API calls
   const mappedPosts = useMemo(() => {
-    console.log("list------------------>>>>>>>>>>>>>>>>>",list)
     return (list || [])
       .filter(item => !hiddenById[item.id])
       .map(item => {
+        const userIdKey = String(item.userId);
         const followStatus = userFollowStatus[item.userId] || {};
-        const isFollowing = followStatus.isFollowing || false;
+        const hasLocalFollowState = Object.prototype.hasOwnProperty.call(
+          followingByUserId,
+          userIdKey,
+        );
+        const isFollowing = hasLocalFollowState
+          ? !!followingByUserId[userIdKey]
+          : (followStatus.isFollowing || item.isFollow || false);
         const tokenAddress = followStatus.tokenAddress || null;
         const followingImage = followStatus.image || null;
 
@@ -288,17 +300,18 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           media: (item.images || []).map(url => ({ type: 'image', url })),
           caption: item.caption || '***',
           boughtBy: finalBoughtBy,
-          follow: isFollowing || item.isFollow || false,
+          follow: isFollowing,
           userTokenAddress: tokenAddress || null,
           profile: item.profile || 'user',
           raiseAmount: item.raiseAmount || 0,
           link: item.link || null,
           start_time: item.start_time || null,
           end_time: item.end_time || null,
-          tokenBalance: item.tokenBalance || 0
+          tokenBalance: item.tokenBalance || 0,
+          shareCount:item.shareCount || 0
         };
       });
-  }, [list, hiddenById, userFollowStatus, postFollowers]);
+  }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId]);
 
   // Optimize canDelete calculation
   const canDelete = useMemo(() => {
@@ -422,7 +435,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       setHidingIds(prev => new Set(prev).add(postId));
 
       try {
-        dispatch(showLoader());
+        // dispatch(showLoader());
         const resp = isHidden
           ? await apiUnhidePost(postId)
           : await apiHidePost(postId);
@@ -436,6 +449,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             resp?.message ||
             `Failed to ${isHidden ? 'unhide' : 'hide'} post`,
           );
+          console.log(resp,'hide the post in homese')
         } else {
           showToastMessage(
             toast,
@@ -451,7 +465,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           e?.response?.data?.message || 'Something went wrong',
         );
       } finally {
-        dispatch(hideLoader());
+        // dispatch(hideLoader());
         setHidingIds(prev => {
           const next = new Set(prev);
           next.delete(postId);
@@ -529,6 +543,13 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     const key = String(targetUserId);
 
     setFollowingByUserId(prev => ({ ...prev, [key]: shouldFollow }));
+    setUserFollowStatus(prev => ({
+      ...prev,
+      [targetUserId]: {
+        ...(prev[targetUserId] || {}),
+        isFollowing: shouldFollow,
+      },
+    }));
     setFollowingBusy(prev => new Set(prev).add(key));
 
     try {
@@ -540,36 +561,58 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
       if (!ok) {
         setFollowingByUserId(prev => ({ ...prev, [key]: !shouldFollow }));
+        setUserFollowStatus(prev => ({
+          ...prev,
+          [targetUserId]: {
+            ...(prev[targetUserId] || {}),
+            isFollowing: !shouldFollow,
+          },
+        }));
         showToastMessage(
           toast,
           'danger',
           res?.data?.message || res?.message || 'Unable to update follow',
         );
+        return false;
       } else {
         const serverVal = res?.data?.following;
-        if (typeof serverVal === 'boolean') {
-          setFollowingByUserId(prev => ({ ...prev, [key]: serverVal }));
-        }
+        const resolvedFollowing = typeof serverVal === 'boolean' ? serverVal : shouldFollow;
+        setFollowingByUserId(prev => ({ ...prev, [key]: resolvedFollowing }));
+        setUserFollowStatus(prev => ({
+          ...prev,
+          [targetUserId]: {
+            ...(prev[targetUserId] || {}),
+            isFollowing: resolvedFollowing,
+          },
+        }));
         // showToastMessage(
         //   toast,
         //   'success',
         //   shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
         // );
+        return true;
       }
     } catch (e) {
       setFollowingByUserId(prev => ({ ...prev, [key]: !shouldFollow }));
+      setUserFollowStatus(prev => ({
+        ...prev,
+        [targetUserId]: {
+          ...(prev[targetUserId] || {}),
+          isFollowing: !shouldFollow,
+        },
+      }));
       showToastMessage(
         toast,
         'danger',
         e?.response?.data?.message || 'Something went wrong',
       );
+      return false;
     } finally {
       setFollowingBusy(prev => {
         const next = new Set(prev);
         next.delete(key);
         return next;
       });
-      onRefresh();
     }
   }
 
@@ -613,6 +656,20 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
 
       if (action === 'toggleSave') {
         await handleToggleSave(modalPostId);
+        closeOptionsModal();
+        return;
+      }
+
+      if (action === 'copyAddress') {
+        if (!modalPostId) {
+          showToastMessage(toast, 'danger', 'Post ID not found');
+          closeOptionsModal();
+          return;
+        }
+
+        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        Clipboard.setString(deepLink);
+        showToastMessage(toast, 'success', 'Post copied');
         closeOptionsModal();
         return;
       }
@@ -766,6 +823,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   );
 
   const loadSuggestions = useCallback(async (page = 1, isLoadMore = false) => {
+    // Prevent duplicate calls
+    if (isLoadingSuggestions) return;
+    
     try {
       setIsLoadingSuggestions(true);
       const limit = 15;
@@ -786,8 +846,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       const cleansed = raw
         .filter(u => u && (!me || String(u.id) !== me))
         .map(normalizeUser)
-        .filter(Boolean); // Remove null results
-      console.log("cleansedcleansedcleansedcleansedcleansedcleansed",cleansed)
+        .filter(Boolean);
+      
       if (isLoadMore) {
         setSuggestAllUsers(prev => [...prev, ...cleansed]);
       } else {
@@ -806,7 +866,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     } finally {
       setIsLoadingSuggestions(false);
     }
-  }, [currentUserId, normalizeUser]);
+  }, [currentUserId, normalizeUser, isLoadingSuggestions]);
 
   useEffect(() => {
     loadSuggestions(1, false);
@@ -815,8 +875,16 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const visibleSuggestions = useMemo(() => {
     const count = suggestPage * SUGGEST_PAGE_SIZE;
     const sliced = suggestAllUsers.slice(0, count);
-    return sliced.filter(u => !suggestDismissed.has(String(u.id)));
-  }, [suggestAllUsers, suggestPage, suggestDismissed]);
+    return sliced
+      .filter(u => !suggestDismissed.has(String(u.id)))
+      .map(u => {
+        const key = String(u.id);
+        if (typeof followingByUserId[key] === 'boolean') {
+          return { ...u, isFollow: followingByUserId[key] };
+        }
+        return u;
+      });
+  }, [suggestAllUsers, suggestPage, suggestDismissed, followingByUserId]);
 
   const handleDismissSuggestion = useCallback(userId => {
     setSuggestDismissed(prev => {
@@ -917,12 +985,12 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           commentsCount={postCommentsCount[item.id] || 0}
           liked={!!liked[item.id]}
           saved={!!saved[item.id]}
-          onToggleLike={() => handleToggleLike(item.id)}
+          onToggleLike={handleToggleLike}
           onToggleFollow={handleToggleFollow}
           followingBusy={followingBusy.has(String(item.UserId))}
-          onToggleSave={() => handleToggleSave(item.id)}
-          onComment={() => handleComment(item.id, item.UserId)}
-          onOptions={() => openOptionsModal(item.id)}
+          onToggleSave={handleToggleSave}
+          onComment={handleComment}
+          onOptions={openOptionsModal}
           isBusinessProfile={isBusinessProfile}
           executeFollowAction={executeFollowAction}
           raiseAmount={item.raiseAmount}
@@ -932,6 +1000,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           screenFocused={screenFocused}
           playingPostId={playingPostId}
           currentlyVisiblePostId={currentlyVisiblePostId}
+          shareCount={item.shareCount}
         />
       );
     },
@@ -956,6 +1025,22 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     ],
   );
 
+  const listKeyExtractor = useCallback(
+    (item, index) =>
+      item?.__type === 'suggestions' ? `suggestions-${index}` : item.id?.toString(),
+    []
+  );
+  const getItemLayout = useCallback(
+    (_, index) => ({ length: 600, offset: 600 * index, index }),
+    []
+  );
+  const viewabilityConfigRef = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 250,
+    waitForInteraction: true,
+  });
+  const viewabilityConfig = viewabilityConfigRef.current;
+
   const safeRender = () => {
     try {
       return (
@@ -963,23 +1048,17 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           {/* Posts List */}
           <FlatList
             data={feedItems}
-            keyExtractor={(item, index) =>
-              item?.__type === 'suggestions'
-                ? `suggestions-${index}`
-                : item.id?.toString()
-            }
+            keyExtractor={listKeyExtractor}
             showsVerticalScrollIndicator={false}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             removeClippedSubviews={true}
-            maxToRenderPerBatch={2}
-            windowSize={5}
-            initialNumToRender={1}
-            viewabilityConfig={{
-              itemVisiblePercentThreshold: 50,
-              minimumViewTime: 100,
-              waitForInteraction: false,
-            }}
+            maxToRenderPerBatch={3}
+            windowSize={7}
+            initialNumToRender={2}
+            updateCellsBatchingPeriod={100}
+            getItemLayout={getItemLayout}
+            viewabilityConfig={viewabilityConfig}
             onViewableItemsChanged={handleViewableItemsChanged}
             scrollEventThrottle={16}
           />
