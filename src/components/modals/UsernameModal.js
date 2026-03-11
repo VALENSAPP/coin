@@ -5,7 +5,8 @@ import {
   Text,
   StyleSheet,
   Alert,
-  Share
+  Share,
+  Linking
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -46,15 +47,52 @@ const UsernameModal = ({ visible, onClose, data }) => {
     resolvedData?.displayName ||
     '';
 
+  const buildDeepLink = () => {
+    const encodedUsername = resolvedUsername
+      ? encodeURIComponent(resolvedUsername)
+      : '';
+    const encodedUserId = resolvedUserId
+      ? encodeURIComponent(String(resolvedUserId))
+      : '';
+    const deepLinkParams = [];
+    if (resolvedUserId) deepLinkParams.push(`userId=${encodedUserId}`);
+    if (resolvedUsername) deepLinkParams.push(`username=${encodedUsername}`);
+    return deepLinkParams.length
+      ? `com.valens://profile?${deepLinkParams.join('&')}`
+      : 'com.valens://profile';
+  };
+
+  const buildWebFallback = () => {
+    const encodedUsername = resolvedUsername
+      ? encodeURIComponent(resolvedUsername)
+      : '';
+    const encodedUserId = resolvedUserId
+      ? encodeURIComponent(String(resolvedUserId))
+      : '';
+    return resolvedUsername
+      ? resolvedUserId
+        ? `https://valens.app/profile/${encodedUsername}?userId=${encodedUserId}`
+        : `https://valens.app/profile/${encodedUsername}`
+      : resolvedUserId
+        ? `https://valens.app/profile?userId=${encodedUserId}`
+        : 'https://valens.app/profile';
+  };
+
   const onShare = async () => {
       try {
-        if (!resolvedUsername) {
-          Alert.alert('Username not available', 'Unable to share profile right now.');
+        if (!resolvedUsername && !resolvedUserId) {
+          Alert.alert('Profile not available', 'Unable to share profile right now.');
           return;
         }
-        const encodedUsername = encodeURIComponent(resolvedUsername);
+        const deepLink = buildDeepLink();
+        const webFallback = buildWebFallback();
         const result = await Share.share({
-          message: `Check out @${resolvedUsername} on Valens!\nhttps://valens.app/profile/${encodedUsername}`,
+          message: [
+            `Check out @${resolvedUsername || 'valens'} on Valens!`,
+            '',
+            `Open in app: ${deepLink}`,
+            `Open on web: ${webFallback}`,
+          ].join('\n'),
         });
   
         if (result.action === Share.sharedAction) {
@@ -70,6 +108,24 @@ const UsernameModal = ({ visible, onClose, data }) => {
         Alert.alert('Error', 'Error sharing content: ' + error.message);
       }
     };
+
+  const openProfileLink = async () => {
+    if (!resolvedUsername && !resolvedUserId) {
+      Alert.alert('Profile not available', 'Unable to open this profile right now.');
+      return;
+    }
+    const deepLink = buildDeepLink();
+    try {
+      await Linking.openURL(deepLink);
+    } catch (error) {
+      const webFallback = buildWebFallback();
+      try {
+        await Linking.openURL(webFallback);
+      } catch (fallbackError) {
+        Alert.alert('Error', 'Unable to open profile link.');
+      }
+    }
+  };
 
   const copyUserId = () => {
     if (!resolvedUserId) {
@@ -143,6 +199,12 @@ const UsernameModal = ({ visible, onClose, data }) => {
             <Text style={styles.optionText}>Base wallet address</Text>
             <Ionicons name="copy-outline" size={18} color="#788587" style={styles.optionRightIcon} />
           </TouchableOpacity>
+
+          {/* <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={openProfileLink}>
+            <Ionicons name="person-outline" size={20} color="#111100" style={styles.optionIcon} />
+            <Text style={styles.optionText}>Open profile</Text>
+            <Ionicons name="open-outline" size={18} color="#788587" style={styles.optionRightIcon} />
+          </TouchableOpacity> */}
         </View>
       </TouchableOpacity>
     </RBSheet>

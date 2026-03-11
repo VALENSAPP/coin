@@ -39,6 +39,7 @@ import useSocket from '../../../hooks/useSocket';
 import { sharePost } from '../../../services/post';
 import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 
+const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -745,12 +746,12 @@ const UserChat = ({ route, navigation }) => {
     validMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     setMessages(validMessages);
     setIsLoading(false);
-     // ADD: Force scroll to bottom after setting messages (e.g., on initial load or fetch)
-  setTimeout(() => {
-    if (!isUserScrolling) {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }
-  }, 100);
+    // ADD: Force scroll to bottom after setting messages (e.g., on initial load or fetch)
+    setTimeout(() => {
+      if (!isUserScrolling) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
+    }, 100);
   };
 
   const isVideoUrl = (url) => {
@@ -838,25 +839,25 @@ const UserChat = ({ route, navigation }) => {
 
   // Track scroll position to determine if user is near bottom
   const handleScroll = (event) => {
-  if (!isUserScrolling) {
-    setIsUserScrolling(true);
-  }
-  if (scrollTimeoutRef.current) {
-    clearTimeout(scrollTimeoutRef.current);
-  }
-  scrollTimeoutRef.current = setTimeout(() => {
-    setIsUserScrolling(false);
-  }, 200);
-};
+    if (!isUserScrolling) {
+      setIsUserScrolling(true);
+    }
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 200);
+  };
 
   // Handle content size change - only scroll if appropriate
-const handleContentSizeChange = () => {
-  if (!isUserScrolling && isNearBottom) {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: false });
-    }, 50); 
-  }
-};
+  const handleContentSizeChange = () => {
+    if (!isUserScrolling && isNearBottom) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 50);
+    }
+  };
 
   // Handle typing indicator
   const handleTyping = () => {
@@ -1306,11 +1307,13 @@ const handleContentSizeChange = () => {
           {!isUser && (
             <View style={styles.botAvatar}>
               <Image
-                source={{
-                  uri: item.senderInfo?.image || user?.image || 'https://via.placeholder.com/32'
-                }}
+                source={
+                  item.senderInfo?.image || user?.image
+                    ? { uri: item.senderInfo?.image || user?.image }
+                    : require('../../../assets/icons/pngicons/user.png')
+                }
                 style={styles.avatarImage}
-                defaultSource={{ uri: 'https://via.placeholder.com/32' }}
+                defaultSource={require('../../../assets/icons/pngicons/user.png')}
               />
             </View>
           )}
@@ -1488,7 +1491,7 @@ const handleContentSizeChange = () => {
                             userChat: true, // Add this flag to indicate coming from UserChat
                             returnParams: {
                               screen: 'UserChat',
-                              params: { userId: targetUserId, postData}
+                              params: { userId: targetUserId, postData }
                             }
                           }
                         });
@@ -1627,7 +1630,7 @@ const handleContentSizeChange = () => {
                             item: reelData,
                             reelId: reelId,
                             initialIndex: 0,
-                                userChat: true, // Add this flag to indicate coming from UserChat
+                            userChat: true, // Add this flag to indicate coming from UserChat
 
                             returnTo: 'HomeMain',
                             returnParams: {
@@ -2025,123 +2028,116 @@ const handleContentSizeChange = () => {
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior="padding"
-         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss}> */}
-          <View style={[styles.container, bgStyle]}>
-            <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
-              {/* Header */}
-              <View style={[styles.headerGradient, bgStyle]}>
-                <View style={styles.headerContent}>
-                  <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <SafeIcon name="arrow-back" size={24} color={text} />
-                  </TouchableOpacity>
+        <View style={[styles.container, bgStyle]}>
+          <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
+            {/* Header */}
+            <View style={[styles.headerGradient, bgStyle]}>
+              <View style={styles.headerContent}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                  <SafeIcon name="arrow-back" size={24} color={text} />
+                </TouchableOpacity>
 
-                  <View style={styles.logoContainer}>
-                    <View style={styles.logoBackground}>
-                      <LogoIcon height={80} width={80} />
-                    </View>
+                <View style={styles.logoContainer}>
+                  <View style={styles.logoBackground}>
+                    <LogoIcon height={80} width={80} />
                   </View>
                 </View>
               </View>
+            </View>
 
-              {/* Card wrapper with proper flex */}
+            {/* Card wrapper with proper flex */}
+            <View style={[
+              styles.formWrapper,
+              isKeyboardVisible && { flex: 1, marginTop: -30 }
+            ]}>
               <View style={[
-                styles.formWrapper,
-                isKeyboardVisible && { flex: 1, marginTop: -30 }
+                styles.card,
+                isKeyboardVisible && {
+                  minHeight: SCREEN_HEIGHT - keyboardHeight - 150,
+                  maxHeight: SCREEN_HEIGHT - keyboardHeight - 150
+                }
               ]}>
-                <View style={[
-                  styles.card,
-                  isKeyboardVisible && {
-                    minHeight: SCREEN_HEIGHT - keyboardHeight - 150,
-                    maxHeight: SCREEN_HEIGHT - keyboardHeight - 150
-                  }
-                ]}>
-                  {/* Header row inside card */}
-                  <View style={styles.chatHeaderRow}>
-                    <View style={[styles.profileImage, { backgroundColor: text }]}>
-                      <View style={styles.profileGradient}>
-                        {user?.image ? (
-                          <Image
-                            source={{ uri: user.image }}
-                            style={styles.avatarImage}
-                            defaultSource={{ uri: 'https://via.placeholder.com/32' }}
-                          />
-                        ) : (
-                          <Text style={styles.profileInitial}>
-                            {user?.displayName?.charAt(0)?.toUpperCase() ||
-                              user?.username?.charAt(0)?.toUpperCase() || 'U'}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      style={{ flex: 1 }}
-                      onPress={handleNavigateToProfile}
-                    >
-                      <Text style={styles.chatName}>
-                        {user?.displayName || user?.username || 'User'}
-                      </Text>
-                      <Text style={styles.chatStatus}>
-                        {isTyping ? 'Typing…' : 'Active now'}
-                      </Text>
-                    </TouchableOpacity>
-                    {/* Socket Status Indicator */}
-                    {/* {socketReady ? (
+                {/* Header row inside card */}
+                <View style={styles.chatHeaderRow}>
+                <View style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}>
+                  <View style={styles.profileGradient}>
+                      <Image
+                        source={user?.image ? { uri: user.image } : DEFAULT_AVATAR}
+                        style={styles.avatarImage}
+                        defaultSource={DEFAULT_AVATAR}
+                      />
+                  </View>
+                </View>
+                  <TouchableOpacity
+                    style={{ flex: 1 }}
+                    onPress={handleNavigateToProfile}
+                  >
+                    <Text style={styles.chatName}>
+                      {user?.displayName || user?.username || 'User'}
+                    </Text>
+                    <Text style={styles.chatStatus}>
+                      {isTyping ? 'Typing…' : 'Active now'}
+                    </Text>
+                  </TouchableOpacity>
+                  {/* Socket Status Indicator */}
+                  {/* {socketReady ? (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981', marginLeft: 8 }} />
                     ) : (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginLeft: 8 }} />
                     )} */}
-                  </View>
+                </View>
 
-                  {/* Messages Container with proper flex */}
-                  <View style={styles.messagesContainer}>
-                    <FlatList
-                      ref={flatListRef}
-                      data={messages}
-                      keyExtractor={item => item.id}
-                      renderItem={renderMessage}
-                      contentContainerStyle={[
-                        styles.messagesList,
-                        {
-                          flexGrow: 1,
-                          paddingBottom: 10
-                        }
-                      ]}
-                      showsVerticalScrollIndicator={false}
-                      // onContentSizeChange={handleContentSizeChange}
-                      onScroll={handleScroll}
-                      scrollEnabled={true}
-                      scrollEventThrottle={16}
-                      keyboardShouldPersistTaps="handled"
-                      ListFooterComponent={renderTypingIndicator}
-                      ListEmptyComponent={() => (
-                        <View style={styles.emptyContainer}>
-                          <Text style={styles.emptyText}>Start a conversation</Text>
-                        </View>
-                      )}
-
-                    />
-                  </View>
-
-                  {/* Input Area - Fixed to bottom */}
-                  <Animated.View
-                    style={[
-                      styles.inputContainer,
+                {/* Messages Container with proper flex */}
+                <View style={styles.messagesContainer}>
+                  <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={item => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={[
+                      styles.messagesList,
                       {
-                        transform: [
-                          {
-                            translateY: inputAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [50, 0],
-                            }),
-                          },
-                        ],
-                      },
+                        flexGrow: 1,
+                        paddingBottom: 10
+                      }
                     ]}
-                  >
-                    <View style={styles.inputWrapper}>
-                      {/* <TouchableOpacity
+                    showsVerticalScrollIndicator={false}
+                    // onContentSizeChange={handleContentSizeChange}
+                    onScroll={handleScroll}
+                    scrollEnabled={true}
+                    scrollEventThrottle={16}
+                    keyboardShouldPersistTaps="handled"
+                    ListFooterComponent={renderTypingIndicator}
+                    ListEmptyComponent={() => (
+                      <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>Start a conversation</Text>
+                      </View>
+                    )}
+
+                  />
+                </View>
+
+                {/* Input Area - Fixed to bottom */}
+                <Animated.View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      transform: [
+                        {
+                          translateY: inputAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [50, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <View style={styles.inputWrapper}>
+                    {/* <TouchableOpacity
                           style={styles.attachButton}
                           onPress={() => {
                             Keyboard.dismiss();
@@ -2153,119 +2149,119 @@ const handleContentSizeChange = () => {
                           </LinearGradient>
                         </TouchableOpacity> */}
 
-                      {/* Inline small shared preview inside the input */}
-                      {sharedItem && (
-                        <View style={styles.shareInline}>
-                          {(sharedItem.type === 'post') && (
+                    {/* Inline small shared preview inside the input */}
+                    {sharedItem && (
+                      <View style={styles.shareInline}>
+                        {(sharedItem.type === 'post') && (
+                          <Image
+                            source={{ uri: sharedItem.post?.media?.[0]?.url || sharedItem.post?.images?.[0]?.url || sharedItem.post?.image }}
+                            style={styles.shareInlineImage}
+                            resizeMode="cover"
+                          />
+                        )}
+
+                        {(sharedItem.type === 'reel') && (
+                          <View style={styles.shareInlineImageWrap}>
                             <Image
-                              source={{ uri: sharedItem.post?.media?.[0]?.url || sharedItem.post?.images?.[0]?.url || sharedItem.post?.image }}
+                              source={{ uri: sharedItem.reel?.media?.[0]?.url || sharedItem.reel?.thumbnail || sharedItem.reel?.image }}
                               style={styles.shareInlineImage}
                               resizeMode="cover"
                             />
-                          )}
-
-                          {(sharedItem.type === 'reel') && (
-                            <View style={styles.shareInlineImageWrap}>
-                              <Image
-                                source={{ uri: sharedItem.reel?.media?.[0]?.url || sharedItem.reel?.thumbnail || sharedItem.reel?.image }}
-                                style={styles.shareInlineImage}
-                                resizeMode="cover"
-                              />
-                              <View style={styles.shareInlinePlay}>
-                                <Text style={styles.shareInlinePlayIcon}>▶</Text>
-                              </View>
+                            <View style={styles.shareInlinePlay}>
+                              <Text style={styles.shareInlinePlayIcon}>▶</Text>
                             </View>
-                          )}
-                          {(sharedItem.type === 'story') && (
-                            <View style={styles.shareInlineImageWrap}>
-                              <Image
-                                source={{ uri: sharedItem.story?.uri || sharedItem.story?.media?.[0]?.url || sharedItem.story?.thumbnail || sharedItem.story?.image }}
-                                style={styles.shareInlineImage}
-                                resizeMode="cover"
-                              />
-                            </View>
-                          )}
-                          <TouchableOpacity onPress={() => setSharedItem(null)} style={styles.shareInlineRemove}>
-                            <Text style={styles.shareRemoveText}>✕</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
+                          </View>
+                        )}
+                        {(sharedItem.type === 'story') && (
+                          <View style={styles.shareInlineImageWrap}>
+                            <Image
+                              source={{ uri: sharedItem.story?.uri || sharedItem.story?.media?.[0]?.url || sharedItem.story?.thumbnail || sharedItem.story?.image }}
+                              style={styles.shareInlineImage}
+                              resizeMode="cover"
+                            />
+                          </View>
+                        )}
+                        <TouchableOpacity onPress={() => setSharedItem(null)} style={styles.shareInlineRemove}>
+                          <Text style={styles.shareRemoveText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
 
-                      <TextInput
-                        style={styles.textInput}
-                        value={inputText}
-                        onChangeText={(text) => {
-                          setInputText(text);
-                          handleTyping();
-                        }}
-                        placeholder={
-                          sharedItem
-                            ? sharedItem.type === 'post'
-                              ? 'Add a message to your post...'
-                              : sharedItem.type === 'reel'
-                                ? 'Add a message to your reel...'
-                                : sharedItem.type === 'story'
-                                  ? 'Add a message to your story...'
-                                  : 'Type a message...'
-                            : 'Type a message...'
-                        }
-                        placeholderTextColor="#9ca3af"
-                        multiline
-                        textAlignVertical="top"
-                        maxLength={2000}
-                        editable={!isSending}
-                        onFocus={() => {
-                          setTimeout(() => {
-                            flatListRef.current?.scrollToEnd({ animated: true });
-                          }, 300);
-                        }}
-                      />
-                    </View>
+                    <TextInput
+                      style={styles.textInput}
+                      value={inputText}
+                      onChangeText={(text) => {
+                        setInputText(text);
+                        handleTyping();
+                      }}
+                      placeholder={
+                        sharedItem
+                          ? sharedItem.type === 'post'
+                            ? 'Add a message to your post...'
+                            : sharedItem.type === 'reel'
+                              ? 'Add a message to your reel...'
+                              : sharedItem.type === 'story'
+                                ? 'Add a message to your story...'
+                                : 'Type a message...'
+                          : 'Type a message...'
+                      }
+                      placeholderTextColor="#9ca3af"
+                      multiline
+                      textAlignVertical="top"
+                      maxLength={2000}
+                      editable={!isSending}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          flatListRef.current?.scrollToEnd({ animated: true });
+                        }, 300);
+                      }}
+                    />
+                  </View>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.sendButton,
-                        ((!inputText.trim() && !sharedItem) || isSending) && styles.disabledSendButton
-                      ]}
-                      onPress={sendMessage}
-                      disabled={(!inputText.trim() && !sharedItem) || isSending}
+                  <TouchableOpacity
+                    style={[
+                      styles.sendButton,
+                      ((!inputText.trim() && !sharedItem) || isSending) && styles.disabledSendButton
+                    ]}
+                    onPress={sendMessage}
+                    disabled={(!inputText.trim() && !sharedItem) || isSending}
+                  >
+                    <LinearGradient
+                      colors={
+                        ((inputText.trim() || sharedItem) && !isSending)
+                          ? [text, text]
+                          : ['#d1d5db', '#9ca3af']
+                      }
+                      style={styles.sendButtonGradient}
                     >
-                      <LinearGradient
-                        colors={
-                          ((inputText.trim() || sharedItem) && !isSending)
-                            ? [text, text]
-                            : ['#d1d5db', '#9ca3af']
-                        }
-                        style={styles.sendButtonGradient}
-                      >
-                        <Text style={styles.sendIcon}>
-                          {isSending ? '⏳' : '➤'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </Animated.View>
-                </View>
-              </View>
-
-              {/* <AttachmentModal /> */}
-
-              <ImageViewing
-                images={currentImages}
-                imageIndex={currentIndex}
-                visible={isViewerVisible}
-                onRequestClose={() => setViewerVisible(false)}
-              />
-
-              <Modal visible={videoModalVisible} transparent>
-                <View style={styles.videoModal}>
-                  <TouchableOpacity style={styles.videoCloseButton} onPress={() => setVideoModalVisible(false)}>
-                    <Text style={styles.videoCloseIcon}>✕</Text>
+                      <Text style={styles.sendIcon}>
+                        {isSending ? '⏳' : '➤'}
+                      </Text>
+                    </LinearGradient>
                   </TouchableOpacity>
-                  <Video source={{ uri: currentVideo }} style={styles.videoPlayer} controls resizeMode="contain" />
-                </View>
-              </Modal>
-            </Animated.View>
-          </View>
+                </Animated.View>
+              </View>
+            </View>
+
+            {/* <AttachmentModal /> */}
+
+            <ImageViewing
+              images={currentImages}
+              imageIndex={currentIndex}
+              visible={isViewerVisible}
+              onRequestClose={() => setViewerVisible(false)}
+            />
+
+            <Modal visible={videoModalVisible} transparent>
+              <View style={styles.videoModal}>
+                <TouchableOpacity style={styles.videoCloseButton} onPress={() => setVideoModalVisible(false)}>
+                  <Text style={styles.videoCloseIcon}>✕</Text>
+                </TouchableOpacity>
+                <Video source={{ uri: currentVideo }} style={styles.videoPlayer} controls resizeMode="contain" />
+              </View>
+            </Modal>
+          </Animated.View>
+        </View>
         {/* </TouchableWithoutFeedback> */}
       </KeyboardAvoidingView>
       <StoryViewerModal
@@ -2459,7 +2455,7 @@ const createStyles = () => ({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1157e4ff',
+    // backgroundColor: '#1157e4ff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,

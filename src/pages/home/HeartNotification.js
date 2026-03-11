@@ -323,7 +323,15 @@ export default function Notifications() {
   };
 
   const renderTabContent = (tabData, tabKey) => {
-    const renderItem = ({ item, index }) => (
+    const renderItem = ({ item, index }) => {
+      const message = item.message || '';
+      const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?)\b/i;
+      const followMatch = message.match(followRegex);
+      const splitIndex = followMatch?.index ?? -1;
+      const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
+      const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
+
+      return (
       <TouchableOpacity
         style={[styles.notificationItem, !item.isRead && bgStyle]}
         onPress={() => { markAsRead(item.id); popupOpen(item); }}
@@ -346,7 +354,14 @@ export default function Notifications() {
 
             <View style={styles.textContent}>
               <Text style={styles.notificationTitle}>{item.title}</Text>
-              <Text style={styles.notificationMessage}>{item.message}</Text>
+              <Text style={styles.notificationMessage}>
+                {!!beforeFollowText && (
+                  <Text style={styles.notificationMessageHighlight}>
+                    {`${beforeFollowText} `}
+                  </Text>
+                )}
+                <Text>{afterFollowText}</Text>
+              </Text>
               <Text style={styles.timeText}>{item.time}</Text>
             </View>
           </View>
@@ -366,7 +381,8 @@ export default function Notifications() {
           <View style={styles.separator} />
         )}
       </TouchableOpacity>
-    );
+      );
+    };
 
     return (
       <View style={styles.tabContentContainer}>
@@ -634,6 +650,10 @@ const styles = StyleSheet.create({
     color: '#888888',
     lineHeight: 20,
     marginBottom: 6,
+  },
+  notificationMessageHighlight: {
+    textDecorationLine: 'underline',
+    textDecorationColor: '#3c0fdd',
   },
   timeText: {
     fontSize: 11,

@@ -128,25 +128,36 @@ export default function PostScreen({ navigation }) {
         dispatch(hideLoader());
         const assets = Array.isArray(response) ? response : [response];
 
-        // 🧠 For Flip posts: validate duration
+        // 🧠 Validate duration for videos (Flip 15-60s, regular max 10 min)
         let validAssets = assets;
-        if (postType === 'flip') {
-          validAssets = assets.filter((asset) => {
-            const durationMs = asset?.duration ?? 0;
-            const durationSec = durationMs > 1000 ? durationMs / 1000 : durationMs;
+        validAssets = assets.filter((asset) => {
+          const isVideo = asset?.mime?.includes('video');
+          if (!isVideo) return true;
 
+          const durationMs = asset?.duration ?? 0;
+          const durationSec = durationMs > 1000 ? durationMs / 1000 : durationMs;
+
+          if (postType === 'flip') {
             if (durationSec < 15) {
               Alert.alert('Short Video', 'Please select a video of at least 15 seconds.');
               return false;
-            } else if (durationSec > 60) {
+            }
+            if (durationSec > 60) {
               Alert.alert('Long Video', 'Please select a video shorter than 60 seconds.');
               return false;
             }
             return true;
-          });
+          }
 
-          if (validAssets.length === 0) return;
-        }
+          if (durationSec > 600) {
+            Alert.alert('Long Video', 'Please select a video shorter than 10 minutes.');
+            return false;
+          }
+
+          return true;
+        });
+
+        if (validAssets.length === 0) return;
 
         // ✅ Create new asset objects
         const newAssets = validAssets.map((asset) => ({
@@ -260,7 +271,7 @@ export default function PostScreen({ navigation }) {
 
     // Optional upper recording time limit
     if (mediaType === 'video') {
-      options.durationLimit = postType === 'flip' ? 60 : 300; // 60s for flips, 5min otherwise
+      options.durationLimit = postType === 'flip' ? 60 : 600; // 60s for flips, 10min otherwise
     }
 
     ImagePicker.openCamera(options)
@@ -268,20 +279,25 @@ export default function PostScreen({ navigation }) {
         if (!response) return;
         dispatch(hideLoader());
 
-        // 🧠 Duration validation for Flip-type videos
-        if (mediaType === 'video' && postType === 'flip') {
+        // 🧠 Duration validation for captured videos (Flip 15-60s, regular max 10 min)
+        if (mediaType === 'video') {
           const duration = response?.duration || 0; // milliseconds or seconds depending on platform
 
           // Sometimes ImagePicker returns duration in seconds — normalize to seconds
           const durationSec = duration > 1000 ? duration / 1000 : duration;
 
-          if (durationSec < 15) {
-            Alert.alert('Short Video', 'Please record at least 15 seconds.');
-            return;
-          }
+          if (postType === 'flip') {
+            if (durationSec < 15) {
+              Alert.alert('Short Video', 'Please record at least 15 seconds.');
+              return;
+            }
 
-          if (durationSec > 60) {
-            Alert.alert('Long Video', 'Please record less than 60 seconds.');
+            if (durationSec > 60) {
+              Alert.alert('Long Video', 'Please record less than 60 seconds.');
+              return;
+            }
+          } else if (durationSec > 600) {
+            Alert.alert('Long Video', 'Please record less than 10 minutes.');
             return;
           }
         }
