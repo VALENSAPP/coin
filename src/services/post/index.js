@@ -113,6 +113,31 @@ export async function deletePost(postId, userId) {
   });
 }
 
+export async function editPost(postId, data = {}) {
+  if (!postId) {
+    throw new Error('editPost: postId is required');
+  }
+
+  const formData = new FormData();
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(item => {
+        formData.append(key, item);
+      });
+      return;
+    }
+
+    formData.append(key, value);
+  });
+
+  return axiosInstance.post(`post/edit/${postId}`, formData);
+}
+
 export async function follow(followingId) {
   return axiosInstance.post('user/follow', { followingId })
 }

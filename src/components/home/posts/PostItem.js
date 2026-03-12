@@ -229,10 +229,9 @@ function PostItem({
   currentlyVisiblePostId,
   returnTo,
   shareCount,
+  taggedPeople,
   hideDonationButton = false, // Add this prop with default false
-
 }) {
-
 
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -249,6 +248,7 @@ function PostItem({
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
+  const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [videoHeight, setVideoHeight] = useState(500);
   const [videoLoaded, setVideoLoaded] = useState({});
@@ -299,6 +299,27 @@ function PostItem({
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
+  const taggedUsers = useMemo(
+    () =>
+      (Array.isArray(taggedPeople || item?.taggedPeople) ? (taggedPeople || item?.taggedPeople) : [])
+        .filter(Boolean)
+        .map((person, index) => {
+          if (typeof person === 'string') {
+            return {
+              id: `tagged-${index}-${person}`,
+              username: person,
+            };
+          }
+
+          return {
+            id: person?.id || `tagged-${index}`,
+            username: person?.username || person?.userName || 'Unknown User',
+            fullName: person?.fullName || person?.name || '',
+            avatar: person?.avatar || person?.image || person?.userImage || null,
+          };
+        }),
+    [item?.taggedPeople, taggedPeople],
+  );
 
   // Calculate days left from current time to end_time
   const calculateDaysLeft = useCallback(() => {
@@ -896,6 +917,15 @@ const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
         </View>
 
         <View style={styles.mediaWrapper}>
+          {taggedUsers.length > 0 && (
+            <TouchableOpacity
+              style={styles.tagButton}
+              onPress={() => setShowTaggedPeopleModal(true)}
+              activeOpacity={0.8}
+            >
+              <Feather name="tag" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
           <FlatList
             ref={listRef}
             data={safeMedia}
@@ -1134,6 +1164,16 @@ const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
           handleUserProfile(id);
         }}
       />
+      <BuyersListModal
+        visible={showTaggedPeopleModal}
+        onClose={() => setShowTaggedPeopleModal(false)}
+        users={taggedUsers}
+        title="Tagged people"
+        enableSearch={false}
+        showChevron={false}
+        emptyTitle="No tagged people"
+        emptyText="This post has no tagged people."
+      />
       <SupportCreatorModal
         visible={modalVisible}
         creatorName={item?.username || 'Creator'}
@@ -1301,6 +1341,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  tagButton: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+    borderRadius: 20,
+    zIndex: 10,
   },
   dot: {
     width: 8,

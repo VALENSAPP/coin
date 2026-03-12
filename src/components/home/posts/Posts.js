@@ -308,7 +308,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           start_time: item.start_time || null,
           end_time: item.end_time || null,
           tokenBalance: item.tokenBalance || 0,
-          shareCount:item.shareCount || 0
+          shareCount:item.shareCount || 0,
+          taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId]);
@@ -1000,6 +1001,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           playingPostId={playingPostId}
           currentlyVisiblePostId={currentlyVisiblePostId}
           shareCount={item.shareCount}
+          taggedPeople={item.taggedPeople}
         />
       );
     },

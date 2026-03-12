@@ -222,6 +222,18 @@ export default function ChatMessages() {
     setError(null);
   }, [currentUserId]);
 
+  useSocket('messageSeen', (payload) => {
+    if (!payload?.messageId) return;
+
+    setConversations(prev =>
+      prev.map(conversation =>
+        String(conversation.lastMessageId) === String(payload.messageId)
+          ? { ...conversation, lastMessageIsSeen: true }
+          : conversation,
+      ),
+    );
+  }, []);
+
   // ✅ Listen for new messages to update conversation list in real-time
   useSocket('newMessage', (message) => {
     console.log('🔔 ChatMessages: New message received');
@@ -517,6 +529,7 @@ export default function ChatMessages() {
           id: partnerId,
           userId: partnerId,
           chatId: chatId,
+          lastMessageId: message.id,
           username: chatPartner.displayName || chatPartner.username || "Unknown User",
           displayName: chatPartner.displayName,
           avatar: chatPartner.image || ONLINE_PLACEHOLDER,

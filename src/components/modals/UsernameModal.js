@@ -15,6 +15,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { buildProfileShareUrls } from '../../utils/profileShare';
 
 const UsernameModal = ({ visible, onClose, data }) => {
   const sheetRef = useRef();
@@ -47,36 +48,15 @@ const UsernameModal = ({ visible, onClose, data }) => {
     resolvedData?.displayName ||
     '';
 
-  const buildDeepLink = () => {
-    const encodedUsername = resolvedUsername
-      ? encodeURIComponent(resolvedUsername)
-      : '';
-    const encodedUserId = resolvedUserId
-      ? encodeURIComponent(String(resolvedUserId))
-      : '';
-    const deepLinkParams = [];
-    if (resolvedUserId) deepLinkParams.push(`userId=${encodedUserId}`);
-    if (resolvedUsername) deepLinkParams.push(`username=${encodedUsername}`);
-    return deepLinkParams.length
-      ? `com.valens://profile?${deepLinkParams.join('&')}`
-      : 'com.valens://profile';
-  };
-
-  const buildWebFallback = () => {
-    const encodedUsername = resolvedUsername
-      ? encodeURIComponent(resolvedUsername)
-      : '';
-    const encodedUserId = resolvedUserId
-      ? encodeURIComponent(String(resolvedUserId))
-      : '';
-    return resolvedUsername
-      ? resolvedUserId
-        ? `https://valens.app/profile/${encodedUsername}?userId=${encodedUserId}`
-        : `https://valens.app/profile/${encodedUsername}`
-      : resolvedUserId
-        ? `https://valens.app/profile?userId=${encodedUserId}`
-        : 'https://valens.app/profile';
-  };
+  const {
+    callbackUrl,
+    deepLink,
+    webFallback,
+    primaryShareUrl,
+  } = buildProfileShareUrls({
+    username: resolvedUsername,
+    userId: resolvedUserId,
+  });
 
   const onShare = async () => {
       try {
@@ -84,12 +64,12 @@ const UsernameModal = ({ visible, onClose, data }) => {
           Alert.alert('Profile not available', 'Unable to share profile right now.');
           return;
         }
-        const deepLink = buildDeepLink();
-        const webFallback = buildWebFallback();
         const result = await Share.share({
+          url: primaryShareUrl,
           message: [
             `Check out @${resolvedUsername || 'valens'} on Valens!`,
             '',
+            `Callback URL: ${callbackUrl}`,
             `Open in app: ${deepLink}`,
             `Open on web: ${webFallback}`,
           ].join('\n'),
@@ -114,11 +94,9 @@ const UsernameModal = ({ visible, onClose, data }) => {
       Alert.alert('Profile not available', 'Unable to open this profile right now.');
       return;
     }
-    const deepLink = buildDeepLink();
     try {
       await Linking.openURL(deepLink);
     } catch (error) {
-      const webFallback = buildWebFallback();
       try {
         await Linking.openURL(webFallback);
       } catch (fallbackError) {

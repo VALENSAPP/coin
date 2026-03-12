@@ -30,7 +30,7 @@ const linking = {
     // 'https://valenscorp.com',
     // 'https://www.valens.app',
     // 'https://valens.app',
-    'https://valensApp.com',
+    'https://valensGoApp.com',
     'com.valens://',
     // 'valens://',
   ],
@@ -90,8 +90,6 @@ export default function Main() {
       }
 
       const response = await getUserCredentials(id);
-      console.log(response, 'respones in this parts what it get ');
-
       if (response?.statusCode !== 200) {
         return;
       }
