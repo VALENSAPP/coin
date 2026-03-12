@@ -39,6 +39,7 @@ import HidePosts from '../pages/settings/HidePosts';
 import subscription from '../pages/settings/Subscription';
 import TextGradient from '../assets/textgradient/TextGradient';
 import CreateMission from '../pages/post/uploadPost/CreateMission';
+import EditPostScreen from '../pages/post/uploadPost/EditPostScreen';
 
 // Import Wallet Drawer Screens
 import PortfolioScreen from '../pages/wallet/PortfolioScreen';
@@ -93,6 +94,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Following" component={Following} />
         <Stack.Screen name="UserChat" component={UserChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
+        <Stack.Screen name="EditPost" component={EditPostScreen} />
       </Stack.Navigator>
     );
   }, []);
@@ -106,6 +108,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="EditProfile" component={ProfileEditScreen} options={{ headerShown: true, headerStyle: [bgStyle], }} />
         <Stack.Screen name="PostUpload" component={PostUploadPage} options={{ headerShown: false }} />
         <Stack.Screen name="PostEditor" component={PostEditorScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="EditPost" component={EditPostScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SelectedPost" component={InstagramPostCreator} options={{ headerShown: false }} />
         <Stack.Screen name="PostView" component={PostView} options={{ headerShown: false, }} />
         <Stack.Screen name="CreatorCoin" component={CreatorCoin} options={{ headerShown: false }} />
@@ -281,6 +284,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Add" component={PostScreen} />
         <Stack.Screen name="SelectedPost" component={InstagramPostCreator} options={{ headerShown: false }} />
         <Stack.Screen name="PostEditor" component={PostEditorScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="EditPost" component={EditPostScreen} options={{ headerShown: false }} />
         <Stack.Screen name="CreateMission" component={CreateMission} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
@@ -378,7 +382,7 @@ export default function MainTabNavigator() {
 
     const hideTabBarRoutes = [
       'ChatMessages', 'HeartNotification', 'Following', 'UserChat',
-      'PostUpload', 'PostEditor', 'SelectedPost',
+      'PostUpload', 'PostEditor', 'EditPost', 'SelectedPost',
       'SavedPost', 'CreatorCoin', 'notificationEnable', 'HidePosts',
       'FollowersFollowingScreen', 'Settings', 'subscription',
       'QuickBuy', 'CashOutScreen', 'Invite', 'ShareProfile', 'EditProfile',

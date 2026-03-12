@@ -22,12 +22,20 @@ export default function BuyersListModal({
   visible,
   onClose,
   buyers = [],
+  users,
   profileType = 'user',
   onUserPress,
+  title,
+  enableSearch = true,
+  searchPlaceholder = 'Search buyers',
+  emptyTitle,
+  emptyText,
+  showChevron = true,
 }) {
   const sheetRef = useRef(null);
   const { bgStyle, textStyle, cardStyle } = useAppTheme();
   const [query, setQuery] = useState('');
+  const listUsers = users || buyers;
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
@@ -38,28 +46,33 @@ export default function BuyersListModal({
     if (!visible) setQuery('');
   }, [visible]);
 
-  const title = profileType === 'user' ? 'Followed by' : 'Supported by';
+  const resolvedTitle = title || (profileType === 'user' ? 'Followed by' : 'Supported by');
 
-  const filteredBuyers = useMemo(() => {
+  const filteredUsers = useMemo(() => {
     const q = normalizeString(query);
-    if (!q) return buyers;
+    if (!q || !enableSearch) return listUsers;
 
-    return buyers.filter((b) => {
-      const username = normalizeString(b?.username);
-      const fullName = normalizeString(b?.fullName);
+    return listUsers.filter((user) => {
+      const username = normalizeString(user?.username);
+      const fullName = normalizeString(user?.fullName);
       return username.includes(q) || fullName.includes(q);
     });
-  }, [buyers, query]);
+  }, [enableSearch, listUsers, query]);
 
   const renderItem = ({ item }) => {
     const username = item?.username || '—';
     const fullName = item?.fullName || '';
     const avatarUri = item?.avatar;
+    const canPress = !!onUserPress && !!(item?.id || item?.username);
 
     return (
       <Pressable
-        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-        onPress={() => onUserPress?.(item?.id)}
+        style={({ pressed }) => [styles.row, canPress && pressed && styles.rowPressed]}
+        onPress={() => {
+          if (!canPress) return;
+          onUserPress(item?.id || item?.username, item);
+        }}
+        disabled={!canPress}
       >
         <View style={styles.avatarWrap}>
           {avatarUri ? (
@@ -84,7 +97,9 @@ export default function BuyersListModal({
           )}
         </View>
 
-        <Feather name="chevron-right" size={18} color="#9ca3af" />
+        {showChevron && canPress ? (
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        ) : null}
       </Pressable>
     );
   };
@@ -105,11 +120,10 @@ export default function BuyersListModal({
       }}
     >
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, textStyle]}>{title}</Text>
+          <Text style={[styles.title, textStyle]}>{resolvedTitle}</Text>
           <Text style={styles.countText}>
-            {filteredBuyers.length} {filteredBuyers.length === 1 ? 'user' : 'users'}
+            {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
           </Text>
 
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
@@ -117,40 +131,40 @@ export default function BuyersListModal({
           </Pressable>
         </View>
 
-        {/* Search */}
-        <View style={[styles.searchWrap, cardStyle]}>
-          <Feather name="search" size={16} color="#9ca3af" />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search buyers"
-            placeholderTextColor="#9ca3af"
-            style={[styles.searchInput, textStyle]}
-            returnKeyType="search"
-          />
-          {!!query && (
-            <Pressable onPress={() => setQuery('')} hitSlop={10} style={styles.clearBtn}>
-              <Feather name="x-circle" size={18} color="#9ca3af" />
-            </Pressable>
-          )}
-        </View>
+        {enableSearch ? (
+          <View style={[styles.searchWrap, cardStyle]}>
+            <Feather name="search" size={16} color="#9ca3af" />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={searchPlaceholder}
+              placeholderTextColor="#9ca3af"
+              style={[styles.searchInput, textStyle]}
+              returnKeyType="search"
+            />
+            {!!query && (
+              <Pressable onPress={() => setQuery('')} hitSlop={10} style={styles.clearBtn}>
+                <Feather name="x-circle" size={18} color="#9ca3af" />
+              </Pressable>
+            )}
+          </View>
+        ) : null}
 
         <View style={styles.divider} />
 
-        {/* List */}
         <FlatList
-          data={filteredBuyers}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
+          data={filteredUsers}
+          keyExtractor={(item, index) => String(item?.id ?? item?.username ?? index)}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyTitle, textStyle]}>
-                {query ? 'No matches' : 'No users yet'}
+                {query ? 'No matches' : (emptyTitle || 'No users yet')}
               </Text>
               <Text style={styles.emptyText}>
-                {query ? 'Try a different search.' : 'Be the first to support this post.'}
+                {query ? 'Try a different search.' : (emptyText || 'Be the first to support this post.')}
               </Text>
             </View>
           }

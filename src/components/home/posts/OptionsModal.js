@@ -15,6 +15,7 @@ export default function OptionsModal({
   isSaved = false,
   postId = '',
   canDelete,
+  canEdit = false,
   isHidden = false,
   hideBusy = false
 }) {
@@ -53,7 +54,7 @@ export default function OptionsModal({
       <RBSheet
         ref={sheetRef}
         draggable
-        height={250}
+        height={canEdit ? 300 : 250}
         onClose={onClose}
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
@@ -75,6 +76,13 @@ export default function OptionsModal({
                 <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color="#262626" />
                 <Text style={styles.innerText}>{isSaved ? 'Unsave Post' : 'Save Post'}</Text>
               </TouchableOpacity>
+
+              {canEdit ? (
+                <TouchableOpacity style={styles.innerRow} onPress={() => tap('editPost')}>
+                  <MaterialIcons name="edit" size={20} color="#262626" />
+                  <Text style={styles.innerText}>Edit Post</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             <View style={styles.innerContainer}>

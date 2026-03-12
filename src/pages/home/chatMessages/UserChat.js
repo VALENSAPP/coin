@@ -135,6 +135,11 @@ const UserChat = ({ route, navigation }) => {
   const scrollTimeoutRef = useRef(null);
   const [storyViewerVisible, setStoryViewerVisible] = useState(false);
   const [selectedStory, setSelectedStory] = useState(null);
+  const seenEmitRef = useRef(new Set());
+
+  useEffect(() => {
+    seenEmitRef.current = new Set();
+  }, [targetUserId]);
 
   // Initialize socket with userId and mark ready when connected
   useEffect(() => {
@@ -559,6 +564,8 @@ const UserChat = ({ route, navigation }) => {
       sender: sId === me ? 'user' : 'peer',
       content: message.content || message.message || '',
       timestamp: new Date(message.createdAt || Date.now()),
+      isSeen: Number(message?.isSeen ?? 0) === 1,
+      seenBy: message?.seenBy || null,
       senderInfo: message.sender || { id: sId },
       receiverInfo: message.receiver || { id: rId },
       images: Array.isArray(message.images) ? message.images : undefined,
@@ -631,6 +638,8 @@ const UserChat = ({ route, navigation }) => {
       sender: sId === currentUserId ? 'user' : 'peer',
       content: message.content || '',
       timestamp: new Date(message.createdAt || Date.now()),
+      isSeen: Number(message?.isSeen ?? 0) === 1,
+      seenBy: message?.seenBy || null,
       senderInfo: message.sender || {},
       receiverInfo: message.receiver || {},
       images: Array.isArray(message.images) ? message.images : undefined,
@@ -665,6 +674,26 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [targetUserId]);
 
+  useSocket('messageSeen', (payload) => {
+    if (!payload?.messageId) return;
+
+    setMessages(prev =>
+      prev.map(message =>
+        String(message.id) === String(payload.messageId)
+          ? {
+            ...message,
+            isSeen: true,
+            seenBy: payload?.seenBy || payload?.userId || payload?.data?.seenBy || null,
+          }
+          : message,
+      ),
+    );
+  }, []);
+
+  useSocket('messageSeenError', (error) => {
+    console.log('[UserChat] messageSeenError:', error);
+  }, []);
+
   // Process and set messages helper
   const processAndSetMessages = (conversationMessages, senderId, receiverId) => {
     console.log(conversationMessages, 'check new conversation message')
@@ -684,6 +713,8 @@ const UserChat = ({ route, navigation }) => {
         type: messageType.toLowerCase(),
         sender: isSender ? 'user' : 'peer',
         timestamp: new Date(msg.createdAt || Date.now()),
+        isSeen: Number(msg?.isSeen ?? 0) === 1,
+        seenBy: msg?.seenBy || null,
         senderInfo: msg.sender || {},
         receiverInfo: msg.receiver || {},
         rawData: msg,
@@ -836,6 +867,32 @@ const UserChat = ({ route, navigation }) => {
       }, 100);
     }
   };
+
+  useEffect(() => {
+    if (!socketReady || !currentUserId || !targetUserId || messages.length === 0) {
+      return;
+    }
+
+    const socket = getSocket();
+    if (!socket?.connected) return;
+
+    messages.forEach(message => {
+      const shouldEmitSeen =
+        message?.id &&
+        message.sender === 'peer' &&
+        !message.isSeen &&
+        !seenEmitRef.current.has(String(message.id));
+
+      if (!shouldEmitSeen) return;
+
+      seenEmitRef.current.add(String(message.id));
+      socket.emit('markMessageSeen', {
+        messageId: String(message.id),
+        userId: currentUserId,
+        otherUserId: targetUserId,
+      });
+    });
+  }, [messages, currentUserId, targetUserId, socketReady]);
 
   // Track scroll position to determine if user is near bottom
   const handleScroll = (event) => {
@@ -1283,6 +1340,7 @@ const UserChat = ({ route, navigation }) => {
 
   const renderMessage = ({ item, index }) => {
     const isUser = item.sender === 'user';
+    const isLastMessage = index === messages.length - 1;
     const showTime =
       index === 0 ||
       (messages[index - 1] &&
@@ -1340,10 +1398,17 @@ const UserChat = ({ route, navigation }) => {
                 </View>
 
                 {/* Show status only for user messages */}
-                {isUser && !item.isTemp && (
+                {isUser && !item.isTemp && isLastMessage && (
                   <View style={styles.messageStatus}>
-                    <Text style={styles.seenIndicator}>✓✓</Text>
-                    <Text style={styles.statusText}>Sent</Text>
+                    <SafeIcon
+                      name="checkmark-done"
+                      size={16}
+                      color={item.isSeen ? '#3b82f6' : '#9ca3af'}
+                      style={styles.seenIcon}
+                    />
+                    <Text style={styles.statusText}>
+                      {item.isSeen ? 'Seen' : 'Sent'}
+                    </Text>
                   </View>
                 )}
 
@@ -2062,15 +2127,15 @@ const UserChat = ({ route, navigation }) => {
               ]}>
                 {/* Header row inside card */}
                 <View style={styles.chatHeaderRow}>
-                <View style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}>
-                  <View style={styles.profileGradient}>
+                  <View style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}>
+                    <View style={styles.profileGradient}>
                       <Image
                         source={user?.image ? { uri: user.image } : DEFAULT_AVATAR}
                         style={styles.avatarImage}
                         defaultSource={DEFAULT_AVATAR}
                       />
+                    </View>
                   </View>
-                </View>
                   <TouchableOpacity
                     style={{ flex: 1 }}
                     onPress={handleNavigateToProfile}
@@ -2501,9 +2566,7 @@ const createStyles = () => ({
     justifyContent: 'flex-end',
     marginTop: 4,
   },
-  seenIndicator: {
-    fontSize: 10,
-    color: '#9CA3AF',
+  seenIcon: {
     marginRight: 4,
   },
   statusText: {

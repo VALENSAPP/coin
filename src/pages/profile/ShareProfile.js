@@ -19,6 +19,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
+import { buildProfileShareUrls } from '../../utils/profileShare';
 
 const { width, height } = Dimensions.get('window');
 
@@ -67,28 +68,20 @@ const ShareProfile = ({ navigation }) => {
         targetUserId ||
         '',
       ).trim();
-      const encodedUsername = encodeURIComponent(resolvedUsername);
-      const encodedUserId = encodeURIComponent(resolvedUserId);
-
-      const deepLinkParams = [];
-      if (resolvedUserId) deepLinkParams.push(`userId=${encodedUserId}`);
-      if (resolvedUsername) deepLinkParams.push(`username=${encodedUsername}`);
-      const deepLink = deepLinkParams.length
-        ? `com.valens://profile?${deepLinkParams.join('&')}`
-        : 'com.valens://profile';
-      const webFallback = resolvedUsername
-        ? resolvedUserId
-          ? `https://valens.app/profile/${encodedUsername}?userId=${encodedUserId}`
-          : `https://valens.app/profile/${encodedUsername}`
-        : resolvedUserId
-          ? `https://valens.app/profile?userId=${encodedUserId}`
-          : 'https://valens.app/profile';
+      const { callbackUrl, deepLink, webFallback, primaryShareUrl } = buildProfileShareUrls({
+        username: resolvedUsername,
+        userId: resolvedUserId,
+      });
 
       const result = await Share.share({
+        url: primaryShareUrl,
         message: [
           `✨ Check out @${resolvedUsername || 'valens'} on Valens`,
           '',
           `Discover posts, stories and updates.`,
+          '',
+          `Callback URL:`,
+          `${callbackUrl}`,
           '',
           `Open in Valens:`,
           `${deepLink}`,
@@ -133,7 +126,7 @@ const ShareProfile = ({ navigation }) => {
       id: 'home',
       icon: 'home',
       iconFamily: 'Feather',
-      onPress: () => Linking.openURL('https://valens.app'),
+      onPress: () => Linking.openURL('https://valensGoApp.com'),
       label: 'Home',
       color: '#34C759',
     },
