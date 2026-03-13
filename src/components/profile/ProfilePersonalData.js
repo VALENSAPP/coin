@@ -62,6 +62,7 @@ const ProfilePersonData = ({
   executeFollowAction,
   returnByTo
 }) => {
+  console.log(userData, 'userdTAA');
 
 
 
@@ -1001,7 +1002,7 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
@@ -1024,7 +1025,7 @@ const ProfilePersonData = ({
                   <TouchableOpacity
                     onPress={() =>
                       navigation.navigate('Invite', {
-                        referralUrl: 'https://valens.com/referral?code=Valens123',
+                        referralCode: userData?.referCode ||'Valense123',
                         avatar: Userdata.profilePic,
                       })
                     }
@@ -1055,7 +1056,7 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
