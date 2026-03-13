@@ -11,7 +11,9 @@ export const kycWebhook = async (data) => {
 export const kycStatus = async (userId) => {
     return axiosInstance.get(`kyc/status/${userId}`);
 }
-
+export const kycSync = async (userId) => {
+    return axiosInstance.post(`kyc/sync/${userId}`);
+}
 export const getKycToken = async () => {
     return axiosInstance.get(`sumsub-user_verification/token`);
 }
