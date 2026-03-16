@@ -15,7 +15,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
-import { buildProfileShareUrls } from '../../utils/profileShare';
+import { buildProfileSharePayload } from '../../utils/profileShare';
 
 const UsernameModal = ({ visible, onClose, data }) => {
   const sheetRef = useRef();
@@ -49,11 +49,11 @@ const UsernameModal = ({ visible, onClose, data }) => {
     '';
 
   const {
-    callbackUrl,
     deepLink,
     webFallback,
     primaryShareUrl,
-  } = buildProfileShareUrls({
+    shareMessage,
+  } = buildProfileSharePayload({
     username: resolvedUsername,
     userId: resolvedUserId,
   });
@@ -66,13 +66,7 @@ const UsernameModal = ({ visible, onClose, data }) => {
         }
         const result = await Share.share({
           url: primaryShareUrl,
-          message: [
-            `Check out @${resolvedUsername || 'valens'} on Valens!`,
-            '',
-            `Callback URL: ${callbackUrl}`,
-            `Open in app: ${deepLink}`,
-            `Open on web: ${webFallback}`,
-          ].join('\n'),
+          message: shareMessage,
         });
   
         if (result.action === Share.sharedAction) {

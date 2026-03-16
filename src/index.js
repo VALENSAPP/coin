@@ -22,6 +22,7 @@ import { getUserCredentials } from './services/post';
 import { getAllUser } from './services/users';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
+import { parseProfileShareUrl } from './utils/profileShare';
 // import { getUserCountry } from './hooks/countryLocation';
 
 const linking = {
@@ -160,10 +161,29 @@ export default function Main() {
     // Deep Link Handler - FIXED FOR iOS
     const handleDeepLink = async (event) => {
       console.log('Deep link received:', event.url);
-      const url = event.url;
+      const url = String(event?.url || '').trim();
+
+      if (!url) {
+        return;
+      }
+
+      const normalizeDeepLinkUrl = (incomingUrl = '') => String(incomingUrl || '')
+        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+        .replace(/^valens:\/\//i, 'https://dummy.com/');
+
+      let urlObj;
+      try {
+        urlObj = new URL(normalizeDeepLinkUrl(url));
+      } catch (error) {
+        console.error('URL parsing error:', error);
+        return;
+      }
+
+      const path = urlObj.pathname;
+      const normalizedPath = String(path || '').toLowerCase();
 
       // Check if URL is callback
-      if (url.includes('callback')) {
+      if (normalizedPath === '/callback') {
         console.log('🔔 Callback URL detected - closing InAppBrowser');
 
         try {
@@ -182,8 +202,8 @@ export default function Main() {
           const normalizedCallbackUrl = url
             .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
             .replace(/^valens:\/\//i, 'https://dummy.com/');
-          const urlObj = new URL(normalizedCallbackUrl);
-          status = urlObj.searchParams.get('status') || 'success';
+          const callbackUrlObj = new URL(normalizedCallbackUrl);
+          status = callbackUrlObj.searchParams.get('status') || 'success';
           console.log('📋 Payment status from URL:', status);
         } catch (error) {
           console.log('⚠️ Error parsing callback URL:', error);
@@ -204,10 +224,6 @@ export default function Main() {
 
         return;
       }
-
-      const normalizeDeepLinkUrl = (incomingUrl = '') => incomingUrl
-        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
-        .replace(/^valens:\/\//i, 'https://dummy.com/');
 
       const navigateToUserProfile = (resolvedUserId) => {
         if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
@@ -241,11 +257,9 @@ export default function Main() {
 
       // Handle other deep links normally if needed
       try {
-        const urlObj = new URL(normalizeDeepLinkUrl(url));
-        const path = urlObj.pathname;
-        const normalizedPath = String(path || '').toLowerCase();
         const postId = urlObj.searchParams.get('postId');
         const fallbackTag = urlObj.searchParams.get('af');
+        const sharedProfileLink = parseProfileShareUrl(url);
 
         if (navigationRef.current && isNavigationReady) {
           setTimeout(() => {
@@ -261,11 +275,9 @@ export default function Main() {
                   },
                 },
               });
-            } else if (normalizedPath === '/profile' || normalizedPath.startsWith('/profile/')) {
-              const deepLinkUserId = String(urlObj.searchParams.get('userId') || '').trim();
-              const queryUsername = String(urlObj.searchParams.get('username') || '').trim();
-              const pathUsername = decodeURIComponent(path.split('/').filter(Boolean)[1] || '').trim();
-              const resolvedUsername = queryUsername || pathUsername;
+            } else if (sharedProfileLink) {
+              const deepLinkUserId = String(sharedProfileLink.userId || '').trim();
+              const resolvedUsername = String(sharedProfileLink.username || '').trim();
 
               if (deepLinkUserId) {
                 navigateToUserProfile(deepLinkUserId);

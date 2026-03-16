@@ -8,20 +8,16 @@ import {
   Linking,
   Share,
   Alert,
-  Dimensions,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
-import Clipboard from '@react-native-clipboard/clipboard';
 import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { useAppTheme } from '../../theme/useApptheme';
-import { buildProfileShareUrls } from '../../utils/profileShare';
-
-const { width, height } = Dimensions.get('window');
+import { buildProfileSharePayload } from '../../utils/profileShare';
 
 const ShareProfile = ({ navigation }) => {
   const toast = useToast();
@@ -34,12 +30,38 @@ const ShareProfile = ({ navigation }) => {
   ), [userData]);
   const [username, setUsername] = useState('');
   const ownProfileImage = useSelector(state => state.profileImage?.profileImg);
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle } = useAppTheme();
 
-  const copyToClipboard = () => {
-    Clipboard.setString(username);
-    showToastMessage(toast, 'success', 'Username copied to clipboard ✅');
-  };
+  const resolvedUsername = useMemo(() => (
+    String(
+      username ||
+      profile?.userName ||
+      profile?.username ||
+      profile?.displayName ||
+      '',
+    ).trim()
+  ), [profile, username]);
+
+  const resolvedUserId = useMemo(() => (
+    String(
+      profile?.id ||
+      profile?.userId ||
+      profile?._id ||
+      userData?.id ||
+      userData?.userId ||
+      userData?._id ||
+      targetUserId ||
+      '',
+    ).trim()
+  ), [profile, targetUserId, userData]);
+
+  const {
+    primaryShareUrl,
+    shareMessage,
+  } = useMemo(() => buildProfileSharePayload({
+    username: resolvedUsername,
+    userId: resolvedUserId,
+  }), [resolvedUsername, resolvedUserId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,41 +76,14 @@ const ShareProfile = ({ navigation }) => {
 
   const onShare = async () => {
     try {
-      const resolvedUsername = String(
-        username ||
-        profile?.userName ||
-        profile?.username ||
-        '',
-      ).trim();
-      const resolvedUserId = String(
-        profile?.id ||
-        profile?.userId ||
-        userData?.id ||
-        userData?.userId ||
-        targetUserId ||
-        '',
-      ).trim();
-      const { callbackUrl, deepLink, webFallback, primaryShareUrl } = buildProfileShareUrls({
-        username: resolvedUsername,
-        userId: resolvedUserId,
-      });
+      if (!resolvedUsername && !resolvedUserId) {
+        Alert.alert('Profile not available', 'Unable to share profile right now.');
+        return;
+      }
 
       const result = await Share.share({
         url: primaryShareUrl,
-        message: [
-          `✨ Check out @${resolvedUsername || 'valens'} on Valens`,
-          '',
-          `Discover posts, stories and updates.`,
-          '',
-          `Callback URL:`,
-          `${callbackUrl}`,
-          '',
-          `Open in Valens:`,
-          `${deepLink}`,
-          '',
-          `Open on web:`,
-          `${webFallback}`,
-        ].join('\n'),
+        message: shareMessage,
       });
 
       if (result.action === Share.sharedAction) {
@@ -195,7 +190,7 @@ const ShareProfile = ({ navigation }) => {
 
           <View style={styles.profileInfo}>
             <Text style={styles.appName}>valens</Text>
-            <Text style={styles.username}>@{username || 'valens'}</Text>
+            <Text style={styles.username}>@{resolvedUsername || 'valens'}</Text>
             <Text style={styles.subtitle}>Share this profile with friends</Text>
           </View>
         </View>

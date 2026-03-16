@@ -51,3 +51,60 @@ export const buildProfileShareUrls = ({ username = '', userId = '' } = {}) => {
     primaryShareUrl: Platform.OS === 'ios' ? deepLink : webFallback,
   };
 };
+
+export const buildProfileSharePayload = ({ username = '', userId = '' } = {}) => {
+  const resolvedUsername = String(username || '').trim();
+  const urls = buildProfileShareUrls({ username, userId });
+  const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';
+
+  return {
+    ...urls,
+    shareMessage: [
+      `Check out ${profileLabel} on Valens.`,
+      '',
+      urls.primaryShareUrl,
+    ].join('\n'),
+  };
+};
+
+export const normalizeProfileShareUrl = (rawUrl = '') => String(rawUrl || '')
+  .trim()
+  .replace(/^com\.valens:\/\//i, `${WEB_BASE_URL}/`)
+  .replace(/^valens:\/\//i, `${WEB_BASE_URL}/`);
+
+export const parseProfileShareUrl = (rawUrl = '') => {
+  const normalizedUrl = normalizeProfileShareUrl(rawUrl);
+
+  if (!normalizedUrl) {
+    return null;
+  }
+
+  try {
+    const urlObj = new URL(normalizedUrl);
+    const pathSegments = String(urlObj.pathname || '').split('/').filter(Boolean);
+
+    if (String(pathSegments[0] || '').toLowerCase() !== 'profile') {
+      return null;
+    }
+
+    const pathUsername = decodeURIComponent(pathSegments[1] || '')
+      .replace(/^@+/, '')
+      .trim();
+    const queryUsername = decodeURIComponent(
+      String(urlObj.searchParams.get('username') || ''),
+    )
+      .replace(/^@+/, '')
+      .trim();
+    const userId = String(urlObj.searchParams.get('userId') || '').trim();
+
+    return {
+      normalizedUrl,
+      path: urlObj.pathname,
+      userId,
+      username: queryUsername || pathUsername,
+      callbackUrl: String(urlObj.searchParams.get('callbackUrl') || '').trim(),
+    };
+  } catch (error) {
+    return null;
+  }
+};

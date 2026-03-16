@@ -257,7 +257,22 @@ function PostItem({
   // New donation states
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
-  const [daysLeft, setDaysLeft] = useState(0);
+  const getDaysLeftFromEndTime = (endTime) => {
+    if (!endTime) return 0;
+
+    try {
+      const now = new Date();
+      const endDate = new Date(endTime);
+      const diffTime = endDate - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+    } catch (error) {
+      console.error('Error calculating days left:', error);
+      return 0;
+    }
+  };
+
+  const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
@@ -323,18 +338,7 @@ function PostItem({
 
   // Calculate days left from current time to end_time
   const calculateDaysLeft = useCallback(() => {
-    if (!item.end_time) return 0;
-
-    try {
-      const now = new Date();
-      const endDate = new Date(item.end_time);
-      const diffTime = endDate - now;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 ? diffDays : 0;
-    } catch (error) {
-      console.error('Error calculating days left:', error);
-      return 0;
-    }
+    return getDaysLeftFromEndTime(item?.end_time);
   }, [item.end_time]);
 
   useEffect(() => {
@@ -744,6 +748,14 @@ function PostItem({
     [progressPercent, item?.profile]
   );
 
+  const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
+  const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
+  const progressStatusLabel = isGoalAmountRaised
+    ? 'GOAL AMOUNT RAISED'
+    : isCampaignDaysCompleted
+      ? 'DAYS COMPLETED'
+      : '';
+
   const onMomentumEnd = useCallback((e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
@@ -1093,8 +1105,14 @@ const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
 
         {goalAmount > 0 && (
           <View style={styles.progressSection}>
-            <View style={styles.progressBarWrapper}>
-              <View style={styles.progressBarBackground}>
+              {progressStatusLabel ? (
+                <View style={styles.progressStatusBadge}>
+                  <Text style={styles.progressStatusBadgeText}>{progressStatusLabel}</Text>
+                </View>
+              ) : null}
+
+                  <View style={styles.progressBarWrapper}>
+                  <View style={styles.progressBarBackground}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -1121,7 +1139,7 @@ const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {!hideDonationButton && ((totalDonation < goalAmount) && (item.UserId !== userId)) && (daysLeft > 0) && (
+              {!hideDonationButton && !isGoalAmountRaised && (item.UserId !== userId) && (daysLeft > 0) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
@@ -1471,11 +1489,28 @@ const styles = StyleSheet.create({
   progressBarWrapper: {
     position: 'relative',
   },
+  progressStatusBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DC2626',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+    width:'100%'
+  },
+  progressStatusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textAlign:'center'
+  },
   progressBarBackground: {
     height: 10,
     backgroundColor: '#e0e0e0',
     overflow: 'hidden',
     marginBottom: 50,
+    borderRadius:5,
   },
   progressBarFill: {
     height: '100%',
