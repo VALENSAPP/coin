@@ -18,6 +18,7 @@ import {
   KeyboardAvoidingView,
   SafeAreaView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,9 +38,102 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { getSocket, getConversation, sendMessage as sendSocketMessage, emitTyping, emitStopTyping, initializeSocket } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
 import { sharePost } from '../../../services/post';
+import { getAllUser } from '../../../services/users';
+import { parseProfileShareUrl } from '../../../utils/profileShare';
 import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 
 const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
+const CHAT_LINK_REGEX = /((?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi;
+
+const stripTrailingLinkPunctuation = (rawLink = '') => {
+  let cleanLink = String(rawLink || '');
+  let trailingText = '';
+
+  while (/[),.!?;:]+$/.test(cleanLink)) {
+    if (cleanLink.endsWith(')')) {
+      const openParens = (cleanLink.match(/\(/g) || []).length;
+      const closeParens = (cleanLink.match(/\)/g) || []).length;
+      if (closeParens <= openParens) break;
+    }
+
+    trailingText = cleanLink.slice(-1) + trailingText;
+    cleanLink = cleanLink.slice(0, -1);
+  }
+
+  return { cleanLink, trailingText };
+};
+
+const normalizeChatLink = (rawLink = '') => {
+  const trimmedLink = String(rawLink || '').trim();
+  if (!trimmedLink) return '';
+
+  if (/^com\.(?:valense|vallesne):\/\//i.test(trimmedLink)) {
+    return trimmedLink.replace(/^com\.(?:valense|vallesne):\/\//i, 'com.valens://');
+  }
+
+  if (/^www\./i.test(trimmedLink)) {
+    return `https://${trimmedLink}`;
+  }
+
+  if (
+    /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/|$)/i.test(trimmedLink) &&
+    !/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmedLink)
+  ) {
+    return `https://${trimmedLink}`;
+  }
+
+  return trimmedLink;
+};
+
+const getMessagePartsWithLinks = (message = '') => {
+  const text = String(message || '');
+  if (!text) return [{ type: 'text', value: '' }];
+
+  const parts = [];
+  let lastIndex = 0;
+  CHAT_LINK_REGEX.lastIndex = 0;
+  let match;
+
+  while ((match = CHAT_LINK_REGEX.exec(text)) !== null) {
+    const matchedText = match[0];
+    const startIndex = match.index;
+
+    if (startIndex > lastIndex) {
+      parts.push({
+        type: 'text',
+        value: text.slice(lastIndex, startIndex),
+      });
+    }
+
+    const { cleanLink, trailingText } = stripTrailingLinkPunctuation(matchedText);
+
+    if (cleanLink) {
+      parts.push({
+        type: 'link',
+        value: cleanLink,
+        url: normalizeChatLink(cleanLink),
+      });
+    }
+
+    if (trailingText) {
+      parts.push({
+        type: 'text',
+        value: trailingText,
+      });
+    }
+
+    lastIndex = startIndex + matchedText.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({
+      type: 'text',
+      value: text.slice(lastIndex),
+    });
+  }
+
+  return parts;
+};
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -1237,6 +1331,100 @@ const UserChat = ({ route, navigation }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  const resolveProfileUserIdFromUsername = useCallback(async (incomingUsername) => {
+    const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
+
+    if (!cleanUsername) {
+      return null;
+    }
+
+    try {
+      const response = await getAllUser({ userName: cleanUsername });
+      const users = response?.data?.users ?? [];
+      const exactMatch = users.find((candidateUser) =>
+        String(candidateUser?.userName || candidateUser?.username || '').toLowerCase() === cleanUsername.toLowerCase()
+      );
+      const matchedUser = exactMatch || users[0];
+
+      return matchedUser?.id || matchedUser?._id || matchedUser?.userId || null;
+    } catch (error) {
+      console.log('Unable to resolve profile username from chat link:', error?.message || error);
+      return null;
+    }
+  }, []);
+
+  const handleLinkPress = useCallback(async (rawUrl) => {
+    const normalizedUrl = normalizeChatLink(rawUrl);
+    if (!normalizedUrl) return;
+
+    const sharedProfileLink = parseProfileShareUrl(normalizedUrl);
+    if (sharedProfileLink) {
+      const resolvedUserId = String(sharedProfileLink.userId || '').trim()
+        || await resolveProfileUserIdFromUsername(sharedProfileLink.username);
+
+      if (resolvedUserId) {
+        navigation.navigate('UsersProfile', {
+          userId: String(resolvedUserId),
+        });
+        return;
+      }
+    }
+
+    const webFallbackUrl = normalizedUrl.replace(/^com\.valens:\/\//i, 'https://valensGoApp.com/');
+
+    try {
+      const supported = await Linking.canOpenURL(normalizedUrl);
+      if (supported) {
+        await Linking.openURL(normalizedUrl);
+        return;
+      }
+
+      if (/^https?:\/\//i.test(webFallbackUrl)) {
+        await Linking.openURL(webFallbackUrl);
+        return;
+      }
+
+      throw new Error('Unsupported link');
+    } catch (error) {
+      console.log('Unable to open chat link:', normalizedUrl, error?.message || error);
+      Alert.alert('Unable to open link', 'This link could not be opened.');
+    }
+  }, [navigation, resolveProfileUserIdFromUsername]);
+
+  const renderMessageText = useCallback((content, isUser) => {
+    const messageParts = getMessagePartsWithLinks(content);
+
+    return (
+      <Text
+        style={[
+          styles.messageText,
+          isUser ? styles.userMessageText : styles.botMessageText,
+        ]}
+      >
+        {messageParts.map((part, partIndex) => {
+          if (part.type === 'link') {
+            return (
+              <Text
+                key={`link-${partIndex}`}
+                style={styles.messageLinkText}
+                onPress={() => handleLinkPress(part.url)}
+                suppressHighlighting
+              >
+                {part.value}
+              </Text>
+            );
+          }
+
+          return (
+            <Text key={`text-${partIndex}`}>
+              {part.value}
+            </Text>
+          );
+        })}
+      </Text>
+    );
+  }, [handleLinkPress, styles.messageLinkText, styles.messageText, styles.userMessageText, styles.botMessageText]);
+
   const renderImageGrid = images => {
     if (!images || images.length === 0) return null;
 
@@ -1387,14 +1575,7 @@ const UserChat = ({ route, navigation }) => {
                     { backgroundColor: text }
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      isUser ? styles.userMessageText : styles.botMessageText,
-                    ]}
-                  >
-                    {item.content}
-                  </Text>
+                  {renderMessageText(item.content, isUser)}
                 </View>
 
                 {/* Show status only for user messages */}
@@ -2553,6 +2734,10 @@ const createStyles = () => ({
     fontSize: 15,
     lineHeight: 20,
     flexWrap: 'wrap',
+  },
+  messageLinkText: {
+    color: '#BFDBFE',
+    textDecorationLine: 'underline',
   },
   userMessageText: {
     color: '#ffffff',
