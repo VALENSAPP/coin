@@ -59,7 +59,7 @@ export default function Notifications() {
 
   useFocusEffect(
     useCallback(() => {
-      getNotification();  
+      getNotification();
     }, [])
   );
 
@@ -119,7 +119,7 @@ export default function Notifications() {
 
       console.log(payload, 'payload being sent');
       const response = await readNotification(payload);
-      
+
       console.log(response, 'response received');
 
       if (response?.status === 200) {
@@ -275,112 +275,112 @@ export default function Notifications() {
   const renderPopup = () => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
     const message = SelectedNotification?.message ?? '';
-    const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?)\b/i;
+    const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started)\b/i;
     const followMatch = message.match(followRegex);
     const splitIndex = followMatch?.index ?? -1;
     const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
     const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
     return (
-    <Modal
-      visible={popupVisible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setPopupVisible(false)}
-    >
-      <View style={styles.popupOverlay}>
-        
-        <View style={styles.popupContainer}>
-          <View style={styles.popupBell}>
-          <Text style={styles.popupBellIcon}>🔔</Text>
-        </View>
-          <TouchableOpacity
-            activeOpacity={targetUserId ? 0.7 : 1}
-            disabled={!targetUserId}
-            onPress={handlePopupNavigateToProfile}
-            style={styles.popupTextContainer}
-          >
-            <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
-            <Text style={[styles.popupMessage, { color: text }]}>
-              {!!beforeFollowText && (
-                <Text style={styles.popupMessageHighlight}>
-                  {`${beforeFollowText} `}
-                </Text>
-              )}
-              <Text>{afterFollowText}</Text>
-            </Text>
-          </TouchableOpacity>
+      <Modal
+        visible={popupVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPopupVisible(false)}
+      >
+        <View style={styles.popupOverlay}>
 
-          <TouchableOpacity
-            style={styles.popupCloseButton}
-            onPress={() => setPopupVisible(false)}
-          >
-            <Text style={styles.popupCloseText}>Close</Text>
-          </TouchableOpacity>
+          <View style={styles.popupContainer}>
+            <View style={styles.popupBell}>
+              <Text style={styles.popupBellIcon}>🔔</Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={targetUserId ? 0.7 : 1}
+              disabled={!targetUserId}
+              onPress={handlePopupNavigateToProfile}
+              style={styles.popupTextContainer}
+            >
+              <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
+              <Text style={[styles.popupMessage, { color: text }]}>
+                {!!beforeFollowText && (
+                  <Text style={styles.popupMessageHighlight}>
+                    {`${beforeFollowText} `}
+                  </Text>
+                )}
+                <Text>{afterFollowText}</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.popupCloseButton}
+              onPress={() => setPopupVisible(false)}
+            >
+              <Text style={styles.popupCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
     );
   };
 
   const renderTabContent = (tabData, tabKey) => {
     const renderItem = ({ item, index }) => {
       const message = item.message || '';
-      const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?)\b/i;
+      const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started)\b/i;
       const followMatch = message.match(followRegex);
       const splitIndex = followMatch?.index ?? -1;
       const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
       const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
 
       return (
-      <TouchableOpacity
-        style={[styles.notificationItem, !item.isRead && bgStyle]}
-        onPress={() => { markAsRead(item.id); popupOpen(item); }}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.notificationContent, { shadowColor: text }]}>
-          <View style={styles.leftSection}>
-            <View style={styles.avatarContainer}>
-              {item.avatar ? (
-                <Image source={{ uri: item.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}>
-                  <Text style={styles.avatarPlaceholderText}>🔔</Text>
+        <TouchableOpacity
+          style={[styles.notificationItem, !item.isRead && bgStyle]}
+          onPress={() => { markAsRead(item.id); popupOpen(item); }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.notificationContent, { shadowColor: text }]}>
+            <View style={styles.leftSection}>
+              <View style={styles.avatarContainer}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}>
+                    <Text style={styles.avatarPlaceholderText}>🔔</Text>
+                  </View>
+                )}
+                <View style={[styles.iconBadge, bgStyle]}>
+                  <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
                 </View>
-              )}
-              <View style={[styles.iconBadge, bgStyle]}>
-                <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
+              </View>
+
+              <View style={styles.textContent}>
+                <Text style={styles.notificationTitle}>{item.title}</Text>
+                <Text style={styles.notificationMessage}>
+                  {!!beforeFollowText && (
+                    <Text style={styles.notificationMessageHighlight}>
+                      {`${beforeFollowText} `}
+                    </Text>
+                  )}
+                  <Text>{afterFollowText}</Text>
+                </Text>
+                <Text style={styles.timeText}>{item.time}</Text>
               </View>
             </View>
 
-            <View style={styles.textContent}>
-              <Text style={styles.notificationTitle}>{item.title}</Text>
-              <Text style={styles.notificationMessage}>
-                {!!beforeFollowText && (
-                  <Text style={styles.notificationMessageHighlight}>
-                    {`${beforeFollowText} `}
-                  </Text>
-                )}
-                <Text>{afterFollowText}</Text>
-              </Text>
-              <Text style={styles.timeText}>{item.time}</Text>
+            <View style={styles.rightSection}>
+              {item.image && (
+                <Image source={{ uri: item.image }} style={[styles.nftImage, bgStyle]} />
+              )}
+              {item.price && (
+                <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
+              )}
+              {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />}
             </View>
           </View>
 
-          <View style={styles.rightSection}>
-            {item.image && (
-              <Image source={{ uri: item.image }} style={[styles.nftImage, bgStyle]} />
-            )}
-            {item.price && (
-              <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
-            )}
-            {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />}
-          </View>
-        </View>
-
-        {index < tabData.length - 1 && (
-          <View style={styles.separator} />
-        )}
-      </TouchableOpacity>
+          {index < tabData.length - 1 && (
+            <View style={styles.separator} />
+          )}
+        </TouchableOpacity>
       );
     };
 
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
   },
   tabContentContainer: {
     flex: 1,
-    marginTop:15,
+    marginTop: 15,
   },
   listContent: {
     flexGrow: 1,
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   notificationItem: {
     paddingHorizontal: 16,
     paddingVertical: 0,
-    marginBottom:'-1%'
+    marginBottom: '-1%'
   },
   notificationContent: {
     flexDirection: 'row',
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 10,
-    
+
   },
   popupMessage: {
     fontSize: 14,
@@ -780,22 +780,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-popupBell: {
-  backgroundColor: '#fff',
-  width: 40,
-  height: 40,
-  borderRadius: 20,
-  justifyContent: 'center',
-  alignItems: 'center',
-  elevation: 6,
-  shadowColor: '#000',
-  shadowOpacity: 0.2,
-  shadowRadius: 6,
-  marginBottom:20,
-},
+  popupBell: {
+    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    marginBottom: 20,
+  },
 
-popupBellIcon: {
-  fontSize: 30,
-},
+  popupBellIcon: {
+    fontSize: 30,
+  },
 
 });

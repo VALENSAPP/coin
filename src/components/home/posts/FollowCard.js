@@ -256,10 +256,10 @@ export default function FollowCard({
             }
 
             if (!success || !shouldFollow) return;
-            const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
-            if (ready) {
-              setModalVisible(true);
-            }
+
+            // Match PostItem flow: always show intro support modal after a successful follow.
+            // Wallet connection (if needed) is prompted only when the user chooses to support.
+            setModalVisible(true);
           }}
           disabled={loading}
         >

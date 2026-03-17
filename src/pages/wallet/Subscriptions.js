@@ -664,48 +664,35 @@ const SubventionSetupScreen = () => {
     const handleCreateContent = (contentType) => {
         console.log('contenttype----->>>>>>>>>>>', contentType);
 
+        const findNavigatorWithRoute = (nav, routeName) => {
+            let current = nav;
+            while (current) {
+                const state = current.getState?.();
+                const routeNames = state?.routeNames;
+                const routes = state?.routes;
+                const hasRoute =
+                    (Array.isArray(routeNames) && routeNames.includes(routeName)) ||
+                    (Array.isArray(routes) && routes.some(r => r?.name === routeName));
+                if (hasRoute) return current;
+                current = current.getParent?.();
+            }
+            return nav;
+        };
+
+        const navigateToCreate = (params) => {
+            const navWithAdd = findNavigatorWithRoute(navigation, 'Add');
+            navWithAdd?.navigate?.('Add', { screen: 'Add', params });
+        };
+
         switch (contentType) {
             case 'posts':
-                navigation.reset({
-                    index: 0,
-                    routes: [
-                        {
-                            name: 'Add',
-                            state: {
-                                routes: [{ name: 'Add', params: { postType: 'private', type: 'post' } }],
-                                index: 0,
-                            },
-                        },
-                    ],
-                });
+                navigateToCreate({ postType: 'private', type: 'post' });
                 break;
             case 'reels':
-                navigation.reset({
-                    index: 0,
-                    routes: [
-                        {
-                            name: 'Add',
-                            state: {
-                                routes: [{ name: 'Add', params: { postType: 'private', type: 'Flips' } }],
-                                index: 0,
-                            },
-                        },
-                    ],
-                });
+                navigateToCreate({ postType: 'private', type: 'Flips' });
                 break;
             case 'videos':
-                navigation.reset({
-                    index: 0,
-                    routes: [
-                        {
-                            name: 'Add',
-                            state: {
-                                routes: [{ name: 'Add', params: { postType: 'private', type: 'video' } }],
-                                index: 0,
-                            },
-                        },
-                    ],
-                });
+                navigateToCreate({ postType: 'private', type: 'video' });
                 break;
             case 'stories':
                 handleAddStory();

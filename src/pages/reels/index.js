@@ -114,6 +114,7 @@ export default function FlipsScreen() {
   const [reels, setReels] = useState([]);
   const [muted, setMuted] = useState({});
   const [paused, setPaused] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   // Dynamic interaction states - similar to Posts screen
   const [liked, setLiked] = useState({});
@@ -623,9 +624,32 @@ export default function FlipsScreen() {
     </TouchableOpacity>
   );
 
-  const renderItem = ({ item, index }) => (
-    <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
+  useEffect(() => {
+    let isMounted = true;
+    const loadCurrentUserId = async () => {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        if (isMounted) setCurrentUserId(id);
+      } catch (e) {
+        if (isMounted) setCurrentUserId(null);
+      }
+    };
+
+    loadCurrentUserId();
+    return () => {
+      isMounted = false;
+    };
+  }, [isFocused]);
+
+  const renderItem = ({ item, index }) => {
+    const isOwnReel =
+      currentUserId != null &&
+      item?.userId != null &&
+      String(currentUserId) === String(item.userId);
+
+    return (
+      <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
       {/* Progress bar */}
       <View style={styles.progressContainer}>
@@ -773,10 +797,16 @@ export default function FlipsScreen() {
 
               </View>
             </Text>
-            <TouchableOpacity style={styles.followButton} onPress={() => switchFollowing(item.id)}
-            >
-              <Text style={styles.followButtonText}>{!item.isFollowing ? 'Follow' : 'Following'}</Text>
-            </TouchableOpacity>
+            {!isOwnReel && (
+              <TouchableOpacity
+                style={styles.followButton}
+                onPress={() => switchFollowing(item.id)}
+              >
+                <Text style={styles.followButtonText}>
+                  {!item.isFollowing ? 'Follow' : 'Following'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -817,11 +847,12 @@ export default function FlipsScreen() {
           <Icon name="person-circle-outline" size={24} color="#fff" />
         </View>
       </View> */}
-    </View>
-  );
+      </View>
+    );
+  };
 
-  const handleUserNavigate = async (id) => {
-    const userId = await AsyncStorage.getItem('userId');
+  const handleUserNavigate = async () => {
+    const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
     const currentReel = reels[currentIndex];
     const targetUserId = currentReel?.userId || route.params?.item?.userId || route.params?.item?.UserId;
 

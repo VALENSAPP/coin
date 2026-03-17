@@ -569,11 +569,10 @@ const ProfilePersonData = ({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
-    if (ready) {
-      setSupportModalVisible(true);
-    }
-  }, [isFollowing, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
+    // Match PostItem flow: always show intro support modal after a successful follow.
+    // Wallet connection (if needed) is prompted only when the user chooses to support.
+    setSupportModalVisible(true);
+  }, [isFollowing, executeFollowAction, onToggleFollow]);
 
   useFocusEffect(
     useCallback(() => {

@@ -50,6 +50,10 @@ const ProfileEditScreen = () => {
   const [displayNameSuggestions, setDisplayNameSuggestions] = useState([]);
   const [isCheckingDisplayName, setIsCheckingDisplayName] = useState(false);
   const [originalDisplayName, setOriginalDisplayName] = useState(''); // To track if name changed
+  const [instagram, setInstagram] = useState('');
+  const [twitter, setTwitter] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+
 
   const refRBSheet = useRef();
   const refRBSheet1 = useRef();
@@ -79,6 +83,7 @@ const ProfileEditScreen = () => {
       const u = userdata.user || userdata;
       const displayName = u.displayName || '';
       let parsedSocialLinks = [];
+
       try {
         if (Array.isArray(u.socialLinks)) {
           parsedSocialLinks = u.socialLinks;
@@ -88,32 +93,38 @@ const ProfileEditScreen = () => {
           parsedSocialLinks = u.social_media_links;
         } else if (typeof u.social_media_links === 'string') {
           parsedSocialLinks = JSON.parse(u.social_media_links);
-        } else if (Array.isArray(u.social_links)) {
-          parsedSocialLinks = u.social_links;
-        } else if (typeof u.social_links === 'string') {
-          parsedSocialLinks = JSON.parse(u.social_links);
         }
       } catch (e) {
         parsedSocialLinks = [];
       }
-      const primarySocialLink = parsedSocialLinks.find(item => item?.url)?.url || '';
 
+      // ✅ Extract links safely
+      const getLink = (platform) =>
+        parsedSocialLinks.find(item => item?.platform === platform)?.url || '';
+
+      const primarySocialLink =
+        parsedSocialLinks.find(item => item?.url)?.url || '';
+
+      // ✅ Set states ONCE
       setName(displayName);
       setOriginalDisplayName(displayName);
       setUsername(u.userName || '');
       setBio(u.bio || '');
       setWebsiteLink(u.website_link || '');
       setSocialLink(primarySocialLink);
+      setInstagram(getLink('instagram'));
+      setTwitter(getLink('twitter'));
+      setLinkedin(getLink('linkedin'));
       setGender(u.gender || 'OTHER');
       setWallet(u.walletAddress || '');
       setProfileImage(u.image || null);
 
-      // If display name exists and hasn't changed, mark as approved
       if (displayName) {
         setDisplayNameStatus('approved');
       }
     }
   }, [userdata]);
+
 
   const validateField = (field, value) => {
     const newErrors = { ...errors };
@@ -436,10 +447,36 @@ const ProfileEditScreen = () => {
       formData.append('bio', bio.trim());
       formData.append('gender', gender);
       formData.append('website_link', website_link);
-      const trimmedSocialLink = socialLink.trim();
-      const formattedSocialLinks = trimmedSocialLink
-        ? [{ platform: detectSocialPlatform(trimmedSocialLink), url: trimmedSocialLink }]
-        : [];
+      const formattedSocialLinks = [];
+
+      if (socialLink?.trim()) {
+        formattedSocialLinks.push({
+          platform: detectSocialPlatform(socialLink.trim()),
+          url: socialLink.trim(),
+        });
+      }
+
+      if (instagram?.trim()) {
+        formattedSocialLinks.push({
+          platform: 'instagram',
+          url: instagram.trim(),
+        });
+      }
+
+      if (twitter?.trim()) {
+        formattedSocialLinks.push({
+          platform: 'twitter',
+          url: twitter.trim(),
+        });
+      }
+
+      if (linkedin?.trim()) {
+        formattedSocialLinks.push({
+          platform: 'linkedin',
+          url: linkedin.trim(),
+        });
+      }
+
       const socialLinksPayload = JSON.stringify(formattedSocialLinks);
       formData.append('social_media_links', socialLinksPayload);
       formData.append('socialLinks', socialLinksPayload);
@@ -472,7 +509,7 @@ const ProfileEditScreen = () => {
       dispatch(hideLoader());
     }
   };
-const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   const renderDisplayNameInput = () => {
     return (
       <View style={styles.inputContainer}>
@@ -651,16 +688,55 @@ const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.pn
           </View>
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Social Link</Text>
-            <TextInput
-              placeholder="Enter your social link"
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              keyboardType="url"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={socialLink}
-              onChangeText={handleSocialLinkChange}
-            />
+
+            <View style={styles.socialRow}>
+              <Icon name="link" size={20} color="#6B7280" style={styles.linkIcon} />
+
+              <TextInput
+                placeholder="Enter any social or website URL"
+                placeholderTextColor="#9CA3AF"
+                style={styles.socialInputField}
+                keyboardType="url"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={socialLink}
+                onChangeText={handleSocialLinkChange}
+              />
+            </View>
+            <View style={styles.socialRow}>
+              <Icon name="instagram" size={20} color="#E1306C" />
+              <TextInput
+                placeholder="Instagram profile link"
+                style={styles.socialInput}
+                value={instagram}
+                onChangeText={setInstagram}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* Twitter */}
+            <View style={styles.socialRow}>
+              <Icon name="twitter" size={20} color="#1DA1F2" />
+              <TextInput
+                placeholder="Twitter profile link"
+                style={styles.socialInput}
+                value={twitter}
+                onChangeText={setTwitter}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* LinkedIn */}
+            <View style={styles.socialRow}>
+              <Icon name="linkedin" size={20} color="#0077B5" />
+              <TextInput
+                placeholder="LinkedIn profile link"
+                style={styles.socialInput}
+                value={linkedin}
+                onChangeText={setLinkedin}
+                autoCapitalize="none"
+              />
+            </View>
           </View>
         </View>
       </KeyboardAwareScrollView>
@@ -954,4 +1030,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f0f7',
   },
   cancelButtonText: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  socialRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+  socialInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingLeft: 10,
+    fontSize: 16,
+    color: '#1F2937',
+  },
+
+linkIcon: {
+  marginRight: 8,
+},
+
+socialInputField: {
+  flex: 1,
+  paddingVertical: 12,
+  fontSize: 16,
+  color: '#1F2937',
+},
+
 });

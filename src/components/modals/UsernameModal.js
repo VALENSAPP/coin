@@ -64,9 +64,16 @@ const UsernameModal = ({ visible, onClose, data }) => {
           Alert.alert('Profile not available', 'Unable to share profile right now.');
           return;
         }
+        const finalShareMessage = (() => {
+          if (shareMessage && primaryShareUrl && !shareMessage.includes(primaryShareUrl)) {
+            return `${shareMessage}\n\n${primaryShareUrl}`;
+          }
+          return shareMessage || primaryShareUrl;
+        })();
+
         const result = await Share.share({
           url: primaryShareUrl,
-          message: shareMessage,
+          message: finalShareMessage,
         });
   
         if (result.action === Share.sharedAction) {
@@ -99,14 +106,14 @@ const UsernameModal = ({ visible, onClose, data }) => {
     }
   };
 
-  const copyUserId = () => {
-    if (!resolvedUserId) {
-      Alert.alert('User ID not available', 'Unable to find user ID to copy.');
+  const copyProfileUrl = () => {
+    if (!primaryShareUrl) {
+      Alert.alert('Profile not available', 'Unable to find profile link to copy.');
       return;
     }
 
-    Clipboard.setString(String(resolvedUserId));
-    showToastMessage(toast, 'success', 'User ID copied successfully');
+    Clipboard.setString(String(primaryShareUrl));
+    showToastMessage(toast, 'success', 'Profile link copied successfully');
   };
 
   const copyWalletAddress = () => {
@@ -151,10 +158,10 @@ const UsernameModal = ({ visible, onClose, data }) => {
           <View style={styles.topButtonsRow}>
             <TouchableOpacity
               style={[styles.topButton, bgStyle]}
-              onPress={copyUserId}
+              onPress={copyProfileUrl}
             >
               <Ionicons name="copy-outline" size={20} color="#111100" />
-              <Text style={styles.topButtonText}>Copy </Text>
+              <Text style={styles.topButtonText}>Copy link</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
