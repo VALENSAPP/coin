@@ -16,6 +16,10 @@ export const createPost = async data => {
     formData.append("raiseAmount", data.raiseAmount);
   }
 
+  if (data.currency) {
+    formData.append("currency", data.currency);
+  }
+
   if (data.start_time) {
     formData.append("start_time", data.start_time);
   }

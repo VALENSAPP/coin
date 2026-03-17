@@ -396,10 +396,21 @@ export default function KYCVerification({ route }) {
     };
 
     const fetchKycStatus = async () => {
-        // const getUserId = await AsyncStorage.getItem('userId');
         try {
             dispatch(showLoader());
-            const response = await kycStatus("26d3138f-8466-4a36-8da9-5ea451c40a29");
+            const storedUserId = await AsyncStorage.getItem('userId');
+            const effectiveUserId =
+                storedUserId ||
+                profileData?.userId ||
+                profileData?.id ||
+                serverProfile?.userId ||
+                serverProfile?.id;
+
+            if (!effectiveUserId) {
+                return;
+            }
+
+            const response = await kycStatus(effectiveUserId);
             console.log('response in kyc status------>>>>>>>>>>', response);
 
             if (response?.statusCode === 200) {

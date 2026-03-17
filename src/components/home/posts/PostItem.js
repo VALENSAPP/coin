@@ -46,7 +46,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       const ratio = screenWidth / w;
       const newHeight = h * ratio;
 
-      const maxHeight = screenWidth * 1.25;
+      const maxHeight = screenWidth * 2.2;
       const minHeight = screenWidth * 0.56;
 
       const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
@@ -232,6 +232,7 @@ function PostItem({
   taggedPeople,
   hideDonationButton = false, // Add this prop with default false
 }) {
+        console.log(item,'data in hreere')
 
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
@@ -517,13 +518,11 @@ function PostItem({
   );
   const canSupport = !!creatorWalletAddress;
 
-  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
+  const ensureSupportFlowReady = useCallback(async () => {
     const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
 
     if (!currentWalletAddress) {
-      if (openSupportModalOnSuccess) {
-        setPendingSupportPromptAfterWalletConnect(true);
-      }
+      setPendingSupportPromptAfterWalletConnect(true);
       setWalletSelectionVisible(true);
       return false;
     }
@@ -532,15 +531,8 @@ function PostItem({
       setWalletAddress(currentWalletAddress);
     }
 
-    if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-      setPendingSupportPromptAfterWalletConnect(false);
-      return false;
-    }
-
     return true;
-  }, [walletAddress, canSupport]);
-
+  }, [walletAddress]);
   const handleWalletSelect = useCallback(async (wallet) => {
     setWalletSelectionVisible(false);
 
@@ -608,6 +600,7 @@ function PostItem({
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     setModalVisible(false);
+    // ✅ Always show disclaimer next — wallet check happens only when they confirm
     setSupportDisclaimerVisible(true);
   }, []);
 
@@ -706,6 +699,29 @@ function PostItem({
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }, []);
 
+  const currencyPrefix = useMemo(() => {
+    const currencyCode = String(item?.currency || '').toUpperCase();
+    const currencySymbols = {
+      USD: '$',
+      EUR: '€',
+      GBP: '£',
+      INR: '₹',
+      CAD: 'C$',
+      AUD: 'A$',
+      NZD: 'NZ$',
+      JPY: '¥',
+      CNY: '¥',
+      KRW: '₩',
+      SGD: 'S$',
+      HKD: 'HK$',
+      AED: 'د.إ',
+      SAR: 'ر.س',
+    };
+
+    if (currencySymbols[currencyCode]) return currencySymbols[currencyCode];
+    return currencyCode ? `${currencyCode} ` : '$';
+  }, [item?.currency]);
+
   const isVideoUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.toLowerCase().split('?')[0];
@@ -767,7 +783,6 @@ function PostItem({
     const allMediaUrls = Array.isArray(item?.media)
       ? item.media.map((m) => m?.url).filter(Boolean)
       : [];
-
     navigation.navigate('ProfileMain', {
       screen: 'FlipsScreen',
       params: {
@@ -797,15 +812,15 @@ function PostItem({
     const shouldFollow = !item.follow;
     const followHandler = executeFollowAction || onToggleFollow;
     if (!followHandler) return;
+
     const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
-    if (ready) {
-      setModalVisible(true);
-    }
-  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
+    // ✅ Always show intro support modal first — no wallet check here
+    setModalVisible(true);
+  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow]);
+
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
@@ -813,13 +828,13 @@ function PostItem({
     const isVideoReady = !!videoLoaded[index];
 
     // Simplified shouldPlay - only check if not paused and current index
-   const isThisPostActive =
-  screenFocused &&
-  (playingPostId === undefined ||
-    playingPostId === null ||
-    String(playingPostId) === String(item.id));
+    const isThisPostActive =
+      screenFocused &&
+      (playingPostId === undefined ||
+        playingPostId === null ||
+        String(playingPostId) === String(item.id));
 
-const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
+    const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
 
     return (
       <View style={styles.mediaContainer}>
@@ -1105,14 +1120,14 @@ const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
 
         {goalAmount > 0 && (
           <View style={styles.progressSection}>
-              {progressStatusLabel ? (
-                <View style={styles.progressStatusBadge}>
-                  <Text style={styles.progressStatusBadgeText}>{progressStatusLabel}</Text>
-                </View>
-              ) : null}
+            {progressStatusLabel ? (
+              <View style={styles.progressStatusBadge}>
+                <Text style={styles.progressStatusBadgeText}>{progressStatusLabel}</Text>
+              </View>
+            ) : null}
 
-                  <View style={styles.progressBarWrapper}>
-                  <View style={styles.progressBarBackground}>
+            <View style={styles.progressBarWrapper}>
+              <View style={styles.progressBarBackground}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -1132,7 +1147,9 @@ const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
                 </View>
                 <View style={styles.statAtCenter}>
                   <Text style={styles.statValueSmall}>
-                    {isLoadingDonation ? 'Loading...' : `$${formatNumber(currentRaised)} / $${formatNumber(goalAmount)} RAISED`}
+                    {isLoadingDonation
+                      ? 'Loading...'
+                      : `${currencyPrefix}${formatNumber(currentRaised)} / ${currencyPrefix}${formatNumber(goalAmount)} RAISED`}
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
@@ -1496,21 +1513,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginBottom: 10,
-    width:'100%'
+    width: '100%'
   },
   progressStatusBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
-    textAlign:'center'
+    textAlign: 'center'
   },
   progressBarBackground: {
     height: 10,
     backgroundColor: '#e0e0e0',
     overflow: 'hidden',
     marginBottom: 50,
-    borderRadius:5,
+    borderRadius: 5,
   },
   progressBarFill: {
     height: '100%',
