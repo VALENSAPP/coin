@@ -25,10 +25,11 @@ import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { updateWallet } from '../../../services/wallet';
+import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 
 const { width } = Dimensions.get('window');
 
-/* ----------------------------------------- */
+/* ----------------------------------------- */ 
 function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -237,6 +238,7 @@ function PostItem({
   const videoRefsMap = useRef({});
   const [totalFollowers, setTotalFollowers] = useState(0);
   const [userProfile, setUserProfile] = useState('');
+  const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
   const isCompanyProfile = userProfile === 'company';
   const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
   const [donation, setDonation] = useState(false);
@@ -443,6 +445,22 @@ function PostItem({
       console.error('Error restoring userId:', error);
     }
   }, [userId]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const storedProfile = await AsyncStorage.getItem('profile');
+        if (!mounted) return;
+        setCurrentUserProfileType(normalizeProfileType(storedProfile));
+      } catch {
+        // ignore; keep default
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -816,8 +834,29 @@ function PostItem({
     if (!success || !shouldFollow) return;
 
     // ✅ Always show intro support modal first — no wallet check here
-    setModalVisible(true);
-  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow]);
+    const supporterProfile =
+      typeof isBusinessProfile === 'boolean'
+        ? (isBusinessProfile ? 'company' : 'user')
+        : currentUserProfileType;
+    const recipientProfile = normalizeProfileType(userProfile || item?.profile);
+
+    // Only show support/wallet flow when support is allowed by platform rules.
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
+      setModalVisible(true);
+    }
+  }, [
+    item?.UserId,
+    item.follow,
+    item.userTokenAddress,
+    item?.profile,
+    userId,
+    followingBusy,
+    executeFollowAction,
+    onToggleFollow,
+    isBusinessProfile,
+    currentUserProfileType,
+    userProfile,
+  ]);
 
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
@@ -1033,6 +1072,7 @@ function PostItem({
             // return (
             <TouchableOpacity
               onPress={handleFollowPress}
+              disabled={followingBusy}
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
