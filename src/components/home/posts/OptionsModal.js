@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity, Alert } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
@@ -7,6 +7,9 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../../theme/useApptheme';
 import ReportFlowScreen from '../../modals/Report';
+import { HidePost as apiHidePost, unHidePost as apiUnhidePost } from '../../../services/post';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../../displaytoastmessage';
 export default function OptionsModal({
   visible,
   onClose,
@@ -14,19 +17,31 @@ export default function OptionsModal({
   fromHome,
   isSaved = false,
   postId = '',
-  canDelete,
+  canDelete = false,
   canEdit = false,
   isHidden = false,
-  hideBusy = false
+  hideBusy = false,
+  onHiddenChange,
+  canHide = true,
 }) {
   const sheetRef = useRef();
   const { bgStyle, textStyle } = useAppTheme();
   const reportRef = useRef(null);
+  const toast = useToast();
+  const [localHidden, setLocalHidden] = useState(!!isHidden);
+  const [localHideBusy, setLocalHideBusy] = useState(false);
+
+  const effectiveHidden = useMemo(() => localHidden, [localHidden]);
+  const effectiveHideBusy = useMemo(() => Boolean(hideBusy || localHideBusy), [hideBusy, localHideBusy]);
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
     else sheetRef.current?.close();
   }, [visible]);
+
+  useEffect(() => {
+    setLocalHidden(!!isHidden);
+  }, [isHidden]);
 
   const tap = (action) => {
     onSelect?.(action, { postId });
@@ -48,6 +63,47 @@ export default function OptionsModal({
     'You will no longer receive notifications from this user.'
   );
 };
+
+  const handleToggleHide = useCallback(async () => {
+    if (!postId) return;
+    if (effectiveHideBusy) return;
+
+    const nextHidden = !effectiveHidden;
+    setLocalHideBusy(true);
+    setLocalHidden(nextHidden);
+
+    try {
+      const resp = nextHidden ? await apiHidePost(postId) : await apiUnhidePost(postId);
+      const ok = resp?.statusCode === 200 && (resp?.success ?? true);
+      if (!ok) {
+        setLocalHidden(effectiveHidden);
+        showToastMessage(
+          toast,
+          'danger',
+          resp?.data?.message || resp?.message || `Failed to ${nextHidden ? 'hide' : 'unhide'} post`,
+        );
+        return;
+      }
+console.log(resp,'repone in hide post')
+      showToastMessage(
+        toast,
+        'success',
+        resp?.data?.message || (nextHidden ? 'Post hidden' : 'Post unhidden'),
+      );
+
+      onHiddenChange?.(postId, nextHidden);
+      sheetRef.current?.close();
+    } catch (error) {
+      setLocalHidden(effectiveHidden);
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || error?.message || 'Something went wrong',
+      );
+    } finally {
+      setLocalHideBusy(false);
+    }
+  }, [effectiveHidden, effectiveHideBusy, onHiddenChange, postId, toast]);
 
   return (
     <>
@@ -86,15 +142,16 @@ export default function OptionsModal({
             </View>
 
             <View style={styles.innerContainer}>
-              {/* {
-                canDelete &&
-                <TouchableOpacity style={styles.innerRow} onPress={() => tap('hidePost')}>
-                  <MaterialIcons name={isHidden ? 'visibility' : 'visibility-off'} size={20} color="#262626" />
+              {
+                canHide ? (
+                <TouchableOpacity style={styles.innerRow} onPress={handleToggleHide} disabled={effectiveHideBusy}>
+                  <MaterialIcons name={effectiveHidden ? 'visibility' : 'visibility-off'} size={20} color="#262626" />
                   <Text style={styles.innerText}>
-                    {hideBusy ? 'Please wait...' : isHidden ? 'Unhide post' : 'Hide post'}
+                    {effectiveHideBusy ? 'Please wait...' : effectiveHidden ? 'Unhide post' : 'Hide post'}
                   </Text>
                 </TouchableOpacity>
-              } */}
+                ) : null
+              }
 
               {fromHome && !canDelete ? (
                 <>

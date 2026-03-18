@@ -62,10 +62,6 @@ const ProfilePersonData = ({
   executeFollowAction,
   returnByTo
 }) => {
-  console.log(userData, 'userdTAA');
-
-
-
   // useEffect(() => {
   //   console.log(
   //     { userData },

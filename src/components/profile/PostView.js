@@ -950,6 +950,9 @@ export default function PostView({ postData = [] }) {
         canEdit={!!canDelete}
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
+        onHiddenChange={(id, nextHidden) => {
+          setHiddenById(prev => ({ ...prev, [id]: nextHidden }));
+        }}
       />
 
       {/* Comment Bottom Sheet */}

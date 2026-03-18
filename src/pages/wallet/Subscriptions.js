@@ -350,13 +350,15 @@ const SubventionSetupScreen = () => {
 
             setCredential(data); // store in state
             const status = data?.subscriptionStatus?.toUpperCase();
+            const endDate = new Date(data?.currentPeriodEnd);
             const storedProfileType = (await AsyncStorage.getItem('profile')) || '';
             const apiProfileType = data?.profile || data?.user?.profile || '';
             const effectiveProfileType = String(apiProfileType || storedProfileType).toLowerCase();
             setIsBusinessProfile(effectiveProfileType === 'company' || effectiveProfileType === 'business');
-
+            const newDate = new Date();
+            console.log("dffeff",newDate,status,endDate )
             // ✅ Hide popup if already ACTIVE
-            if (status === "ACTIVE") {
+            if (status === "ACTIVE" || (status === "CANCELED" && endDate >= newDate)) {
                 setShowActivationPopup(false);
                 setShowBusinessReminderPopup(false);
             } else {
