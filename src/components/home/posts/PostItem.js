@@ -232,8 +232,6 @@ function PostItem({
   taggedPeople,
   hideDonationButton = false, // Add this prop with default false
 }) {
-        console.log(item,'data in hreere')
-
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});

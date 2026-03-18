@@ -8,6 +8,10 @@ export const createPost = async data => {
     formData.append("caption", data.caption);
   }
 
+  if (data.taggedPeople) {
+    formData.append("taggedPeople", data.taggedPeople);
+  }
+
   if (data.type) {
     formData.append("type", data.type);
   }

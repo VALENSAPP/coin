@@ -1092,6 +1092,9 @@ const viewabilityConfigCallbackPairs = useRef([
             canDelete={!!canDelete}
             isHidden={!!(modalPostId && hiddenById[modalPostId])}
             hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
+            onHiddenChange={(id, nextHidden) => {
+              setHiddenById(prev => ({ ...prev, [id]: nextHidden }));
+            }}
           />
 
           {/* Token Purchase Modal */}

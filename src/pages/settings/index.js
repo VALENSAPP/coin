@@ -497,11 +497,11 @@ const Settings = () => {
             rightText="Private"
           // onPress={handleAccountPrivacyPress}
           />
-          {/* <SettingsItem
+          <SettingsItem
             icon="visibility-off"
             title="Hide Posts"
             onPress={handleHideStoryPress}
-          /> */}
+          />
         </View>
 
         {/* More info and support section */}
