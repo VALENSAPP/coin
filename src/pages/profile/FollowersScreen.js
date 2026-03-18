@@ -366,9 +366,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
               <TouchableOpacity
                 style={[
                   styles.followBtn,
-                  isFollowingState
-                    ? [styles.following, { borderColor: accentColor }]
-                    : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
+                  followBusyById[item.id]
+                    ? [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }]
+                    : isFollowingState
+                      ? [styles.following, { borderColor: accentColor }]
+                      : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
                 ]}
                 onPress={(e) => {
                   e?.stopPropagation?.();
@@ -376,9 +378,13 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                 }}
                 disabled={!!followBusyById[item.id]}
               >
-                <Text style={isFollowingState ? [styles.followingText, { color: accentColor }] : styles.followText}>
-                  {followBusyById[item.id] ? '...' : isFollowingState ? 'Following' : 'Follow'}
-                </Text>
+                {followBusyById[item.id] ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={isFollowingState ? [styles.followingText, { color: accentColor }] : styles.followText}>
+                    {isFollowingState ? 'Following' : 'Follow'}
+                  </Text>
+                )}
               </TouchableOpacity>
             )}
           </TouchableOpacity>

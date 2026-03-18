@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking, ActivityIndicator } from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -28,6 +28,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress, openWalletPayment } from '../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../pages/authentication/socialLogin';
 import { updateWallet } from '../../services/wallet';
+import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -565,10 +566,14 @@ const ProfilePersonData = ({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    // Match PostItem flow: always show intro support modal after a successful follow.
-    // Wallet connection (if needed) is prompted only when the user chooses to support.
-    setSupportModalVisible(true);
-  }, [isFollowing, executeFollowAction, onToggleFollow]);
+    const supporterProfile = isBusinessProfile ? 'company' : 'user';
+    const recipientProfile = normalizeProfileType(effectiveProfileType || userProfile || userData?.profile);
+
+    // Only show support/wallet flow when support is allowed by platform rules.
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
+      setSupportModalVisible(true);
+    }
+  }, [isFollowing, executeFollowAction, onToggleFollow, isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
 
   useFocusEffect(
     useCallback(() => {
