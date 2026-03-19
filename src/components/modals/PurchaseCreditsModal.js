@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
@@ -15,6 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useRoute } from '@react-navigation/native';
 
+const MAX_CREDITS = 5;
+
 const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0 }) => {
   const [creditsToBuy, setCreditsToBuy] = useState(1);
   const sheetRef = useRef(null);
@@ -25,17 +27,28 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
+  const safeCurrentCredits = useMemo(() => {
+    const value = Number(currentCredits);
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(value, MAX_CREDITS));
+  }, [currentCredits]);
+
+  const maxPurchasable = useMemo(
+    () => Math.max(0, MAX_CREDITS - safeCurrentCredits),
+    [safeCurrentCredits]
+  );
+
   useEffect(() => {
     if (visible) {
       sheetRef.current?.open();
-      setCreditsToBuy(1); // Reset to 1 when modal opens
+      setCreditsToBuy(maxPurchasable > 0 ? 1 : 0); // Reset when modal opens
     } else {
       sheetRef.current?.close();
     }
-  }, [visible]);
+  }, [visible, maxPurchasable]);
 
   const increaseCredits = () => {
-    if (creditsToBuy < 5) {
+    if (creditsToBuy < maxPurchasable) {
       setCreditsToBuy(prev => prev + 1);
     }
   };
@@ -47,6 +60,18 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   const createStripeSubscription = async () => {
+    if (maxPurchasable <= 0) {
+      showToastMessage(toast, 'danger', 'You already have maximum credits.');
+      return;
+    }
+    if (creditsToBuy < 1 || creditsToBuy > maxPurchasable) {
+      showToastMessage(
+        toast,
+        'danger',
+        `You can buy up to ${maxPurchasable} credit${maxPurchasable === 1 ? '' : 's'}.`
+      );
+      return;
+    }
     const canProceed = await requireStripeCustomerForPayment();
     if (!canProceed) {
       setShowPaymentMethodModal(true);
@@ -83,6 +108,19 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   };
 
   const handleConfirmPurchase = () => {
+    if (maxPurchasable <= 0) {
+      showToastMessage(toast, 'danger', 'You already have maximum credits.');
+      sheetRef.current?.close();
+      return;
+    }
+    if (creditsToBuy < 1 || creditsToBuy > maxPurchasable) {
+      showToastMessage(
+        toast,
+        'danger',
+        `You can buy up to ${maxPurchasable} credit${maxPurchasable === 1 ? '' : 's'}.`
+      );
+      return;
+    }
     sheetRef.current?.close();
     setTimeout(() => {
       Alert.alert(
@@ -133,16 +171,20 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
         <View style={[styles.currentCreditsContainer, { shadowColor: text }]}>
           <Text style={styles.currentCreditsLabel}>Current Credits:</Text>
-          <Text style={[styles.currentCreditsValue, textStyle]}>{currentCredits} / 5</Text>
+          <Text style={[styles.currentCreditsValue, textStyle]}>{safeCurrentCredits} / {MAX_CREDITS}</Text>
         </View>
 
         <Text style={styles.subtitle}>Select amount to purchase:</Text>
 
         <View style={styles.selectorContainer}>
           <TouchableOpacity
-            style={[styles.adjustBtn, creditsToBuy === 1 && styles.adjustBtnDisabled, { backgroundColor: text, shadowColor: text }]}
+            style={[
+              styles.adjustBtn,
+              { backgroundColor: text, shadowColor: text },
+              (creditsToBuy <= 1 || maxPurchasable <= 0) && styles.adjustBtnDisabled,
+            ]}
             onPress={decreaseCredits}
-            disabled={creditsToBuy === 1}
+            disabled={creditsToBuy <= 1 || maxPurchasable <= 0}
           >
             <Text style={styles.adjustText}>−</Text>
           </TouchableOpacity>
@@ -153,17 +195,26 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           </View>
 
           <TouchableOpacity
-            style={[styles.adjustBtn, creditsToBuy === 5 && styles.adjustBtnDisabled, { backgroundColor: text, shadowColor: text }]}
+            style={[
+              styles.adjustBtn,
+              { backgroundColor: text, shadowColor: text },
+              (maxPurchasable <= 0 || creditsToBuy >= maxPurchasable) && styles.adjustBtnDisabled,
+            ]}
             onPress={increaseCredits}
-            disabled={creditsToBuy === 5}
+            disabled={maxPurchasable <= 0 || creditsToBuy >= maxPurchasable}
           >
             <Text style={styles.adjustText}>+</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={[styles.buyBtn, { backgroundColor: text, shadowColor: text }]}
+          style={[
+            styles.buyBtn,
+            { backgroundColor: text, shadowColor: text },
+            (maxPurchasable <= 0 || creditsToBuy < 1) && { opacity: 0.6 },
+          ]}
           onPress={handleConfirmPurchase}
+          disabled={maxPurchasable <= 0 || creditsToBuy < 1}
         >
           <Text style={styles.buyBtnText}>Continue to Payment</Text>
         </TouchableOpacity>
