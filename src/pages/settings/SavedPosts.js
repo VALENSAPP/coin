@@ -76,6 +76,7 @@ const SavedPostsScreen = ({ navigation }) => {
   const toast = useToast();
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const viewerHeaderPaddingTop = Math.max(insets.top, 12);
 
   const formatUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return '';
@@ -280,22 +281,37 @@ const SavedPostsScreen = ({ navigation }) => {
     async (id) => {
       if (!id || savingIds.has(id)) return;
 
-      setSavingIds((prev) => new Set(prev).add(id));
-      const isCurrentlySaved = !!saved[id];
+      const resolvedId = String(id);
+      const matchesId = (post) =>
+        String(post?.id ?? post?._id ?? '') === resolvedId;
+
+      setSavingIds((prev) => new Set(prev).add(resolvedId));
+      const isCurrentlySaved = !!saved[resolvedId];
 
       try {
-        const resp = isCurrentlySaved ? await unSavePost(id) : await savePost(id);
-        if (resp && resp.statusCode === 200 && resp.success) {
+        const resp = isCurrentlySaved ? await unSavePost(resolvedId) : await savePost(resolvedId);
+        const ok = resp && resp.statusCode === 200 && (resp.success ?? true);
+        if (ok) {
           showToastMessage(toast, 'success', resp?.data?.message || 'Updated');
-          setSaved((prev) => ({ ...prev, [id]: !isCurrentlySaved }));
+          setSaved((prev) => ({ ...prev, [resolvedId]: !isCurrentlySaved }));
 
           if (isCurrentlySaved) {
-            setPosts((prev) => prev.filter((p) => p.id !== id));
-            // Close viewer if current post was removed
+            const nextPosts = posts.filter((p) => !matchesId(p));
+            setPosts(nextPosts);
+
             if (viewerVisible) {
-              const currentIndex = posts.findIndex(p => p.id === id);
-              if (currentIndex === initialPostIndex) {
-                setViewerVisible(false);
+              if (!nextPosts.length) {
+                closePostViewer();
+              } else {
+                const removedIndex = posts.findIndex(matchesId);
+                const nextIndex = Math.max(0, Math.min(removedIndex, nextPosts.length - 1));
+                setInitialPostIndex(nextIndex);
+
+                const nextId = nextPosts[nextIndex]?.id ?? nextPosts[nextIndex]?._id;
+                if (nextId != null) {
+                  setViewerVisiblePostId(nextId);
+                  setViewerPlayingPostId(nextId);
+                }
               }
             }
           }
@@ -307,12 +323,19 @@ const SavedPostsScreen = ({ navigation }) => {
       } finally {
         setSavingIds((prev) => {
           const next = new Set(prev);
-          next.delete(id);
+          next.delete(resolvedId);
           return next;
         });
       }
     },
-    [saved, savingIds, toast, viewerVisible, posts, initialPostIndex]
+    [
+      saved,
+      savingIds,
+      toast,
+      viewerVisible,
+      posts,
+      closePostViewer,
+    ]
   );
 
   const openOptions = useCallback((id) => {
@@ -329,8 +352,8 @@ const SavedPostsScreen = ({ navigation }) => {
     async (action) => {
       if (!modalPostId) return;
       if (action === 'toggleSave') {
-        await handleToggleSave(modalPostId);
         closeOptions();
+        await handleToggleSave(modalPostId);
         return;
       }
 
@@ -375,8 +398,10 @@ const SavedPostsScreen = ({ navigation }) => {
 
   // Close viewer
   const closePostViewer = useCallback(() => {
+    handleCommentClose();
+    closeOptions();
     setViewerVisible(false);
-  }, []);
+  }, [closeOptions, handleCommentClose]);
 
   // Stop any grid video when opening the full viewer
   useEffect(() => {
@@ -704,11 +729,17 @@ const SavedPostsScreen = ({ navigation }) => {
         onRequestClose={closePostViewer}
         statusBarTranslucent
       >
-        <SafeAreaView style={[styles.modalContainer, bgStyle]} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={[styles.modalContainer, bgStyle]} edges={['left', 'right', 'bottom']}>
           <StatusBar barStyle="dark-content" backgroundColor={cardStyle?.backgroundColor || '#fff'} />
 
           {/* Viewer Header */}
-          <View style={[styles.viewerHeader, cardStyle]}>
+          <View
+            style={[
+              styles.viewerHeader,
+              cardStyle,
+              { paddingTop: viewerHeaderPaddingTop, paddingBottom: 12 },
+            ]}
+          >
             <TouchableOpacity onPress={closePostViewer} style={styles.closeButton}>
               <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
             </TouchableOpacity>
@@ -738,54 +769,55 @@ const SavedPostsScreen = ({ navigation }) => {
             windowSize={5}
             initialNumToRender={2}
           />
+
+          {/* Options Modal (render inside modal for iOS) */}
+          <OptionsModal
+            visible={modalVisible}
+            onClose={closeOptions}
+            fromHome={true}
+            onSelect={onOptionsSelect}
+            postId={modalPostId ?? ''}
+            canHide={false}
+            isSaved={
+              modalPostId != null && (saved[modalPostId] ?? saved[String(modalPostId)])
+                ? true
+                : false
+            }
+          />
+
+          {/* Comment Sheet (render inside modal for iOS) */}
+          <RBSheet
+            ref={commentSheetRef}
+            height={500}
+            openDuration={250}
+            draggable={true}
+            closeOnPressMask={true}
+            customModalProps={{ statusBarTranslucent: true, presentationStyle: 'overFullScreen' }}
+            onClose={() => {
+              setCommentPostId(null);
+              setCommentPostOwnerId(null);
+            }}
+            customStyles={{
+              container: {
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                ...bgStyle,
+              },
+              draggableIcon: {
+                backgroundColor: '#ccc',
+                width: 60,
+              },
+            }}
+          >
+            <CommentSheet
+              postId={commentPostId}
+              onClose={handleCommentClose}
+              onCommentCountUpdate={handleCommentCountUpdate}
+              postOwnerId={commentPostOwnerId}
+            />
+          </RBSheet>
         </SafeAreaView>
       </Modal>
-
-      {/* Options Modal */}
-      <OptionsModal
-        visible={modalVisible}
-        onClose={closeOptions}
-        fromHome={true}
-        onSelect={onOptionsSelect}
-        postId={modalPostId ?? ''}
-        isSaved={
-          modalPostId != null && (saved[modalPostId] ?? saved[String(modalPostId)])
-            ? true
-            : false
-        }
-      />
-
-      {/* Comment Sheet */}
-      <RBSheet
-        ref={commentSheetRef}
-        height={500}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        onClose={() => {
-          setCommentPostId(null);
-          setCommentPostOwnerId(null);
-        }}
-        customStyles={{
-          container: {
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
-            ...bgStyle,
-          },
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
-        }}
-      >
-        <CommentSheet
-          postId={commentPostId}
-          onClose={handleCommentClose}
-          onCommentCountUpdate={handleCommentCountUpdate}
-          postOwnerId={commentPostOwnerId}
-        />
-      </RBSheet>
     </SafeAreaView>
   );
 };
@@ -906,8 +938,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   closeButton: {
-    // padding: 4,
-    marginLeft:4
+    padding: 4,
+    // marginLeft:4
   },
   viewerHeaderTitle: {
     fontSize: 18,

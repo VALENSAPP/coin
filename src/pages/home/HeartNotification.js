@@ -18,6 +18,75 @@ import { getAllNotifactions, readNotification } from '../../services/notificatio
 import { useDispatch } from 'react-redux';
 const { width } = Dimensions.get('window');
 
+const normalizeNotificationType = (type) => String(type || '').toLowerCase().trim();
+
+const pickFirstString = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const extractPostIdFromNotification = (item) => {
+  const data = item?.data || {};
+  return pickFirstString(
+    data.postId,
+    data.post_id,
+    data.postID,
+    data.post?.id,
+    data.post?._id,
+    data.post?.postId,
+    item?.postId,
+    item?.post_id,
+    item?.postID
+  );
+};
+
+const extractPostImageFromNotification = (item) => {
+  const data = item?.data || {};
+  const post = data.post || item?.post || {};
+  const images = Array.isArray(post.images) ? post.images : [];
+  const firstImage = images[0];
+  const firstImageUrl = typeof firstImage === 'string' ? firstImage : firstImage?.url;
+
+  return pickFirstString(
+    data.postImage,
+    data.post_image,
+    data.thumbnail,
+    data.postThumbnail,
+    data.postPreview,
+    post.thumbnail,
+    post.previewImage,
+    post.image,
+    post.mediaUrl,
+    post.mediaURL,
+    firstImageUrl
+  );
+};
+
+const extractAvatarFromNotification = (item) => {
+  const data = item?.data || {};
+  return pickFirstString(
+    item?.avatar,
+    item?.profileImage,
+    data.avatar,
+    data.userAvatar,
+    data.followerAvatar,
+    data.actorAvatar,
+    data.sender?.avatar,
+    data.sender?.profileImage,
+    data.user?.avatar,
+    data.user?.profileImage
+  );
+};
+
+const isFollowType = (type) => normalizeNotificationType(type).includes('follow');
+const isCommentType = (type) => normalizeNotificationType(type).includes('comment');
+const isLikeType = (type) => normalizeNotificationType(type).includes('like');
+const isPostActivityType = (type) => isLikeType(type) || isCommentType(type);
+
 export default function Notifications() {
   const [activeTab, setActiveTab] = useState('all');
   const scrollViewRef = useRef(null);
@@ -36,22 +105,21 @@ export default function Notifications() {
 
   const tabs = [
     { key: 'all', label: 'All' },
-    { key: 'trades', label: 'Trades' },
+    // { key: 'trades', label: 'Trades' },
     // { key: 'comments', label: 'Comments' },
-    { key: 'follows', label: 'Follows' }
+    // { key: 'follows', label: 'Follows' }
   ];
-  const tradeTypes = useMemo(() => ['sale', 'bid', 'trade', 'token_purchase'], []);
-
 
   const getNotificationIcon = (type) => {
-    switch (type) {
+    const normalizedType = normalizeNotificationType(type);
+    if (normalizedType.includes('follow')) return '👥';
+    if (normalizedType.includes('comment')) return '💬';
+    if (normalizedType.includes('like')) return '❤️';
+    switch (normalizedType) {
       case 'mint': return '🎨';
       case 'sale': return '💰';
       case 'trade': return '🔄';
       case 'bid': return '🏷️';
-      case 'follow': return '👥';
-      case 'like': return '❤️';
-      case 'comment': return '💬';
       case 'token_purchase': return '💎';
       default: return '🔔';
     }
@@ -68,7 +136,13 @@ export default function Notifications() {
       setIsLoading(true);
       const response = await getAllNotifactions();
       console.log(response, 'notification is working');
-      const raw = response?.data ?? [];
+      const rawPayload =
+        response?.notifications ??
+        response?.data?.notifications ??
+        response?.data ??
+        response ??
+        [];
+      const raw = Array.isArray(rawPayload) ? rawPayload : [];
 
       const formatRelativeTime = (iso) => {
         if (!iso) return '';
@@ -86,18 +160,27 @@ export default function Notifications() {
         return date.toLocaleDateString();
       };
 
-      const mapped = raw.map(item => ({
-        id: item.id,
-        type: item.data?.type ?? 'notification',
-        title: item.title ?? '',
-        message: item.body ?? '',
-        time: formatRelativeTime(item.createdAt ?? item.updatedAt),
-        avatar: item.avatar ?? null,
-        image: null,
-        price: null,
-        isRead: !!item.isRead,
-        raw: item,
-      }));
+      const mapped = raw.map(item => {
+        const data = item?.data || {};
+        const type = data?.type ?? item?.type ?? 'notification';
+        const postId = extractPostIdFromNotification(item);
+        const postImage = extractPostImageFromNotification(item);
+        const avatar = extractAvatarFromNotification(item);
+
+        return {
+          id: item.id,
+          type,
+          title: item.title ?? '',
+          message: item.body ?? '',
+          time: formatRelativeTime(item.createdAt ?? item.updatedAt),
+          avatar,
+          image: postImage,
+          price: null,
+          isRead: !!item.isRead,
+          postId,
+          raw: item,
+        };
+      });
 
       setNotifications(mapped);
 
@@ -163,12 +246,36 @@ export default function Notifications() {
   };
 
   const getNotificationTargetUserId = useCallback((notification) => {
-    const type = notification?.raw?.data?.type;
-    if (type === 'follow' || type === 'unfollow') {
-      return notification?.raw?.data?.followerId || null;
+    const type = notification?.raw?.data?.type ?? notification?.type;
+    if (isFollowType(type)) {
+      return (
+        notification?.raw?.data?.followerId ||
+        notification?.raw?.data?.userId ||
+        notification?.raw?.data?.actorId ||
+        null
+      );
     }
     return null;
   }, []);
+
+  const navigateToPost = useCallback((notification) => {
+    const postId = notification?.postId;
+    if (!postId) return;
+
+    const postPayload = notification?.raw?.data?.post && typeof notification?.raw?.data?.post === 'object'
+      ? notification.raw.data.post
+      : { id: postId };
+
+    navigation.navigate('ProfileMain', {
+      screen: 'PostView',
+      params: {
+        postData: postPayload,
+        userChat: true,
+        fromScreen: 'Notifications',
+        hideTabBar: true,
+      },
+    });
+  }, [navigation]);
 
   const handlePopupNavigateToProfile = useCallback(() => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
@@ -209,9 +316,9 @@ export default function Notifications() {
 
   const tabDataMap = useMemo(() => ({
     all: notifications,
-    trades: notifications.filter(n => tradeTypes.includes(n.type)),
-    follows: notifications.filter(n => !tradeTypes.includes(n.type)),
-  }), [notifications, tradeTypes]);
+    comments: notifications.filter(n => isPostActivityType(n.type)),
+    follows: notifications.filter(n => isFollowType(n.type)),
+  }), [notifications]);
 
   const handleMomentumScrollEnd = useCallback((event) => {
     const x = event?.nativeEvent?.contentOffset?.x ?? 0;
@@ -227,11 +334,11 @@ export default function Notifications() {
   const EmptyState = ({ tabType }) => {
     const getEmptyStateContent = () => {
       switch (tabType) {
-        case 'trades':
+        case 'comments':
           return {
-            icon: '🔄',
-            title: 'No trades yet',
-            subtitle: 'Your trading activity will appear here',
+            icon: '💬',
+            title: 'No post activity yet',
+            subtitle: 'Likes and comments will show up here',
             showCreatePost: false
           };
         case 'follows':
@@ -331,10 +438,21 @@ export default function Notifications() {
       const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
       const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
 
+      const handlePress = () => {
+        markAsRead(item.id);
+
+        if ((isPostActivityType(item.type) || item.image) && item.postId) {
+          navigateToPost(item);
+          return;
+        }
+
+        popupOpen(item);
+      };
+
       return (
         <TouchableOpacity
           style={[styles.notificationItem, !item.isRead && bgStyle]}
-          onPress={() => { markAsRead(item.id); popupOpen(item); }}
+          onPress={handlePress}
           activeOpacity={0.7}
         >
           <View style={[styles.notificationContent, { shadowColor: text }]}>

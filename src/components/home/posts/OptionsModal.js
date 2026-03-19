@@ -112,7 +112,7 @@ console.log(resp,'repone in hide post')
         draggable
         height={canEdit ? 300 : 250}
         onClose={onClose}
-        customModalProps={{ statusBarTranslucent: true }}
+        customModalProps={{ statusBarTranslucent: true, presentationStyle: 'overFullScreen' }}
         customStyles={{
           container: [
             { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
