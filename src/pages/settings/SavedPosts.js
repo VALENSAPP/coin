@@ -19,6 +19,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../../components/home/posts/PostItem';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import OptionsModal from '../../components/home/posts/OptionsModal';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 import { getAllSavedPosts } from '../../services/settings';
 import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
@@ -55,7 +56,6 @@ const SavedPostsScreen = ({ navigation }) => {
   const [modalPostId, setModalPostId] = useState(null);
 
   // Comments
-  const [commentText, setCommentText] = useState('');
   const [commentPostId, setCommentPostId] = useState(null);
   const commentSheetRef = useRef(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
@@ -64,6 +64,14 @@ const SavedPostsScreen = ({ navigation }) => {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [initialPostIndex, setInitialPostIndex] = useState(0);
   const flatListRef = useRef(null);
+
+  // Grid video controls (Saved posts grid)
+  const [gridPlayingPostId, setGridPlayingPostId] = useState(null);
+  const [gridMutedByPostId, setGridMutedByPostId] = useState({});
+
+  // Viewer (modal) video autoplay coordination (like main feed)
+  const [viewerPlayingPostId, setViewerPlayingPostId] = useState(null);
+  const [viewerVisiblePostId, setViewerVisiblePostId] = useState(null);
 
   const toast = useToast();
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
@@ -325,10 +333,19 @@ const SavedPostsScreen = ({ navigation }) => {
         closeOptions();
         return;
       }
-      Alert.alert('Action', String(action));
+
+      if (action === 'copyAddress') {
+        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        Clipboard.setString(deepLink);
+        showToastMessage(toast, 'success', 'Post copied');
+        closeOptions();
+        return;
+      }
+
+      // Other actions (report/hide) are handled inside OptionsModal.
       closeOptions();
     },
-    [closeOptions, handleToggleSave, modalPostId]
+    [closeOptions, handleToggleSave, modalPostId, toast]
   );
 
   const handleComment = useCallback((postId, ownerId) => {
@@ -340,6 +357,7 @@ const SavedPostsScreen = ({ navigation }) => {
   const handleCommentClose = useCallback(() => {
     commentSheetRef.current?.close();
     setCommentPostId(null);
+    setCommentPostOwnerId(null);
   }, []);
 
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
@@ -348,13 +366,6 @@ const SavedPostsScreen = ({ navigation }) => {
       [postId]: Math.max(0, newCount),
     }));
   }, []);
-
-  const submitComment = useCallback(() => {
-    if (!commentText.trim()) return;
-    Alert.alert('Commented:', commentText.trim());
-    setCommentText('');
-    commentSheetRef.current?.close();
-  }, [commentText]);
 
   // Open full-screen viewer
   const openPostViewer = useCallback((index) => {
@@ -366,6 +377,27 @@ const SavedPostsScreen = ({ navigation }) => {
   const closePostViewer = useCallback(() => {
     setViewerVisible(false);
   }, []);
+
+  // Stop any grid video when opening the full viewer
+  useEffect(() => {
+    if (viewerVisible) setGridPlayingPostId(null);
+  }, [viewerVisible]);
+
+  // Seed which post should autoplay when the viewer opens
+  useEffect(() => {
+    if (!viewerVisible) {
+      setViewerPlayingPostId(null);
+      setViewerVisiblePostId(null);
+      return;
+    }
+
+    const seeded = posts?.[initialPostIndex];
+    const seededId = seeded?.id ?? seeded?._id ?? null;
+    if (seededId != null) {
+      setViewerPlayingPostId(seededId);
+      setViewerVisiblePostId(seededId);
+    }
+  }, [viewerVisible, initialPostIndex, posts]);
 
   useEffect(() => {
     if (!viewerVisible) return;
@@ -399,6 +431,12 @@ const SavedPostsScreen = ({ navigation }) => {
       const firstMedia = images[0];
       const hasMultiple = images.length > 1;
       const isVideo = firstMedia ? getMediaType(firstMedia) === 'video' : false;
+      const isGridVideoPlaying = String(gridPlayingPostId) === String(item?.id);
+      const isGridMuted =
+        typeof gridMutedByPostId[String(item?.id)] === 'boolean'
+          ? gridMutedByPostId[String(item?.id)]
+          : true;
+      const formattedFirstMedia = firstMedia ? formatUrl(firstMedia) : '';
 
       // Fallback if no media
       if (!firstMedia) {
@@ -421,12 +459,12 @@ const SavedPostsScreen = ({ navigation }) => {
           {/* Video: Show first frame as static thumbnail */}
           {isVideo ? (
             <Video
-              source={{ uri: firstMedia }}
+              source={{ uri: formattedFirstMedia }}
               style={styles.gridImage}
               resizeMode="cover"
-              paused={true}
-              muted={true}
-              repeat={false}
+              paused={!isGridVideoPlaying}
+              muted={isGridMuted}
+              repeat={true}
               controls={false}
               playInBackground={false}
               playWhenInactive={false}
@@ -437,18 +475,37 @@ const SavedPostsScreen = ({ navigation }) => {
           ) : (
             /* Image: Normal fast loading */
             <Image
-              source={{ uri: firstMedia }}
+              source={{ uri: formattedFirstMedia }}
               style={styles.gridImage}
               resizeMode="cover"
               defaultSource={{ uri: 'https://via.placeholder.com/300/1a1a1a/666666?text=Loading...' }}
             />
           )}
 
-          {/* Play Icon for Videos */}
-          {isVideo && (
-            <View style={styles.videoOverlay}>
+          {/* Play Button for Videos */}
+          {isVideo && !isGridVideoPlaying && (
+            <TouchableOpacity
+              style={styles.videoOverlay}
+              activeOpacity={0.85}
+              onPress={() => setGridPlayingPostId(item?.id)}
+            >
               <Icon name="play-circle" size={36} color="#fff" />
-            </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Mute/Unmute for Videos */}
+          {isVideo && (
+            <TouchableOpacity
+              style={styles.gridMuteButton}
+              activeOpacity={0.85}
+              onPress={() => {
+                const key = String(item?.id);
+                setGridMutedByPostId((prev) => ({ ...prev, [key]: !isGridMuted }));
+                if (!isGridVideoPlaying) setGridPlayingPostId(item?.id);
+              }}
+            >
+              <Icon name={isGridMuted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
+            </TouchableOpacity>
           )}
 
           {/* Multiple Media Indicator */}
@@ -462,7 +519,7 @@ const SavedPostsScreen = ({ navigation }) => {
         </TouchableOpacity>
       );
     },
-    [getMediaType, openPostViewer]
+    [formatUrl, getMediaType, gridMutedByPostId, gridPlayingPostId, openPostViewer]
   );
 
 
@@ -473,6 +530,8 @@ const SavedPostsScreen = ({ navigation }) => {
         item,
         followingByUserId,
       });
+      const isThisPostVisible =
+        viewerVisiblePostId != null && String(viewerVisiblePostId) === String(item?.id);
 
       return (
         <View style={styles.postContainer}>
@@ -482,20 +541,28 @@ const SavedPostsScreen = ({ navigation }) => {
             likesCount={postLikesCount[item.id] || 0}
             commentsCount={postCommentsCount[item.id] || 0}
             saved={!!saved[item.id]}
-            onToggleLike={() => toggleLike(item.id)}
-            onToggleSave={() => handleToggleSave(item.id)}
+            onToggleLike={toggleLike}
+            onToggleSave={handleToggleSave}
             onToggleFollow={handleToggleFollow}
             followingBusy={followingBusy.has(String(mapped.UserId))}
-            onComment={() => handleComment(item.id, mapped.UserId)}
-            onOptions={() => openOptions(item.id)}
+            onComment={handleComment}
+            onOptions={openOptions}
             onSuggest={[]}
             shareCount={mapped.shareCount}
             hideDonationButton={true}
+            // Autoplay only the visible post, start muted, user can unmute in PostItem
+            isVisible={isThisPostVisible}
+            screenFocused={viewerVisible}
+            playingPostId={viewerPlayingPostId}
+            currentlyVisiblePostId={viewerVisiblePostId}
           />
         </View>
       );
     },
     [
+      viewerVisible,
+      viewerPlayingPostId,
+      viewerVisiblePostId,
       followingBusy,
       handleComment,
       handleToggleFollow,
@@ -536,6 +603,54 @@ const SavedPostsScreen = ({ navigation }) => {
     ),
     [textStyle, themeText]
   );
+
+  // Viewer viewability (pick the most visible post id to autoplay)
+  const viewerViewabilityConfigRef = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+    minimumViewTime: 50,
+    waitForInteraction: false,
+  });
+
+  const handleViewerViewableItemsChanged = useCallback(({ viewableItems }) => {
+    if (!viewerVisible) return;
+    if (!viewableItems || viewableItems.length === 0) return;
+
+    let mostVisiblePost = null;
+    let highestPercentage = -1;
+
+    for (const v of viewableItems) {
+      const postId = v?.item?.id ?? v?.item?._id;
+      if (!v?.isViewable || postId == null) continue;
+
+      const percentage =
+        typeof v.percentVisible === 'number'
+          ? v.percentVisible
+          : typeof v.viewablePercent === 'number'
+            ? v.viewablePercent
+            : 100;
+
+      if (percentage > highestPercentage) {
+        highestPercentage = percentage;
+        mostVisiblePost = postId;
+      }
+    }
+
+    if (mostVisiblePost == null) return;
+    setViewerVisiblePostId((prev) => (String(prev) === String(mostVisiblePost) ? prev : mostVisiblePost));
+    setViewerPlayingPostId((prev) => (String(prev) === String(mostVisiblePost) ? prev : mostVisiblePost));
+  }, [viewerVisible]);
+
+  const viewerHandleViewableItemsChangedRef = useRef(handleViewerViewableItemsChanged);
+  useEffect(() => {
+    viewerHandleViewableItemsChangedRef.current = handleViewerViewableItemsChanged;
+  }, [handleViewerViewableItemsChanged]);
+
+  const viewerViewabilityConfigCallbackPairs = useRef([
+    {
+      viewabilityConfig: viewerViewabilityConfigRef.current,
+      onViewableItemsChanged: (info) => viewerHandleViewableItemsChangedRef.current(info),
+    },
+  ]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
@@ -609,6 +724,7 @@ const SavedPostsScreen = ({ navigation }) => {
             keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: Math.max(12, insets.bottom) }}
+            viewabilityConfigCallbackPairs={viewerViewabilityConfigCallbackPairs.current}
             onScrollToIndexFailed={(info) => {
               setTimeout(() => {
                 flatListRef.current?.scrollToIndex({
@@ -632,7 +748,11 @@ const SavedPostsScreen = ({ navigation }) => {
         fromHome={true}
         onSelect={onOptionsSelect}
         postId={modalPostId ?? ''}
-        isSaved={!!(modalPostId && saved[String(modalPostId)])}
+        isSaved={
+          modalPostId != null && (saved[modalPostId] ?? saved[String(modalPostId)])
+            ? true
+            : false
+        }
       />
 
       {/* Comment Sheet */}
@@ -643,6 +763,10 @@ const SavedPostsScreen = ({ navigation }) => {
         draggable={true}
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
+        onClose={() => {
+          setCommentPostId(null);
+          setCommentPostOwnerId(null);
+        }}
         customStyles={{
           container: {
             borderTopLeftRadius: 18,
@@ -656,12 +780,9 @@ const SavedPostsScreen = ({ navigation }) => {
         }}
       >
         <CommentSheet
-          commentText={commentText}
-          onChangeText={setCommentText}
-          onSubmit={submitComment}
+          postId={commentPostId}
           onClose={handleCommentClose}
           onCommentCountUpdate={handleCommentCountUpdate}
-          postId={commentPostId}
           postOwnerId={commentPostOwnerId}
         />
       </RBSheet>
@@ -763,6 +884,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     padding: 4,
   },
+  gridMuteButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 16,
+    padding: 6,
+  },
   // Modal styles
   modalContainer: {
     flex: 1,
@@ -777,7 +906,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   closeButton: {
-    padding: 4,
+    // padding: 4,
+    marginLeft:4
   },
   viewerHeaderTitle: {
     fontSize: 18,

@@ -27,13 +27,13 @@ import { parseProfileShareUrl } from './utils/profileShare';
 
 const linking = {
   prefixes: [
-    // 'https://www.valenscorp.com',
-    // 'https://valenscorp.com',
-    // 'https://www.valens.app',
-    // 'https://valens.app',
+    'https://www.valenscorp.com',
+    'https://valenscorp.com',
+    'https://www.valens.app',
+    'https://valens.app',
     'https://valensGoApp.com',
     'com.valens://',
-    // 'valens://',
+    'valens://',
   ],
   config: {
     screens: {

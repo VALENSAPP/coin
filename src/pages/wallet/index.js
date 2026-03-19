@@ -328,12 +328,15 @@ console.log(userWalletData,'datatai walaletete')
     try {
       const response = await getCreditsLeft();
       if (response?.statusCode === 200) {
+        const hitLeftRaw = response?.data?.hitLeft;
+        const hitLeft = Number(hitLeftRaw);
+        const safeHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
         setKpiData(prevKpiData => {
           const newKpiData = [...prevKpiData];
           newKpiData[3] = {
             ...newKpiData[3],
-            value: `${response.data.hitLeft} / 5`,
-            currentCredits: response.data.hitLeft
+            value: `${safeHitLeft} / 5`,
+            currentCredits: safeHitLeft
           };
           return newKpiData;
         });
