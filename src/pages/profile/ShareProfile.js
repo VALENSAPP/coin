@@ -58,6 +58,12 @@ const ShareProfile = ({ navigation }) => {
     return true;
   };
 
+  const normalizeFilePath = (path) => (
+    typeof path === 'string' && path.startsWith('file://')
+      ? path.replace('file://', '')
+      : path
+  );
+
   const downloadQRCode = async () => {
     try {
       const hasPermission = await requestPermission();
@@ -79,19 +85,28 @@ const ShareProfile = ({ navigation }) => {
         return;
       }
 
-      // Create new file path
-      const newPath = `${RNFS.PicturesDirectoryPath}/qr_${Date.now()}.png`;
-      console.log('chcek rewch hreere1')
+      const sourcePath = normalizeFilePath(uri);
 
-      // Move file from cache → pictures
-      await RNFS.moveFile(uri, newPath);
-      console.log('chcek rewch hreere2')
-      // Save to gallery
-      await CameraRoll.save(`file://${newPath}`, {
+      let saveUri = uri;
+
+      if (Platform.OS === 'android') {
+        // Create new file path
+        const newPath = `${RNFS.PicturesDirectoryPath}/qr_${Date.now()}.png`;
+
+        // Move file from cache → pictures
+        await RNFS.moveFile(sourcePath, newPath);
+
+        // Save to gallery
+        saveUri = `file://${newPath}`;
+      } else {
+        // iOS: save directly from the temp file returned by view-shot
+        saveUri = uri.startsWith('file://') ? uri : `file://${sourcePath}`;
+      }
+
+      await CameraRoll.save(saveUri, {
         type: 'photo',
         album: 'Valens',
       });
-      console.log('chcek rewch hreere3')
 
       showToastMessage(toast, 'success', 'QR saved to gallery ✅');
 
