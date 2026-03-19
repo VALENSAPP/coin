@@ -458,6 +458,7 @@ export default StyleSheet.create({
         alignItems: 'center',
         borderWidth: 2,
         borderColor: '#5B21B6',
+        marginBottom:'10%'
     },
     logoutButtonText: {
         fontSize: 16,
