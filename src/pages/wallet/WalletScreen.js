@@ -163,7 +163,10 @@ export default function WalletComponent() {
             const response = await getCreditsLeft();
             console.log('Credits Left Response:', response);
             if (response?.statusCode === 200) {
-                setCreditsLeft(response.data.hitLeft);
+                const hitLeftRaw = response?.data?.hitLeft;
+                const hitLeft = Number(hitLeftRaw);
+                const cappedHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
+                setCreditsLeft(cappedHitLeft);
                 setPostCounts(response.data.postCount);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
