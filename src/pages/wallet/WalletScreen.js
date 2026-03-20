@@ -60,6 +60,8 @@ export default function WalletComponent() {
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
     const { bgStyle, textStyle, text } = useAppTheme();
+    const MAX_CREDITS = 5;
+    const maxPurchasable = MAX_CREDITS - creditsLeft;
     const userVerificationStatus = useMemo(() => {
         const verified =
             userData?.kyc === true &&
@@ -82,6 +84,7 @@ export default function WalletComponent() {
         setProfile(type);
     }, []);
 
+    
     const fetchUserCreds = useCallback(async () => {
         const id = await AsyncStorage.getItem('userId');
         try {
@@ -422,30 +425,39 @@ export default function WalletComponent() {
         );
     };
 
-    const handleBuyCredits = () => {
-        if (profile === 'company') {
-            if (postCounts >= 7) {
-                showToastMessage(toast, 'danger', 'You already have maximum credits.');
-            } else {
-                if (creditsLeft >= 5) {
-                    showToastMessage(toast, 'danger', 'You already have maximum credits.');
-                } else {
-                    setShowCreditModal(true);
-                }
-            }
-        } else {
-            if (postCounts >= 5) {
-                showToastMessage(toast, 'danger', 'You already have maximum credits.');
-            } else {
-                if (creditsLeft >= 5) {
-                    showToastMessage(toast, 'danger', 'You already have maximum credits.');
-                } else {
-                    setShowCreditModal(true);
-                }
-            }
-        }
-    };
+    // const handleBuyCredits = () => {
+    //     if (profile === 'company') {
+    //         if (postCounts >= 7) {
+    //             showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //         } else {
+    //             if (creditsLeft >= 5) {
+    //                 showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //             } else {
+    //                 setShowCreditModal(true);
+    //             }
+    //         }
+    //     } else {
+    //         if (postCounts >= 5) {
+    //             showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //         } else {
+    //             if (creditsLeft >= 5) {
+    //                 showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //             } else {
+    //                 setShowCreditModal(true);
+    //             }
+    //         }
+    //     }
+    // };
+const handleBuyCredits = () => {
+    const safeCredits = Number(creditsLeft) || 0;
 
+    if (safeCredits >= MAX_CREDITS) {
+        showToastMessage(toast, 'danger', 'You already have maximum credits.');
+        return;
+    }
+
+    setShowCreditModal(true);
+};
     const Tab = createMaterialTopTabNavigator();
 
     return (
@@ -496,7 +508,7 @@ export default function WalletComponent() {
                             </View>
                         </View>
                         {String(profile || '').toLowerCase() !== 'company' && (
-                            <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}>
+                            <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}  disabled={creditsLeft >= 5}>
                                 <Text style={styles.buyCreditsText}>Buy Credits</Text>
                             </TouchableOpacity>
                         )}
@@ -621,6 +633,7 @@ export default function WalletComponent() {
                     setShowCreditModal(false);
                 }}
                 currentCredits={creditsLeft}
+                 maxPurchasable={MAX_CREDITS - creditsLeft} 
             />
         </SafeAreaView>
     );
