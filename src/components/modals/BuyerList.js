@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,20 @@ import {
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Feather from 'react-native-vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getUserCredentials } from '../../services/post';
+import { getAllUser } from '../../services/users';
 
 const normalizeString = (value) =>
   String(value ?? '')
     .trim()
     .toLowerCase();
+
+const normalizeUsername = (value) =>
+  String(value ?? '')
+    .trim()
+    .replace(/^@+/, '');
 
 export default function BuyersListModal({
   visible,
@@ -33,9 +41,120 @@ export default function BuyersListModal({
   showChevron = true,
 }) {
   const sheetRef = useRef(null);
+  const navigation = useNavigation();
   const { bgStyle, textStyle, cardStyle } = useAppTheme();
   const [query, setQuery] = useState('');
   const listUsers = users || buyers;
+  const usernameCacheRef = useRef(new Map());
+  const pendingUsernameRef = useRef(new Set());
+  const [, forceRefresh] = useState(0);
+
+  const resolveUserId = useCallback((item) => {
+    const idCandidate =
+      item?.id ??
+      item?.userId ??
+      item?.UserId ??
+      item?._id ??
+      item?.user?.id ??
+      item?.user?._id;
+
+    if (idCandidate === undefined || idCandidate === null) return null;
+    const asString = String(idCandidate).trim();
+    if (asString.startsWith('tagged-')) return null;
+    return asString ? asString : null;
+  }, []);
+
+  const resolveProfileUserIdFromUsername = useCallback(async (incomingUsername) => {
+    const cleanUsername = normalizeUsername(incomingUsername);
+    if (!cleanUsername) return null;
+
+    const cacheKey = cleanUsername.toLowerCase();
+    const cached = usernameCacheRef.current.get(cacheKey);
+    if (cached?.id) return String(cached.id);
+
+    try {
+      const response = await getAllUser({ userName: cleanUsername });
+      const usersPayload = response?.data?.users ?? [];
+      const exactMatch = usersPayload.find((candidateUser) =>
+        String(candidateUser?.userName || candidateUser?.username || '').toLowerCase() === cacheKey
+      );
+      const matchedUser = exactMatch || usersPayload[0];
+      const resolvedId = matchedUser?.id || matchedUser?._id || matchedUser?.userId || null;
+
+      if (resolvedId) {
+        usernameCacheRef.current.set(cacheKey, {
+          id: String(resolvedId),
+          username: matchedUser?.userName || matchedUser?.username || cleanUsername,
+          fullName: matchedUser?.fullName || matchedUser?.name || matchedUser?.displayName || '',
+          avatar: matchedUser?.image || matchedUser?.avatar || matchedUser?.userImage || null,
+        });
+        forceRefresh((tick) => tick + 1);
+      }
+
+      return resolvedId ? String(resolvedId) : null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const candidates = (listUsers || [])
+      .map((entry) => ({
+        id: resolveUserId(entry),
+        username: normalizeUsername(entry?.username),
+        avatar: entry?.avatar,
+        fullName: entry?.fullName,
+      }))
+      .filter((candidate) => !candidate.id && candidate.username && (!candidate.avatar || !candidate.fullName));
+
+    candidates.forEach(({ username }) => {
+      const key = username.toLowerCase();
+      if (usernameCacheRef.current.has(key) || pendingUsernameRef.current.has(key)) return;
+      pendingUsernameRef.current.add(key);
+
+      resolveProfileUserIdFromUsername(username)
+        .finally(() => {
+          pendingUsernameRef.current.delete(key);
+        });
+    });
+  }, [listUsers, resolveProfileUserIdFromUsername, resolveUserId, visible]);
+
+  const handleDefaultNavigateToProfile = useCallback(async (item) => {
+    const initialUserId = resolveUserId(item);
+    const resolvedUserId = initialUserId || await resolveProfileUserIdFromUsername(item?.username);
+    if (!resolvedUserId) return;
+
+    sheetRef.current?.close();
+    onClose?.();
+
+    let resolvedUser = item;
+    try {
+      const res = await getUserCredentials(String(resolvedUserId));
+      resolvedUser = res?.data?.user || res?.data?.data?.user || res?.data || item;
+    } catch (e) {
+      resolvedUser = item;
+    }
+
+    const cacheKey = normalizeUsername(item?.username || resolvedUser?.userName || resolvedUser?.username);
+    if (cacheKey) {
+      usernameCacheRef.current.set(cacheKey.toLowerCase(), {
+        id: String(resolvedUserId),
+        username: resolvedUser?.userName || resolvedUser?.username || cacheKey,
+        fullName: resolvedUser?.fullName || resolvedUser?.name || resolvedUser?.displayName || '',
+        avatar: resolvedUser?.image || resolvedUser?.avatar || resolvedUser?.userImage || null,
+      });
+      forceRefresh((tick) => tick + 1);
+    }
+
+    setTimeout(() => {
+      navigation.navigate('UsersProfile', {
+        userId: String(resolvedUserId),
+        user: resolvedUser,
+      });
+    }, 150);
+  }, [navigation, onClose, resolveProfileUserIdFromUsername, resolveUserId]);
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
@@ -60,17 +179,28 @@ export default function BuyersListModal({
   }, [enableSearch, listUsers, query]);
 
   const renderItem = ({ item }) => {
-    const username = item?.username || '—';
-    const fullName = item?.fullName || '';
-    const avatarUri = item?.avatar;
-    const canPress = !!onUserPress && !!(item?.id || item?.username);
+    const cleanUsername = normalizeUsername(item?.username);
+    const cached = cleanUsername ? usernameCacheRef.current.get(cleanUsername.toLowerCase()) : null;
+    const enrichedItem = cached ? { ...item, ...cached } : item;
+
+    const username = enrichedItem?.username || '—';
+    const fullName = enrichedItem?.fullName || '';
+    const avatarUri = enrichedItem?.avatar;
+    const userId = resolveUserId(enrichedItem);
+    const canPress = onUserPress
+      ? !!(enrichedItem?.id || enrichedItem?.username || userId)
+      : !!(userId || cleanUsername);
 
     return (
       <Pressable
         style={({ pressed }) => [styles.row, canPress && pressed && styles.rowPressed]}
         onPress={() => {
           if (!canPress) return;
-          onUserPress(item?.id || item?.username, item);
+          if (onUserPress) {
+            onUserPress(enrichedItem?.id || enrichedItem?.username || userId, enrichedItem);
+            return;
+          }
+          handleDefaultNavigateToProfile(enrichedItem);
         }}
         disabled={!canPress}
       >

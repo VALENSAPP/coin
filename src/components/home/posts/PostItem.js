@@ -326,7 +326,7 @@ function PostItem({
               username: person,
             };
           }
-
+console.log(taggedUsers,'tagged user' )
           return {
             id: person?.id || `tagged-${index}`,
             username: person?.username || person?.userName || 'Unknown User',

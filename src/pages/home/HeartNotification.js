@@ -245,17 +245,57 @@ export default function Notifications() {
     setPopupVisible(true);
   };
 
+  const splitNotificationMessage = useCallback((message) => {
+    const safeMessage = String(message || '');
+    const actionRegex =
+      /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started|buy(?:ing|s)?|bought|purchase(?:d|s|ing)?|subscribe(?:d|s|ing)?|subscribed)\b/i;
+
+    const match = safeMessage.match(actionRegex);
+    const splitIndex = match?.index ?? -1;
+    const usernameText = splitIndex > 0 ? safeMessage.slice(0, splitIndex).trimEnd() : '';
+    const restText = splitIndex >= 0 ? safeMessage.slice(splitIndex).trimStart() : safeMessage;
+
+    return { usernameText, restText };
+  }, []);
+
   const getNotificationTargetUserId = useCallback((notification) => {
-    const type = notification?.raw?.data?.type ?? notification?.type;
-    if (isFollowType(type)) {
-      return (
-        notification?.raw?.data?.followerId ||
-        notification?.raw?.data?.userId ||
-        notification?.raw?.data?.actorId ||
-        null
-      );
-    }
-    return null;
+    const data = notification?.raw?.data ?? {};
+
+    const directCandidates = [
+      data.followerId,
+      data.followedById,
+      data.followingId,
+      data.unfollowerId,
+      data.unfollowedById,
+      data.fromUserId,
+      data.senderId,
+      data.actorId,
+      data.initiatorId,
+      data.byUserId,
+      data.buyerId,
+      data.purchasedById,
+      data.payerId,
+      data.subscriberId,
+      data.subscriberUserId,
+      data.subscribedById,
+      data.subscribedUserId,
+      data.fanId,
+      data.fanUserId,
+      data.customerId,
+    ];
+
+    const direct = directCandidates.find(Boolean);
+    if (direct) return direct;
+
+    return (
+      data.user?.id ||
+      data.sender?.id ||
+      data.actor?.id ||
+      data.fromUser?.id ||
+      notification?.raw?.userId ||
+      notification?.raw?.senderId ||
+      null
+    );
   }, []);
 
   const navigateToPost = useCallback((notification) => {
@@ -382,11 +422,7 @@ export default function Notifications() {
   const renderPopup = () => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
     const message = SelectedNotification?.message ?? '';
-    const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started)\b/i;
-    const followMatch = message.match(followRegex);
-    const splitIndex = followMatch?.index ?? -1;
-    const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
-    const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
+    const { usernameText, restText } = splitNotificationMessage(message);
     return (
       <Modal
         visible={popupVisible}
@@ -400,22 +436,23 @@ export default function Notifications() {
             <View style={styles.popupBell}>
               <Text style={styles.popupBellIcon}>🔔</Text>
             </View>
-            <TouchableOpacity
-              activeOpacity={targetUserId ? 0.7 : 1}
-              disabled={!targetUserId}
-              onPress={handlePopupNavigateToProfile}
-              style={styles.popupTextContainer}
-            >
+            <View style={styles.popupTextContainer}>
               <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
               <Text style={[styles.popupMessage, { color: text }]}>
-                {!!beforeFollowText && (
-                  <Text style={styles.popupMessageHighlight}>
-                    {`${beforeFollowText} `}
+                {!!usernameText && (targetUserId ? (
+                  <Text
+                    suppressHighlighting
+                    style={styles.popupMessageHighlight}
+                    onPress={handlePopupNavigateToProfile}
+                  >
+                    {`${usernameText} `}
                   </Text>
-                )}
-                <Text>{afterFollowText}</Text>
+                ) : (
+                  <Text>{`${usernameText} `}</Text>
+                ))}
+                <Text>{restText}</Text>
               </Text>
-            </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.popupCloseButton}
@@ -432,11 +469,7 @@ export default function Notifications() {
   const renderTabContent = (tabData, tabKey) => {
     const renderItem = ({ item, index }) => {
       const message = item.message || '';
-      const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started)\b/i;
-      const followMatch = message.match(followRegex);
-      const splitIndex = followMatch?.index ?? -1;
-      const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
-      const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
+      const { usernameText, restText } = splitNotificationMessage(message);
 
       const handlePress = () => {
         markAsRead(item.id);
@@ -473,12 +506,12 @@ export default function Notifications() {
               <View style={styles.textContent}>
                 <Text style={styles.notificationTitle}>{item.title}</Text>
                 <Text style={styles.notificationMessage}>
-                  {!!beforeFollowText && (
+                  {!!usernameText && (
                     <Text style={styles.notificationMessageHighlight}>
-                      {`${beforeFollowText} `}
+                      {`${usernameText} `}
                     </Text>
                   )}
-                  <Text>{afterFollowText}</Text>
+                  <Text>{restText}</Text>
                 </Text>
                 <Text style={styles.timeText}>{item.time}</Text>
               </View>
@@ -491,7 +524,7 @@ export default function Notifications() {
               {item.price && (
                 <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
               )}
-              {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />}
+              {/* {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />} */}
             </View>
           </View>
 
@@ -769,10 +802,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 6,
   },
-  notificationMessageHighlight: {
-    textDecorationLine: 'underline',
-    textDecorationColor: '#3c0fdd',
-  },
+  // notificationMessageHighlight: {
+  //   color: '#3c0fdd',
+  //   fontWeight: '700',
+  // },
   timeText: {
     fontSize: 11,
     color: '#555555',
@@ -872,6 +905,8 @@ const styles = StyleSheet.create({
   popupMessageHighlight: {
     textDecorationLine: 'underline',
     textDecorationColor: '#3c0fdd',
+    color: '#3c0fdd',
+    fontWeight: '700',
   },
   popupCloseButton: {
     backgroundColor: '#5a2d82',
