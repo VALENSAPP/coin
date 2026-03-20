@@ -22,6 +22,7 @@ import data from '../../list.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme/useApptheme';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
+import { logout } from '../../services/authentication';
 import {
   ADDING_ACCOUNT_FLAG_KEY,
   applyAccountSession,
@@ -312,6 +313,13 @@ const Settings = () => {
         onPress: () => {
           (async () => {
             dispatch(setUserProfile('normal'));
+            try {
+              const token = await AsyncStorage.getItem('token');
+              const refreshToken = await AsyncStorage.getItem('refreshToken');
+              await logout({ token, refreshToken });
+            } catch (e) {
+              // Ignore logout API failure; proceed with local logout.
+            }
             const currentUserId = await AsyncStorage.getItem('userId');
             if (currentUserId) {
               await removeSavedAccount(currentUserId);
@@ -350,6 +358,13 @@ const Settings = () => {
           onPress: () => {
             (async () => {
               dispatch(setUserProfile('normal'));
+              try {
+                const token = await AsyncStorage.getItem('token');
+                const refreshToken = await AsyncStorage.getItem('refreshToken');
+                await logout({ token, refreshToken });
+              } catch (e) {
+                // Ignore logout API failure; proceed with local logout.
+              }
               await AsyncStorage.setItem('isLoggedIn', 'false');
               await AsyncStorage.removeItem('token');
               await AsyncStorage.removeItem('refreshToken');
