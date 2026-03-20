@@ -1551,7 +1551,12 @@ const UserChat = ({ route, navigation }) => {
           ]}
         >
           {!isUser && (
-            <View style={styles.botAvatar}>
+            <TouchableOpacity
+              style={styles.botAvatar}
+              activeOpacity={0.7}
+              onPress={handleNavigateToProfile}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Image
                 source={
                   item.senderInfo?.image || user?.image
@@ -1561,7 +1566,7 @@ const UserChat = ({ route, navigation }) => {
                 style={styles.avatarImage}
                 defaultSource={require('../../../assets/icons/pngicons/user.png')}
               />
-            </View>
+            </TouchableOpacity>
           )}
 
           <View style={styles.messageContent}>
@@ -2308,7 +2313,12 @@ const UserChat = ({ route, navigation }) => {
               ]}>
                 {/* Header row inside card */}
                 <View style={styles.chatHeaderRow}>
-                  <View style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}>
+                  <TouchableOpacity
+                    onPress={handleNavigateToProfile}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}
+                  >
                     <View style={styles.profileGradient}>
                       <Image
                         source={user?.image ? { uri: user.image } : DEFAULT_AVATAR}
@@ -2316,7 +2326,7 @@ const UserChat = ({ route, navigation }) => {
                         defaultSource={DEFAULT_AVATAR}
                       />
                     </View>
-                  </View>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={{ flex: 1 }}
                     onPress={handleNavigateToProfile}
