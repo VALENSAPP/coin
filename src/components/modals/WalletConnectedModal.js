@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -30,6 +31,7 @@ const WalletConnectedModal = ({
       visible={visible}
       animationType="fade"
       onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: card }]}>

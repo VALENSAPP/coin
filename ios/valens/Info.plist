@@ -48,6 +48,9 @@
 		<string>google-authenticator</string>
 		<string>msauth</string>
 		<string>otpauth</string>
+		<string>metamask</string>
+		<string>cbwallet</string>
+		<string>wc</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
