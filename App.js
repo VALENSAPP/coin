@@ -8,6 +8,7 @@ import Loader from './src/utils/loader';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { StyleSheet } from 'react-native';
+import { WalletConnectSupportProvider } from './src/context/WalletConnectSupportContext';
 
 const App = () => {
   return (
@@ -23,11 +24,13 @@ const App = () => {
         dangerColor="red"
         warningColor="orange"
       >
-        <Provider store={store}>
-          <Loader>
-            <Main />
-          </Loader>
-        </Provider>
+        <WalletConnectSupportProvider>
+          <Provider store={store}>
+            <Loader>
+              <Main />
+            </Loader>
+          </Provider>
+        </WalletConnectSupportProvider>
       </ToastProvider>
     </SafeAreaProvider>
     </StripeProvider>

@@ -20,19 +20,12 @@ import {
 } from '../../services/profile';
 import { follow, unfollow, getUserCredentials } from '../../services/post';
 import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
-import WalletSelectionModal from '../../components/modals/WalletSelectionModal';
-import WalletConnectedModal from '../../components/modals/WalletConnectedModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
-import { useDispatch } from 'react-redux';
-import { connectWalletLogin } from '../authentication/socialLogin';
-import { updateWallet } from '../../services/wallet';
-import {
-  getSupportRecipientWalletAddress,
-  handleMetaMaskSupportFlow,
-  openWalletPayment,
-} from '../../utils/metaMaskSupport';
+import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
+import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
+import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
@@ -60,20 +53,20 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [walletAddress, setWalletAddress] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
-  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
-  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
-  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
   const [selectedSupportUser, setSelectedSupportUser] = useState(null);
+  const [selfProfileType, setSelfProfileType] = useState('user');
   const toast = useToast();
-  const dispatch = useDispatch();
+  const { startSupportPayment } = useWalletConnectSupport();
   const { bgStyle, textStyle, text } = useAppTheme();
 
   useEffect(() => {
     (async () => {
       const id = await AsyncStorage.getItem('userId');
       const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
+      const storedProfile = await AsyncStorage.getItem('profile');
       setSelfUserId(id ? String(id) : null);
       setWalletAddress(storedWalletAddress || '');
+      setSelfProfileType(normalizeProfileType(storedProfile || 'user'));
     })();
   }, []);
 
@@ -209,11 +202,8 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         updateFollowState(user.id, resolvedFollowing);
 
         if (resolvedFollowing && shouldFollow) {
-          const recipientWalletAddress = getSupportRecipientWalletAddress(user);
-          if (recipientWalletAddress) {
-            setSelectedSupportUser({ ...user, isFollowing: true });
-            setSupportModalVisible(true);
-          }
+          setSelectedSupportUser({ ...user, isFollowing: true });
+          setSupportModalVisible(true);
         }
       } catch (e) {
         showToastMessage(
@@ -236,62 +226,31 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const canSupport = !!recipientWalletAddress;
 
   const handleOpenSupportDisclaimer = useCallback(() => {
+    const supporterProfile = selfProfileType;
+    const recipientProfile = normalizeProfileType(selectedSupportUser?.profile);
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        'Support unavailable',
+        'Tips are not available for business profiles.',
+      );
+      setSupportModalVisible(false);
+      return;
+    }
     setSupportModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, []);
-
-  const handleWalletSelect = useCallback(async (wallet) => {
-    setWalletSelectionVisible(false);
-
-    try {
-      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
-        returnAddressOnly: true,
-        walletType: wallet.id,
-      });
-
-      if (connectedAddress) {
-        await AsyncStorage.setItem('walletAddress', connectedAddress);
-        await AsyncStorage.setItem('walletType', wallet.id);
-        setWalletAddress(connectedAddress);
-        try {
-          await updateWallet({ walletAddress: connectedAddress });
-        } catch (walletUpdateError) {
-          console.error('Wallet update API error:', walletUpdateError);
-        }
-
-        setConnectedWalletInfo({
-          name: wallet.name,
-          address: connectedAddress,
-        });
-        setWalletConnectedModalVisible(true);
-      }
-    } catch (error) {
-      console.error('Wallet connection error:', error);
-      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
-    }
-  }, [toast, navigation, dispatch]);
-
-  const handleWalletConnectedContinue = useCallback(async () => {
-    setWalletConnectedModalVisible(false);
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
-  }, [recipientWalletAddress]);
+  }, [selfProfileType, selectedSupportUser?.profile]);
 
   const handleSupportNow = useCallback(async () => {
-    if (!canSupport) return;
+    if (!canSupport) {
+      Alert.alert(
+        'Wallet not connected',
+        'This user has not connected a wallet yet. Follow is still active.',
+      );
+      return;
+    }
     setSupportDisclaimerVisible(false);
-    await handleMetaMaskSupportFlow({
-      recipientWalletAddress,
-      walletAddress,
-      setWalletAddress,
-      toast,
-      navigation,
-      dispatch,
-      onShowWalletSelection: () => setWalletSelectionVisible(true),
-    });
-  }, [canSupport, recipientWalletAddress, walletAddress, toast, navigation, dispatch]);
+    await startSupportPayment(recipientWalletAddress);
+  }, [canSupport, recipientWalletAddress, startSupportPayment]);
 
   const filteredFollowers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -491,19 +450,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
-      <WalletSelectionModal
-        visible={walletSelectionVisible}
-        onClose={() => setWalletSelectionVisible(false)}
-        onSelectWallet={handleWalletSelect}
-      />
-      <WalletConnectedModal
-        visible={walletConnectedModalVisible}
-        onClose={() => setWalletConnectedModalVisible(false)}
-        walletName={connectedWalletInfo.name}
-        walletAddress={connectedWalletInfo.address}
-        onContinue={handleWalletConnectedContinue}
-      />
-
     </SafeAreaView>
   );
 }
