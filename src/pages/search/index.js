@@ -14,6 +14,7 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
@@ -29,6 +30,8 @@ import styles from './Style';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
+import BattleExploreTabs from '../../components/battles/BattleExploreTabs';
+import LiveBattleBadge from '../../components/battles/LiveBattleBadge';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -126,6 +129,7 @@ const SearchScreen = () => {
   const [donationTotals, setDonationTotals] = useState({});
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [activeExploreTab, setActiveExploreTab] = useState('battles');
 
   const searchTimeoutRef = useRef(null);
   const autoplayTimeoutRef = useRef(null);
@@ -364,12 +368,17 @@ const SearchScreen = () => {
         return;
       }
 
+      const derivedBattleLive =
+        Boolean(user?.battleLive || user?.isBattleLive) ||
+        (Number(String(targetId).slice(-1)) % 3 === 0);
+
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',   
         params: {
           userId: String(targetId),
           username: user?.userName || user?.username || '',
           returnTo: route?.name,   
+          battleLive: derivedBattleLive,
         },
       });
     },
@@ -668,6 +677,24 @@ const SearchScreen = () => {
     );
   }, []);
 
+  const exploreTabs = useMemo(
+    () => [
+      { key: 'battles', label: 'Trending Battles' },
+      { key: 'bettors', label: 'Trending Bettors' },
+      { key: 'results', label: 'Trending Results' },
+    ],
+    [],
+  );
+
+  const dummyLiveBattles = useMemo(
+    () => [
+      { id: '1', userName: 'alexcarter', name: 'Alex Carter', battleLive: true },
+      { id: '2', userName: 'maria', name: 'Maria', battleLive: true },
+      { id: '3', userName: 'john', name: 'John', battleLive: true },
+    ],
+    [],
+  );
+
   return (
     <>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -689,13 +716,58 @@ const SearchScreen = () => {
                 <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             )}
-          </View>
+           </View>
 
-          {searchText.trim().length > 0 ? (
-            <View style={styles.resultsContainer}>
-              {isSearching ? (
-                renderLoadingState()
-              ) : filteredUsers.length > 0 ? (
+           {!isSearchActive && (
+             <View>
+               <BattleExploreTabs
+                 tabs={exploreTabs}
+                 activeKey={activeExploreTab}
+                 onChange={setActiveExploreTab}
+                 highlightKey="battles"
+               />
+
+               {activeExploreTab === 'battles' && (
+                 <ScrollView
+                   horizontal
+                   showsHorizontalScrollIndicator={false}
+                   contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 8, gap: 10 }}
+                 >
+                   {dummyLiveBattles.map((user) => (
+                     <TouchableOpacity
+                       key={user.id}
+                       activeOpacity={0.85}
+                      //  onPress={() => handleUserProfile(user)}
+                       style={{
+                         width: 140,
+                         borderRadius: 14,
+                         backgroundColor: '#fff',
+                         borderWidth: 1,
+                         borderColor: '#E5E7EB',
+                         padding: 10,
+                       }}
+                     >
+                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                         <Text style={{ fontWeight: '900', color: '#111827' }} numberOfLines={1}>
+                           @{user.userName}
+                         </Text>
+                         <LiveBattleBadge size={20} />
+                       </View>
+                       <Text style={{ marginTop: 6, color: '#6B7280', fontWeight: '700', fontSize: 12 }} numberOfLines={2}>
+                         Live battle now — tap to participate
+                       </Text>
+                     </TouchableOpacity>
+                   ))}
+                 </ScrollView>
+               )}
+             </View>
+           )}
+
+           {searchText.trim().length > 0 ? (
+             <View style={styles.resultsContainer}>
+               {isSearching ? (
+                 renderLoadingState()
+               ) : filteredUsers.length > 0 ? (
                 <FlatList
                   data={filteredUsers}
                   keyExtractor={(item, idx) => String(item.id ?? idx)}

@@ -63,6 +63,7 @@ import { useAppTheme } from '../theme/useApptheme';
 import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 import { DeviceEventEmitter } from 'react-native';
 import PaymentScreen from '../pages/Stripe/PaymentScreen';
+import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
 
 
 
@@ -95,6 +96,7 @@ export default function MainTabNavigator() {
         <Stack.Screen name="UserChat" component={UserChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
         <Stack.Screen name="EditPost" component={EditPostScreen} />
+        {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
       </Stack.Navigator>
     );
   }, []);
@@ -127,6 +129,7 @@ export default function MainTabNavigator() {
           animation: 'slide_from_bottom', // Optional: adds nice animation
         }} />
         <Stack.Screen name="TermConditionScreen" component={TermConditionScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }, []);

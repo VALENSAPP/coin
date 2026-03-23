@@ -649,6 +649,10 @@ const ProfilePersonData = ({
     }
   };
 
+  const handleOpenBattlePress = useCallback(() => {
+    navigation.navigate('OpenBattle');
+  }, [navigation]);
+
   const redirect = () => {
     const source = data?.id ? data : userData?.id ? userData : null;
 
@@ -1025,7 +1029,7 @@ const ProfilePersonData = ({
                   <TouchableOpacity
                     onPress={() =>
                       navigation.navigate('Invite', {
-                        referralCode: userData?.referCode ||'Valense123',
+                        referralCode: userData?.referCode || 'Valense123',
                         avatar: Userdata.profilePic,
                       })
                     }
@@ -1095,6 +1099,33 @@ const ProfilePersonData = ({
           )}
 
         </View>
+        {!fromUsersProfile && (
+
+
+          <View style={styles.battleActionWrapper}>
+            <TouchableOpacity style={{ flex: 1 }}>
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Invite to Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={{ flex: 1 }} onPress={handleOpenBattlePress}>
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Open Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Stats */}
         <View style={styles.statsRow}>
@@ -1406,5 +1437,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+  },
+  battleActionWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    // marginHorizontal: 15,
+    marginTop: 10,
+  },
+
+  battleBtn: {
+    flex: 1,
+    // backgroundColor: '#6A5AE0',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+
+  battleBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
