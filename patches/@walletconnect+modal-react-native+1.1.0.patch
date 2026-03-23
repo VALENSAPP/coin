@@ -1,0 +1,53 @@
+diff --git a/node_modules/@walletconnect/modal-react-native/src/controllers/ModalCtrl.ts b/node_modules/@walletconnect/modal-react-native/src/controllers/ModalCtrl.ts
+index e9308e9..929c4cc 100644
+--- a/node_modules/@walletconnect/modal-react-native/src/controllers/ModalCtrl.ts
++++ b/node_modules/@walletconnect/modal-react-native/src/controllers/ModalCtrl.ts
+@@ -42,7 +42,8 @@ export const ModalCtrl = {
+       WcConnectionCtrl.setPairingEnabled(true);
+ 
+       if (isConnected) {
+-        // If already connected, do nothing
++        // If already connected, resolve so callers awaiting open() do not hang
++        resolve();
+         return;
+       } else if (options?.route) {
+         RouterCtrl.replace(options.route);
+diff --git a/node_modules/@walletconnect/modal-react-native/src/hooks/useConfigure.ts b/node_modules/@walletconnect/modal-react-native/src/hooks/useConfigure.ts
+index 5a567c1..a4ef96a 100644
+--- a/node_modules/@walletconnect/modal-react-native/src/hooks/useConfigure.ts
++++ b/node_modules/@walletconnect/modal-react-native/src/hooks/useConfigure.ts
+@@ -77,10 +77,13 @@ export function useConfigure(config: Props) {
+       try {
+         if (!ApiCtrl.state.recommended.length) {
+           await ApiCtrl.prefetch();
+-          OptionsCtrl.setIsDataLoaded(true);
+         }
+       } catch (error) {
+         ToastCtrl.openToast('Network error', 'error');
++      } finally {
++        // Required for ModalCtrl.open(): otherwise open() waits forever when prefetch fails
++        // or when recommended list was already populated (e.g. Fast Refresh).
++        OptionsCtrl.setIsDataLoaded(true);
+       }
+     }
+     fetchWallets();
+diff --git a/node_modules/@walletconnect/modal-react-native/src/modal/wcm-modal/index.tsx b/node_modules/@walletconnect/modal-react-native/src/modal/wcm-modal/index.tsx
+index 65c287b..f06bc3d 100644
+--- a/node_modules/@walletconnect/modal-react-native/src/modal/wcm-modal/index.tsx
++++ b/node_modules/@walletconnect/modal-react-native/src/modal/wcm-modal/index.tsx
+@@ -1,4 +1,4 @@
+-import { StyleSheet } from 'react-native';
++import { Platform, StyleSheet } from 'react-native';
+ import Modal from 'react-native-modal';
+ import { useSnapshot } from 'valtio';
+ 
+@@ -44,6 +44,9 @@ export function WalletConnectModal(config: Props) {
+       onBackButtonPress={onBackButtonPress}
+       useNativeDriver
+       statusBarTranslucent
++      presentationStyle={
++        Platform.OS === 'ios' ? 'overFullScreen' : undefined
++      }
+     >
+       <ModalBackcard onClose={ModalCtrl.close} />
+       <ModalRouter onCopyClipboard={config.onCopyClipboard} />
