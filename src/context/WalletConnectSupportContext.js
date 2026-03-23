@@ -13,6 +13,7 @@ import {
   useWalletConnectModal,
 } from '@walletconnect/modal-react-native';
 import ConfigUtils from '../utils/walletConnectModalConfig';
+import { Platform } from 'react-native';
 import { RequestModal } from '../components/modals/RequestModal';
 import { showToastMessage } from '../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -67,10 +68,14 @@ function WalletConnectSupportInner({ children }) {
   modalSnapshotRef.current = { isConnected, provider, address };
 
   /** Calls Reown `open()` — this shows the “Connect your wallet” modal. Logs to Metro. */
-  const openWalletConnectModal = useCallback(() => {
+  const openWalletConnectModal = useCallback(async () => {
     console.log(LOG, 'open() invoked → WalletConnect modal should open');
+    // iOS: let any in-flight modal animations finish so WC modal is not blocked by another RN modal.
+    if (Platform.OS === 'ios') {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
     const result = open();
-    if (result != null && typeof (result).then === 'function') {
+    if (result != null && typeof result.then === 'function') {
       result.catch((e) => console.warn(LOG, 'open() rejected', e));
     }
     return result;
@@ -173,7 +178,6 @@ function WalletConnectSupportInner({ children }) {
 
       setRpcResponse(null);
       setLoading(true);
-      setRequestModalVisible(true);
 
       try {
         const snap = modalSnapshotRef.current;
@@ -183,10 +187,20 @@ function WalletConnectSupportInner({ children }) {
           address: snap.address ?? null,
         });
 
-        if (!snap.isConnected || !snap.provider?.request) {
+        const needsWalletPicker =
+          !snap.isConnected || !snap.provider?.request;
+
+        // Do not show RequestModal until after the wallet picker on iOS: two modals at once
+        // prevents the Reown / WalletConnect “select wallet” UI from appearing.
+        if (!needsWalletPicker) {
+          setRequestModalVisible(true);
+        }
+
+        if (needsWalletPicker) {
           console.log(LOG, 'calling openWalletConnectModal() — user should see WC modal');
           await openWalletConnectModal();
           await waitForConnection();
+          setRequestModalVisible(true);
         } else {
           console.log(LOG, 'already connected, skipping open()');
         }
