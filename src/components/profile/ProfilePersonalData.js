@@ -11,8 +11,6 @@ import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
 import SupportCreatorModal from '../modals/SupportCreatorModal';
 import WelcomeValensModal from '../modals/WelcomeValensModal';
-import WalletSelectionModal from '../modals/WalletSelectionModal';
-import WalletConnectedModal from '../modals/WalletConnectedModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
@@ -25,9 +23,8 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getSupportRecipientWalletAddress, openWalletPayment } from '../../utils/metaMaskSupport';
-import { connectWalletLogin } from '../../pages/authentication/socialLogin';
-import { updateWallet } from '../../services/wallet';
+import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
+import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
@@ -94,12 +91,9 @@ const ProfilePersonData = ({
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
-  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
-  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
-  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
-  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { startSupportPayment } = useWalletConnectSupport();
   const effectiveProfileType = profileType || userData?.profile;
   const normalizedProfileThemeType =
     typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
@@ -467,97 +461,31 @@ const ProfilePersonData = ({
   );
   const canSupport = !!recipientWalletAddress;
 
-  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
-    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
-
-    if (!currentWalletAddress) {
-      if (openSupportModalOnSuccess) {
-        setPendingSupportPromptAfterWalletConnect(true);
-      }
-      setWalletSelectionVisible(true);
-      return false;
-    }
-
-    if (currentWalletAddress !== walletAddress) {
-      setWalletAddress(currentWalletAddress);
-    }
-
-    if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-      setPendingSupportPromptAfterWalletConnect(false);
-      return false;
-    }
-
-    return true;
-  }, [walletAddress, canSupport]);
-
-  const handleWalletSelect = useCallback(async (wallet) => {
-    setWalletSelectionVisible(false);
-
-    try {
-      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
-        returnAddressOnly: true,
-        walletType: wallet.id,
-      });
-
-      if (connectedAddress) {
-        await AsyncStorage.setItem('walletAddress', connectedAddress);
-        await AsyncStorage.setItem('walletType', wallet.id);
-        setWalletAddress(connectedAddress);
-        try {
-          await updateWallet({ walletAddress: connectedAddress });
-        } catch (walletUpdateError) {
-          console.error('Wallet update API error:', walletUpdateError);
-        }
-
-        if (pendingSupportPromptAfterWalletConnect) {
-          setPendingSupportPromptAfterWalletConnect(false);
-          if (!canSupport) {
-            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-            return;
-          }
-          setSupportModalVisible(true);
-          return;
-        }
-
-        setConnectedWalletInfo({
-          name: wallet.name,
-          address: connectedAddress,
-        });
-        setWalletConnectedModalVisible(true);
-      }
-    } catch (error) {
-      console.error('Wallet connection error:', error);
-      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
-    }
-  }, [toast, navigation, dispatch, pendingSupportPromptAfterWalletConnect, canSupport]);
-
-  const handleWalletConnectedContinue = useCallback(async () => {
-    setWalletConnectedModalVisible(false);
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-
-    // Open payment flow with the connected wallet
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
-  }, [recipientWalletAddress]);
-
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
       Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
       return;
     }
     setSupportDisclaimerVisible(false);
-    const ready = await ensureSupportFlowReady();
-    if (!ready) return;
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
-  }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
+    await startSupportPayment(recipientWalletAddress);
+  }, [canSupport, recipientWalletAddress, startSupportPayment]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
+    const supporterProfile = isBusinessProfile ? 'company' : 'user';
+    const recipientProfile = normalizeProfileType(
+      effectiveProfileType || userProfile || userData?.profile,
+    );
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        'Support unavailable',
+        'Tips are not available for business profiles.',
+      );
+      setSupportModalVisible(false);
+      return;
+    }
     setSupportModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, []);
+  }, [isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
 
   const handleFollowButtonPress = useCallback(async () => {
     const shouldFollow = !isFollowing;
@@ -566,14 +494,8 @@ const ProfilePersonData = ({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    const supporterProfile = isBusinessProfile ? 'company' : 'user';
-    const recipientProfile = normalizeProfileType(effectiveProfileType || userProfile || userData?.profile);
-
-    // Only show support/wallet flow when support is allowed by platform rules.
-    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
-      setSupportModalVisible(true);
-    }
-  }, [isFollowing, executeFollowAction, onToggleFollow, isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
+    setSupportModalVisible(true);
+  }, [isFollowing, executeFollowAction, onToggleFollow]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1211,18 +1133,6 @@ const ProfilePersonData = ({
             [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
           ]);
         }}
-      />
-      <WalletSelectionModal
-        visible={walletSelectionVisible}
-        onClose={() => setWalletSelectionVisible(false)}
-        onSelectWallet={handleWalletSelect}
-      />
-      <WalletConnectedModal
-        visible={walletConnectedModalVisible}
-        onClose={() => setWalletConnectedModalVisible(false)}
-        walletName={connectedWalletInfo.name}
-        walletAddress={connectedWalletInfo.address}
-        onContinue={handleWalletConnectedContinue}
       />
     </View>
   );

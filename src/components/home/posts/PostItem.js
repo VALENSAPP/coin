@@ -18,13 +18,10 @@ import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
 import FastImage from 'react-native-fast-image'
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
-import WalletSelectionModal from '../../modals/WalletSelectionModal';
-import WalletConnectedModal from '../../modals/WalletConnectedModal';
-import { getSupportRecipientWalletAddress, openWalletPayment } from '../../../utils/metaMaskSupport';
-import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
+import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
+import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
-import { updateWallet } from '../../../services/wallet';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 
 const { width } = Dimensions.get('window');
@@ -276,11 +273,7 @@ function PostItem({
   const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
-  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
-  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
-  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
-  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -290,6 +283,7 @@ function PostItem({
   const shareRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { startSupportPayment } = useWalletConnectSupport();
   const { text } = useAppTheme();
   const isMountedRef = useRef(true);
   const route = useRoute();
@@ -497,7 +491,7 @@ console.log(taggedUsers,'tagged user' )
     }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched])
   );
 
-  // Listen for app state changes to restore userId when returning from MetaMask
+  // Listen for app state changes to restore userId when returning from an external wallet app
   // useEffect(() => {
   //   const subscription = AppState.addEventListener('change', (nextAppState) => {
   //     if (nextAppState === 'active') {
@@ -534,72 +528,17 @@ console.log(taggedUsers,'tagged user' )
   );
   const canSupport = !!creatorWalletAddress;
 
-  const ensureSupportFlowReady = useCallback(async () => {
-    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
-
-    if (!currentWalletAddress) {
-      setPendingSupportPromptAfterWalletConnect(true);
-      setWalletSelectionVisible(true);
-      return false;
-    }
-
-    if (currentWalletAddress !== walletAddress) {
-      setWalletAddress(currentWalletAddress);
-    }
-
-    return true;
-  }, [walletAddress]);
-  const handleWalletSelect = useCallback(async (wallet) => {
-    setWalletSelectionVisible(false);
-
-    try {
-      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
-        returnAddressOnly: true,
-        walletType: wallet.id,
-      });
-      console.log(connectedAddress, 'chcek connected waalete adress heree');
-
-
-      if (connectedAddress) {
-        await AsyncStorage.setItem('walletAddress', connectedAddress);
-        await AsyncStorage.setItem('walletType', wallet.id);
-        setWalletAddress(connectedAddress);
-        try {
-          await updateWallet({ walletAddress: connectedAddress });
-        } catch (walletUpdateError) {
-          console.error('Wallet update API error:', walletUpdateError);
-        }
-
-        if (pendingSupportPromptAfterWalletConnect) {
-          setPendingSupportPromptAfterWalletConnect(false);
-          if (!canSupport) {
-            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-            return;
-          }
-          setModalVisible(true);
-          return;
-        }
-
-        setConnectedWalletInfo({
-          name: wallet.name,
-          address: connectedAddress,
-        });
-        setWalletConnectedModalVisible(true);
-      }
-    } catch (error) {
-      console.error('Wallet connection error:', error);
-      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
-    }
-  }, [toast, navigation, dispatch, pendingSupportPromptAfterWalletConnect, canSupport]);
-
-  const handleWalletConnectedContinue = useCallback(async () => {
-    setWalletConnectedModalVisible(false);
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-
-    // Open payment flow with the connected wallet
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
-  }, [recipientWalletAddress]);
+  const supporterProfile = useMemo(
+    () =>
+      typeof isBusinessProfile === 'boolean'
+        ? (isBusinessProfile ? 'company' : 'user')
+        : currentUserProfileType,
+    [isBusinessProfile, currentUserProfileType],
+  );
+  const recipientProfile = useMemo(
+    () => normalizeProfileType(userProfile || item?.profile),
+    [userProfile, item?.profile],
+  );
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
@@ -607,18 +546,21 @@ console.log(taggedUsers,'tagged user' )
       return;
     }
     setSupportDisclaimerVisible(false);
-    const ready = await ensureSupportFlowReady();
-    if (!ready) return;
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
-  }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
+    await startSupportPayment(recipientWalletAddress);
+  }, [canSupport, recipientWalletAddress, startSupportPayment]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        'Support unavailable',
+        'Tips are not available for business profiles.',
+      );
+      setModalVisible(false);
+      return;
+    }
     setModalVisible(false);
-    // ✅ Always show disclaimer next — wallet check happens only when they confirm
     setSupportDisclaimerVisible(true);
-  }, []);
+  }, [supporterProfile, recipientProfile]);
 
   const safeVideoPause = useCallback((index) => {
     try {
@@ -833,29 +775,15 @@ console.log(taggedUsers,'tagged user' )
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    // ✅ Always show intro support modal first — no wallet check here
-    const supporterProfile =
-      typeof isBusinessProfile === 'boolean'
-        ? (isBusinessProfile ? 'company' : 'user')
-        : currentUserProfileType;
-    const recipientProfile = normalizeProfileType(userProfile || item?.profile);
-
-    // Only show support/wallet flow when support is allowed by platform rules.
-    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
-      setModalVisible(true);
-    }
+    setModalVisible(true);
   }, [
     item?.UserId,
     item.follow,
     item.userTokenAddress,
-    item?.profile,
     userId,
     followingBusy,
     executeFollowAction,
     onToggleFollow,
-    isBusinessProfile,
-    currentUserProfileType,
-    userProfile,
   ]);
 
 
@@ -1259,18 +1187,6 @@ console.log(taggedUsers,'tagged user' )
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
-      />
-      <WalletSelectionModal
-        visible={walletSelectionVisible}
-        onClose={() => setWalletSelectionVisible(false)}
-        onSelectWallet={handleWalletSelect}
-      />
-      <WalletConnectedModal
-        visible={walletConnectedModalVisible}
-        onClose={() => setWalletConnectedModalVisible(false)}
-        walletName={connectedWalletInfo.name}
-        walletAddress={connectedWalletInfo.address}
-        onContinue={handleWalletConnectedContinue}
       />
     </View>
   );

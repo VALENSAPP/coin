@@ -7,7 +7,8 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "node scripts/patch-metro-symbolicate.js"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.4.1",
@@ -31,7 +32,10 @@
     "@sourcetoad/react-native-sketch-canvas": "^2.3.0",
     "@stripe/stripe-react-native": "^0.51.0",
     "@sumsub/react-native-mobilesdk-module": "^1.41.1",
+    "@walletconnect/modal-react-native": "^1.1.0",
+    "@walletconnect/react-native-compat": "^2.23.8",
     "@walletconnect/sign-client": "^2.21.4",
+    "@react-native-community/netinfo": "^12.0.1",
     "axios": "^1.10.0",
     "date-fns": "^4.1.0",
     "ethers": "^6.15.0",
@@ -63,6 +67,7 @@
     "react-native-insta-story": "^1.1.9",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-linear-gradient": "^2.8.3",
+    "react-native-modal": "14.0.0-rc.1",
     "react-native-localize": "^3.6.0",
     "react-native-otp-textinput": "^1.1.7",
     "react-native-pager-view": "^6.8.1",
