@@ -33,12 +33,13 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../services/tokens';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 export default function PostView({ postData = [] }) {
   // ─── All hooks at the very top ───────────────────────────────
   const route = useRoute();
   const navigation = useNavigation();
-  console.log(postData,'post data in post view ');
+ 
   
 
   // Extract params including the source screen info
@@ -606,6 +607,20 @@ export default function PostView({ postData = [] }) {
 
       if (action === 'toggleSave') {
         await handleToggleSave(modalPostId);
+        closeOptions();
+        return;
+      }
+
+      if (action === 'copyAddress') {
+        if (!modalPostId) {
+          showToastMessage(toast, 'danger', 'Post ID not found');
+          closeOptions();
+          return;
+        }
+
+        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        Clipboard.setString(deepLink);
+        showToastMessage(toast, 'success', 'Post copied');
         closeOptions();
         return;
       }

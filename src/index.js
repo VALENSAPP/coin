@@ -32,7 +32,6 @@ const linking = {
     'https://valenscorp.com',
     'https://www.valens.app',
     'https://valens.app',
-    'https://valensGoApp.com',
     'com.valens://',
     'valens://',
   ],
@@ -45,6 +44,8 @@ const linking = {
   },
 };
 
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
@@ -75,7 +76,6 @@ export default function Main() {
   useEffect(() => {
     requestUserPermission();
     notificationListener();
-    checkKycAndShowWelcomeModal();
   }, []);
 
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
@@ -85,6 +85,18 @@ export default function Main() {
         return;
       }
 
+      const [hasShownWelcome, hasShownLegacy] = await Promise.all([
+        AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY),
+        AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY),
+      ]);
+
+      if (hasShownWelcome) {
+        return;
+      }
+      if (hasShownLegacy) {
+        await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
+        return;
+      }
 
       const id = await AsyncStorage.getItem('userId');
       if (!id) {
@@ -95,13 +107,17 @@ export default function Main() {
       if (response?.statusCode !== 200) {
         return;
       }
-      const userData = response?.data?.user || response?.data || response;
-      const canAccessPlatform = userData?.canAccessPlatform;
-      const isKycApproved =
-        canAccessPlatform === true ||
-        String(canAccessPlatform || '').toLowerCase() === 'true';
 
-      setWelcomeModalVisible(isKycApproved);
+      const userData = response?.data?.user || response?.data || response;
+      const isKycApproved = userData?.kyc === true;
+
+      if (isKycApproved) {
+        setWelcomeModalVisible(true);
+        await AsyncStorage.multiSet([
+          [KYC_WELCOME_SHOWN_KEY, 'true'],
+          [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+        ]);
+      }
     } catch (error) {
       console.log('KYC polling check failed:', error?.message || error);
     }
@@ -109,6 +125,10 @@ export default function Main() {
 
   const handleWelcomeModalClose = React.useCallback(async () => {
     setWelcomeModalVisible(false);
+    await AsyncStorage.multiSet([
+      [KYC_WELCOME_SHOWN_KEY, 'true'],
+      [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+    ]);
   }, []);
 
   useEffect(() => {
@@ -130,7 +150,6 @@ export default function Main() {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
     getNotification();
-
     const checkLogin = async () => {
       try {
         const loggedI = await AsyncStorage.getItem('isLoggedIn');
@@ -184,9 +203,9 @@ export default function Main() {
 
     checkLogin();
 
-   setInterval(() => {
-    checkLogin();
-   }, 2000);
+    setInterval(() => {
+      checkLogin();
+    }, 2000);
 
     // Track app state changes
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
@@ -200,29 +219,10 @@ export default function Main() {
     // Deep Link Handler - FIXED FOR iOS
     const handleDeepLink = async (event) => {
       console.log('Deep link received:', event.url);
-      const url = String(event?.url || '').trim();
-
-      if (!url) {
-        return;
-      }
-
-      const normalizeDeepLinkUrl = (incomingUrl = '') => String(incomingUrl || '')
-        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
-        .replace(/^valens:\/\//i, 'https://dummy.com/');
-
-      let urlObj;
-      try {
-        urlObj = new URL(normalizeDeepLinkUrl(url));
-      } catch (error) {
-        console.error('URL parsing error:', error);
-        return;
-      }
-
-      const path = urlObj.pathname;
-      const normalizedPath = String(path || '').toLowerCase();
+      const url = event.url;
 
       // Check if URL is callback
-      if (normalizedPath === '/callback') {
+      if (url.includes('callback')) {
         console.log('🔔 Callback URL detected - closing InAppBrowser');
 
         try {
@@ -241,8 +241,8 @@ export default function Main() {
           const normalizedCallbackUrl = url
             .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
             .replace(/^valens:\/\//i, 'https://dummy.com/');
-          const callbackUrlObj = new URL(normalizedCallbackUrl);
-          status = callbackUrlObj.searchParams.get('status') || 'success';
+          const urlObj = new URL(normalizedCallbackUrl);
+          status = urlObj.searchParams.get('status') || 'success';
           console.log('📋 Payment status from URL:', status);
         } catch (error) {
           console.log('⚠️ Error parsing callback URL:', error);
@@ -263,6 +263,10 @@ export default function Main() {
 
         return;
       }
+
+      const normalizeDeepLinkUrl = (incomingUrl = '') => incomingUrl
+        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+        .replace(/^valens:\/\//i, 'https://dummy.com/');
 
       const navigateToUserProfile = (resolvedUserId) => {
         if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
@@ -296,9 +300,11 @@ export default function Main() {
 
       // Handle other deep links normally if needed
       try {
+        const urlObj = new URL(normalizeDeepLinkUrl(url));
+        const path = urlObj.pathname;
+        const normalizedPath = String(path || '').toLowerCase();
         const postId = urlObj.searchParams.get('postId');
         const fallbackTag = urlObj.searchParams.get('af');
-        const sharedProfileLink = parseProfileShareUrl(url);
 
         if (navigationRef.current && isNavigationReady) {
           setTimeout(() => {
@@ -314,9 +320,11 @@ export default function Main() {
                   },
                 },
               });
-            } else if (sharedProfileLink) {
-              const deepLinkUserId = String(sharedProfileLink.userId || '').trim();
-              const resolvedUsername = String(sharedProfileLink.username || '').trim();
+            } else if (normalizedPath === '/profile' || normalizedPath.startsWith('/profile/')) {
+              const deepLinkUserId = String(urlObj.searchParams.get('userId') || '').trim();
+              const queryUsername = String(urlObj.searchParams.get('username') || '').trim();
+              const pathUsername = decodeURIComponent(path.split('/').filter(Boolean)[1] || '').trim();
+              const resolvedUsername = queryUsername || pathUsername;
 
               if (deepLinkUserId) {
                 navigateToUserProfile(deepLinkUserId);
@@ -381,7 +389,6 @@ export default function Main() {
         console.log('response in refreshtoken------->>>>>>>>>>>>>>>', response);
         await AsyncStorage.setItem('token', response.data.access_token);
         await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
-        await ensureCurrentAccountSaved();
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }
@@ -453,10 +460,10 @@ export default function Main() {
         }
         <WelcomeValensModal
           visible={welcomeModalVisible}
-
           onClose={handleWelcomeModalClose}
         />
       </ThemeProvider>
     </>
   );
 }
+
