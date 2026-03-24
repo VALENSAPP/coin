@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,23 +11,150 @@ import {
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Feather from 'react-native-vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getUserCredentials } from '../../services/post';
+import { getAllUser } from '../../services/users';
 
 const normalizeString = (value) =>
   String(value ?? '')
     .trim()
     .toLowerCase();
 
+const normalizeUsername = (value) =>
+  String(value ?? '')
+    .trim()
+    .replace(/^@+/, '');
+
 export default function BuyersListModal({
   visible,
   onClose,
   buyers = [],
+  users,
   profileType = 'user',
   onUserPress,
+  title,
+  enableSearch = true,
+  searchPlaceholder = 'Search buyers',
+  emptyTitle,
+  emptyText,
+  showChevron = true,
 }) {
   const sheetRef = useRef(null);
+  const navigation = useNavigation();
   const { bgStyle, textStyle, cardStyle } = useAppTheme();
   const [query, setQuery] = useState('');
+  const listUsers = users || buyers;
+  const usernameCacheRef = useRef(new Map());
+  const pendingUsernameRef = useRef(new Set());
+  const [, forceRefresh] = useState(0);
+
+  const resolveUserId = useCallback((item) => {
+    const idCandidate =
+      item?.id ??
+      item?.userId ??
+      item?.UserId ??
+      item?._id ??
+      item?.user?.id ??
+      item?.user?._id;
+
+    if (idCandidate === undefined || idCandidate === null) return null;
+    const asString = String(idCandidate).trim();
+    if (asString.startsWith('tagged-')) return null;
+    return asString ? asString : null;
+  }, []);
+
+  const resolveProfileUserIdFromUsername = useCallback(async (incomingUsername) => {
+    const cleanUsername = normalizeUsername(incomingUsername);
+    if (!cleanUsername) return null;
+
+    const cacheKey = cleanUsername.toLowerCase();
+    const cached = usernameCacheRef.current.get(cacheKey);
+    if (cached?.id) return String(cached.id);
+
+    try {
+      const response = await getAllUser({ userName: cleanUsername });
+      const usersPayload = response?.data?.users ?? [];
+      const exactMatch = usersPayload.find((candidateUser) =>
+        String(candidateUser?.userName || candidateUser?.username || '').toLowerCase() === cacheKey
+      );
+      const matchedUser = exactMatch || usersPayload[0];
+      const resolvedId = matchedUser?.id || matchedUser?._id || matchedUser?.userId || null;
+
+      if (resolvedId) {
+        usernameCacheRef.current.set(cacheKey, {
+          id: String(resolvedId),
+          username: matchedUser?.userName || matchedUser?.username || cleanUsername,
+          fullName: matchedUser?.fullName || matchedUser?.name || matchedUser?.displayName || '',
+          avatar: matchedUser?.image || matchedUser?.avatar || matchedUser?.userImage || null,
+        });
+        forceRefresh((tick) => tick + 1);
+      }
+
+      return resolvedId ? String(resolvedId) : null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const candidates = (listUsers || [])
+      .map((entry) => ({
+        id: resolveUserId(entry),
+        username: normalizeUsername(entry?.username),
+        avatar: entry?.avatar,
+        fullName: entry?.fullName,
+      }))
+      .filter((candidate) => !candidate.id && candidate.username && (!candidate.avatar || !candidate.fullName));
+
+    candidates.forEach(({ username }) => {
+      const key = username.toLowerCase();
+      if (usernameCacheRef.current.has(key) || pendingUsernameRef.current.has(key)) return;
+      pendingUsernameRef.current.add(key);
+
+      resolveProfileUserIdFromUsername(username)
+        .finally(() => {
+          pendingUsernameRef.current.delete(key);
+        });
+    });
+  }, [listUsers, resolveProfileUserIdFromUsername, resolveUserId, visible]);
+
+  const handleDefaultNavigateToProfile = useCallback(async (item) => {
+    const initialUserId = resolveUserId(item);
+    const resolvedUserId = initialUserId || await resolveProfileUserIdFromUsername(item?.username);
+    if (!resolvedUserId) return;
+
+    sheetRef.current?.close();
+    onClose?.();
+
+    let resolvedUser = item;
+    try {
+      const res = await getUserCredentials(String(resolvedUserId));
+      resolvedUser = res?.data?.user || res?.data?.data?.user || res?.data || item;
+    } catch (e) {
+      resolvedUser = item;
+    }
+
+    const cacheKey = normalizeUsername(item?.username || resolvedUser?.userName || resolvedUser?.username);
+    if (cacheKey) {
+      usernameCacheRef.current.set(cacheKey.toLowerCase(), {
+        id: String(resolvedUserId),
+        username: resolvedUser?.userName || resolvedUser?.username || cacheKey,
+        fullName: resolvedUser?.fullName || resolvedUser?.name || resolvedUser?.displayName || '',
+        avatar: resolvedUser?.image || resolvedUser?.avatar || resolvedUser?.userImage || null,
+      });
+      forceRefresh((tick) => tick + 1);
+    }
+
+    setTimeout(() => {
+      navigation.navigate('UsersProfile', {
+        userId: String(resolvedUserId),
+        user: resolvedUser,
+      });
+    }, 150);
+  }, [navigation, onClose, resolveProfileUserIdFromUsername, resolveUserId]);
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
@@ -38,28 +165,44 @@ export default function BuyersListModal({
     if (!visible) setQuery('');
   }, [visible]);
 
-  const title = profileType === 'user' ? 'Followed by' : 'Supported by';
+  const resolvedTitle = title || (profileType === 'user' ? 'Followed by' : 'Supported by');
 
-  const filteredBuyers = useMemo(() => {
+  const filteredUsers = useMemo(() => {
     const q = normalizeString(query);
-    if (!q) return buyers;
+    if (!q || !enableSearch) return listUsers;
 
-    return buyers.filter((b) => {
-      const username = normalizeString(b?.username);
-      const fullName = normalizeString(b?.fullName);
+    return listUsers.filter((user) => {
+      const username = normalizeString(user?.username);
+      const fullName = normalizeString(user?.fullName);
       return username.includes(q) || fullName.includes(q);
     });
-  }, [buyers, query]);
+  }, [enableSearch, listUsers, query]);
 
   const renderItem = ({ item }) => {
-    const username = item?.username || '—';
-    const fullName = item?.fullName || '';
-    const avatarUri = item?.avatar;
+    const cleanUsername = normalizeUsername(item?.username);
+    const cached = cleanUsername ? usernameCacheRef.current.get(cleanUsername.toLowerCase()) : null;
+    const enrichedItem = cached ? { ...item, ...cached } : item;
+
+    const username = enrichedItem?.username || '—';
+    const fullName = enrichedItem?.fullName || '';
+    const avatarUri = enrichedItem?.avatar;
+    const userId = resolveUserId(enrichedItem);
+    const canPress = onUserPress
+      ? !!(enrichedItem?.id || enrichedItem?.username || userId)
+      : !!(userId || cleanUsername);
 
     return (
       <Pressable
-        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-        onPress={() => onUserPress?.(item?.id)}
+        style={({ pressed }) => [styles.row, canPress && pressed && styles.rowPressed]}
+        onPress={() => {
+          if (!canPress) return;
+          if (onUserPress) {
+            onUserPress(enrichedItem?.id || enrichedItem?.username || userId, enrichedItem);
+            return;
+          }
+          handleDefaultNavigateToProfile(enrichedItem);
+        }}
+        disabled={!canPress}
       >
         <View style={styles.avatarWrap}>
           {avatarUri ? (
@@ -84,7 +227,9 @@ export default function BuyersListModal({
           )}
         </View>
 
-        <Feather name="chevron-right" size={18} color="#9ca3af" />
+        {showChevron && canPress ? (
+          <Feather name="chevron-right" size={18} color="#9ca3af" />
+        ) : null}
       </Pressable>
     );
   };
@@ -105,11 +250,10 @@ export default function BuyersListModal({
       }}
     >
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, textStyle]}>{title}</Text>
+          <Text style={[styles.title, textStyle]}>{resolvedTitle}</Text>
           <Text style={styles.countText}>
-            {filteredBuyers.length} {filteredBuyers.length === 1 ? 'user' : 'users'}
+            {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
           </Text>
 
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
@@ -117,40 +261,40 @@ export default function BuyersListModal({
           </Pressable>
         </View>
 
-        {/* Search */}
-        <View style={[styles.searchWrap, cardStyle]}>
-          <Feather name="search" size={16} color="#9ca3af" />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search buyers"
-            placeholderTextColor="#9ca3af"
-            style={[styles.searchInput, textStyle]}
-            returnKeyType="search"
-          />
-          {!!query && (
-            <Pressable onPress={() => setQuery('')} hitSlop={10} style={styles.clearBtn}>
-              <Feather name="x-circle" size={18} color="#9ca3af" />
-            </Pressable>
-          )}
-        </View>
+        {enableSearch ? (
+          <View style={[styles.searchWrap, cardStyle]}>
+            <Feather name="search" size={16} color="#9ca3af" />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={searchPlaceholder}
+              placeholderTextColor="#9ca3af"
+              style={[styles.searchInput, textStyle]}
+              returnKeyType="search"
+            />
+            {!!query && (
+              <Pressable onPress={() => setQuery('')} hitSlop={10} style={styles.clearBtn}>
+                <Feather name="x-circle" size={18} color="#9ca3af" />
+              </Pressable>
+            )}
+          </View>
+        ) : null}
 
         <View style={styles.divider} />
 
-        {/* List */}
         <FlatList
-          data={filteredBuyers}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
+          data={filteredUsers}
+          keyExtractor={(item, index) => String(item?.id ?? item?.username ?? index)}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyTitle, textStyle]}>
-                {query ? 'No matches' : 'No users yet'}
+                {query ? 'No matches' : (emptyTitle || 'No users yet')}
               </Text>
               <Text style={styles.emptyText}>
-                {query ? 'Try a different search.' : 'Be the first to support this post.'}
+                {query ? 'Try a different search.' : (emptyText || 'Be the first to support this post.')}
               </Text>
             </View>
           }

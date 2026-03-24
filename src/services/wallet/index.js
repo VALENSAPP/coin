@@ -11,7 +11,16 @@ export const userChangePassword = async (data) => {
 export const authLoginHistory = async (data) => {
   return axiosInstance.post('/auth/login-history', data);
 }
+export const authSesionHistory = async (data) => {
+  return axiosInstance.get('/auth/sessions', { params: data });
+}
 
+export const logoutDeviec = async (data) => {
+  return axiosInstance.post('/auth/logout-session', data);
+}
+export const logoutDeviecAll = async (data) => {
+  return axiosInstance.post('/auth/logout-all', data);
+}
 export const userProfileStatusSet = async (data) => {
   return axiosInstance.post('/user/profileStatusSet', data);
 }

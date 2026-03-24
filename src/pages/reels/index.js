@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Dimensions,
+  useWindowDimensions,
   TouchableOpacity,
   Image,
   StatusBar,
@@ -18,7 +19,7 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import CommentSection from '../../components/comments/CommentSection';
@@ -102,6 +103,8 @@ const mockComments = {
 };
 
 export default function FlipsScreen() {
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const route = useRoute();
   const toast = useToast();
@@ -111,6 +114,7 @@ export default function FlipsScreen() {
   const [reels, setReels] = useState([]);
   const [muted, setMuted] = useState({});
   const [paused, setPaused] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   // Dynamic interaction states - similar to Posts screen
   const [liked, setLiked] = useState({});
@@ -148,6 +152,9 @@ export default function FlipsScreen() {
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const { bgStyle, textStyle } = useAppTheme();
   const shareRef = useRef(null);
+  const viewportHeight = Math.max(1, windowHeight);
+  const sideActionsBottom = Math.max(insets.bottom + 24, 100);
+  const bottomContentBottom = Math.max(insets.bottom + 24, 110);
   const options = [
     "I don't like this post",
     "I've already seen this",
@@ -364,7 +371,7 @@ export default function FlipsScreen() {
   // Handle scroll to prevent scrolling beyond last reel
   const handleScroll = useCallback((event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
-    const maxScroll = (reels.length - 1) * SCREEN_HEIGHT;
+    const maxScroll = (reels.length - 1) * viewportHeight;
     
     // If trying to scroll beyond the last reel, prevent it
     if (offsetY > maxScroll + 50) { // 50px threshold
@@ -373,7 +380,7 @@ export default function FlipsScreen() {
         animated: false
       });
     }
-  }, [reels.length]);
+  }, [reels.length, viewportHeight]);
 
   const handleLike = useCallback(
     async (id) => {
@@ -617,9 +624,32 @@ export default function FlipsScreen() {
     </TouchableOpacity>
   );
 
-  const renderItem = ({ item, index }) => (
-    <View style={styles.reelContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
+  useEffect(() => {
+    let isMounted = true;
+    const loadCurrentUserId = async () => {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        if (isMounted) setCurrentUserId(id);
+      } catch (e) {
+        if (isMounted) setCurrentUserId(null);
+      }
+    };
+
+    loadCurrentUserId();
+    return () => {
+      isMounted = false;
+    };
+  }, [isFocused]);
+
+  const renderItem = ({ item, index }) => {
+    const isOwnReel =
+      currentUserId != null &&
+      item?.userId != null &&
+      String(currentUserId) === String(item.userId);
+
+    return (
+      <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
       {/* Progress bar */}
       <View style={styles.progressContainer}>
@@ -683,7 +713,7 @@ export default function FlipsScreen() {
       </TouchableOpacity>
 
       {/* Side actions */}
-      <View style={styles.sideActions}>
+      <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => handleLike(item.id)}
@@ -732,7 +762,7 @@ export default function FlipsScreen() {
       </View>
 
       {/* Bottom content */}
-      <View style={styles.bottomContent}>
+      <View style={[styles.bottomContent, { bottom: bottomContentBottom }]}>
         {/* Try Remix button */}
         {/* {item.isRemixable && (
           <TouchableOpacity
@@ -767,10 +797,16 @@ export default function FlipsScreen() {
 
               </View>
             </Text>
-            <TouchableOpacity style={styles.followButton} onPress={() => switchFollowing(item.id)}
-            >
-              <Text style={styles.followButtonText}>{!item.isFollowing ? 'Follow' : 'Following'}</Text>
-            </TouchableOpacity>
+            {!isOwnReel && (
+              <TouchableOpacity
+                style={styles.followButton}
+                onPress={() => switchFollowing(item.id)}
+              >
+                <Text style={styles.followButtonText}>
+                  {!item.isFollowing ? 'Follow' : 'Following'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -811,11 +847,12 @@ export default function FlipsScreen() {
           <Icon name="person-circle-outline" size={24} color="#fff" />
         </View>
       </View> */}
-    </View>
-  );
+      </View>
+    );
+  };
 
-  const handleUserNavigate = async (id) => {
-    const userId = await AsyncStorage.getItem('userId');
+  const handleUserNavigate = async () => {
+    const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
     const currentReel = reels[currentIndex];
     const targetUserId = currentReel?.userId || route.params?.item?.userId || route.params?.item?.UserId;
 
@@ -834,7 +871,7 @@ export default function FlipsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={handleBackPress}
           style={styles.buttons}
@@ -865,7 +902,7 @@ export default function FlipsScreen() {
         onViewableItemsChanged={onViewableItemsChanged}
         onMomentumScrollEnd={(e) => {
           const offsetY = e.nativeEvent.contentOffset.y || 0;
-          const idx = Math.round(offsetY / SCREEN_HEIGHT);
+          const idx = Math.round(offsetY / viewportHeight);
           const maxIndex = reels.length - 1;
           
           // Ensure we don't go beyond the last reel
@@ -885,17 +922,18 @@ export default function FlipsScreen() {
         }}
         viewabilityConfig={viewConfigRef.current}
         snapToAlignment="start"
-        snapToInterval={SCREEN_HEIGHT}
+        snapToInterval={viewportHeight}
         maxToRenderPerBatch={1}
         getItemLayout={(_, index) => ({
-          length: SCREEN_HEIGHT,
-          offset: SCREEN_HEIGHT * index,
+          length: viewportHeight,
+          offset: viewportHeight * index,
           index,
         })}
         overScrollMode='never'
         bounces={false}
         scrollEnabled={reels.length > 0}
         removeClippedSubviews={true}
+        extraData={viewportHeight}
       />
 
       {/* Dropdown Menu */}
@@ -950,7 +988,7 @@ export default function FlipsScreen() {
       {/* More Options Bottom Sheet */}
       <RBSheet
         ref={moreOptionsSheetRef}
-        height={400}
+        height={350}
         openDuration={250}
         customStyles={{
           container: {
@@ -967,7 +1005,7 @@ export default function FlipsScreen() {
             <Text style={styles.moreOptionsTitle}>More Options</Text>
           </View>
           <ScrollView style={styles.moreOptionsList}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.moreOption}
               onPress={() => {
                 moreOptionsSheetRef.current?.close();
@@ -977,7 +1015,7 @@ export default function FlipsScreen() {
               <MaterialIcons name="library-music" size={24} color="#000" />
               <Text style={styles.moreOptionText}>Music Templates</Text>
               <Icon name="chevron-forward" size={20} color="#666" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={styles.moreOption}
               onPress={() => {
@@ -1113,8 +1151,8 @@ const styles = StyleSheet.create({
     // marginBottom:'10%'
   },
   reelContainer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
     position: 'relative',
   },
@@ -1162,7 +1200,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 5,
+    top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
@@ -1170,7 +1208,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 50,
     paddingBottom: 10,
   },
   headerLeft: {
@@ -1195,7 +1232,6 @@ const styles = StyleSheet.create({
   sideActions: {
     position: 'absolute',
     right: 12,
-    bottom: 100,
     alignItems: 'center',
   },
   actionButton: {
@@ -1226,7 +1262,6 @@ const styles = StyleSheet.create({
   },
   bottomContent: {
     position: 'absolute',
-    bottom: 110,
     left: 0,
     right: 80,
     padding: 16,

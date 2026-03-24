@@ -26,7 +26,7 @@ import StepHeader from '../createProfile/headerSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
-import { getKycToken, kycStart, kycStatus, kycWebhook } from '../../../services/kycverification';
+import { getKycToken, kycStart, kycStatus, kycSync, kycWebhook } from '../../../services/kycverification';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
@@ -159,7 +159,7 @@ export default function KYCVerification({ route }) {
         try {
             const response = await getKycToken();
             const accessToken = response?.data?.token;
-            console.log(response,accessToken,'data in kyc ')
+            console.log(response, accessToken, 'data in kyc ')
 
             if (!accessToken) {
                 showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
@@ -396,10 +396,21 @@ export default function KYCVerification({ route }) {
     };
 
     const fetchKycStatus = async () => {
-        const getUserId = await AsyncStorage.getItem('userId');
         try {
             dispatch(showLoader());
-            const response = await kycStatus(getUserId);
+            const storedUserId = await AsyncStorage.getItem('userId');
+            const effectiveUserId =
+                storedUserId ||
+                profileData?.userId ||
+                profileData?.id ||
+                serverProfile?.userId ||
+                serverProfile?.id;
+
+            if (!effectiveUserId) {
+                return;
+            }
+
+            const response = await kycStatus(effectiveUserId);
             console.log('response in kyc status------>>>>>>>>>>', response);
 
             if (response?.statusCode === 200) {
@@ -473,6 +484,79 @@ export default function KYCVerification({ route }) {
             // );
         } finally {
             dispatch(hideLoader());
+        }
+    };
+
+    const kycSycncById = async () => {
+        const getUserId = await AsyncStorage.getItem('userId');
+        try {
+            const response = await kycSync(getUserId);
+            console.log(response, 'KYC sync response');
+            if (response?.statusCode === 200) {
+                console.log('KYC Webhook Response', response.data);
+                const status = String(response?.data?.status || '').toUpperCase();
+
+                if (status === 'APPROVED') {
+                    setShowProgressModal(false);
+                    if (profileData) {
+                        navigation.navigate('Wallet', { profileData, serverProfile });
+                    } else if (!isOnboardingFlow && shouldReturnAfterStatusCheckRef.current && navigation.canGoBack()) {
+                        shouldReturnAfterStatusCheckRef.current = false;
+                        navigation.goBack();
+                    } else if (navigation.canGoBack()) {
+                        navigation.goBack();
+                    }
+                } else if (status === 'PENDING' || status === 'SUBMITTED' || status === false) {
+                    setShowProgressModal(false);
+
+                    if (!isOnboardingFlow) {
+                        if (shouldReturnAfterStatusCheckRef.current && navigation.canGoBack()) {
+                            shouldReturnAfterStatusCheckRef.current = false;
+                            navigation.goBack();
+                            return;
+                        }
+                        // Logged-in user opened KYC screen while current status is pending.
+                        // Keep them on this screen until they submit updated KYC.
+                        return;
+                    }
+
+                    await AsyncStorage.setItem('isLoggedIn', 'true');
+                    dispatch(loggedIn());
+                    if (navigation.canGoBack()) {
+                        navigation.goBack();
+                        return;
+                    }
+                    // showToastMessage(toast, 'warning', 'KYC is pending. You can explore the app while we review it.');
+                } else if (status === 'DECLINED' || status === 'REJECTED') {
+                    Alert.alert(
+                        'KYC Rejected',
+                        'Your KYC was rejected. Please submit your KYC again.',
+                        [
+                            {
+                                text: 'Cancel',
+                                style: 'cancel'
+                            },
+                            {
+                                text: 'Retry',
+                                onPress: () => {
+                                    handleSubmitKYC();
+                                }
+                            }
+                        ],
+                        { cancelable: true }
+                    );
+                } else {
+                    if (isFirstMount.current) {
+                        isFirstMount.current = false;
+                        return;
+                    }
+                    Alert.alert('KYC Not Verified', 'Unable to verify KYC status. Please try again.');
+                }
+            } else {
+                showToastMessage(toast, 'danger', response.data.message);
+            }
+        } catch (err) {
+            console.log(err, 'error in kyc');
         }
     };
 

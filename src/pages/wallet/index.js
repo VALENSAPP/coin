@@ -24,7 +24,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { getCreditsLeft } from '../../services/wallet';
-import { getUserDashboard } from '../../services/post';
+import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
@@ -56,7 +56,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
-
+  const [userWalletData, setUserWalletData] = useState({
+    stripeCustomerId: '',
+    walletAddress: '',
+  });
+console.log(userWalletData,'datatai walaletete')
   const loadProfileType = useCallback(async () => {
     try {
       const profileType = await AsyncStorage.getItem('profile');
@@ -68,6 +72,43 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
   }, []);
 
+  const getUserDetail = async () => {
+    try {
+      const id = await AsyncStorage.getItem('userId');
+
+      if (!id) {
+        console.log('User ID not found');
+        return;
+      }
+
+      const response = await getUserCredentials(id);
+
+      console.log('API Response:', response);
+
+      // 🔥 Adjust keys based on your API response
+      const stripeCustomerId =
+        response?.data?.stripeAccountId ||
+        response?.data?.stripeCustomerId ||
+        '';
+
+      const walletAddress =
+        response?.data?.walletAddress ||
+        response?.data?.walletAddress ||
+        '';
+
+      // ✅ Save in state
+      setUserWalletData({
+        stripeCustomerId,
+        walletAddress,
+      });
+
+    } catch (error) {
+      console.log('Error fetching user details:', error);
+    }
+  };
+
+  const stripeAccountId = 'Not connected';
+  const walletAddress = 'Not available';
   const visibleKpiData = useMemo(() => {
     if (isBusinessProfile) {
       return kpiData.filter(item => item.id !== 'support');
@@ -104,35 +145,36 @@ export const WalletDashboardScreen = ({ navigation }) => {
   // Replace the useFocusEffect and useCallback section with this:
 
   useFocusEffect(
-  useCallback(() => {
-    const fetchData = async () => {
-      try {
-        dispatch(showLoader()); // Show loader once at the beginning
-        
-        await Promise.allSettled([
-          // fetchAllTransaction(),
-          // fetchDashboardData(),
-          loadProfileType(),
-          fetchCreditsLeft(),
-          fetchFollowers(),
-          // fetchActivityOverview(),
-          fetchTopCreators(),
-          // fetchActivities(),
-        ]);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        dispatch(hideLoader()); // Hide loader once at the end
-      }
-    };
+    useCallback(() => {
+      const fetchData = async () => {
+        try {
+          dispatch(showLoader()); // Show loader once at the beginning
 
-    fetchData();
+          await Promise.allSettled([
+            // fetchAllTransaction(),
+            // fetchDashboardData(),
+            getUserDetail(),
+            loadProfileType(),
+            fetchCreditsLeft(),
+            fetchFollowers(),
+            // fetchActivityOverview(),
+            fetchTopCreators(),
+            // fetchActivities(),
+          ]);
+        } catch (error) {
+          console.error('Error fetching dashboard data:', error);
+        } finally {
+          dispatch(hideLoader()); // Hide loader once at the end
+        }
+      };
 
-    return () => {
-      // Cleanup if needed
-    };
-  }, [dispatch, loadProfileType]) // Add dispatch to dependency array
-);
+      fetchData();
+
+      return () => {
+        // Cleanup if needed
+      };
+    }, [dispatch, loadProfileType]) // Add dispatch to dependency array
+  );
 
   // Remove the separate useEffect for activityPeriod
   // and replace with this one that properly triggers:
@@ -156,27 +198,27 @@ export const WalletDashboardScreen = ({ navigation }) => {
   // };
 
   const onRefresh = async () => {
-  setRefreshing(true);
-  try {
-    dispatch(showLoader());
-    
-    await Promise.allSettled([
-      // fetchAllTransaction(),
-      loadProfileType(),
-      fetchDashboardData(),
-      fetchCreditsLeft(),
-      fetchFollowers(),
-      // fetchActivityOverview(),
-      fetchTopCreators(),
-      // fetchActivities(),
-    ]);
-  } catch (error) {
-    console.error('Error refreshing data:', error);
-  } finally {
-    dispatch(hideLoader());
-    setRefreshing(false);
-  }
-};
+    setRefreshing(true);
+    try {
+      dispatch(showLoader());
+
+      await Promise.allSettled([
+        // fetchAllTransaction(),
+        loadProfileType(),
+        fetchDashboardData(),
+        fetchCreditsLeft(),
+        fetchFollowers(),
+        // fetchActivityOverview(),
+        fetchTopCreators(),
+        // fetchActivities(),
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      dispatch(hideLoader());
+      setRefreshing(false);
+    }
+  };
 
   const hapticFeedback = (type) => {
     const options = {
@@ -237,239 +279,242 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   };
 
-//   const fetchDashboardData = async () => {
-//   const storedPrice = await AsyncStorage.getItem('priceInUsd');
-//   try {
-//     const response = await getTotalTokenPurchase();
+  //   const fetchDashboardData = async () => {
+  //   const storedPrice = await AsyncStorage.getItem('priceInUsd');
+  //   try {
+  //     const response = await getTotalTokenPurchase();
 
-//     console.log('getTotalTokenPurchasegetTotalTokenPurchase',response)
-//     if (response?.statusCode === 200) {
-//       const totalPortfolioValue = response.data.reduce(
-//         (sum, item) => sum + (item.totalTokenAmount || 0),
-//         0
-//       );
-//       console.log("portfolio value----------------", totalPortfolioValue);
-//       setKpiData(prevKpiData => {
-//         const newKpiData = [...prevKpiData];
-//         newKpiData[0] = {
-//           ...newKpiData[0],
-//           value: `$ ${totalPortfolioValue.toFixed(4)}`
-//         };
-//         newKpiData[1] = {
-//           ...newKpiData[1],
-//           value: `$ ${Number(storedPrice).toFixed(4)}`
-//         };
-//         return newKpiData;
-//       });
-//     } else {
-//       showToastMessage(toast, 'danger', response?.message);
-//     }
-//   } catch (error) {
-//     console.error('Error in fetchDashboardData:', error);
-//   }
-// };
+  //     console.log('getTotalTokenPurchasegetTotalTokenPurchase',response)
+  //     if (response?.statusCode === 200) {
+  //       const totalPortfolioValue = response.data.reduce(
+  //         (sum, item) => sum + (item.totalTokenAmount || 0),
+  //         0
+  //       );
+  //       console.log("portfolio value----------------", totalPortfolioValue);
+  //       setKpiData(prevKpiData => {
+  //         const newKpiData = [...prevKpiData];
+  //         newKpiData[0] = {
+  //           ...newKpiData[0],
+  //           value: `$ ${totalPortfolioValue.toFixed(4)}`
+  //         };
+  //         newKpiData[1] = {
+  //           ...newKpiData[1],
+  //           value: `$ ${Number(storedPrice).toFixed(4)}`
+  //         };
+  //         return newKpiData;
+  //       });
+  //     } else {
+  //       showToastMessage(toast, 'danger', response?.message);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error in fetchDashboardData:', error);
+  //   }
+  // };
 
-// const fetchAllTransaction = async () => {
-//   try {
-//     const response = await getLatestTransactions();
-//     if (response?.statusCode === 200) {
-//       setWalletTransactions(response.data.transactions);
-//     } else {
-//       showToastMessage(toast, 'danger', response.data.message);
-//     }
-//   } catch (error) {
-//     console.error('Error in fetchAllTransaction:', error);
-//   }
-// };
+  // const fetchAllTransaction = async () => {
+  //   try {
+  //     const response = await getLatestTransactions();
+  //     if (response?.statusCode === 200) {
+  //       setWalletTransactions(response.data.transactions);
+  //     } else {
+  //       showToastMessage(toast, 'danger', response.data.message);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error in fetchAllTransaction:', error);
+  //   }
+  // };
 
-const fetchCreditsLeft = async () => {
-  try {
-    const response = await getCreditsLeft();
-    if (response?.statusCode === 200) {
-      setKpiData(prevKpiData => {
-        const newKpiData = [...prevKpiData];
-        newKpiData[3] = {
-          ...newKpiData[3],
-          value: `${response.data.hitLeft} / 5`,
-          currentCredits: response.data.hitLeft
-        };
-        return newKpiData;
-      });
-    } else {
-      showToastMessage(toast, 'danger', response.data.message);
+  const fetchCreditsLeft = async () => {
+    try {
+      const response = await getCreditsLeft();
+      if (response?.statusCode === 200) {
+        const hitLeftRaw = response?.data?.hitLeft;
+        const hitLeft = Number(hitLeftRaw);
+        const safeHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
+        setKpiData(prevKpiData => {
+          const newKpiData = [...prevKpiData];
+          newKpiData[3] = {
+            ...newKpiData[3],
+            value: `${safeHitLeft} / 5`,
+            currentCredits: safeHitLeft
+          };
+          return newKpiData;
+        });
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
+      }
+    } catch (error) {
+      console.error('Error in fetchCreditsLeft:', error);
     }
-  } catch (error) {
-    console.error('Error in fetchCreditsLeft:', error);
-  }
-};
+  };
 
-//   const fetchActivityOverview = async () => {
-//   const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
+  //   const fetchActivityOverview = async () => {
+  //   const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
 
-//   const periodMap = {
-//     'Weekly': 'week',
-//     'Monthly': 'month',
-//     'Yearly': 'year'
-//   };
+  //   const periodMap = {
+  //     'Weekly': 'week',
+  //     'Monthly': 'month',
+  //     'Yearly': 'year'
+  //   };
 
-//   try {
-//     const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
+  //   try {
+  //     const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
 
-//     if (response?.statusCode === 200) {
-//       if (response.data.history && Array.isArray(response.data.history)) {
-//         // Sort by date first
-//         const sortedHistory = [...response.data.history].sort(
-//           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-//         );
+  //     if (response?.statusCode === 200) {
+  //       if (response.data.history && Array.isArray(response.data.history)) {
+  //         // Sort by date first
+  //         const sortedHistory = [...response.data.history].sort(
+  //           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  //         );
 
-//         // Use balanceAfter to show actual portfolio value over time
-//         const formattedData = sortedHistory.map(item => ({
-//           timestamp: new Date(item.date).getTime(),
-//           value: parseFloat(item.balanceAfter || 0) // Use balanceAfter instead of amount
-//         })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
+  //         // Use balanceAfter to show actual portfolio value over time
+  //         const formattedData = sortedHistory.map(item => ({
+  //           timestamp: new Date(item.date).getTime(),
+  //           value: parseFloat(item.balanceAfter || 0) // Use balanceAfter instead of amount
+  //         })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
 
-//         if (formattedData.length > 0) {
-//           setPriceHistory(formattedData);
-//           setSelectedPrice(formattedData[formattedData.length - 1].value);
-//         } else {
-//           setPriceHistory([]);
-//           setSelectedPrice(0);
-//         }
-//       } else {
-//         setPriceHistory([]);
-//         setSelectedPrice(0);
-//       }
-//     } else {
-//       showToastMessage(toast, 'danger', response.data.message);
-//       setPriceHistory([]);
-//       setSelectedPrice(0);
-//     }
-//   } catch (error) {
-//     console.error('Error in fetchActivityOverview:', error);
-//     setPriceHistory([]);
-//     setSelectedPrice(0);
-//   }
-// };
+  //         if (formattedData.length > 0) {
+  //           setPriceHistory(formattedData);
+  //           setSelectedPrice(formattedData[formattedData.length - 1].value);
+  //         } else {
+  //           setPriceHistory([]);
+  //           setSelectedPrice(0);
+  //         }
+  //       } else {
+  //         setPriceHistory([]);
+  //         setSelectedPrice(0);
+  //       }
+  //     } else {
+  //       showToastMessage(toast, 'danger', response.data.message);
+  //       setPriceHistory([]);
+  //       setSelectedPrice(0);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error in fetchActivityOverview:', error);
+  //     setPriceHistory([]);
+  //     setSelectedPrice(0);
+  //   }
+  // };
 
-const fetchFollowers = async () => {
-  const id = await AsyncStorage.getItem('userId');
-  try {
-    const response = await getUserDashboard(id);
-    if (response?.statusCode === 200) {
-      setKpiData(prevKpiData => {
-        const newKpiData = [...prevKpiData];
-        newKpiData[2] = {
-          ...newKpiData[2],
-          value: response.data.dashboardData.totalFollowers.toString() || '0'
-        };
-        return newKpiData;
-      });
-    } else {
-      showToastMessage(toast, 'danger', response.data.message);
+  const fetchFollowers = async () => {
+    const id = await AsyncStorage.getItem('userId');
+    try {
+      const response = await getUserDashboard(id);
+      if (response?.statusCode === 200) {
+        setKpiData(prevKpiData => {
+          const newKpiData = [...prevKpiData];
+          newKpiData[2] = {
+            ...newKpiData[2],
+            value: response.data.dashboardData.totalFollowers.toString() || '0'
+          };
+          return newKpiData;
+        });
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
+      }
+    } catch (error) {
+      console.error('Error in fetchFollowers:', error);
     }
-  } catch (error) {
-    console.error('Error in fetchFollowers:', error);
-  }
-};
+  };
 
-const fetchTopCreators = async () => {
-  try {
-    const response = await getTopCreators();
-    if (response?.statusCode === 200) {
-      console.log('Top creators', response.data);
+  const fetchTopCreators = async () => {
+    try {
+      const response = await getTopCreators();
+      if (response?.statusCode === 200) {
+        console.log('Top creators', response.data);
 
-      const formattedCreators = response.data.map((creator, index) => ({
-        id: index + 1,
-        name: `@${creator.username || 'unknown'}`,
-        vendorId: creator.vendorId,
-        followers: `${creator.followerCount || '0'} Followers`,
-        tokenStatus: creator.currentTokenStatus,
-      }));
-      setTopCreators(formattedCreators.slice(0, 5));
-    } else {
-      showToastMessage(toast, 'danger', response.data.message);
+        const formattedCreators = response.data.map((creator, index) => ({
+          id: index + 1,
+          name: `@${creator.username || 'unknown'}`,
+          vendorId: creator.vendorId,
+          followers: `${creator.followerCount || '0'} Followers`,
+          tokenStatus: creator.currentTokenStatus,
+        }));
+        setTopCreators(formattedCreators.slice(0, 5));
+      } else {
+        showToastMessage(toast, 'danger', response.data.message);
+      }
+    } catch (error) {
+      console.error('Error in fetchTopCreators:', error);
     }
-  } catch (error) {
-    console.error('Error in fetchTopCreators:', error);
-  }
-};
+  };
 
-//   const fetchActivities = async () => {
-//   try {
-//     const response = await getRecentActivities();
-//     if (response?.statusCode === 200) {
-//       console.log('Recent activities', response.data);
+  //   const fetchActivities = async () => {
+  //   try {
+  //     const response = await getRecentActivities();
+  //     if (response?.statusCode === 200) {
+  //       console.log('Recent activities', response.data);
 
-//       const formattedActivities = [];
-//       let activityId = 1;
+  //       const formattedActivities = [];
+  //       let activityId = 1;
 
-//       if (response.data.activities) {
-//         const activities = response.data.activities;
+  //       if (response.data.activities) {
+  //         const activities = response.data.activities;
 
-//         if (activities.purchase && Array.isArray(activities.purchase)) {
-//           activities.purchase.forEach(purchase => {
-//             formattedActivities.push({
-//               id: activityId++,
-//               action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
-//               time: formatTime(purchase.createdAt),
-//               type: 'buy',
-//               createdAt: new Date(purchase.createdAt).getTime(),
-//               rawData: purchase
-//             });
-//           });
-//         }
+  //         if (activities.purchase && Array.isArray(activities.purchase)) {
+  //           activities.purchase.forEach(purchase => {
+  //             formattedActivities.push({
+  //               id: activityId++,
+  //               action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
+  //               time: formatTime(purchase.createdAt),
+  //               type: 'buy',
+  //               createdAt: new Date(purchase.createdAt).getTime(),
+  //               rawData: purchase
+  //             });
+  //           });
+  //         }
 
-//         if (activities.sell && Array.isArray(activities.sell)) {
-//           activities.sell.forEach(sell => {
-//             formattedActivities.push({
-//               id: activityId++,
-//               action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
-//               time: formatTime(sell.createdAt),
-//               type: 'sell',
-//               createdAt: new Date(sell.createdAt).getTime(),
-//               rawData: sell
-//             });
-//           });
-//         }
+  //         if (activities.sell && Array.isArray(activities.sell)) {
+  //           activities.sell.forEach(sell => {
+  //             formattedActivities.push({
+  //               id: activityId++,
+  //               action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
+  //               time: formatTime(sell.createdAt),
+  //               type: 'sell',
+  //               createdAt: new Date(sell.createdAt).getTime(),
+  //               rawData: sell
+  //             });
+  //           });
+  //         }
 
-//         if (activities.following && Array.isArray(activities.following)) {
-//           activities.following.forEach(follow => {
-//             formattedActivities.push({
-//               id: activityId++,
-//               action: `${follow.followerName || 'Someone'} followed you`,
-//               time: formatTime(follow.createdAt),
-//               type: 'follow',
-//               createdAt: new Date(follow.createdAt).getTime(),
-//               rawData: follow
-//             });
-//           });
-//         }
-//       }
+  //         if (activities.following && Array.isArray(activities.following)) {
+  //           activities.following.forEach(follow => {
+  //             formattedActivities.push({
+  //               id: activityId++,
+  //               action: `${follow.followerName || 'Someone'} followed you`,
+  //               time: formatTime(follow.createdAt),
+  //               type: 'follow',
+  //               createdAt: new Date(follow.createdAt).getTime(),
+  //               rawData: follow
+  //             });
+  //           });
+  //         }
+  //       }
 
-//       formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
+  //       formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
 
-//       formattedActivities.forEach((activity, index) => {
-//         activity.id = index + 1;
-//       });
+  //       formattedActivities.forEach((activity, index) => {
+  //         activity.id = index + 1;
+  //       });
 
-//       setRecentActivities(formattedActivities.slice(0, 6));
-//     } else {
-//       showToastMessage(toast, 'danger', response.data.message);
-//     }
-//   } catch (error) {
-//     console.error('Error in fetchActivities:', error);
-//   }
-// }
+  //       setRecentActivities(formattedActivities.slice(0, 6));
+  //     } else {
+  //       showToastMessage(toast, 'danger', response.data.message);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error in fetchActivities:', error);
+  //   }
+  // }
 
   const handleTokenModalClose = () => {
-        console.log(doesNotMatch,'done')
+    console.log(doesNotMatch, 'done')
 
     purchaseSheetRef.current?.close?.();
     setPendingFollowUserId(null);
   };
 
   const handleTokenPurchase = async () => {
-        console.log(doesNotMatch,'done')
+    console.log(doesNotMatch, 'done')
 
     // try {
     //   purchaseSheetRef.current?.close?.();
@@ -487,7 +532,7 @@ const fetchTopCreators = async () => {
 
   const handleTokenSell = useCallback(() => {
     // sellSheetRef.current?.close();
-    console.log(doesNotMatch,'done')
+    console.log(doesNotMatch, 'done')
     showToastMessage(toast, 'success', 'Tokens sold successfully!');
     onRefresh();
   }, []);
@@ -723,15 +768,23 @@ const fetchTopCreators = async () => {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>My Wallets</Text>
           <View style={[styles.walletsContainer, { shadowColor: text }]}>
-            <FlatList
+            {/* <FlatList
               data={walletTransactions}
               renderItem={renderWallet}
               keyExtractor={(item, index) => index.toString()}
               scrollEnabled={false}
-            />
-            <Text style={styles.walletTip}>
-              Tip: Convert followers into holders with Post Coins. Your monthly credits renew automatically.
-            </Text>
+            // /> */}
+            {/* // <Text style={styles.walletTip}>
+            //   Tip: Convert followers into holders with Post Coins. Your monthly credits renew automatically.
+            // </Text> */}
+            <View style={styles.walletInfoBox}>
+              <Text style={styles.walletLabel}>Stripe Account ID</Text>
+              <Text style={styles.walletValue}> {userWalletData.stripeCustomerId || 'Not Connected'}</Text>
+            </View>
+            <View style={styles.walletInfoBox}>
+              <Text style={styles.walletLabel}>Wallet Address</Text>
+              <Text style={styles.walletValue}> {userWalletData.walletAddress || 'Not Available'}</Text>
+            </View>
           </View>
         </View>
 
@@ -1083,6 +1136,25 @@ const styles = StyleSheet.create({
   sectionHeader: {
     marginBottom: 5,
   },
+  walletInfoBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+  },
+
+  walletLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 4,
+  },
+
+  walletValue: {
+    fontSize: 14,
+    color: '#0f0a0a',
+    fontWeight: '600',
+  },
+
   periodSelector: {
     flexDirection: 'row',
     backgroundColor: '#fff',

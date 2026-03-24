@@ -580,6 +580,18 @@ export default function PostView({ postData = [] }) {
     setModalPostId(null);
   };
 
+  const handlePostEdited = useCallback(updatedPost => {
+    if (!updatedPost?.id) return;
+
+    setList(prev =>
+      prev.map(post =>
+        String(post.id) === String(updatedPost.id)
+          ? { ...post, ...updatedPost }
+          : post,
+      ),
+    );
+  }, []);
+
   // Optimize canDelete calculation
   const canDelete = useMemo(() => {
     if (!modalPostId || !currentUserId) return false;
@@ -595,6 +607,28 @@ export default function PostView({ postData = [] }) {
       if (action === 'toggleSave') {
         await handleToggleSave(modalPostId);
         closeOptions();
+        return;
+      }
+
+      if (action === 'editPost') {
+        if (!canDelete) {
+          showToastMessage(toast, 'danger', "You can't edit this post.");
+          closeOptions();
+          return;
+        }
+
+        const postToEdit = list.find(p => String(p.id) === String(modalPostId));
+        closeOptions();
+
+        if (!postToEdit) {
+          showToastMessage(toast, 'danger', 'Post not found');
+          return;
+        }
+
+        navigation.navigate('EditPost', {
+          post: postToEdit,
+          onSave: handlePostEdited,
+        });
         return;
       }
 
@@ -675,6 +709,9 @@ export default function PostView({ postData = [] }) {
       canDelete,
       handleToggleSave,
       closeOptions,
+      list,
+      navigation,
+      handlePostEdited,
       toast,
       currentUserId,
       dispatch,
@@ -745,6 +782,7 @@ export default function PostView({ postData = [] }) {
         UserId: item.userId,
         userId: item.userId,
         boughtBy: item.boughtBy || [],
+        taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
         returnTo: route?.params?.returnTo,
         follow:
           typeof followingByUserId[String(item.userId)] === 'boolean'
@@ -769,6 +807,7 @@ export default function PostView({ postData = [] }) {
             onSuggest={[]}
             returnTo={route?.params?.returnTo}
             shareCount={item.shareCount}
+            taggedPeople={mapped.taggedPeople}
             isVisible={isPostVisible}
             screenFocused={screenFocused}
             playingPostId={playingPostId}
@@ -908,8 +947,12 @@ export default function PostView({ postData = [] }) {
         postId={modalPostId ?? ''}
         isSaved={!!(modalPostId && saved[modalPostId])}
         canDelete={!!canDelete}
+        canEdit={!!canDelete}
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
         hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
+        onHiddenChange={(id, nextHidden) => {
+          setHiddenById(prev => ({ ...prev, [id]: nextHidden }));
+        }}
       />
 
       {/* Comment Bottom Sheet */}

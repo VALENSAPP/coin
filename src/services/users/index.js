@@ -1,7 +1,6 @@
 import axiosInstance from '..';
 
 export async function getAllUser(params = {}) {
-    console.log(params, 'params in service');
     
     if (Object.keys(params).length === 0) {
         // No params, call API normally

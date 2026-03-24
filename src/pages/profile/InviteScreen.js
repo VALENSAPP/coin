@@ -17,34 +17,40 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useAppTheme } from '../../theme/useApptheme';
- 
+
 const { width } = Dimensions.get('window');
- 
+
 export default function InviteScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const { bgStyle, textStyle } = useAppTheme();
- 
+
     // Generate unique referral code for this user
-    const userReferralCode = route?.params?.referralCode ?? 'Valens123';
-    
+    const userReferralCode = route?.params?.referralCode;
+
+    const copyReferralCode = () => {
+        Clipboard.setString(userReferralCode);
+        Alert.alert("Copied!", "Referral code copied successfully");
+    };
+
     // OPTION 1: Custom URL Scheme (works immediately)
     // Format: yourapp://referral?code=ABC123
-    const deepLinkUrl = `https://we.tl/t-fcsDZN5ysU`;
-    
+    const deepLinkQr = `https://www.valens.app/`;
+
     // OPTION 2: Universal Link (requires domain setup)
     // Format: https://yourdomain.com/referral?code=ABC123
-    // const deepLinkUrl = `https://yourdomain.com/referral?code=${userReferralCode}`;
-    
+    const deepLinkUrl = 'https://www.valens.app/';
+    //  `https://yourdomain.com/referral?code=${userReferralCode}`;
+
     const avatar = route?.params?.avatar;
- 
+
     // sizing
     const qrSize = Math.min(width * 0.72, 320);
     const innerPadding = 14;
     const innerSize = qrSize + innerPadding;
     const avatarSize = 56;
     const avatarPos = (innerSize / 2) - (avatarSize / 2);
- 
+
     const onShare = async () => {
         try {
             await Share.share({
@@ -61,7 +67,7 @@ export default function InviteScreen() {
         Clipboard.setString(deepLinkUrl);
         Alert.alert('Copied!', 'Referral link copied to clipboard');
     };
- 
+
     return (
         <SafeAreaView style={[styles.safe, bgStyle]}>
             <ScrollView contentContainerStyle={styles.container}>
@@ -86,10 +92,10 @@ export default function InviteScreen() {
                 <Text style={styles.subtitle}>
                     For every friend you invite to Valens, you'll earn rewards for every trade. <Text style={{ fontWeight: '700' }}>Learn more.</Text>
                 </Text>
- 
+
                 {/* QR with pastel gradient border */}
                 <View style={{ height: 18 }} />
- 
+
                 <LinearGradient
                     colors={['#FAD9B6', '#C6F6D9', '#BEE8FF', '#F1C9F2']}
                     start={{ x: 0, y: 0 }}
@@ -99,9 +105,9 @@ export default function InviteScreen() {
                     <View style={[styles.qrInner, { width: innerSize, height: innerSize, borderRadius: 14 }]}>
                         <View style={{ width: qrSize, height: qrSize, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
                             {/* QR code now contains the deep link */}
-                            <QRCode value={deepLinkUrl} size={qrSize * 0.94} />
+                            <QRCode value={deepLinkQr} size={qrSize * 0.94} />
                         </View>
- 
+
                         {/* avatar overlay centered on top of QR */}
                         <View style={[styles.avatarWrapper, {
                             width: avatarSize,
@@ -114,34 +120,41 @@ export default function InviteScreen() {
                         </View>
                     </View>
                 </LinearGradient>
- 
+
                 {/* Share row */}
                 <View style={{ height: 22 }} />
                 <View style={styles.shareRow}>
                     <TouchableOpacity style={styles.shareButton} onPress={onShare} activeOpacity={0.85}>
                         <Text style={styles.shareText}>Share your link</Text>
                     </TouchableOpacity>
- 
+
                     <TouchableOpacity style={[styles.iconButton, bgStyle]} onPress={onCopyLink} activeOpacity={0.85}>
                         <Ionicons name="link-outline" size={22} color="#111" />
                     </TouchableOpacity>
                 </View>
- 
+
                 {/* Bottom section */}
                 <View style={{ height: 28 }} />
                 <Text style={styles.sectionTitle}>Your invites</Text>
-                <Text style={styles.sectionSubtitle}>Invite your first user to earn Sparks when their posts are minted.</Text>
- 
+                <Text style={styles.sectionSubtitle}>Invite your first user to earn 10 points when their posts are minted.</Text>
+
                 {/* Debug info (remove in production) */}
                 <View style={styles.debugBox}>
-                    <Text style={styles.debugText}>Referral Code: {userReferralCode}</Text>
+                    <View style={styles.referralRow}>
+                        <Text style={styles.debugText}>Referral Code: {userReferralCode}</Text>
+
+                        <TouchableOpacity onPress={copyReferralCode}>
+                            <Ionicons name="copy-outline" size={18} color="#333" />
+                        </TouchableOpacity>
+                    </View>
+
                     <Text style={styles.debugText}>Deep Link: {deepLinkUrl}</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
- 
+
 const styles = StyleSheet.create({
     safe: { flex: 1, marginTop: 20 },
     container: {
@@ -150,14 +163,14 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 40,
     },
- 
+
     backBtn: {
         position: 'absolute',
         // left: 16,
         // top: 27,
         zIndex: 10,
     },
- 
+
     title: {
         // marginTop: 6,
         fontSize: 26,
@@ -174,7 +187,12 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         paddingHorizontal: 6,
     },
- 
+    referralRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+    },
     qrGradient: {
         justifyContent: 'center',
         alignItems: 'center',
@@ -189,7 +207,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 7,
     },
- 
+
     avatarWrapper: {
         position: 'absolute',
         borderWidth: 3,
@@ -198,7 +216,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     avatar: { width: '100%', height: '100%' },
- 
+
     shareRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -215,7 +233,7 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     shareText: { color: '#fff', fontSize: 16, fontWeight: '600' },
- 
+
     iconButton: {
         width: 56,
         height: 56,
@@ -227,7 +245,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 6,
     },
- 
+
     sectionTitle: {
         alignSelf: 'flex-start',
         fontSize: 20,

@@ -29,7 +29,15 @@ const PostEditorScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
-  const { images = [], currentFilter = 'none', metadata = {}, imageEdits, postType, fromIcon } = route.params || {};
+  const {
+    images = [],
+    currentFilter = 'none',
+    metadata = {},
+    imageEdits,
+    postType,
+    fromIcon,
+    taggedPeople = [],
+  } = route.params || {};
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
   const [profile, setProfile] = useState(null);
@@ -79,72 +87,55 @@ const PostEditorScreen = () => {
     loadProfileType();
   }, []);
   const handlePost = async () => {
-    // if user is business profile, only navigate to CreateMission
-    if (profile == 'company') {
+    if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
         showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
         return;
       }
 
-
       navigation.navigate('CreateMission', {
         images,
         caption,
-        link
+        link,
+        taggedPeople,
       });
       return;
     }
 
+    dispatch(showLoader());
+    const payload = {
+      caption: caption.trim(),
+      taggedPeople: Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
+      media: images.map(img => ({
+        uri: getMediaUri(img),
+        type: img.type,
+        name: getMediaUri(img).split('/').pop()
 
-    else {
-      if (postType == 'crowdfunding') {
-        if (link && !isValidLink(link)) {
-          showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
-          return;
-        }
+      })),
+      type:
+      //  fromIcon === 'Flips'
+      //   ? 'reel'
+      //   : 
+        postType === 'private'
+          ? 'private'
+          : 'normal',
+      };
 
-        navigation.navigate('CreateMission', {
-          images,
-          caption,
-          link
-        });
-        return;
+    try {
+      const response = await createPost(payload);
+      console.log('Post creation response:', response);
+
+      if (response.statusCode == 200) {
+        showToastMessage(toast, 'success', 'Post created successfully');
+        navigation.navigate('HomeMain');
+      } else {
+        showToastMessage(toast, 'danger', response.message || 'Please try again');
       }
-
-      dispatch(showLoader());
-      const payload = {
-        caption: caption.trim(),
-        media: images.map(img => ({
-          uri: getMediaUri(img),
-          type: img.type,
-          name: getMediaUri(img).split('/').pop()
-
-        })),
-        type:
-        //  fromIcon === 'Flips'
-        //   ? 'reel'
-        //   : 
-          postType === 'private'
-            ? 'private'
-            : 'normal',
-        };
-
-      try {
-        const response = await createPost(payload);
-        console.log('Post creation response:', response);
-
-        if (response.statusCode == 200) {
-          showToastMessage(toast, 'success', 'Post created successfully');
-          navigation.navigate('HomeMain');
-        } else {
-          showToastMessage(toast, 'danger', response.message || 'Please try again');
-        }
-      } catch (err) {
-        console.error('Post creation error:', err);
-        showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
-      } finally {
-        dispatch(hideLoader());
-      }
+    } catch (err) {
+      console.error('Post creation error:', err);
+      showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
+    } finally {
+      dispatch(hideLoader());
     }
   };
 
@@ -232,6 +223,14 @@ const PostEditorScreen = () => {
         )}
 
         {/* Caption Input */}
+        {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
+          <View style={styles.captionSection}>
+            <Text style={styles.captionLabel}>Tagged people</Text>
+            <Text style={styles.taggedPeopleText}>
+              {taggedPeople.map(user => `@${String(user).replace(/^@+/, '')}`).join(', ')}
+            </Text>
+          </View>
+        )}
         <View style={styles.captionSection}>
           <Text style={styles.captionLabel}>Write a caption (optional)</Text>
           <TextInput
@@ -351,6 +350,11 @@ const styles = StyleSheet.create({
   indicatorText: { color: '#fff', fontSize: 8, fontWeight: 'bold' },
   captionSection: { paddingHorizontal: 16, marginBottom: 20 },
   captionLabel: { fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#000' },
+  taggedPeopleText: {
+    fontSize: 14,
+    color: '#000',
+    paddingVertical: 6,
+  },
   captionInput: {
     borderWidth: 1,
     borderColor: '#e0e0e0',

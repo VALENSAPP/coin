@@ -1,7 +1,7 @@
 import { StyleSheet, Dimensions } from 'react-native';
 import { useAppTheme } from '../../../theme/useApptheme';
-const { width, height } = Dimensions.get('window');
-const createStyles = () => {
+const { height } = Dimensions.get('window');
+const useSignupStyles = () => {
   const { bg, text } = useAppTheme();
 
   const styles = StyleSheet.create({
@@ -68,6 +68,12 @@ const createStyles = () => {
       color: '#374151',
       marginBottom: 8,
     },
+    inputLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
     inputGroup: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -97,6 +103,27 @@ const createStyles = () => {
       marginTop: 4,
       marginLeft: 4,
       fontWeight: '500',
+    },
+    optionalBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+      backgroundColor: '#F3F4F6',
+      marginBottom: 8,
+    },
+    optionalBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#6B7280',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    helperText: {
+      color: '#6B7280',
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 8,
+      marginLeft: 4,
     },
 
     // Sign Up Button
@@ -264,6 +291,7 @@ const createStyles = () => {
       fontSize: 18,
       fontWeight: '600',
       textAlign: 'center',
+      color: text,
     },
     checkboxContainer: {
       flexDirection: 'row',
@@ -281,4 +309,4 @@ const createStyles = () => {
   });
   return styles;
 };
-export default createStyles;
+export default useSignupStyles;

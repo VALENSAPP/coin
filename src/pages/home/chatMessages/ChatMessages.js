@@ -222,6 +222,18 @@ export default function ChatMessages() {
     setError(null);
   }, [currentUserId]);
 
+  useSocket('messageSeen', (payload) => {
+    if (!payload?.messageId) return;
+
+    setConversations(prev =>
+      prev.map(conversation =>
+        String(conversation.lastMessageId) === String(payload.messageId)
+          ? { ...conversation, lastMessageIsSeen: true }
+          : conversation,
+      ),
+    );
+  }, []);
+
   // ✅ Listen for new messages to update conversation list in real-time
   useSocket('newMessage', (message) => {
     console.log('🔔 ChatMessages: New message received');
@@ -512,10 +524,12 @@ export default function ChatMessages() {
         !conversationMap.has(partnerId) ||
         messageTime > new Date(conversationMap.get(partnerId).lastMessageTime)
       ) {
+        const lastMessageIsSeen = Number(message?.isSeen ?? 0) === 1;
         const conversationData = {
           id: partnerId,
           userId: partnerId,
           chatId: chatId,
+          lastMessageId: message.id,
           username: chatPartner.displayName || chatPartner.username || "Unknown User",
           displayName: chatPartner.displayName,
           avatar: chatPartner.image || ONLINE_PLACEHOLDER,
@@ -525,6 +539,7 @@ export default function ChatMessages() {
           unreadCount: unreadCount,
           isOnline: chatPartner.isOnline || false,
           sentByMe: isCurrentUserSender,
+          lastMessageIsSeen,
           type: message.type,
           user: {
             id: partnerId,
@@ -711,26 +726,35 @@ export default function ChatMessages() {
           <Text style={[styles.username, item.unreadCount > 0 && styles.unreadMessage, textStyle]}>{item.username}</Text>
           <Text style={styles.timestamp}>{item.timestamp}</Text>
         </View>
-        <View style={styles.messageRow}>
-          {item.lastMessage ? (
-            <Text
-              style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]}
-              numberOfLines={1}
-            >
-              {item.lastMessage}
-            </Text>
-          ) : (
-            <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
-              Start a conversation
-            </Text>
-          )}
+      <View style={styles.messageRow}>
+        {item.lastMessage ? (
+          <Text
+            style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]}
+            numberOfLines={1}
+          >
+            {item.lastMessage}
+          </Text>
+        ) : (
+          <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
+            Start a conversation
+          </Text>
+        )}
 
-          {item.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-            </View>
-          )}
-        </View>
+        {item.sentByMe && (
+          <SafeIcon
+            name="checkmark-done"
+            size={16}
+            color={item.lastMessageIsSeen ? '#3b82f6' : '#9ca3af'}
+            style={styles.readReceiptIcon}
+          />
+        )}
+
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+          </View>
+        )}
+      </View>
       </View>
     </TouchableOpacity>
   );
@@ -1014,6 +1038,9 @@ const styles = StyleSheet.create({
   messageRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  readReceiptIcon: {
+    marginLeft: 6,
   },
   lastMessage: {
     fontSize: 14,

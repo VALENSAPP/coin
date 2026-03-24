@@ -187,7 +187,7 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      <Drawer.Screen
+      {/* <Drawer.Screen
         name="DrawerPortfolio"
         component={DummyComponent}
         options={{
@@ -204,7 +204,7 @@ const GlobalDrawerNavigator = () => {
             });
           },
         })}
-      />
+      /> */}
       <Drawer.Screen
         name="DrawerWallet"
         component={DummyComponent}

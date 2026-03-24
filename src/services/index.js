@@ -6,6 +6,8 @@ const baseUrl = BASE_URL;
 
 const axiosInstance = axios.create({
     baseURL: 'http://35.174.167.92:3002/',
+    // baseURL: 'http://192.168.29.211:3002/',
+
     maxBodyLength: Infinity
 });
 
@@ -43,16 +45,23 @@ export const authInterceptorResponse = axiosInstance.interceptors.response.use(
         return response.data;
     },
     async (error) => {
-        if (error.response) {
+        const fallback = {
+            statusCode: 0,
+            message: error?.response?.data?.message || error?.message || 'Network error',
+            error: true,
+        };
+
+        if (error?.response?.data) {
             return error.response.data;
-        } else if (error.request) {
+        }
+        if (error?.request) {
             console.log("No response received. Request details:", error.request);
-        } else {
-            // Error in setting up the request
-            console.log("Error Message:", error.message);
+            return fallback;
         }
 
-        return error.response.data;;
+        // Error in setting up the request
+        console.log("Error Message:", error?.message);
+        return fallback;
     }
 );
 

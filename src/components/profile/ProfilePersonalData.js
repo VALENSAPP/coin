@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking, ActivityIndicator } from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -28,6 +28,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress, openWalletPayment } from '../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../pages/authentication/socialLogin';
 import { updateWallet } from '../../services/wallet';
+import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -62,9 +63,6 @@ const ProfilePersonData = ({
   executeFollowAction,
   returnByTo
 }) => {
-
-
-
   // useEffect(() => {
   //   console.log(
   //     { userData },
@@ -568,11 +566,14 @@ const ProfilePersonData = ({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
-    if (ready) {
+    const supporterProfile = isBusinessProfile ? 'company' : 'user';
+    const recipientProfile = normalizeProfileType(effectiveProfileType || userProfile || userData?.profile);
+
+    // Only show support/wallet flow when support is allowed by platform rules.
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
       setSupportModalVisible(true);
     }
-  }, [isFollowing, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
+  }, [isFollowing, executeFollowAction, onToggleFollow, isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -647,6 +648,10 @@ const ProfilePersonData = ({
       Alert.alert('Please wait', 'Profile data is still loading');
     }
   };
+
+  const handleOpenBattlePress = useCallback(() => {
+    navigation.navigate('OpenBattle');
+  }, [navigation]);
 
   const redirect = () => {
     const source = data?.id ? data : userData?.id ? userData : null;
@@ -1001,7 +1006,7 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
@@ -1024,7 +1029,7 @@ const ProfilePersonData = ({
                   <TouchableOpacity
                     onPress={() =>
                       navigation.navigate('Invite', {
-                        referralUrl: 'https://valens.com/referral?code=Valens123',
+                        referralCode: userData?.referCode || 'Valense123',
                         avatar: Userdata.profilePic,
                       })
                     }
@@ -1055,7 +1060,7 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
@@ -1094,6 +1099,33 @@ const ProfilePersonData = ({
           )}
 
         </View>
+        {!fromUsersProfile && (
+
+
+          <View style={styles.battleActionWrapper}>
+            <TouchableOpacity style={{ flex: 1 }}>
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Invite to Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={{ flex: 1 }} onPress={handleOpenBattlePress}>
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Open Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Stats */}
         <View style={styles.statsRow}>
@@ -1405,5 +1437,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+  },
+  battleActionWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    // marginHorizontal: 15,
+    marginTop: 10,
+  },
+
+  battleBtn: {
+    flex: 1,
+    // backgroundColor: '#6A5AE0',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+
+  battleBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

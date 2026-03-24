@@ -15,9 +15,8 @@ import { AppleLogo, Google, Twitter } from '../../../assets/icons';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import createStyles from './Style';
+import useSignupStyles from './Style';
 import {
-  MetasmaskLogin,
   onAppleButtonPress,
   onGoogleButtonPress,
   twitterOAuthLogin,
@@ -27,7 +26,6 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthHeader } from '../../../components/auth';
 import DeviceInfo from "react-native-device-info";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 
 export default function SignupScreen() {
@@ -36,10 +34,11 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [userName, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const styles = createStyles();
+  const styles = useSignupStyles();
   const dispatch = useDispatch();
   const profile = isChecked ? 'company' : 'user';
   const { text } = useAppTheme();
@@ -89,24 +88,40 @@ export default function SignupScreen() {
     Keyboard.dismiss();
     if (!validate()) return;
 
+    const normalizedEmail = email.trim();
+    const normalizedUserName = userName.trim();
+    const normalizedReferralCode = referralCode.trim();
+
     dispatch(showLoader());
     try {
-      const signupResponse = await signup({
-        email,
+      const signupPayload = {
+        email: normalizedEmail,
         password,
         registrationType: 'NORMAL',
-        userName,
+        userName: normalizedUserName,
         profile,
-      });
+      };
+
+      if (normalizedReferralCode) {
+        signupPayload.referralCode = normalizedReferralCode;
+      }
+
+      const signupResponse = await signup(signupPayload);
       if (
         signupResponse &&
-        (signupResponse.statusCode == 200 || signupResponse.statusCode == 201)
+        (signupResponse.statusCode === 200 || signupResponse.statusCode === 201)
       ) {
         dispatch(hideLoader());
         // showToastMessage(toast, 'success', 'OTP sent to your email.');
-        navigation.navigate('OTPScreen', { email, password, type: 'signup' });
+        navigation.navigate('OTPScreen', {
+          email: normalizedEmail,
+          password,
+          type: 'signup',
+        });
         setPassword('');
-        setEmail(''), setUsername('');
+        setEmail('');
+        setUsername('');
+        setReferralCode('');
       } else {
         dispatch(hideLoader());
         showToastMessage(
@@ -116,7 +131,11 @@ export default function SignupScreen() {
         );
       }
     } catch (error) {
-      showToastMessage(toast, 'success', error.response.message);
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.message || error?.message || 'Signup failed.',
+      );
       dispatch(hideLoader());
     }
   };
@@ -146,10 +165,6 @@ export default function SignupScreen() {
     twitterOAuthLogin(dispatch, toast, navigation, profile);
     dispatch(hideLoader());
   };
-
-  async function handleMetaMaskConnect() {
-    MetasmaskLogin(toast, navigation, dispatch);
-  }
 
   return (
     // <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -198,8 +213,8 @@ export default function SignupScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     value={email}
-                    onChangeText={text => {
-                      setEmail(text);
+                    onChangeText={value => {
+                      setEmail(value);
                       if (errors.email) {
                         const newErrors = { ...errors };
                         delete newErrors.email;
@@ -228,8 +243,8 @@ export default function SignupScreen() {
                     placeholderTextColor="#9CA3AF"
                     autoCapitalize="none"
                     value={userName}
-                    onChangeText={text => {
-                      setUsername(text);
+                    onChangeText={value => {
+                      setUsername(value);
                       if (errors.userName) {
                         const newErrors = { ...errors };
                         delete newErrors.userName;
@@ -259,8 +274,8 @@ export default function SignupScreen() {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     value={password}
-                    onChangeText={text => {
-                      setPassword(text);
+                    onChangeText={value => {
+                      setPassword(value);
                       if (errors.password) {
                         const newErrors = { ...errors };
                         delete newErrors.password;
@@ -282,6 +297,29 @@ export default function SignupScreen() {
                 {errors.password && (
                   <Text style={styles.errorText}>{errors.password}</Text>
                 )}
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputLabelRow}>
+                  <Text style={styles.inputLabel}>Referral Code</Text>
+                  <View style={styles.optionalBadge}>
+                    <Text style={styles.optionalBadgeText}>Optional</Text>
+                  </View>
+                </View>
+                <View style={styles.inputGroup}>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Enter your referral code"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={referralCode}
+                    onChangeText={setReferralCode}
+                  />
+                </View>
+                <Text style={styles.helperText}>
+                  Have a referral code? Add it now to apply it during signup.
+                </Text>
               </View>
 
               <View>

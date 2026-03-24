@@ -8,9 +8,10 @@ import {
   Dimensions,
   TouchableOpacity,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import Video from 'react-native-video';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
@@ -113,6 +114,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
   const normalizedIsSubscribed =
     isSubscribed === true ||
@@ -163,53 +165,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     setResolvedIsSubscribed(normalizedIsSubscribed);
   }, [normalizedIsSubscribed]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const checkStatus = async () => {
-      if (!userData?.id) {
-        if (mounted) {
-          setResolvedIsSubscribed(false);
-          setStatusLoading(false);
-        }
-        return;
-      }
-
-      if (isOwnProfile) {
-        if (mounted) {
-          setResolvedIsSubscribed(true);
-          setStatusLoading(false);
-        }
-        return;
-      }
-
-      setStatusLoading(true);
-      const active = await getSubscriptionStatus(userData.id);
-      
-      if (mounted) {
-        setResolvedIsSubscribed(active);
-        setStatusLoading(false);
-      }
-    };
-
-    checkStatus();
-    return () => {
-      mounted = false;
-    };
-  }, [userData?.id, isOwnProfile, getSubscriptionStatus]);
-
-  useEffect(() => {
-    if (!userData?.id || statusLoading) return;
-
-    if (canViewPrivateContent) {
-      fetchPosts(userData.id);
-    } else {
-      setPosts([]);
-      setLoading(false);
-    }
-  }, [userData?.id, canViewPrivateContent, statusLoading]);
-
-  const fetchPosts = async (id) => {
+  const fetchPosts = useCallback(async (id) => {
     try {
       setLoading(true);
       const response = await getPostByUser(id, 'private');
@@ -227,7 +183,59 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const refreshStatusAndPosts = useCallback(async () => {
+    if (!userData?.id) {
+      setResolvedIsSubscribed(false);
+      setPosts([]);
+      setStatusLoading(false);
+      return;
+    }
+
+    if (isOwnProfile) {
+      setResolvedIsSubscribed(true);
+      await fetchPosts(userData.id);
+      setStatusLoading(false);
+      return;
+    }
+
+    setStatusLoading(true);
+    try {
+      const active = await getSubscriptionStatus(userData.id);
+      setResolvedIsSubscribed(active);
+
+      if (active) {
+        await fetchPosts(userData.id);
+      } else {
+        setPosts([]);
+      }
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [fetchPosts, getSubscriptionStatus, isOwnProfile, userData?.id]);
+
+  // Initial load + refresh when switching profiles
+  useEffect(() => {
+    refreshStatusAndPosts();
+  }, [refreshStatusAndPosts]);
+
+  // Refresh when user returns to this tab/screen (e.g. after completing payment)
+  useFocusEffect(
+    useCallback(() => {
+      refreshStatusAndPosts();
+    }, [refreshStatusAndPosts])
+  );
+
+  // Refresh when app resumes from background (e.g. coming back from payment webview/browser)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isFocused) {
+        refreshStatusAndPosts();
+      }
+    });
+    return () => sub.remove();
+  }, [isFocused, refreshStatusAndPosts]);
 
   const openPosts = useCallback(
     (index) => {
