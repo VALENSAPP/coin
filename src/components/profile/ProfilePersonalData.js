@@ -1103,7 +1103,7 @@ const ProfilePersonData = ({
 
 
           <View style={styles.battleActionWrapper}>
-            <TouchableOpacity style={{ flex: 1 }}>
+            <TouchableOpacity style={styles.battleBtnWrapper}>
               <LinearGradient
                 colors={profileActionGradient}
                 start={{ x: 0, y: 0 }}
@@ -1114,7 +1114,7 @@ const ProfilePersonData = ({
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={{ flex: 1 }} onPress={handleOpenBattlePress}>
+            <TouchableOpacity style={styles.battleBtnWrapper} onPress={handleOpenBattlePress}>
               <LinearGradient
                 colors={profileActionGradient}
                 start={{ x: 0, y: 0 }}
@@ -1440,23 +1440,54 @@ const styles = StyleSheet.create({
   },
   battleActionWrapper: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    // marginHorizontal: 15,
+    alignItems: 'stretch',
+    width: '100%',
+    alignSelf: 'stretch',
+    marginHorizontal: 6,
     marginTop: 10,
+  },
+
+  battleBtnWrapper: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginHorizontal: 5,
+    ...Platform.select({
+      ios: {
+        height: 48,
+      },
+      android: {
+        minHeight: 44,
+      },
+    }),
   },
 
   battleBtn: {
     flex: 1,
     // backgroundColor: '#6A5AE0',
-    paddingVertical: 12,
-    borderRadius: 10,
     alignItems: 'center',
-    marginHorizontal: 5,
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        paddingVertical: 0,
+      },
+      android: {
+        paddingVertical: 12,
+      },
+    }),
   },
 
   battleBtnText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+    ...Platform.select({
+      ios: {
+        lineHeight: 18,
+      },
+      android: {
+        lineHeight: 18,
+      },
+    }),
   },
 });
