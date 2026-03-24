@@ -433,7 +433,7 @@ export default function PostScreen({ navigation }) {
       >
         {asset.type && asset.type.startsWith('video') ? (
           <View style={styles.videoGridItem}>
-            <Image source={{ uri: asset.uri }} style={styles.gridImage} />
+            <Image source={{ uri: asset.uri }} style={styles.gridImage} resizeMode='cover'/>
             <View style={styles.videoDurationBadge}>
               <Icon name="videocam" size={12} color="#fff" />
               <Text style={styles.videoDurationText}>

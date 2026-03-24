@@ -11,7 +11,6 @@ import {
   Platform,
   Animated,
   PanResponder,
-  FlatList,
   ScrollView,
   Alert,
   KeyboardAvoidingView,
@@ -19,6 +18,7 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { captureRef } from 'react-native-view-shot';
+import EmojiPicker from 'rn-emoji-keyboard';
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -39,6 +39,8 @@ const DEFAULT_FONTS = [
   { name: 'Pacifico', style: { fontFamily: 'Pacifico-Regular' } },
 ];
 
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
 const isVideo = asset => {
   if (!asset) return false;
   if (asset.type?.includes('video')) return true;
@@ -52,49 +54,152 @@ const Draggable = ({
   id,
   initialX = 50,
   initialY = 50,
+  initialScale = 1,
+  pinchEnabled = false,
   onStart,
   onEnd,
+  onLongPress,
   children,
 }) => {
-  const pan = useRef(
-    new Animated.ValueXY({ x: initialX, y: initialY }),
-  ).current;
+  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+  const posRef = useRef({ x: initialX, y: initialY });
+  const scale = useRef(new Animated.Value(initialScale)).current;
+  const scaleRef = useRef(initialScale);
+  const pinchRef = useRef({ pinching: false, startDist: 0, startScale: 1 });
+  const touchPosRef = useRef({});
+
+  const getDistance = touches => {
+    if (!touches || touches.length < 2) return 0;
+    const [a, b] = touches;
+    const ax = a.pageX ?? a.locationX ?? 0;
+    const ay = a.pageY ?? a.locationY ?? 0;
+    const bx = b.pageX ?? b.locationX ?? 0;
+    const by = b.pageY ?? b.locationY ?? 0;
+    const dx = ax - bx;
+    const dy = ay - by;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
   const responder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: e => e.nativeEvent.touches.length === 1,
-      onMoveShouldSetPanResponder: (e, g) =>
-        e.nativeEvent.touches.length === 1 &&
-        (Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3),
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (evt, g) => {
+        const touchCount = g?.numberActiveTouches ?? 0;
+        if (pinchEnabled && touchCount >= 2) return true;
+        return Math.abs(g.dx) > 2 || Math.abs(g.dy) > 2;
+      },
+      onMoveShouldSetPanResponderCapture: (evt, g) => {
+        const touchCount = g?.numberActiveTouches ?? 0;
+        if (pinchEnabled && touchCount >= 2) return true;
+        return Math.abs(g.dx) > 2 || Math.abs(g.dy) > 2;
+      },
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
 
       onPanResponderGrant: () => {
         onStart?.();
-        pan.setOffset({ x: pan.x.__getValue(), y: pan.y.__getValue() });
+        touchPosRef.current = {};
+        pan.setOffset({ x: posRef.current.x, y: posRef.current.y });
         pan.setValue({ x: 0, y: 0 });
       },
 
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
+      onPanResponderMove: (evt, gestureState) => {
+        const touchCount = gestureState?.numberActiveTouches ?? 0;
+        const touches = evt?.nativeEvent?.touches || [];
+        const changedTouches = evt?.nativeEvent?.changedTouches || [];
 
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-        onEnd?.(pan.x.__getValue(), pan.y.__getValue());
+        if (touches.length) {
+          const nextPos = {};
+          touches.forEach(t => {
+            const key = t.identifier ?? '0';
+            nextPos[key] = {
+              x: t.pageX ?? t.locationX ?? 0,
+              y: t.pageY ?? t.locationY ?? 0,
+            };
+          });
+          touchPosRef.current = nextPos;
+        } else if (changedTouches.length) {
+          changedTouches.forEach(t => {
+            const key = t.identifier ?? '0';
+            touchPosRef.current[key] = {
+              x: t.pageX ?? t.locationX ?? 0,
+              y: t.pageY ?? t.locationY ?? 0,
+            };
+          });
+        }
+
+        const pinchTouches =
+          touches.length >= 2
+            ? touches
+            : Object.values(touchPosRef.current).slice(0, 2).map(p => ({
+                pageX: p.x,
+                pageY: p.y,
+              }));
+
+        if (pinchEnabled && touchCount >= 2 && pinchTouches.length >= 2) {
+          if (!pinchRef.current.pinching) {
+            pinchRef.current.pinching = true;
+            pinchRef.current.startDist = getDistance(pinchTouches);
+            pinchRef.current.startScale = scaleRef.current || 1;
+          }
+
+          const dist = getDistance(pinchTouches);
+          const ratio = pinchRef.current.startDist
+            ? dist / pinchRef.current.startDist
+            : 1;
+          const nextScale = clamp(pinchRef.current.startScale * ratio, 0.4, 4);
+          scale.setValue(nextScale);
+          return;
+        }
+
+        if (pinchRef.current.pinching) {
+          pinchRef.current.pinching = false;
+          scaleRef.current = scale.__getValue();
+        }
+
+        if (!gestureState) return;
+        pan.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
 
-      onPanResponderTerminate: () => {
+      onPanResponderRelease: (_, gestureState) => {
+        if (pinchRef.current.pinching) {
+          pinchRef.current.pinching = false;
+          scaleRef.current = scale.__getValue();
+        }
+
         pan.flattenOffset();
-        onEnd?.(pan.x.__getValue(), pan.y.__getValue());
+        const x = pan.x.__getValue();
+        const y = pan.y.__getValue();
+        posRef.current = { x, y };
+        scaleRef.current = scale.__getValue();
+        onEnd?.(x, y, scale.__getValue());
+      },
+
+      onPanResponderTerminate: (_, gestureState) => {
+        if (pinchRef.current.pinching) {
+          pinchRef.current.pinching = false;
+          scaleRef.current = scale.__getValue();
+        }
+
+        pan.flattenOffset();
+        const x = pan.x.__getValue();
+        const y = pan.y.__getValue();
+        posRef.current = { x, y };
+        scaleRef.current = scale.__getValue();
+        onEnd?.(x, y, scale.__getValue());
       },
     }),
   ).current;
 
   return (
     <Animated.View
-      style={[styles.overlayItem, pan.getLayout()]}
+      style={[styles.overlayItem, { left: pan.x, top: pan.y, transform: [{ scale }] }]}
       {...responder.panHandlers}
     >
-      {children}
+      <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300}>
+        {children}
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -139,20 +244,42 @@ export default function StoryComposer({
     FILTERS.find(f => f.key === currentFilterKey)?.overlay || null;
 
   const selectFilter = filterKey => {
-    console.log('Selecting filter:', filterKey);
-    setFilterPerIndex(prev => {
-      const updated = { ...prev, [index]: filterKey };
-      console.log('Updated filters:', updated);
-      return updated;
-    });
+    setFilterPerIndex(prev => ({ ...prev, [index]: filterKey }));
   };
 
-  const addSticker = emoji => {
+  // Called by rn-emoji-keyboard — payload shape: { emoji: "😀", ... }
+  const handleEmojiSelected = emojiObj => {
+    const emojiChar = emojiObj?.emoji;
+    if (!emojiChar) return;
     setStickersPerIndex(prev => {
       const next = { ...prev };
+      const existing = next[index] || [];
+
+      // Spawn in a "text-like" flow (left-to-right, wrapping to next line)
+      // so multiple emoji picks don't overlap.
+      const marginX = 16;
+      const baseY = SCREEN_HEIGHT * 0.2;
+      const stickerSize = 56; // matches styles.sticker fontSize
+      const gap = 10;
+      const perRow = Math.max(
+        1,
+        Math.floor((SCREEN_WIDTH - marginX * 2) / (stickerSize + gap)),
+      );
+      const n = existing.length;
+      const col = n % perRow;
+      const row = Math.floor(n / perRow);
+      const x = marginX + col * (stickerSize + gap);
+      const y = baseY + row * (stickerSize + gap);
+
       next[index] = [
-        ...(next[index] || []),
-        { id: `${Date.now()}_${Math.random()}`, emoji, x: 50, y: 50 },
+        ...existing,
+        {
+          id: `${Date.now()}_${Math.random()}`,
+          emoji: emojiChar,
+          x: clamp(x, 12, SCREEN_WIDTH - 84),
+          y: clamp(y, 12, SCREEN_HEIGHT - 220),
+          scale: 1,
+        },
       ];
       return next;
     });
@@ -179,16 +306,24 @@ export default function StoryComposer({
     setDraftText('');
   };
 
-  const setStickerPos = (id, x, y) => {
+  const setStickerPos = (id, x, y, scale) => {
     setStickersPerIndex(prev => {
       const next = { ...prev };
       next[index] = (next[index] || []).map(s =>
-        s.id === id ? { ...s, x, y } : s,
+        s.id === id ? { ...s, x, y, scale: scale ?? s.scale ?? 1 } : s,
       );
       return next;
     });
   };
-  
+
+  const deleteSticker = id => {
+    setStickersPerIndex(prev => {
+      const next = { ...prev };
+      next[index] = (next[index] || []).filter(s => s.id !== id);
+      return next;
+    });
+  };
+
   const setTextPos = (id, x, y) => {
     setTextsPerIndex(prev => {
       const next = { ...prev };
@@ -300,7 +435,19 @@ export default function StoryComposer({
               id={s.id}
               initialX={s.x}
               initialY={s.y}
-              onEnd={(x, y) => setStickerPos(s.id, x, y)}
+              initialScale={s.scale ?? 1}
+              pinchEnabled={true}
+              onEnd={(x, y, scale) => setStickerPos(s.id, x, y, scale)}
+              onLongPress={() =>
+                Alert.alert('Sticker', 'Delete this emoji?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => deleteSticker(s.id),
+                  },
+                ])
+              }
             >
               <Text style={styles.sticker}>{s.emoji}</Text>
             </Draggable>
@@ -332,7 +479,8 @@ export default function StoryComposer({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.thumbBar}>
+            style={styles.thumbBar}
+          >
             {mediaList.map((m, i) => (
               <TouchableOpacity
                 key={`thumb_${i}`}
@@ -350,6 +498,7 @@ export default function StoryComposer({
           </ScrollView>
         )}
 
+        {/* Tab bar */}
         <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
           <Tab
             icon="color-filter-outline"
@@ -406,25 +555,30 @@ export default function StoryComposer({
           </View>
         )}
 
-        {/* Stickers panel */}
+        {/* Stickers panel — rn-emoji-keyboard */}
         {activeTab === 'stickers' && (
-          <View style={[styles.bottomTools, bgStyle]}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.stickerScrollContent}
-            >
-              {['😀', '😂', '😍', '🔥', '👍', '👏', '😮', '😎', '🥳', '🤍', '💙', '✨', '🌈', '💥', '🍕', '🎉'].map(e => (
+          <View style={[styles.emojiInputContainer, bgStyle]}>
+            <EmojiPicker
+              onEmojiSelected={handleEmojiSelected}
+              allowMultipleSelections={true}
+              onClose={() => setActiveTab('filters')}
+              onRequestClose={() => setActiveTab('filters')}
+              open={true}
+              expandable={false}
+              hideHeader={false}
+              enableSearchBar={true}
+              customButtons={
                 <TouchableOpacity
-                  key={e}
-                  onPress={() => addSticker(e)}
-                  style={styles.stickerPick}
+                  style={styles.emojiDoneBtn}
+                  onPress={() => setActiveTab('filters')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.stickerEmoji}>{e}</Text>
+                  <Text style={styles.emojiDoneText}>Done</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              }
+              containerStyles={styles.emojiKeyboardContainer}
+              categoryContainerStyles={styles.emojiCategoryContainer}
+            />
           </View>
         )}
 
@@ -438,11 +592,20 @@ export default function StoryComposer({
               <TextInput
                 placeholder="Add text…"
                 placeholderTextColor="#aaa"
-                style={[styles.textInput, textStyle, textFont, { color: textColor }]}
+                style={[
+                  styles.textInput,
+                  textStyle,
+                  textFont,
+                  { color: textColor },
+                ]}
                 value={draftText}
                 onChangeText={setDraftText}
               />
-              <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={addText}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.addBtnLabel}>Add</Text>
               </TouchableOpacity>
             </View>
@@ -458,7 +621,8 @@ export default function StoryComposer({
                   onPress={() => setTextFont(f.style)}
                   style={[
                     styles.fontChip,
-                    textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
+                    textFont.fontFamily === f.style.fontFamily &&
+                      styles.fontChipActive,
                   ]}
                   activeOpacity={0.7}
                 >
@@ -488,14 +652,17 @@ export default function StoryComposer({
             </ScrollView>
           </KeyboardAvoidingView>
         )}
-
       </View>
     </Modal>
   );
 }
 
 const Tab = ({ icon, label, tabKey, active, onPress }) => (
-  <TouchableOpacity style={styles.tabBtn} onPress={() => onPress(tabKey)} activeOpacity={0.7}>
+  <TouchableOpacity
+    style={styles.tabBtn}
+    onPress={() => onPress(tabKey)}
+    activeOpacity={0.7}
+  >
     <Icon name={icon} size={18} color={active ? '#4da3ff' : '#666'} />
     <Text style={[styles.tabLabel, { color: active ? '#4da3ff' : '#666' }]}>
       {label}
@@ -529,23 +696,23 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     backgroundColor: '#000',
   },
-  
+
   imageContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  
+
   fullScreenImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  
+
   videoWrap: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     overflow: 'hidden',
   },
-  
+
   fullScreenVideo: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
@@ -618,7 +785,37 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 30,
     zIndex: 15,
-    // maxHeight: 750,
+  },
+
+  // EmojiKeyboard panel
+  emojiInputContainer: {
+    position: 'absolute',
+    bottom: 55,
+    width: '100%',
+    height: 340,
+    zIndex: 15,
+    overflow: 'hidden',
+  },
+  emojiKeyboardContainer: {
+    borderRadius: 0,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  emojiCategoryContainer: {
+    borderRadius: 0,
+  },
+  emojiDoneBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#4da3ff',
+    borderRadius: 12,
+    marginLeft: 10,
+    marginTop: 16,
+  },
+  emojiDoneText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 13,
   },
 
   // Filters
@@ -646,24 +843,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
-  // Stickers
-  stickerScrollContent: {
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  stickerPick: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(128,128,128,0.2)',
-  },
-  stickerEmoji: {
-    fontSize: 28,
-  },
-
   // Text
   textRow: {
     flexDirection: 'row',
@@ -686,7 +865,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  addBtnLabel: { 
+  addBtnLabel: {
     fontWeight: '700',
     color: '#fff',
   },
@@ -694,7 +873,7 @@ const styles = StyleSheet.create({
   textOptionsScroll: {
     paddingHorizontal: 12,
     alignItems: 'center',
-    paddingBottom: 30
+    paddingBottom: 30,
   },
   fontChip: {
     paddingHorizontal: 12,
