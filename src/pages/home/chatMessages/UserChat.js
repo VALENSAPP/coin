@@ -18,6 +18,7 @@ import {
   KeyboardAvoidingView,
   SafeAreaView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,8 +38,102 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { getSocket, getConversation, sendMessage as sendSocketMessage, emitTyping, emitStopTyping, initializeSocket } from '../../../services/socket';
 import useSocket from '../../../hooks/useSocket';
 import { sharePost } from '../../../services/post';
+import { getAllUser } from '../../../services/users';
+import { parseProfileShareUrl } from '../../../utils/profileShare';
 import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 
+const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
+const CHAT_LINK_REGEX = /((?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi;
+
+const stripTrailingLinkPunctuation = (rawLink = '') => {
+  let cleanLink = String(rawLink || '');
+  let trailingText = '';
+
+  while (/[),.!?;:]+$/.test(cleanLink)) {
+    if (cleanLink.endsWith(')')) {
+      const openParens = (cleanLink.match(/\(/g) || []).length;
+      const closeParens = (cleanLink.match(/\)/g) || []).length;
+      if (closeParens <= openParens) break;
+    }
+
+    trailingText = cleanLink.slice(-1) + trailingText;
+    cleanLink = cleanLink.slice(0, -1);
+  }
+
+  return { cleanLink, trailingText };
+};
+
+const normalizeChatLink = (rawLink = '') => {
+  const trimmedLink = String(rawLink || '').trim();
+  if (!trimmedLink) return '';
+
+  if (/^com\.(?:valense|vallesne):\/\//i.test(trimmedLink)) {
+    return trimmedLink.replace(/^com\.(?:valense|vallesne):\/\//i, 'com.valens://');
+  }
+
+  if (/^www\./i.test(trimmedLink)) {
+    return `https://${trimmedLink}`;
+  }
+
+  if (
+    /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/|$)/i.test(trimmedLink) &&
+    !/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmedLink)
+  ) {
+    return `https://${trimmedLink}`;
+  }
+
+  return trimmedLink;
+};
+
+const getMessagePartsWithLinks = (message = '') => {
+  const text = String(message || '');
+  if (!text) return [{ type: 'text', value: '' }];
+
+  const parts = [];
+  let lastIndex = 0;
+  CHAT_LINK_REGEX.lastIndex = 0;
+  let match;
+
+  while ((match = CHAT_LINK_REGEX.exec(text)) !== null) {
+    const matchedText = match[0];
+    const startIndex = match.index;
+
+    if (startIndex > lastIndex) {
+      parts.push({
+        type: 'text',
+        value: text.slice(lastIndex, startIndex),
+      });
+    }
+
+    const { cleanLink, trailingText } = stripTrailingLinkPunctuation(matchedText);
+
+    if (cleanLink) {
+      parts.push({
+        type: 'link',
+        value: cleanLink,
+        url: normalizeChatLink(cleanLink),
+      });
+    }
+
+    if (trailingText) {
+      parts.push({
+        type: 'text',
+        value: trailingText,
+      });
+    }
+
+    lastIndex = startIndex + matchedText.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({
+      type: 'text',
+      value: text.slice(lastIndex),
+    });
+  }
+
+  return parts;
+};
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -134,6 +229,11 @@ const UserChat = ({ route, navigation }) => {
   const scrollTimeoutRef = useRef(null);
   const [storyViewerVisible, setStoryViewerVisible] = useState(false);
   const [selectedStory, setSelectedStory] = useState(null);
+  const seenEmitRef = useRef(new Set());
+
+  useEffect(() => {
+    seenEmitRef.current = new Set();
+  }, [targetUserId]);
 
   // Initialize socket with userId and mark ready when connected
   useEffect(() => {
@@ -558,6 +658,8 @@ const UserChat = ({ route, navigation }) => {
       sender: sId === me ? 'user' : 'peer',
       content: message.content || message.message || '',
       timestamp: new Date(message.createdAt || Date.now()),
+      isSeen: Number(message?.isSeen ?? 0) === 1,
+      seenBy: message?.seenBy || null,
       senderInfo: message.sender || { id: sId },
       receiverInfo: message.receiver || { id: rId },
       images: Array.isArray(message.images) ? message.images : undefined,
@@ -630,6 +732,8 @@ const UserChat = ({ route, navigation }) => {
       sender: sId === currentUserId ? 'user' : 'peer',
       content: message.content || '',
       timestamp: new Date(message.createdAt || Date.now()),
+      isSeen: Number(message?.isSeen ?? 0) === 1,
+      seenBy: message?.seenBy || null,
       senderInfo: message.sender || {},
       receiverInfo: message.receiver || {},
       images: Array.isArray(message.images) ? message.images : undefined,
@@ -664,6 +768,26 @@ const UserChat = ({ route, navigation }) => {
     }
   }, [targetUserId]);
 
+  useSocket('messageSeen', (payload) => {
+    if (!payload?.messageId) return;
+
+    setMessages(prev =>
+      prev.map(message =>
+        String(message.id) === String(payload.messageId)
+          ? {
+            ...message,
+            isSeen: true,
+            seenBy: payload?.seenBy || payload?.userId || payload?.data?.seenBy || null,
+          }
+          : message,
+      ),
+    );
+  }, []);
+
+  useSocket('messageSeenError', (error) => {
+    console.log('[UserChat] messageSeenError:', error);
+  }, []);
+
   // Process and set messages helper
   const processAndSetMessages = (conversationMessages, senderId, receiverId) => {
     console.log(conversationMessages, 'check new conversation message')
@@ -683,6 +807,8 @@ const UserChat = ({ route, navigation }) => {
         type: messageType.toLowerCase(),
         sender: isSender ? 'user' : 'peer',
         timestamp: new Date(msg.createdAt || Date.now()),
+        isSeen: Number(msg?.isSeen ?? 0) === 1,
+        seenBy: msg?.seenBy || null,
         senderInfo: msg.sender || {},
         receiverInfo: msg.receiver || {},
         rawData: msg,
@@ -745,12 +871,12 @@ const UserChat = ({ route, navigation }) => {
     validMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     setMessages(validMessages);
     setIsLoading(false);
-     // ADD: Force scroll to bottom after setting messages (e.g., on initial load or fetch)
-  setTimeout(() => {
-    if (!isUserScrolling) {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }
-  }, 100);
+    // ADD: Force scroll to bottom after setting messages (e.g., on initial load or fetch)
+    setTimeout(() => {
+      if (!isUserScrolling) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
+    }, 100);
   };
 
   const isVideoUrl = (url) => {
@@ -836,27 +962,53 @@ const UserChat = ({ route, navigation }) => {
     }
   };
 
+  useEffect(() => {
+    if (!socketReady || !currentUserId || !targetUserId || messages.length === 0) {
+      return;
+    }
+
+    const socket = getSocket();
+    if (!socket?.connected) return;
+
+    messages.forEach(message => {
+      const shouldEmitSeen =
+        message?.id &&
+        message.sender === 'peer' &&
+        !message.isSeen &&
+        !seenEmitRef.current.has(String(message.id));
+
+      if (!shouldEmitSeen) return;
+
+      seenEmitRef.current.add(String(message.id));
+      socket.emit('markMessageSeen', {
+        messageId: String(message.id),
+        userId: currentUserId,
+        otherUserId: targetUserId,
+      });
+    });
+  }, [messages, currentUserId, targetUserId, socketReady]);
+
   // Track scroll position to determine if user is near bottom
   const handleScroll = (event) => {
-  if (!isUserScrolling) {
-    setIsUserScrolling(true);
-  }
-  if (scrollTimeoutRef.current) {
-    clearTimeout(scrollTimeoutRef.current);
-  }
-  scrollTimeoutRef.current = setTimeout(() => {
-    setIsUserScrolling(false);
-  }, 200);
-};
+    if (!isUserScrolling) {
+      setIsUserScrolling(true);
+    }
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 200);
+  };
 
   // Handle content size change - only scroll if appropriate
-const handleContentSizeChange = () => {
-  if (!isUserScrolling && isNearBottom) {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: false });
-    }, 50); 
-  }
-};
+  const handleContentSizeChange = () => {
+    if (!isUserScrolling && isNearBottom) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 50);
+    }
+  };
 
   // Handle typing indicator
   const handleTyping = () => {
@@ -1179,6 +1331,100 @@ const handleContentSizeChange = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  const resolveProfileUserIdFromUsername = useCallback(async (incomingUsername) => {
+    const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
+
+    if (!cleanUsername) {
+      return null;
+    }
+
+    try {
+      const response = await getAllUser({ userName: cleanUsername });
+      const users = response?.data?.users ?? [];
+      const exactMatch = users.find((candidateUser) =>
+        String(candidateUser?.userName || candidateUser?.username || '').toLowerCase() === cleanUsername.toLowerCase()
+      );
+      const matchedUser = exactMatch || users[0];
+
+      return matchedUser?.id || matchedUser?._id || matchedUser?.userId || null;
+    } catch (error) {
+      console.log('Unable to resolve profile username from chat link:', error?.message || error);
+      return null;
+    }
+  }, []);
+
+  const handleLinkPress = useCallback(async (rawUrl) => {
+    const normalizedUrl = normalizeChatLink(rawUrl);
+    if (!normalizedUrl) return;
+
+    const sharedProfileLink = parseProfileShareUrl(normalizedUrl);
+    if (sharedProfileLink) {
+      const resolvedUserId = String(sharedProfileLink.userId || '').trim()
+        || await resolveProfileUserIdFromUsername(sharedProfileLink.username);
+
+      if (resolvedUserId) {
+        navigation.navigate('UsersProfile', {
+          userId: String(resolvedUserId),
+        });
+        return;
+      }
+    }
+
+    const webFallbackUrl = normalizedUrl.replace(/^com\.valens:\/\//i, 'https://valensGoApp.com/');
+
+    try {
+      const supported = await Linking.canOpenURL(normalizedUrl);
+      if (supported) {
+        await Linking.openURL(normalizedUrl);
+        return;
+      }
+
+      if (/^https?:\/\//i.test(webFallbackUrl)) {
+        await Linking.openURL(webFallbackUrl);
+        return;
+      }
+
+      throw new Error('Unsupported link');
+    } catch (error) {
+      console.log('Unable to open chat link:', normalizedUrl, error?.message || error);
+      Alert.alert('Unable to open link', 'This link could not be opened.');
+    }
+  }, [navigation, resolveProfileUserIdFromUsername]);
+
+  const renderMessageText = useCallback((content, isUser) => {
+    const messageParts = getMessagePartsWithLinks(content);
+
+    return (
+      <Text
+        style={[
+          styles.messageText,
+          isUser ? styles.userMessageText : styles.botMessageText,
+        ]}
+      >
+        {messageParts.map((part, partIndex) => {
+          if (part.type === 'link') {
+            return (
+              <Text
+                key={`link-${partIndex}`}
+                style={styles.messageLinkText}
+                onPress={() => handleLinkPress(part.url)}
+                suppressHighlighting
+              >
+                {part.value}
+              </Text>
+            );
+          }
+
+          return (
+            <Text key={`text-${partIndex}`}>
+              {part.value}
+            </Text>
+          );
+        })}
+      </Text>
+    );
+  }, [handleLinkPress, styles.messageLinkText, styles.messageText, styles.userMessageText, styles.botMessageText]);
+
   const renderImageGrid = images => {
     if (!images || images.length === 0) return null;
 
@@ -1282,6 +1528,7 @@ const handleContentSizeChange = () => {
 
   const renderMessage = ({ item, index }) => {
     const isUser = item.sender === 'user';
+    const isLastMessage = index === messages.length - 1;
     const showTime =
       index === 0 ||
       (messages[index - 1] &&
@@ -1304,15 +1551,22 @@ const handleContentSizeChange = () => {
           ]}
         >
           {!isUser && (
-            <View style={styles.botAvatar}>
+            <TouchableOpacity
+              style={styles.botAvatar}
+              activeOpacity={0.7}
+              onPress={handleNavigateToProfile}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Image
-                source={{
-                  uri: item.senderInfo?.image || user?.image || 'https://via.placeholder.com/32'
-                }}
+                source={
+                  item.senderInfo?.image || user?.image
+                    ? { uri: item.senderInfo?.image || user?.image }
+                    : require('../../../assets/icons/pngicons/user.png')
+                }
                 style={styles.avatarImage}
-                defaultSource={{ uri: 'https://via.placeholder.com/32' }}
+                defaultSource={require('../../../assets/icons/pngicons/user.png')}
               />
-            </View>
+            </TouchableOpacity>
           )}
 
           <View style={styles.messageContent}>
@@ -1326,21 +1580,21 @@ const handleContentSizeChange = () => {
                     { backgroundColor: text }
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      isUser ? styles.userMessageText : styles.botMessageText,
-                    ]}
-                  >
-                    {item.content}
-                  </Text>
+                  {renderMessageText(item.content, isUser)}
                 </View>
 
                 {/* Show status only for user messages */}
-                {isUser && !item.isTemp && (
+                {isUser && !item.isTemp && isLastMessage && (
                   <View style={styles.messageStatus}>
-                    <Text style={styles.seenIndicator}>✓✓</Text>
-                    <Text style={styles.statusText}>Sent</Text>
+                    <SafeIcon
+                      name="checkmark-done"
+                      size={16}
+                      color={item.isSeen ? '#3b82f6' : '#9ca3af'}
+                      style={styles.seenIcon}
+                    />
+                    <Text style={styles.statusText}>
+                      {item.isSeen ? 'Seen' : 'Sent'}
+                    </Text>
                   </View>
                 )}
 
@@ -1488,7 +1742,7 @@ const handleContentSizeChange = () => {
                             userChat: true, // Add this flag to indicate coming from UserChat
                             returnParams: {
                               screen: 'UserChat',
-                              params: { userId: targetUserId, postData}
+                              params: { userId: targetUserId, postData }
                             }
                           }
                         });
@@ -1627,7 +1881,7 @@ const handleContentSizeChange = () => {
                             item: reelData,
                             reelId: reelId,
                             initialIndex: 0,
-                                userChat: true, // Add this flag to indicate coming from UserChat
+                            userChat: true, // Add this flag to indicate coming from UserChat
 
                             returnTo: 'HomeMain',
                             returnParams: {
@@ -2025,123 +2279,121 @@ const handleContentSizeChange = () => {
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior="padding"
-         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss}> */}
-          <View style={[styles.container, bgStyle]}>
-            <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
-              {/* Header */}
-              <View style={[styles.headerGradient, bgStyle]}>
-                <View style={styles.headerContent}>
-                  <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <SafeIcon name="arrow-back" size={24} color={text} />
-                  </TouchableOpacity>
+        <View style={[styles.container, bgStyle]}>
+          <Animated.View style={[styles.mainContainer, { opacity: fadeAnim }, bgStyle]}>
+            {/* Header */}
+            <View style={[styles.headerGradient, bgStyle]}>
+              <View style={styles.headerContent}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                  <SafeIcon name="arrow-back" size={24} color={text} />
+                </TouchableOpacity>
 
-                  <View style={styles.logoContainer}>
-                    <View style={styles.logoBackground}>
-                      <LogoIcon height={80} width={80} />
-                    </View>
+                <View style={styles.logoContainer}>
+                  <View style={styles.logoBackground}>
+                    <LogoIcon height={80} width={80} />
                   </View>
                 </View>
               </View>
+            </View>
 
-              {/* Card wrapper with proper flex */}
+            {/* Card wrapper with proper flex */}
+            <View style={[
+              styles.formWrapper,
+              isKeyboardVisible && { flex: 1, marginTop: -30 }
+            ]}>
               <View style={[
-                styles.formWrapper,
-                isKeyboardVisible && { flex: 1, marginTop: -30 }
+                styles.card,
+                isKeyboardVisible && {
+                  minHeight: SCREEN_HEIGHT - keyboardHeight - 150,
+                  maxHeight: SCREEN_HEIGHT - keyboardHeight - 150
+                }
               ]}>
-                <View style={[
-                  styles.card,
-                  isKeyboardVisible && {
-                    minHeight: SCREEN_HEIGHT - keyboardHeight - 150,
-                    maxHeight: SCREEN_HEIGHT - keyboardHeight - 150
-                  }
-                ]}>
-                  {/* Header row inside card */}
-                  <View style={styles.chatHeaderRow}>
-                    <View style={[styles.profileImage, { backgroundColor: text }]}>
-                      <View style={styles.profileGradient}>
-                        {user?.image ? (
-                          <Image
-                            source={{ uri: user.image }}
-                            style={styles.avatarImage}
-                            defaultSource={{ uri: 'https://via.placeholder.com/32' }}
-                          />
-                        ) : (
-                          <Text style={styles.profileInitial}>
-                            {user?.displayName?.charAt(0)?.toUpperCase() ||
-                              user?.username?.charAt(0)?.toUpperCase() || 'U'}
-                          </Text>
-                        )}
-                      </View>
+                {/* Header row inside card */}
+                <View style={styles.chatHeaderRow}>
+                  <TouchableOpacity
+                    onPress={handleNavigateToProfile}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}
+                  >
+                    <View style={styles.profileGradient}>
+                      <Image
+                        source={user?.image ? { uri: user.image } : DEFAULT_AVATAR}
+                        style={styles.avatarImage}
+                        defaultSource={DEFAULT_AVATAR}
+                      />
                     </View>
-                    <TouchableOpacity
-                      style={{ flex: 1 }}
-                      onPress={handleNavigateToProfile}
-                    >
-                      <Text style={styles.chatName}>
-                        {user?.displayName || user?.username || 'User'}
-                      </Text>
-                      <Text style={styles.chatStatus}>
-                        {isTyping ? 'Typing…' : 'Active now'}
-                      </Text>
-                    </TouchableOpacity>
-                    {/* Socket Status Indicator */}
-                    {/* {socketReady ? (
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ flex: 1 }}
+                    onPress={handleNavigateToProfile}
+                  >
+                    <Text style={styles.chatName}>
+                      {user?.displayName || user?.username || 'User'}
+                    </Text>
+                    <Text style={styles.chatStatus}>
+                      {isTyping ? 'Typing…' : 'Active now'}
+                    </Text>
+                  </TouchableOpacity>
+                  {/* Socket Status Indicator */}
+                  {/* {socketReady ? (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981', marginLeft: 8 }} />
                     ) : (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginLeft: 8 }} />
                     )} */}
-                  </View>
+                </View>
 
-                  {/* Messages Container with proper flex */}
-                  <View style={styles.messagesContainer}>
-                    <FlatList
-                      ref={flatListRef}
-                      data={messages}
-                      keyExtractor={item => item.id}
-                      renderItem={renderMessage}
-                      contentContainerStyle={[
-                        styles.messagesList,
-                        {
-                          flexGrow: 1,
-                          paddingBottom: 10
-                        }
-                      ]}
-                      showsVerticalScrollIndicator={false}
-                      // onContentSizeChange={handleContentSizeChange}
-                      onScroll={handleScroll}
-                      scrollEnabled={true}
-                      scrollEventThrottle={16}
-                      keyboardShouldPersistTaps="handled"
-                      ListFooterComponent={renderTypingIndicator}
-                      ListEmptyComponent={() => (
-                        <View style={styles.emptyContainer}>
-                          <Text style={styles.emptyText}>Start a conversation</Text>
-                        </View>
-                      )}
-
-                    />
-                  </View>
-
-                  {/* Input Area - Fixed to bottom */}
-                  <Animated.View
-                    style={[
-                      styles.inputContainer,
+                {/* Messages Container with proper flex */}
+                <View style={styles.messagesContainer}>
+                  <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={item => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={[
+                      styles.messagesList,
                       {
-                        transform: [
-                          {
-                            translateY: inputAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [50, 0],
-                            }),
-                          },
-                        ],
-                      },
+                        flexGrow: 1,
+                        paddingBottom: 10
+                      }
                     ]}
-                  >
-                    <View style={styles.inputWrapper}>
-                      {/* <TouchableOpacity
+                    showsVerticalScrollIndicator={false}
+                    // onContentSizeChange={handleContentSizeChange}
+                    onScroll={handleScroll}
+                    scrollEnabled={true}
+                    scrollEventThrottle={16}
+                    keyboardShouldPersistTaps="handled"
+                    ListFooterComponent={renderTypingIndicator}
+                    ListEmptyComponent={() => (
+                      <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>Start a conversation</Text>
+                      </View>
+                    )}
+
+                  />
+                </View>
+
+                {/* Input Area - Fixed to bottom */}
+                <Animated.View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      transform: [
+                        {
+                          translateY: inputAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [50, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <View style={styles.inputWrapper}>
+                    {/* <TouchableOpacity
                           style={styles.attachButton}
                           onPress={() => {
                             Keyboard.dismiss();
@@ -2153,119 +2405,119 @@ const handleContentSizeChange = () => {
                           </LinearGradient>
                         </TouchableOpacity> */}
 
-                      {/* Inline small shared preview inside the input */}
-                      {sharedItem && (
-                        <View style={styles.shareInline}>
-                          {(sharedItem.type === 'post') && (
+                    {/* Inline small shared preview inside the input */}
+                    {sharedItem && (
+                      <View style={styles.shareInline}>
+                        {(sharedItem.type === 'post') && (
+                          <Image
+                            source={{ uri: sharedItem.post?.media?.[0]?.url || sharedItem.post?.images?.[0]?.url || sharedItem.post?.image }}
+                            style={styles.shareInlineImage}
+                            resizeMode="cover"
+                          />
+                        )}
+
+                        {(sharedItem.type === 'reel') && (
+                          <View style={styles.shareInlineImageWrap}>
                             <Image
-                              source={{ uri: sharedItem.post?.media?.[0]?.url || sharedItem.post?.images?.[0]?.url || sharedItem.post?.image }}
+                              source={{ uri: sharedItem.reel?.media?.[0]?.url || sharedItem.reel?.thumbnail || sharedItem.reel?.image }}
                               style={styles.shareInlineImage}
                               resizeMode="cover"
                             />
-                          )}
-
-                          {(sharedItem.type === 'reel') && (
-                            <View style={styles.shareInlineImageWrap}>
-                              <Image
-                                source={{ uri: sharedItem.reel?.media?.[0]?.url || sharedItem.reel?.thumbnail || sharedItem.reel?.image }}
-                                style={styles.shareInlineImage}
-                                resizeMode="cover"
-                              />
-                              <View style={styles.shareInlinePlay}>
-                                <Text style={styles.shareInlinePlayIcon}>▶</Text>
-                              </View>
+                            <View style={styles.shareInlinePlay}>
+                              <Text style={styles.shareInlinePlayIcon}>▶</Text>
                             </View>
-                          )}
-                          {(sharedItem.type === 'story') && (
-                            <View style={styles.shareInlineImageWrap}>
-                              <Image
-                                source={{ uri: sharedItem.story?.uri || sharedItem.story?.media?.[0]?.url || sharedItem.story?.thumbnail || sharedItem.story?.image }}
-                                style={styles.shareInlineImage}
-                                resizeMode="cover"
-                              />
-                            </View>
-                          )}
-                          <TouchableOpacity onPress={() => setSharedItem(null)} style={styles.shareInlineRemove}>
-                            <Text style={styles.shareRemoveText}>✕</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
+                          </View>
+                        )}
+                        {(sharedItem.type === 'story') && (
+                          <View style={styles.shareInlineImageWrap}>
+                            <Image
+                              source={{ uri: sharedItem.story?.uri || sharedItem.story?.media?.[0]?.url || sharedItem.story?.thumbnail || sharedItem.story?.image }}
+                              style={styles.shareInlineImage}
+                              resizeMode="cover"
+                            />
+                          </View>
+                        )}
+                        <TouchableOpacity onPress={() => setSharedItem(null)} style={styles.shareInlineRemove}>
+                          <Text style={styles.shareRemoveText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
 
-                      <TextInput
-                        style={styles.textInput}
-                        value={inputText}
-                        onChangeText={(text) => {
-                          setInputText(text);
-                          handleTyping();
-                        }}
-                        placeholder={
-                          sharedItem
-                            ? sharedItem.type === 'post'
-                              ? 'Add a message to your post...'
-                              : sharedItem.type === 'reel'
-                                ? 'Add a message to your reel...'
-                                : sharedItem.type === 'story'
-                                  ? 'Add a message to your story...'
-                                  : 'Type a message...'
-                            : 'Type a message...'
-                        }
-                        placeholderTextColor="#9ca3af"
-                        multiline
-                        textAlignVertical="top"
-                        maxLength={2000}
-                        editable={!isSending}
-                        onFocus={() => {
-                          setTimeout(() => {
-                            flatListRef.current?.scrollToEnd({ animated: true });
-                          }, 300);
-                        }}
-                      />
-                    </View>
+                    <TextInput
+                      style={styles.textInput}
+                      value={inputText}
+                      onChangeText={(text) => {
+                        setInputText(text);
+                        handleTyping();
+                      }}
+                      placeholder={
+                        sharedItem
+                          ? sharedItem.type === 'post'
+                            ? 'Add a message to your post...'
+                            : sharedItem.type === 'reel'
+                              ? 'Add a message to your reel...'
+                              : sharedItem.type === 'story'
+                                ? 'Add a message to your story...'
+                                : 'Type a message...'
+                          : 'Type a message...'
+                      }
+                      placeholderTextColor="#9ca3af"
+                      multiline
+                      textAlignVertical="top"
+                      maxLength={2000}
+                      editable={!isSending}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          flatListRef.current?.scrollToEnd({ animated: true });
+                        }, 300);
+                      }}
+                    />
+                  </View>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.sendButton,
-                        ((!inputText.trim() && !sharedItem) || isSending) && styles.disabledSendButton
-                      ]}
-                      onPress={sendMessage}
-                      disabled={(!inputText.trim() && !sharedItem) || isSending}
+                  <TouchableOpacity
+                    style={[
+                      styles.sendButton,
+                      ((!inputText.trim() && !sharedItem) || isSending) && styles.disabledSendButton
+                    ]}
+                    onPress={sendMessage}
+                    disabled={(!inputText.trim() && !sharedItem) || isSending}
+                  >
+                    <LinearGradient
+                      colors={
+                        ((inputText.trim() || sharedItem) && !isSending)
+                          ? [text, text]
+                          : ['#d1d5db', '#9ca3af']
+                      }
+                      style={styles.sendButtonGradient}
                     >
-                      <LinearGradient
-                        colors={
-                          ((inputText.trim() || sharedItem) && !isSending)
-                            ? [text, text]
-                            : ['#d1d5db', '#9ca3af']
-                        }
-                        style={styles.sendButtonGradient}
-                      >
-                        <Text style={styles.sendIcon}>
-                          {isSending ? '⏳' : '➤'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </Animated.View>
-                </View>
-              </View>
-
-              {/* <AttachmentModal /> */}
-
-              <ImageViewing
-                images={currentImages}
-                imageIndex={currentIndex}
-                visible={isViewerVisible}
-                onRequestClose={() => setViewerVisible(false)}
-              />
-
-              <Modal visible={videoModalVisible} transparent>
-                <View style={styles.videoModal}>
-                  <TouchableOpacity style={styles.videoCloseButton} onPress={() => setVideoModalVisible(false)}>
-                    <Text style={styles.videoCloseIcon}>✕</Text>
+                      <Text style={styles.sendIcon}>
+                        {isSending ? '⏳' : '➤'}
+                      </Text>
+                    </LinearGradient>
                   </TouchableOpacity>
-                  <Video source={{ uri: currentVideo }} style={styles.videoPlayer} controls resizeMode="contain" />
-                </View>
-              </Modal>
-            </Animated.View>
-          </View>
+                </Animated.View>
+              </View>
+            </View>
+
+            {/* <AttachmentModal /> */}
+
+            <ImageViewing
+              images={currentImages}
+              imageIndex={currentIndex}
+              visible={isViewerVisible}
+              onRequestClose={() => setViewerVisible(false)}
+            />
+
+            <Modal visible={videoModalVisible} transparent>
+              <View style={styles.videoModal}>
+                <TouchableOpacity style={styles.videoCloseButton} onPress={() => setVideoModalVisible(false)}>
+                  <Text style={styles.videoCloseIcon}>✕</Text>
+                </TouchableOpacity>
+                <Video source={{ uri: currentVideo }} style={styles.videoPlayer} controls resizeMode="contain" />
+              </View>
+            </Modal>
+          </Animated.View>
+        </View>
         {/* </TouchableWithoutFeedback> */}
       </KeyboardAvoidingView>
       <StoryViewerModal
@@ -2459,7 +2711,7 @@ const createStyles = () => ({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1157e4ff',
+    // backgroundColor: '#1157e4ff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -2493,6 +2745,10 @@ const createStyles = () => ({
     lineHeight: 20,
     flexWrap: 'wrap',
   },
+  messageLinkText: {
+    color: '#BFDBFE',
+    textDecorationLine: 'underline',
+  },
   userMessageText: {
     color: '#ffffff',
   },
@@ -2505,9 +2761,7 @@ const createStyles = () => ({
     justifyContent: 'flex-end',
     marginTop: 4,
   },
-  seenIndicator: {
-    fontSize: 10,
-    color: '#9CA3AF',
+  seenIcon: {
     marginRight: 4,
   },
   statusText: {

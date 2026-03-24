@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { SketchCanvas } from '@sourcetoad/react-native-sketch-canvas';
 import { captureRef } from 'react-native-view-shot';
 import Video from 'react-native-video';
+import { useToast } from 'react-native-toast-notifications';
 
 import {
   Grayscale,
@@ -37,6 +38,9 @@ import {
 } from 'react-native-color-matrix-image-filters';
 import { useAppTheme } from '../../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { downloadMedia, getMediaFilename, isVideoMedia } from '../../../utils/mediaDownload';
+import { showToastMessage } from '../../../components/displaytoastmessage';
+import { getAllUser } from '../../../services/users';
 
 const fonts = [
   { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
@@ -72,7 +76,7 @@ const IMAGE_SIZE = SCREEN_WIDTH - 32;
 const InstagramPostCreator = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const routeImages = route.params?.selectedMedia || [];
+  const routeImages = useMemo(() => route.params?.selectedMedia || [], [route.params?.selectedMedia]);
   const postType = route.params?.postType || 'regular';
   const fromIcon = route.params?.fromIcon;
   const isFlipPost = fromIcon === 'Flips';
@@ -107,16 +111,87 @@ const InstagramPostCreator = () => {
   const [canvasKey, setCanvasKey] = useState(0);
   const [isOverlayTransforming, setIsOverlayTransforming] = useState(false);
   const [editorCanvasHeight, setEditorCanvasHeight] = useState(IMAGE_SIZE);
+  const [tagSearch, setTagSearch] = useState('');
+  const [selectedTaggedPeople, setSelectedTaggedPeople] = useState([]);
+  const [userSuggestions, setUserSuggestions] = useState([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const userSearchTimeoutRef = useRef(null);
+  const activeSearchRequestIdRef = useRef(0);
 
   // Video related states
   const [videoPaused, setVideoPaused] = useState({});
   const [videoMuted, setVideoMuted] = useState(true);
   const videoRefs = useRef({});
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
+  const toast = useToast();
 
   // Add refs for capturing filtered images
   const imageViewRefs = useRef({});
   const drawingSurfaceRefs = useRef({});
+
+  useEffect(() => {
+    if (userSearchTimeoutRef.current) {
+      clearTimeout(userSearchTimeoutRef.current);
+    }
+
+    if (activeTab !== 'Tag' || !tagSearch.trim()) {
+      activeSearchRequestIdRef.current = 0;
+      setUserSuggestions([]);
+      setIsSearchingUsers(false);
+      return undefined;
+    }
+
+    userSearchTimeoutRef.current = setTimeout(async () => {
+      const requestId = Date.now();
+      activeSearchRequestIdRef.current = requestId;
+      setIsSearchingUsers(true);
+
+      try {
+        const response = await getAllUser({ userName: tagSearch.trim() });
+        if (activeSearchRequestIdRef.current !== requestId) return;
+
+        const users = Array.isArray(response?.data?.users) ? response.data.users : [];
+        setUserSuggestions(
+          users
+            .map(user => ({
+              ...user,
+              _username: String(user?.userName || user?.username || '').trim().replace(/^@+/, ''),
+            }))
+            .filter(user => user._username && !selectedTaggedPeople.includes(user._username))
+            .slice(0, 12),
+        );
+      } catch (error) {
+        if (activeSearchRequestIdRef.current === requestId) {
+          setUserSuggestions([]);
+        }
+      } finally {
+        if (activeSearchRequestIdRef.current === requestId) {
+          setIsSearchingUsers(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      if (userSearchTimeoutRef.current) {
+        clearTimeout(userSearchTimeoutRef.current);
+      }
+    };
+  }, [activeTab, selectedTaggedPeople, tagSearch]);
+
+  const handleSelectTagUser = user => {
+    const username = String(user?._username || user?.userName || user?.username || '')
+      .trim()
+      .replace(/^@+/, '');
+    if (!username) return;
+
+    setSelectedTaggedPeople(prev => (prev.includes(username) ? prev : [...prev, username]));
+    setTagSearch('');
+    setUserSuggestions([]);
+  };
+
+  const handleRemoveTaggedPerson = username => {
+    setSelectedTaggedPeople(prev => prev.filter(person => person !== username));
+  };
 
   // Store animated values separately to avoid modification issues
   const animatedValues = useRef({});
@@ -132,8 +207,8 @@ const InstagramPostCreator = () => {
   const getProfile = async () => {
     try {
       const value = await AsyncStorage.getItem('profile');
-      console.log(value,'value in here ');
-        setProfile(value);
+      console.log(value, 'value in here ');
+      setProfile(value);
     } catch (e) {
       console.log(e);
     }
@@ -183,11 +258,11 @@ const InstagramPostCreator = () => {
   });
 
   const getTextBounds = () => ({
-  minX: 0,
-  minY: 0,
-  maxX: IMAGE_SIZE - 50,  // Changed from IMAGE_SIZE - 140
-  maxY: editorCanvasHeight - 50,  // Changed from editorCanvasHeight - 60
-});
+    minX: 0,
+    minY: 0,
+    maxX: IMAGE_SIZE - 50,  // Changed from IMAGE_SIZE - 140
+    maxY: editorCanvasHeight - 50,  // Changed from editorCanvasHeight - 60
+  });
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
   const getTouchDistance = (touches) => {
@@ -230,6 +305,35 @@ const InstagramPostCreator = () => {
     };
   };
 
+  const handleDownload = async () => {
+    try {
+      const currentMedia = selectedImages[currentImageIndex];
+      if (!currentMedia) {
+        showToastMessage(toast, 'danger', 'No media selected');
+        return;
+      }
+
+      const currentEdits = imageEdits[currentImageIndex] || {};
+      const uriToDownload = currentEdits.processedImageUri || currentMedia.path || currentMedia.uri;
+      if (!uriToDownload) {
+        showToastMessage(toast, 'danger', 'No media URI available');
+        return;
+      }
+
+      const isVideo = isVideoMedia(currentMedia);
+      const filename = getMediaFilename(uriToDownload, currentImageIndex);
+
+      showToastMessage(toast, 'default', 'Download started...', 1000);
+
+      const downloadPath = await downloadMedia(uriToDownload, filename, isVideo, toast);
+
+      showToastMessage(toast, 'success', `Saved: ${filename}`);
+      console.log('Download saved to:', downloadPath);
+    } catch (error) {
+      console.error('Download error:', error);
+      // Error toast/alert handled in downloadMedia
+    }
+  };
   const updateOverlayImageById = (imageIndex, overlayId, updater) => {
     setImageEdits(prev => {
       const imageEdit = prev[imageIndex] || {
@@ -694,67 +798,67 @@ const InstagramPostCreator = () => {
   };
 
   const createTextPanResponder = (id) => {
-  const currentEdits = getCurrentImageEdits();
-  const overlay = currentEdits.textOverlays.find(o => o.id === id);
-  if (!overlay) {
-    return PanResponder.create({ onStartShouldSetPanResponder: () => false });
-  }
+    const currentEdits = getCurrentImageEdits();
+    const overlay = currentEdits.textOverlays.find(o => o.id === id);
+    if (!overlay) {
+      return PanResponder.create({ onStartShouldSetPanResponder: () => false });
+    }
 
-  const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
+    const animatedPosition = getAnimatedValue(currentImageIndex, id, overlay.position.x, overlay.position.y);
 
-  return PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (evt, gs) => {
-      return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
-    },
-    onPanResponderGrant: () => {
-      setIsScrollEnabled(false);
-      animatedPosition.setOffset({
-        x: animatedPosition.x._value,
-        y: animatedPosition.y._value,
-      });
-      animatedPosition.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderMove: Animated.event(
-      [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
-      {
-        useNativeDriver: false,
-        // REMOVED the listener that was clamping values during drag
-      }
-    ),
-    onPanResponderRelease: (evt, gestureState) => {
-      setIsScrollEnabled(true);
-      animatedPosition.flattenOffset();
-
-      // Get the final position
-      const finalX = animatedPosition.x._value;
-      const finalY = animatedPosition.y._value;
-
-      // Apply boundaries only on release
-      const boundedX = Math.max(0, Math.min(IMAGE_SIZE - 50, finalX));
-      const boundedY = Math.max(0, Math.min(editorCanvasHeight - 50, finalY));
-
-      // Update the position
-      const currentEdits = getCurrentImageEdits();
-      const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
-        if (textOverlay.id === id) {
-          return {
-            ...textOverlay,
-            position: {
-              x: boundedX,
-              y: boundedY,
-            }
-          };
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gs) => {
+        return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
+      },
+      onPanResponderGrant: () => {
+        setIsScrollEnabled(false);
+        animatedPosition.setOffset({
+          x: animatedPosition.x._value,
+          y: animatedPosition.y._value,
+        });
+        animatedPosition.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: animatedPosition.x, dy: animatedPosition.y }],
+        {
+          useNativeDriver: false,
+          // REMOVED the listener that was clamping values during drag
         }
-        return textOverlay;
-      });
-      updateCurrentImageEdits({ textOverlays: updatedOverlays });
-    },
-    onPanResponderTerminate: () => {
-      setIsScrollEnabled(true);
-    },
-  });
-};
+      ),
+      onPanResponderRelease: (evt, gestureState) => {
+        setIsScrollEnabled(true);
+        animatedPosition.flattenOffset();
+
+        // Get the final position
+        const finalX = animatedPosition.x._value;
+        const finalY = animatedPosition.y._value;
+
+        // Apply boundaries only on release
+        const boundedX = Math.max(0, Math.min(IMAGE_SIZE - 50, finalX));
+        const boundedY = Math.max(0, Math.min(editorCanvasHeight - 50, finalY));
+
+        // Update the position
+        const currentEdits = getCurrentImageEdits();
+        const updatedOverlays = currentEdits.textOverlays.map(textOverlay => {
+          if (textOverlay.id === id) {
+            return {
+              ...textOverlay,
+              position: {
+                x: boundedX,
+                y: boundedY,
+              }
+            };
+          }
+          return textOverlay;
+        });
+        updateCurrentImageEdits({ textOverlays: updatedOverlays });
+      },
+      onPanResponderTerminate: () => {
+        setIsScrollEnabled(true);
+      },
+    });
+  };
 
   const filterOptions = [
     { name: 'Original', value: 'none', component: React.Fragment },
@@ -1013,7 +1117,8 @@ const InstagramPostCreator = () => {
         images: processedImages,
         imageEdits: imageEdits,
         postType: postType,
-        fromIcon: fromIcon
+        fromIcon: fromIcon,
+        taggedPeople: selectedTaggedPeople,
       });
 
     } catch (error) {
@@ -1058,7 +1163,8 @@ const InstagramPostCreator = () => {
                 images: fallbackImages,
                 imageEdits: imageEdits,
                 postType: postType,
-                fromIcon: fromIcon
+                fromIcon: fromIcon,
+                taggedPeople: selectedTaggedPeople,
               });
             }
           }
@@ -1258,40 +1364,40 @@ const InstagramPostCreator = () => {
                         style={styles.drawingSurface}
                       >
                         <View style={styles.staticImageCanvas}>
-                        {(() => {
-                          const slideEdits = imageEdits[index] || {};
-                          const currentImageUri =
-                            slideEdits.processedImageUri ||
-                            image.path ||
-                            image.uri;
+                          {(() => {
+                            const slideEdits = imageEdits[index] || {};
+                            const currentImageUri =
+                              slideEdits.processedImageUri ||
+                              image.path ||
+                              image.uri;
 
-                          return (
-                            <Image
-                              source={{ uri: currentImageUri }}
-                              style={styles.mainImage}
-                              resizeMode='cover'
+                            return (
+                              <Image
+                                source={{ uri: currentImageUri }}
+                                style={styles.mainImage}
+                                resizeMode='cover'
+                              />
+                            );
+                          })()}
+
+                          {selectedFilter !== 'none' && (
+                            <View
+                              pointerEvents="none"
+                              style={[
+                                StyleSheet.absoluteFillObject,
+                                styles.filterOverlay,
+                                {
+                                  backgroundColor:
+                                    selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                      selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                        selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                          selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                            selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                              'transparent',
+                                }
+                              ]}
                             />
-                          );
-                        })()}
-
-                        {selectedFilter !== 'none' && (
-                          <View
-                            pointerEvents="none"
-                            style={[
-                              StyleSheet.absoluteFillObject,
-                              styles.filterOverlay,
-                              {
-                                backgroundColor:
-                                  selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
-                                    selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
-                                      selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
-                                        selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
-                                          selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
-                                            'transparent',
-                              }
-                            ]}
-                          />
-                        )}
+                          )}
                         </View>
 
                         <SketchCanvas
@@ -1361,7 +1467,7 @@ const InstagramPostCreator = () => {
                                 StyleSheet.absoluteFillObject,
                                 styles.filterOverlay,
                                 {
-                                backgroundColor:
+                                  backgroundColor:
                                     selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
                                       selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
                                         selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
@@ -1715,8 +1821,11 @@ const InstagramPostCreator = () => {
           { title: 'Text', icon: 'text-outline', disabled: false },
           { title: 'Overlay', icon: 'layers-outline', disabled: false },
           { title: 'Filter', icon: 'color-filter-outline', disabled: false },
+          { title: 'Tag', icon: 'pricetag-outline', disabled: false },
+          { title: 'Download', icon: 'download-outline', disabled: false },
           ...(!isCurrentMediaVideo()
             ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
+
             : []),
         ].map(tab => (
           <TouchableOpacity
@@ -1755,15 +1864,35 @@ const InstagramPostCreator = () => {
                   setCanvasKey(prev => prev + 1);
                 }
               }
+
               else if (tab.title === 'Overlay') {
+                setActiveTab('Overlay');
                 bottomSheetRef.current?.open();
                 if (isDrawing) {
                   setIsDrawing(false);
                   setIsScrollEnabled(true);
                   setCanvasKey(prev => prev + 1);
                 }
+                return;
               }
-
+              else if (tab.title === 'Tag') {
+                setActiveTab('Tag');
+                bottomSheetRef.current?.open();
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
+                }
+                return;
+              }
+              else if (tab.title === 'Download') {
+                if (isDrawing) {
+                  setIsDrawing(false);
+                  setIsScrollEnabled(true);
+                  setCanvasKey(prev => prev + 1);
+                }
+                handleDownload();
+              }
               setActiveTab(tab.title);
             }}
             disabled={tab.disabled}
@@ -1777,16 +1906,18 @@ const InstagramPostCreator = () => {
         ref={bottomSheetRef}
         closeOnDragDown={true}
         closeOnPressMask={true}
-        height={350}
+        height={480}
         customStyles={{
           container: {
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             paddingHorizontal: 16,
+            paddingTop: 10,
+            backgroundColor: bgStyle?.backgroundColor || '#fff',
           },
         }}
       >
-        <View style={styles.tabContent}>
+        <View key={activeTab} style={styles.tabContent}>
           {activeTab === 'Overlay' && (
             <View style={styles.overlayControls}>
               <TouchableOpacity
@@ -1816,6 +1947,119 @@ const InstagramPostCreator = () => {
                   </View>
                 ))}
               </ScrollView>
+            </View>
+          )}
+
+          {activeTab === 'Tag' && (
+            <View style={styles.tagSheet}>
+              <View style={styles.tagSheetHeader}>
+                <View>
+                  <Text style={[styles.tagSheetTitle, textStyle]}>Tag people</Text>
+                  <Text style={[styles.tagSheetSubtitle, textStyle, { opacity: 0.7 }]}>
+                    Search and add usernames to your post
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setTagSearch('');
+                    setUserSuggestions([]);
+                    bottomSheetRef.current?.close();
+                  }}
+                >
+                  <Text style={[styles.tagSheetDone, { color: themeText }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View
+                style={[
+                  styles.tagSearchBar,
+                  {
+                    backgroundColor: cardStyle?.backgroundColor || '#fff',
+                    borderColor: `${themeText}22`,
+                  },
+                ]}
+              >
+                <Icon name="search" size={16} color="#999" style={{ marginRight: 8 }} />
+                <TextInput
+                  value={tagSearch}
+                  onChangeText={setTagSearch}
+                  placeholder="Search users"
+                  placeholderTextColor="#999"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[styles.tagSearchInput, textStyle]}
+                />
+              </View>
+
+              {selectedTaggedPeople.length > 0 && (
+                <View style={styles.tagChipsWrap}>
+                  {selectedTaggedPeople.map(username => (
+                    <View key={username} style={[styles.tagChip, { backgroundColor: themeText }]}>
+                      <Text style={styles.tagChipText}>@{username}</Text>
+                      <TouchableOpacity onPress={() => handleRemoveTaggedPerson(username)}>
+                        <Icon name="close" size={14} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {isSearchingUsers && (
+                <Text style={[styles.tagSearchingText, textStyle, { opacity: 0.7 }]}>Searching…</Text>
+              )}
+
+              <FlatList
+                data={userSuggestions}
+                keyExtractor={(item, index) =>
+                  String(item?._id || item?.id || item?._username || item?.userName || index)
+                }
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => {
+                  const username = item?._username;
+                  const displayName = String(item?.name || item?.fullName || item?.firstName || '').trim();
+                  const avatar = item?.profilePic || item?.avatar || item?.image || item?.photo;
+
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.tagSuggestionRow,
+                        {
+                          backgroundColor: cardStyle?.backgroundColor || '#fff',
+                          borderColor: `${themeText}1f`,
+                        },
+                      ]}
+                      onPress={() => handleSelectTagUser(item)}
+                    >
+                      <View style={[styles.tagAvatar, { backgroundColor: `${themeText}66` }]}>
+                        {avatar ? (
+                          <Image source={{ uri: avatar }} style={styles.tagAvatarImg} />
+                        ) : (
+                          <Icon name="person" size={18} color="#fff" />
+                        )}
+                      </View>
+                      <View style={styles.tagSuggestionTextWrap}>
+                        <Text style={[styles.tagSuggestionUsername, textStyle]}>@{username}</Text>
+                        {!!displayName && (
+                          <Text style={[styles.tagSuggestionName, textStyle, { opacity: 0.7 }]} numberOfLines={1}>
+                            {displayName}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={[styles.tagAddPill, { backgroundColor: themeText }]}>
+                        <Icon name="add" size={16} color="#fff" />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  tagSearch.trim() ? (
+                    <Text style={[styles.tagEmptyText, textStyle, { opacity: 0.7 }]}>No users found</Text>
+                  ) : (
+                    <Text style={[styles.tagEmptyText, textStyle, { opacity: 0.7 }]}>Type to search people</Text>
+                  )
+                }
+                style={{ marginTop: 10 }}
+              />
             </View>
           )}
         </View>
@@ -2051,7 +2295,6 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE ,
     position: 'relative',
     borderRadius: 8,
     overflow: 'hidden',
@@ -2305,6 +2548,118 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     padding: 16,
+    flex: 1,
+  },
+  tagSheet: {
+    flex: 1,
+  },
+  tagSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  tagSheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+  },
+  tagSheetSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#777',
+  },
+  tagSheetDone: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#5a2d82',
+  },
+  tagSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  tagSearchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    color: '#000',
+    fontSize: 14,
+  },
+  tagChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 10,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5a2d82',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagChipText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  tagSearchingText: {
+    marginTop: 10,
+    color: '#777',
+    fontSize: 12,
+  },
+  tagSuggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  tagAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  tagAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  tagSuggestionTextWrap: {
+    flex: 1,
+  },
+  tagSuggestionUsername: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tagSuggestionName: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  tagAddPill: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tagEmptyText: {
+    marginTop: 16,
+    color: '#777',
+    fontSize: 13,
+    textAlign: 'center',
   },
   overlayControls: {
     alignItems: 'center',

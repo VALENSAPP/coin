@@ -25,10 +25,11 @@ import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { updateWallet } from '../../../services/wallet';
+import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 
 const { width } = Dimensions.get('window');
 
-/* ----------------------------------------- */
+/* ----------------------------------------- */ 
 function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -46,7 +47,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       const ratio = screenWidth / w;
       const newHeight = h * ratio;
 
-      const maxHeight = screenWidth * 1.25;
+      const maxHeight = screenWidth * 2.2;
       const minHeight = screenWidth * 0.56;
 
       const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
@@ -229,16 +230,15 @@ function PostItem({
   currentlyVisiblePostId,
   returnTo,
   shareCount,
+  taggedPeople,
   hideDonationButton = false, // Add this prop with default false
-
 }) {
-
-
   const heartScale = useRef(new Animated.Value(1)).current;
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
   const [totalFollowers, setTotalFollowers] = useState(0);
   const [userProfile, setUserProfile] = useState('');
+  const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
   const isCompanyProfile = userProfile === 'company';
   const DragonflyIcon = getDragonflyIcon(totalFollowers, isCompanyProfile);
   const [donation, setDonation] = useState(false);
@@ -249,6 +249,7 @@ function PostItem({
   const [userId, setUserId] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
+  const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [videoHeight, setVideoHeight] = useState(500);
   const [videoLoaded, setVideoLoaded] = useState({});
@@ -257,7 +258,22 @@ function PostItem({
   // New donation states
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
-  const [daysLeft, setDaysLeft] = useState(0);
+  const getDaysLeftFromEndTime = (endTime) => {
+    if (!endTime) return 0;
+
+    try {
+      const now = new Date();
+      const endDate = new Date(endTime);
+      const diffTime = endDate - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+    } catch (error) {
+      console.error('Error calculating days left:', error);
+      return 0;
+    }
+  };
+
+  const [daysLeft, setDaysLeft] = useState(() => getDaysLeftFromEndTime(item?.end_time));
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
@@ -284,7 +300,7 @@ function PostItem({
     console.warn('PostItem received invalid item:', item);
     return null;
   }
- const width = Dimensions.get("window").width;
+  const width = Dimensions.get("window").width;
   useEffect(() => {
     const firstVideo = item?.media?.find(m => m.thumbnail);
 
@@ -299,21 +315,31 @@ function PostItem({
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
+  const taggedUsers = useMemo(
+    () =>
+      (Array.isArray(taggedPeople || item?.taggedPeople) ? (taggedPeople || item?.taggedPeople) : [])
+        .filter(Boolean)
+        .map((person, index) => {
+          if (typeof person === 'string') {
+            return {
+              id: `tagged-${index}-${person}`,
+              username: person,
+            };
+          }
+console.log(taggedUsers,'tagged user' )
+          return {
+            id: person?.id || `tagged-${index}`,
+            username: person?.username || person?.userName || 'Unknown User',
+            fullName: person?.fullName || person?.name || '',
+            avatar: person?.avatar || person?.image || person?.userImage || null,
+          };
+        }),
+    [item?.taggedPeople, taggedPeople],
+  );
 
   // Calculate days left from current time to end_time
   const calculateDaysLeft = useCallback(() => {
-    if (!item.end_time) return 0;
-
-    try {
-      const now = new Date();
-      const endDate = new Date(item.end_time);
-      const diffTime = endDate - now;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 ? diffDays : 0;
-    } catch (error) {
-      console.error('Error calculating days left:', error);
-      return 0;
-    }
+    return getDaysLeftFromEndTime(item?.end_time);
   }, [item.end_time]);
 
   useEffect(() => {
@@ -420,6 +446,22 @@ function PostItem({
     }
   }, [userId]);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const storedProfile = await AsyncStorage.getItem('profile');
+        if (!mounted) return;
+        setCurrentUserProfileType(normalizeProfileType(storedProfile));
+      } catch {
+        // ignore; keep default
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -492,13 +534,11 @@ function PostItem({
   );
   const canSupport = !!creatorWalletAddress;
 
-  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
+  const ensureSupportFlowReady = useCallback(async () => {
     const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
 
     if (!currentWalletAddress) {
-      if (openSupportModalOnSuccess) {
-        setPendingSupportPromptAfterWalletConnect(true);
-      }
+      setPendingSupportPromptAfterWalletConnect(true);
       setWalletSelectionVisible(true);
       return false;
     }
@@ -507,15 +547,8 @@ function PostItem({
       setWalletAddress(currentWalletAddress);
     }
 
-    if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-      setPendingSupportPromptAfterWalletConnect(false);
-      return false;
-    }
-
     return true;
-  }, [walletAddress, canSupport]);
-
+  }, [walletAddress]);
   const handleWalletSelect = useCallback(async (wallet) => {
     setWalletSelectionVisible(false);
 
@@ -583,6 +616,7 @@ function PostItem({
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     setModalVisible(false);
+    // ✅ Always show disclaimer next — wallet check happens only when they confirm
     setSupportDisclaimerVisible(true);
   }, []);
 
@@ -612,41 +646,41 @@ function PostItem({
     }
 
     wasPostActiveRef.current = isPostActive;
-  }, [isVisible, screenFocused, playingPostId, item.id]);
+  }, [isVisible, screenFocused, playingPostId, currentlyVisiblePostId, item.id]);
 
-  useEffect(() => {
-    if (mediaLength <= 0) return;
+  // useEffect(() => {
+  //   if (mediaLength <= 0) return;
 
-    const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
-    const nextStates = {};
-    for (let idx = 0; idx < mediaLength; idx++) {
-      const shouldPause = !(
-        idx === currentIndex &&
-        isVisible &&
-        screenFocused &&
-        (!hasPlayingTarget || String(playingPostId) === String(item.id))
-      );
-      nextStates[idx] = shouldPause;
-    }
+  //   const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
+  //   const nextStates = {};
+  //   for (let idx = 0; idx < mediaLength; idx++) {
+  //     const shouldPause = !(
+  //       idx === currentIndex &&
+  //       isVisible &&
+  //       screenFocused &&
+  //       (!hasPlayingTarget || String(playingPostId) === String(item.id))
+  //     );
+  //     nextStates[idx] = shouldPause;
+  //   }
 
-    setVideoStates(prev => {
-      const hasChanged = Object.keys(nextStates).some(
-        key => prev[key] !== nextStates[key]
-      );
-      return hasChanged ? nextStates : prev;
-    });
+  //   setVideoStates(prev => {
+  //     const hasChanged = Object.keys(nextStates).some(
+  //       key => prev[key] !== nextStates[key]
+  //     );
+  //     return hasChanged ? nextStates : prev;
+  //   });
 
-    // Use requestAnimationFrame for better performance
-    const rafId = requestAnimationFrame(() => {
-      Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-        if (shouldPause) {
-          safeVideoPause(parseInt(idx));
-        }
-      });
-    });
+  //   // Use requestAnimationFrame for better performance
+  //   const rafId = requestAnimationFrame(() => {
+  //     Object.entries(nextStates).forEach(([idx, shouldPause]) => {
+  //       if (shouldPause) {
+  //         safeVideoPause(parseInt(idx));
+  //       }
+  //     });
+  //   });
 
-    return () => cancelAnimationFrame(rafId);
-  }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
+  //   return () => cancelAnimationFrame(rafId);
+  // }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
 
   useEffect(() => {
     return () => {
@@ -680,6 +714,29 @@ function PostItem({
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }, []);
+
+  const currencyPrefix = useMemo(() => {
+    const currencyCode = String(item?.currency || '').toUpperCase();
+    const currencySymbols = {
+      USD: '$',
+      EUR: '€',
+      GBP: '£',
+      INR: '₹',
+      CAD: 'C$',
+      AUD: 'A$',
+      NZD: 'NZ$',
+      JPY: '¥',
+      CNY: '¥',
+      KRW: '₩',
+      SGD: 'S$',
+      HKD: 'HK$',
+      AED: 'د.إ',
+      SAR: 'ر.س',
+    };
+
+    if (currencySymbols[currencyCode]) return currencySymbols[currencyCode];
+    return currencyCode ? `${currencyCode} ` : '$';
+  }, [item?.currency]);
 
   const isVideoUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return false;
@@ -723,6 +780,14 @@ function PostItem({
     [progressPercent, item?.profile]
   );
 
+  const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
+  const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
+  const progressStatusLabel = isGoalAmountRaised
+    ? 'GOAL AMOUNT RAISED'
+    : isCampaignDaysCompleted
+      ? 'DAYS COMPLETED'
+      : '';
+
   const onMomentumEnd = useCallback((e) => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
@@ -734,7 +799,6 @@ function PostItem({
     const allMediaUrls = Array.isArray(item?.media)
       ? item.media.map((m) => m?.url).filter(Boolean)
       : [];
-
     navigation.navigate('ProfileMain', {
       screen: 'FlipsScreen',
       params: {
@@ -764,28 +828,56 @@ function PostItem({
     const shouldFollow = !item.follow;
     const followHandler = executeFollowAction || onToggleFollow;
     if (!followHandler) return;
+
     const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
-    if (ready) {
+    // ✅ Always show intro support modal first — no wallet check here
+    const supporterProfile =
+      typeof isBusinessProfile === 'boolean'
+        ? (isBusinessProfile ? 'company' : 'user')
+        : currentUserProfileType;
+    const recipientProfile = normalizeProfileType(userProfile || item?.profile);
+
+    // Only show support/wallet flow when support is allowed by platform rules.
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
       setModalVisible(true);
     }
-  }, [item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy, executeFollowAction, onToggleFollow, ensureSupportFlowReady]);
+  }, [
+    item?.UserId,
+    item.follow,
+    item.userTokenAddress,
+    item?.profile,
+    userId,
+    followingBusy,
+    executeFollowAction,
+    onToggleFollow,
+    isBusinessProfile,
+    currentUserProfileType,
+    userProfile,
+  ]);
+
 
   const renderMedia = useCallback(({ item: mediaItem, index }) => {
     const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
     const isPaused = videoStates[index] ?? false;
+    const isVideoReady = !!videoLoaded[index];
 
     // Simplified shouldPlay - only check if not paused and current index
-    const shouldPlay = index === currentIndex && !isPaused && !isZooming;
+    const isThisPostActive =
+      screenFocused &&
+      (playingPostId === undefined ||
+        playingPostId === null ||
+        String(playingPostId) === String(item.id));
+
+    const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
 
     return (
       <View style={styles.mediaContainer}>
         {isVideo ? (
           <View style={{ width, height: videoHeight }}>
-            {!videoLoaded && mediaItem.thumbnail && (
+            {!isVideoReady && mediaItem.thumbnail && (
               <Image
                 source={{ uri: mediaItem.thumbnail }}
                 style={{
@@ -801,27 +893,30 @@ function PostItem({
                 if (ref) videoRefsMap.current[index] = ref;
               }}
               source={{ uri: mediaItem.url }}
-              style={{
-                width: width,
-                height: videoHeight
-              }}
-              resizeMode='cover'
+              style={{ width, height: videoHeight }}
+              resizeMode="cover"
               repeat
               paused={!shouldPlay}
-              muted={true}
+              muted={isMuted}        // <-- now respects state
               controls={false}
+              onLoadStart={() => {
+                setVideoLoaded(prev => ({ ...prev, [index]: false }));
+              }}
+              onLoad={() => {
+                setVideoLoaded(prev => ({ ...prev, [index]: true }));
+              }}
               onError={(error) => {
                 console.log('Video error:', error);
               }}
               playWhenInactive={false}
               progressUpdateInterval={1000}
               bufferConfig={{
-                minBufferMs: 15000,
-                maxBufferMs: 50000,
-                bufferForPlaybackMs: 2500,
-                bufferForPlaybackAfterRebufferMs: 5000
+                minBufferMs: 2000,
+                maxBufferMs: 10000,
+                bufferForPlaybackMs: 1000,
+                bufferForPlaybackAfterRebufferMs: 2000,
               }}
-              maxBitRate={2000000}
+              maxBitRate={1200000}
             />
             <TouchableOpacity
               style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
@@ -835,12 +930,12 @@ function PostItem({
               )}
             </TouchableOpacity>
             {/* Removed speaker button to keep videos always muted */}
-            {/* <TouchableOpacity
+            <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
             >
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity> */}
+            </TouchableOpacity>
           </View>
         ) : (
           <InstagramZoomableImage
@@ -866,7 +961,7 @@ function PostItem({
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
             <View style={styles.userRow}>
-              <Text style={[styles.username,{color:item?.profile === "user" ? '#5a2d82' : '#D3B683'}]}>{item.username}</Text>
+              <Text style={[styles.username, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{item.username}</Text>
               {isKycVerified && (
                 <View style={styles.dragonflyIcon}>
                   <DragonflyIcon width={18} height={18} />
@@ -886,6 +981,15 @@ function PostItem({
         </View>
 
         <View style={styles.mediaWrapper}>
+          {taggedUsers.length > 0 && (
+            <TouchableOpacity
+              style={styles.tagButton}
+              onPress={() => setShowTaggedPeopleModal(true)}
+              activeOpacity={0.8}
+            >
+              <Feather name="tag" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
           <FlatList
             ref={listRef}
             data={safeMedia}
@@ -968,6 +1072,7 @@ function PostItem({
             // return (
             <TouchableOpacity
               onPress={handleFollowPress}
+              disabled={followingBusy}
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
@@ -1053,6 +1158,12 @@ function PostItem({
 
         {goalAmount > 0 && (
           <View style={styles.progressSection}>
+            {progressStatusLabel ? (
+              <View style={styles.progressStatusBadge}>
+                <Text style={styles.progressStatusBadgeText}>{progressStatusLabel}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.progressBarWrapper}>
               <View style={styles.progressBarBackground}>
                 <View
@@ -1074,14 +1185,16 @@ function PostItem({
                 </View>
                 <View style={styles.statAtCenter}>
                   <Text style={styles.statValueSmall}>
-                    {isLoadingDonation ? 'Loading...' : `$${formatNumber(currentRaised)} / $${formatNumber(goalAmount)} RAISED`}
+                    {isLoadingDonation
+                      ? 'Loading...'
+                      : `${currencyPrefix}${formatNumber(currentRaised)} / ${currencyPrefix}${formatNumber(goalAmount)} RAISED`}
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {!hideDonationButton && ((totalDonation < goalAmount) && (item.UserId !== userId)) && (daysLeft > 0) && (
+              {!hideDonationButton && !isGoalAmountRaised && (item.UserId !== userId) && (daysLeft > 0) && (
                 <TouchableOpacity
                   onPress={() => {
                     setDonation(true);
@@ -1123,6 +1236,16 @@ function PostItem({
           setShowBuyersModal(false);
           handleUserProfile(id);
         }}
+      />
+      <BuyersListModal
+        visible={showTaggedPeopleModal}
+        onClose={() => setShowTaggedPeopleModal(false)}
+        users={taggedUsers}
+        title="Tagged people"
+        enableSearch={false}
+        showChevron={false}
+        emptyTitle="No tagged people"
+        emptyText="This post has no tagged people."
       />
       <SupportCreatorModal
         visible={modalVisible}
@@ -1292,6 +1415,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  tagButton: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+    borderRadius: 20,
+    zIndex: 10,
+  },
   dot: {
     width: 8,
     height: 8,
@@ -1412,11 +1544,28 @@ const styles = StyleSheet.create({
   progressBarWrapper: {
     position: 'relative',
   },
+  progressStatusBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DC2626',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+    width: '100%'
+  },
+  progressStatusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textAlign: 'center'
+  },
   progressBarBackground: {
     height: 10,
     backgroundColor: '#e0e0e0',
     overflow: 'hidden',
     marginBottom: 50,
+    borderRadius: 5,
   },
   progressBarFill: {
     height: '100%',

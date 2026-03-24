@@ -8,17 +8,18 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   Image,
   Dimensions,
   Modal,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../../components/home/posts/PostItem';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import OptionsModal from '../../components/home/posts/OptionsModal';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 import { getAllSavedPosts } from '../../services/settings';
 import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
@@ -28,7 +29,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
 import Video from 'react-native-video';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const GRID_ITEM_SIZE = (width - 6) / 3;
 const SavedPostsScreen = ({ navigation }) => {
   // Data
@@ -55,7 +56,6 @@ const SavedPostsScreen = ({ navigation }) => {
   const [modalPostId, setModalPostId] = useState(null);
 
   // Comments
-  const [commentText, setCommentText] = useState('');
   const [commentPostId, setCommentPostId] = useState(null);
   const commentSheetRef = useRef(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
@@ -65,16 +65,26 @@ const SavedPostsScreen = ({ navigation }) => {
   const [initialPostIndex, setInitialPostIndex] = useState(0);
   const flatListRef = useRef(null);
 
-  const toast = useToast();
-  const { bgStyle, textStyle } = useAppTheme();
+  // Grid video controls (Saved posts grid)
+  const [gridPlayingPostId, setGridPlayingPostId] = useState(null);
+  const [gridMutedByPostId, setGridMutedByPostId] = useState({});
 
-  const formatUrl = (url) => {
+  // Viewer (modal) video autoplay coordination (like main feed)
+  const [viewerPlayingPostId, setViewerPlayingPostId] = useState(null);
+  const [viewerVisiblePostId, setViewerVisiblePostId] = useState(null);
+
+  const toast = useToast();
+  const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const viewerHeaderPaddingTop = Math.max(insets.top, 12);
+
+  const formatUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return '';
     if (url.startsWith('http')) return url;
     return `https://${url}`;
-  };
+  }, []);
 
-  const getMediaType = (url) => {
+  const getMediaType = useCallback((url) => {
     if (!url || typeof url !== 'string') return 'image';
     const lowerUrl = url.toLowerCase();
     const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'];
@@ -85,11 +95,11 @@ const SavedPostsScreen = ({ navigation }) => {
       lowerUrl.includes('video') ||
       lowerUrl.includes('/mp4/');
     return isVideo ? 'video' : 'image';
-  };
+  }, []);
 
-  const mapPostForPostItem = ({
+  const mapPostForPostItem = useCallback(({
     item,
-    followingByUserId = {},
+    followingByUserId: followingMapByUserId = {},
     route,
   }) => {
     return {
@@ -124,12 +134,12 @@ const SavedPostsScreen = ({ navigation }) => {
       tokenBalance: item.tokenBalance || 0,
 
       follow:
-        typeof followingByUserId[String(item.userId)] === 'boolean'
-          ? followingByUserId[String(item.userId)]
+        typeof followingMapByUserId[String(item.userId)] === 'boolean'
+          ? followingMapByUserId[String(item.userId)]
           : !!item.isFollow,
       shareCount: item.shareCount ?? 0,
     };
-  };
+  }, [formatUrl, getMediaType]);
 
   const seedMapsFromPosts = useCallback((list) => {
     const maps = buildPostMaps(list, { includeSaved: true, includeHidden: false });
@@ -271,22 +281,37 @@ const SavedPostsScreen = ({ navigation }) => {
     async (id) => {
       if (!id || savingIds.has(id)) return;
 
-      setSavingIds((prev) => new Set(prev).add(id));
-      const isCurrentlySaved = !!saved[id];
+      const resolvedId = String(id);
+      const matchesId = (post) =>
+        String(post?.id ?? post?._id ?? '') === resolvedId;
+
+      setSavingIds((prev) => new Set(prev).add(resolvedId));
+      const isCurrentlySaved = !!saved[resolvedId];
 
       try {
-        const resp = isCurrentlySaved ? await unSavePost(id) : await savePost(id);
-        if (resp && resp.statusCode === 200 && resp.success) {
+        const resp = isCurrentlySaved ? await unSavePost(resolvedId) : await savePost(resolvedId);
+        const ok = resp && resp.statusCode === 200 && (resp.success ?? true);
+        if (ok) {
           showToastMessage(toast, 'success', resp?.data?.message || 'Updated');
-          setSaved((prev) => ({ ...prev, [id]: !isCurrentlySaved }));
+          setSaved((prev) => ({ ...prev, [resolvedId]: !isCurrentlySaved }));
 
           if (isCurrentlySaved) {
-            setPosts((prev) => prev.filter((p) => p.id !== id));
-            // Close viewer if current post was removed
+            const nextPosts = posts.filter((p) => !matchesId(p));
+            setPosts(nextPosts);
+
             if (viewerVisible) {
-              const currentIndex = posts.findIndex(p => p.id === id);
-              if (currentIndex === initialPostIndex) {
-                setViewerVisible(false);
+              if (!nextPosts.length) {
+                closePostViewer();
+              } else {
+                const removedIndex = posts.findIndex(matchesId);
+                const nextIndex = Math.max(0, Math.min(removedIndex, nextPosts.length - 1));
+                setInitialPostIndex(nextIndex);
+
+                const nextId = nextPosts[nextIndex]?.id ?? nextPosts[nextIndex]?._id;
+                if (nextId != null) {
+                  setViewerVisiblePostId(nextId);
+                  setViewerPlayingPostId(nextId);
+                }
               }
             }
           }
@@ -298,12 +323,19 @@ const SavedPostsScreen = ({ navigation }) => {
       } finally {
         setSavingIds((prev) => {
           const next = new Set(prev);
-          next.delete(id);
+          next.delete(resolvedId);
           return next;
         });
       }
     },
-    [saved, savingIds, toast, viewerVisible, posts, initialPostIndex]
+    [
+      saved,
+      savingIds,
+      toast,
+      viewerVisible,
+      posts,
+      closePostViewer,
+    ]
   );
 
   const openOptions = useCallback((id) => {
@@ -320,14 +352,23 @@ const SavedPostsScreen = ({ navigation }) => {
     async (action) => {
       if (!modalPostId) return;
       if (action === 'toggleSave') {
+        closeOptions();
         await handleToggleSave(modalPostId);
+        return;
+      }
+
+      if (action === 'copyAddress') {
+        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        Clipboard.setString(deepLink);
+        showToastMessage(toast, 'success', 'Post copied');
         closeOptions();
         return;
       }
-      Alert.alert('Action', String(action));
+
+      // Other actions (report/hide) are handled inside OptionsModal.
       closeOptions();
     },
-    [closeOptions, handleToggleSave, modalPostId]
+    [closeOptions, handleToggleSave, modalPostId, toast]
   );
 
   const handleComment = useCallback((postId, ownerId) => {
@@ -339,6 +380,7 @@ const SavedPostsScreen = ({ navigation }) => {
   const handleCommentClose = useCallback(() => {
     commentSheetRef.current?.close();
     setCommentPostId(null);
+    setCommentPostOwnerId(null);
   }, []);
 
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
@@ -348,13 +390,6 @@ const SavedPostsScreen = ({ navigation }) => {
     }));
   }, []);
 
-  const submitComment = useCallback(() => {
-    if (!commentText.trim()) return;
-    Alert.alert('Commented:', commentText.trim());
-    setCommentText('');
-    commentSheetRef.current?.close();
-  }, [commentText]);
-
   // Open full-screen viewer
   const openPostViewer = useCallback((index) => {
     setInitialPostIndex(index);
@@ -363,8 +398,56 @@ const SavedPostsScreen = ({ navigation }) => {
 
   // Close viewer
   const closePostViewer = useCallback(() => {
+    handleCommentClose();
+    closeOptions();
     setViewerVisible(false);
-  }, []);
+  }, [closeOptions, handleCommentClose]);
+
+  // Stop any grid video when opening the full viewer
+  useEffect(() => {
+    if (viewerVisible) setGridPlayingPostId(null);
+  }, [viewerVisible]);
+
+  // Seed which post should autoplay when the viewer opens
+  useEffect(() => {
+    if (!viewerVisible) {
+      setViewerPlayingPostId(null);
+      setViewerVisiblePostId(null);
+      return;
+    }
+
+    const seeded = posts?.[initialPostIndex];
+    const seededId = seeded?.id ?? seeded?._id ?? null;
+    if (seededId != null) {
+      setViewerPlayingPostId(seededId);
+      setViewerVisiblePostId(seededId);
+    }
+  }, [viewerVisible, initialPostIndex, posts]);
+
+  useEffect(() => {
+    if (!viewerVisible) return;
+    if (!posts?.length) return;
+
+    const index = Math.max(0, Math.min(initialPostIndex, posts.length - 1));
+    let cancelled = false;
+
+    const doScroll = (attempt = 0) => {
+      if (cancelled) return;
+      try {
+        flatListRef.current?.scrollToIndex?.({ index, animated: false, viewPosition: 0 });
+      } catch (e) {
+        if (attempt >= 3) return;
+        setTimeout(() => doScroll(attempt + 1), 120);
+      }
+    };
+
+    const timeout = setTimeout(() => doScroll(0), 80);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [initialPostIndex, posts?.length, viewerVisible]);
 
   // Grid item renderer
   const renderGridItem = useCallback(
@@ -373,7 +456,12 @@ const SavedPostsScreen = ({ navigation }) => {
       const firstMedia = images[0];
       const hasMultiple = images.length > 1;
       const isVideo = firstMedia ? getMediaType(firstMedia) === 'video' : false;
-      const tokenPrice = item.tokenBalance || 0;
+      const isGridVideoPlaying = String(gridPlayingPostId) === String(item?.id);
+      const isGridMuted =
+        typeof gridMutedByPostId[String(item?.id)] === 'boolean'
+          ? gridMutedByPostId[String(item?.id)]
+          : true;
+      const formattedFirstMedia = firstMedia ? formatUrl(firstMedia) : '';
 
       // Fallback if no media
       if (!firstMedia) {
@@ -389,19 +477,19 @@ const SavedPostsScreen = ({ navigation }) => {
 
       return (
         <TouchableOpacity
-          style={styles.gridItem}
+          style={[styles.gridItem,{marginBottom:2}]}
           activeOpacity={0.7}
           onPress={() => openPostViewer(index)}
         >
           {/* Video: Show first frame as static thumbnail */}
           {isVideo ? (
             <Video
-              source={{ uri: firstMedia }}
+              source={{ uri: formattedFirstMedia }}
               style={styles.gridImage}
               resizeMode="cover"
-              paused={true}
-              muted={true}
-              repeat={false}
+              paused={!isGridVideoPlaying}
+              muted={isGridMuted}
+              repeat={true}
               controls={false}
               playInBackground={false}
               playWhenInactive={false}
@@ -412,18 +500,37 @@ const SavedPostsScreen = ({ navigation }) => {
           ) : (
             /* Image: Normal fast loading */
             <Image
-              source={{ uri: firstMedia }}
+              source={{ uri: formattedFirstMedia }}
               style={styles.gridImage}
               resizeMode="cover"
               defaultSource={{ uri: 'https://via.placeholder.com/300/1a1a1a/666666?text=Loading...' }}
             />
           )}
 
-          {/* Play Icon for Videos */}
-          {isVideo && (
-            <View style={styles.videoOverlay}>
+          {/* Play Button for Videos */}
+          {isVideo && !isGridVideoPlaying && (
+            <TouchableOpacity
+              style={styles.videoOverlay}
+              activeOpacity={0.85}
+              onPress={() => setGridPlayingPostId(item?.id)}
+            >
               <Icon name="play-circle" size={36} color="#fff" />
-            </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Mute/Unmute for Videos */}
+          {isVideo && (
+            <TouchableOpacity
+              style={styles.gridMuteButton}
+              activeOpacity={0.85}
+              onPress={() => {
+                const key = String(item?.id);
+                setGridMutedByPostId((prev) => ({ ...prev, [key]: !isGridMuted }));
+                if (!isGridVideoPlaying) setGridPlayingPostId(item?.id);
+              }}
+            >
+              <Icon name={isGridMuted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
+            </TouchableOpacity>
           )}
 
           {/* Multiple Media Indicator */}
@@ -434,15 +541,10 @@ const SavedPostsScreen = ({ navigation }) => {
           )}
 
           {/* Token Price Overlay */}
-          {/* {tokenPrice > 0 && (
-            <View style={styles.tokenPriceOverlay}>
-              <Text style={styles.tokenPriceText}>${tokenPrice}</Text>
-            </View>
-          )} */}
         </TouchableOpacity>
       );
     },
-    [openPostViewer]
+    [formatUrl, getMediaType, gridMutedByPostId, gridPlayingPostId, openPostViewer]
   );
 
 
@@ -453,6 +555,8 @@ const SavedPostsScreen = ({ navigation }) => {
         item,
         followingByUserId,
       });
+      const isThisPostVisible =
+        viewerVisiblePostId != null && String(viewerVisiblePostId) === String(item?.id);
 
       return (
         <View style={styles.postContainer}>
@@ -462,21 +566,36 @@ const SavedPostsScreen = ({ navigation }) => {
             likesCount={postLikesCount[item.id] || 0}
             commentsCount={postCommentsCount[item.id] || 0}
             saved={!!saved[item.id]}
-            onToggleLike={() => toggleLike(item.id)}
-            onToggleSave={() => handleToggleSave(item.id)}
+            onToggleLike={toggleLike}
+            onToggleSave={handleToggleSave}
             onToggleFollow={handleToggleFollow}
             followingBusy={followingBusy.has(String(mapped.UserId))}
-            onComment={() => handleComment(item.id, mapped.UserId)}
-            onOptions={() => openOptions(item.id)}
+            onComment={handleComment}
+            onOptions={openOptions}
             onSuggest={[]}
             shareCount={mapped.shareCount}
             hideDonationButton={true}
+            // Autoplay only the visible post, start muted, user can unmute in PostItem
+            isVisible={isThisPostVisible}
+            screenFocused={viewerVisible}
+            playingPostId={viewerPlayingPostId}
+            currentlyVisiblePostId={viewerVisiblePostId}
           />
         </View>
       );
     },
     [
+      viewerVisible,
+      viewerPlayingPostId,
+      viewerVisiblePostId,
+      followingBusy,
+      handleComment,
+      handleToggleFollow,
+      handleToggleSave,
       liked,
+      mapPostForPostItem,
+      openOptions,
+      toggleLike,
       saved,
       postLikesCount,
       postCommentsCount,
@@ -492,34 +611,92 @@ const SavedPostsScreen = ({ navigation }) => {
   const EmptyState = useCallback(
     () => (
       <View style={styles.emptyState}>
-        <Icon name="bookmark-outline" size={80} color="#C7C7CC" />
-        <Text style={styles.emptyTitle}>No Saved Posts</Text>
-        <Text style={styles.emptySubtitle}>
+        <Icon
+          name="bookmark-outline"
+          size={80}
+          color={
+            typeof themeText === 'string' && themeText.startsWith('#') && themeText.length === 7
+              ? `${themeText}55`
+              : '#C7C7CC'
+          }
+        />
+        <Text style={[styles.emptyTitle, textStyle]}>No Saved Posts</Text>
+        <Text style={[styles.emptySubtitle, textStyle, { opacity: 0.7 }]}>
           When you save posts, you'll see them here{'\n'}Start exploring and save posts you love!
         </Text>
       </View>
     ),
-    []
+    [textStyle, themeText]
   );
 
+  // Viewer viewability (pick the most visible post id to autoplay)
+  const viewerViewabilityConfigRef = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+    minimumViewTime: 50,
+    waitForInteraction: false,
+  });
+
+  const handleViewerViewableItemsChanged = useCallback(({ viewableItems }) => {
+    if (!viewerVisible) return;
+    if (!viewableItems || viewableItems.length === 0) return;
+
+    let mostVisiblePost = null;
+    let highestPercentage = -1;
+
+    for (const v of viewableItems) {
+      const postId = v?.item?.id ?? v?.item?._id;
+      if (!v?.isViewable || postId == null) continue;
+
+      const percentage =
+        typeof v.percentVisible === 'number'
+          ? v.percentVisible
+          : typeof v.viewablePercent === 'number'
+            ? v.viewablePercent
+            : 100;
+
+      if (percentage > highestPercentage) {
+        highestPercentage = percentage;
+        mostVisiblePost = postId;
+      }
+    }
+
+    if (mostVisiblePost == null) return;
+    setViewerVisiblePostId((prev) => (String(prev) === String(mostVisiblePost) ? prev : mostVisiblePost));
+    setViewerPlayingPostId((prev) => (String(prev) === String(mostVisiblePost) ? prev : mostVisiblePost));
+  }, [viewerVisible]);
+
+  const viewerHandleViewableItemsChangedRef = useRef(handleViewerViewableItemsChanged);
+  useEffect(() => {
+    viewerHandleViewableItemsChangedRef.current = handleViewerViewableItemsChanged;
+  }, [handleViewerViewableItemsChanged]);
+
+  const viewerViewabilityConfigCallbackPairs = useRef([
+    {
+      viewabilityConfig: viewerViewabilityConfigRef.current,
+      onViewableItemsChanged: (info) => viewerHandleViewableItemsChangedRef.current(info),
+    },
+  ]);
+
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor={cardStyle?.backgroundColor || '#fff'} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, cardStyle]}>
         <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#262626" />
+          <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Posts</Text>
+        <Text style={[styles.headerTitle, textStyle]}>Saved Posts</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       {/* Grid View */}
       {loading && posts.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4d2a88" />
-          <Text style={styles.loadingText}>Loading saved posts...</Text>
+          <ActivityIndicator size="large" color={themeText || '#4d2a88'} />
+          <Text style={[styles.loadingText, textStyle, { opacity: 0.7 }]}>
+            Loading saved posts...
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -531,7 +708,7 @@ const SavedPostsScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#4d2a88"
+              tintColor={themeText || '#4d2a88'}
             />
           }
           ListEmptyComponent={!loading ? <EmptyState /> : null}
@@ -552,15 +729,21 @@ const SavedPostsScreen = ({ navigation }) => {
         onRequestClose={closePostViewer}
         statusBarTranslucent
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView style={[styles.modalContainer, bgStyle]} edges={['left', 'right', 'bottom']}>
+          <StatusBar barStyle="dark-content" backgroundColor={cardStyle?.backgroundColor || '#fff'} />
 
           {/* Viewer Header */}
-          <View style={styles.viewerHeader}>
+          <View
+            style={[
+              styles.viewerHeader,
+              cardStyle,
+              { paddingTop: viewerHeaderPaddingTop, paddingBottom: 12 },
+            ]}
+          >
             <TouchableOpacity onPress={closePostViewer} style={styles.closeButton}>
-              <Icon name="arrow-back" size={24} color="#262626" />
+              <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
             </TouchableOpacity>
-            <Text style={styles.viewerHeaderTitle}>All Posts</Text>
+            <Text style={[styles.viewerHeaderTitle, textStyle]}>All Posts</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -571,12 +754,8 @@ const SavedPostsScreen = ({ navigation }) => {
             renderItem={renderFullPost}
             keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
-            initialScrollIndex={initialPostIndex}
-            getItemLayout={(data, index) => ({
-              length: height * 0.85,
-              offset: height * 0.85 * index,
-              index,
-            })}
+            contentContainerStyle={{ paddingBottom: Math.max(12, insets.bottom) }}
+            viewabilityConfigCallbackPairs={viewerViewabilityConfigCallbackPairs.current}
             onScrollToIndexFailed={(info) => {
               setTimeout(() => {
                 flatListRef.current?.scrollToIndex({
@@ -590,49 +769,55 @@ const SavedPostsScreen = ({ navigation }) => {
             windowSize={5}
             initialNumToRender={2}
           />
+
+          {/* Options Modal (render inside modal for iOS) */}
+          <OptionsModal
+            visible={modalVisible}
+            onClose={closeOptions}
+            fromHome={true}
+            onSelect={onOptionsSelect}
+            postId={modalPostId ?? ''}
+            canHide={false}
+            isSaved={
+              modalPostId != null && (saved[modalPostId] ?? saved[String(modalPostId)])
+                ? true
+                : false
+            }
+          />
+
+          {/* Comment Sheet (render inside modal for iOS) */}
+          <RBSheet
+            ref={commentSheetRef}
+            height={500}
+            openDuration={250}
+            draggable={true}
+            closeOnPressMask={true}
+            customModalProps={{ statusBarTranslucent: true, presentationStyle: 'overFullScreen' }}
+            onClose={() => {
+              setCommentPostId(null);
+              setCommentPostOwnerId(null);
+            }}
+            customStyles={{
+              container: {
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                ...bgStyle,
+              },
+              draggableIcon: {
+                backgroundColor: '#ccc',
+                width: 60,
+              },
+            }}
+          >
+            <CommentSheet
+              postId={commentPostId}
+              onClose={handleCommentClose}
+              onCommentCountUpdate={handleCommentCountUpdate}
+              postOwnerId={commentPostOwnerId}
+            />
+          </RBSheet>
         </SafeAreaView>
       </Modal>
-
-      {/* Options Modal */}
-      <OptionsModal
-        visible={modalVisible}
-        onClose={closeOptions}
-        fromHome={true}
-        onSelect={onOptionsSelect}
-        postId={modalPostId ?? ''}
-        isSaved={!!(modalPostId && saved[String(modalPostId)])}
-      />
-
-      {/* Comment Sheet */}
-      <RBSheet
-        ref={commentSheetRef}
-        height={500}
-        openDuration={250}
-        draggable={true}
-        closeOnPressMask={true}
-        customModalProps={{ statusBarTranslucent: true }}
-        customStyles={{
-          container: {
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
-            ...bgStyle,
-          },
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
-        }}
-      >
-        <CommentSheet
-          commentText={commentText}
-          onChangeText={setCommentText}
-          onSubmit={submitComment}
-          onClose={handleCommentClose}
-          onCommentCountUpdate={handleCommentCountUpdate}
-          postId={commentPostId}
-          postOwnerId={commentPostOwnerId}
-        />
-      </RBSheet>
     </SafeAreaView>
   );
 };
@@ -640,7 +825,6 @@ const SavedPostsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
@@ -648,7 +832,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 0.5,
     borderBottomColor: '#e0e0e0',
   },
@@ -660,8 +843,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#262626',
     flex: 1,
-    // textAlign: 'center',
-    marginLeft: 10,
+    textAlign: 'center',
   },
   headerSpacer: {
     width: 32,
@@ -672,12 +854,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#9a8fb6',
     fontSize: 16,
     marginTop: 12,
   },
   emptyContainer: {
     flexGrow: 1,
+    paddingBottom: 24,
   },
   emptyState: {
     flex: 1,
@@ -689,19 +871,18 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#222',
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
   },
   // Grid styles
   gridContainer: {
     paddingVertical: 2,
+    paddingBottom: 24,
   },
   gridRow: {
     gap: 2,
@@ -711,6 +892,7 @@ const styles = StyleSheet.create({
     height: GRID_ITEM_SIZE,
     position: 'relative',
     backgroundColor: '#f0f0f0',
+    overflow: 'hidden',
   },
   gridImage: {
     width: '100%',
@@ -734,10 +916,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     padding: 4,
   },
+  gridMuteButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 16,
+    padding: 6,
+  },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   viewerHeader: {
     flexDirection: 'row',
@@ -745,23 +934,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 0.5,
     borderBottomColor: '#e0e0e0',
   },
   closeButton: {
     padding: 4,
+    // marginLeft:4
   },
   viewerHeaderTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#262626',
     flex: 1,
-    // textAlign: 'center',
-    marginLeft: 10,
+    textAlign: 'center',
   },
   postContainer: {
-    minHeight: height * 0.85,
+    paddingBottom: 16,
   },
 });
 

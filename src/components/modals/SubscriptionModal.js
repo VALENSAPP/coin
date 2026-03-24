@@ -150,7 +150,7 @@ const SubscribeFlowModal = ({
                     'danger',
                     response?.message ||
                     response?.data?.message ||
-                    STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                    STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY 
                 );
             }
         } catch (error) {

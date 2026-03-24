@@ -429,6 +429,15 @@ export default StyleSheet.create({
         fontSize: 12,
         color: '#9CA3AF',
     },
+    emptyState: {
+        paddingVertical: 24,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#6B7280',
+    },
     currentBadge: {
         backgroundColor: '#D1FAE5',
         paddingHorizontal: 12,
@@ -458,10 +467,22 @@ export default StyleSheet.create({
         alignItems: 'center',
         borderWidth: 2,
         borderColor: '#5B21B6',
+        marginBottom:'10%'
     },
     logoutButtonText: {
         fontSize: 16,
         fontWeight: '700',
         color: '#5B21B6',
+    },
+    sessionLogoutButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: '#FEE2E2',
+    },
+    sessionLogoutText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#DC2626',
     },
 });

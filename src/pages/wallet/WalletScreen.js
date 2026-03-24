@@ -60,6 +60,8 @@ export default function WalletComponent() {
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
     const { bgStyle, textStyle, text } = useAppTheme();
+    const MAX_CREDITS = 5;
+    const maxPurchasable = MAX_CREDITS - creditsLeft;
     const userVerificationStatus = useMemo(() => {
         const verified =
             userData?.kyc === true &&
@@ -70,41 +72,20 @@ export default function WalletComponent() {
             level: verified ? 'Dragonfly Verified' : 'Profile Not Verified',
         };
     }, [userData?.kyc, userData?.subscriptionStatus]);
+    const referPoints = useMemo(() => {
+        const rawPoints =
+            userData?.referPoints ?? userData?.referralPoints ?? userData?.referPoint ?? 0;
+        const points = Number(rawPoints);
+        return Number.isFinite(points) ? points : 0;
+    }, [userData?.referPoints, userData?.referralPoints, userData?.referPoint]);
 
-    useFocusEffect(
-        React.useCallback(() => {
-            loadProfileType();
-            fetchUserCreds();
-            fetchDashboardData();
-            fetchCreditsLeft();
-            fetchTopCreators(); // Fetch top creators
-        }, [])
-    );
-
-    useEffect(() => {
-        let timeout;
-
-        const onKeyboardHide = () => {
-            timeout = setTimeout(() => {
-                purchaseSheetRef.current?.updateLayout?.({ height: 500 });
-            }, 300);
-        };
-
-       
-        const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
-
-        return () => {
-            hideSub.remove();
-            if (timeout) clearTimeout(timeout);
-        };
-    }, []);
-
-    const loadProfileType = async () => {
+    const loadProfileType = useCallback(async () => {
         const type = await AsyncStorage.getItem('profile');
         setProfile(type);
-    };
+    }, []);
 
-    const fetchUserCreds = async () => {
+    
+    const fetchUserCreds = useCallback(async () => {
         const id = await AsyncStorage.getItem('userId');
         try {
             dispatch(showLoader());
@@ -152,9 +133,9 @@ export default function WalletComponent() {
         } finally {
             dispatch(hideLoader());
         }
-    };
+    }, [dispatch, toast]);
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async () => {
         try {
             dispatch(showLoader());
             const response = await getTotalTokenPurchase();
@@ -177,15 +158,18 @@ export default function WalletComponent() {
         } finally {
             dispatch(hideLoader());
         }
-    };
+    }, [dispatch, toast]);
 
-    const fetchCreditsLeft = async () => {
+    const fetchCreditsLeft = useCallback(async () => {
         try {
             dispatch(showLoader());
             const response = await getCreditsLeft();
             console.log('Credits Left Response:', response);
             if (response?.statusCode === 200) {
-                setCreditsLeft(response.data.hitLeft);
+                const hitLeftRaw = response?.data?.hitLeft;
+                const hitLeft = Number(hitLeftRaw);
+                const cappedHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
+                setCreditsLeft(cappedHitLeft);
                 setPostCounts(response.data.postCount);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
@@ -199,10 +183,10 @@ export default function WalletComponent() {
         } finally {
             dispatch(hideLoader());
         }
-    };
+    }, [dispatch, toast]);
 
     // New function to fetch top creators
-    const fetchTopCreators = async () => {
+    const fetchTopCreators = useCallback(async () => {
         try {
             dispatch(showLoader());
             const response = await getTopCreators(); // Call your top creators API
@@ -220,7 +204,35 @@ export default function WalletComponent() {
         } finally {
             dispatch(hideLoader());
         }
-    };
+    }, [dispatch, toast]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadProfileType();
+            fetchUserCreds();
+            fetchDashboardData();
+            fetchCreditsLeft();
+            fetchTopCreators(); // Fetch top creators
+        }, [fetchCreditsLeft, fetchDashboardData, fetchTopCreators, fetchUserCreds, loadProfileType])
+    );
+
+    useEffect(() => {
+        let timeout;
+
+        const onKeyboardHide = () => {
+            timeout = setTimeout(() => {
+                purchaseSheetRef.current?.updateLayout?.({ height: 500 });
+            }, 300);
+        };
+
+       
+        const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
+
+        return () => {
+            hideSub.remove();
+            if (timeout) clearTimeout(timeout);
+        };
+    }, []);
 
     const handleFollowUnfollow = (selectedCreator, currentlyFollowing) => {
         console.log(selectedCreator, 'selectedCreator');
@@ -255,7 +267,7 @@ export default function WalletComponent() {
         fetchDashboardData();
         fetchCreditsLeft();
         fetchTopCreators();
-    }, []);
+    }, [fetchCreditsLeft, fetchDashboardData, fetchTopCreators, fetchUserCreds, toast]);
 
     const CreatorDashboard = ({ creator }) => (
         <View style={[styles.creatorDashboard, {shadowColor: text}]}>
@@ -413,30 +425,39 @@ export default function WalletComponent() {
         );
     };
 
-    const handleBuyCredits = () => {
-        if (profile === 'company') {
-            if (postCounts >= 7) {
-                showToastMessage(toast, 'danger', 'You already have maximum credits.');
-            } else {
-                if (creditsLeft >= 5) {
-                    showToastMessage(toast, 'danger', 'You already have maximum credits.');
-                } else {
-                    setShowCreditModal(true);
-                }
-            }
-        } else {
-            if (postCounts >= 5) {
-                showToastMessage(toast, 'danger', 'You already have maximum credits.');
-            } else {
-                if (creditsLeft >= 5) {
-                    showToastMessage(toast, 'danger', 'You already have maximum credits.');
-                } else {
-                    setShowCreditModal(true);
-                }
-            }
-        }
-    };
+    // const handleBuyCredits = () => {
+    //     if (profile === 'company') {
+    //         if (postCounts >= 7) {
+    //             showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //         } else {
+    //             if (creditsLeft >= 5) {
+    //                 showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //             } else {
+    //                 setShowCreditModal(true);
+    //             }
+    //         }
+    //     } else {
+    //         if (postCounts >= 5) {
+    //             showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //         } else {
+    //             if (creditsLeft >= 5) {
+    //                 showToastMessage(toast, 'danger', 'You already have maximum credits.');
+    //             } else {
+    //                 setShowCreditModal(true);
+    //             }
+    //         }
+    //     }
+    // };
+const handleBuyCredits = () => {
+    const safeCredits = Number(creditsLeft) || 0;
 
+    if (safeCredits >= MAX_CREDITS) {
+        showToastMessage(toast, 'danger', 'You already have maximum credits.');
+        return;
+    }
+
+    setShowCreditModal(true);
+};
     const Tab = createMaterialTopTabNavigator();
 
     return (
@@ -487,10 +508,28 @@ export default function WalletComponent() {
                             </View>
                         </View>
                         {String(profile || '').toLowerCase() !== 'company' && (
-                            <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}>
+                            <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}  disabled={creditsLeft >= 5}>
                                 <Text style={styles.buyCreditsText}>Buy Credits</Text>
                             </TouchableOpacity>
                         )}
+                        <View
+                            style={[
+                                styles.creditsInfo,
+                                {
+                                    marginBottom: 0,
+                                    marginTop: 10,
+                                    paddingTop: 10,
+                                    borderTopWidth: 1,
+                                    borderTopColor: '#eee',
+                                },
+                            ]}
+                        >
+                            <MaterialCommunityIcons name="gift-outline" size={24} color={text} />
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={styles.creditsTitle}>Referral Points</Text>
+                                <Text style={[styles.creditsCount, textStyle]}>{referPoints} pts</Text>
+                            </View>
+                        </View>
                     </View>
                 </View>
             </ScrollView>
@@ -499,9 +538,9 @@ export default function WalletComponent() {
             <View style={{ flex: 1, minHeight: 350 }}>
                 <Tab.Navigator
                     screenOptions={{
-                        tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: {text} },
+                        tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: text },
                         tabBarStyle: bgStyle,
-                        tabBarIndicatorStyle: { backgroundColor: {text}, height: 3, borderRadius: 2 },
+                        tabBarIndicatorStyle: { backgroundColor: text, height: 3, borderRadius: 2 },
                     }}
                 >
                     <Tab.Screen
@@ -594,6 +633,7 @@ export default function WalletComponent() {
                     setShowCreditModal(false);
                 }}
                 currentCredits={creditsLeft}
+                 maxPurchasable={MAX_CREDITS - creditsLeft} 
             />
         </SafeAreaView>
     );

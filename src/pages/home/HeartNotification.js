@@ -18,6 +18,75 @@ import { getAllNotifactions, readNotification } from '../../services/notificatio
 import { useDispatch } from 'react-redux';
 const { width } = Dimensions.get('window');
 
+const normalizeNotificationType = (type) => String(type || '').toLowerCase().trim();
+
+const pickFirstString = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const extractPostIdFromNotification = (item) => {
+  const data = item?.data || {};
+  return pickFirstString(
+    data.postId,
+    data.post_id,
+    data.postID,
+    data.post?.id,
+    data.post?._id,
+    data.post?.postId,
+    item?.postId,
+    item?.post_id,
+    item?.postID
+  );
+};
+
+const extractPostImageFromNotification = (item) => {
+  const data = item?.data || {};
+  const post = data.post || item?.post || {};
+  const images = Array.isArray(post.images) ? post.images : [];
+  const firstImage = images[0];
+  const firstImageUrl = typeof firstImage === 'string' ? firstImage : firstImage?.url;
+
+  return pickFirstString(
+    data.postImage,
+    data.post_image,
+    data.thumbnail,
+    data.postThumbnail,
+    data.postPreview,
+    post.thumbnail,
+    post.previewImage,
+    post.image,
+    post.mediaUrl,
+    post.mediaURL,
+    firstImageUrl
+  );
+};
+
+const extractAvatarFromNotification = (item) => {
+  const data = item?.data || {};
+  return pickFirstString(
+    item?.avatar,
+    item?.profileImage,
+    data.avatar,
+    data.userAvatar,
+    data.followerAvatar,
+    data.actorAvatar,
+    data.sender?.avatar,
+    data.sender?.profileImage,
+    data.user?.avatar,
+    data.user?.profileImage
+  );
+};
+
+const isFollowType = (type) => normalizeNotificationType(type).includes('follow');
+const isCommentType = (type) => normalizeNotificationType(type).includes('comment');
+const isLikeType = (type) => normalizeNotificationType(type).includes('like');
+const isPostActivityType = (type) => isLikeType(type) || isCommentType(type);
+
 export default function Notifications() {
   const [activeTab, setActiveTab] = useState('all');
   const scrollViewRef = useRef(null);
@@ -36,22 +105,21 @@ export default function Notifications() {
 
   const tabs = [
     { key: 'all', label: 'All' },
-    { key: 'trades', label: 'Trades' },
+    // { key: 'trades', label: 'Trades' },
     // { key: 'comments', label: 'Comments' },
-    { key: 'follows', label: 'Follows' }
+    // { key: 'follows', label: 'Follows' }
   ];
-  const tradeTypes = useMemo(() => ['sale', 'bid', 'trade', 'token_purchase'], []);
-
 
   const getNotificationIcon = (type) => {
-    switch (type) {
+    const normalizedType = normalizeNotificationType(type);
+    if (normalizedType.includes('follow')) return '👥';
+    if (normalizedType.includes('comment')) return '💬';
+    if (normalizedType.includes('like')) return '❤️';
+    switch (normalizedType) {
       case 'mint': return '🎨';
       case 'sale': return '💰';
       case 'trade': return '🔄';
       case 'bid': return '🏷️';
-      case 'follow': return '👥';
-      case 'like': return '❤️';
-      case 'comment': return '💬';
       case 'token_purchase': return '💎';
       default: return '🔔';
     }
@@ -59,7 +127,7 @@ export default function Notifications() {
 
   useFocusEffect(
     useCallback(() => {
-      getNotification();  
+      getNotification();
     }, [])
   );
 
@@ -68,7 +136,13 @@ export default function Notifications() {
       setIsLoading(true);
       const response = await getAllNotifactions();
       console.log(response, 'notification is working');
-      const raw = response?.data ?? [];
+      const rawPayload =
+        response?.notifications ??
+        response?.data?.notifications ??
+        response?.data ??
+        response ??
+        [];
+      const raw = Array.isArray(rawPayload) ? rawPayload : [];
 
       const formatRelativeTime = (iso) => {
         if (!iso) return '';
@@ -86,18 +160,27 @@ export default function Notifications() {
         return date.toLocaleDateString();
       };
 
-      const mapped = raw.map(item => ({
-        id: item.id,
-        type: item.data?.type ?? 'notification',
-        title: item.title ?? '',
-        message: item.body ?? '',
-        time: formatRelativeTime(item.createdAt ?? item.updatedAt),
-        avatar: item.avatar ?? null,
-        image: null,
-        price: null,
-        isRead: !!item.isRead,
-        raw: item,
-      }));
+      const mapped = raw.map(item => {
+        const data = item?.data || {};
+        const type = data?.type ?? item?.type ?? 'notification';
+        const postId = extractPostIdFromNotification(item);
+        const postImage = extractPostImageFromNotification(item);
+        const avatar = extractAvatarFromNotification(item);
+
+        return {
+          id: item.id,
+          type,
+          title: item.title ?? '',
+          message: item.body ?? '',
+          time: formatRelativeTime(item.createdAt ?? item.updatedAt),
+          avatar,
+          image: postImage,
+          price: null,
+          isRead: !!item.isRead,
+          postId,
+          raw: item,
+        };
+      });
 
       setNotifications(mapped);
 
@@ -119,7 +202,7 @@ export default function Notifications() {
 
       console.log(payload, 'payload being sent');
       const response = await readNotification(payload);
-      
+
       console.log(response, 'response received');
 
       if (response?.status === 200) {
@@ -162,13 +245,77 @@ export default function Notifications() {
     setPopupVisible(true);
   };
 
-  const getNotificationTargetUserId = useCallback((notification) => {
-    const type = notification?.raw?.data?.type;
-    if (type === 'follow' || type === 'unfollow') {
-      return notification?.raw?.data?.followerId || null;
-    }
-    return null;
+  const splitNotificationMessage = useCallback((message) => {
+    const safeMessage = String(message || '');
+    const actionRegex =
+      /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started|buy(?:ing|s)?|bought|purchase(?:d|s|ing)?|subscribe(?:d|s|ing)?|subscribed)\b/i;
+
+    const match = safeMessage.match(actionRegex);
+    const splitIndex = match?.index ?? -1;
+    const usernameText = splitIndex > 0 ? safeMessage.slice(0, splitIndex).trimEnd() : '';
+    const restText = splitIndex >= 0 ? safeMessage.slice(splitIndex).trimStart() : safeMessage;
+
+    return { usernameText, restText };
   }, []);
+
+  const getNotificationTargetUserId = useCallback((notification) => {
+    const data = notification?.raw?.data ?? {};
+
+    const directCandidates = [
+      data.followerId,
+      data.followedById,
+      data.followingId,
+      data.unfollowerId,
+      data.unfollowedById,
+      data.fromUserId,
+      data.senderId,
+      data.actorId,
+      data.initiatorId,
+      data.byUserId,
+      data.buyerId,
+      data.purchasedById,
+      data.payerId,
+      data.subscriberId,
+      data.subscriberUserId,
+      data.subscribedById,
+      data.subscribedUserId,
+      data.fanId,
+      data.fanUserId,
+      data.customerId,
+    ];
+
+    const direct = directCandidates.find(Boolean);
+    if (direct) return direct;
+
+    return (
+      data.user?.id ||
+      data.sender?.id ||
+      data.actor?.id ||
+      data.fromUser?.id ||
+      notification?.raw?.userId ||
+      notification?.raw?.senderId ||
+      null
+    );
+  }, []);
+
+  const navigateToPost = useCallback((notification) => {
+    const postId = notification?.postId;
+    if (!postId) return;
+
+    const postPayload = notification?.raw?.data?.post && typeof notification?.raw?.data?.post === 'object'
+      ? notification.raw.data.post
+      : { id: postId };
+
+    navigation.navigate('ProfileMain', {
+      screen: 'PostView',
+      params: {
+        postData: postPayload,
+        userChat: true,
+        fromScreen: 'Notifications',
+        hideTabBar: true,
+      },
+    });
+  }, [navigation]);
 
   const handlePopupNavigateToProfile = useCallback(() => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
@@ -209,9 +356,9 @@ export default function Notifications() {
 
   const tabDataMap = useMemo(() => ({
     all: notifications,
-    trades: notifications.filter(n => tradeTypes.includes(n.type)),
-    follows: notifications.filter(n => !tradeTypes.includes(n.type)),
-  }), [notifications, tradeTypes]);
+    comments: notifications.filter(n => isPostActivityType(n.type)),
+    follows: notifications.filter(n => isFollowType(n.type)),
+  }), [notifications]);
 
   const handleMomentumScrollEnd = useCallback((event) => {
     const x = event?.nativeEvent?.contentOffset?.x ?? 0;
@@ -227,11 +374,11 @@ export default function Notifications() {
   const EmptyState = ({ tabType }) => {
     const getEmptyStateContent = () => {
       switch (tabType) {
-        case 'trades':
+        case 'comments':
           return {
-            icon: '🔄',
-            title: 'No trades yet',
-            subtitle: 'Your trading activity will appear here',
+            icon: '💬',
+            title: 'No post activity yet',
+            subtitle: 'Likes and comments will show up here',
             showCreatePost: false
           };
         case 'follows':
@@ -275,98 +422,118 @@ export default function Notifications() {
   const renderPopup = () => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
     const message = SelectedNotification?.message ?? '';
-    const followRegex = /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?)\b/i;
-    const followMatch = message.match(followRegex);
-    const splitIndex = followMatch?.index ?? -1;
-    const beforeFollowText = splitIndex > 0 ? message.slice(0, splitIndex).trimEnd() : '';
-    const afterFollowText = splitIndex >= 0 ? message.slice(splitIndex).trimStart() : message;
+    const { usernameText, restText } = splitNotificationMessage(message);
     return (
-    <Modal
-      visible={popupVisible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setPopupVisible(false)}
-    >
-      <View style={styles.popupOverlay}>
-        
-        <View style={styles.popupContainer}>
-          <View style={styles.popupBell}>
-          <Text style={styles.popupBellIcon}>🔔</Text>
-        </View>
-          <TouchableOpacity
-            activeOpacity={targetUserId ? 0.7 : 1}
-            disabled={!targetUserId}
-            onPress={handlePopupNavigateToProfile}
-            style={styles.popupTextContainer}
-          >
-            <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
-            <Text style={[styles.popupMessage, { color: text }]}>
-              {!!beforeFollowText && (
-                <Text style={styles.popupMessageHighlight}>
-                  {`${beforeFollowText} `}
-                </Text>
-              )}
-              <Text>{afterFollowText}</Text>
-            </Text>
-          </TouchableOpacity>
+      <Modal
+        visible={popupVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPopupVisible(false)}
+      >
+        <View style={styles.popupOverlay}>
 
-          <TouchableOpacity
-            style={styles.popupCloseButton}
-            onPress={() => setPopupVisible(false)}
-          >
-            <Text style={styles.popupCloseText}>Close</Text>
-          </TouchableOpacity>
+          <View style={styles.popupContainer}>
+            <View style={styles.popupBell}>
+              <Text style={styles.popupBellIcon}>🔔</Text>
+            </View>
+            <View style={styles.popupTextContainer}>
+              <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
+              <Text style={[styles.popupMessage, { color: text }]}>
+                {!!usernameText && (targetUserId ? (
+                  <Text
+                    suppressHighlighting
+                    style={styles.popupMessageHighlight}
+                    onPress={handlePopupNavigateToProfile}
+                  >
+                    {`${usernameText} `}
+                  </Text>
+                ) : (
+                  <Text>{`${usernameText} `}</Text>
+                ))}
+                <Text>{restText}</Text>
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.popupCloseButton}
+              onPress={() => setPopupVisible(false)}
+            >
+              <Text style={styles.popupCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
     );
   };
 
   const renderTabContent = (tabData, tabKey) => {
-    const renderItem = ({ item, index }) => (
-      <TouchableOpacity
-        style={[styles.notificationItem, !item.isRead && bgStyle]}
-        onPress={() => { markAsRead(item.id); popupOpen(item); }}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.notificationContent, { shadowColor: text }]}>
-          <View style={styles.leftSection}>
-            <View style={styles.avatarContainer}>
-              {item.avatar ? (
-                <Image source={{ uri: item.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}>
-                  <Text style={styles.avatarPlaceholderText}>🔔</Text>
+    const renderItem = ({ item, index }) => {
+      const message = item.message || '';
+      const { usernameText, restText } = splitNotificationMessage(message);
+
+      const handlePress = () => {
+        markAsRead(item.id);
+
+        if ((isPostActivityType(item.type) || item.image) && item.postId) {
+          navigateToPost(item);
+          return;
+        }
+
+        popupOpen(item);
+      };
+
+      return (
+        <TouchableOpacity
+          style={[styles.notificationItem, !item.isRead && bgStyle]}
+          onPress={handlePress}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.notificationContent, { shadowColor: text }]}>
+            <View style={styles.leftSection}>
+              <View style={styles.avatarContainer}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}>
+                    <Text style={styles.avatarPlaceholderText}>🔔</Text>
+                  </View>
+                )}
+                <View style={[styles.iconBadge, bgStyle]}>
+                  <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
                 </View>
-              )}
-              <View style={[styles.iconBadge, bgStyle]}>
-                <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
+              </View>
+
+              <View style={styles.textContent}>
+                <Text style={styles.notificationTitle}>{item.title}</Text>
+                <Text style={styles.notificationMessage}>
+                  {!!usernameText && (
+                    <Text style={styles.notificationMessageHighlight}>
+                      {`${usernameText} `}
+                    </Text>
+                  )}
+                  <Text>{restText}</Text>
+                </Text>
+                <Text style={styles.timeText}>{item.time}</Text>
               </View>
             </View>
 
-            <View style={styles.textContent}>
-              <Text style={styles.notificationTitle}>{item.title}</Text>
-              <Text style={styles.notificationMessage}>{item.message}</Text>
-              <Text style={styles.timeText}>{item.time}</Text>
+            <View style={styles.rightSection}>
+              {item.image && (
+                <Image source={{ uri: item.image }} style={[styles.nftImage, bgStyle]} />
+              )}
+              {item.price && (
+                <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
+              )}
+              {/* {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />} */}
             </View>
           </View>
 
-          <View style={styles.rightSection}>
-            {item.image && (
-              <Image source={{ uri: item.image }} style={[styles.nftImage, bgStyle]} />
-            )}
-            {item.price && (
-              <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
-            )}
-            {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />}
-          </View>
-        </View>
-
-        {index < tabData.length - 1 && (
-          <View style={styles.separator} />
-        )}
-      </TouchableOpacity>
-    );
+          {index < tabData.length - 1 && (
+            <View style={styles.separator} />
+          )}
+        </TouchableOpacity>
+      );
+    };
 
     return (
       <View style={styles.tabContentContainer}>
@@ -559,7 +726,7 @@ const styles = StyleSheet.create({
   },
   tabContentContainer: {
     flex: 1,
-    marginTop:15,
+    marginTop: 15,
   },
   listContent: {
     flexGrow: 1,
@@ -567,7 +734,7 @@ const styles = StyleSheet.create({
   notificationItem: {
     paddingHorizontal: 16,
     paddingVertical: 0,
-    marginBottom:'-1%'
+    marginBottom: '-1%'
   },
   notificationContent: {
     flexDirection: 'row',
@@ -635,6 +802,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 6,
   },
+  // notificationMessageHighlight: {
+  //   color: '#3c0fdd',
+  //   fontWeight: '700',
+  // },
   timeText: {
     fontSize: 11,
     color: '#555555',
@@ -723,7 +894,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 10,
-    
+
   },
   popupMessage: {
     fontSize: 14,
@@ -734,6 +905,8 @@ const styles = StyleSheet.create({
   popupMessageHighlight: {
     textDecorationLine: 'underline',
     textDecorationColor: '#3c0fdd',
+    color: '#3c0fdd',
+    fontWeight: '700',
   },
   popupCloseButton: {
     backgroundColor: '#5a2d82',
@@ -760,22 +933,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-popupBell: {
-  backgroundColor: '#fff',
-  width: 40,
-  height: 40,
-  borderRadius: 20,
-  justifyContent: 'center',
-  alignItems: 'center',
-  elevation: 6,
-  shadowColor: '#000',
-  shadowOpacity: 0.2,
-  shadowRadius: 6,
-  marginBottom:20,
-},
+  popupBell: {
+    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    marginBottom: 20,
+  },
 
-popupBellIcon: {
-  fontSize: 30,
-},
+  popupBellIcon: {
+    fontSize: 30,
+  },
 
 });

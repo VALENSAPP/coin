@@ -5,7 +5,8 @@ import {
   Text,
   StyleSheet,
   Alert,
-  Share
+  Share,
+  Linking
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -14,6 +15,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { buildProfileSharePayload } from '../../utils/profileShare';
 
 const UsernameModal = ({ visible, onClose, data }) => {
   const sheetRef = useRef();
@@ -46,15 +48,32 @@ const UsernameModal = ({ visible, onClose, data }) => {
     resolvedData?.displayName ||
     '';
 
+  const {
+    deepLink,
+    webFallback,
+    primaryShareUrl,
+    shareMessage,
+  } = buildProfileSharePayload({
+    username: resolvedUsername,
+    userId: resolvedUserId,
+  });
+
   const onShare = async () => {
       try {
-        if (!resolvedUsername) {
-          Alert.alert('Username not available', 'Unable to share profile right now.');
+        if (!resolvedUsername && !resolvedUserId) {
+          Alert.alert('Profile not available', 'Unable to share profile right now.');
           return;
         }
-        const encodedUsername = encodeURIComponent(resolvedUsername);
+        const finalShareMessage = (() => {
+          if (shareMessage && primaryShareUrl && !shareMessage.includes(primaryShareUrl)) {
+            return `${shareMessage}\n\n${primaryShareUrl}`;
+          }
+          return shareMessage || primaryShareUrl;
+        })();
+
         const result = await Share.share({
-          message: `Check out @${resolvedUsername} on Valens!\nhttps://valens.app/profile/${encodedUsername}`,
+          url: primaryShareUrl,
+          message: finalShareMessage,
         });
   
         if (result.action === Share.sharedAction) {
@@ -71,14 +90,30 @@ const UsernameModal = ({ visible, onClose, data }) => {
       }
     };
 
-  const copyUserId = () => {
-    if (!resolvedUserId) {
-      Alert.alert('User ID not available', 'Unable to find user ID to copy.');
+  const openProfileLink = async () => {
+    if (!resolvedUsername && !resolvedUserId) {
+      Alert.alert('Profile not available', 'Unable to open this profile right now.');
+      return;
+    }
+    try {
+      await Linking.openURL(deepLink);
+    } catch (error) {
+      try {
+        await Linking.openURL(webFallback);
+      } catch (fallbackError) {
+        Alert.alert('Error', 'Unable to open profile link.');
+      }
+    }
+  };
+
+  const copyProfileUrl = () => {
+    if (!primaryShareUrl) {
+      Alert.alert('Profile not available', 'Unable to find profile link to copy.');
       return;
     }
 
-    Clipboard.setString(String(resolvedUserId));
-    showToastMessage(toast, 'success', 'User ID copied successfully');
+    Clipboard.setString(String(primaryShareUrl));
+    showToastMessage(toast, 'success', 'Profile link copied successfully');
   };
 
   const copyWalletAddress = () => {
@@ -123,10 +158,10 @@ const UsernameModal = ({ visible, onClose, data }) => {
           <View style={styles.topButtonsRow}>
             <TouchableOpacity
               style={[styles.topButton, bgStyle]}
-              onPress={copyUserId}
+              onPress={copyProfileUrl}
             >
               <Ionicons name="copy-outline" size={20} color="#111100" />
-              <Text style={styles.topButtonText}>Copy </Text>
+              <Text style={styles.topButtonText}>Copy link</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -143,6 +178,12 @@ const UsernameModal = ({ visible, onClose, data }) => {
             <Text style={styles.optionText}>Base wallet address</Text>
             <Ionicons name="copy-outline" size={18} color="#788587" style={styles.optionRightIcon} />
           </TouchableOpacity>
+
+          {/* <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={openProfileLink}>
+            <Ionicons name="person-outline" size={20} color="#111100" style={styles.optionIcon} />
+            <Text style={styles.optionText}>Open profile</Text>
+            <Ionicons name="open-outline" size={18} color="#788587" style={styles.optionRightIcon} />
+          </TouchableOpacity> */}
         </View>
       </TouchableOpacity>
     </RBSheet>

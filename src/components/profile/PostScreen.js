@@ -74,15 +74,15 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
           />
         </View>
 
-        <View style={styles.progressStatsContainer}>
+         <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
-            <Text style={styles.statValueSmall}>{normalizedProgress.toFixed(1)}% FUNDED</Text>
+            <Text style={styles.statValueSmall } numberOfLines={2} ellipsizeMode="clip">{normalizedProgress.toFixed(1)}% FUNDED</Text>
           </View>
           <View style={styles.statAtCenter}>
-            <Text style={[styles.statValueSmall,]}>${formatAmount(currentRaised)}/ ${formatAmount(goalAmount)} {'\n'}  RAISED</Text>
+            <Text style={[styles.statValueSmall,]}  numberOfLines={2} ellipsizeMode="clip">${formatAmount(currentRaised)}/ ${formatAmount(goalAmount)} {'\n'}  RAISED</Text>
           </View>
           <View style={styles.statAtEnd}>
-            <Text style={styles.statValueSmall}>{daysLeft} DAYS LEFT</Text>
+            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{daysLeft} DAYS LEFT</Text>
           </View>
         </View>
       </View>

@@ -5,7 +5,7 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
-import { View, FlatList, StyleSheet, Alert, Keyboard } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Keyboard } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 // Child components
 import OptionsModal from './OptionsModal';
@@ -308,7 +308,8 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           start_time: item.start_time || null,
           end_time: item.end_time || null,
           tokenBalance: item.tokenBalance || 0,
-          shareCount:item.shareCount || 0
+          shareCount:item.shareCount || 0,
+          taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId]);
@@ -909,37 +910,36 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       }
       // Find the most visible post (excluding suggestions)
       let mostVisiblePost = null;
-      let highestPercentage = 0;
+      let highestPercentage = -1;
       for (const item of viewableItems) {
         // Skip suggestions
         if (item.item?.__type === 'suggestions') continue;
 
-        // Only consider items that are actually viewable
-        if (item.isViewable && item.item?.id) {
-          // Get the percentage visible (if available, otherwise use 100)
-          const percentage = item.percentVisible ?? 100;
+        if (!item.isViewable || !item.item?.id) continue;
 
-          if (percentage > highestPercentage) {
-            highestPercentage = percentage;
-            mostVisiblePost = item.item.id;
-          }
+        // Prefer explicit visibility percentages when provided.
+        const percentage =
+          typeof item.percentVisible === 'number' ? item.percentVisible :
+          typeof item.viewablePercent === 'number' ? item.viewablePercent :
+          100;
+
+        if (percentage > highestPercentage) {
+          highestPercentage = percentage;
+          mostVisiblePost = item.item.id;
         }
       }
 
       // Only update if the most visible post changed
       if (mostVisiblePost !== currentlyVisiblePostId) {
         setCurrentlyVisiblePostId(mostVisiblePost);
+      }
 
-        // Debounce setting the actual playing post to avoid rapid toggles while scrolling
-        if (playingDebounceRef.current) clearTimeout(playingDebounceRef.current);
-        setPlayingPostId(null);
-        playingDebounceRef.current = setTimeout(() => {
-          setPlayingPostId(mostVisiblePost);
-          playingDebounceRef.current = null;
-        }, 250);
+      // Always align playing post to the most visible one (no debounce).
+      if (mostVisiblePost !== playingPostId) {
+        setPlayingPostId(mostVisiblePost);
       }
     },
-    [currentlyVisiblePostId]
+    [currentlyVisiblePostId, playingPostId]
   );
 
   const feedItems = useMemo(() => {
@@ -1001,6 +1001,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           playingPostId={playingPostId}
           currentlyVisiblePostId={currentlyVisiblePostId}
           shareCount={item.shareCount}
+          taggedPeople={item.taggedPeople}
         />
       );
     },
@@ -1030,16 +1031,35 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       item?.__type === 'suggestions' ? `suggestions-${index}` : item.id?.toString(),
     []
   );
-  const getItemLayout = useCallback(
-    (_, index) => ({ length: 600, offset: 600 * index, index }),
-    []
-  );
-  const viewabilityConfigRef = useRef({
-    itemVisiblePercentThreshold: 60,
-    minimumViewTime: 250,
-    waitForInteraction: true,
-  });
-  const viewabilityConfig = viewabilityConfigRef.current;
+ // REPLACE WITH:
+const viewabilityConfigRef = useRef({
+  viewAreaCoveragePercentThreshold: 50,
+  minimumViewTime: 50,
+  waitForInteraction: false,
+});
+
+// Must keep a ref to the latest callback — the pairs array cannot change
+// identity or React Native will throw a warning and ignore updates.
+const handleViewableItemsChangedRef = useRef(handleViewableItemsChanged);
+useEffect(() => {
+  handleViewableItemsChangedRef.current = handleViewableItemsChanged;
+}, [handleViewableItemsChanged]);
+
+const viewabilityConfigCallbackPairs = useRef([
+  {
+    viewabilityConfig: viewabilityConfigRef.current,
+    onViewableItemsChanged: (info) => handleViewableItemsChangedRef.current(info),
+  },
+]);
+
+  useEffect(() => {
+    if (!mappedPosts.length) return;
+    if (currentlyVisiblePostId != null) return;
+    const firstId = mappedPosts[0]?.id;
+    if (!firstId) return;
+    setCurrentlyVisiblePostId(firstId);
+    setPlayingPostId(firstId);
+  }, [mappedPosts, currentlyVisiblePostId]);
 
   const safeRender = () => {
     try {
@@ -1052,14 +1072,12 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             showsVerticalScrollIndicator={false}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
-            removeClippedSubviews={true}
+            removeClippedSubviews={false}
             maxToRenderPerBatch={3}
             windowSize={7}
             initialNumToRender={2}
             updateCellsBatchingPeriod={100}
-            getItemLayout={getItemLayout}
-            viewabilityConfig={viewabilityConfig}
-            onViewableItemsChanged={handleViewableItemsChanged}
+            viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             scrollEventThrottle={16}
           />
 
@@ -1074,6 +1092,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
             canDelete={!!canDelete}
             isHidden={!!(modalPostId && hiddenById[modalPostId])}
             hideBusy={modalPostId ? hidingIds.has(modalPostId) : false}
+            onHiddenChange={(id, nextHidden) => {
+              setHiddenById(prev => ({ ...prev, [id]: nextHidden }));
+            }}
           />
 
           {/* Token Purchase Modal */}

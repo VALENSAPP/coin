@@ -21,6 +21,7 @@ import { getUserCredentials } from '../../../services/post';
 import { showToastMessage } from '../../displaytoastmessage';
 import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
 import { updateWallet } from '../../../services/wallet';
+import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 
 export default function FollowCard({
   userId,
@@ -38,6 +39,7 @@ export default function FollowCard({
   const [currentUserId, setCurrentUserId] = useState(null);
   const [walletAddress, setWalletAddress] = useState('');
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
+  const [targetProfileType, setTargetProfileType] = useState(item?.profile || type || 'user');
   const [modalVisible, setModalVisible] = useState(false);
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
@@ -64,13 +66,14 @@ export default function FollowCard({
         if (profileResponse?.statusCode === 200) {
           const profileUser = profileResponse?.data?.user || profileResponse?.data || {};
           setTargetWalletAddress(getSupportRecipientWalletAddress(profileUser) || '');
+          setTargetProfileType(profileUser?.profile || type || item?.profile || 'user');
         }
       } catch (error) {
         setTargetWalletAddress('');
       }
     };
     fetchInitialData();
-  }, [item?.id]);
+  }, [item?.id, item?.profile, type]);
 
   const recipientWalletAddress = useMemo(
     () =>
@@ -227,7 +230,8 @@ export default function FollowCard({
             uri={avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             size={90}
             borderWidth={3}
-            borderColor={text}
+            borderColor={type ==
+              "company" ? '#D3B683' : '#5a2d82'}
           />
         </TouchableOpacity>
 
@@ -256,8 +260,15 @@ export default function FollowCard({
             }
 
             if (!success || !shouldFollow) return;
-            const ready = await ensureSupportFlowReady({ openSupportModalOnSuccess: true });
-            if (ready) {
+
+            const supporterProfile =
+              typeof isBusinessProfile === 'boolean'
+                ? (isBusinessProfile ? 'company' : 'user')
+                : 'user';
+            const recipientProfile = normalizeProfileType(targetProfileType || type || item?.profile);
+
+            // Only show support/wallet flow when support is allowed by platform rules.
+            if (isSupportAllowed({ supporterProfile, recipientProfile })) {
               setModalVisible(true);
             }
           }}

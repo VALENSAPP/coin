@@ -66,6 +66,10 @@
  
             <data android:scheme="com.valens" />
             <data android:scheme="com.valens" android:host="callback" />
+            <!-- <data
+                android:scheme="https"
+                android:host="valensGoApp.com"
+                /> -->
         </intent-filter>
       </activity>
       

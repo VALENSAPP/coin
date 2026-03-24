@@ -343,8 +343,7 @@ const CreateMission = () => {
           raiseAmount: '',
           startTime: null,
           endTime: null,
-          // currency: selectedCountry ? getCurrencyInfo(selectedCountry.cca2).code : 'USD',
-          current:initialCurrency,
+          currency: selectedCountry ? getCurrencyInfo(selectedCountry.cca2).code : initialCurrency,
         }}
         enableReinitialize={true}
         validationSchema={validationSchema}
@@ -355,7 +354,7 @@ const CreateMission = () => {
           <>
             <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
               {/* Currency Selection */}
-              <View style={styles.inputContainer}>
+              {/* <View style={styles.inputContainer}>
                 <Text style={styles.label}>Currency</Text>
                 <TouchableOpacity
                   style={[styles.currencyButton, touched.currency && errors.currency && styles.inputError]}
@@ -384,7 +383,7 @@ const CreateMission = () => {
                 {touched.currency && errors.currency && (
                   <Text style={styles.errorText}>{errors.currency}</Text>
                 )}
-              </View>
+              </View> */}
 
               {/* Raise Amount */}
               <View style={styles.inputContainer}>
