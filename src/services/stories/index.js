@@ -1,8 +1,18 @@
 import axiosInstance from "..";
 
 
-export const getStoryByUser = async (userId) => {
-    return axiosInstance.get(`story/by-user?userId=${userId}`);
+export const getStoryByUser = async (userId, params = {}) => {
+    const queryParams = new URLSearchParams({
+        userId: String(userId),
+        ...Object.entries(params).reduce((acc, [key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                acc[key] = String(value);
+            }
+            return acc;
+        }, {}),
+    });
+
+    return axiosInstance.get(`story/by-user?${queryParams.toString()}`);
 }
 
 export const PostStory = async (formData) => {

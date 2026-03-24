@@ -23,6 +23,7 @@ import { getAllUser } from './services/users';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
+import { authSesionHistory } from './services/wallet';
 // import { getUserCountry } from './hooks/countryLocation';
 
 const linking = {
@@ -131,23 +132,61 @@ export default function Main() {
     getNotification();
 
     const checkLogin = async () => {
-      const loggedI = await AsyncStorage.getItem('isLoggedIn');
-      if (loggedI === 'true') {
-        dispatch(loggedIn());
-        await ensureCurrentAccountSaved();
-        const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
-        if (storedStripeCustomerId) {
-          dispatch(setStripeCustomerId(storedStripeCustomerId));
+      try {
+        const loggedI = await AsyncStorage.getItem('isLoggedIn');
+        const deviceId = await AsyncStorage.getItem("device_id");
+
+        if (loggedI === 'true') {
+
+          // 🔥 Call API
+          const response = await authSesionHistory();
+
+          const sessions = response?.data?.sessions || [];
+
+          // ✅ Check if current device exists in sessions
+          const currentSession = sessions.find(
+            (item) => item.deviceId === deviceId
+          );
+
+          if (currentSession) {
+            // ✅ Device is valid → stay logged in
+            dispatch(loggedIn());
+
+            await ensureCurrentAccountSaved();
+
+            const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
+            if (storedStripeCustomerId) {
+              dispatch(setStripeCustomerId(storedStripeCustomerId));
+            }
+
+          } else {
+            // ❌ Device not found → logout
+            console.log("Session not found, logging out");
+
+            await AsyncStorage.clear();
+            dispatch(loggedOut());
+          }
+
+        } else {
+          dispatch(loggedOut());
         }
-      } else {
+
+      } catch (error) {
+        console.log("Error in checkLogin:", error);
         dispatch(loggedOut());
+      } finally {
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
       }
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
     };
 
+
     checkLogin();
+
+   setInterval(() => {
+    checkLogin();
+   }, 2000);
 
     // Track app state changes
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
