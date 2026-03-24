@@ -148,11 +148,21 @@ export default function BuyersListModal({
       forceRefresh((tick) => tick + 1);
     }
 
+    const params = {
+      userId: String(resolvedUserId),
+      user: resolvedUser,
+    };
+
     setTimeout(() => {
-      navigation.navigate('UsersProfile', {
-        userId: String(resolvedUserId),
-        user: resolvedUser,
-      });
+      const parent = navigation.getParent?.();
+      if (parent) {
+        parent.navigate('HomeMain', {
+          screen: 'UsersProfile',
+          params,
+        });
+        return;
+      }
+      navigation.navigate('UsersProfile', params);
     }, 150);
   }, [navigation, onClose, resolveProfileUserIdFromUsername, resolveUserId]);
 
