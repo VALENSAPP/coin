@@ -546,8 +546,14 @@ console.log(taggedUsers,'tagged user' )
       return;
     }
     setSupportDisclaimerVisible(false);
-    await startSupportPayment(recipientWalletAddress);
-  }, [canSupport, recipientWalletAddress, startSupportPayment]);
+    const receiverId =
+      item?.UserId ?? item?.userId ?? item?.UserID ?? '';
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: userId != null ? String(userId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
+      chain: 'SEPOLIA',
+    });
+  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, item]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
