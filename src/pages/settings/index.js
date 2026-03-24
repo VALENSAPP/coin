@@ -69,7 +69,8 @@ const Settings = () => {
   };
 
   const handleArchivePress = () => {
-    Alert.alert('Archive', 'Navigate to Archive');
+    
+    navigation.navigate('ArchiveScreen');
   };
 
   const handleActivityPress = () => {
@@ -497,6 +498,11 @@ const Settings = () => {
             icon="bookmark"
             title="Saved"
             onPress={handleSavedPress}
+          />
+          <SettingsItem
+            icon="archive"
+            title="Archive"
+            onPress={handleArchivePress}
           />
 
 

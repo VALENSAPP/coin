@@ -64,6 +64,8 @@ import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 import { DeviceEventEmitter } from 'react-native';
 import PaymentScreen from '../pages/Stripe/PaymentScreen';
 import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
+import ArchiveScreen from '../pages/settings/archeive';
+import HighlightsScreen from '../pages/settings/highlights';
 
 
 
@@ -130,6 +132,8 @@ export default function MainTabNavigator() {
         }} />
         <Stack.Screen name="TermConditionScreen" component={TermConditionScreen} options={{ headerShown: false }} />
         <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ArchiveScreen" component={ArchiveScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="HighlightsScreen" component={HighlightsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }, []);
@@ -386,7 +390,7 @@ export default function MainTabNavigator() {
     const hideTabBarRoutes = [
       'ChatMessages', 'HeartNotification', 'Following', 'UserChat',
       'PostUpload', 'PostEditor', 'EditPost', 'SelectedPost',
-      'SavedPost', 'CreatorCoin', 'notificationEnable', 'HidePosts',
+      'SavedPost', 'ArchiveScreen', 'HighlightsScreen', 'CreatorCoin', 'notificationEnable', 'HidePosts',
       'FollowersFollowingScreen', 'Settings', 'subscription',
       'QuickBuy', 'CashOutScreen', 'Invite', 'ShareProfile', 'EditProfile',
       'CreateMission'

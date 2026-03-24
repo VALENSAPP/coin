@@ -229,7 +229,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         handleAddStory();
         break;
       case 'drops highlights': // storyHighlight
-        navigation.navigate('');
+        navigation.navigate('HighlightsScreen');
         hideModal();
         break;
       // case 'live':
@@ -300,7 +300,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops highlights')}>
                 <Feather name="circle" size={20} color="#111100" />
-                <Text style={styles.lText}>drops highlights</Text>
+                <Text style={styles.lText}>Drops Highlights</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
