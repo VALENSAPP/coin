@@ -249,8 +249,19 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       return;
     }
     setSupportDisclaimerVisible(false);
-    await startSupportPayment(recipientWalletAddress);
-  }, [canSupport, recipientWalletAddress, startSupportPayment]);
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: selfUserId != null ? String(selfUserId) : '',
+      receiverId:
+        selectedSupportUser?.id != null ? String(selectedSupportUser.id) : '',
+      chain: 'SEPOLIA',
+    });
+  }, [
+    canSupport,
+    recipientWalletAddress,
+    startSupportPayment,
+    selfUserId,
+    selectedSupportUser?.id,
+  ]);
 
   const filteredFollowers = useMemo(() => {
     const q = search.trim().toLowerCase();

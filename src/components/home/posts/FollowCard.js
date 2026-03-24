@@ -100,7 +100,12 @@ export default function FollowCard({
       return;
     }
     setSupportDisclaimerVisible(false);
-    await startSupportPayment(recipientWalletAddress);
+    const receiverId = userId ?? item?.id ?? '';
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: currentUserId != null ? String(currentUserId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
+      chain: 'SEPOLIA',
+    });
   };
 
   const handleOpenSupportDisclaimer = () => {
