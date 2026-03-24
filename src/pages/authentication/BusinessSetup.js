@@ -66,7 +66,7 @@ const BusinessProfileForm = () => {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
-  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false); 
   const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
   const sumsubLaunchLockRef = useRef(false);
 

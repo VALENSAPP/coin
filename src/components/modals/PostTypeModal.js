@@ -40,6 +40,16 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     }
   }, [visible, resetNestedModals]);
 
+
+
+  const loadProfileType = async () => {
+    const type = await AsyncStorage.getItem('profile');
+    console.log('Loaded profile type:', type);
+    setProfile(type);
+  };
+
+
+
   const fetchCreditsLeft = async () => {
     try {
       dispatch(showLoader());
@@ -60,10 +70,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     }
   };
 
-  const loadProfileType = async () => {
-    const type = await AsyncStorage.getItem('profile');
-    setProfile(type);
-  };
+
 
   const handleCrowdfundingSelect = () => {
     if (creditsLeft === null) {
