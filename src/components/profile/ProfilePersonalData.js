@@ -461,6 +461,22 @@ const ProfilePersonData = ({
     });
   }
 
+  const openUserHighlights = useCallback(() => {
+    if (!targetUserId) {
+      return;
+    }
+
+    navigation.navigate('ProfileMain', {
+      screen: 'HighlightsScreen',
+      params: {
+        userId: targetUserId,
+        readOnly: true,
+        profileType: userData?.profile,
+        title: userData?.displayName || userData?.userName || 'Highlights',
+      },
+    });
+  }, [navigation, targetUserId, userData?.displayName, userData?.profile, userData?.userName]);
+
   const recipientWalletAddress = useMemo(
     () => getSupportRecipientWalletAddress(userData),
     [userData],
@@ -878,6 +894,14 @@ const ProfilePersonData = ({
               <TouchableOpacity style={styles.iconButton} onPress={() => { navigation.navigate('wallet') }}>
                 <Ionicons name="wallet-outline" size={25} color="#111100" />
               </TouchableOpacity>
+            )}
+            {fromUsersProfile && (
+              <TouchableOpacity
+              style={styles.iconButton}
+              onPress={openUserHighlights}
+            >
+               <Feather name="circle" size={25} color="#111100" />
+            </TouchableOpacity>
             )}
             <TouchableOpacity
               style={styles.iconButton}

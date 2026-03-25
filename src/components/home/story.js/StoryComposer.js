@@ -15,6 +15,8 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -188,7 +190,7 @@ export default function StoryComposer({
       return next;
     });
   };
-  
+
   const setTextPos = (id, x, y) => {
     setTextsPerIndex(prev => {
       const next = { ...prev };
@@ -430,63 +432,65 @@ export default function StoryComposer({
 
         {/* Text tools */}
         {activeTab === 'text' && (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.bottomTools, bgStyle]}
-          >
-            <View style={styles.textRow}>
-              <TextInput
-                placeholder="Add text…"
-                placeholderTextColor="#aaa"
-                style={[styles.textInput, textStyle, textFont, { color: textColor }]}
-                value={draftText}
-                onChangeText={setDraftText}
-              />
-              <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
-                <Text style={styles.addBtnLabel}>Add</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.textOptionsScroll}
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={[styles.bottomTools, bgStyle]}
             >
-              {DEFAULT_FONTS.map(f => (
-                <TouchableOpacity
-                  key={f.name}
-                  onPress={() => setTextFont(f.style)}
-                  style={[
-                    styles.fontChip,
-                    textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
-                </TouchableOpacity>
-              ))}
-              {[
-                '#ffffff',
-                '#ff4d4f',
-                '#40a9ff',
-                '#52c41a',
-                '#faad14',
-                '#b37feb',
-                '#000000',
-              ].map(c => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setTextColor(c)}
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: c },
-                    textColor === c && styles.colorDotActive,
-                  ]}
-                  activeOpacity={0.7}
+              <View style={styles.textRow}>
+                <TextInput
+                  placeholder="Add text…"
+                  placeholderTextColor="#aaa"
+                  style={[styles.textInput, textStyle, textFont, { color: textColor }]}
+                  value={draftText}
+                  onChangeText={setDraftText}
                 />
-              ))}
-            </ScrollView>
-          </KeyboardAvoidingView>
+                <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
+                  <Text style={styles.addBtnLabel}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.textOptionsScroll}
+              >
+                {DEFAULT_FONTS.map(f => (
+                  <TouchableOpacity
+                    key={f.name}
+                    onPress={() => setTextFont(f.style)}
+                    style={[
+                      styles.fontChip,
+                      textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
+                  </TouchableOpacity>
+                ))}
+                {[
+                  '#ffffff',
+                  '#ff4d4f',
+                  '#40a9ff',
+                  '#52c41a',
+                  '#faad14',
+                  '#b37feb',
+                  '#000000',
+                ].map(c => (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => setTextColor(c)}
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: c },
+                      textColor === c && styles.colorDotActive,
+                    ]}
+                    activeOpacity={0.7}
+                  />
+                ))}
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
         )}
 
       </View>
@@ -529,23 +533,23 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     backgroundColor: '#000',
   },
-  
+
   imageContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  
+
   fullScreenImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  
+
   videoWrap: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     overflow: 'hidden',
   },
-  
+
   fullScreenVideo: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
@@ -686,7 +690,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  addBtnLabel: { 
+  addBtnLabel: {
     fontWeight: '700',
     color: '#fff',
   },

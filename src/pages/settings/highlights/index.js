@@ -30,6 +30,7 @@ import {
 } from '../../../services/highlightStory';
 import { useAppTheme } from '../../../theme/useApptheme';
 
+
 const isVideoMedia = value => {
   if (!value || typeof value !== 'string') {
     return false;
@@ -54,33 +55,66 @@ const normalizeHighlightMedia = media => {
   }
 
   return media
-    .map((item, index) => {
+    .flatMap((item, index) => {
       if (typeof item === 'string') {
-        return {
+        return [{
           id: `media_${index}`,
           uri: item,
           type: isVideoMedia(item) ? 'video' : 'image',
           storyId: null,
-        };
+        }];
       }
 
-      const uri =
-        item?.uri ||
-        item?.url ||
-        item?.media ||
-        item?.storyUrl ||
-        item?.thumbnail;
+      const nestedStoryMedia = Array.isArray(item?.story?.media)
+        ? item.story.media
+        : Array.isArray(item?.media)
+          ? item.media
+          : [];
+
+      if (nestedStoryMedia.length) {
+        return nestedStoryMedia
+          .filter(value => typeof value === 'string' && value.trim())
+          .map((uri, mediaIndex) => ({
+            id: item?.id || item?._id || `${item?.story?.id || item?.storyId || 'media'}_${index}_${mediaIndex}`,
+            uri,
+            type: isVideoMedia(uri) ? 'video' : 'image',
+            storyId:
+              item?.storyId ||
+              item?.story?.id ||
+              item?.story?._id ||
+              item?.story_id ||
+              item?.id ||
+              item?._id ||
+              null,
+          }));
+      }
+
+      const uri = [
+        item?.uri,
+        item?.url,
+        item?.storyUrl,
+        item?.thumbnail,
+        typeof item?.media === 'string' ? item.media : null,
+        typeof item?.story === 'string' ? item.story : null,
+      ].find(value => typeof value === 'string' && value.trim());
 
       if (!uri) {
-        return null;
+        return [];
       }
 
-      return {
+      return [{
         id: item?.id || item?._id || `media_${index}`,
         uri,
         type: item?.type || (isVideoMedia(uri) ? 'video' : 'image'),
-        storyId: item?.storyId || item?.story || item?.story_id || item?.id || item?._id || null,
-      };
+        storyId:
+          item?.storyId ||
+          item?.story?.id ||
+          item?.story?._id ||
+          item?.story_id ||
+          item?.id ||
+          item?._id ||
+          null,
+      }];
     })
     .filter(Boolean);
 };
@@ -88,10 +122,10 @@ const normalizeHighlightMedia = media => {
 const normalizeHighlightItem = (item, index = 0) => {
   const stories = normalizeHighlightMedia(
     item?.stories ||
-      item?.storyList ||
-      item?.media ||
-      item?.items ||
-      item?.storyHighlights,
+    item?.storyList ||
+    item?.media ||
+    item?.items ||
+    item?.storyHighlights,
   );
 
   return {
@@ -152,6 +186,10 @@ const mergeHighlights = (...collections) => {
 };
 
 const HighlightsScreen = ({ navigation, route }) => {
+  const routeUserId = route?.params?.userId;
+  const readOnly = Boolean(route?.params?.readOnly);
+  const profileType = route?.params?.profileType;
+  const screenTitle = route?.params?.title;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [highlights, setHighlights] = useState([]);
@@ -166,8 +204,8 @@ const HighlightsScreen = ({ navigation, route }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [removingStory, setRemovingStory] = useState(false);
 
-  const toast = useToast();
-  const { bgStyle, textStyle, cardStyle, text: themeText, card } = useAppTheme();
+  const toast = useToast(); 
+  const { bgStyle, textStyle, cardStyle, text: themeText, card } = useAppTheme(profileType);
 
   const fetchHighlights = useCallback(async (isRefreshing = false) => {
     try {
@@ -175,9 +213,17 @@ const HighlightsScreen = ({ navigation, route }) => {
         setLoading(true);
       }
 
-      const userId = await AsyncStorage.getItem('userId');
+      const userId = routeUserId || await AsyncStorage.getItem('userId');
       if (!userId) {
         setHighlights([]);
+        return;
+      }
+
+      if (readOnly) {
+        const userResponse = await getHighlightUserId({ params: { userId } }).catch(() => null);
+        console.log(userResponse, 'user rpesposne ')
+        const userHighlights = normalizeHighlightsResponse(userResponse?.data);
+        setHighlights(userHighlights);
         return;
       }
 
@@ -196,7 +242,7 @@ const HighlightsScreen = ({ navigation, route }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [readOnly, routeUserId]);
 
   useEffect(() => {
     fetchHighlights();
@@ -223,20 +269,24 @@ const HighlightsScreen = ({ navigation, route }) => {
   }, []);
 
   const openCreateModal = useCallback(() => {
+    if (readOnly) {
+      return;
+    }
+
     setManagerMode('create');
     setHighlightTitle('');
     setManagerVisible(true);
-  }, []);
+  }, [readOnly]);
 
   const openEditModal = useCallback(() => {
-    if (!activeHighlight) {
+    if (!activeHighlight || readOnly) {
       return;
     }
 
     setManagerMode('edit');
     setHighlightTitle(activeHighlight.title || '');
     setManagerVisible(true);
-  }, [activeHighlight]);
+  }, [activeHighlight, readOnly]);
 
   const closeManagerModal = useCallback(() => {
     setManagerVisible(false);
@@ -254,7 +304,7 @@ const HighlightsScreen = ({ navigation, route }) => {
     try {
       const response = await getHighlight({ highlightId: highlight.id });
       const detail = normalizeHighlightsResponse(response?.data)[0];
-
+      console.log(response, 'repsnie in highlight ')
       if (detail?.stories?.length) {
         setActiveHighlight(detail);
         setViewerStories(detail.stories || []);
@@ -441,12 +491,16 @@ const HighlightsScreen = ({ navigation, route }) => {
       style={styles.bubbleItem}
       activeOpacity={0.9}
       onPress={() => openViewer(item)}
-      onLongPress={() => {
-        setActiveHighlight(item);
-        setHighlightTitle(item.title || '');
-        setManagerMode('edit');
-        setManagerVisible(true);
-      }}
+      onLongPress={
+        readOnly
+          ? undefined
+          : () => {
+            setActiveHighlight(item);
+            setHighlightTitle(item.title || '');
+            setManagerMode('edit');
+            setManagerVisible(true);
+          }
+      }
     >
       <View style={styles.bubbleOuter}>
         <View style={styles.bubbleInner}>
@@ -499,10 +553,16 @@ const HighlightsScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={themeText || '#202020'} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Drops Highlights</Text>
-        <TouchableOpacity onPress={openCreateModal} style={styles.headerAction}>
-          <Icon name="add" size={24} color={themeText || '#202020'} />
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, textStyle]}>
+          {readOnly ? `${screenTitle || 'User'} Highlights` : 'Drops Highlights'}
+        </Text>
+        {readOnly ? (
+          <View style={styles.headerAction} />
+        ) : (
+          <TouchableOpacity onPress={openCreateModal} style={styles.headerAction}>
+            <Icon name="add" size={24} color={themeText || '#202020'} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -517,10 +577,13 @@ const HighlightsScreen = ({ navigation, route }) => {
         }
       >
         <View style={[styles.introCard, { backgroundColor: card || '#fff' }]}>
-          <Text style={[styles.introTitle, textStyle]}>Manage your drops highlights</Text>
+          <Text style={[styles.introTitle, textStyle]}>
+            {readOnly ? `${screenTitle || 'User'} drops highlights` : 'Manage your drops highlights'}
+          </Text>
           <Text style={styles.introText}>
-            Create highlight covers, rename them, add archived drops, open full detail, and remove
-            drops when you need to clean things up.
+            {readOnly
+              ? 'Open each highlight to view the drops uploaded on this profile.'
+              : 'Create highlight covers, rename them, add archived drops, open full detail, and remove drops when you need to clean things up.'}
           </Text>
 
           <View style={styles.statsRow}>
@@ -532,34 +595,42 @@ const HighlightsScreen = ({ navigation, route }) => {
               <Text style={styles.statValue}>{totalStories}</Text>
               <Text style={styles.statLabel}>Drops</Text>
             </View>
-            <TouchableOpacity activeOpacity={0.9} style={styles.managePill} onPress={openCreateModal}>
-              <Icon name="add-circle-outline" size={16} color="#fff" />
-              <Text style={styles.managePillText}>Create</Text>
-            </TouchableOpacity>
+            {!readOnly ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.managePill, { backgroundColor: themeText || '#262626' }]}
+                onPress={openCreateModal}
+              >
+                <Icon name="add-circle-outline" size={16} color="#fff" />
+                <Text style={styles.managePillText}>Create</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
         <View style={styles.bubblesSection}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity activeOpacity={0.9} style={styles.bubbleItem} onPress={openCreateModal}>
-              <View style={styles.newBubbleOuter}>
-                <View style={styles.newBubbleInner}>
-                  <Icon name="add" size={30} color="#262626" />
+            {!readOnly ? (
+              <TouchableOpacity activeOpacity={0.9} style={styles.bubbleItem} onPress={openCreateModal}>
+                <View style={styles.newBubbleOuter}>
+                  <View style={styles.newBubbleInner}>
+                    <Icon name="add" size={30} color="#262626" />
+                  </View>
                 </View>
-              </View>
-              <Text style={[styles.bubbleLabel, textStyle]} numberOfLines={1}>
-                New
-              </Text>
-            </TouchableOpacity>
+                <Text style={[styles.bubbleLabel, textStyle]} numberOfLines={1}>
+                  New
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             {highlights.map(renderBubble)}
           </ScrollView>
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>Your highlight parts</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>highlight parts</Text>
           <Text style={styles.sectionMeta}>
-            {highlights.length ? `${highlights.length} saved groups` : 'No groups yet'}
+            {highlights.length ? `${highlights.length} Higlight groups` : 'No groups yet'}
           </Text>
         </View>
 
@@ -578,12 +649,16 @@ const HighlightsScreen = ({ navigation, route }) => {
                 activeOpacity={0.92}
                 style={[styles.collectionCard, { backgroundColor: card || '#fff' }]}
                 onPress={() => openViewer(item)}
-                onLongPress={() => {
-                  setActiveHighlight(item);
-                  setHighlightTitle(item.title || '');
-                  setManagerMode('edit');
-                  setManagerVisible(true);
-                }}
+                onLongPress={
+                  readOnly
+                    ? undefined
+                    : () => {
+                      setActiveHighlight(item);
+                      setHighlightTitle(item.title || '');
+                      setManagerMode('edit');
+                      setManagerVisible(true);
+                    }
+                }
               >
                 <View style={styles.collectionTopRow}>
                   <View style={styles.collectionIdentity}>
@@ -610,16 +685,18 @@ const HighlightsScreen = ({ navigation, route }) => {
                   </View>
 
                   <View style={styles.collectionActions}>
+                    {!readOnly ? (
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.collectionAddButton}
+                        onPress={() => openArchiveForExistingHighlight(item.id)}
+                      >
+                        <Icon name="add" size={14} color="#262626" />
+                      </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity
                       activeOpacity={0.9}
-                      style={styles.collectionAddButton}
-                      onPress={() => openArchiveForExistingHighlight(item.id)}
-                    >
-                      <Icon name="add" size={14} color="#262626" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      style={styles.watchButton}
+                      style={[styles.watchButton, { backgroundColor: themeText || '#262626' }]}
                       onPress={() => openViewer(item)}
                     >
                       <Icon name="play" size={14} color="#fff" />
@@ -641,14 +718,23 @@ const HighlightsScreen = ({ navigation, route }) => {
             <View style={styles.emptyCircle}>
               <Icon name="add" size={28} color="#262626" />
             </View>
-            <Text style={[styles.emptyTitle, textStyle]}>Create your first highlight</Text>
-            <Text style={styles.emptyText}>
-              Create a highlight name first, then select archived drops and save them into different
-              highlight parts.
+            <Text style={[styles.emptyTitle, textStyle]}>
+              {readOnly ? 'No highlights yet' : 'Create your first highlight'}
             </Text>
-            <TouchableOpacity activeOpacity={0.9} style={styles.emptyButton} onPress={openCreateModal}>
-              <Text style={styles.emptyButtonText}>Create Highlight</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyText}>
+              {readOnly
+                ? 'This user has not uploaded any highlight drops yet.'
+                : 'Create a highlight name first, then select archived drops and save them into different highlight parts.'}
+            </Text>
+            {!readOnly ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.emptyButton, { backgroundColor: themeText || '#262626' }]}
+                onPress={openCreateModal}
+              >
+                <Text style={styles.emptyButtonText}>Create Highlight</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -668,15 +754,19 @@ const HighlightsScreen = ({ navigation, route }) => {
               </Text>
             </View>
             <View style={styles.viewerHeaderActions}>
-              <TouchableOpacity
-                onPress={() => activeHighlight?.id && openArchiveForExistingHighlight(activeHighlight.id)}
-                style={styles.viewerAddButton}
-              >
-                <Icon name="add" size={20} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={openEditModal} style={styles.viewerAddButton}>
-                <Icon name="create-outline" size={18} color="#fff" />
-              </TouchableOpacity>
+              {!readOnly ? (
+                <>
+                  <TouchableOpacity
+                    onPress={() => activeHighlight?.id && openArchiveForExistingHighlight(activeHighlight.id)}
+                    style={styles.viewerAddButton}
+                  >
+                    <Icon name="add" size={20} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={openEditModal} style={styles.viewerAddButton}>
+                    <Icon name="create-outline" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </View>
           </View>
 
@@ -707,11 +797,15 @@ const HighlightsScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
 
-          {currentStory ? (
+          {currentStory && !readOnly ? (
             <View style={styles.viewerFooter}>
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.viewerFooterButton, removingStory && styles.viewerFooterButtonDisabled]}
+                style={[
+                  styles.viewerFooterButton,
+                  { backgroundColor: themeText || '#262626' },
+                  removingStory && styles.viewerFooterButtonDisabled,
+                ]}
                 onPress={handleRemoveCurrentStory}
                 disabled={removingStory}
               >
@@ -729,7 +823,7 @@ const HighlightsScreen = ({ navigation, route }) => {
         </View>
       </Modal>
 
-      <Modal visible={managerVisible} transparent animationType="fade" onRequestClose={closeManagerModal}>
+      <Modal visible={managerVisible && !readOnly} transparent animationType="fade" onRequestClose={closeManagerModal}>
         <View style={styles.managerOverlay}>
           <View style={[styles.managerCard, { backgroundColor: card || '#fff' }]}>
             <Text style={[styles.managerTitle, textStyle]}>
@@ -752,7 +846,11 @@ const HighlightsScreen = ({ navigation, route }) => {
 
             <TouchableOpacity
               activeOpacity={0.9}
-              style={[styles.managerPrimaryButton, savingHighlight && styles.managerPrimaryButtonDisabled]}
+              style={[
+                styles.managerPrimaryButton,
+                { backgroundColor: themeText || '#262626' },
+                savingHighlight && styles.managerPrimaryButtonDisabled,
+              ]}
               onPress={handleCreateOrUpdateHighlight}
               disabled={savingHighlight}
             >
@@ -1013,7 +1111,7 @@ const styles = StyleSheet.create({
   watchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#262626',
+    // backgroundColor: '#262626',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
