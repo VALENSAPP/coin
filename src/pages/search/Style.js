@@ -21,7 +21,7 @@ export default StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 24,
     borderColor: "#e6e6e6",
-   marginTop: Platform.OS === 'android' ? 35 : 55
+    marginTop: Platform.OS === 'android' ? 35 : 55
   },
   searchInput: {
     flex: 1,
@@ -326,7 +326,7 @@ export default StyleSheet.create({
     right: 0,
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 8,
-    paddingVertical:4,
+    paddingVertical: 4,
     zIndex: 10,
   },
 
@@ -395,5 +395,63 @@ export default StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     marginTop: 3,
-  }
+  },
+  card: {
+    width: 220,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 10,
+    marginRight: 12,
+
+    // shadow
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  userBox: {
+    alignItems: 'center',
+    width: 70,
+  },
+
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+
+  name: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  vs: {
+    fontSize: 16,
+  },
+
+  title: {
+    marginTop: 6,
+    color: '#6B7280',
+    fontWeight: '700',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+
+  badge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+
 });

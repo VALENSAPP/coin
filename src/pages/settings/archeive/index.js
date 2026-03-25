@@ -601,7 +601,11 @@ const ArchiveScreen = ({ navigation, route }) => {
               )}
             </ScrollView>
 
-            <TouchableOpacity activeOpacity={0.9} style={styles.pickerCancelButton} onPress={closeHighlightPicker}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[styles.pickerCancelButton, { backgroundColor: themeText || '#262626' }]}
+              onPress={closeHighlightPicker}
+            >
               <Text style={styles.pickerCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>

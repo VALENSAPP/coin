@@ -95,15 +95,15 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
 
         <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
-            <Text style={styles.statValueSmall}numberOfLines={2} ellipsizeMode="clip">{normalizedProgress.toFixed(1)}% FUNDED</Text>
+            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{normalizedProgress.toFixed(1)}% FUNDED</Text>
           </View>
 
           <View style={styles.statAtCenter}>
-            <Text style={styles.statValueSmall}numberOfLines={2} ellipsizeMode="clip">${formatAmount(currentRaised)} / ${formatAmount(goalAmount)} {'\n'}RAISED</Text>
+            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">${formatAmount(currentRaised)} / ${formatAmount(goalAmount)} {'\n'}RAISED</Text>
           </View>
 
           <View style={styles.statAtEnd}>
-            <Text style={styles.statValueSmall}numberOfLines={2} ellipsizeMode="clip">{daysLeft} DAYS LEFT</Text>
+            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{daysLeft} DAYS LEFT</Text>
           </View>
         </View>
       </View>
@@ -373,11 +373,11 @@ const SearchScreen = () => {
         (Number(String(targetId).slice(-1)) % 3 === 0);
 
       navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',   
+        screen: 'UsersProfile',
         params: {
           userId: String(targetId),
           username: user?.userName || user?.username || '',
-          returnTo: route?.name,   
+          returnTo: route?.name,
           battleLive: derivedBattleLive,
         },
       });
@@ -688,12 +688,55 @@ const SearchScreen = () => {
 
   const dummyLiveBattles = useMemo(
     () => [
-      { id: '1', userName: 'alexcarter', name: 'Alex Carter', battleLive: true },
-      { id: '2', userName: 'maria', name: 'Maria', battleLive: true },
-      { id: '3', userName: 'john', name: 'John', battleLive: true },
+      {
+        id: '1',
+        user1: {
+          userName: 'maria',
+          name: 'Maria Santos',
+          avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
+        },
+        user2: {
+          userName: 'alexcarter',
+          name: 'Alex Carter',
+          avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
+        },
+        title: 'Who will announce the better product?',
+        isLive: true,
+      },
+      {
+        id: '2',
+        user1: {
+          userName: 'john',
+          name: 'John Doe',
+          avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
+        },
+        user2: {
+          userName: 'emma',
+          name: 'Emma Watson',
+          avatar: 'https://randomuser.me/api/portraits/women/4.jpg',
+        },
+        title: 'Best speaker challenge!',
+        isLive: true,
+      },
+      {
+        id: '3',
+        user1: {
+          userName: 'rahul',
+          name: 'Rahul Sharma',
+          avatar: 'https://randomuser.me/api/portraits/men/5.jpg',
+        },
+        user2: {
+          userName: 'sara',
+          name: 'Sara Khan',
+          avatar: 'https://randomuser.me/api/portraits/women/6.jpg',
+        },
+        title: 'Debate battle live now',
+        isLive: true,
+      },
     ],
     [],
   );
+
 
   return (
     <>
@@ -716,58 +759,78 @@ const SearchScreen = () => {
                 <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             )}
-           </View>
+          </View>
 
-           {!isSearchActive && (
-             <View>
-               <BattleExploreTabs
-                 tabs={exploreTabs}
-                 activeKey={activeExploreTab}
-                 onChange={setActiveExploreTab}
-                 highlightKey="battles"
-               />
+          {!isSearchActive && (
+            <View>
+              <BattleExploreTabs
+                tabs={exploreTabs}
+                activeKey={activeExploreTab}
+                onChange={setActiveExploreTab}
+                highlightKey="battles"
+              />
 
-               {activeExploreTab === 'battles' && (
-                 <ScrollView
-                   horizontal
-                   showsHorizontalScrollIndicator={false}
-                   contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 8, gap: 10 }}
-                 >
-                   {dummyLiveBattles.map((user) => (
-                     <TouchableOpacity
-                       key={user.id}
-                       activeOpacity={0.85}
-                      //  onPress={() => handleUserProfile(user)}
-                       style={{
-                         width: 140,
-                         borderRadius: 14,
-                         backgroundColor: '#fff',
-                         borderWidth: 1,
-                         borderColor: '#E5E7EB',
-                         padding: 10,
-                       }}
-                     >
-                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                         <Text style={{ fontWeight: '900', color: '#111827' }} numberOfLines={1}>
-                           @{user.userName}
-                         </Text>
-                         <LiveBattleBadge size={20} />
-                       </View>
-                       <Text style={{ marginTop: 6, color: '#6B7280', fontWeight: '700', fontSize: 12 }} numberOfLines={2}>
-                         Live battle now — tap to participate
-                       </Text>
-                     </TouchableOpacity>
-                   ))}
-                 </ScrollView>
-               )}
-             </View>
-           )}
+              {activeExploreTab === 'battles' && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 8, gap: 10 }}
+                >
+                  {dummyLiveBattles.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      style={styles.card}
+                    >
 
-           {searchText.trim().length > 0 ? (
-             <View style={styles.resultsContainer}>
-               {isSearching ? (
-                 renderLoadingState()
-               ) : filteredUsers.length > 0 ? (
+                      {/* Top Row */}
+                      <View style={styles.topRow}>
+
+                        {/* User 1 */}
+                        <View style={styles.userBox}>
+                          <Image source={{ uri: item.user1.avatar }} style={styles.avatar} />
+                          <Text numberOfLines={1} style={styles.name}>
+                            {item.user1.name}
+                          </Text>
+                        </View>
+
+                        {/* VS */}
+                        <Text style={styles.vs}>⚔️</Text>
+
+                        {/* User 2 */}
+                        <View style={styles.userBox}>
+                          <Image source={{ uri: item.user2.avatar }} style={styles.avatar} />
+                          <Text numberOfLines={1} style={styles.name}>
+                            {item.user2.name}
+                          </Text>
+                        </View>
+
+                      </View>
+
+                      {/* Title */}
+                      <Text numberOfLines={2} style={styles.title}>
+                        {item.title}
+                      </Text>
+
+                      {/* Live Badge */}
+                      <View style={styles.badge}>
+                        <LiveBattleBadge size={18} />
+                      </View>
+
+                    </TouchableOpacity>
+                  ))}
+
+
+                </ScrollView>
+              )}
+            </View>
+          )}
+
+          {searchText.trim().length > 0 ? (
+            <View style={styles.resultsContainer}>
+              {isSearching ? (
+                renderLoadingState()
+              ) : filteredUsers.length > 0 ? (
                 <FlatList
                   data={filteredUsers}
                   keyExtractor={(item, idx) => String(item.id ?? idx)}
