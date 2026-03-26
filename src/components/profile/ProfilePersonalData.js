@@ -467,8 +467,25 @@ const ProfilePersonData = ({
       return;
     }
     setSupportDisclaimerVisible(false);
-    await startSupportPayment(recipientWalletAddress);
-  }, [canSupport, recipientWalletAddress, startSupportPayment]);
+    const receiverId =
+      targetUserId ??
+      userData?.userId ??
+      userData?.UserId ??
+      userData?.id ??
+      '';
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: userId != null ? String(userId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
+      chain: 'SEPOLIA',
+    });
+  }, [
+    canSupport,
+    recipientWalletAddress,
+    startSupportPayment,
+    userId,
+    targetUserId,
+    userData,
+  ]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     const supporterProfile = isBusinessProfile ? 'company' : 'user';

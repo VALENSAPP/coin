@@ -4,17 +4,20 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
+    "android:stop": "cd android && gradlew.bat --stop",
+    "android:clean": "cd android && gradlew.bat clean",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "postinstall": "node scripts/patch-metro-symbolicate.js"
+    "postinstall": "node scripts/patch-metro-symbolicate.js && patch-package"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.4.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-camera-roll/camera-roll": "^7.10.1",
     "@react-native-clipboard/clipboard": "^1.16.3",
+    "@react-native-community/netinfo": "^12.0.1",
     "@react-native-documents/picker": "^10.1.5",
     "@react-native-firebase/app": "^22.3.0",
     "@react-native-firebase/auth": "^22.4.0",
@@ -29,13 +32,14 @@
     "@react-navigation/native": "^7.1.14",
     "@react-navigation/stack": "^7.4.2",
     "@reduxjs/toolkit": "^2.8.2",
+    "@reown/appkit-react-native": "^2.0.2",
+    "@reown/appkit-wagmi-react-native": "^2.0.2",
     "@sourcetoad/react-native-sketch-canvas": "^2.3.0",
     "@stripe/stripe-react-native": "^0.51.0",
     "@sumsub/react-native-mobilesdk-module": "^1.41.1",
-    "@walletconnect/modal-react-native": "^1.1.0",
+    "@tanstack/react-query": "^5.95.2",
     "@walletconnect/react-native-compat": "^2.23.8",
     "@walletconnect/sign-client": "^2.21.4",
-    "@react-native-community/netinfo": "^12.0.1",
     "axios": "^1.10.0",
     "date-fns": "^4.1.0",
     "ethers": "^6.15.0",
@@ -67,19 +71,19 @@
     "react-native-insta-story": "^1.1.9",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-linear-gradient": "^2.8.3",
-    "react-native-modal": "14.0.0-rc.1",
     "react-native-localize": "^3.6.0",
+    "react-native-modal": "14.0.0-rc.1",
     "react-native-otp-textinput": "^1.1.7",
     "react-native-pager-view": "^6.8.1",
     "react-native-permissions": "^5.4.2",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-raw-bottom-sheet": "^3.0.0",
     "react-native-reanimated": "^4.1.0",
-    "react-native-safe-area-context": "^5.5.1",
+    "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.11.1",
     "react-native-sha256": "^1.4.10",
     "react-native-share": "^12.2.1",
-    "react-native-svg": "^15.12.0",
+    "react-native-svg": "^15.15.4",
     "react-native-tab-view": "^4.1.2",
     "react-native-toast-notifications": "^3.4.0",
     "react-native-url-polyfill": "^2.0.0",
@@ -95,6 +99,8 @@
     "socket.io-client": "^4.8.1",
     "text-encoding": "^0.7.0",
     "uuid": "^11.1.0",
+    "viem": "2.47.6",
+    "wagmi": "^2.19.5",
     "yup": "^1.7.1"
   },
   "devDependencies": {
@@ -113,6 +119,7 @@
     "@types/react-test-renderer": "^19.1.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
+    "patch-package": "^8.0.1",
     "prettier": "2.8.8",
     "react-native-asset": "^2.1.1",
     "react-native-svg-transformer": "^1.5.1",
@@ -121,5 +128,10 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "overrides": {
+    "@walletconnect/universal-provider": "2.21.10",
+    "viem": "2.47.6",
+    "valtio": "2.1.8"
   }
 }
