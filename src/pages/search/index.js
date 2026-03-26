@@ -32,6 +32,7 @@ import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
 import BattleExploreTabs from '../../components/battles/BattleExploreTabs';
 import LiveBattleBadge from '../../components/battles/LiveBattleBadge';
+import { exploretBattle } from '../../services/battle';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -75,6 +76,129 @@ const calculateMissionStats = (post, raisedAmountOverride = null) => {
 
 const formatAmount = (value) =>
   parseNonNegativeNumber(value, 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+const getBattleParticipant = (battle, index) => {
+  const participants =
+    battle?.participants ||
+    battle?.users ||
+    battle?.challengers ||
+    battle?.players ||
+    [];
+
+  const participant = Array.isArray(participants) ? participants[index] : null;
+
+  if (participant) {
+    return {
+      userName: participant?.userName || participant?.username || participant?.handle || `user${index + 1}`,
+      name:
+        participant?.name ||
+        participant?.fullName ||
+        participant?.displayName ||
+        participant?.userName ||
+        `User ${index + 1}`,
+      avatar:
+        participant?.avatar ||
+        participant?.profilePicture ||
+        participant?.image ||
+        participant?.photo ||
+        '',
+    };
+  }
+
+  const directUser = battle?.[`user${index + 1}`];
+  if (directUser) {
+    return {
+      userName: directUser?.userName || directUser?.username || `user${index + 1}`,
+      name: directUser?.name || directUser?.fullName || directUser?.userName || `User ${index + 1}`,
+      avatar:
+        directUser?.avatar ||
+        directUser?.profilePicture ||
+        directUser?.image ||
+        '',
+    };
+  }
+
+  if (index === 0) {
+    return {
+      userName: battle?.createdBy?.userName || battle?.creator?.userName || 'creator',
+      name:
+        battle?.createdBy?.name ||
+        battle?.creator?.name ||
+        battle?.createdBy?.userName ||
+        'Creator',
+      avatar:
+        battle?.createdBy?.avatar ||
+        battle?.createdBy?.profilePicture ||
+        battle?.creator?.avatar ||
+        battle?.creator?.profilePicture ||
+        '',
+    };
+  }
+
+  return {
+    userName: battle?.invitedUser?.userName || battle?.opponent?.userName || 'opponent',
+    name:
+      battle?.invitedUser?.name ||
+      battle?.opponent?.name ||
+      battle?.invitedUser?.userName ||
+      'Opponent',
+    avatar:
+      battle?.invitedUser?.avatar ||
+      battle?.invitedUser?.profilePicture ||
+      battle?.opponent?.avatar ||
+      battle?.opponent?.profilePicture ||
+      '',
+  };
+};
+
+const mapBattleCard = battle => {
+  const creator = {
+    id: battle?.creator?.id || battle?.creatorId || '',
+    userName: battle?.creator?.userName || battle?.creator?.username || 'creator',
+    name:
+      battle?.creator?.displayName ||
+      battle?.creator?.name ||
+      battle?.creator?.userName ||
+      'Creator',
+    avatar: battle?.creator?.image || battle?.creator?.avatar || battle?.creator?.profilePicture || '',
+  };
+
+  return {
+    id: String(battle?.id || battle?._id || battle?.battleId || ''),
+    format: battle?.format || 'POLL',
+    creator,
+    user1: getBattleParticipant(battle, 0),
+    user2: getBattleParticipant(battle, 1),
+    title: battle?.title || battle?.question || battle?.headline || 'Untitled battle',
+    options: Array.isArray(battle?.options) ? battle.options : [],
+    isLive: Boolean(
+      battle?.isLive ||
+      battle?.live ||
+      battle?.status === 'LIVE' ||
+      battle?.status === 'live',
+    ),
+    status: battle?.status || '',
+    stakeAmount: battle?.stakeAmount ?? battle?.stake ?? 0,
+    totalParticipants: battle?._count?.participants ?? 0,
+    endTime: battle?.endTime || null,
+  };
+};
+
+const formatBattleDate = value => {
+  if (!value) {
+    return 'No end date';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'No end date';
+  }
+
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+
+  return `${day}/${month}`;
+};
 
 /** Mission Progress Bar Component */
 const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised = 0, daysLeft = 0, profile = 'user' }) => {
@@ -130,6 +254,8 @@ const SearchScreen = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [activeExploreTab, setActiveExploreTab] = useState('battles');
+  const [liveBattles, setLiveBattles] = useState([]);
+  const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
 
   const searchTimeoutRef = useRef(null);
   const autoplayTimeoutRef = useRef(null);
@@ -281,6 +407,34 @@ const SearchScreen = () => {
     }
   }, [dispatch]);
 
+  const fetchExploreBattles = useCallback(async () => {
+    try {
+      setLoadingLiveBattles(true);
+      const response = await exploretBattle();
+
+      if (response?.statusCode === 200 || response?.status === 200) {
+        const rawBattles =
+          response?.data?.battles ||
+          response?.data?.data ||
+          response?.data ||
+          [];
+
+        const normalizedBattles = Array.isArray(rawBattles)
+          ? rawBattles.map(mapBattleCard).filter(item => item.id)
+          : [];
+
+        setLiveBattles(normalizedBattles);
+      } else {
+        setLiveBattles([]);
+      }
+    } catch (error) {
+      console.log('Explore battles fetch error:', error);
+      setLiveBattles([]);
+    } finally {
+      setLoadingLiveBattles(false);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchUserId = async () => {
       const id = await AsyncStorage.getItem('userId');
@@ -288,7 +442,8 @@ const SearchScreen = () => {
     };
     fetchUserId();
     fetchPosts();
-  }, [fetchPosts]);
+    fetchExploreBattles();
+  }, [fetchPosts, fetchExploreBattles]);
 
   /** 🏗️ Masonry layout: Organize posts into columns with some items spanning 2 rows */
   const masonryLayout = useMemo(() => {
@@ -527,12 +682,12 @@ const SearchScreen = () => {
       if (searchText.trim().length > 0) {
         await searchUsers(searchText);
       } else {
-        await fetchPosts();
+        await Promise.all([fetchPosts(), fetchExploreBattles()]);
       }
     } finally {
       setRefreshing(false);
     }
-  }, [searchText, searchUsers, fetchPosts]);
+  }, [searchText, searchUsers, fetchPosts, fetchExploreBattles]);
 
   /** 🔲 UI — render masonry post item */
   const renderMasonryItem = useCallback((layoutItem) => {
@@ -686,58 +841,6 @@ const SearchScreen = () => {
     [],
   );
 
-  const dummyLiveBattles = useMemo(
-    () => [
-      {
-        id: '1',
-        user1: {
-          userName: 'maria',
-          name: 'Maria Santos',
-          avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
-        },
-        user2: {
-          userName: 'alexcarter',
-          name: 'Alex Carter',
-          avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
-        },
-        title: 'Who will announce the better product?',
-        isLive: true,
-      },
-      {
-        id: '2',
-        user1: {
-          userName: 'john',
-          name: 'John Doe',
-          avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
-        },
-        user2: {
-          userName: 'emma',
-          name: 'Emma Watson',
-          avatar: 'https://randomuser.me/api/portraits/women/4.jpg',
-        },
-        title: 'Best speaker challenge!',
-        isLive: true,
-      },
-      {
-        id: '3',
-        user1: {
-          userName: 'rahul',
-          name: 'Rahul Sharma',
-          avatar: 'https://randomuser.me/api/portraits/men/5.jpg',
-        },
-        user2: {
-          userName: 'sara',
-          name: 'Sara Khan',
-          avatar: 'https://randomuser.me/api/portraits/women/6.jpg',
-        },
-        title: 'Debate battle live now',
-        isLive: true,
-      },
-    ],
-    [],
-  );
-
-
   return (
     <>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -776,19 +879,70 @@ const SearchScreen = () => {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 8, gap: 10 }}
                 >
-                  {dummyLiveBattles.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.85}
-                      style={styles.card}
-                    >
+                  {loadingLiveBattles ? (
+                    <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
+                      <ActivityIndicator size="small" color="#999" />
+                    </View>
+                  ) : liveBattles.length > 0 ? (
+                    liveBattles.map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        activeOpacity={0.85}
+                        style={styles.card}
+                      >
+                        {item.format === 'POLL' ? (
+                          <>
+                            <View style={styles.pollHeader}>
+                              <View style={styles.pollCreatorRow}>
+                                <Image
+                                  source={{ uri: normalizeImageUrl(item.creator.avatar) || 'https://via.placeholder.com/100' }}
+                                  style={styles.pollAvatar}
+                                />
+                                <View style={styles.pollCreatorText}>
+                                  <Text numberOfLines={1} style={styles.pollCreatorName}>
+                                    {item.creator.name}
+                                  </Text>
+                                  <Text numberOfLines={1} style={styles.pollCreatorHandle}>
+                                    @{item.creator.userName}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View style={styles.pollFormatPill}>
+                                <Text style={styles.pollFormatText}>
+                                  {item.format}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text numberOfLines={3} style={styles.pollQuestion}>
+                              {item.title}
+                            </Text>
+
+                            {item.options?.length > 0 && (
+                              <View style={styles.pollOptionsWrap}>
+                                {item.options.slice(0, 3).map(option => (
+                                  <View key={`${item.id}-${option}`} style={styles.pollOptionChip}>
+                                    <Text style={styles.pollOptionText}>
+                                      {option}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                          </>
+                        ) : (
+                          <>
 
                       {/* Top Row */}
                       <View style={styles.topRow}>
 
                         {/* User 1 */}
                         <View style={styles.userBox}>
-                          <Image source={{ uri: item.user1.avatar }} style={styles.avatar} />
+                          <Image
+                            source={{ uri: normalizeImageUrl(item.user1.avatar) || 'https://via.placeholder.com/100' }}
+                            style={styles.avatar}
+                          />
                           <Text numberOfLines={1} style={styles.name}>
                             {item.user1.name}
                           </Text>
@@ -799,7 +953,10 @@ const SearchScreen = () => {
 
                         {/* User 2 */}
                         <View style={styles.userBox}>
-                          <Image source={{ uri: item.user2.avatar }} style={styles.avatar} />
+                          <Image
+                            source={{ uri: normalizeImageUrl(item.user2.avatar) || 'https://via.placeholder.com/100' }}
+                            style={styles.avatar}
+                          />
                           <Text numberOfLines={1} style={styles.name}>
                             {item.user2.name}
                           </Text>
@@ -811,14 +968,30 @@ const SearchScreen = () => {
                       <Text numberOfLines={2} style={styles.title}>
                         {item.title}
                       </Text>
+                          </>
+                        )}
 
-                      {/* Live Badge */}
-                      <View style={styles.badge}>
-                        <LiveBattleBadge size={18} />
+                      <View style={styles.battleMetaRow}>
+                        <Text style={styles.battleMetaText}>
+                          Stake: {formatAmount(item.stakeAmount || 0)}
+                        </Text>
+                        {item.format === 'POLL' && (
+                          <Text style={styles.battleMetaText}>
+                            Ends date: {formatBattleDate(item.endTime)}
+                          </Text>
+                        )}
+                      
                       </View>
 
-                    </TouchableOpacity>
-                  ))}
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <View style={[styles.card, { justifyContent: 'center' }]}>
+                      <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>
+                        No live battles found
+                      </Text>
+                    </View>
+                  )}
 
 
                 </ScrollView>

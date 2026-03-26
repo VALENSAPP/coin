@@ -105,6 +105,18 @@ const Settings = () => {
     navigation.navigate('HidePosts');
   };
 
+  const handleBattleInProgressPress = () => {
+    navigation.navigate('BattleInProgress');
+  };
+
+  const handleBattleResultsPress = () => {
+    navigation.navigate('BattleResults');
+  };
+
+  const handleBattleRewardPress = () => {
+    navigation.navigate('BattleReward');
+  };
+
   const handleMessagesPress = () => {
     Alert.alert('Messages and story replies', 'Navigate to Messages settings');
   };
@@ -522,6 +534,21 @@ const Settings = () => {
             icon="visibility-off"
             title="Hide Posts"
             onPress={handleHideStoryPress}
+          />
+           <SettingsItem
+            icon="visibility-off"
+            title="Battle in progress"
+            onPress={handleBattleInProgressPress}
+          />
+            <SettingsItem
+            icon="visibility-off"
+            title="Battle result "
+            onPress={handleBattleResultsPress}
+          />
+            <SettingsItem
+            icon="visibility-off"
+            title="Battle Reward"
+            onPress={handleBattleRewardPress}
           />
         </View>
 

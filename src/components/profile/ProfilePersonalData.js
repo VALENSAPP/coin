@@ -99,6 +99,7 @@ const ProfilePersonData = ({
   const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
   const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
   const dispatch = useDispatch();
+  const [activeTab, setActiveTab] = useState("battle");
   const toast = useToast();
   const effectiveProfileType = profileType || userData?.profile;
   const normalizedProfileThemeType =
@@ -107,7 +108,7 @@ const ProfilePersonData = ({
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const { bgStyle, textStyle, text } = useAppTheme(effectiveProfileType);
+  const { bgStyle, textStyle, text, card, bg } = useAppTheme(effectiveProfileType);
   const route = useRoute();
   const isKycApproved =
     userData?.kyc === true
@@ -433,6 +434,24 @@ const ProfilePersonData = ({
     await handleSaveProfile(formData, pickedUri);
   };
 
+  const tabs = [
+    { id: "battle", label: "Battle" },
+    { id: "achievement", label: "Achievement" },
+    { id: "activity", label: "Activity" },
+  ];
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'battle':
+        return <Text style={styles.contentText}>Battle history and stats will appear here.</Text>;
+      case 'achievement':
+        return <Text style={styles.contentText}>User achievements and badges will appear here.</Text>;
+      case 'activity':
+        return <Text style={styles.contentText}>Recent user activity will appear here.</Text>;
+      default:
+        return null;
+    }
+  };
   const handleSaveProfile = async (data, img) => {
     try {
       dispatch(showLoader());
@@ -897,11 +916,11 @@ const ProfilePersonData = ({
             )}
             {fromUsersProfile && (
               <TouchableOpacity
-              style={styles.iconButton}
-              onPress={openUserHighlights}
-            >
-               <Feather name="circle" size={25} color="#111100" />
-            </TouchableOpacity>
+                style={styles.iconButton}
+                onPress={openUserHighlights}
+              >
+                <Feather name="circle" size={25} color="#111100" />
+              </TouchableOpacity>
             )}
             <TouchableOpacity
               style={styles.iconButton}
@@ -1151,6 +1170,31 @@ const ProfilePersonData = ({
           </View>
         )}
 
+        <View style={[styles.tabContainer, { backgroundColor: `${text}12` }]}>
+          {['battle', 'achievement', 'activity'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.tab,
+                {
+                  backgroundColor: activeTab === tab ? text : card || bg,
+                  borderColor: activeTab === tab ? text : `${text}22`,
+                },
+              ]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === tab ? '#fff' : text },
+                  activeTab === tab && styles.activeTabText
+                ]}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         {/* Stats */}
         <View style={styles.statsRow}>
           <TouchableOpacity style={styles.statItem}>
@@ -1435,7 +1479,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
-    marginBottom: 14,
+    marginBottom: 1,
   },
   statItem: {
     flexDirection: 'row',
@@ -1513,5 +1557,28 @@ const styles = StyleSheet.create({
         lineHeight: 18,
       },
     }),
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+    marginTop: 10,
+    borderRadius: 14,
+    padding: 6,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });
