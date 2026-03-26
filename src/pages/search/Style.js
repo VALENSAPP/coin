@@ -412,6 +412,74 @@ export default StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
+  pollHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  pollCreatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  pollAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+  },
+  pollCreatorText: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  pollCreatorName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  pollCreatorHandle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  pollFormatPill: {
+    backgroundColor: '#F3E8FF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pollFormatText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#7C3AED',
+    letterSpacing: 0.4,
+  },
+  pollQuestion: {
+    marginTop: 12,
+    color: '#111827',
+    fontWeight: '800',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  pollOptionsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  pollOptionChip: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  pollOptionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
 
   topRow: {
     flexDirection: 'row',
@@ -452,6 +520,18 @@ export default StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
+  },
+  battleMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    columnGap: 10,
+  },
+  battleMetaText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '700',
   },
 
 });

@@ -66,6 +66,9 @@ import PaymentScreen from '../pages/Stripe/PaymentScreen';
 import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
 import ArchiveScreen from '../pages/settings/archeive';
 import HighlightsScreen from '../pages/settings/highlights';
+import BattleInProgress from '../pages/settings/BattleInProgress';
+import BattleResults from '../pages/settings/BattleResults';
+import BattleReward from '../pages/settings/BattleReward';
 
 
 
@@ -123,6 +126,9 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Invite" component={InviteScreen} options={{ headerShown: false }} />
         <Stack.Screen name="notificationEnable" component={Notification} options={{ headerShown: false }} />
         <Stack.Screen name="HidePosts" component={HidePosts} options={{ headerShown: false }} />
+        <Stack.Screen name="BattleInProgress" component={BattleInProgress} options={{ headerShown: false }} />
+        <Stack.Screen name="BattleResults" component={BattleResults} options={{ headerShown: false }} />
+        <Stack.Screen name="BattleReward" component={BattleReward} options={{ headerShown: false }} />
         <Stack.Screen name="subscription" component={subscription} options={{ headerShown: false }} />
         <Stack.Screen name="ManageSubscription" component={PaymentScreen} options={{ headerShown: false }} />
         <Stack.Screen name="FlipsScreen" component={FlipsScreen} options={{
