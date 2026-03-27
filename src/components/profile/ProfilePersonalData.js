@@ -1,9 +1,24 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking, ActivityIndicator } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Alert,
+  Platform,
+  PermissionsAndroid,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import ProfileModal from '../modals/ProfileModal';
@@ -17,7 +32,18 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
-import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly, Twitter, Tiktok, Linkedin } from '../../assets/icons';
+import {
+  WhiteDragonfly,
+  Thread,
+  BlueDragonfly,
+  SoftGrayDragonfly,
+  LilacDragonfly,
+  GoldDragonfly,
+  GoldLavenderDragonfly,
+  Twitter,
+  Tiktok,
+  Linkedin,
+} from '../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { showToastMessage } from '../displaytoastmessage';
@@ -25,10 +51,16 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getSupportRecipientWalletAddress, openWalletPayment } from '../../utils/metaMaskSupport';
+import {
+  getSupportRecipientWalletAddress,
+  openWalletPayment,
+} from '../../utils/metaMaskSupport';
 import { connectWalletLogin } from '../../pages/authentication/socialLogin';
 import { updateWallet } from '../../services/wallet';
-import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
+import {
+  isSupportAllowed,
+  normalizeProfileType,
+} from '../../utils/supportEligibility';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -61,7 +93,7 @@ const ProfilePersonData = ({
   onStoryUploaded, // Callback to refresh stories after upload
   userData,
   executeFollowAction,
-  returnByTo
+  returnByTo,
 }) => {
   // useEffect(() => {
   //   console.log(
@@ -78,8 +110,12 @@ const ProfilePersonData = ({
     fetchAllData();
   }, [profilepic]);
 
-  const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-  const avatarUri = typeof profileImage === 'string' && profileImage.length ? profileImage : PLACEHOLDER_AVATAR;
+  const PLACEHOLDER_AVATAR =
+    'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const avatarUri =
+    typeof profileImage === 'string' && profileImage.length
+      ? profileImage
+      : PLACEHOLDER_AVATAR;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
@@ -92,29 +128,39 @@ const ProfilePersonData = ({
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
+    useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
-  const [walletConnectedModalVisible, setWalletConnectedModalVisible] = useState(false);
-  const [connectedWalletInfo, setConnectedWalletInfo] = useState({ name: '', address: '' });
-  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
+  const [walletConnectedModalVisible, setWalletConnectedModalVisible] =
+    useState(false);
+  const [connectedWalletInfo, setConnectedWalletInfo] = useState({
+    name: '',
+    address: '',
+  });
+  const [
+    pendingSupportPromptAfterWalletConnect,
+    setPendingSupportPromptAfterWalletConnect,
+  ] = useState(false);
   const dispatch = useDispatch();
-  const [activeTab, setActiveTab] = useState("battle");
+  const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
   const effectiveProfileType = profileType || userData?.profile;
   const normalizedProfileThemeType =
-    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
+    typeof effectiveProfileType === 'string'
+      ? effectiveProfileType.toLowerCase()
+      : '';
   const isCompanyProfile = normalizedProfileThemeType === 'company';
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const { bgStyle, textStyle, text, card, bg } = useAppTheme(effectiveProfileType);
+  const { bgStyle, textStyle, text, card, bg } =
+    useAppTheme(effectiveProfileType);
   const route = useRoute();
-  const isKycApproved =
-    userData?.kyc === true
+  const isKycApproved = userData?.kyc === true;
   // &&
   // userData?.kycStatus === "APPROVED";
-  const isSubscriptionActive = userData?.subscriptionStatus == "ACTIVE";
+  const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
 
   const Userdata = {
     Displayname: displayName || 'No Name',
@@ -133,7 +179,7 @@ const ProfilePersonData = ({
 
       // Run both API calls in parallel
       const [profileResponse] = await Promise.all([
-        getUserCredentials(userData?.id)
+        getUserCredentials(userData?.id),
       ]);
 
       // Handle profile response
@@ -197,20 +243,16 @@ const ProfilePersonData = ({
           style: 'cancel',
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 
   const handleStoryUpload = () => {
-    Alert.alert(
-      'Add Drops',
-      'Choose how to add your Drops',
-      [
-        { text: 'Camera', onPress: () => openStoryCamera() },
-        { text: 'Gallery', onPress: () => openStoryGallery() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Alert.alert('Add Drops', 'Choose how to add your Drops', [
+      { text: 'Camera', onPress: () => openStoryCamera() },
+      { text: 'Gallery', onPress: () => openStoryGallery() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const openStoryCamera = async () => {
@@ -288,7 +330,7 @@ const ProfilePersonData = ({
     setComposerVisible(true);
   };
 
-  const handleComposerDone = async (processedArray) => {
+  const handleComposerDone = async processedArray => {
     try {
       setComposerVisible(false);
 
@@ -301,7 +343,9 @@ const ProfilePersonData = ({
       // Add media files
       processedArray.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
-        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
+        const fileName = `story_${Date.now()}_${index}.${
+          item.isVideo ? 'mp4' : 'jpg'
+        }`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
 
         formData.append('media', {
@@ -322,11 +366,19 @@ const ProfilePersonData = ({
           onStoryUploaded();
         }
       } else {
-        showToastMessage(toast, 'danger', 'Failed to upload Drops please try again');
+        showToastMessage(
+          toast,
+          'danger',
+          'Failed to upload Drops please try again',
+        );
       }
     } catch (error) {
       console.error('Error uploading Drops:', error);
-      showToastMessage(toast, 'danger', 'Something Went Wrong ! please try again');
+      showToastMessage(
+        toast,
+        'danger',
+        'Something Went Wrong ! please try again',
+      );
     }
   };
 
@@ -348,7 +400,7 @@ const ProfilePersonData = ({
           style: 'cancel',
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 
@@ -370,10 +422,10 @@ const ProfilePersonData = ({
         },
         async response => {
           await processImageResponse(response);
-        }
+        },
       );
     } catch (err) {
-      console.error("Camera error:", err);
+      console.error('Camera error:', err);
       showToastMessage(toast, 'danger', 'Failed to open camera');
     }
   };
@@ -388,26 +440,26 @@ const ProfilePersonData = ({
         },
         async response => {
           await processImageResponse(response);
-        }
+        },
       );
     } catch (err) {
-      console.error("Gallery error:", err);
+      console.error('Gallery error:', err);
       showToastMessage(toast, 'danger', 'Failed to open gallery');
     }
   };
 
-  const processImageResponse = async (response) => {
+  const processImageResponse = async response => {
     if (response?.didCancel) return;
 
     if (response?.errorCode) {
-      console.warn("Image Picker Error:", response.errorMessage);
+      console.warn('Image Picker Error:', response.errorMessage);
       showToastMessage(toast, 'danger', 'Failed to pick image');
       return;
     }
 
     const asset = response?.assets?.[0];
     if (!asset?.uri) {
-      console.warn("No valid image URI found");
+      console.warn('No valid image URI found');
       showToastMessage(toast, 'danger', 'No image selected');
       return;
     }
@@ -417,15 +469,13 @@ const ProfilePersonData = ({
 
     // Always provide fallbacks
     const fileName = asset.fileName || `profile_${Date.now()}.jpg`;
-    const mimeType = asset.type || "image/jpeg";
+    const mimeType = asset.type || 'image/jpeg';
 
     // Special case: Android content:// URIs
-    const imageUri = pickedUri.startsWith("content://")
-      ? pickedUri
-      : pickedUri;
+    const imageUri = pickedUri.startsWith('content://') ? pickedUri : pickedUri;
 
     const formData = new FormData();
-    formData.append("image", {
+    formData.append('image', {
       uri: imageUri,
       type: mimeType,
       name: fileName,
@@ -434,24 +484,6 @@ const ProfilePersonData = ({
     await handleSaveProfile(formData, pickedUri);
   };
 
-  const tabs = [
-    { id: "battle", label: "Battle" },
-    { id: "achievement", label: "Achievement" },
-    { id: "activity", label: "Activity" },
-  ];
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'battle':
-        return <Text style={styles.contentText}>Battle history and stats will appear here.</Text>;
-      case 'achievement':
-        return <Text style={styles.contentText}>User achievements and badges will appear here.</Text>;
-      case 'activity':
-        return <Text style={styles.contentText}>Recent user activity will appear here.</Text>;
-      default:
-        return null;
-    }
-  };
   const handleSaveProfile = async (data, img) => {
     try {
       dispatch(showLoader());
@@ -476,9 +508,9 @@ const ProfilePersonData = ({
   const UserMessageNavigation = () => {
     navigation.navigate('UserChat', {
       userId: targetUserId,
-      user: userData
+      user: userData,
     });
-  }
+  };
 
   const openUserHighlights = useCallback(() => {
     if (!targetUserId) {
@@ -494,7 +526,13 @@ const ProfilePersonData = ({
         title: userData?.displayName || userData?.userName || 'Highlights',
       },
     });
-  }, [navigation, targetUserId, userData?.displayName, userData?.profile, userData?.userName]);
+  }, [
+    navigation,
+    targetUserId,
+    userData?.displayName,
+    userData?.profile,
+    userData?.userName,
+  ]);
 
   const recipientWalletAddress = useMemo(
     () => getSupportRecipientWalletAddress(userData),
@@ -502,91 +540,130 @@ const ProfilePersonData = ({
   );
   const canSupport = !!recipientWalletAddress;
 
-  const ensureSupportFlowReady = useCallback(async ({ openSupportModalOnSuccess = false } = {}) => {
-    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
+  const ensureSupportFlowReady = useCallback(
+    async ({ openSupportModalOnSuccess = false } = {}) => {
+      const currentWalletAddress =
+        walletAddress || (await AsyncStorage.getItem('walletAddress'));
 
-    if (!currentWalletAddress) {
-      if (openSupportModalOnSuccess) {
-        setPendingSupportPromptAfterWalletConnect(true);
-      }
-      setWalletSelectionVisible(true);
-      return false;
-    }
-
-    if (currentWalletAddress !== walletAddress) {
-      setWalletAddress(currentWalletAddress);
-    }
-
-    if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-      setPendingSupportPromptAfterWalletConnect(false);
-      return false;
-    }
-
-    return true;
-  }, [walletAddress, canSupport]);
-
-  const handleWalletSelect = useCallback(async (wallet) => {
-    setWalletSelectionVisible(false);
-
-    try {
-      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
-        returnAddressOnly: true,
-        walletType: wallet.id,
-      });
-
-      if (connectedAddress) {
-        await AsyncStorage.setItem('walletAddress', connectedAddress);
-        await AsyncStorage.setItem('walletType', wallet.id);
-        setWalletAddress(connectedAddress);
-        try {
-          await updateWallet({ walletAddress: connectedAddress });
-        } catch (walletUpdateError) {
-          console.error('Wallet update API error:', walletUpdateError);
+      if (!currentWalletAddress) {
+        if (openSupportModalOnSuccess) {
+          setPendingSupportPromptAfterWalletConnect(true);
         }
+        setWalletSelectionVisible(true);
+        return false;
+      }
 
-        if (pendingSupportPromptAfterWalletConnect) {
-          setPendingSupportPromptAfterWalletConnect(false);
-          if (!canSupport) {
-            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      if (currentWalletAddress !== walletAddress) {
+        setWalletAddress(currentWalletAddress);
+      }
+
+      if (!canSupport) {
+        Alert.alert(
+          'Wallet not connected',
+          'This user has not connected a wallet yet. Follow is still active.',
+        );
+        setPendingSupportPromptAfterWalletConnect(false);
+        return false;
+      }
+
+      return true;
+    },
+    [walletAddress, canSupport],
+  );
+
+  const handleWalletSelect = useCallback(
+    async wallet => {
+      setWalletSelectionVisible(false);
+
+      try {
+        const connectedAddress = await connectWalletLogin(
+          toast,
+          navigation,
+          dispatch,
+          {
+            returnAddressOnly: true,
+            walletType: wallet.id,
+          },
+        );
+
+        if (connectedAddress) {
+          await AsyncStorage.setItem('walletAddress', connectedAddress);
+          await AsyncStorage.setItem('walletType', wallet.id);
+          setWalletAddress(connectedAddress);
+          try {
+            await updateWallet({ walletAddress: connectedAddress });
+          } catch (walletUpdateError) {
+            console.error('Wallet update API error:', walletUpdateError);
+          }
+
+          if (pendingSupportPromptAfterWalletConnect) {
+            setPendingSupportPromptAfterWalletConnect(false);
+            if (!canSupport) {
+              Alert.alert(
+                'Wallet not connected',
+                'This user has not connected a wallet yet. Follow is still active.',
+              );
+              return;
+            }
+            setSupportModalVisible(true);
             return;
           }
-          setSupportModalVisible(true);
-          return;
-        }
 
-        setConnectedWalletInfo({
-          name: wallet.name,
-          address: connectedAddress,
-        });
-        setWalletConnectedModalVisible(true);
+          setConnectedWalletInfo({
+            name: wallet.name,
+            address: connectedAddress,
+          });
+          setWalletConnectedModalVisible(true);
+        }
+      } catch (error) {
+        console.error('Wallet connection error:', error);
+        showToastMessage(
+          toast,
+          'danger',
+          'Failed to connect wallet. Please try again.',
+        );
       }
-    } catch (error) {
-      console.error('Wallet connection error:', error);
-      showToastMessage(toast, 'danger', 'Failed to connect wallet. Please try again.');
-    }
-  }, [toast, navigation, dispatch, pendingSupportPromptAfterWalletConnect, canSupport]);
+    },
+    [
+      toast,
+      navigation,
+      dispatch,
+      pendingSupportPromptAfterWalletConnect,
+      canSupport,
+    ],
+  );
 
   const handleWalletConnectedContinue = useCallback(async () => {
     setWalletConnectedModalVisible(false);
     const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
+    const walletType = (await AsyncStorage.getItem('walletType')) || 'metamask';
 
     // Open payment flow with the connected wallet
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+    await openWalletPayment(
+      recipientWalletAddress,
+      connectedWalletChainId,
+      walletType,
+    );
   }, [recipientWalletAddress]);
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      Alert.alert(
+        'Wallet not connected',
+        'This user has not connected a wallet yet. Follow is still active.',
+      );
       return;
     }
     setSupportDisclaimerVisible(false);
     const ready = await ensureSupportFlowReady();
     if (!ready) return;
     const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+    const walletType = (await AsyncStorage.getItem('walletType')) || 'metamask';
+    await openWalletPayment(
+      recipientWalletAddress,
+      connectedWalletChainId,
+      walletType,
+    );
   }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
@@ -602,13 +679,23 @@ const ProfilePersonData = ({
     if (!success || !shouldFollow) return;
 
     const supporterProfile = isBusinessProfile ? 'company' : 'user';
-    const recipientProfile = normalizeProfileType(effectiveProfileType || userProfile || userData?.profile);
+    const recipientProfile = normalizeProfileType(
+      effectiveProfileType || userProfile || userData?.profile,
+    );
 
     // Only show support/wallet flow when support is allowed by platform rules.
     if (isSupportAllowed({ supporterProfile, recipientProfile })) {
       setSupportModalVisible(true);
     }
-  }, [isFollowing, executeFollowAction, onToggleFollow, isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
+  }, [
+    isFollowing,
+    executeFollowAction,
+    onToggleFollow,
+    isBusinessProfile,
+    effectiveProfileType,
+    userProfile,
+    userData?.profile,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -619,7 +706,9 @@ const ProfilePersonData = ({
         try {
           dispatch(showLoader());
           const id = await AsyncStorage.getItem('userId');
-          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
+          const storedWalletAddress = await AsyncStorage.getItem(
+            'walletAddress',
+          );
           setUserId(id);
           setWalletAddress(storedWalletAddress || '');
           if (!id) return;
@@ -639,8 +728,12 @@ const ProfilePersonData = ({
 
             // Check KYC approval status and show welcome modal
             if (!fromUsersProfile && response.data.kyc === true) {
-              const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
-              const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
+              const hasShownWelcome = await AsyncStorage.getItem(
+                KYC_WELCOME_SHOWN_KEY,
+              );
+              const hasShownLegacy = await AsyncStorage.getItem(
+                LEGACY_KYC_WELCOME_SHOWN_KEY,
+              );
               if (!hasShownWelcome) {
                 if (hasShownLegacy) {
                   await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
@@ -687,6 +780,30 @@ const ProfilePersonData = ({
   const handleOpenBattlePress = useCallback(() => {
     navigation.navigate('OpenBattle');
   }, [navigation]);
+
+  const handleInviteBattlePress = useCallback(() => {
+    navigation.navigate('OpenBattle', {
+      presetFormat: 'HEAD_TO_HEAD',
+      invitedUserId: String(targetUserId || userData?.id || ''),
+    });
+  }, [navigation, targetUserId, userData?.id]);
+
+  const handleBattleTabPress = useCallback(() => {
+    navigation.navigate('ProfileBattleScreen', {
+      viewedUserId: String(targetUserId || userData?.id || userId || ''),
+      isOwner: !fromUsersProfile,
+      title: fromUsersProfile
+        ? `${displayName || 'User'} Battles`
+        : 'My Battles',
+    });
+  }, [
+    navigation,
+    targetUserId,
+    userData?.id,
+    userId,
+    fromUsersProfile,
+    displayName,
+  ]);
 
   const redirect = () => {
     const source = data?.id ? data : userData?.id ? userData : null;
@@ -735,18 +852,24 @@ const ProfilePersonData = ({
   // };
   const detectPlatformFromUrl = useCallback((url = '') => {
     const normalized = String(url).toLowerCase();
-    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
+    if (normalized.includes('twitter.com') || normalized.includes('x.com'))
+      return 'twitter';
     if (normalized.includes('tiktok.com')) return 'tiktok';
     if (normalized.includes('linkedin.com')) return 'linkedin';
     if (normalized.includes('instagram.com')) return 'instagram';
     return '';
   }, []);
 
-  const getSocialPlatform = useCallback((platform = '', url = '') => {
-    const normalizedPlatform = String(platform || '').trim().toLowerCase();
-    if (normalizedPlatform) return normalizedPlatform;
-    return detectPlatformFromUrl(url);
-  }, [detectPlatformFromUrl]);
+  const getSocialPlatform = useCallback(
+    (platform = '', url = '') => {
+      const normalizedPlatform = String(platform || '')
+        .trim()
+        .toLowerCase();
+      if (normalizedPlatform) return normalizedPlatform;
+      return detectPlatformFromUrl(url);
+    },
+    [detectPlatformFromUrl],
+  );
 
   const socialMediaLinks = useMemo(() => {
     const source =
@@ -773,18 +896,16 @@ const ProfilePersonData = ({
       .map(item => {
         const objectItem = item && typeof item === 'object' ? item : {};
         const directUrl = String(
-          objectItem?.url ||
-          objectItem?.link ||
-          objectItem?.value ||
-          '',
+          objectItem?.url || objectItem?.link || objectItem?.value || '',
         ).trim();
-        const keyedPlatformEntry = knownPlatformKeys.find(key => objectItem?.[key]);
+        const keyedPlatformEntry = knownPlatformKeys.find(
+          key => objectItem?.[key],
+        );
         const platform = String(
-          objectItem?.platform ||
-          keyedPlatformEntry ||
-          '',
+          objectItem?.platform || keyedPlatformEntry || '',
         ).toLowerCase();
-        const derivedUrl = directUrl || String(objectItem?.[platform] || '').trim();
+        const derivedUrl =
+          directUrl || String(objectItem?.[platform] || '').trim();
         const normalizedPlatform = getSocialPlatform(platform, derivedUrl);
         return { platform: normalizedPlatform, url: derivedUrl };
       })
@@ -799,25 +920,31 @@ const ProfilePersonData = ({
     getSocialPlatform,
   ]);
 
-  const renderSocialIcon = useCallback((platform) => {
+  const renderSocialIcon = useCallback(platform => {
     if (platform === 'tiktok') return <Tiktok width={25} height={25} />;
     if (platform === 'linkedin') return <Linkedin width={25} height={25} />;
     if (platform === 'twitter') return <Twitter width={25} height={25} />;
-    if (platform === 'instagram') return <FontAwesome name="instagram" size={23} color="#E1306C" />;
+    if (platform === 'instagram')
+      return <FontAwesome name="instagram" size={23} color="#E1306C" />;
     return <Feather name="link-2" size={22} color="#374151" />;
   }, []);
 
   const websiteLink = useMemo(() => {
     return String(
       userData?.website_link ??
-      data?.website_link ??
-      userData?.websiteLink ??
-      data?.websiteLink ??
-      '',
+        data?.website_link ??
+        userData?.websiteLink ??
+        data?.websiteLink ??
+        '',
     ).trim();
-  }, [userData?.website_link, data?.website_link, userData?.websiteLink, data?.websiteLink]);
+  }, [
+    userData?.website_link,
+    data?.website_link,
+    userData?.websiteLink,
+    data?.websiteLink,
+  ]);
 
-  const handleOpenSocialUrl = async (url) => {
+  const handleOpenSocialUrl = async url => {
     const raw = String(url || '').trim();
     if (!raw) {
       Alert.alert('Error', 'Link is empty');
@@ -846,7 +973,8 @@ const ProfilePersonData = ({
       id: data?.id || userData?.id || targetUserId || userId,
       userId: data?.userId || userData?.userId || targetUserId || userId,
       userName: data?.userName || userData?.userName || username || displayName,
-      displayName: data?.displayName || userData?.displayName || displayName || username,
+      displayName:
+        data?.displayName || userData?.displayName || displayName || username,
       walletAddress:
         data?.walletAddress ||
         userData?.walletAddress ||
@@ -854,11 +982,19 @@ const ProfilePersonData = ({
         walletAddress ||
         '',
     };
-  }, [data, userData, targetUserId, userId, username, displayName, walletAddress]);
+  }, [
+    data,
+    userData,
+    targetUserId,
+    userId,
+    username,
+    displayName,
+    walletAddress,
+  ]);
 
   const handleBackPress = useCallback(() => {
     const returnTo = returnByTo;
-    console.log('is this wokreing buy', returnTo)
+    console.log('is this wokreing buy', returnTo);
 
     if (returnTo) {
       // console.log()
@@ -881,9 +1017,7 @@ const ProfilePersonData = ({
               onPress={() => setUsernameModalVisible(true)}
             >
               {fromUsersProfile && (
-                <TouchableOpacity
-                  onPress={handleBackPress}
-                >
+                <TouchableOpacity onPress={handleBackPress}>
                   <Ionicons
                     name="arrow-back-outline"
                     size={22}
@@ -893,7 +1027,9 @@ const ProfilePersonData = ({
                 </TouchableOpacity>
               )}
               <View style={styles.userRow}>
-                <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
+                <Text style={[styles.headerText, textStyle]}>
+                  {Userdata.Username}
+                </Text>
                 {isKycApproved && (
                   <DragonflyIcon width={22} height={22} style={styles.icon} />
                 )}
@@ -909,11 +1045,11 @@ const ProfilePersonData = ({
             </TouchableOpacity>
           </View>
           <View style={styles.iconContainer}>
-            {!fromUsersProfile && (
+            {/* {!fromUsersProfile && (
               <TouchableOpacity style={styles.iconButton} onPress={() => { navigation.navigate('wallet') }}>
                 <Ionicons name="wallet-outline" size={25} color="#111100" />
               </TouchableOpacity>
-            )}
+            )} */}
             {fromUsersProfile && (
               <TouchableOpacity
                 style={styles.iconButton}
@@ -977,7 +1113,10 @@ const ProfilePersonData = ({
                 />
                 {!fromUsersProfile && (
                   <TouchableOpacity
-                    style={[styles.addbutton, { backgroundColor: text, shadowColor: text }]}
+                    style={[
+                      styles.addbutton,
+                      { backgroundColor: text, shadowColor: text },
+                    ]}
                     onPress={handleProfileImagePress}
                   >
                     <Ionicons name="add" size={15} color="white" />
@@ -1026,22 +1165,18 @@ const ProfilePersonData = ({
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => UserMessageNavigation()}
-                  >
+                  <TouchableOpacity onPress={() => UserMessageNavigation()}>
                     <LinearGradient
                       colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}>
-                        Message
-                      </Text>
+                      <Text style={styles.buttonText}>Message</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                   {normalizedProfileThemeType !== 'company' && (
-                    <TouchableOpacity >
+                    <TouchableOpacity>
                       <LinearGradient
                         colors={profileActionGradient}
                         start={{ x: 0, y: 0 }}
@@ -1049,14 +1184,17 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons
+                            name="trending-up-outline"
+                            size={28}
+                            color="#f2f8f2"
+                          />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
                 </>
-
               ) : (
                 <>
                   <TouchableOpacity onPress={() => handleNavigate()}>
@@ -1092,10 +1230,7 @@ const ProfilePersonData = ({
                     </LinearGradient>
                   </TouchableOpacity>
                   {!isBusinessProfile && (
-
-
-                    <TouchableOpacity
-                    >
+                    <TouchableOpacity>
                       <LinearGradient
                         colors={profileActionGradient}
                         start={{ x: 0, y: 0 }}
@@ -1103,7 +1238,11 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons
+                            name="trending-up-outline"
+                            size={28}
+                            color="#f2f8f2"
+                          />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
@@ -1130,7 +1269,6 @@ const ProfilePersonData = ({
             </View>
           </View>
 
-
           {!!websiteLink && (
             <TouchableOpacity
               style={styles.bioLinkWrap}
@@ -1140,13 +1278,13 @@ const ProfilePersonData = ({
               <Text style={styles.bioLinkText}>{websiteLink}</Text>
             </TouchableOpacity>
           )}
-
         </View>
         {!fromUsersProfile && (
-
-
           <View style={styles.battleActionWrapper}>
-            <TouchableOpacity style={styles.battleBtnWrapper}>
+            <TouchableOpacity
+              style={styles.battleBtnWrapper}
+              onPress={handleInviteBattlePress}
+            >
               <LinearGradient
                 colors={profileActionGradient}
                 start={{ x: 0, y: 0 }}
@@ -1157,7 +1295,10 @@ const ProfilePersonData = ({
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.battleBtnWrapper} onPress={handleOpenBattlePress}>
+            <TouchableOpacity
+              style={styles.battleBtnWrapper}
+              onPress={handleOpenBattlePress}
+            >
               <LinearGradient
                 colors={profileActionGradient}
                 start={{ x: 0, y: 0 }}
@@ -1171,35 +1312,31 @@ const ProfilePersonData = ({
         )}
 
         <View style={[styles.tabContainer, { backgroundColor: `${text}12` }]}>
-          {['battle', 'achievement', 'activity'].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[
-                styles.tab,
-                {
-                  backgroundColor: activeTab === tab ? text : card || bg,
-                  borderColor: activeTab === tab ? text : `${text}22`,
-                },
-              ]}
-              onPress={() => setActiveTab(tab)}
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              {
+                backgroundColor: text,
+                borderColor: text,
+              },
+            ]}
+            onPress={handleBattleTabPress}
+          >
+            <Text
+              style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: activeTab === tab ? '#fff' : text },
-                  activeTab === tab && styles.activeTabText
-                ]}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+              Battle
+            </Text>
+          </TouchableOpacity>
         </View>
         {/* Stats */}
         <View style={styles.statsRow}>
           <TouchableOpacity style={styles.statItem}>
             <Ionicons name="add-circle-outline" size={16} color="#444" />
-            <Text style={[styles.statText, { color: text }]}> Mint: {Userdata.totalPost}</Text>
+            <Text style={[styles.statText, { color: text }]}>
+              {' '}
+              Mint: {Userdata.totalPost}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.statItem}
@@ -1492,7 +1629,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   infoButton: {
-
     width: 40,
     height: 40,
     borderRadius: 20,

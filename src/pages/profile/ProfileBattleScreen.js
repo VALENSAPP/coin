@@ -1,0 +1,67 @@
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import ProfileBattleHub from '../../components/profile/ProfileBattleHub';
+import { useAppTheme } from '../../theme/useApptheme';
+
+export default function ProfileBattleScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { bgStyle, text } = useAppTheme();
+
+  const viewedUserId = route?.params?.viewedUserId || '';
+  const isOwner = Boolean(route?.params?.isOwner);
+  const title = route?.params?.title || 'Battle';
+
+  return (
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerIconBtn}
+        >
+          <Icon name="arrow-back-ios-new" size={20} color={text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: text }]}>{title}</Text>
+        <View style={styles.headerIconBtn} />
+      </View>
+
+      <ProfileBattleHub
+        viewedUserId={String(viewedUserId)}
+        isOwner={isOwner}
+        openBattleRoute="OpenBattle"
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+});

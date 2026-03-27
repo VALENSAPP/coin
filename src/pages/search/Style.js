@@ -397,7 +397,7 @@ export default StyleSheet.create({
     marginTop: 3,
   },
   card: {
-    width: 220,
+    width: 260,
     borderRadius: 14,
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -428,6 +428,16 @@ export default StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: '#E5E7EB',
+  },
+  pollAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D8B4FE',
+  },
+  pollAvatarFallbackText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4C1D95',
   },
   pollCreatorText: {
     flex: 1,
@@ -497,11 +507,30 @@ export default StyleSheet.create({
     height: 30,
     borderRadius: 15,
   },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5E7EB',
+  },
+  avatarFallbackText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#374151',
+  },
 
   name: {
     fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
+    color: '#111827',
+    textAlign: 'center',
+  },
+  handleText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+    textAlign: 'center',
   },
 
   vs: {
