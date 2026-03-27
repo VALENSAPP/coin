@@ -10,6 +10,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const withAlpha = (hex, alpha) => {
@@ -19,29 +20,115 @@ const withAlpha = (hex, alpha) => {
   return hex;
 };
 
-const resultData = {
-  title: 'Will Ethereum surpass $10K by 2025?',
-  postedAgo: '5 minutes ago',
-  winner: 'Alex Carter',
-  winnerPoints: '850',
-  bonusPoints: '20',
-  metrics: [
-    { label: 'Like (Following all)', value: '860 x1' },
-    { label: 'Likes', value: '90 x2' },
-    { label: 'Duel Bonus', value: '+50 x1' },
-  ],
-  total: '+850',
-  stakeBreakdown: [
-    { label: 'Alex Carter', value: '+100', color: '#f2994a' },
-    { label: 'SarahM', value: '+480', color: '#7c3aed' },
-  ],
+const pickFirst = (...values) =>
+  values.find(value => value !== undefined && value !== null && value !== '');
+
+const normalizeOption = (option, index) => {
+  if (typeof option === 'string') {
+    return {
+      id: `${index}`,
+      label: option,
+      votes: 0,
+      likes: 0,
+      percentage: 0,
+    };
+  }
+
+  return {
+    id: String(pickFirst(option?.id, option?._id, index)),
+    label: pickFirst(
+      option?.label,
+      option?.text,
+      option?.value,
+      `Option ${index + 1}`,
+    ),
+    votes: Number(pickFirst(option?.votes, option?.voteCount, 0)),
+    likes: Number(pickFirst(option?.likes, option?.likeCount, 0)),
+    percentage: Number(
+      pickFirst(option?.percentage, option?.votePercentage, 0),
+    ),
+  };
+};
+
+const buildResultData = battle => {
+  const normalizedBattle = battle || {};
+  const options = (
+    Array.isArray(normalizedBattle.options) ? normalizedBattle.options : []
+  ).map(normalizeOption);
+  const battleType = String(
+    pickFirst(normalizedBattle.battleType, 'OPINION'),
+  ).toUpperCase();
+  const winnerOption =
+    options.slice().sort((a, b) => {
+      if (battleType === 'PREDICTION') {
+        const aMatch = a.label === normalizedBattle.resultValue ? 1 : 0;
+        const bMatch = b.label === normalizedBattle.resultValue ? 1 : 0;
+        if (bMatch !== aMatch) return bMatch - aMatch;
+      }
+      const voteDelta = Number(b.votes || 0) - Number(a.votes || 0);
+      if (voteDelta !== 0) return voteDelta;
+      return Number(b.likes || 0) - Number(a.likes || 0);
+    })[0] || {};
+
+  const points = Number(
+    pickFirst(normalizedBattle.stake, normalizedBattle.stakeAmount, 0),
+  );
+  const winnerName = pickFirst(
+    normalizedBattle.winnerName,
+    normalizedBattle.winner?.name,
+    normalizedBattle.creator?.name,
+    winnerOption.label,
+    'Battle Winner',
+  );
+
+  return {
+    title: pickFirst(
+      normalizedBattle.title,
+      normalizedBattle.question,
+      'Battle results',
+    ),
+    postedAgo: normalizedBattle.endTime
+      ? new Date(normalizedBattle.endTime).toLocaleString()
+      : 'Live update',
+    winner: winnerName,
+    winnerPoints: `${
+      points || Math.max(Number(winnerOption.votes || 0), 1) * 10
+    }`,
+    bonusPoints: `${Math.max(Math.round(points * 0.2), 20)}`,
+    winnerLogic:
+      battleType === 'PREDICTION'
+        ? 'Winner decided by actual result first, then engagement.'
+        : 'Winner decided by votes plus likes and argument engagement.',
+    metrics:
+      options.length > 0
+        ? options.slice(0, 3).map(option => ({
+            label: option.label,
+            value: `${option.votes} votes • ${option.likes} likes`,
+          }))
+        : [{ label: 'No vote data yet', value: 'Waiting for battle activity' }],
+    total: `+${points || Math.max(Number(winnerOption.votes || 0), 1) * 10}`,
+    stakeBreakdown:
+      options.length > 0
+        ? options.slice(0, 3).map((option, index) => ({
+            label: option.label,
+            value: `${option.votes} votes`,
+            color: ['#f2994a', '#7c3aed', '#14B8A6'][index] || '#9CA3AF',
+          }))
+        : [{ label: 'Stake pool', value: `${points}`, color: '#7c3aed' }],
+  };
 };
 
 export default function BattleResults({ navigation }) {
+  const route = useRoute();
   const { bgStyle, text, card } = useAppTheme();
+  const resultData = useMemo(
+    () => buildResultData(route?.params?.battle),
+    [route?.params?.battle],
+  );
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
-    const secondary = primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
+    const secondary =
+      primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
 
     return {
       primary,
@@ -61,20 +148,32 @@ export default function BattleResults({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconBtn}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerIconBtn}
+          >
             <Icon name="arrow-back-ios-new" size={20} color={text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>Battle Results</Text>
+          <Text style={[styles.headerTitle, { color: text }]}>
+            Battle Results
+          </Text>
           <TouchableOpacity style={styles.headerIconBtn}>
             <Ionicons name="person-outline" size={20} color={text} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={[styles.infoLabel, { color: palette.muted }]}>Results for:</Text>
-          <Text style={[styles.infoTime, { color: withAlpha(text, '88') }]}>{resultData.postedAgo}</Text>
+          <Text style={[styles.infoLabel, { color: palette.muted }]}>
+            Results for:
+          </Text>
+          <Text style={[styles.infoTime, { color: withAlpha(text, '88') }]}>
+            {resultData.postedAgo}
+          </Text>
         </View>
         <Text style={[styles.prompt, { color: text }]}>{resultData.title}</Text>
+        <Text style={[styles.logicText, { color: palette.muted }]}>
+          {resultData.winnerLogic}
+        </Text>
 
         <LinearGradient
           colors={[palette.secondary, palette.primary, palette.secondary]}
@@ -98,7 +197,9 @@ export default function BattleResults({ navigation }) {
           <View style={styles.scoreHeaderRow}>
             <Text style={styles.scoreHeaderName}>Player A</Text>
             <Text style={styles.scoreHeaderTeam}>Team</Text>
-            <Text style={styles.scoreHeaderPoints}>{resultData.winnerPoints}</Text>
+            <Text style={styles.scoreHeaderPoints}>
+              {resultData.winnerPoints}
+            </Text>
           </View>
 
           <View style={styles.playerWinnerRow}>
@@ -128,28 +229,62 @@ export default function BattleResults({ navigation }) {
           </View>
         </LinearGradient>
 
-        <View style={[styles.rewardCard, { backgroundColor: palette.surface, shadowColor: palette.primary }]}>
-          <Text style={[styles.rewardTitle, { color: withAlpha(text, 'D0') }]}>You Win!</Text>
+        <View
+          style={[
+            styles.rewardCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.rewardTitle, { color: withAlpha(text, 'D0') }]}>
+            You Win!
+          </Text>
           <LinearGradient
             colors={[palette.warmSoft, '#ffd184', '#ffbf66']}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={styles.rewardBadge}
           >
-            <Ionicons name="ribbon-outline" size={20} color="#97591a" style={styles.rewardEmojiIcon} />
-            <Text style={styles.rewardValue}>{resultData.bonusPoints} Points</Text>
+            <Ionicons
+              name="ribbon-outline"
+              size={20}
+              color="#97591a"
+              style={styles.rewardEmojiIcon}
+            />
+            <Text style={styles.rewardValue}>
+              {resultData.bonusPoints} Points
+            </Text>
           </LinearGradient>
         </View>
 
-        <View style={[styles.breakdownCard, { backgroundColor: palette.surface, shadowColor: palette.primary }]}>
-          <Text style={[styles.breakdownTitle, { color: withAlpha(text, 'D0') }]}>Stake Breakdown</Text>
+        <View
+          style={[
+            styles.breakdownCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text
+            style={[styles.breakdownTitle, { color: withAlpha(text, 'D0') }]}
+          >
+            Stake Breakdown
+          </Text>
           {resultData.stakeBreakdown.map(item => (
             <View key={item.label} style={styles.breakdownRow}>
               <View style={styles.breakdownLeft}>
-                <View style={[styles.breakdownDot, { backgroundColor: item.color }]} />
-                <Text style={[styles.breakdownName, { color: withAlpha(text, 'BF') }]}>{item.label}</Text>
+                <View
+                  style={[styles.breakdownDot, { backgroundColor: item.color }]}
+                />
+                <Text
+                  style={[
+                    styles.breakdownName,
+                    { color: withAlpha(text, 'BF') },
+                  ]}
+                >
+                  {item.label}
+                </Text>
               </View>
-              <Text style={[styles.breakdownValue, { color: text }]}>{item.value}</Text>
+              <Text style={[styles.breakdownValue, { color: text }]}>
+                {item.value}
+              </Text>
             </View>
           ))}
         </View>
@@ -162,7 +297,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     marginTop: '10%',
-
   },
   container: {
     flex: 1,
@@ -206,6 +340,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 25,
+    marginBottom: 8,
+  },
+  logicText: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
     marginBottom: 16,
   },
   resultCard: {
@@ -374,7 +514,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 3,
     marginBottom: '10%',
-
   },
   breakdownTitle: {
     fontSize: 18,

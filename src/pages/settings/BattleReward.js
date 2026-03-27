@@ -10,6 +10,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const withAlpha = (hex, alpha) => {
@@ -19,29 +20,60 @@ const withAlpha = (hex, alpha) => {
   return hex;
 };
 
-const rewardData = {
-  title: 'Ethereum 10K Battle Reward',
-  reward: '200 Points',
-  rank: '#1',
-  status: 'Reward Unlocked',
-  summary: 'You won the battle and unlocked your community reward for backing the winning side.',
-  breakdown: [
-    { label: 'Victory Bonus', value: '+100' },
-    { label: 'Engagement Bonus', value: '+50' },
-    { label: 'Duel Streak', value: '+50' },
-  ],
-  perks: [
-    'Points have been added to your balance',
-    'Winner badge is active on your profile',  
-    'Battle streak has been updated',
-  ],
+const pickFirst = (...values) =>
+  values.find(value => value !== undefined && value !== null && value !== '');
+
+const buildRewardData = battle => {
+  const stake = Number(pickFirst(battle?.stake, battle?.stakeAmount, 0));
+  const battleType = String(
+    pickFirst(battle?.battleType, 'OPINION'),
+  ).toUpperCase();
+  const victoryBonus = Math.max(Math.round(stake * 0.5), 100);
+  const engagementBonus = Math.max(Math.round(stake * 0.25), 50);
+  const accuracyBonus =
+    battleType === 'PREDICTION' ? Math.max(Math.round(stake * 0.25), 50) : 0;
+  const totalReward = victoryBonus + engagementBonus + accuracyBonus;
+
+  return {
+    title: pickFirst(battle?.title, battle?.question, 'Battle Reward'),
+    reward: `${totalReward} Points`,
+    rank: '#1',
+    status:
+      battleType === 'PREDICTION'
+        ? 'Accuracy Reward Unlocked'
+        : 'Community Reward Unlocked',
+    summary:
+      battleType === 'PREDICTION'
+        ? 'You earned points for the winning prediction, with accuracy weighted ahead of social engagement.'
+        : 'You earned points for winning the community battle through votes and argument engagement.',
+    breakdown: [
+      { label: 'Victory Bonus', value: `+${victoryBonus}` },
+      { label: 'Engagement Bonus', value: `+${engagementBonus}` },
+      ...(accuracyBonus
+        ? [{ label: 'Accuracy Bonus', value: `+${accuracyBonus}` }]
+        : []),
+    ],
+    perks: [
+      'Cred points have been added to your balance',
+      'Battle performance has been updated on your profile',
+      battleType === 'PREDICTION'
+        ? 'Prediction accuracy score has been improved'
+        : 'Community battle reputation has been improved',
+    ],
+  };
 };
 
 export default function BattleReward({ navigation }) {
+  const route = useRoute();
   const { bgStyle, text, card } = useAppTheme();
+  const rewardData = useMemo(
+    () => buildRewardData(route?.params?.battle),
+    [route?.params?.battle],
+  );
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
-    const secondary = primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
+    const secondary =
+      primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
 
     return {
       primary,
@@ -62,16 +94,23 @@ export default function BattleReward({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconBtn}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.headerIconBtn}
+          >
             <Icon name="arrow-back-ios-new" size={20} color={text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>Battle Reward</Text>
+          <Text style={[styles.headerTitle, { color: text }]}>
+            Battle Reward
+          </Text>
           <TouchableOpacity style={styles.headerIconBtn}>
             <Ionicons name="gift-outline" size={20} color={text} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.subTitle, { color: text }]}>{rewardData.title}</Text>
+        <Text style={[styles.subTitle, { color: text }]}>
+          {rewardData.title}
+        </Text>
 
         <LinearGradient
           colors={[palette.secondary, palette.primary, palette.secondary]}
@@ -79,10 +118,22 @@ export default function BattleReward({ navigation }) {
           end={{ x: 1, y: 1 }}
           style={styles.rewardHero}
         >
-          <View style={[styles.rewardGlowTop, { backgroundColor: palette.soft }]} />
-          <View style={[styles.rewardGlowBottom, { backgroundColor: withAlpha(palette.secondary, '14') }]} />
+          <View
+            style={[styles.rewardGlowTop, { backgroundColor: palette.soft }]}
+          />
+          <View
+            style={[
+              styles.rewardGlowBottom,
+              { backgroundColor: withAlpha(palette.secondary, '14') },
+            ]}
+          />
 
-          <View style={[styles.crownWrap, { backgroundColor: withAlpha('#FFFFFF', '2A') }]}>
+          <View
+            style={[
+              styles.crownWrap,
+              { backgroundColor: withAlpha('#FFFFFF', '2A') },
+            ]}
+          >
             <Ionicons name="trophy-outline" size={34} color={palette.warm} />
           </View>
           <Text style={styles.rewardBadgeText}>{rewardData.status}</Text>
@@ -90,27 +141,58 @@ export default function BattleReward({ navigation }) {
           <Text style={styles.rewardRank}>Battle Rank {rewardData.rank}</Text>
         </LinearGradient>
 
-        <View style={[styles.infoCard, { backgroundColor: palette.surface, shadowColor: palette.primary }]}>
-          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>Reward Summary</Text>
-          <Text style={[styles.infoText, { color: palette.muted }]}>{rewardData.summary}</Text>
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
+            Reward Summary
+          </Text>
+          <Text style={[styles.infoText, { color: palette.muted }]}>
+            {rewardData.summary}
+          </Text>
         </View>
 
-        <View style={[styles.infoCard, { backgroundColor: palette.surface, shadowColor: palette.primary }]}>
-          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>Points Breakdown</Text>
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
+            Points Breakdown
+          </Text>
           {rewardData.breakdown.map(item => (
             <View key={item.label} style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, { color: palette.muted }]}>{item.label}</Text>
-              <Text style={[styles.breakdownValue, { color: text }]}>{item.value}</Text>
+              <Text style={[styles.breakdownLabel, { color: palette.muted }]}>
+                {item.label}
+              </Text>
+              <Text style={[styles.breakdownValue, { color: text }]}>
+                {item.value}
+              </Text>
             </View>
           ))}
         </View>
 
-        <View style={[styles.infoCard, { backgroundColor: palette.surface, shadowColor: palette.primary }]}>
-          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>Unlocked Perks</Text>
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: palette.surface, shadowColor: palette.primary },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
+            Unlocked Perks
+          </Text>
           {rewardData.perks.map(item => (
             <View key={item} style={styles.perkRow}>
-              <View style={[styles.perkDot, { backgroundColor: palette.primary }]} />
-              <Text style={[styles.perkText, { color: palette.muted }]}>{item}</Text>
+              <View
+                style={[styles.perkDot, { backgroundColor: palette.primary }]}
+              />
+              <Text style={[styles.perkText, { color: palette.muted }]}>
+                {item}
+              </Text>
             </View>
           ))}
         </View>
@@ -134,7 +216,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     marginTop: '10%',
-
   },
   container: {
     flex: 1,
@@ -269,7 +350,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
     marginBottom: '10%',
-
   },
   claimButtonText: {
     color: '#fff',

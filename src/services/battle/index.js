@@ -2,6 +2,7 @@ import axiosInstance from "..";
 
 const normalizeBattlePayload = (data = {}) => ({
     format: data?.format ?? 'POLL',
+    battleType: data?.battleType ?? 'OPINION',
     question: data?.question?.trim?.() ?? '',
     options: Array.isArray(data?.options)
         ? data.options.map(option => `${option ?? ''}`.trim()).filter(Boolean)
@@ -11,6 +12,9 @@ const normalizeBattlePayload = (data = {}) => ({
     stake: Number(data?.stake ?? 0),
     isPublic: Boolean(data?.isPublic),
     invitedUserId: data?.invitedUserId?.trim?.() ?? '',
+    creatorChoice: data?.creatorChoice?.trim?.() ?? '',
+    creatorLockedOption: data?.creatorLockedOption?.trim?.() ?? '',
+    invitedUserChoice: data?.invitedUserChoice?.trim?.() ?? '',
     resolutionMethod: data?.resolutionMethod?.trim?.() ?? '',
 });
 

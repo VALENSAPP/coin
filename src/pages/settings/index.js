@@ -535,7 +535,7 @@ const Settings = () => {
             title="Hide Posts"
             onPress={handleHideStoryPress}
           />
-           <SettingsItem
+           {/* <SettingsItem
             icon="visibility-off"
             title="Battle in progress"
             onPress={handleBattleInProgressPress}
@@ -549,7 +549,7 @@ const Settings = () => {
             icon="visibility-off"
             title="Battle Reward"
             onPress={handleBattleRewardPress}
-          />
+          /> */}
         </View>
 
         {/* More info and support section */}

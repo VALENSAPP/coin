@@ -15,3 +15,7 @@ export const readNotification=async(data) =>{
 export const unReadNotification=async()=>{
     return axiosInstance.get('notifications/unread-count')
 }
+
+export const battleNotification=async()=>{
+    return axiosInstance.get('notifications/battle')
+}
