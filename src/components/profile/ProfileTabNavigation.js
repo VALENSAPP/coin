@@ -136,7 +136,7 @@ const ProfileTabs = memo(({
           lazy: true,
           lazyPlaceholder: () => null,
           tabBarStyle: {
-            marginTop: 15,
+            marginTop: 2,
             height: 52,
             backgroundColor: '#fff',
             elevation: 2,
