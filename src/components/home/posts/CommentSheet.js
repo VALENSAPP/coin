@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -24,8 +23,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../../theme/useApptheme';
+import HexAvatar from '../story.js/HexAvatar';
 
 const CommentItem = memo(({ item, onMorePress, currentUserId, postOwnerId }) => {
+  const { text } = useAppTheme();
   const normalizeId = id => (id != null ? String(id).trim() : '');
 
   const viewerId = normalizeId(currentUserId);
@@ -40,7 +41,14 @@ const CommentItem = memo(({ item, onMorePress, currentUserId, postOwnerId }) => 
     <View
       style={[styles.commentRow, item.isOptimistic && styles.optimisticComment]}
     >
-      <Image source={{ uri: item.avatar }} style={styles.avatar} />
+      <View style={{ marginRight: 10 }}>
+        <HexAvatar
+          uri={item.avatar}
+          size={32}
+          borderWidth={2}
+          borderColor={text}
+        />
+      </View>
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
           <Text style={styles.username}>{item.username}</Text>
@@ -82,7 +90,7 @@ export default function CommentSheet({
   const toast = useToast();
   const dispatch = useDispatch();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle, text } = useAppTheme();
 
   const fetchComments = useCallback(async () => {
     try {
@@ -355,10 +363,14 @@ export default function CommentSheet({
 
       {/* Input row */}
       <View style={[styles.inputRow, bgStyle]}>
-        <Image
-          source={{ uri: profileImage }}
-          style={styles.inputAvatar}
-        />
+        <View style={{ marginRight: 8 }}>
+          <HexAvatar
+            uri={profileImage}
+            size={30}
+            borderWidth={1}
+            borderColor={text}
+          />
+        </View>
         <TextInput
           placeholder="Add a comment..."
           placeholderTextColor="#999"

@@ -29,6 +29,7 @@ import { getSupportRecipientWalletAddress, openWalletPayment } from '../../utils
 import { connectWalletLogin } from '../../pages/authentication/socialLogin';
 import { updateWallet } from '../../services/wallet';
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
+import HexAvatar from '../home/story.js/HexAvatar';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -970,10 +971,11 @@ const ProfilePersonData = ({
                 activeOpacity={0.8}
                 style={{ marginBottom: 5 }}
               >
-                <Image
-                  source={{ uri: avatarUri }}
-                  style={[styles.image, { borderColor: text }]}
-                  resizeMode="cover"
+                <HexAvatar
+                  uri={avatarUri}
+                  size={90}
+                  borderWidth={2}
+                  borderColor={text}
                 />
                 {!fromUsersProfile && (
                   <TouchableOpacity

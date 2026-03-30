@@ -9,6 +9,7 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
@@ -205,9 +206,18 @@ export default function Notifications() {
 
       console.log(response, 'response received');
 
-      if (response?.status === 200) {
+      const ok =
+        response?.status === 200 ||
+        response?.statusCode === 200 ||
+        response?.success === true;
+
+      // Many APIs return 200 with only a message body (no status field); still treat as success.
+      const notExplicitError = response?.error !== true;
+
+      if (ok || notExplicitError) {
         console.log('Notifications marked as read');
         await getNotification();
+        DeviceEventEmitter.emit('NOTIFICATION_BADGE_REFRESH');
       }
     } catch (err) {
       console.log(err, 'error marking notifications as read');

@@ -26,6 +26,7 @@ import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { updateWallet } from '../../../services/wallet';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
+import HexAvatar from '../story.js/HexAvatar';
 
 const { width } = Dimensions.get('window');
 
@@ -956,7 +957,12 @@ console.log(taggedUsers,'tagged user' )
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+            <HexAvatar
+              uri={item.avatar}
+              size={42}
+              borderWidth={2}
+              borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
@@ -1105,7 +1111,12 @@ console.log(taggedUsers,'tagged user' )
                   <View style={styles.avatarsContainer}>
                     {buyerList.slice(0, 3).map((buyer, idx) => (
                       <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
-                        <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
+                        <HexAvatar
+                          uri={buyer.avatar}
+                          size={28}
+                          borderWidth={1.5}
+                          borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+                        />
                       </View>
                     ))}
                   </View>
