@@ -132,10 +132,55 @@ export default function OpenBattleScreen() {
       return;
     }
 
+    const routeInviteUser = route.params.invitedUser;
+    if (routeInviteUser) {
+      const normalizedInviteUser = {
+        id: String(
+          pickFirst(
+            routeInviteUser?.id,
+            routeInviteUser?._id,
+            routeInviteUser?.userId,
+            route.params.invitedUserId,
+            '',
+          ),
+        ),
+        name: pickFirst(
+          routeInviteUser?.name,
+          routeInviteUser?.displayName,
+          routeInviteUser?.fullName,
+          routeInviteUser?.userName,
+          'User',
+        ),
+        userName: pickFirst(
+          routeInviteUser?.userName,
+          routeInviteUser?.username,
+          '',
+        ),
+        avatar: pickFirst(
+          routeInviteUser?.avatar,
+          routeInviteUser?.image,
+          routeInviteUser?.profilePicture,
+          '',
+        ),
+      };
+
+      if (normalizedInviteUser.id) {
+        setSelectedInviteUser(normalizedInviteUser);
+        setInviteSearchText(
+          normalizedInviteUser.userName
+            ? `@${normalizedInviteUser.userName}`
+            : normalizedInviteUser.name,
+        );
+      }
+    }
+
     setForm(prev => ({
       ...prev,
       format: route.params.presetFormat || prev.format,
-      invitedUserId: route.params.invitedUserId || prev.invitedUserId,
+      invitedUserId:
+        route.params.invitedUserId ||
+        route.params.invitedUser?.id ||
+        prev.invitedUserId,
     }));
   }, [route?.params]);
 
@@ -454,7 +499,8 @@ export default function OpenBattleScreen() {
     <SafeAreaView style={[styles.container, bgStyle]}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
       >
         <View style={styles.header}>
           <TouchableOpacity
@@ -505,10 +551,10 @@ export default function OpenBattleScreen() {
                 const Wrapper = isSelected ? LinearGradient : View;
                 const wrapperProps = isSelected
                   ? {
-                      colors: PRIMARY_GRADIENT,
-                      start: { x: 0, y: 0 },
-                      end: { x: 1, y: 0 },
-                    }
+                    colors: PRIMARY_GRADIENT,
+                    start: { x: 0, y: 0 },
+                    end: { x: 1, y: 0 },
+                  }
                   : {};
 
                 return (
@@ -561,10 +607,10 @@ export default function OpenBattleScreen() {
                 const Wrapper = isSelected ? LinearGradient : View;
                 const wrapperProps = isSelected
                   ? {
-                      colors: PRIMARY_GRADIENT,
-                      start: { x: 0, y: 0 },
-                      end: { x: 1, y: 0 },
-                    }
+                    colors: PRIMARY_GRADIENT,
+                    start: { x: 0, y: 0 },
+                    end: { x: 1, y: 0 },
+                  }
                   : {};
 
                 return (
@@ -803,8 +849,8 @@ export default function OpenBattleScreen() {
                             color: !label
                               ? '#9CA3AF'
                               : selected
-                              ? '#6D28D9'
-                              : text,
+                                ? '#6D28D9'
+                                : text,
                           },
                         ]}
                       >

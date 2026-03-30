@@ -343,9 +343,8 @@ const ProfilePersonData = ({
       // Add media files
       processedArray.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
-        const fileName = `story_${Date.now()}_${index}.${
-          item.isVideo ? 'mp4' : 'jpg'
-        }`;
+        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'
+          }`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
 
         formData.append('media', {
@@ -778,15 +777,65 @@ const ProfilePersonData = ({
   };
 
   const handleOpenBattlePress = useCallback(() => {
+    if (fromUsersProfile) {
+      navigation.navigate('ProfileMain', { screen: 'OpenBattle' });
+      return;
+    }
+
     navigation.navigate('OpenBattle');
-  }, [navigation]);
+  }, [fromUsersProfile, navigation]);
 
   const handleInviteBattlePress = useCallback(() => {
-    navigation.navigate('OpenBattle', {
+    const invitedUser = {
+      id: String(targetUserId || userData?.id || ''),
+      name:
+        userData?.displayName ||
+        userData?.name ||
+        userData?.fullName ||
+        userData?.userName ||
+        displayName ||
+        'User',
+      userName: userData?.userName || userData?.username || username || '',
+      avatar:
+        userData?.image ||
+        userData?.avatar ||
+        userData?.profilePicture ||
+        profileImage ||
+        '',
+    };
+
+    const params = {
       presetFormat: 'HEAD_TO_HEAD',
-      invitedUserId: String(targetUserId || userData?.id || ''),
-    });
-  }, [navigation, targetUserId, userData?.id]);
+      invitedUserId: invitedUser.id,
+      invitedUser,
+    };
+
+    if (fromUsersProfile) {
+      navigation.navigate('ProfileMain', {
+        screen: 'OpenBattle',
+        params,
+      });
+      return;
+    }
+
+    navigation.navigate('OpenBattle', params);
+  }, [
+    displayName,
+    fromUsersProfile,
+    navigation,
+    profileImage,
+    targetUserId,
+    userData?.avatar,
+    userData?.displayName,
+    userData?.fullName,
+    userData?.id,
+    userData?.image,
+    userData?.name,
+    userData?.profilePicture,
+    userData?.userName,
+    userData?.username,
+    username,
+  ]);
 
   const handleBattleTabPress = useCallback(() => {
     navigation.navigate('ProfileBattleScreen', {
@@ -932,10 +981,10 @@ const ProfilePersonData = ({
   const websiteLink = useMemo(() => {
     return String(
       userData?.website_link ??
-        data?.website_link ??
-        userData?.websiteLink ??
-        data?.websiteLink ??
-        '',
+      data?.website_link ??
+      userData?.websiteLink ??
+      data?.websiteLink ??
+      '',
     ).trim();
   }, [
     userData?.website_link,
@@ -1279,22 +1328,22 @@ const ProfilePersonData = ({
             </TouchableOpacity>
           )}
         </View>
-        {!fromUsersProfile && (
-          <View style={styles.battleActionWrapper}>
-            <TouchableOpacity
-              style={styles.battleBtnWrapper}
-              onPress={handleInviteBattlePress}
-            >
-              <LinearGradient
-                colors={profileActionGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.battleBtn}
-              >
-                <Text style={styles.battleBtnText}>Invite to Battle</Text>
-              </LinearGradient>
-            </TouchableOpacity>
 
+        <View style={styles.battleActionWrapper}>
+          <TouchableOpacity
+            style={styles.battleBtnWrapper}
+            onPress={handleInviteBattlePress}
+          >
+            <LinearGradient
+              colors={profileActionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.battleBtn}
+            >
+              <Text style={styles.battleBtnText}>Invite to Battle</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          {!fromUsersProfile && (
             <TouchableOpacity
               style={styles.battleBtnWrapper}
               onPress={handleOpenBattlePress}
@@ -1308,10 +1357,10 @@ const ProfilePersonData = ({
                 <Text style={styles.battleBtnText}>Open Battle</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </View>
 
-        <View style={[styles.tabContainer, { backgroundColor: `${text}12` }]}>
+        <View style={[styles.tabContainer,]}>
           <TouchableOpacity
             style={[
               styles.tab,
@@ -1550,7 +1599,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1F2937',
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: 2,
     textAlign: 'center',
   },
 
@@ -1582,7 +1631,7 @@ const styles = StyleSheet.create({
   biobox: {
     width: '100%',
     paddingVertical: 6,
-    marginTop: 6,
+    marginTop: 2,
   },
   biotext: {
     fontStyle: 'italic',
@@ -1591,7 +1640,7 @@ const styles = StyleSheet.create({
   },
   bioLinkWrap: {
     marginTop: 2,
-    marginBottom: 6,
+    marginBottom: 2,
   },
   bioLinkText: {
     color: '#1D9BF0',
@@ -1615,7 +1664,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 2,
     marginBottom: 1,
   },
   statItem: {
@@ -1648,7 +1697,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
     marginHorizontal: 6,
-    marginTop: 10,
+    marginTop: 2,
   },
 
   battleBtnWrapper: {
@@ -1698,8 +1747,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
     gap: 8,
-    marginTop: 10,
-    borderRadius: 14,
+    marginTop: 6,
+    // borderRadius: 14,
     padding: 6,
   },
   tab: {

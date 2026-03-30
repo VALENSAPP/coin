@@ -311,7 +311,7 @@ export default function BattleInProgress() {
     () => getStatusTone(battle.status),
     [battle.status],
   );
-  const isPrediction = battle.battleType === 'PREDICTION';
+  const isPrediction = battle.format === "POLL";
   const isHeadToHead = battle.format === 'HEAD_TO_HEAD';
   const resolvedBattleId = String(
     pickFirst(
@@ -365,6 +365,7 @@ export default function BattleInProgress() {
 
       try {
         const response = await getbattle({ params: { battleId } });
+        console.log(response, 'battle detal heree ')
         const rawBattle =
           response?.data?.battle ||
           response?.data?.data ||
@@ -378,8 +379,8 @@ export default function BattleInProgress() {
           Alert.alert(
             'Unable to load battle',
             error?.response?.data?.message ||
-              error?.message ||
-              'Please try again.',
+            error?.message ||
+            'Please try again.',
           );
         }
       } finally {
@@ -407,6 +408,7 @@ export default function BattleInProgress() {
   }, [enforcedOpponentOption]);
 
   const handleVote = async () => {
+    console.log('🔥 Vote button clicked 1');
     const finalBattleId = resolvedBattleId || battleId;
     const finalSelectedOption = String(selectedOption || enforcedOpponentOption);
     const trimmedArgument = argumentText.trim();
@@ -434,37 +436,36 @@ export default function BattleInProgress() {
       );
     });
 
-    const payload = {
-      battleId: finalBattleId,
-      optionId: String(selectedBattleOption?.id || ''),
-      option: finalSelectedOption,
-      side: finalSelectedOption,
-      choice: finalSelectedOption,
-      selectedOption: finalSelectedOption,
-      selectedOptionId: String(selectedBattleOption?.id || ''),
-      argument: trimmedArgument,
-      message: trimmedArgument,
-      reason: trimmedArgument,
-      reasoning: trimmedArgument,
-      comment: trimmedArgument,
-      battleType: battle.battleType,
-      format: battle.format,
-    };
+    let payload;
+    console.log('🔥 Vote button clicked2');
+    if (isPrediction) {
+      payload = {
+        battleId: resolvedBattleId,
+        side: selectedOption, // "Yes" or "No"
+        justification: trimmedArgument || 'No justification provided',
+        sourceUrl: ''// optional (add input later if needed)
+      };
+      console.log('🔥 Vote button clicked4');
+    } else {
+      payload = {
+        battleId: finalBattleId,
+        optionId: String(selectedBattleOption?.id || ''),
+        side: finalSelectedOption,
+        argument: trimmedArgument,
+      };
+    }
 
+    console.log('🔥 Vote button clicked3');
     setSubmittingVote(true);
     try {
       let response;
 
-      try {
-        response = await voteBattle(payload);
-      } catch (error) {
-        if (!isPrediction) {
-          throw error;
-        }
-
+      if (isPrediction) {
         response = await predictBattle(payload);
+      } else {
+        response = await voteBattle(payload);
       }
-console.log(response,'respoen in vote')
+      console.log(response, 'in postr polll')
       if (!isSuccessfulResponse(response)) {
         Alert.alert(
           isPrediction ? 'Prediction not submitted' : 'Vote not submitted',
@@ -528,23 +529,66 @@ console.log(response,'respoen in vote')
     }
   };
 
-  const handleCommentLike = async commentId => {
-    if (!commentId || !battleId) {
-      return;
-    }
+  const handleCommentLike = async (commentId) => {
+    if (!commentId || !battleId) return;
 
     setLikingCommentId(commentId);
+
+    // ✅ 1. Instant UI update (IMPORTANT)
+    setBattle(prevBattle => ({
+      ...prevBattle,
+      comments: prevBattle.comments.map(item => {
+        if (item.id === commentId) {
+          const currentLikes = Number(item.likes || 0);
+
+          return {
+            ...item,
+            isLiked: !item.isLiked,
+            likes: item.isLiked
+              ? currentLikes - 1
+              : currentLikes + 1,
+          };
+        }
+        return item;
+      }),
+    }));
+
     try {
       const response = await commentLike({ battleId, commentId });
+      console.log(response, 'like response');
+
       const success = isSuccessfulResponse(response);
 
-      if (success) {
-        await fetchBattle(true);
+      if (!success) {
+        throw new Error('Like failed');
       }
+
+      // ❌ REMOVE THIS (important)
+      // await fetchBattle(true);
+
     } catch (error) {
+      // ❌ Revert UI if API fails
+      setBattle(prevBattle => ({
+        ...prevBattle,
+        comments: prevBattle.comments.map(item => {
+          if (item.id === commentId) {
+            const currentLikes = Number(item.likes || 0);
+
+            return {
+              ...item,
+              isLiked: !item.isLiked,
+              likes: item.isLiked
+                ? currentLikes - 1
+                : currentLikes + 1,
+            };
+          }
+          return item;
+        }),
+      }));
+
       Alert.alert(
         'Unable to like comment',
-        error?.response?.data?.message || error?.message || 'Please try again.',
+        error?.response?.data?.message || error?.message || 'Please try again.'
       );
     } finally {
       setLikingCommentId('');
@@ -731,7 +775,9 @@ console.log(response,'respoen in vote')
                 const optionSide = String(
                   pickFirst(option?.side, option?.label, ''),
                 );
-                const isSelected = selectedOption === optionSide;
+                const isSelected =
+                  selectedOption === optionSide ||
+                  selectedOption === option.id;
                 return (
                   <TouchableOpacity
                     key={`${battle.id}-${option.id}`}
@@ -740,7 +786,7 @@ console.log(response,'respoen in vote')
                       styles.optionCard,
                       isSelected && styles.optionCardSelected,
                     ]}
-                    onPress={() => setSelectedOption(optionSide)}
+                    onPress={() => setSelectedOption(option.label)}
                   >
                     <View style={styles.optionTopRow}>
                       <Text

@@ -567,21 +567,21 @@ const Settings = () => {
         {/* Login section */}
         <View style={styles.section}>
           <SectionHeader title="Login" />
-          <ActionItem
+          {/* <ActionItem
             title="Add accounts"
             onPress={handleAddAccountPress}
             isDestructive={true}
-          />
+          /> */}
           <ActionItem
             title="Log out"
             onPress={handleLogoutPress}
             isDestructive={true}
           />
-          <ActionItem
+          {/* <ActionItem
             title="Log out all accounts"
             onPress={handleLogoutAllPress}
             isDestructive={true}
-          />
+          /> */}
         </View>
         <RBSheet
           ref={refRBSheet}
