@@ -38,9 +38,11 @@ import {
 } from 'react-native-color-matrix-image-filters';
 import { useAppTheme } from '../../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { downloadMedia, getMediaFilename, isVideoMedia } from '../../../utils/mediaDownload';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { getAllUser } from '../../../services/users';
+import HexAvatar from '../../../components/home/story.js/HexAvatar';
 
 const fonts = [
   { name: 'saffasbom', style: { fontFamily: 'SAlfaSlabOne-Regularystem' } },
@@ -72,6 +74,17 @@ const colors = [
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH - 32;
+
+const FLIP_EMOJI_STICKERS = [
+  '👏', '🔥', '❤️', '😂', '😍', '✨', '💯', '🎉', '👍', '🙌', '💪', '🎵', '⭐', '🙏', '😎', '🥳', '💬', '🎬',
+];
+
+const FLIP_MUSIC_LIBRARY = [
+  { id: 'v1', title: 'Chill Beat', artist: 'Valens' },
+  { id: 'v2', title: 'Energy Pop', artist: 'Valens' },
+  { id: 'v3', title: 'Lo-Fi Dream', artist: 'Valens' },
+  { id: 'none', title: 'Original sound only', artist: 'No track' },
+];
 
 const InstagramPostCreator = () => {
   const navigation = useNavigation();
@@ -122,6 +135,15 @@ const InstagramPostCreator = () => {
   const [videoPaused, setVideoPaused] = useState({});
   const [videoMuted, setVideoMuted] = useState(true);
   const videoRefs = useRef({});
+  const profileAvatarUri = useSelector(state => state.profileImage?.profileImg);
+  const [flipUserName, setFlipUserName] = useState('');
+  const [flipVolumeByIndex, setFlipVolumeByIndex] = useState({});
+  const [flipStickerModal, setFlipStickerModal] = useState(false);
+  const [flipAudioModal, setFlipAudioModal] = useState(false);
+  const [flipTrimModal, setFlipTrimModal] = useState(false);
+  const [flipVolumeModal, setFlipVolumeModal] = useState(false);
+  const [trimStartInput, setTrimStartInput] = useState('0');
+  const [trimEndInput, setTrimEndInput] = useState('');
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
   const toast = useToast();
 
@@ -217,6 +239,15 @@ const InstagramPostCreator = () => {
   useEffect(() => {
     getProfile();
   }, []);
+
+  useEffect(() => {
+    if (!isFlipPost) return;
+    (async () => {
+      const u = await AsyncStorage.getItem('userName');
+      const d = await AsyncStorage.getItem('displayName');
+      setFlipUserName((u || d || '').trim() || 'Creator');
+    })();
+  }, [isFlipPost]);
 
   useEffect(() => {
     const currentMedia = selectedImages[currentImageIndex];
@@ -1022,6 +1053,70 @@ const InstagramPostCreator = () => {
       });
   };
 
+  /** Append more photos/videos (Instagram-style “Add clip”) */
+  const addMoreClips = () => {
+    ImagePicker.openPicker({
+      multiple: true,
+      mediaType: 'any',
+      maxFiles: 10,
+      quality: 0.8,
+    })
+      .then(newItems => {
+        if (!newItems?.length) return;
+        setSelectedImages(prev => {
+          const start = prev.length;
+          const merged = [...prev, ...newItems];
+          setImageEdits(prevEdits => {
+            const next = { ...prevEdits };
+            newItems.forEach((_, i) => {
+              next[start + i] = {
+                textOverlays: [],
+                overlayImages: [],
+                filter: 'none',
+                drawings: null,
+                processedImageUri: null,
+              };
+            });
+            return next;
+          });
+          setVideoPaused(prevPause => {
+            const next = { ...prevPause };
+            newItems.forEach((_, i) => {
+              next[start + i] = true;
+            });
+            return next;
+          });
+          return merged;
+        });
+        showToastMessage(toast, 'success', 'Clips added', 1500);
+      })
+      .catch(() => {});
+  };
+
+  const addStickerEmoji = emoji => {
+    const id = `${Date.now()}_${Math.random()}`;
+    const ch = editorCanvasHeight || IMAGE_SIZE;
+    const newOverlay = {
+      id,
+      text: emoji,
+      fontSize: 52,
+      color: '#fff',
+      fontFamily: 'System',
+      textAlign: 'center',
+      position: { x: Math.max(16, IMAGE_SIZE / 2 - 28), y: Math.max(16, ch / 2 - 28) },
+      highlightColor: 'transparent',
+    };
+    const cur = getCurrentImageEdits();
+    updateCurrentImageEdits({ textOverlays: [...(cur.textOverlays || []), newOverlay] });
+    setFlipStickerModal(false);
+    showToastMessage(toast, 'success', 'Sticker added — drag to place', 1500);
+  };
+
+  const setFlipVolumeForCurrent = vol => {
+    const v = Math.min(1, Math.max(0, vol));
+    setFlipVolumeByIndex(prev => ({ ...prev, [currentImageIndex]: v }));
+  };
+
   const removeOverlay = (id) => {
     const currentEdits = getCurrentImageEdits();
     updateCurrentImageEdits({
@@ -1096,6 +1191,11 @@ const InstagramPostCreator = () => {
             processedUri: processedUri,
             filter: edits.filter,
             isVideo: isVideo,
+            trimStart: edits.trimStart,
+            trimEnd: edits.trimEnd,
+            musicId: edits.musicId,
+            musicTitle: edits.musicTitle,
+            flipVolume: flipVolumeByIndex[index] ?? 1,
             // Convert to plain objects for serialization
             textOverlays: edits.textOverlays.map(overlay => ({
               ...overlay,
@@ -1146,6 +1246,11 @@ const InstagramPostCreator = () => {
                   processedUri: edits.processedImageUri || image.path || image.uri,
                   filter: edits.filter,
                   isVideo: isMediaVideo(image),
+                  trimStart: edits.trimStart,
+                  trimEnd: edits.trimEnd,
+                  musicId: edits.musicId,
+                  musicTitle: edits.musicTitle,
+                  flipVolume: flipVolumeByIndex[index] ?? 1,
                   textOverlays: edits.textOverlays.map(overlay => ({
                     ...overlay,
                     position: overlay.position || { x: 0, y: 0 }
@@ -1237,6 +1342,28 @@ const InstagramPostCreator = () => {
 
     return (
       <View style={styles.imageContainer}>
+        {isFlipPost && selectedImages.length > 0 && (
+          <View style={styles.flipHeaderOverlay} pointerEvents="box-none">
+            <View style={styles.flipHeaderRow}>
+              <HexAvatar
+                uri={profileAvatarUri}
+                size={38}
+                borderWidth={2}
+                borderColor="rgba(255,255,255,0.9)"
+              />
+              <View style={styles.flipHeaderTextCol}>
+                <Text style={styles.flipHeaderTitle}>Your Drops</Text>
+                <Text style={styles.flipHeaderSub} numberOfLines={1}>
+                  {flipUserName || ' '}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.flipSwipeHint}>
+              <Icon name="chevron-up" size={16} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.flipSwipeHintText}>Swipe up to edit</Text>
+            </View>
+          </View>
+        )}
         {selectedImages.length > 0 ? (
           <View style={[styles.mainImageContainer, { height: currentCanvasHeight }]}>
             <ScrollView
@@ -1287,7 +1414,12 @@ const InstagramPostCreator = () => {
                           style={styles.mainImage}
                           resizeMode='cover'
                           paused={videoPaused[index] !== false}
-                          muted={videoMuted}
+                          muted={
+                            isFlipPost
+                              ? (flipVolumeByIndex[index] ?? 1) === 0
+                              : videoMuted
+                          }
+                          volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1}
                           repeat={true}
                           onLoad={(data) => {
                             console.log('Video loaded for index:', index, 'Duration:', data.duration);
@@ -1325,10 +1457,28 @@ const InstagramPostCreator = () => {
                         <View style={styles.videoControls}>
                           <TouchableOpacity
                             style={styles.muteButton}
-                            onPress={() => setVideoMuted(!videoMuted)}
+                            onPress={() => {
+                              if (isFlipPost) {
+                                const v = flipVolumeByIndex[index] ?? 1;
+                                setFlipVolumeByIndex(prev => ({
+                                  ...prev,
+                                  [index]: v === 0 ? 1 : 0,
+                                }));
+                              } else {
+                                setVideoMuted(!videoMuted);
+                              }
+                            }}
                           >
                             <Icon
-                              name={videoMuted ? 'volume-mute' : 'volume-high'}
+                              name={
+                                isFlipPost
+                                  ? (flipVolumeByIndex[index] ?? 1) === 0
+                                    ? 'volume-mute'
+                                    : 'volume-high'
+                                  : videoMuted
+                                    ? 'volume-mute'
+                                    : 'volume-high'
+                              }
                               size={20}
                               color="white"
                             />
@@ -1814,8 +1964,96 @@ const InstagramPostCreator = () => {
     );
   };
 
+  const handleFlipToolPress = async key => {
+    if (key !== 'Effects' && showFilters) {
+      setShowFilters(false);
+    }
+    if (isDrawing) {
+      await captureAndMergeDrawing(true);
+    }
+    switch (key) {
+      case 'Text':
+        setModalVisible2(true);
+        break;
+      case 'Sticker':
+        setFlipStickerModal(true);
+        break;
+      case 'Audio':
+        setFlipAudioModal(true);
+        break;
+      case 'Add':
+        addMoreClips();
+        break;
+      case 'Overlay':
+        setActiveTab('Overlay');
+        bottomSheetRef.current?.open();
+        break;
+      case 'Effects':
+        setShowFilters(prev => !prev);
+        break;
+      case 'Edit':
+        if (isCurrentMediaVideo()) {
+          const ed = getCurrentImageEdits();
+          setTrimStartInput(
+            ed.trimStart != null && ed.trimStart !== undefined ? String(ed.trimStart) : '0',
+          );
+          setTrimEndInput(ed.trimEnd != null && ed.trimEnd !== undefined ? String(ed.trimEnd) : '');
+          setFlipTrimModal(true);
+        } else {
+          showToastMessage(toast, 'default', 'Trim is for video clips', 2000);
+        }
+        break;
+      case 'Vol':
+        setFlipVolumeModal(true);
+        break;
+      case 'Tag':
+        setActiveTab('Tag');
+        bottomSheetRef.current?.open();
+        break;
+      case 'Download':
+        handleDownload();
+        break;
+      default:
+        break;
+    }
+    setActiveTab(key);
+  };
+
+  const flipToolbarItems = [
+    { key: 'Text', icon: 'text-outline', label: 'Text' },
+    { key: 'Sticker', icon: 'happy-outline', label: 'Sticker' },
+    { key: 'Audio', icon: 'musical-notes-outline', label: 'Audio' },
+    { key: 'Add', icon: 'add-circle-outline', label: 'Add clip' },
+    { key: 'Overlay', icon: 'layers-outline', label: 'Overlay' },
+    { key: 'Effects', icon: 'color-filter-outline', label: 'Effects' },
+    { key: 'Edit', icon: 'crop-outline', label: 'Edit' },
+    { key: 'Vol', icon: 'volume-high-outline', label: 'Vol' },
+    { key: 'Tag', icon: 'pricetag-outline', label: 'Tag' },
+    { key: 'Download', icon: 'download-outline', label: 'Download' },
+  ];
+
   const renderEditingTabs = () => (
-    <View style={[styles.editingSection, bgStyle]}>
+    <View style={[styles.editingSection, bgStyle, isFlipPost && styles.editingSectionFlip]}>
+      {isFlipPost ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.flipTabScroll}
+          contentContainerStyle={styles.flipTabScrollContent}
+        >
+          {flipToolbarItems.map(t => (
+            <TouchableOpacity
+              key={t.key}
+              style={styles.flipTabButton}
+              onPress={() => handleFlipToolPress(t.key)}
+              activeOpacity={0.75}
+            >
+              <Icon name={t.icon} size={22} color="#e5e5e5" style={{ marginBottom: 4 }} />
+              <Text style={styles.flipTabLabel}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
       <View style={styles.tabContainer}>
         {[
           { title: 'Text', icon: 'text-outline', disabled: false },
@@ -1902,6 +2140,7 @@ const InstagramPostCreator = () => {
           </TouchableOpacity>
         ))}
       </View>
+      )}
       <RBSheet
         ref={bottomSheetRef}
         closeOnDragDown={true}
@@ -2203,8 +2442,159 @@ const InstagramPostCreator = () => {
         </Modal>
       )}
 
-      <View style={[styles.NextButtonView]}>
-        <TouchableOpacity style={[styles.nextButton, { backgroundColor: profile === 'company' ? '#D3B683' : '#5a2d82', }]} onPress={handleNext}>
+      {/* Instagram-style Flips modals */}
+      <Modal visible={flipStickerModal} transparent animationType="fade" onRequestClose={() => setFlipStickerModal(false)}>
+        <View style={styles.flipStickerModalRoot}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setFlipStickerModal(false)}
+          />
+          <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#1a1a1a' }]}>
+            <Text style={[styles.flipModalTitle, textStyle]}>Stickers</Text>
+            <View style={styles.flipEmojiGrid}>
+              {FLIP_EMOJI_STICKERS.map(emoji => (
+                <TouchableOpacity key={emoji} style={styles.flipEmojiCell} onPress={() => addStickerEmoji(emoji)}>
+                  <Text style={styles.flipEmojiText}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => setFlipStickerModal(false)} style={styles.flipModalClose}>
+              <Text style={{ color: themeText, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={flipAudioModal} transparent animationType="slide" onRequestClose={() => setFlipAudioModal(false)}>
+        <View style={styles.flipModalBackdrop}>
+          <View style={[styles.flipModalSheet, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
+            <Text style={[styles.flipModalTitle, textStyle]}>Sound</Text>
+            <Text style={[styles.flipModalHint, textStyle]}>
+              Pick a style for your Flip. Full mix is applied when your backend supports audio tracks.
+            </Text>
+            {FLIP_MUSIC_LIBRARY.map(track => (
+              <TouchableOpacity
+                key={track.id}
+                style={styles.flipMusicRow}
+                onPress={() => {
+                  updateCurrentImageEdits({ musicId: track.id, musicTitle: track.title });
+                  setFlipAudioModal(false);
+                  showToastMessage(toast, 'success', `Sound: ${track.title}`, 1500);
+                }}
+              >
+                <Icon name="musical-notes" size={20} color={themeText} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[textStyle, { fontWeight: '600' }]}>{track.title}</Text>
+                  <Text style={{ opacity: 0.6, color: '#666' }}>{track.artist}</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setFlipAudioModal(false)} style={styles.flipModalClose}>
+              <Text style={{ color: themeText, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={flipTrimModal} transparent animationType="fade" onRequestClose={() => setFlipTrimModal(false)}>
+        <View style={styles.flipModalBackdrop}>
+          <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
+            <Text style={[styles.flipModalTitle, textStyle]}>Edit video</Text>
+            <Text style={[styles.flipModalHint, textStyle]}>Trim range (seconds). Export uses these values when the server supports trim.</Text>
+            <View style={styles.flipTrimRow}>
+              <Text style={textStyle}>Start</Text>
+              <TextInput
+                style={styles.flipTrimInput}
+                value={trimStartInput}
+                onChangeText={setTrimStartInput}
+                keyboardType="decimal-pad"
+                placeholder="0"
+              />
+            </View>
+            <View style={styles.flipTrimRow}>
+              <Text style={textStyle}>End</Text>
+              <TextInput
+                style={styles.flipTrimInput}
+                value={trimEndInput}
+                onChangeText={setTrimEndInput}
+                keyboardType="decimal-pad"
+                placeholder="optional"
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.flipPrimaryBtn, { backgroundColor: themeText }]}
+              onPress={() => {
+                const start = parseFloat(trimStartInput) || 0;
+                const endRaw = trimEndInput.trim();
+                const end = endRaw === '' ? null : parseFloat(endRaw);
+                updateCurrentImageEdits({ trimStart: start, trimEnd: end });
+                setFlipTrimModal(false);
+                showToastMessage(toast, 'success', 'Trim saved', 1500);
+              }}
+            >
+              <Text style={styles.flipPrimaryBtnText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setFlipTrimModal(false)} style={styles.flipModalClose}>
+              <Text style={{ color: themeText }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={flipVolumeModal} transparent animationType="fade" onRequestClose={() => setFlipVolumeModal(false)}>
+        <View style={styles.flipModalBackdrop}>
+          <View style={[styles.flipModalCard, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
+            <Text style={[styles.flipModalTitle, textStyle]}>Volume</Text>
+            <Text style={[styles.flipModalHint, textStyle]}>Original clip volume for this segment</Text>
+            {[0, 0.25, 0.5, 0.75, 1].map(v => (
+              <TouchableOpacity
+                key={String(v)}
+                style={styles.flipVolRow}
+                onPress={() => {
+                  setFlipVolumeForCurrent(v);
+                  setFlipVolumeModal(false);
+                }}
+              >
+                <Icon
+                  name={v === 0 ? 'volume-mute' : 'volume-high'}
+                  size={22}
+                  color={themeText}
+                />
+                <Text style={[textStyle, { marginLeft: 10, flex: 1 }]}>
+                  {v === 0 ? 'Mute' : `${Math.round(v * 100)}%`}
+                </Text>
+                {(flipVolumeByIndex[currentImageIndex] ?? 1) === v && (
+                  <Icon name="checkmark-circle" size={22} color={themeText} />
+                )}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setFlipVolumeModal(false)} style={styles.flipModalClose}>
+              <Text style={{ color: themeText }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <View style={[styles.NextButtonView, isFlipPost && styles.NextButtonViewFlip]}>
+        {isFlipPost && isCurrentMediaVideo() && (
+          <TouchableOpacity
+            style={styles.flipEditVideoPill}
+            onPress={() => handleFlipToolPress('Edit')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.flipEditVideoPillText}>Edit video</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[
+            styles.nextButton,
+            isFlipPost && styles.nextButtonFlip,
+            { backgroundColor: profile === 'company' ? '#D3B683' : isFlipPost ? '#2d7ff9' : '#5a2d82' },
+          ]}
+          onPress={handleNext}
+        >
           <Text style={styles.nextButtonText}>Next</Text>
           <Text style={styles.nextArrow}>→</Text>
         </TouchableOpacity>
@@ -2531,6 +2921,188 @@ const styles = StyleSheet.create({
     paddingTop: 12,
 
   },
+  editingSectionFlip: {
+    backgroundColor: '#000',
+    paddingBottom: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#2a2a2a',
+  },
+  flipTabScroll: {
+    maxHeight: 104,
+  },
+  flipTabScrollContent: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: 'flex-start',
+  },
+  flipTabButton: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+    minWidth: 54,
+  },
+  flipTabLabel: {
+    color: '#c4c4c4',
+    fontSize: 10,
+    textAlign: 'center',
+  },
+  flipHeaderOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    right: 12,
+    zIndex: 60,
+    elevation: 8,
+  },
+  flipHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flipHeaderTextCol: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  flipHeaderTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  flipHeaderSub: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  flipSwipeHint: {
+    marginTop: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  flipSwipeHintText: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  flipStickerModalRoot: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  flipModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  flipModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 16,
+    padding: 18,
+  },
+  flipModalSheet: {
+    width: '100%',
+    maxWidth: 400,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: 18,
+    maxHeight: '80%',
+  },
+  flipModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  flipModalHint: {
+    fontSize: 12,
+    opacity: 0.75,
+    marginBottom: 12,
+  },
+  flipEmojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  flipEmojiCell: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 6,
+  },
+  flipEmojiText: {
+    fontSize: 32,
+  },
+  flipModalClose: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  flipMusicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e5e5',
+  },
+  flipTrimRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  flipTrimInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 120,
+    fontSize: 16,
+    color: '#111',
+  },
+  flipPrimaryBtn: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  flipPrimaryBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  flipVolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eee',
+  },
+  flipEditVideoPill: {
+    flex: 1,
+    backgroundColor: '#2c2c2e',
+    justifyContent: 'center',
+    borderRadius: 24,
+    marginRight: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  flipEditVideoPillText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 15,
+  },
   tabContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -2741,6 +3313,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  NextButtonViewFlip: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+  },
   nextButton: {
     // backgroundColor: '#5a2d82',
     flexDirection: 'row',
@@ -2748,6 +3325,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderRadius: 8,
+  },
+  nextButtonFlip: {
+    flex: 1,
+    borderRadius: 24,
   },
   nextButtonText: {
     color: '#fff',

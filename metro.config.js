@@ -1,4 +1,8 @@
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+const {writeEnvShim} = require('./scripts/writeEnvShim');
+
+/** Generate `src/shims/env.js` from `.env` before bundling (Metro cannot resolve `@env`). */
+writeEnvShim();
 
 /**
  * Metro configuration
