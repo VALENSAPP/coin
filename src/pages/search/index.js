@@ -122,6 +122,46 @@ const normalizeBattleOptionLabel = (option, index) => {
   );
 };
 
+const buildBattleOptions = battle => {
+  const rawOptions = Array.isArray(battle?.options) ? battle.options : [];
+  const normalizedOptions = rawOptions
+    .map((option, index) => {
+      const label = normalizeBattleOptionLabel(option, index);
+      if (!label) {
+        return null;
+      }
+
+      return {
+        id: String(option?.id || option?._id || label || index),
+        label,
+      };
+    })
+    .filter(Boolean);
+
+  if (normalizedOptions.length > 0) {
+    return normalizedOptions;
+  }
+
+  if (String(battle?.format || '').toUpperCase() === 'HEAD_TO_HEAD') {
+    return [getBattleParticipant(battle, 0), getBattleParticipant(battle, 1)]
+      .map((participant, index) => {
+        const label = pickBattleDisplayText(
+          participant?.name,
+          participant?.userName,
+          `Option ${index + 1}`,
+        );
+
+        return {
+          id: `fallback-${index + 1}`,
+          label,
+        };
+      })
+      .filter(item => item?.label);
+  }
+
+  return [];
+};
+
 const buildBattleFallbackParticipant = (battle, index) => {
   const optionLabel = normalizeBattleOptionLabel(battle?.options?.[index], index);
 
@@ -257,7 +297,7 @@ const mapBattleCard = battle => {
       battle?.question ||
       battle?.headline ||
       'Untitled battle',
-    options: Array.isArray(battle?.options) ? battle.options : [],
+    options: buildBattleOptions(battle),
     isLive: Boolean(
       battle?.isLive ||
         battle?.live ||
@@ -267,6 +307,19 @@ const mapBattleCard = battle => {
     status: battle?.status || '',
     stakeAmount: battle?.stakeAmount ?? battle?.stake ?? 0,
     totalParticipants: battle?._count?.participants ?? 0,
+    totalComments:
+      battle?._count?.comments ??
+      battle?.commentsCount ??
+      battle?.totalComments ??
+      0,
+    totalLikes:
+      battle?._count?.likes ??
+      battle?.likesCount ??
+      battle?.totalLikes ??
+      battle?._count?.votes ??
+      battle?.votesCount ??
+      0,
+    totalVotes: battle?._count?.votes ?? battle?.votesCount ?? 0,
     endTime: battle?.endTime || null,
   };
 };
@@ -285,6 +338,23 @@ const formatBattleDate = value => {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
 
   return `${day}/${month}`;
+};
+
+const formatBattleCount = value => {
+  const count = Number(value || 0);
+  if (!Number.isFinite(count) || count <= 0) {
+    return '0';
+  }
+
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(count >= 10000000 ? 0 : 1)}M`;
+  }
+
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
+  }
+
+  return `${count}`;
 };
 
 /** Mission Progress Bar Component */
@@ -371,6 +441,7 @@ const SearchScreen = () => {
   const [activeExploreTab, setActiveExploreTab] = useState('live');
   const [liveBattles, setLiveBattles] = useState([]);
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
+  const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
 
   const searchTimeoutRef = useRef(null);
   const autoplayTimeoutRef = useRef(null);
@@ -1141,18 +1212,31 @@ const SearchScreen = () => {
     return battleFeedCards.trending || [];
   }, [activeExploreTab, battleFeedCards]);
 
+  const updateSelectedBattleOption = useCallback((battleId, optionLabel) => {
+    if (!battleId || !optionLabel) {
+      return;
+    }
+
+    setSelectedBattleOptions(prev => ({
+      ...prev,
+      [battleId]: optionLabel,
+    }));
+  }, []);
+
   const battleCard = useCallback(
-    battleItem => {
+    (battleItem, selectedOption) => {
       navigation.navigate('ProfileMain', {
         screen: 'BattleInProgress',
         params: {
           battleId: battleItem?.id,
           battle: battleItem,
           entryPoint: 'search',
+          selectedOption:
+            selectedOption || selectedBattleOptions[battleItem?.id] || '',
         },
       });
     },
-    [navigation],
+    [navigation, selectedBattleOptions],
   );
 
   return (
@@ -1262,7 +1346,7 @@ const SearchScreen = () => {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{
                     paddingHorizontal: 12,
-                    paddingBottom: 8,
+                    paddingBottom: 4,
                     gap: 10,
                   }}
                 >
@@ -1323,16 +1407,40 @@ const SearchScreen = () => {
 
                             {item.options?.length > 0 && (
                               <View style={styles.pollOptionsWrap}>
-                                {item.options.slice(0, 3).map(option => (
-                                  <View
-                                    key={`${item.id}-${option}`}
-                                    style={styles.pollOptionChip}
-                                  >
-                                    <Text style={styles.pollOptionText}>
-                                      {option}
-                                    </Text>
-                                  </View>
-                                ))}
+                                {item.options.slice(0, 3).map(option => {
+                                  const optionLabel = option?.label || option;
+                                  const isSelected =
+                                    selectedBattleOptions[item.id] ===
+                                    optionLabel;
+
+                                  return (
+                                    <TouchableOpacity
+                                      key={`${item.id}-${option?.id || optionLabel}`}
+                                      activeOpacity={0.9}
+                                      style={[
+                                        styles.pollOptionChip,
+                                        isSelected &&
+                                          styles.pollOptionChipSelected,
+                                      ]}
+                                      onPress={() =>
+                                        updateSelectedBattleOption(
+                                          item.id,
+                                          optionLabel,
+                                        )
+                                      }
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.pollOptionText,
+                                          isSelected &&
+                                            styles.pollOptionTextSelected,
+                                        ]}
+                                      >
+                                        {optionLabel}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
                               </View>
                             )}
                           </>
@@ -1392,6 +1500,45 @@ const SearchScreen = () => {
                             <Text numberOfLines={2} style={styles.title}>
                               {item.title}
                             </Text>
+
+                            {item.options?.length > 0 && (
+                              <View style={styles.headToHeadOptionsWrap}>
+                                {item.options.slice(0, 2).map(option => {
+                                  const optionLabel = option?.label || option;
+                                  const isSelected =
+                                    selectedBattleOptions[item.id] ===
+                                    optionLabel;
+
+                                  return (
+                                    <TouchableOpacity
+                                      key={`${item.id}-${option?.id || optionLabel}`}
+                                      activeOpacity={0.9}
+                                      style={[
+                                        styles.headToHeadOptionButton,
+                                        isSelected &&
+                                          styles.headToHeadOptionButtonSelected,
+                                      ]}
+                                      onPress={() =>
+                                        updateSelectedBattleOption(
+                                          item.id,
+                                          optionLabel,
+                                        )
+                                      }
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.headToHeadOptionText,
+                                          isSelected &&
+                                            styles.headToHeadOptionTextSelected,
+                                        ]}
+                                      >
+                                        {optionLabel}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            )}
                           </>
                         )}
 
@@ -1404,6 +1551,59 @@ const SearchScreen = () => {
                               Ends date: {formatBattleDate(item.endTime)}
                             </Text>
                           )}
+                        </View>
+
+                        {/* <TouchableOpacity
+                          activeOpacity={0.88}
+                          style={styles.battlePrimaryAction}
+                          onPress={() =>
+                            battleCard(
+                              item,
+                              selectedBattleOptions[item.id] || '',
+                            )
+                          }
+                        >
+                          <Text style={styles.battlePrimaryActionText}>
+                            {item.format === 'HEAD_TO_HEAD'
+                              ? 'Join Battle'
+                              : 'Vote Now'}
+                          </Text>
+                        </TouchableOpacity> */}
+
+                        <View style={styles.battleFooterDivider} />
+                        <View style={styles.battleStatsRow}>
+                          <View style={styles.battleStatItem}>
+                            <Icon
+                              name="people-outline"
+                              size={16}
+                              color="#6B7280"
+                            />
+                            <Text style={styles.battleStatText}>
+                              {formatBattleCount(item.totalParticipants)}
+                            </Text>
+                          </View>
+                          <Text style={styles.battleStatDot}>•</Text>
+                          <View style={styles.battleStatItem}>
+                            <Icon
+                              name="thumbs-up-outline"
+                              size={15}
+                              color="#6B7280"
+                            />
+                            <Text style={styles.battleStatText}>
+                              {formatBattleCount(item.totalLikes)}
+                            </Text>
+                          </View>
+                          <Text style={styles.battleStatDot}>•</Text>
+                          <View style={styles.battleStatItem}>
+                            <Icon
+                              name="chatbox-ellipses-outline"
+                              size={15}
+                              color="#6B7280"
+                            />
+                            <Text style={styles.battleStatText}>
+                              {formatBattleCount(item.totalComments)}
+                            </Text>
+                          </View>
                         </View>
                       </TouchableOpacity>
                     ))

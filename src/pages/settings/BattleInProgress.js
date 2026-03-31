@@ -90,10 +90,47 @@ const normalizeOption = (option, index) => {
   };
 };
 
+const normalizeSideKey = value => String(value || '').trim().toLowerCase();
+
+const buildSideMetrics = entries => {
+  return (Array.isArray(entries) ? entries : []).reduce((acc, entry) => {
+    const key = normalizeSideKey(
+      pickFirst(entry?.side, entry?.label, entry?.option, ''),
+    );
+
+    if (!key) {
+      return acc;
+    }
+
+    if (!acc[key]) {
+      acc[key] = { count: 0, likes: 0 };
+    }
+
+    acc[key].count += 1;
+    acc[key].likes += Number(
+      pickFirst(
+        entry?.likesCount,
+        entry?.likeCount,
+        Array.isArray(entry?.likes) ? entry.likes.length : undefined,
+        0,
+      ),
+    );
+
+    return acc;
+  }, {});
+};
+
 const normalizeComment = (comment, index = 0) => ({
   id: String(pickFirst(comment?.id, comment?._id, index)),
   message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
-  likes: Number(pickFirst(comment?.likes, comment?.likeCount, 0)),
+  likes: Number(
+    pickFirst(
+      comment?.likes,
+      comment?.likeCount,
+      Array.isArray(comment?.likes) ? comment.likes.length : undefined,
+      0,
+    ),
+  ),
   isLiked: Boolean(pickFirst(comment?.isLiked, comment?.likedByMe, false)),
   authorName: pickFirst(
     comment?.user?.name,
@@ -149,32 +186,95 @@ const normalizeBattle = raw => {
   const battleType = String(
     pickFirst(raw?.battleType, raw?.type, 'OPINION'),
   ).toUpperCase();
+  const format = String(pickFirst(raw?.format, 'POLL')).toUpperCase();
+  const participantEntries = Array.isArray(raw?.participants)
+    ? raw.participants
+    : [];
+  const predictionEntries = Array.isArray(raw?.predictions)
+    ? raw.predictions
+    : [];
+  const voteEntries = Array.isArray(raw?.votes) ? raw.votes : [];
+  const sideMetrics = buildSideMetrics(
+    format === 'POLL'
+      ? predictionEntries.length > 0
+        ? predictionEntries
+        : participantEntries
+      : voteEntries.length > 0
+      ? voteEntries
+      : participantEntries,
+  );
   const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
   const fallbackSides = [
     pickFirst(raw?.creatorChoice, raw?.creatorLockedOption, ''),
     pickFirst(raw?.invitedUserChoice, ''),
   ].filter(Boolean);
-  const options = (rawOptions.length > 0 ? rawOptions : fallbackSides).map(
-    normalizeOption,
-  );
+  const derivedSides = Object.keys(sideMetrics);
+  const baseOptions = rawOptions.length > 0 ? rawOptions : fallbackSides;
+  const optionsSource =
+    baseOptions.length > 0 ? baseOptions : derivedSides.length > 0 ? derivedSides : [];
   const comments = (Array.isArray(raw?.comments) ? raw.comments : []).map(
     normalizeComment,
   );
-  const totalVotes =
-    Number(
-      pickFirst(raw?.totalVotes, raw?.votesCount, raw?._count?.votes, 0),
-    ) || options.reduce((sum, option) => sum + Number(option.votes || 0), 0);
+  const options = optionsSource.map((option, index) => {
+    const normalizedOption = normalizeOption(option, index);
+    const sideKey = normalizeSideKey(
+      pickFirst(normalizedOption?.side, normalizedOption?.label, ''),
+    );
+    const metric = sideMetrics[sideKey] || { count: 0, likes: 0 };
+
+    return {
+      ...normalizedOption,
+      votes: Number(
+        pickFirst(normalizedOption?.votes, metric.count, 0),
+      ),
+      likes: Number(
+        pickFirst(normalizedOption?.likes, metric.likes, 0),
+      ),
+    };
+  });
+  const calculatedTotalVotes = options.reduce(
+    (sum, option) => sum + Number(option.votes || 0),
+    0,
+  );
+  const totalVotes = Number(
+    pickFirst(
+      raw?.totalVotes,
+      raw?.votesCount,
+      format === 'HEAD_TO_HEAD' ? raw?._count?.votes : undefined,
+      format === 'POLL' ? raw?._count?.participants : undefined,
+      format === 'POLL' && participantEntries.length > 0
+        ? participantEntries.length
+        : undefined,
+      format === 'POLL' && predictionEntries.length > 0
+        ? predictionEntries.length
+        : undefined,
+      format === 'HEAD_TO_HEAD' && voteEntries.length > 0
+        ? voteEntries.length
+        : undefined,
+      calculatedTotalVotes,
+      0,
+    ),
+  );
+  const normalizedOptions = options.map(option => ({
+    ...option,
+    percentage:
+      totalVotes > 0
+        ? Math.round((Number(option.votes || 0) / totalVotes) * 100)
+        : Number(option.percentage || 0),
+  }));
 
   return {
     id: String(pickFirst(raw?.id, raw?._id, raw?.battleId, '')),
     title: pickFirst(raw?.title, raw?.question, 'Untitled battle'),
     question: pickFirst(raw?.question, raw?.title, 'Untitled battle'),
     description: pickFirst(raw?.description, raw?.caption, ''),
-    format: String(pickFirst(raw?.format, 'POLL')).toUpperCase(),
+    format,
     battleType,
     status,
-    options,
+    options: normalizedOptions,
     totalVotes,
+    primaryCount: totalVotes,
+    primaryCountLabel: format === 'HEAD_TO_HEAD' ? 'votes' : 'participants',
     totalComments: Number(
       pickFirst(raw?.totalComments, raw?._count?.comments, comments.length, 0),
     ),
@@ -284,7 +384,9 @@ export default function BattleInProgress() {
 
   const [currentUserId, setCurrentUserId] = useState('');
   const [battle, setBattle] = useState(() => normalizeBattle(routeBattle));
-  const [selectedOption, setSelectedOption] = useState('');
+  const [selectedOption, setSelectedOption] = useState(
+    () => String(route?.params?.selectedOption || ''),
+  );
   const [argumentText, setArgumentText] = useState('');
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -406,6 +508,13 @@ export default function BattleInProgress() {
       setSelectedOption(enforcedOpponentOption);
     }
   }, [enforcedOpponentOption]);
+
+  useEffect(() => {
+    const routeSelectedOption = String(route?.params?.selectedOption || '');
+    if (routeSelectedOption) {
+      setSelectedOption(routeSelectedOption);
+    }
+  }, [route?.params?.selectedOption]);
 
   const handleVote = async () => {
     console.log('🔥 Vote button clicked 1');
@@ -671,7 +780,9 @@ export default function BattleInProgress() {
           )}
 
           <View style={styles.heroInfoRow}>
-            <Text style={styles.heroInfoText}>{battle.totalVotes} votes</Text>
+            <Text style={styles.heroInfoText}>
+              {battle.primaryCount} {battle.primaryCountLabel}
+            </Text>
             <Text style={styles.heroInfoText}>{battle.stake} cred points</Text>
             <Text style={styles.heroInfoText}>
               {formatBattleTime(battle.endTime)}
@@ -804,7 +915,7 @@ export default function BattleInProgress() {
                         ]}
                       />
                     </View>
-                    <View style={styles.optionMetaRow}>
+                    {/* <View style={styles.optionMetaRow}>
                       <Text style={styles.optionMeta}>
                         {option.votes} votes
                       </Text>
@@ -814,7 +925,7 @@ export default function BattleInProgress() {
                       <Text style={styles.optionMeta}>
                         {option.percentage ? `${option.percentage}%` : 'Open'}
                       </Text>
-                    </View>
+                    </View> */}
                   </TouchableOpacity>
                 );
               },
