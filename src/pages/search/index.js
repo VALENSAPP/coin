@@ -1583,7 +1583,7 @@ const SearchScreen = () => {
                             </Text>
                           </View>
                           <Text style={styles.battleStatDot}>•</Text>
-                          <View style={styles.battleStatItem}>
+                          {/* <View style={styles.battleStatItem}>
                             <Icon
                               name="thumbs-up-outline"
                               size={15}
@@ -1593,7 +1593,7 @@ const SearchScreen = () => {
                               {formatBattleCount(item.totalLikes)}
                             </Text>
                           </View>
-                          <Text style={styles.battleStatDot}>•</Text>
+                          <Text style={styles.battleStatDot}>•</Text> */}
                           <View style={styles.battleStatItem}>
                             <Icon
                               name="chatbox-ellipses-outline"

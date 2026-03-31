@@ -14,12 +14,11 @@ import { useAppTheme } from '../../theme/useApptheme';
 export default function ProfileBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { bgStyle, text } = useAppTheme();
-
+  const { profile, } = route.params || {};
+  const { bgStyle, text } = useAppTheme(profile);
   const viewedUserId = route?.params?.viewedUserId || '';
   const isOwner = Boolean(route?.params?.isOwner);
   const title = route?.params?.title || 'Battle';
-
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <View style={styles.header}>
@@ -37,6 +36,7 @@ export default function ProfileBattleScreen() {
         viewedUserId={String(viewedUserId)}
         isOwner={isOwner}
         openBattleRoute="OpenBattle"
+        profile={profile}
       />
     </SafeAreaView>
   );

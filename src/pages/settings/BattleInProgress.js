@@ -25,8 +25,7 @@ import {
   voteBattle,
 } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
-
-const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0'];
+import { normalizeProfileType } from '../../utils/supportEligibility';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) {
@@ -120,18 +119,80 @@ const buildSideMetrics = entries => {
   }, {});
 };
 
-const normalizeComment = (comment, index = 0) => ({
-  id: String(pickFirst(comment?.id, comment?._id, index)),
-  message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
-  likes: Number(
+const resolveEntityId = (value) => {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+
+  return String(
     pickFirst(
-      comment?.likes,
+      value?.id,
+      value?._id,
+      value?.userId,
+      value?.UserId,
+      value?.user?.id,
+      value?.user?._id,
+      '',
+    ),
+  );
+};
+
+const normalizeLikeCount = (comment) => {
+  if (Array.isArray(comment?.likes)) {
+    return comment.likes.length;
+  }
+
+  const numericCount = Number(
+    pickFirst(
       comment?.likeCount,
-      Array.isArray(comment?.likes) ? comment.likes.length : undefined,
+      comment?.likesCount,
+      comment?._count?.likes,
+      comment?.likes,
       0,
     ),
-  ),
-  isLiked: Boolean(pickFirst(comment?.isLiked, comment?.likedByMe, false)),
+  );
+
+  return Number.isFinite(numericCount) ? numericCount : 0;
+};
+
+const normalizeCommentLikedState = (comment, currentUserId = '') => {
+  const explicitLikeState = pickFirst(
+    comment?.isLiked,
+    comment?.likedByMe,
+    comment?.isLike,
+    comment?.hasLiked,
+    undefined,
+  );
+
+  if (typeof explicitLikeState === 'boolean') {
+    return explicitLikeState;
+  }
+
+  if (typeof explicitLikeState === 'string') {
+    const normalizedValue = explicitLikeState.trim().toLowerCase();
+    if (normalizedValue === 'true') return true;
+    if (normalizedValue === 'false') return false;
+  }
+
+  if (!currentUserId) {
+    return false;
+  }
+
+  const likesList = Array.isArray(comment?.likes)
+    ? comment.likes
+    : Array.isArray(comment?.likedUsers)
+      ? comment.likedUsers
+      : [];
+
+  return likesList.some((entry) => resolveEntityId(entry) === String(currentUserId));
+};
+
+const normalizeComment = (comment, index = 0, currentUserId = '') => ({
+  id: String(pickFirst(comment?.id, comment?._id, index)),
+  message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
+  likes: normalizeLikeCount(comment),
+  isLiked: normalizeCommentLikedState(comment, currentUserId),
   authorName: pickFirst(
     comment?.user?.name,
     comment?.user?.displayName,
@@ -157,7 +218,7 @@ const normalizeComment = (comment, index = 0) => ({
   createdAt: pickFirst(comment?.createdAt, comment?.updatedAt, ''),
 });
 
-const normalizeBattle = raw => {
+const normalizeBattle = (raw, currentUserId = '') => {
   const creatorChoice = pickFirst(
     raw?.creatorChoice,
     raw?.creatorLockedOption,
@@ -200,8 +261,8 @@ const normalizeBattle = raw => {
         ? predictionEntries
         : participantEntries
       : voteEntries.length > 0
-      ? voteEntries
-      : participantEntries,
+        ? voteEntries
+        : participantEntries,
   );
   const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
   const fallbackSides = [
@@ -213,7 +274,7 @@ const normalizeBattle = raw => {
   const optionsSource =
     baseOptions.length > 0 ? baseOptions : derivedSides.length > 0 ? derivedSides : [];
   const comments = (Array.isArray(raw?.comments) ? raw.comments : []).map(
-    normalizeComment,
+    (comment, index) => normalizeComment(comment, index, currentUserId),
   );
   const options = optionsSource.map((option, index) => {
     const normalizedOption = normalizeOption(option, index);
@@ -373,7 +434,9 @@ const isSuccessfulResponse = response =>
 export default function BattleInProgress() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { bgStyle, text, card } = useAppTheme();
+  const { profile, } = route.params || {};
+  const resolvedProfileType = normalizeProfileType(profile);
+  const { bgStyle, textStyle, cardStyle, text, card } = useAppTheme(resolvedProfileType);
   const routeBattle = route?.params?.battle || {};
   const battleId =
     route?.params?.battleId ||
@@ -381,9 +444,8 @@ export default function BattleInProgress() {
     routeBattle._id ||
     routeBattle.battleId ||
     '';
-
   const [currentUserId, setCurrentUserId] = useState('');
-  const [battle, setBattle] = useState(() => normalizeBattle(routeBattle));
+  const [battle, setBattle] = useState(() => normalizeBattle(routeBattle, ''));
   const [selectedOption, setSelectedOption] = useState(
     () => String(route?.params?.selectedOption || ''),
   );
@@ -394,7 +456,6 @@ export default function BattleInProgress() {
   const [submittingVote, setSubmittingVote] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
-
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
     const secondary =
@@ -404,8 +465,12 @@ export default function BattleInProgress() {
       secondary,
       surface: card || '#FFFFFF',
       textMuted: withAlpha(primary, '99'),
-      border: '#ECE7F6',
-      soft: '#F8FAFC',
+      border: withAlpha(primary, '22'),
+      soft: withAlpha(primary, '10'),
+      buttonGradient:
+        primary.toLowerCase() === '#d3b683'
+          ? ['#b8924f', '#D3B683']
+          : ['#513189', '#8f54f7'],
     };
   }, [card, text]);
 
@@ -467,7 +532,8 @@ export default function BattleInProgress() {
 
       try {
         const response = await getbattle({ params: { battleId } });
-        console.log(response, 'battle detal heree ')
+        const storedId = await AsyncStorage.getItem('userId');
+        console.log(storedId, 'battle detal heree ')
         const rawBattle =
           response?.data?.battle ||
           response?.data?.data ||
@@ -475,7 +541,19 @@ export default function BattleInProgress() {
           response?.battle ||
           routeBattle;
 
-        setBattle(normalizeBattle(rawBattle || routeBattle));
+        response?.data?.battle?.comments?.forEach((comment) => {
+          handleCommentLike(comment?.id);
+        });
+
+        //     const updatedBattle = {
+        //   ...rawBattle,
+        //   comments: rawBattle?.comments?.map((comment) => ({
+        //     ...comment,
+        //     isILiked: String(comment?.userId) === String(storedId),
+        //   })) || [],
+        // };
+
+        setBattle(normalizeBattle(rawBattle || routeBattle, currentUserId));
       } catch (error) {
         if (!routeBattle || !Object.keys(routeBattle).length) {
           Alert.alert(
@@ -490,7 +568,7 @@ export default function BattleInProgress() {
         setRefreshing(false);
       }
     },
-    [battleId, routeBattle],
+    [battleId, currentUserId, routeBattle],
   );
 
   useEffect(() => {
@@ -642,19 +720,26 @@ export default function BattleInProgress() {
     if (!commentId || !battleId) return;
 
     setLikingCommentId(commentId);
+    let previousCommentState = null;
 
     // ✅ 1. Instant UI update (IMPORTANT)
     setBattle(prevBattle => ({
       ...prevBattle,
       comments: prevBattle.comments.map(item => {
         if (item.id === commentId) {
-          const currentLikes = Number(item.likes || 0);
+          const currentLikes = Number.isFinite(Number(item.likes))
+            ? Number(item.likes)
+            : 0;
+          previousCommentState = {
+            isLiked: !!item.isLiked,
+            likes: currentLikes,
+          };
 
           return {
             ...item,
             isLiked: !item.isLiked,
             likes: item.isLiked
-              ? currentLikes - 1
+              ? Math.max(currentLikes - 1, 0)
               : currentLikes + 1,
           };
         }
@@ -664,8 +749,7 @@ export default function BattleInProgress() {
 
     try {
       const response = await commentLike({ battleId, commentId });
-      console.log(response, 'like response');
-
+console.log(response,'liek in respoane ')
       const success = isSuccessfulResponse(response);
 
       if (!success) {
@@ -675,20 +759,46 @@ export default function BattleInProgress() {
       // ❌ REMOVE THIS (important)
       // await fetchBattle(true);
 
+      const apiLikedState = pickFirst(
+        response?.data?.liked,
+        response?.data?.data?.liked,
+        response?.liked,
+        undefined,
+      );
+
+      if (typeof apiLikedState === 'boolean') {
+        setBattle(prevBattle => ({
+          ...prevBattle,
+          comments: prevBattle.comments.map(item => {
+            if (item.id !== commentId) return item;
+
+            const baseLikes = previousCommentState?.likes ?? 0;
+            return {
+              ...item,
+              isLiked: apiLikedState,
+              likes:
+                apiLikedState === previousCommentState?.isLiked
+                  ? baseLikes
+                  : apiLikedState
+                    ? baseLikes + 1
+                    : Math.max(baseLikes - 1, 0),
+            };
+          }),
+        }));
+      }
+
+      await fetchBattle(true);
+
     } catch (error) {
       // ❌ Revert UI if API fails
       setBattle(prevBattle => ({
         ...prevBattle,
         comments: prevBattle.comments.map(item => {
           if (item.id === commentId) {
-            const currentLikes = Number(item.likes || 0);
-
             return {
               ...item,
-              isLiked: !item.isLiked,
-              likes: item.isLiked
-                ? currentLikes - 1
-                : currentLikes + 1,
+              isLiked: previousCommentState?.isLiked ?? item.isLiked,
+              likes: previousCommentState?.likes ?? item.likes,
             };
           }
           return item;
@@ -843,38 +953,40 @@ export default function BattleInProgress() {
         <View
           style={[
             styles.infoCard,
-            { backgroundColor: palette.surface, shadowColor: palette.primary },
+            cardStyle,
+            { shadowColor: palette.primary },
           ]}
         >
           <Text style={[styles.sectionTitle, { color: text }]}>
             Winner Logic
           </Text>
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoText, textStyle]}>
             {isPrediction
               ? 'Prediction battles rank the correct result first, with engagement used as support.'
               : 'Opinion battles rank the winner by votes plus likes and argument engagement.'}
           </Text>
           {!!battle.resultValue && (
-            <Text style={styles.resultText}>
+            <Text style={[styles.resultText, textStyle]}>
               Current result signal: {battle.resultValue}
             </Text>
           )}
           {!!battle.winnerName && (
-            <Text style={styles.resultText}>Winner: {battle.winnerName}</Text>
+            <Text style={[styles.resultText, textStyle]}>Winner: {battle.winnerName}</Text>
           )}
         </View>
 
         <View
           style={[
             styles.infoCard,
-            { backgroundColor: palette.surface, shadowColor: palette.primary },
+            cardStyle,
+            { shadowColor: palette.primary },
           ]}
         >
           <Text style={[styles.sectionTitle, { color: text }]}>
             {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
           </Text>
           {isHeadToHead && !!enforcedOpponentOption && (
-            <Text style={styles.sideRuleText}>
+            <Text style={[styles.sideRuleText, textStyle]}>
               The creator already locked {battle.creatorChoice}. You can only
               join on {enforcedOpponentOption}.
             </Text>
@@ -895,7 +1007,12 @@ export default function BattleInProgress() {
                     activeOpacity={0.88}
                     style={[
                       styles.optionCard,
+                      { borderColor: palette.border, backgroundColor: palette.surface },
                       isSelected && styles.optionCardSelected,
+                      isSelected && {
+                        borderColor: palette.primary,
+                        backgroundColor: palette.soft,
+                      },
                     ]}
                     onPress={() => setSelectedOption(option.label)}
                   >
@@ -903,7 +1020,9 @@ export default function BattleInProgress() {
                       <Text
                         style={[
                           styles.optionLabel,
+                          textStyle,
                           isSelected && styles.optionLabelSelected,
+                          isSelected && { color: palette.primary },
                         ]}
                       >
                         {option.label}
@@ -911,7 +1030,12 @@ export default function BattleInProgress() {
                       <View
                         style={[
                           styles.radioDot,
+                          { borderColor: palette.border, backgroundColor: palette.surface },
                           isSelected && styles.radioDotSelected,
+                          isSelected && {
+                            borderColor: palette.primary,
+                            backgroundColor: palette.primary,
+                          },
                         ]}
                       />
                     </View>
@@ -942,7 +1066,12 @@ export default function BattleInProgress() {
             }
             placeholderTextColor="#9CA3AF"
             multiline
-            style={styles.argumentInput}
+            style={[
+              styles.argumentInput,
+              textStyle,
+              cardStyle,
+              { borderColor: palette.border },
+            ]}
           />
 
           <TouchableOpacity
@@ -951,7 +1080,7 @@ export default function BattleInProgress() {
             disabled={submittingVote}
           >
             <LinearGradient
-              colors={PRIMARY_GRADIENT}
+              colors={palette.buttonGradient}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.primaryButton}
@@ -970,7 +1099,8 @@ export default function BattleInProgress() {
         <View
           style={[
             styles.infoCard,
-            { backgroundColor: palette.surface, shadowColor: palette.primary },
+            cardStyle,
+            { shadowColor: palette.primary },
           ]}
         >
           <Text style={[styles.sectionTitle, { color: text }]}>
@@ -983,7 +1113,12 @@ export default function BattleInProgress() {
               placeholder="Add a comment or argument"
               placeholderTextColor="#9CA3AF"
               multiline
-              style={styles.commentInput}
+              style={[
+                styles.commentInput,
+                textStyle,
+                cardStyle,
+                { borderColor: palette.border },
+              ]}
             />
             <TouchableOpacity
               style={[
@@ -1003,7 +1138,13 @@ export default function BattleInProgress() {
 
           {battle.comments.length > 0 ? (
             battle.comments.map(comment => (
-              <View key={comment.id} style={styles.commentCard}>
+              <View
+                key={comment.id}
+                style={[
+                  styles.commentCard,
+                  { backgroundColor: palette.soft, borderColor: palette.border },
+                ]}
+              >
                 <View style={styles.commentHeader}>
                   <View style={styles.commentAuthorRow}>
                     {comment.avatar ? (
@@ -1026,11 +1167,11 @@ export default function BattleInProgress() {
                       </View>
                     )}
                     <View style={styles.commentAuthorTextWrap}>
-                      <Text style={styles.commentAuthorName}>
+                      <Text style={[styles.commentAuthorName, textStyle]}>
                         {comment.authorName}
                       </Text>
                       {!!comment.authorHandle && (
-                        <Text style={styles.commentAuthorHandle}>
+                        <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
                           @{comment.authorHandle}
                         </Text>
                       )}
@@ -1051,17 +1192,17 @@ export default function BattleInProgress() {
                           color={comment.isLiked ? '#E11D48' : '#6B7280'}
                         />
                         <Text style={styles.commentLikeText}>
-                          {comment.likes}
+                          {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
                         </Text>
                       </>
                     )}
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.commentMessage}>{comment.message}</Text>
+                <Text style={[styles.commentMessage, textStyle]}>{comment.message}</Text>
               </View>
             ))
           ) : (
-            <Text style={styles.emptyCommentText}>
+            <Text style={[styles.emptyCommentText, textStyle]}>
               No comments yet. Start the conversation and strengthen your side.
             </Text>
           )}
@@ -1069,12 +1210,17 @@ export default function BattleInProgress() {
 
         <View style={styles.bottomActions}>
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: palette.primary }]}
+            style={[
+              styles.secondaryButton,
+              cardStyle,
+              { borderColor: palette.primary },
+            ]}
             onPress={() =>
               navigation.navigate('BattleResults', {
                 battleId: battle.id || battleId,
                 battle,
                 entryPoint: route?.params?.entryPoint || 'battle_progress',
+                profile: profile
               })
             }
           >
@@ -1086,12 +1232,17 @@ export default function BattleInProgress() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: palette.primary }]}
+            style={[
+              styles.secondaryButton,
+              cardStyle,
+              { borderColor: palette.primary },
+            ]}
             onPress={() =>
               navigation.navigate('BattleReward', {
                 battleId: battle.id || battleId,
                 battle,
                 entryPoint: route?.params?.entryPoint || 'battle_progress',
+                profile: profile
               })
             }
           >
@@ -1144,14 +1295,14 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: 15,
-    width:'100%',
+    width: '100%',
     // maxHeight:250,
     paddingVertical: 5,
     paddingHorizontal: 1,
     marginBottom: '5%',
     // Fix clipping issue on iOS
     overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
-   
+
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -1171,8 +1322,8 @@ const styles = StyleSheet.create({
   },
   heroMetaRight: {
     alignItems: 'flex-end',
-    paddingRight:4,
-    marginRight:6,
+    paddingRight: 4,
+    marginRight: 6,
   },
   heroMetaText: {
     color: '#F3E8FF',
@@ -1184,8 +1335,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     lineHeight: 30,
-    padding:4,
-    marginLeft:6,
+    padding: 4,
+    marginLeft: 6,
   },
   heroDescription: {
     color: '#F5ECFF',
@@ -1198,13 +1349,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginTop: 14,
-    marginBottom:8,
+    marginBottom: 8,
   },
   heroInfoText: {
     color: '#F3E8FF',
     fontSize: 12,
     fontWeight: '700',
-    padding:4
+    padding: 4
   },
   duelRow: {
     flexDirection: 'row',
@@ -1394,6 +1545,7 @@ const styles = StyleSheet.create({
   commentCard: {
     borderRadius: 16,
     backgroundColor: '#F9FAFB',
+    borderWidth: 1,
     padding: 14,
     marginBottom: 10,
   },

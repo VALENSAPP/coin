@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { battleByUserId } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 
-const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0'];
+
 
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
@@ -76,12 +76,17 @@ export default function ProfileBattleHub({
   viewedUserId,
   isOwner = false,
   openBattleRoute = 'OpenBattle',
+  profile
 }) {
   const navigation = useNavigation();
-  const { text, card } = useAppTheme();
+  const { text, card } = useAppTheme(profile);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [battles, setBattles] = useState([]);
+
+  const PRIMARY_GRADIENT =
+    profile === 'user'
+      ? ['#513189bd', '#e54ba0'] : ['#D3B683', '#D3B683'];
 
   const loadBattles = useCallback(async () => {
     if (!viewedUserId) {
@@ -92,7 +97,7 @@ export default function ProfileBattleHub({
     setLoading(true);
     try {
       const response = await battleByUserId({ params: { userId: viewedUserId } });
-      console.log(response,'reposne in battle by use id ')
+      console.log(response, 'reposne in battle by use id ')
       const rawBattles =
         response?.data?.battles ||
         response?.data?.data ||
@@ -134,13 +139,26 @@ export default function ProfileBattleHub({
 
   const openBattle = useCallback(
     battle => {
-      navigation.navigate('BattleInProgress', {
+      const params = {
         battleId: battle.id,
         battle,
         entryPoint: 'profile_battle_tab',
-      });
+        profile,
+      };
+
+      const parentNavigation = navigation.getParent?.();
+
+      if (parentNavigation) {
+        parentNavigation.navigate('ProfileMain', {
+          screen: 'BattleInProgress',
+          params,
+        });
+        return;
+      }
+
+      navigation.navigate('BattleInProgress', params);
     },
-    [navigation],
+    [navigation, profile],
   );
 
   const onRefresh = useCallback(async () => {
@@ -164,7 +182,7 @@ export default function ProfileBattleHub({
         <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
           Battle Performance
         </Text>
-        <Text style={[styles.heroTitle, { color: text }]}>
+        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>
           Compete, predict, and build your Valens reputation.
         </Text>
         <Text style={styles.heroSubtitle}>
@@ -198,7 +216,7 @@ export default function ProfileBattleHub({
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: text }]}>Recent Battles</Text>
+        <Text style={[styles.sectionTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>Recent Battles</Text>
         <Text style={styles.sectionSubtitle}>Open any battle to continue the flow.</Text>
       </View>
 
@@ -263,7 +281,7 @@ export default function ProfileBattleHub({
 const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 20,
-    padding:10
+    padding: 10
   },
   heroCard: {
     borderRadius: 18,
@@ -330,7 +348,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 10,
-    
+
   },
   sectionTitle: {
     fontSize: 16,
@@ -402,7 +420,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 14,
     gap: 8,
-    marginBottom:'10%'
+    marginBottom: '10%'
   },
   footerText: {
     fontSize: 11,
