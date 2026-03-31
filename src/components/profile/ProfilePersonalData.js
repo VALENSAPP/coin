@@ -17,6 +17,11 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
+import { buildStoryMetaPayload } from '../../utils/buildStoryMeta';
+import {
+  appendStoryAudioFiles,
+  prepareStoryClipsAudioForUpload,
+} from '../../utils/storyAudioUpload';
 import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly, Twitter, Tiktok, Linkedin } from '../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
@@ -291,6 +296,8 @@ const ProfilePersonData = ({
 
   const handleComposerDone = async (processedArray) => {
     try {
+      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+
       setComposerVisible(false);
 
       // Prepare FormData for API call
@@ -300,7 +307,7 @@ const ProfilePersonData = ({
       formData.append('caption', '');
 
       // Add media files
-      processedArray.forEach((item, index) => {
+      clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
         const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
@@ -311,6 +318,12 @@ const ProfilePersonData = ({
           name: fileName,
         });
       });
+
+      formData.append(
+        'storyMeta',
+        JSON.stringify(buildStoryMetaPayload(clips)),
+      );
+      await appendStoryAudioFiles(formData, clips);
 
       // Call API to upload story
       const response = await PostStory(formData);
