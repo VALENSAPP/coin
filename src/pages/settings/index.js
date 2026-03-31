@@ -535,7 +535,7 @@ const Settings = () => {
             title="Hide Posts"
             onPress={handleHideStoryPress}
           />
-           <SettingsItem
+           {/* <SettingsItem
             icon="visibility-off"
             title="Battle in progress"
             onPress={handleBattleInProgressPress}
@@ -549,7 +549,7 @@ const Settings = () => {
             icon="visibility-off"
             title="Battle Reward"
             onPress={handleBattleRewardPress}
-          />
+          /> */}
         </View>
 
         {/* More info and support section */}
@@ -567,21 +567,21 @@ const Settings = () => {
         {/* Login section */}
         <View style={styles.section}>
           <SectionHeader title="Login" />
-          <ActionItem
+          {/* <ActionItem
             title="Add accounts"
             onPress={handleAddAccountPress}
             isDestructive={true}
-          />
+          /> */}
           <ActionItem
             title="Log out"
             onPress={handleLogoutPress}
             isDestructive={true}
           />
-          <ActionItem
+          {/* <ActionItem
             title="Log out all accounts"
             onPress={handleLogoutAllPress}
             isDestructive={true}
-          />
+          /> */}
         </View>
         <RBSheet
           ref={refRBSheet}
