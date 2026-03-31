@@ -1928,8 +1928,8 @@ const InstagramPostCreator = () => {
           </TouchableOpacity>
         )}
 
-        {/* Image/Video Thumbnails */}
-        {selectedImages.length > 1 && (
+        {/* Image/Video Thumbnails — clip strip hidden for now */}
+        {/* {selectedImages.length > 1 && (
           <ScrollView
             horizontal
             style={styles.thumbnailScrollView}
@@ -1950,7 +1950,6 @@ const InstagramPostCreator = () => {
                   }}
                   style={styles.thumbnailImage}
                 />
-                {/* Video indicator on thumbnail */}
                 {isMediaVideo(image) && (
                   <View style={styles.thumbnailVideoIndicator}>
                     <Icon name="videocam" size={12} color="white" />
@@ -1959,7 +1958,7 @@ const InstagramPostCreator = () => {
               </TouchableOpacity>
             ))}
           </ScrollView>
-        )}
+        )} */}
       </View>
     );
   };
@@ -1981,9 +1980,10 @@ const InstagramPostCreator = () => {
       case 'Audio':
         setFlipAudioModal(true);
         break;
-      case 'Add':
-        addMoreClips();
-        break;
+      // Add clip — hidden for now
+      // case 'Add':
+      //   addMoreClips();
+      //   break;
       case 'Overlay':
         setActiveTab('Overlay');
         bottomSheetRef.current?.open();
@@ -2000,7 +2000,54 @@ const InstagramPostCreator = () => {
           setTrimEndInput(ed.trimEnd != null && ed.trimEnd !== undefined ? String(ed.trimEnd) : '');
           setFlipTrimModal(true);
         } else {
-          showToastMessage(toast, 'default', 'Trim is for video clips', 2000);
+          const img = selectedImages[currentImageIndex];
+          const pathForCrop = img?.path || img?.uri;
+          if (!pathForCrop) {
+            showToastMessage(toast, 'default', 'Could not open crop for this image.', 2000);
+            break;
+          }
+          try {
+            const cropped = await ImagePicker.openCropper({
+              path: pathForCrop,
+              mediaType: 'photo',
+              cropping: true,
+              freeStyleCropEnabled: true,
+              compressImageQuality: 0.85,
+              cropperActiveWidgetColor: '#4da3ff',
+              cropperStatusBarColor: '#000000',
+              cropperToolbarColor: '#000000',
+              cropperToolbarWidgetColor: '#ffffff',
+              enableRotationGesture: true,
+            });
+            const newUri = cropped.path?.startsWith('file')
+              ? cropped.path
+              : `file://${cropped.path}`;
+            setSelectedImages(prev => {
+              const next = [...prev];
+              const idx = currentImageIndex;
+              next[idx] = {
+                ...next[idx],
+                ...cropped,
+                path: cropped.path,
+                uri: newUri,
+              };
+              return next;
+            });
+            setImageEdits(prev => {
+              const ed = prev[currentImageIndex] || {};
+              return {
+                ...prev,
+                [currentImageIndex]: {
+                  ...ed,
+                  processedImageUri: null,
+                },
+              };
+            });
+          } catch (e) {
+            if (e?.code !== 'E_PICKER_CANCELLED') {
+              showToastMessage(toast, 'danger', e?.message || 'Crop failed', 2000);
+            }
+          }
         }
         break;
       case 'Vol':
@@ -2023,7 +2070,7 @@ const InstagramPostCreator = () => {
     { key: 'Text', icon: 'text-outline', label: 'Text' },
     { key: 'Sticker', icon: 'happy-outline', label: 'Sticker' },
     { key: 'Audio', icon: 'musical-notes-outline', label: 'Audio' },
-    { key: 'Add', icon: 'add-circle-outline', label: 'Add clip' },
+    // { key: 'Add', icon: 'add-circle-outline', label: 'Add clip' },
     { key: 'Overlay', icon: 'layers-outline', label: 'Overlay' },
     { key: 'Effects', icon: 'color-filter-outline', label: 'Effects' },
     { key: 'Edit', icon: 'crop-outline', label: 'Edit' },
