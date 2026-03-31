@@ -240,7 +240,7 @@ export default function ProfileBattleHub({
               )}
 
               <View style={styles.cardFooter}>
-                <Text style={styles.footerText}>{battle.votes} votes</Text>
+                {/* <Text style={styles.footerText}>{battle.votes} votes</Text> */}
                 <Text style={styles.footerText}>{battle.stake} points</Text>
                 <Text style={styles.footerText}>{formatDate(battle.endTime)}</Text>
               </View>
@@ -263,6 +263,7 @@ export default function ProfileBattleHub({
 const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 20,
+    marginBottom:'10%'
   },
   heroCard: {
     borderRadius: 18,

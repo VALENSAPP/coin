@@ -397,7 +397,7 @@ export default StyleSheet.create({
     marginTop: 3,
   },
   card: {
-    width: 260,
+    width: 280,
     borderRadius: 14,
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -485,10 +485,16 @@ export default StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
   },
+  pollOptionChipSelected: {
+    backgroundColor: '#7C3AED',
+  },
   pollOptionText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#4B5563',
+  },
+  pollOptionTextSelected: {
+    color: '#FFFFFF',
   },
 
   topRow: {
@@ -544,6 +550,33 @@ export default StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
+  headToHeadOptionsWrap: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  headToHeadOptionButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  headToHeadOptionButtonSelected: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  headToHeadOptionText: {
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#374151',
+  },
+  headToHeadOptionTextSelected: {
+    color: '#FFFFFF',
+  },
 
   badge: {
     position: 'absolute',
@@ -560,6 +593,47 @@ export default StyleSheet.create({
   battleMetaText: {
     fontSize: 11,
     color: '#6B7280',
+    fontWeight: '700',
+  },
+  battlePrimaryAction: {
+    marginTop: 12,
+    backgroundColor: '#7C3AED',
+    borderRadius: 999,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  battlePrimaryActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  battleFooterDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginTop: 12,
+    marginHorizontal: -10,
+  },
+  battleStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 15,
+  },
+  battleStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  battleStatText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  battleStatDot: {
+    fontSize: 12,
+    color: '#9CA3AF',
     fontWeight: '700',
   },
 
