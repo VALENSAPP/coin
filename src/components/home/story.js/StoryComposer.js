@@ -61,7 +61,7 @@ const TOOLBAR_ITEMS = [
   // Lyrics UI disabled for now — re-enable toolbar + panel + trim block + karaoke overlay below.
   // { key: 'lyrics', icon: 'mic-outline', label: 'Lyrics' },
   { key: 'soundTrim', icon: 'timer-outline', label: 'Sound' },
-  { key: 'addClip', icon: 'add-circle-outline', label: 'Add clip' },
+  // { key: 'addClip', icon: 'add-circle-outline', label: 'Add clip' },
   { key: 'overlay', icon: 'layers-outline', label: 'Overlay' },
   { key: 'filters', icon: 'color-filter-outline', label: 'Effects' },
   { key: 'edit', icon: 'crop-outline', label: 'Edit' },
@@ -292,6 +292,43 @@ const isVideo = asset => {
   );
 };
 
+/**
+ * Gallery + image-crop-picker may return `path` only (no `uri`). Image/Video need a stable `uri`.
+ */
+function normalizeStoryMediaItem(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+  const pathOrUri = raw.uri || raw.path || raw.sourceURL;
+  let uri = pathOrUri;
+  if (typeof uri === 'string') {
+    if (
+      uri.startsWith('file:') ||
+      uri.startsWith('content:') ||
+      uri.startsWith('http:') ||
+      uri.startsWith('https:') ||
+      uri.startsWith('ph://') ||
+      uri.startsWith('asset:')
+    ) {
+      // ok
+    } else if (uri.startsWith('/')) {
+      uri = `file://${uri}`;
+    }
+  }
+  const mime = raw.mime || raw.type;
+  let type = raw.type;
+  if (typeof type === 'string') {
+    type = type.includes('video')
+      ? 'video'
+      : type.includes('image')
+        ? 'image'
+        : type;
+  } else if (typeof mime === 'string') {
+    type = mime.startsWith('video') ? 'video' : 'image';
+  } else {
+    type = isVideo({ ...raw, uri }) ? 'video' : 'image';
+  }
+  return { ...raw, uri, type };
+}
+
 const Draggable = ({
   id,
   initialX = 50,
@@ -392,6 +429,8 @@ export default function StoryComposer({
   const audioTrimPerIndexRef = useRef({});
   const waveformScrollRef = useRef(null);
   const waveformSyncedRef = useRef(false);
+  /** Only load `mediaList` into state when the modal opens — avoids wiping “Add clip” items on parent re-renders. */
+  const storyModalWasOpenRef = useRef(false);
   const [musicEditorPaused, setMusicEditorPaused] = useState(false);
   const musicEditorPausedRef = useRef(false);
   musicEditorPausedRef.current = musicEditorPaused;
@@ -412,7 +451,15 @@ export default function StoryComposer({
   };
 
   useEffect(() => {
-    if (!modalVisible) return;
+    if (!modalVisible) {
+      storyModalWasOpenRef.current = false;
+      return;
+    }
+    const justOpened = !storyModalWasOpenRef.current;
+    storyModalWasOpenRef.current = true;
+    if (!justOpened) return;
+
+    const list = (mediaList || []).map(normalizeStoryMediaItem);
     const f = {},
       s = {},
       t = {},
@@ -420,8 +467,8 @@ export default function StoryComposer({
       tr = {},
       v = {},
       atr = {};
-    setMediaItems(mediaList);
-    mediaList.forEach((_, i) => {
+    setMediaItems(list);
+    list.forEach((_, i) => {
       f[i] = 'none';
       s[i] = [];
       t[i] = [];
@@ -784,7 +831,7 @@ export default function StoryComposer({
         const m = mediaItems[i];
         const isVid = isVideo(m);
 
-        let processedUri = m.uri;
+        let processedUri = m.uri || m.path;
         if (!isVid) {
           const ref = canvasRefs.current[i];
           if (ref) {
@@ -823,57 +870,59 @@ export default function StoryComposer({
       const picked = await ImagePicker.openPicker({
         multiple: true,
         mediaType: 'any',
+        maxFiles: 10,
       });
       const picks = Array.isArray(picked) ? picked : [picked];
       if (!picks.length) return;
+      const normalizedPicks = picks.map(normalizeStoryMediaItem);
       setMediaItems(prev => {
-        const next = [...prev, ...picks];
+        const next = [...prev, ...normalizedPicks];
         const base = prev.length;
         setFilterPerIndex(f => {
           const u = { ...f };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = 'none';
           });
           return u;
         });
         setStickersPerIndex(s => {
           const u = { ...s };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = [];
           });
           return u;
         });
         setTextsPerIndex(t => {
           const u = { ...t };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = [];
           });
           return u;
         });
         setAudioPerIndex(a => {
           const u = { ...a };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = 'original';
           });
           return u;
         });
         setTrimPerIndex(tr => {
           const u = { ...tr };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = { start: 0, end: null };
           });
           return u;
         });
         setVolumePerIndex(v => {
           const u = { ...v };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = 1;
           });
           return u;
         });
         setAudioTrimPerIndex(at => {
           const u = { ...at };
-          picks.forEach((_, j) => {
+          normalizedPicks.forEach((_, j) => {
             u[base + j] = { start: 0, end: null };
           });
           return u;
@@ -890,23 +939,56 @@ export default function StoryComposer({
     }
   };
 
-  const openTrimEditor = () => {
-    if (!currentMedia || !isVideo(currentMedia)) {
-      Alert.alert('Edit clip', 'Trim is only available for video clips.');
+  const openTrimEditor = async () => {
+    if (!currentMedia) return;
+
+    if (isVideo(currentMedia)) {
+      closeSheets();
+      const trim = trimPerIndex[index] || { start: 0, end: null };
+      setTrimStartDraft(String(trim.start ?? 0));
+      setTrimEndDraft(trim.end == null ? '' : String(trim.end));
+      setShowTrimModal(true);
       return;
     }
+
+    const pathForCrop = currentMedia.path || currentMedia.uri;
+    if (!pathForCrop) {
+      Alert.alert('Edit', 'Could not open crop for this image.');
+      return;
+    }
+
     closeSheets();
-    const trim = trimPerIndex[index] || { start: 0, end: null };
-    setTrimStartDraft(String(trim.start ?? 0));
-    setTrimEndDraft(trim.end == null ? '' : String(trim.end));
-    setShowTrimModal(true);
+    try {
+      const cropped = await ImagePicker.openCropper({
+        path: pathForCrop,
+        mediaType: 'photo',
+        cropping: true,
+        freeStyleCropEnabled: true,
+        compressImageQuality: 0.85,
+        cropperActiveWidgetColor: '#4da3ff',
+        cropperStatusBarColor: '#000000',
+        cropperToolbarColor: '#000000',
+        cropperToolbarWidgetColor: '#ffffff',
+        enableRotationGesture: true,
+      });
+      const normalized = normalizeStoryMediaItem(cropped);
+      setMediaItems(prev => {
+        const next = [...prev];
+        next[index] = { ...next[index], ...normalized };
+        return next;
+      });
+    } catch (e) {
+      if (e?.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Crop failed', e?.message || String(e));
+      }
+    }
   };
 
   const handleToolPress = key => {
-    if (key === 'addClip') {
-      handleAddClips();
-      return;
-    }
+    // if (key === 'addClip') {
+    //   handleAddClips();
+    //   return;
+    // }
     if (key === 'audio') {
       closeSheets();
       setShowAudioModal(true);
@@ -1312,6 +1394,7 @@ export default function StoryComposer({
           </TouchableOpacity>
         </View>
 
+        <View style={styles.stageColumn}>
         {/* Canvas - Full Screen */}
         <View
           style={styles.canvasOuter}
@@ -1600,83 +1683,50 @@ export default function StoryComposer({
           ))}
         </View>
 
-        {/* Thumbnails / pager */}
-        {mediaItems.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.thumbBar}>
-            {mediaItems.map((m, i) => (
-              <TouchableOpacity
-                key={`thumb_${i}`}
-                onPress={() => setIndex(i)}
-                style={[styles.thumb, index === i && styles.activeThumb]}
-              >
-                <Image source={{ uri: m.uri }} style={styles.thumbImg} />
-                {isVideo(m) && (
-                  <View style={styles.videoBadge}>
-                    <Icon name="videocam" size={12} color="#fff" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-
-        <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
-          <TouchableOpacity
-            style={styles.musicStrip}
-            onPress={openAudioPicker}
-            activeOpacity={0.7}
-          >
-            <View style={styles.musicStripIconWrap}>
-              <Icon name="musical-notes" size={22} color="#4da3ff" />
-            </View>
-            <View style={styles.musicStripTextCol}>
-              <Text style={styles.musicStripLabel}>Music</Text>
-              <Text style={styles.musicStripValue} numberOfLines={1}>
-                {getAudioTitle(audioSel)}
-              </Text>
-              <Text style={styles.musicStripHint} numberOfLines={1}>
-                {getAudioSubtitle(audioSel) ||
-                  (useLibraryMusic && hasLibraryMusicPlayback
-                    ? 'Preview playing · Tap to change'
-                    : 'Search songs or pick a quick track')}
+        {/* Clips strip — hidden for now (thumbnails + add) */}
+        {/* {mediaItems.length > 0 && (
+          <View style={styles.clipStripContainer}>
+            <View style={styles.clipStripHeader}>
+              <Text style={styles.clipStripTitle}>Clips</Text>
+              <Text style={styles.clipStripCount}>
+                {index + 1} / {mediaItems.length}
               </Text>
             </View>
-            <Icon name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={styles.toolbarScroll}
-          >
-            {TOOLBAR_ITEMS.map(item => {
-              const active =
-                activeTab === item.key ||
-                (showAudioModal && item.key === 'audio') ||
-                (showTrimModal && item.key === 'edit') ||
-                (showVolumeModal && item.key === 'volume') ||
-                (showAudioTrimModal && item.key === 'soundTrim');
-              return (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbScrollContent}
+              style={styles.thumbBar}>
+              {mediaItems.map((m, i) => (
                 <TouchableOpacity
-                  key={item.key}
-                  style={[styles.tabBtn, active && styles.tabBtnActive]}
-                  onPress={() => handleToolPress(item.key)}
-                  activeOpacity={0.75}
+                  key={`thumb_${m.uri || m.path || i}`}
+                  onPress={() => setIndex(i)}
+                  style={[styles.thumb, index === i && styles.activeThumb]}
                 >
-                  <Icon name={item.icon} size={22} color={active ? '#4da3ff' : '#555'} />
-                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]} numberOfLines={2}>
-                    {item.label}
-                  </Text>
+                  <Image
+                    source={{ uri: m.uri || m.path }}
+                    style={styles.thumbImg}
+                  />
+                  {isVideo(m) && (
+                    <View style={styles.videoBadge}>
+                      <Icon name="videocam" size={12} color="#fff" />
+                    </View>
+                  )}
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+              ))}
+              <TouchableOpacity
+                onPress={handleAddClips}
+                style={[styles.thumb, styles.thumbAdd]}
+                accessibilityLabel="Add another clip"
+                accessibilityRole="button"
+              >
+                <Icon name="add" size={28} color="#4da3ff" />
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )} */}
 
-        {/* Filters panel */}
+        {/* Filters panel — above bottom dock so clip thumbnails are not covered */}
         {activeTab === 'filters' && (
           <View style={[styles.bottomTools, bgStyle]}>
             <ScrollView
@@ -1797,6 +1847,61 @@ export default function StoryComposer({
             </KeyboardAvoidingView>
           </TouchableWithoutFeedback>
         )}
+
+        </View>
+
+        <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
+          <TouchableOpacity
+            style={styles.musicStrip}
+            onPress={openAudioPicker}
+            activeOpacity={0.7}
+          >
+            <View style={styles.musicStripIconWrap}>
+              <Icon name="musical-notes" size={22} color="#4da3ff" />
+            </View>
+            <View style={styles.musicStripTextCol}>
+              <Text style={styles.musicStripLabel}>Music</Text>
+              <Text style={styles.musicStripValue} numberOfLines={1}>
+                {getAudioTitle(audioSel)}
+              </Text>
+              <Text style={styles.musicStripHint} numberOfLines={1}>
+                {getAudioSubtitle(audioSel) ||
+                  (useLibraryMusic && hasLibraryMusicPlayback
+                    ? 'Preview playing · Tap to change'
+                    : 'Search songs or pick a quick track')}
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={styles.toolbarScroll}
+          >
+            {TOOLBAR_ITEMS.map(item => {
+              const active =
+                activeTab === item.key ||
+                (showAudioModal && item.key === 'audio') ||
+                (showTrimModal && item.key === 'edit') ||
+                (showVolumeModal && item.key === 'volume') ||
+                (showAudioTrimModal && item.key === 'soundTrim');
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.tabBtn, active && styles.tabBtnActive]}
+                  onPress={() => handleToolPress(item.key)}
+                  activeOpacity={0.75}
+                >
+                  <Icon name={item.icon} size={22} color={active ? '#4da3ff' : '#555'} />
+                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]} numberOfLines={2}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         {/* Bottom Lyrics panel — disabled for now (see TOOLBAR_ITEMS lyrics entry)
         {activeTab === 'lyrics' && (
@@ -2967,31 +3072,36 @@ const styles = StyleSheet.create({
   },
   nextText: { color: '#fff', fontWeight: '700' },
 
+  stageColumn: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+  },
   canvasOuter: {
     flex: 1,
+    minHeight: 0,
     width: SCREEN_WIDTH,
     backgroundColor: '#000',
+    position: 'relative',
   },
 
   imageContainer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    ...StyleSheet.absoluteFillObject,
   },
 
   fullScreenImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    width: '100%',
+    height: '100%',
   },
 
   videoWrap: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
 
   fullScreenVideo: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    width: '100%',
+    height: '100%',
   },
 
   /** Plays library preview MP3; visually hidden but must be non-zero size for decoders. */
@@ -3121,12 +3231,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  thumbBar: {
-    position: 'absolute',
-    bottom: 188,
-    paddingVertical: 8,
+  clipStripContainer: {
     width: '100%',
-    zIndex: 5,
+    flexShrink: 0,
+    paddingTop: 8,
+    paddingBottom: 6,
+    paddingHorizontal: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    zIndex: 6,
+  },
+  clipStripHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  clipStripTitle: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  clipStripCount: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  thumbBar: {
+    paddingVertical: 4,
+    width: '100%',
+  },
+  thumbScrollContent: {
+    paddingHorizontal: 10,
+    alignItems: 'center',
   },
   thumb: {
     width: 56,
@@ -3136,6 +3282,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
     borderWidth: 2,
     borderColor: 'transparent',
+  },
+  thumbAdd: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(77,163,255,0.5)',
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   activeThumb: { borderColor: '#4da3ff' },
   thumbImg: { width: '100%', height: '100%' },
@@ -3188,8 +3342,7 @@ const styles = StyleSheet.create({
   },
 
   tabs: {
-    position: 'absolute',
-    bottom: 0,
+    flexShrink: 0,
     width: '100%',
     minHeight: Platform.OS === 'ios' ? 160 : 150,
     paddingTop: 0,
@@ -3232,13 +3385,14 @@ const styles = StyleSheet.create({
   },
 
   bottomTools: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 176 : 168,
     width: '100%',
+    flexShrink: 0,
     paddingTop: 10,
-    paddingBottom: 30,
-    zIndex: 15,
-    // maxHeight: 750,
+    paddingBottom: 10,
+    paddingHorizontal: 0,
+    zIndex: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   lyricsPanelScroll: {
     maxHeight: SCREEN_HEIGHT * 0.34,
