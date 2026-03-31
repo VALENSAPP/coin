@@ -13,6 +13,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 
 const OPTION_COLORS = ['#F59E0B', '#8B5CF6', '#14B8A6', '#EC4899', '#3B82F6'];
 
@@ -236,7 +237,8 @@ const buildResultData = battle => {
 
 export default function BattleResults({ navigation }) {
   const route = useRoute();
-  const { bgStyle, text, card } = useAppTheme();
+  const resolvedProfileType = normalizeProfileType(route?.params?.profile);
+  const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
   const resultData = useMemo(
     () => buildResultData(route?.params?.battle),
     [route?.params?.battle],

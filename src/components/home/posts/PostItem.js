@@ -299,6 +299,7 @@ function PostItem({
   const route = useRoute();
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [dataFetched, setDataFetched] = useState(false); // To prevent redundant fetches
+  const modalProfileType = normalizeProfileType(userProfile || item?.profile);
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -330,7 +331,6 @@ function PostItem({
               username: person,
             };
           }
-console.log(taggedUsers,'tagged user' )
           return {
             id: person?.id || `tagged-${index}`,
             username: person?.username || person?.userName || 'Unknown User',
@@ -1235,7 +1235,7 @@ console.log(taggedUsers,'tagged user' )
         visible={showBuyersModal}
         onClose={() => setShowBuyersModal(false)}
         buyers={buyerList}
-        profileType={item?.profile}
+        profileType={modalProfileType}
         onUserPress={(id) => {
           setShowBuyersModal(false);
           handleUserProfile(id);

@@ -12,6 +12,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 
 const withAlpha = (hex, alpha) => {
   if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
@@ -65,7 +66,8 @@ const buildRewardData = battle => {
 
 export default function BattleReward({ navigation }) {
   const route = useRoute();
-  const { bgStyle, text, card } = useAppTheme();
+  const resolvedProfileType = normalizeProfileType(route?.params?.profile);
+  const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
   const rewardData = useMemo(
     () => buildRewardData(route?.params?.battle),
     [route?.params?.battle],

@@ -839,6 +839,7 @@ const ProfilePersonData = ({
 
   const handleBattleTabPress = useCallback(() => {
     navigation.navigate('ProfileBattleScreen', {
+      profile: effectiveProfileType || userProfile || userData?.profile || 'user',
       viewedUserId: String(targetUserId || userData?.id || userId || ''),
       isOwner: !fromUsersProfile,
       title: fromUsersProfile
@@ -849,9 +850,12 @@ const ProfilePersonData = ({
     navigation,
     targetUserId,
     userData?.id,
+    userData?.profile,
     userId,
     fromUsersProfile,
     displayName,
+    effectiveProfileType,
+    userProfile,
   ]);
 
   const redirect = () => {

@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getUserCredentials } from '../../services/post';
 import { getAllUser } from '../../services/users';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 
 const normalizeString = (value) =>
   String(value ?? '')
@@ -26,12 +27,15 @@ const normalizeUsername = (value) =>
     .trim()
     .replace(/^@+/, '');
 
+const getAccentColorForProfileType = (value) =>
+  normalizeProfileType(value) === 'user' ? '#5a2d82' : '#D3B683';
+
 export default function BuyersListModal({
   visible,
   onClose,
   buyers = [],
   users,
-  profileType = 'user',
+  profileType,
   onUserPress,
   title,
   enableSearch = true,
@@ -45,9 +49,78 @@ export default function BuyersListModal({
   const { bgStyle, textStyle, cardStyle } = useAppTheme();
   const [query, setQuery] = useState('');
   const listUsers = users || buyers;
-  const usernameCacheRef = useRef(new Map());
-  const pendingUsernameRef = useRef(new Set());
+  const userCacheRef = useRef(new Map());
+  const pendingUserLookupRef = useRef(new Set());
   const [, forceRefresh] = useState(0);
+
+  const getCacheKeys = useCallback((item) => {
+    const idCandidate =
+      item?.id ??
+      item?.userId ??
+      item?.UserId ??
+      item?._id ??
+      item?.user?.id ??
+      item?.user?._id;
+    const usernameCandidate = normalizeUsername(
+      item?.username ?? item?.userName ?? item?.user?.username ?? item?.user?.userName,
+    );
+
+    return {
+      idKey: idCandidate ? `id:${String(idCandidate).trim()}` : null,
+      usernameKey: usernameCandidate ? `username:${usernameCandidate.toLowerCase()}` : null,
+    };
+  }, []);
+
+  const readCachedUser = useCallback((item) => {
+    const { idKey, usernameKey } = getCacheKeys(item);
+    return (
+      (idKey ? userCacheRef.current.get(idKey) : null) ||
+      (usernameKey ? userCacheRef.current.get(usernameKey) : null) ||
+      null
+    );
+  }, [getCacheKeys]);
+
+  const writeCachedUser = useCallback((item) => {
+    const { idKey, usernameKey } = getCacheKeys(item);
+    const cachedUser = {
+      id:
+        item?.id ??
+        item?.userId ??
+        item?.UserId ??
+        item?._id ??
+        item?.user?.id ??
+        item?.user?._id,
+      username:
+        item?.userName ||
+        item?.username ||
+        item?.user?.userName ||
+        item?.user?.username ||
+        '',
+      fullName:
+        item?.fullName ||
+        item?.name ||
+        item?.displayName ||
+        item?.user?.fullName ||
+        item?.user?.name ||
+        '',
+      avatar:
+        item?.image ||
+        item?.avatar ||
+        item?.userImage ||
+        item?.profilePicture ||
+        item?.user?.image ||
+        item?.user?.avatar ||
+        null,
+      profile: item?.profile || item?.user?.profile || 'user',
+    };
+
+    if (idKey) {
+      userCacheRef.current.set(idKey, cachedUser);
+    }
+    if (usernameKey) {
+      userCacheRef.current.set(usernameKey, cachedUser);
+    }
+  }, [getCacheKeys]);
 
   const resolveUserId = useCallback((item) => {
     const idCandidate =
@@ -68,25 +141,25 @@ export default function BuyersListModal({
     const cleanUsername = normalizeUsername(incomingUsername);
     if (!cleanUsername) return null;
 
-    const cacheKey = cleanUsername.toLowerCase();
-    const cached = usernameCacheRef.current.get(cacheKey);
+    const normalizedUsername = cleanUsername.toLowerCase();
+    const cacheKey = `username:${normalizedUsername}`;
+    const cached = userCacheRef.current.get(cacheKey);
     if (cached?.id) return String(cached.id);
 
     try {
       const response = await getAllUser({ userName: cleanUsername });
       const usersPayload = response?.data?.users ?? [];
       const exactMatch = usersPayload.find((candidateUser) =>
-        String(candidateUser?.userName || candidateUser?.username || '').toLowerCase() === cacheKey
+        String(candidateUser?.userName || candidateUser?.username || '').toLowerCase() === normalizedUsername
       );
       const matchedUser = exactMatch || usersPayload[0];
       const resolvedId = matchedUser?.id || matchedUser?._id || matchedUser?.userId || null;
 
       if (resolvedId) {
-        usernameCacheRef.current.set(cacheKey, {
+        writeCachedUser({
+          ...matchedUser,
           id: String(resolvedId),
           username: matchedUser?.userName || matchedUser?.username || cleanUsername,
-          fullName: matchedUser?.fullName || matchedUser?.name || matchedUser?.displayName || '',
-          avatar: matchedUser?.image || matchedUser?.avatar || matchedUser?.userImage || null,
         });
         forceRefresh((tick) => tick + 1);
       }
@@ -95,31 +168,39 @@ export default function BuyersListModal({
     } catch (e) {
       return null;
     }
-  }, []);
+  }, [writeCachedUser]);
 
   useEffect(() => {
     if (!visible) return;
 
-    const candidates = (listUsers || [])
-      .map((entry) => ({
-        id: resolveUserId(entry),
-        username: normalizeUsername(entry?.username),
-        avatar: entry?.avatar,
-        fullName: entry?.fullName,
-      }))
-      .filter((candidate) => !candidate.id && candidate.username && (!candidate.avatar || !candidate.fullName));
+    (listUsers || []).forEach(async (entry) => {
+      const cached = readCachedUser(entry);
+      if (cached?.profile && cached?.avatar && cached?.fullName) return;
 
-    candidates.forEach(({ username }) => {
-      const key = username.toLowerCase();
-      if (usernameCacheRef.current.has(key) || pendingUsernameRef.current.has(key)) return;
-      pendingUsernameRef.current.add(key);
+      const resolvedUserId =
+        resolveUserId(entry) || await resolveProfileUserIdFromUsername(entry?.username);
+      if (!resolvedUserId) return;
 
-      resolveProfileUserIdFromUsername(username)
-        .finally(() => {
-          pendingUsernameRef.current.delete(key);
+      const pendingKey = `profile:${resolvedUserId}`;
+      if (pendingUserLookupRef.current.has(pendingKey)) return;
+      pendingUserLookupRef.current.add(pendingKey);
+
+      try {
+        const res = await getUserCredentials(String(resolvedUserId));
+        const resolvedUser = res?.data?.user || res?.data?.data?.user || res?.data || entry;
+        writeCachedUser({
+          ...resolvedUser,
+          id: String(resolvedUserId),
+          username: resolvedUser?.userName || resolvedUser?.username || entry?.username,
         });
+        forceRefresh((tick) => tick + 1);
+      } catch (e) {
+        // ignore and keep fallback row data
+      } finally {
+        pendingUserLookupRef.current.delete(pendingKey);
+      }
     });
-  }, [listUsers, resolveProfileUserIdFromUsername, resolveUserId, visible]);
+  }, [listUsers, readCachedUser, resolveProfileUserIdFromUsername, resolveUserId, visible, writeCachedUser]);
 
   const handleDefaultNavigateToProfile = useCallback(async (item) => {
     const initialUserId = resolveUserId(item);
@@ -139,11 +220,10 @@ export default function BuyersListModal({
 
     const cacheKey = normalizeUsername(item?.username || resolvedUser?.userName || resolvedUser?.username);
     if (cacheKey) {
-      usernameCacheRef.current.set(cacheKey.toLowerCase(), {
+      writeCachedUser({
+        ...resolvedUser,
         id: String(resolvedUserId),
         username: resolvedUser?.userName || resolvedUser?.username || cacheKey,
-        fullName: resolvedUser?.fullName || resolvedUser?.name || resolvedUser?.displayName || '',
-        avatar: resolvedUser?.image || resolvedUser?.avatar || resolvedUser?.userImage || null,
       });
       forceRefresh((tick) => tick + 1);
     }
@@ -164,7 +244,7 @@ export default function BuyersListModal({
       }
       navigation.navigate('UsersProfile', params);
     }, 150);
-  }, [navigation, onClose, resolveProfileUserIdFromUsername, resolveUserId]);
+  }, [navigation, onClose, resolveProfileUserIdFromUsername, resolveUserId, writeCachedUser]);
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
@@ -175,7 +255,14 @@ export default function BuyersListModal({
     if (!visible) setQuery('');
   }, [visible]);
 
-  const resolvedTitle = title || (profileType === 'user' ? 'Followed by' : 'Supported by');
+  const normalizedProfileType = useMemo(
+    () => normalizeProfileType(profileType),
+    [profileType],
+  );
+
+  const accentColor = normalizedProfileType === 'user' ? '#5a2d82' : '#D3B683';
+
+  const resolvedTitle = title || (normalizedProfileType === 'user' ? 'Followed by' : 'Supported by');
 
   const filteredUsers = useMemo(() => {
     const q = normalizeString(query);
@@ -190,12 +277,15 @@ export default function BuyersListModal({
 
   const renderItem = ({ item }) => {
     const cleanUsername = normalizeUsername(item?.username);
-    const cached = cleanUsername ? usernameCacheRef.current.get(cleanUsername.toLowerCase()) : null;
+    const cached = readCachedUser(item);
     const enrichedItem = cached ? { ...item, ...cached } : item;
 
     const username = enrichedItem?.username || '—';
     const fullName = enrichedItem?.fullName || '';
     const avatarUri = enrichedItem?.avatar;
+    const itemAccentColor = getAccentColorForProfileType(
+      enrichedItem?.profile || item?.profile || profileType,
+    );
     const userId = resolveUserId(enrichedItem);
     const canPress = onUserPress
       ? !!(enrichedItem?.id || enrichedItem?.username || userId)
@@ -227,7 +317,7 @@ export default function BuyersListModal({
         </View>
 
         <View style={styles.userInfo}>
-          <Text style={[styles.username, textStyle]} numberOfLines={1}>
+          <Text style={[styles.username, { color: itemAccentColor }]} numberOfLines={1}>
             {username}
           </Text>
           {!!fullName && (
@@ -261,7 +351,7 @@ export default function BuyersListModal({
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.title, textStyle]}>{resolvedTitle}</Text>
+          <Text style={[styles.title, { color: accentColor }]}>{resolvedTitle}</Text>
           <Text style={styles.countText}>
             {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
           </Text>
@@ -433,7 +523,7 @@ const styles = StyleSheet.create({
   avatarFallbackText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    // color: '#111827',
   },
   userInfo: {
     flex: 1,

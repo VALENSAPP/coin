@@ -68,6 +68,8 @@ const formatDisplayDate = value => {
 export default function OpenBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+ 
+
   const toast = useToast();
   const { bgStyle, text, card } = useAppTheme();
   const [form, setForm] = useState(createInitialForm);
@@ -94,7 +96,6 @@ export default function OpenBattleScreen() {
 
     return filledOptions.find(option => option !== form.creatorChoice) || '';
   }, [filledOptions, form.creatorChoice]);
-
   const formatOptions = useMemo(
     () => [
       {
@@ -499,7 +500,7 @@ export default function OpenBattleScreen() {
     <SafeAreaView style={[styles.container, bgStyle]}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
       >
         <View style={styles.header}>
