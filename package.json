@@ -7,7 +7,8 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "story-audio-server": "node server/story-youtube-audio-clip/index.js"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.4.1",

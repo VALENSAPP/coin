@@ -36,6 +36,31 @@ import {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+/** Draggable music sticker card (matches export clamp size). */
+const MUSIC_STICKER_CARD_W = Math.min(280, SCREEN_WIDTH - 40);
+const MUSIC_STICKER_CARD_H = 56;
+
+function clampMusicBadgePosition(x, y, layout) {
+  const lw = layout?.width || SCREEN_WIDTH;
+  const lh = layout?.height || SCREEN_HEIGHT * 0.65;
+  const maxX = Math.max(0, lw - MUSIC_STICKER_CARD_W);
+  const maxY = Math.max(0, lh - MUSIC_STICKER_CARD_H);
+  return {
+    x: Math.max(0, Math.min(x, maxX)),
+    y: Math.max(0, Math.min(y, maxY)),
+  };
+}
+
+function defaultMusicBadgePosition(layout) {
+  const lw = layout?.width || SCREEN_WIDTH;
+  const lh = layout?.height || SCREEN_HEIGHT * 0.65;
+  return clampMusicBadgePosition(
+    (lw - MUSIC_STICKER_CARD_W) / 2,
+    lh * 0.42,
+    { width: lw, height: lh },
+  );
+}
+
 const WAVE_BAR_STEP = 4;
 
 const FILTERS = [
@@ -120,7 +145,15 @@ const getAudioTitle = a => {
 const getAudioSubtitle = a => {
   if (typeof a === 'object' && a?.artist) return a.artist;
   if (typeof a === 'object' && a?.artistName) return a.artistName;
+  if (typeof a === 'object' && a?.channelTitle) return a.channelTitle;
   return null;
+};
+
+const getMusicStickerSubtitle = a => {
+  const sub = getAudioSubtitle(a);
+  if (sub) return sub;
+  if (typeof a === 'string' && a !== 'original') return 'Quick pick';
+  return '';
 };
 
 /** Full track length for trim UI; builtin MP3 previews may be shorter than timeline. */
@@ -442,6 +475,11 @@ export default function StoryComposer({
   );
   const [waveformScrollX, setWaveformScrollX] = useState(0);
   const [showMusicTrimAdvanced, setShowMusicTrimAdvanced] = useState(false);
+  const [musicBadgePosPerIndex, setMusicBadgePosPerIndex] = useState({});
+  const [canvasLayout, setCanvasLayout] = useState({
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.65,
+  });
 
   const closeSheets = () => {
     setShowAudioModal(false);
@@ -489,6 +527,12 @@ export default function StoryComposer({
     setLyricsError(null);
     setIndex(0);
     videoDurationRef.current = 0;
+    const layout = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.68 };
+    const badgePos = {};
+    list.forEach((_, i) => {
+      badgePos[i] = defaultMusicBadgePosition(layout);
+    });
+    setMusicBadgePosPerIndex(badgePos);
   }, [modalVisible, mediaList]);
 
   /** While Sound trim is open, playback must follow draft start/end (waveform), not saved trim. */
@@ -856,6 +900,7 @@ export default function StoryComposer({
           volume: volumePerIndex[i] ?? 1,
           isVideo: isVid,
           duration: m.duration,
+          musicBadge: musicBadgePosPerIndex[i] || null,
         });
       }
 
@@ -1401,6 +1446,10 @@ export default function StoryComposer({
           ref={ref => {
             if (ref) canvasRefs.current[index] = ref;
           }}
+          onLayout={e => {
+            const { width, height } = e.nativeEvent.layout;
+            setCanvasLayout({ width, height });
+          }}
           collapsable={false}
         >
           {useLibraryMusic && musicPreviewUri && !trimPreviewPaused ? (
@@ -1558,12 +1607,42 @@ export default function StoryComposer({
                 />
               ) : null}
               {useLibraryMusic ? (
-                <View style={styles.musicBadge} pointerEvents="none">
-                  <Icon name="musical-notes" size={14} color="#fff" style={styles.musicBadgeIcon} />
-                  <Text style={styles.musicBadgeText} numberOfLines={1}>
-                    {getAudioTitle(audioSel)}
-                  </Text>
-                </View>
+                <Draggable
+                  key={`music_sticker_${index}`}
+                  initialX={
+                    musicBadgePosPerIndex[index]?.x ??
+                    defaultMusicBadgePosition(canvasLayout).x
+                  }
+                  initialY={
+                    musicBadgePosPerIndex[index]?.y ??
+                    defaultMusicBadgePosition(canvasLayout).y
+                  }
+                  onEnd={(x, y) => {
+                    const p = clampMusicBadgePosition(x, y, canvasLayout);
+                    setMusicBadgePosPerIndex(prev => ({ ...prev, [index]: p }));
+                  }}
+                >
+                  <View style={styles.musicStickerCard}>
+                    {trackArtworkUri ? (
+                      <Image
+                        source={{ uri: trackArtworkUri }}
+                        style={styles.musicStickerArt}
+                      />
+                    ) : (
+                      <View style={styles.musicStickerArtPlaceholder}>
+                        <Icon name="musical-notes" size={22} color="#8e8e93" />
+                      </View>
+                    )}
+                    <View style={styles.musicStickerTexts}>
+                      <Text style={styles.musicStickerTitle} numberOfLines={1}>
+                        {getAudioTitle(audioSel)}
+                      </Text>
+                      <Text style={styles.musicStickerArtist} numberOfLines={1}>
+                        {getMusicStickerSubtitle(audioSel) || ' '}
+                      </Text>
+                    </View>
+                  </View>
+                </Draggable>
               ) : null}
             </View>
           ) : currentMedia ? (
@@ -1616,12 +1695,42 @@ export default function StoryComposer({
                 }}
               />
               {useLibraryMusic ? (
-                <View style={styles.musicBadge} pointerEvents="none">
-                  <Icon name="musical-notes" size={14} color="#fff" style={styles.musicBadgeIcon} />
-                  <Text style={styles.musicBadgeText} numberOfLines={1}>
-                    {getAudioTitle(audioSel)}
-                  </Text>
-                </View>
+                <Draggable
+                  key={`music_sticker_${index}`}
+                  initialX={
+                    musicBadgePosPerIndex[index]?.x ??
+                    defaultMusicBadgePosition(canvasLayout).x
+                  }
+                  initialY={
+                    musicBadgePosPerIndex[index]?.y ??
+                    defaultMusicBadgePosition(canvasLayout).y
+                  }
+                  onEnd={(x, y) => {
+                    const p = clampMusicBadgePosition(x, y, canvasLayout);
+                    setMusicBadgePosPerIndex(prev => ({ ...prev, [index]: p }));
+                  }}
+                >
+                  <View style={styles.musicStickerCard}>
+                    {trackArtworkUri ? (
+                      <Image
+                        source={{ uri: trackArtworkUri }}
+                        style={styles.musicStickerArt}
+                      />
+                    ) : (
+                      <View style={styles.musicStickerArtPlaceholder}>
+                        <Icon name="musical-notes" size={22} color="#8e8e93" />
+                      </View>
+                    )}
+                    <View style={styles.musicStickerTexts}>
+                      <Text style={styles.musicStickerTitle} numberOfLines={1}>
+                        {getAudioTitle(audioSel)}
+                      </Text>
+                      <Text style={styles.musicStickerArtist} numberOfLines={1}>
+                        {getMusicStickerSubtitle(audioSel) || ' '}
+                      </Text>
+                    </View>
+                  </View>
+                </Draggable>
               ) : null}
             </View>
           ) : null}
@@ -2034,13 +2143,11 @@ export default function StoryComposer({
                   <View style={styles.musicSheetInner}>
                     <Text style={styles.sheetTitle}>Music</Text>
                     <Text style={styles.sheetSub}>
-                      Search YouTube music videos (YouTube Data API). Playback uses the embedded
-                      player.
+                      Search songs and choose a track for your story.
                     </Text>
                     {!getYoutubeSearchApiKey() ? (
                       <Text style={styles.sheetApiKeyHint}>
-                        Add YOUTUBE_DATA_API_KEY to your .env file (see .env.example), then
-                        restart Metro.
+                        Song search is currently unavailable. You can still use Quick picks below.
                       </Text>
                     ) : null}
                     <TextInput
@@ -2137,18 +2244,17 @@ export default function StoryComposer({
                               <ActivityIndicator color="#4da3ff" />
                             ) : !getYoutubeSearchApiKey() ? (
                               <Text style={styles.musicEmptyText}>
-                                Set YOUTUBE_DATA_API_KEY in .env to search.
+                                Search is unavailable right now.
                               </Text>
                             ) : (
-                              <Text style={styles.musicEmptyText}>No videos found</Text>
+                              <Text style={styles.musicEmptyText}>No songs found</Text>
                             )}
                           </View>
                         ) : null
                       }
                       ListFooterComponent={
                         <Text style={styles.sheetFootnote}>
-                          Search uses YouTube Data API v3. Follow YouTube Terms of Service for
-                          embedded playback. Story payload includes video metadata for your backend.
+                          Pick a track to add audio to your story. Quick picks work offline-friendly.
                         </Text>
                       }
                     />
@@ -3127,24 +3233,56 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  musicBadge: {
-    position: 'absolute',
-    bottom: 120,
-    alignSelf: 'center',
+  musicStickerCard: {
+    width: MUSIC_STICKER_CARD_W,
+    minHeight: MUSIC_STICKER_CARD_H,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    maxWidth: SCREEN_WIDTH - 48,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    zIndex: 30,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+      },
+      android: { elevation: 8 },
+    }),
   },
-  musicBadgeIcon: { marginRight: 6 },
-  musicBadgeText: {
-    color: '#fff',
+  musicStickerArt: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#eee',
+  },
+  musicStickerArtPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#f2f2f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  musicStickerTexts: {
+    flex: 1,
+    marginLeft: 10,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
+  musicStickerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111',
+  },
+  musicStickerArtist: {
     fontSize: 13,
-    fontWeight: '600',
-    flexShrink: 1,
+    fontWeight: '500',
+    color: '#8e8e93',
+    marginTop: 2,
   },
 
   overlayItem: { position: 'absolute' },
