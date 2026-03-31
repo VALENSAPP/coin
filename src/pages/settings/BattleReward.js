@@ -197,7 +197,7 @@ export default function BattleReward({ navigation }) {
           ))}
         </View>
 
-        <TouchableOpacity activeOpacity={0.88}>
+        <TouchableOpacity activeOpacity={0.88} style={styles.claimButton}>
           <LinearGradient
             colors={[palette.primary, palette.secondary]}
             start={{ x: 0, y: 0.5 }}
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   crownWrap: {
     width: 72,
-    height: 72,
+    height: 80,
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -346,8 +346,10 @@ const styles = StyleSheet.create({
   },
   claimButton: {
     marginTop: 18,
-    borderRadius: 16,
-    paddingVertical: 15,
+    borderRadius: 20,
+    height: 40,
+    width: '100%',
+    justifyContent:'center',
     alignItems: 'center',
     marginBottom: '10%',
   },

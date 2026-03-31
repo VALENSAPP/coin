@@ -1143,9 +1143,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   heroCard: {
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
+    borderRadius: 15,
+    width:'100%',
+    // maxHeight:250,
+    paddingVertical: 5,
+    paddingHorizontal: 1,
+    marginBottom: '5%',
+    // Fix clipping issue on iOS
+    overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
+   
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -1165,6 +1171,8 @@ const styles = StyleSheet.create({
   },
   heroMetaRight: {
     alignItems: 'flex-end',
+    paddingRight:4,
+    marginRight:6,
   },
   heroMetaText: {
     color: '#F3E8FF',
@@ -1176,6 +1184,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     lineHeight: 30,
+    padding:4,
+    marginLeft:6,
   },
   heroDescription: {
     color: '#F5ECFF',
@@ -1188,11 +1198,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginTop: 14,
+    marginBottom:8,
   },
   heroInfoText: {
     color: '#F3E8FF',
     fontSize: 12,
     fontWeight: '700',
+    padding:4
   },
   duelRow: {
     flexDirection: 'row',
