@@ -69,6 +69,8 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
 
   const width = Dimensions.get("window").width;
+  const halfWidth = width / 2;
+  const halfHeight = imageHeight / 2;
 
   const onPinchEvent = Animated.event(
     [
@@ -84,11 +86,14 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
 
   const resetScale = () => {
+    setIsModalVisible(false);
+    setModalImageLoaded(false);
+    onZoomChange?.(false);
     Animated.parallel([
       Animated.spring(scale, {
         toValue: 1,
         useNativeDriver: true,
-        speed: 20,
+        speed: 18,
         bounciness: 0,
       }),
       Animated.spring(translateX, {
@@ -99,11 +104,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         toValue: 0,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setIsModalVisible(false);
-      setModalImageLoaded(false);
-      onZoomChange?.(false);
-    });
+    ]).start();
   };
 
   const onPinchStateChange = ({ nativeEvent }) => {
@@ -120,7 +121,6 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         state === State.CANCELLED ||
         state === State.FAILED)
     ) {
-      onZoomChange?.(false);
       resetScale();
     }
   };
@@ -177,30 +177,34 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
               source={imageSource}
               resizeMode="contain"
               fadeDuration={0}
+              onLoadStart={() => setModalImageLoaded(false)}
+              onLoadEnd={() => setModalImageLoaded(true)}
               style={[
                 styles.fullScreenImage,
                 {
                   width: width,
-                  height: 500,
+                  height: imageHeight,
                   transform: [
-                    { translateX: Animated.subtract(translateX, width / 2) },
-                    { translateY: Animated.subtract(translateY, 250) },
+                    { translateX: Animated.subtract(translateX, halfWidth) },
+                    { translateY: Animated.subtract(translateY, halfHeight) },
                     { scale },
                     {
                       translateX: Animated.multiply(
-                        Animated.subtract(translateX, width / 2),
+                        Animated.subtract(translateX, halfWidth),
                         -1
                       ),
                     },
                     {
                       translateY: Animated.multiply(
-                        Animated.subtract(translateY, 250),
+                        Animated.subtract(translateY, halfHeight),
                         -1
                       ),
                     },
                   ],
                 },
               ]}
+              renderToHardwareTextureAndroid
+              shouldRasterizeIOS
             />
           </PinchGestureHandler>
         </View>

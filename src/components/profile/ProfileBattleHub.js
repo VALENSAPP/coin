@@ -263,7 +263,7 @@ export default function ProfileBattleHub({
 const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 20,
-    marginBottom:'10%'
+    padding:10
   },
   heroCard: {
     borderRadius: 18,

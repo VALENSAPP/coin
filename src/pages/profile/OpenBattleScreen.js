@@ -1061,8 +1061,8 @@ const styles = StyleSheet.create({
   },
   formatCard: {
     borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 5,
+    paddingHorizontal: 5,
     borderWidth: 1,
     minHeight: 82,
   },

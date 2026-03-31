@@ -1559,9 +1559,9 @@ const styles = StyleSheet.create({
 
   // --- Profile ---
   profile: {
-    marginTop: 10,
+    marginTop: 2,
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 2,
   },
   profileView: {
     flexDirection: 'row',
@@ -1717,7 +1717,6 @@ const styles = StyleSheet.create({
 
   battleBtn: {
     flex: 1,
-    // backgroundColor: '#6A5AE0',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
@@ -1725,7 +1724,7 @@ const styles = StyleSheet.create({
         paddingVertical: 0,
       },
       android: {
-        paddingVertical: 12,
+        paddingVertical: 6,
       },
     }),
   },
@@ -1747,13 +1746,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
     gap: 8,
-    marginTop: 6,
-    // borderRadius: 14,
+    marginTop: 2,
     padding: 6,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
