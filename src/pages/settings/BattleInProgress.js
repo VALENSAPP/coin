@@ -351,6 +351,12 @@ const normalizeBattle = (raw, currentUserId = '') => {
       raw?.winningOption,
       '',
     ),
+    winningSide: String(
+      pickFirst(raw?.winningSide, raw?.resultValue, raw?.actualResult, ''),
+    ),
+    winnerUserId: String(
+      pickFirst(raw?.winnerUserId, raw?.winner?.id, raw?.winner?._id, ''),
+    ),
     winnerName: pickFirst(
       raw?.winner?.name,
       raw?.winner?.displayName,
@@ -392,6 +398,10 @@ const normalizeBattle = (raw, currentUserId = '') => {
         '',
       ),
     },
+    predictionCounts:
+      raw?.predictionCounts && typeof raw.predictionCounts === 'object'
+        ? raw.predictionCounts
+        : {},
     comments,
   };
 };
@@ -533,27 +543,26 @@ export default function BattleInProgress() {
       try {
         const response = await getbattle({ params: { battleId } });
         const storedId = await AsyncStorage.getItem('userId');
-        console.log(storedId, 'battle detal heree ')
         const rawBattle =
           response?.data?.battle ||
           response?.data?.data ||
           response?.data ||
           response?.battle ||
           routeBattle;
+          
+        const enrichedBattle = {
+          ...rawBattle,
+          comments: (rawBattle?.comments || []).map((comment) => ({
+            ...comment,
+            isLiked:
+              Array.isArray(comment?.likes) &&
+              comment.likes.some(
+                (like) => String(like?.userId) === String(storedId)
+              ),
+          })),
+        };
 
-        response?.data?.battle?.comments?.forEach((comment) => {
-          handleCommentLike(comment?.id);
-        });
-
-        //     const updatedBattle = {
-        //   ...rawBattle,
-        //   comments: rawBattle?.comments?.map((comment) => ({
-        //     ...comment,
-        //     isILiked: String(comment?.userId) === String(storedId),
-        //   })) || [],
-        // };
-
-        setBattle(normalizeBattle(rawBattle || routeBattle, currentUserId));
+        setBattle(normalizeBattle(enrichedBattle, storedId || currentUserId));
       } catch (error) {
         if (!routeBattle || !Object.keys(routeBattle).length) {
           Alert.alert(
@@ -749,7 +758,7 @@ export default function BattleInProgress() {
 
     try {
       const response = await commentLike({ battleId, commentId });
-console.log(response,'liek in respoane ')
+      console.log(response, 'liek in respoane ')
       const success = isSuccessfulResponse(response);
 
       if (!success) {
@@ -1103,7 +1112,7 @@ console.log(response,'liek in respoane ')
             { shadowColor: palette.primary },
           ]}
         >
-          <Text style={[styles.sectionTitle, { color: text }]}>
+          {/* <Text style={[styles.sectionTitle, { color: text }]}>
             Battle Comments
           </Text>
           <View style={styles.commentComposer}>
@@ -1134,7 +1143,7 @@ console.log(response,'liek in respoane ')
                 <Text style={styles.commentButtonText}>Post</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {battle.comments.length > 0 ? (
             battle.comments.map(comment => (
@@ -1219,6 +1228,9 @@ console.log(response,'liek in respoane ')
               navigation.navigate('BattleResults', {
                 battleId: battle.id || battleId,
                 battle,
+                predictionCounts: battle?.predictionCounts || {},
+                winnerUserId: battle?.winnerUserId || '',
+                winningSide: battle?.winningSide || '',
                 entryPoint: route?.params?.entryPoint || 'battle_progress',
                 profile: profile
               })
@@ -1231,7 +1243,7 @@ console.log(response,'liek in respoane ')
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[
               styles.secondaryButton,
               cardStyle,
@@ -1251,7 +1263,7 @@ console.log(response,'liek in respoane ')
             >
               Cred Points
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </ScrollView>
     </SafeAreaView>
