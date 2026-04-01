@@ -2669,6 +2669,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
 
   igMusicEditorRoot: {
+    
     ...StyleSheet.absoluteFillObject,
     zIndex: 500,
     elevation: 500,
@@ -2686,6 +2687,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
+    marginTop:'10%'
   },
   igHeaderSideLeft: {
     width: 78,
