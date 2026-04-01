@@ -533,27 +533,27 @@ export default function BattleInProgress() {
       try {
         const response = await getbattle({ params: { battleId } });
         const storedId = await AsyncStorage.getItem('userId');
-        console.log(storedId, 'battle detal heree ')
+
         const rawBattle =
           response?.data?.battle ||
           response?.data?.data ||
           response?.data ||
           response?.battle ||
           routeBattle;
+          
+        const enrichedBattle = {
+          ...rawBattle,
+          comments: (rawBattle?.comments || []).map((comment) => ({
+            ...comment,
+            isLiked:
+              Array.isArray(comment?.likes) &&
+              comment.likes.some(
+                (like) => String(like?.userId) === String(storedId)
+              ),
+          })),
+        };
 
-        response?.data?.battle?.comments?.forEach((comment) => {
-          handleCommentLike(comment?.id);
-        });
-
-        //     const updatedBattle = {
-        //   ...rawBattle,
-        //   comments: rawBattle?.comments?.map((comment) => ({
-        //     ...comment,
-        //     isILiked: String(comment?.userId) === String(storedId),
-        //   })) || [],
-        // };
-
-        setBattle(normalizeBattle(rawBattle || routeBattle, currentUserId));
+        setBattle(normalizeBattle(enrichedBattle, storedId || currentUserId));
       } catch (error) {
         if (!routeBattle || !Object.keys(routeBattle).length) {
           Alert.alert(
@@ -749,7 +749,7 @@ export default function BattleInProgress() {
 
     try {
       const response = await commentLike({ battleId, commentId });
-console.log(response,'liek in respoane ')
+      console.log(response, 'liek in respoane ')
       const success = isSuccessfulResponse(response);
 
       if (!success) {
