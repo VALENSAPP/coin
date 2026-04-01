@@ -166,26 +166,26 @@ export default function Main() {
           const currentSession = sessions.find(
             (item) => item.deviceId === deviceId
           );
+          {
+            if (currentSession) {
+              // ✅ Device is valid → stay logged in
+              dispatch(loggedIn());
 
-          if (currentSession) {
-            // ✅ Device is valid → stay logged in
-            dispatch(loggedIn());
+              await ensureCurrentAccountSaved();
 
-            await ensureCurrentAccountSaved();
+              const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
+              if (storedStripeCustomerId) {
+                dispatch(setStripeCustomerId(storedStripeCustomerId));
+              }
 
-            const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
-            if (storedStripeCustomerId) {
-              dispatch(setStripeCustomerId(storedStripeCustomerId));
+            } else {
+              // ❌ Device not found → logout
+              console.log("Session not found, logging out");
+
+              await AsyncStorage.clear();
+              dispatch(loggedOut());
             }
-
-          } else {
-            // ❌ Device not found → logout
-            console.log("Session not found, logging out");
-
-            await AsyncStorage.clear();
-            dispatch(loggedOut());
           }
-
         } else {
           dispatch(loggedOut());
         }
