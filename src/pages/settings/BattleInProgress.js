@@ -392,6 +392,10 @@ const normalizeBattle = (raw, currentUserId = '') => {
         '',
       ),
     },
+    predictionCounts:
+      raw?.predictionCounts && typeof raw.predictionCounts === 'object'
+        ? raw.predictionCounts
+        : {},
     comments,
   };
 };
@@ -1103,7 +1107,7 @@ export default function BattleInProgress() {
             { shadowColor: palette.primary },
           ]}
         >
-          <Text style={[styles.sectionTitle, { color: text }]}>
+          {/* <Text style={[styles.sectionTitle, { color: text }]}>
             Battle Comments
           </Text>
           <View style={styles.commentComposer}>
@@ -1134,7 +1138,7 @@ export default function BattleInProgress() {
                 <Text style={styles.commentButtonText}>Post</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {battle.comments.length > 0 ? (
             battle.comments.map(comment => (
@@ -1219,6 +1223,7 @@ export default function BattleInProgress() {
               navigation.navigate('BattleResults', {
                 battleId: battle.id || battleId,
                 battle,
+                predictionCounts: battle?.predictionCounts || {},
                 entryPoint: route?.params?.entryPoint || 'battle_progress',
                 profile: profile
               })
@@ -1231,7 +1236,7 @@ export default function BattleInProgress() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[
               styles.secondaryButton,
               cardStyle,
@@ -1251,7 +1256,7 @@ export default function BattleInProgress() {
             >
               Cred Points
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </ScrollView>
     </SafeAreaView>
