@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -12,6 +14,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
+import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 
@@ -22,6 +25,30 @@ const withAlpha = (hex, alpha) => {
   return hex;
 };
 
+const normalizeCountKey = value => String(value || '').trim().toLowerCase();
+
+const findCountByFlexibleKey = (countsMap, rawLabel) => {
+  const normalizedLabel = normalizeCountKey(rawLabel);
+
+  if (!normalizedLabel) {
+    return undefined;
+  }
+
+  if (countsMap?.[normalizedLabel] !== undefined) {
+    return countsMap[normalizedLabel];
+  }
+
+  const entries = Object.entries(countsMap || {});
+  const partialMatch = entries.find(([key]) => {
+    return (
+      key.includes(normalizedLabel) ||
+      normalizedLabel.includes(key)
+    );
+  });
+
+  return partialMatch ? partialMatch[1] : undefined;
+};
+
 export default function BattleResults({ navigation }) {
   const route = useRoute();
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
@@ -29,8 +56,13 @@ export default function BattleResults({ navigation }) {
   const { battle = {} } = route.params || {};
   const predictionCounts =
     route?.params?.predictionCounts || battle?.predictionCounts || {};
+  const winnerUserId =
+    route?.params?.winnerUserId || battle?.winnerUserId || '';
+  const winningSide =
+    route?.params?.winningSide || battle?.winningSide || '';
   const optionVoteCount = route?.params?.optionVoteCount || battle?.optionVoteCount || {};
-console.log(predictionCounts,'prdiction count')
+  const [winnerProfile, setWinnerProfile] = useState(null);
+  const [winnerLoading, setWinnerLoading] = useState(false);
   const title = battle.title || 'Battle';
   const description = battle.question || '';
   const endedAt = battle.endTime || '';
@@ -40,21 +72,34 @@ console.log(predictionCounts,'prdiction count')
   const options = battle.options || [];
   const comments = battle.comments || [];
   const status = battle.status || 'LIVE';
+  const normalizedStatus = String(status || '').trim().toUpperCase();
   const participants = battle.primaryCount || 0;
-
-  const getPercent = votes => {
-    if (!totalVotes) return 0;
-    return Math.round((votes / totalVotes) * 100);
-  };
+  const normalizedPredictionCounts = useMemo(() => {
+    return Object.entries(predictionCounts || {}).reduce((acc, [key, value]) => {
+      acc[normalizeCountKey(key)] = Number(value) || 0;
+      return acc;
+    }, {});
+  }, [predictionCounts]);
+  const normalizedOptionVoteCount = useMemo(() => {
+    return Object.entries(optionVoteCount || {}).reduce((acc, [key, value]) => {
+      acc[normalizeCountKey(key)] = Number(value) || 0;
+      return acc;
+    }, {});
+  }, [optionVoteCount]);
   const getOptionVotes = item => {
-    const labelKey = String(item?.label || '');
-    const predictionMappedVotes = predictionCounts?.[labelKey];
+    const predictionMappedVotes = findCountByFlexibleKey(
+      normalizedPredictionCounts,
+      item?.label,
+    );
 
     if (predictionMappedVotes !== undefined && predictionMappedVotes !== null) {
       return Number(predictionMappedVotes) || 0;
     }
 
-    const mappedVotes = optionVoteCount?.[labelKey];
+    const mappedVotes = findCountByFlexibleKey(
+      normalizedOptionVoteCount,
+      item?.label,
+    );
 
     if (mappedVotes !== undefined && mappedVotes !== null) {
       return Number(mappedVotes) || 0;
@@ -62,8 +107,34 @@ console.log(predictionCounts,'prdiction count')
 
     return Number(item?.votes || 0);
   };
+  const derivedPredictionTotal = useMemo(
+    () =>
+      Object.values(predictionCounts || {}).reduce(
+        (sum, value) => sum + (Number(value) || 0),
+        0,
+      ),
+    [predictionCounts],
+  );
+  const derivedOptionVoteTotal = useMemo(
+    () => options.reduce((sum, item) => sum + getOptionVotes(item), 0),
+    [options, normalizedPredictionCounts, normalizedOptionVoteCount],
+  );
+  const resolvedTotalVotes = Math.max(
+    Number(totalVotes) || 0,
+    derivedPredictionTotal,
+    derivedOptionVoteTotal,
+  );
+  const getPercent = votes => {
+    if (!resolvedTotalVotes) return 0;
+    return Math.round((votes / resolvedTotalVotes) * 100);
+  };
 
-  const winnerText = status === 'LIVE' ? 'Battle Ongoing' : 'Battle Closed';
+  const winnerText =
+    normalizedStatus === 'RESOLVED'
+      ? 'Winner Declared'
+      : normalizedStatus === 'LIVE'
+        ? 'Battle Ongoing'
+        : 'Battle Closed';
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
     const secondary =
@@ -81,6 +152,63 @@ console.log(predictionCounts,'prdiction count')
       track: withAlpha(primary, '18'),
     };
   }, [card, text]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadWinnerProfile = async () => {
+      if (!winnerUserId) {
+        if (active) {
+          setWinnerProfile(null);
+        }
+        return;
+      }
+
+      setWinnerLoading(true);
+      try {
+        const response = await getUserCredentials(winnerUserId);
+        const user =
+          response?.data?.user ||
+          response?.data?.data ||
+          response?.data ||
+          {};
+
+        if (!active) {
+          return;
+        }
+
+        setWinnerProfile({
+          name:
+            user?.name ||
+            user?.fullName ||
+            user?.displayName ||
+            user?.userName ||
+            user?.username ||
+            'Winning User',
+          image:
+            user?.image ||
+            user?.avatar ||
+            user?.profilePic ||
+            user?.profilePicture ||
+            '',
+        });
+      } catch (_error) {
+        if (active) {
+          setWinnerProfile(null);
+        }
+      } finally {
+        if (active) {
+          setWinnerLoading(false);
+        }
+      }
+    };
+
+    loadWinnerProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [winnerUserId]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -112,6 +240,61 @@ console.log(predictionCounts,'prdiction count')
             {description}
           </Text>
         )}
+        {status === "RESOLVED" &&
+          (winnerUserId || winnerLoading || winnerProfile) && (
+            <View
+              style={[
+                styles.winnerProfileCard,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.softBorder,
+                  shadowColor: palette.primary,
+                },
+              ]}
+            >
+              <View style={styles.winnerProfileRow}>
+                {winnerLoading ? (
+                  <View
+                    style={[
+                      styles.winnerAvatarFallback,
+                      { backgroundColor: palette.soft },
+                    ]}
+                  >
+                    <ActivityIndicator size="small" color={palette.primary} />
+                  </View>
+                ) : (
+                  <Image
+                    source={
+                      winnerProfile?.image
+                        ? { uri: winnerProfile.image }
+                        : require('../../assets/icons/pngicons/user.png')
+                    }
+                    defaultSource={require('../../assets/icons/pngicons/user.png')}
+                    style={styles.winnerAvatar}
+                  />
+                )}
+
+                <View style={styles.winnerProfileTextWrap}>
+                  <Text
+                    style={[styles.winnerProfileLabel, { color: palette.muted }]}
+                  >
+                    Winning User
+                  </Text>
+                  <Text style={[styles.winnerProfileName, { color: text }]}>
+                    {winnerProfile?.name || 'Winning User'}
+                  </Text>
+
+                  {!!winningSide && (
+                    <Text
+                      style={[styles.winnerProfileMeta, { color: palette.muted }]}
+                    >
+                      Side: {winningSide}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+          )}
 
         <LinearGradient
           colors={[palette.secondary, palette.primary, palette.secondary]}
@@ -136,6 +319,21 @@ console.log(predictionCounts,'prdiction count')
 
           <Text style={styles.winner}>{winnerText}</Text>
           <Text style={styles.sub}>{participants} participants</Text>
+          {status === "RESOLVED" && (
+            <>
+              {winningSide && (
+                <Text style={styles.sub}>
+                  Winning side: {winningSide}
+                </Text>
+              )}
+
+              {winnerUserId && (
+                <Text style={styles.sub}>
+                  Winner user: {String(winnerUserId).slice(0, 8)}
+                </Text>
+              )}
+            </>
+          )}
 
           <View style={styles.statsRow}>
             <View style={styles.statChip}>
@@ -188,35 +386,35 @@ console.log(predictionCounts,'prdiction count')
 
                 return (
                   <>
-              <View style={styles.optionRow}>
-                <Text style={[styles.optionTitle, { color: text }]}>
-                  {item.label}
-                </Text>
-                <Text style={[styles.optionPercent, { color: text }]}>
-                  {percent}%
-                </Text>
-              </View>
+                    <View style={styles.optionRow}>
+                      <Text style={[styles.optionTitle, { color: text }]}>
+                        {item.label}
+                      </Text>
+                      <Text style={[styles.optionPercent, { color: text }]}>
+                        {percent}%
+                      </Text>
+                    </View>
 
-              <Text style={[styles.metaText, { color: palette.muted }]}>
-                {voteTotal} votes
-              </Text>
+                    <Text style={[styles.metaText, { color: palette.muted }]}>
+                      {voteTotal} votes
+                    </Text>
 
-              <View
-                style={[styles.progressBg, { backgroundColor: palette.track }]}
-              >
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      backgroundColor: palette.primary,
-                      width: `${Math.min(
-                        Math.max(percent, voteTotal > 0 ? 8 : 0),
-                        100,
-                      )}%`,
-                    },
-                  ]}
-                />
-              </View>
+                    <View
+                      style={[styles.progressBg, { backgroundColor: palette.track }]}
+                    >
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            backgroundColor: palette.primary,
+                            width: `${Math.min(
+                              Math.max(percent, voteTotal > 0 ? 8 : 0),
+                              100,
+                            )}%`,
+                          },
+                        ]}
+                      />
+                    </View>
                   </>
                 );
               })()}
@@ -238,7 +436,7 @@ console.log(predictionCounts,'prdiction count')
           <Text style={[styles.reward, { color: text }]}>{stake}</Text>
         </View>
 
-    
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -248,7 +446,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     marginTop: Platform.OS === 'android' ? '10%' : 0,
-    marginBottom:'10%'
+    marginBottom: '10%'
   },
   scrollView: {
     flex: 1,
@@ -290,6 +488,52 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 8,
     marginBottom: 14,
+  },
+  winnerProfileCard: {
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
+  winnerProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  winnerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  winnerAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  winnerProfileTextWrap: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  winnerProfileLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  winnerProfileName: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  winnerProfileMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   hero: {
     borderRadius: 24,

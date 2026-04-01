@@ -351,6 +351,12 @@ const normalizeBattle = (raw, currentUserId = '') => {
       raw?.winningOption,
       '',
     ),
+    winningSide: String(
+      pickFirst(raw?.winningSide, raw?.resultValue, raw?.actualResult, ''),
+    ),
+    winnerUserId: String(
+      pickFirst(raw?.winnerUserId, raw?.winner?.id, raw?.winner?._id, ''),
+    ),
     winnerName: pickFirst(
       raw?.winner?.name,
       raw?.winner?.displayName,
@@ -537,7 +543,6 @@ export default function BattleInProgress() {
       try {
         const response = await getbattle({ params: { battleId } });
         const storedId = await AsyncStorage.getItem('userId');
-
         const rawBattle =
           response?.data?.battle ||
           response?.data?.data ||
@@ -1224,6 +1229,8 @@ export default function BattleInProgress() {
                 battleId: battle.id || battleId,
                 battle,
                 predictionCounts: battle?.predictionCounts || {},
+                winnerUserId: battle?.winnerUserId || '',
+                winningSide: battle?.winningSide || '',
                 entryPoint: route?.params?.entryPoint || 'battle_progress',
                 profile: profile
               })
