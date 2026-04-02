@@ -4,31 +4,31 @@ require Pod::Executable.execute_command('node', ['-p',
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
-
+ 
 source 'https://cdn.cocoapods.org/'
 source 'https://github.com/SumSubstance/Specs.git'
-
+ 
 platform :ios, '15.1'
 prepare_react_native_project!
-
+ 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
 end
-
+ 
 target 'valens' do
   config = use_native_modules!
-
+ 
   use_frameworks! :linkage => :static
   $RNFirebaseAsStaticFramework = true
-
+ 
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
-
+ 
   post_install do |installer|
     # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
     react_native_post_install(
@@ -37,19 +37,22 @@ target 'valens' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
-    
+   
     # Fix Swift compilation and deployment target issues
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         # Set minimum deployment target to match platform
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
-        
+       
         # Fix Swift version
         config.build_settings['SWIFT_VERSION'] = '5.0'
-        
+       
         # Disable bitcode
         config.build_settings['ENABLE_BITCODE'] = 'NO'
-        
+        # Some React Native pods include non-modular headers when built as frameworks.
+        # This avoids build failures like: non-modular-include-in-framework-module.
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+       
         # Fix expo-localization Swift issue
         if target.name == 'ExpoLocalization'
           config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
@@ -58,3 +61,5 @@ target 'valens' do
     end
   end
 end
+ 
+ 

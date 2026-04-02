@@ -2000,7 +2000,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context (5.6.2):
+  - react-native-safe-area-context (5.7.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2019,8 +2019,8 @@ PODS:
     - React-hermes
     - React-ImageManager
     - React-jsi
-    - react-native-safe-area-context/common (= 5.6.2)
-    - react-native-safe-area-context/fabric (= 5.6.2)
+    - react-native-safe-area-context/common (= 5.7.0)
+    - react-native-safe-area-context/fabric (= 5.7.0)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -2031,7 +2031,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context/common (5.6.2):
+  - react-native-safe-area-context/common (5.7.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2060,7 +2060,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context/fabric (5.6.2):
+  - react-native-safe-area-context/fabric (5.7.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3248,7 +3248,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNSVG (15.14.0):
+  - RNSVG (15.15.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -3275,10 +3275,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNSVG/common (= 15.14.0)
+    - RNSVG/common (= 15.15.4)
     - SocketRocket
     - Yoga
-  - RNSVG/common (15.14.0):
+  - RNSVG/common (15.15.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -3963,7 +3963,7 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
+  RCT-Folly: e7f9dcc97763364eac994b51f9515cf7506164fb
   RCTDeprecation: efa5010912100e944a7ac9a93a157e1def1988fe
   RCTRequired: bbc4cf999ddc4a4b076e076c74dd1d39d0254630
   RCTTypeSafety: d877728097547d0a37786cc9130c43ad71739ac3
@@ -4007,7 +4007,7 @@ SPEC CHECKSUMS:
   react-native-mobilesdk-module: ac58f0c7a78b5807286e757af24f356c64dce523
   react-native-netinfo: d15c7f198ce4ed59a9272f700f0d7b76626a1a13
   react-native-pager-view: c4eb191519def25f8983e636c1d387a7e33a21c4
-  react-native-safe-area-context: 849813645d0fd16fd899a02ed6e03320284ec2ae
+  react-native-safe-area-context: 4cd26e0865366ae470c15ed17d86f043a495cb37
   react-native-video: 8681d42fce8dd45b1b7e7d9b54c9c054c99229ae
   react-native-view-shot: 2a3fb8aadfc702b79a168576c9b93d29f33ff1f3
   React-NativeModulesApple: 2a261739a86fb0fc82de4b9cc8c9199083b4cea2
@@ -4066,7 +4066,7 @@ SPEC CHECKSUMS:
   RNSha256: 4d35f112e967f58273d625a19376f4eafc72bd5c
   RNShare: 9fbcfe8a315939279082864ace5ea32acb2b86e2
   RNSketchCanvas: ea285ee47983151e23e0e3fe5ed39144690741f7
-  RNSVG: 05138c285c3a8b54fc01061fb1438385832fe7f7
+  RNSVG: 692186309bfdaf6866d26d73344e3a6896a83874
   RNVectorIcons: 0567525e0a344458329daa09068cf9e8090ec791
   RNWorklets: 87c6ebbd068acaed7c6d7ca78576df9e67587352
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
@@ -4086,6 +4086,6 @@ SPEC CHECKSUMS:
   Yoga: 2b7a0cd38b4b0b4fdd7f353017fde11914148f98
   YttriumWrapper: d7f63336830536f1da41b745ed8bacedb04228c4
 
-PODFILE CHECKSUM: 4ffca82ed20feda65518d8d045fce9764eb52436
+PODFILE CHECKSUM: 60bc34426eaab0827c7c3cd3a1abf254c76c168a
 
 COCOAPODS: 1.16.2
