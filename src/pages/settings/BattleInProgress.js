@@ -1523,7 +1523,10 @@ export default function BattleInProgress() {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={handleVote}
-                disabled={submittingVote}
+                disabled={submittingVote || !argumentText?.trim()}
+                style={{
+                  opacity: submittingVote || !argumentText?.trim() ? 0.5 : 1,
+                }}
               >
                 <LinearGradient
                   colors={palette.buttonGradient}
@@ -1549,7 +1552,7 @@ export default function BattleInProgress() {
                 { shadowColor: palette.primary },
               ]}
             >
-              <Text style={[styles.sectionTitle, { color: text }]}>
+              {/* <Text style={[styles.sectionTitle, { color: text }]}>
                 Battle Comments
               </Text>
               <View style={styles.commentComposer}>
@@ -1580,7 +1583,7 @@ export default function BattleInProgress() {
                     <Text style={styles.commentButtonText}>Post</Text>
                   )}
                 </TouchableOpacity>
-              </View>
+              </View> */}
 
               {battle.comments.length > 0 ? (
                 battle.comments.map(comment => renderCommentItem(comment))
