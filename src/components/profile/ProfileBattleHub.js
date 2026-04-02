@@ -132,8 +132,8 @@ export default function ProfileBattleHub({
     return [
       { key: 'total', label: 'Battles', value: total },
       { key: 'live', label: 'Live', value: live },
-      { key: 'prediction', label: 'Prediction', value: prediction },
-      { key: 'won', label: 'Wins', value: won },
+      // { key: 'prediction', label: 'Prediction', value: prediction },
+      // { key: 'won', label: 'Wins', value: won },
     ];
   }, [battles]);
 

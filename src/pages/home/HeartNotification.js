@@ -162,6 +162,22 @@ const normalizeBattleNotification = item => {
   const data = item?.data || {};
   const battle = data?.battle || item?.battle || {};
   const actionPayload = extractBattleActionPayload(item);
+  const normalizedType = normalizeNotificationType(data?.type ?? item?.type);
+  const normalizedFormat = String(
+    pickFirstString(battle?.format, data?.format) || '',
+  )
+    .toUpperCase()
+    .trim();
+  const normalizedStatus = String(battle?.status || data?.status || '')
+    .toUpperCase()
+    .trim();
+  const isHeadToHeadInvite =
+    normalizedType === 'battle_invite' && normalizedFormat === 'HEAD_TO_HEAD';
+  const isBattleActionable =
+    isHeadToHeadInvite &&
+    !['RESOLVED', 'CLOSED', 'DECLINED', 'CANCELLED', 'COMPLETED'].includes(
+      normalizedStatus,
+    );
 
   return {
     id:
@@ -193,9 +209,11 @@ const normalizeBattleNotification = item => {
     raw: item,
     actionPayload,
     question: pickFirstString(battle?.question, battle?.title, data?.question),
-    format: pickFirstString(battle?.format, data?.format),
+    format: normalizedFormat || pickFirstString(battle?.format, data?.format),
+    status: normalizedStatus,
     stake: pickFirstValue(battle?.stake, data?.stake),
     options: Array.isArray(battle?.options) ? battle.options : [],
+    isBattleActionable,
   };
 };
 
@@ -301,6 +319,7 @@ export default function Notifications() {
     try {
       setBattleLoading(true);
       const response = await battleNotification();
+      console.log(response,'battle notificartiopmm')
       const rawPayload =
         response?.notifications ??
         response?.data?.notifications ??
@@ -698,6 +717,7 @@ export default function Notifications() {
   const renderTabContent = (tabData, tabKey) => {
     const renderBattleItem = ({ item, index }) => {
       const isProcessing = processingBattleId === item.id;
+      const isActionable = !!item?.isBattleActionable;
       const stakeText =
         item?.stake !== undefined && item?.stake !== null && item?.stake !== ''
           ? `Stake: ${item.stake}`
@@ -766,37 +786,39 @@ export default function Notifications() {
               </View>
             )}
 
-            <View style={styles.battleActionRow}>
-              <TouchableOpacity
-                style={[styles.battleActionButton, styles.battleDeclineButton]}
-                onPress={() => handleBattleAction(item, 'decline')}
-                activeOpacity={0.85}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color="#B91C1C" />
-                ) : (
-                  <Text style={styles.battleDeclineText}>Decline</Text>
-                )}
-              </TouchableOpacity>
+            {isActionable && (
+              <View style={styles.battleActionRow}>
+                <TouchableOpacity
+                  style={[styles.battleActionButton, styles.battleDeclineButton]}
+                  onPress={() => handleBattleAction(item, 'decline')}
+                  activeOpacity={0.85}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#B91C1C" />
+                  ) : (
+                    <Text style={styles.battleDeclineText}>Decline</Text>
+                  )}
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.battleActionButton,
-                  styles.battleAcceptButton,
-                  { backgroundColor: text },
-                ]}
-                onPress={() => handleBattleAction(item, 'accept')}
-                activeOpacity={0.85}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.battleAcceptText}>Accept</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={[
+                    styles.battleActionButton,
+                    styles.battleAcceptButton,
+                    { backgroundColor: text },
+                  ]}
+                  onPress={() => handleBattleAction(item, 'accept')}
+                  activeOpacity={0.85}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.battleAcceptText}>Accept</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {index < tabData.length - 1 && <View style={styles.separator} />}
