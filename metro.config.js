@@ -33,7 +33,7 @@ function resolveValtioCjs(moduleName) {
 
 module.exports = (async () => {
   const {
-    resolver: {sourceExts, assetExts},
+    resolver: { sourceExts, assetExts },
   } = await defaultConfig;
 
   return mergeConfig(defaultConfig, {
@@ -47,6 +47,7 @@ module.exports = (async () => {
       }),
     },
     resolver: {
+      unstable_enablePackageExports: false,
       assetExts: assetExts.filter(ext => ext !== 'svg'),
       sourceExts: [...sourceExts, 'svg'],
       resolveRequest: (context, moduleName, platform) => {
