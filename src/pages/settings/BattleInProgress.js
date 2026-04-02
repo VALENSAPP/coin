@@ -1,27 +1,31 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {
-  commentBattle,
   commentLike,
   commentUpload,
   getbattle,
   predictBattle,
+  replyCommentBattle,
   voteBattle,
 } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -188,8 +192,51 @@ const normalizeCommentLikedState = (comment, currentUserId = '') => {
   return likesList.some((entry) => resolveEntityId(entry) === String(currentUserId));
 };
 
+const getCommentReplyEntries = comment => {
+  if (Array.isArray(comment?.replies)) {
+    return comment.replies;
+  }
+
+  if (Array.isArray(comment?.children)) {
+    return comment.children;
+  }
+
+  return [];
+};
+
+const enrichBattleCommentLikes = (comments = [], storedId = '') =>
+  (Array.isArray(comments) ? comments : []).map(comment => ({
+    ...comment,
+    isLiked:
+      Array.isArray(comment?.likes) &&
+      comment.likes.some(
+        like => String(like?.userId) === String(storedId),
+      ),
+    replies: enrichBattleCommentLikes(getCommentReplyEntries(comment), storedId),
+  }));
+
+const flattenReplies = (entries, currentUserId = '') =>
+  (Array.isArray(entries) ? entries : []).reduce((acc, reply, index) => {
+    const normalizedReply = normalizeComment(reply, index, currentUserId);
+    const nestedReplies = Array.isArray(normalizedReply.replies)
+      ? normalizedReply.replies
+      : [];
+
+    acc.push({
+      ...normalizedReply,
+      replies: [],
+    });
+
+    if (nestedReplies.length > 0) {
+      acc.push(...flattenReplies(nestedReplies, currentUserId));
+    }
+
+    return acc;
+  }, []);
+
 const normalizeComment = (comment, index = 0, currentUserId = '') => ({
   id: String(pickFirst(comment?.id, comment?._id, index)),
+  parentId: String(pickFirst(comment?.parentId, comment?.parentCommentId, '')),
   message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
   likes: normalizeLikeCount(comment),
   isLiked: normalizeCommentLikedState(comment, currentUserId),
@@ -216,7 +263,39 @@ const normalizeComment = (comment, index = 0, currentUserId = '') => ({
     '',
   ),
   createdAt: pickFirst(comment?.createdAt, comment?.updatedAt, ''),
+  replies: flattenReplies(getCommentReplyEntries(comment), currentUserId),
 });
+
+const updateCommentTree = (comments, targetId, updater) =>
+  (Array.isArray(comments) ? comments : []).map(comment => {
+    if (comment.id === targetId) {
+      return updater(comment);
+    }
+
+    if (Array.isArray(comment.replies) && comment.replies.length > 0) {
+      return {
+        ...comment,
+        replies: updateCommentTree(comment.replies, targetId, updater),
+      };
+    }
+
+    return comment;
+  });
+
+const findCommentInTree = (comments, targetId) => {
+  for (const comment of Array.isArray(comments) ? comments : []) {
+    if (comment.id === targetId) {
+      return comment;
+    }
+
+    const nestedMatch = findCommentInTree(comment.replies, targetId);
+    if (nestedMatch) {
+      return nestedMatch;
+    }
+  }
+
+  return null;
+};
 
 const normalizeBattle = (raw, currentUserId = '') => {
   const creatorChoice = pickFirst(
@@ -461,11 +540,17 @@ export default function BattleInProgress() {
   );
   const [argumentText, setArgumentText] = useState('');
   const [commentText, setCommentText] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [replyingToComment, setReplyingToComment] = useState(null);
+  const [expandedReplies, setExpandedReplies] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingVote, setSubmittingVote] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
+  const replyInputRef = useRef(null);
+  const scrollRef = useRef(null);
+
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
     const secondary =
@@ -543,25 +628,17 @@ export default function BattleInProgress() {
       try {
         const response = await getbattle({ params: { battleId } });
         const storedId = await AsyncStorage.getItem('userId');
+        console.log(response, 'reposne in battle ')
         const rawBattle =
           response?.data?.battle ||
           response?.data?.data ||
           response?.data ||
           response?.battle ||
           routeBattle;
-          
         const enrichedBattle = {
           ...rawBattle,
-          comments: (rawBattle?.comments || []).map((comment) => ({
-            ...comment,
-            isLiked:
-              Array.isArray(comment?.likes) &&
-              comment.likes.some(
-                (like) => String(like?.userId) === String(storedId)
-              ),
-          })),
+          comments: enrichBattleCommentLikes(rawBattle?.comments || [], storedId),
         };
-
         setBattle(normalizeBattle(enrichedBattle, storedId || currentUserId));
       } catch (error) {
         if (!routeBattle || !Object.keys(routeBattle).length) {
@@ -602,6 +679,26 @@ export default function BattleInProgress() {
       setSelectedOption(routeSelectedOption);
     }
   }, [route?.params?.selectedOption]);
+
+  const handleOpenReply = useCallback(comment => {
+    setReplyingToComment({
+      id: comment?.id || '',
+      authorName: comment?.authorName || 'User',
+    });
+    setReplyText('');
+
+    setTimeout(() => {
+      replyInputRef.current?.focus?.();
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 120);
+  }, []);
+
+  const toggleReplies = useCallback(commentId => {
+    setExpandedReplies(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }));
+  }, []);
 
   const handleVote = async () => {
     console.log('🔥 Vote button clicked 1');
@@ -696,12 +793,7 @@ export default function BattleInProgress() {
 
     setSubmittingComment(true);
     try {
-      let response;
-      try {
-        response = await commentUpload({ battleId, comment: message, message });
-      } catch (error) {
-        response = await commentBattle({ battleId, comment: message, message });
-      }
+      const response = await commentUpload({ battleId, comment: message, message });
 
       const success = isSuccessfulResponse(response);
 
@@ -725,34 +817,76 @@ export default function BattleInProgress() {
     }
   };
 
+  const handlePostReply = async () => {
+    const message = replyText.trim();
+    if (!message || !battleId || !replyingToComment?.id) {
+      return;
+    }
+
+    const parentCommentId = replyingToComment.id;
+
+    setSubmittingComment(true);
+    try {
+      const response = await replyCommentBattle({
+        battleId,
+        comment: message,
+        parentCommentId,
+      });
+
+      const success = isSuccessfulResponse(response);
+
+      if (!success) {
+        Alert.alert(
+          'Reply not posted',
+          response?.message || 'Please try again.',
+        );
+        return;
+      }
+
+      setReplyText('');
+      setReplyingToComment(null);
+      setExpandedReplies(prev => ({
+        ...prev,
+        [parentCommentId]: false,
+      }));
+      await fetchBattle(true);
+    } catch (error) {
+      Alert.alert(
+        'Reply not posted',
+        error?.response?.data?.message || error?.message || 'Please try again.',
+      );
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
   const handleCommentLike = async (commentId) => {
     if (!commentId || !battleId) return;
 
-    setLikingCommentId(commentId);
-    let previousCommentState = null;
+    const targetComment = findCommentInTree(battle.comments, commentId);
+    if (!targetComment) {
+      return;
+    }
 
-    // ✅ 1. Instant UI update (IMPORTANT)
+    setLikingCommentId(commentId);
+    const previousCommentState = {
+      isLiked: !!targetComment.isLiked,
+      likes: Number.isFinite(Number(targetComment.likes))
+        ? Number(targetComment.likes)
+        : 0,
+    };
+
+    // Instant UI update
     setBattle(prevBattle => ({
       ...prevBattle,
-      comments: prevBattle.comments.map(item => {
-        if (item.id === commentId) {
-          const currentLikes = Number.isFinite(Number(item.likes))
-            ? Number(item.likes)
-            : 0;
-          previousCommentState = {
-            isLiked: !!item.isLiked,
-            likes: currentLikes,
-          };
-
-          return {
-            ...item,
-            isLiked: !item.isLiked,
-            likes: item.isLiked
-              ? Math.max(currentLikes - 1, 0)
-              : currentLikes + 1,
-          };
-        }
-        return item;
+      comments: updateCommentTree(prevBattle.comments, commentId, item => {
+        return {
+          ...item,
+          isLiked: !previousCommentState.isLiked,
+          likes: previousCommentState.isLiked
+            ? Math.max(previousCommentState.likes - 1, 0)
+            : previousCommentState.likes + 1,
+        };
       }),
     }));
 
@@ -765,53 +899,16 @@ export default function BattleInProgress() {
         throw new Error('Like failed');
       }
 
-      // ❌ REMOVE THIS (important)
-      // await fetchBattle(true);
-
-      const apiLikedState = pickFirst(
-        response?.data?.liked,
-        response?.data?.data?.liked,
-        response?.liked,
-        undefined,
-      );
-
-      if (typeof apiLikedState === 'boolean') {
-        setBattle(prevBattle => ({
-          ...prevBattle,
-          comments: prevBattle.comments.map(item => {
-            if (item.id !== commentId) return item;
-
-            const baseLikes = previousCommentState?.likes ?? 0;
-            return {
-              ...item,
-              isLiked: apiLikedState,
-              likes:
-                apiLikedState === previousCommentState?.isLiked
-                  ? baseLikes
-                  : apiLikedState
-                    ? baseLikes + 1
-                    : Math.max(baseLikes - 1, 0),
-            };
-          }),
-        }));
-      }
-
       await fetchBattle(true);
 
     } catch (error) {
-      // ❌ Revert UI if API fails
       setBattle(prevBattle => ({
         ...prevBattle,
-        comments: prevBattle.comments.map(item => {
-          if (item.id === commentId) {
-            return {
-              ...item,
-              isLiked: previousCommentState?.isLiked ?? item.isLiked,
-              likes: previousCommentState?.likes ?? item.likes,
-            };
-          }
-          return item;
-        }),
+        comments: updateCommentTree(prevBattle.comments, commentId, item => ({
+          ...item,
+          isLiked: previousCommentState.isLiked,
+          likes: previousCommentState.likes,
+        })),
       }));
 
       Alert.alert(
@@ -831,224 +928,564 @@ export default function BattleInProgress() {
     );
   }
 
-  return (
-    <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <ScrollView
-        style={[styles.container, bgStyle]}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={null}
-      >
-        <View style={styles.header}>
+  const renderReplyItem = reply => (
+    <View
+      key={reply.id}
+      style={[
+        styles.replyCard,
+        {
+          backgroundColor: withAlpha(palette.primary, '08'),
+          borderColor: palette.border,
+        },
+      ]}
+    >
+      <View style={styles.commentHeader}>
+        <View style={styles.commentAuthorRow}>
+          {reply.avatar ? (
+            <Image
+              source={{ uri: reply.avatar }}
+              style={styles.commentAvatar}
+            />
+          ) : (
+            <View
+              style={[
+                styles.commentAvatar,
+                styles.commentAvatarFallback,
+              ]}
+            >
+              <Ionicons
+                name="person-outline"
+                size={16}
+                color="#FFFFFF"
+              />
+            </View>
+          )}
+          <View style={styles.commentAuthorTextWrap}>
+            <Text style={[styles.commentAuthorName, textStyle]}>
+              {reply.authorName}
+            </Text>
+            {!!reply.authorHandle && (
+              <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
+                @{reply.authorHandle}
+              </Text>
+            )}
+          </View>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.headerIconBtn}
+            style={styles.replyTrigger}
+            onPress={() => handleOpenReply(reply)}
           >
-            <Icon name="arrow-back-ios-new" size={20} color={text} />
+            <Text
+              style={[
+                styles.replyTriggerText,
+                { color: palette.primary },
+              ]}
+            >
+              Reply
+            </Text>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: text }]}>
-            Battle In Progress
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              setRefreshing(true);
-              fetchBattle(true);
-            }}
-            style={styles.headerIconBtn}
+        </View>
+        <TouchableOpacity
+          style={styles.commentLikeButton}
+          onPress={() => handleCommentLike(reply.id)}
+          disabled={likingCommentId === reply.id}
+        >
+          {likingCommentId === reply.id ? (
+            <ActivityIndicator size="small" color={palette.primary} />
+          ) : (
+            <>
+              <Ionicons
+                name={reply.isLiked ? 'heart' : 'heart-outline'}
+                size={18}
+                color={reply.isLiked ? '#E11D48' : '#6B7280'}
+              />
+              <Text
+                style={[
+                  styles.commentLikeText,
+                  { color: reply.isLiked ? '#E11D48' : '#6B7280' },
+                ]}
+              >
+                {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.commentMessage, textStyle]}>{reply.message}</Text>
+
+      {replyingToComment?.id === reply.id && (
+        <View style={styles.replyComposer}>
+          <Text
+            style={[
+              styles.replyComposerLabel,
+              { color: palette.textMuted },
+            ]}
           >
-            {refreshing ? (
-              <ActivityIndicator size="small" color={text} />
+            Replying to {replyingToComment.authorName}
+          </Text>
+          <TextInput
+            ref={replyInputRef}
+            value={replyText}
+            onChangeText={setReplyText}
+            placeholder="Write your reply"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            style={[
+              styles.replyInput,
+              textStyle,
+              cardStyle,
+              { borderColor: palette.border },
+            ]}
+          />
+          <View style={styles.replyActions}>
+            <TouchableOpacity
+              style={[
+                styles.replySecondaryButton,
+                { borderColor: palette.border },
+              ]}
+              onPress={() => {
+                setReplyingToComment(null);
+                setReplyText('');
+              }}
+            >
+              <Text
+                style={[
+                  styles.replySecondaryButtonText,
+                  { color: palette.textMuted },
+                ]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.replyPrimaryButton,
+                { backgroundColor: palette.primary },
+              ]}
+              onPress={handlePostReply}
+              disabled={submittingComment}
+            >
+              {submittingComment ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.replyPrimaryButtonText}>Post</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderCommentItem = comment => {
+    const hasReplies = Array.isArray(comment.replies) && comment.replies.length > 0;
+    const isExpanded = !!expandedReplies[comment.id];
+    const visibleReplies = hasReplies && isExpanded ? comment.replies : [];
+    const repliesCount = hasReplies ? comment.replies.length : 0;
+
+    return (
+      <View
+        key={comment.id}
+        style={[
+          styles.commentCard,
+          {
+            backgroundColor: palette.soft,
+            borderColor: palette.border,
+          },
+        ]}
+      >
+        <View style={styles.commentHeader}>
+          <View style={styles.commentAuthorRow}>
+            {comment.avatar ? (
+              <Image
+                source={{ uri: comment.avatar }}
+                style={styles.commentAvatar}
+              />
             ) : (
-              <Ionicons name="refresh-outline" size={20} color={text} />
+              <View
+                style={[
+                  styles.commentAvatar,
+                  styles.commentAvatarFallback,
+                ]}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={16}
+                  color="#FFFFFF"
+                />
+              </View>
+            )}
+            <View style={styles.commentAuthorTextWrap}>
+              <Text style={[styles.commentAuthorName, textStyle]}>
+                {comment.authorName}
+              </Text>
+              {!!comment.authorHandle && (
+                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
+                  @{comment.authorHandle}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.replyTrigger}
+              onPress={() => handleOpenReply(comment)}
+            >
+              <Text
+                style={[
+                  styles.replyTriggerText,
+                  { color: palette.primary },
+                ]}
+              >
+                Reply
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.commentLikeButton}
+            onPress={() => handleCommentLike(comment.id)}
+            disabled={likingCommentId === comment.id}
+          >
+            {likingCommentId === comment.id ? (
+              <ActivityIndicator size="small" color={palette.primary} />
+            ) : (
+              <>
+                <Ionicons
+                  name={comment.isLiked ? 'heart' : 'heart-outline'}
+                  size={18}
+                  color={comment.isLiked ? '#E11D48' : '#6B7280'}
+                />
+                <Text
+                  style={[
+                    styles.commentLikeText,
+                    { color: comment.isLiked ? '#E11D48' : '#6B7280' },
+                  ]}
+                >
+                  {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
+                </Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
 
-        <LinearGradient
-          colors={[palette.secondary, palette.primary, palette.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
-        >
-          <View style={styles.heroTopRow}>
-            <View
+        <Text style={[styles.commentMessage, textStyle]}>{comment.message}</Text>
+
+        {hasReplies && !isExpanded ? (
+          <TouchableOpacity
+            style={styles.viewRepliesButton}
+            onPress={() => toggleReplies(comment.id)}
+          >
+            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
+              View replies ({repliesCount})
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {hasReplies && isExpanded ? (
+          <TouchableOpacity
+            style={styles.viewRepliesButton}
+            onPress={() => toggleReplies(comment.id)}
+          >
+            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
+              Hide replies
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {replyingToComment?.id === comment.id && (
+          <View style={styles.replyComposer}>
+            <Text
               style={[
-                styles.statusPill,
-                { backgroundColor: `${statusMeta.color}33` },
+                styles.replyComposerLabel,
+                { color: palette.textMuted },
               ]}
             >
-              <Text style={[styles.statusPillText, { color: '#FFFFFF' }]}>
-                {statusMeta.label}
-              </Text>
-            </View>
-            <View style={styles.heroMetaRight}>
-              <Text style={styles.heroMetaText}>
-                {battle.format === 'HEAD_TO_HEAD'
-                  ? 'Head-to-Head'
-                  : 'Battle Poll'}
-              </Text>
-              <Text style={styles.heroMetaText}>
-                {isPrediction ? 'Prediction' : 'Opinion'}
-              </Text>
+              Replying to {replyingToComment.authorName}
+            </Text>
+            <TextInput
+              ref={replyInputRef}
+              value={replyText}
+              onChangeText={setReplyText}
+              placeholder="Write your reply"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              style={[
+                styles.replyInput,
+                textStyle,
+                cardStyle,
+                { borderColor: palette.border },
+              ]}
+            />
+            <View style={styles.replyActions}>
+              <TouchableOpacity
+                style={[
+                  styles.replySecondaryButton,
+                  { borderColor: palette.border },
+                ]}
+                onPress={() => {
+                  setReplyingToComment(null);
+                  setReplyText('');
+                }}
+              >
+                <Text
+                  style={[
+                    styles.replySecondaryButtonText,
+                    { color: palette.textMuted },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.replyPrimaryButton,
+                  { backgroundColor: palette.primary },
+                ]}
+                onPress={handlePostReply}
+                disabled={submittingComment}
+              >
+                {submittingComment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.replyPrimaryButtonText}>Post</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
+        )}
 
-          <Text style={styles.heroTitle}>{battle.title}</Text>
-          {!!battle.description && (
-            <Text style={styles.heroDescription}>{battle.description}</Text>
-          )}
-
-          <View style={styles.heroInfoRow}>
-            <Text style={styles.heroInfoText}>
-              {battle.primaryCount} {battle.primaryCountLabel}
-            </Text>
-            <Text style={styles.heroInfoText}>{battle.stake} cred points</Text>
-            <Text style={styles.heroInfoText}>
-              {formatBattleTime(battle.endTime)}
-            </Text>
+        {Array.isArray(visibleReplies) && visibleReplies.length > 0 ? (
+          <View style={styles.repliesSection}>
+            {visibleReplies.map(renderReplyItem)}
           </View>
+        ) : null}
+      </View>
+    );
+  };
 
-          {isHeadToHead && (
-            <View style={styles.duelRow}>
-              <View style={styles.duelPlayerCard}>
-                {battle.creator.avatar ? (
-                  <Image
-                    source={{ uri: battle.creator.avatar }}
-                    style={styles.playerAvatar}
-                  />
+  return (
+    <SafeAreaView style={[styles.safeArea, bgStyle]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            style={[styles.container, bgStyle]}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={null}
+            ref={scrollRef}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.headerIconBtn}
+              >
+                <Icon name="arrow-back-ios-new" size={20} color={text} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: text }]}>
+                Battle In Progress
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setRefreshing(true);
+                  fetchBattle(true);
+                }}
+                style={styles.headerIconBtn}
+              >
+                {refreshing ? (
+                  <ActivityIndicator size="small" color={text} />
                 ) : (
-                  <View
-                    style={[styles.playerAvatar, styles.playerAvatarFallback]}
-                  >
-                    <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-                  </View>
+                  <Ionicons name="refresh-outline" size={20} color={text} />
                 )}
-                <Text style={styles.playerName}>{battle.creator.name}</Text>
-                {!!battle.creatorChoice && (
-                  <Text style={styles.playerChoice}>
-                    Picked: {battle.creatorChoice}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.duelVsWrap}>
-                <Text style={styles.duelVsText}>VS</Text>
-              </View>
-
-              <View style={styles.duelPlayerCard}>
-                {battle.invitedUser.avatar ? (
-                  <Image
-                    source={{ uri: battle.invitedUser.avatar }}
-                    style={styles.playerAvatar}
-                  />
-                ) : (
-                  <View
-                    style={[styles.playerAvatar, styles.playerAvatarFallback]}
-                  >
-                    <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-                  </View>
-                )}
-                <Text style={styles.playerName}>{battle.invitedUser.name}</Text>
-                {!!enforcedOpponentOption && (
-                  <Text style={styles.playerChoice}>
-                    Only side: {enforcedOpponentOption}
-                  </Text>
-                )}
-              </View>
+              </TouchableOpacity>
             </View>
-          )}
-        </LinearGradient>
 
-        <View
-          style={[
-            styles.infoCard,
-            cardStyle,
-            { shadowColor: palette.primary },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: text }]}>
-            Winner Logic
-          </Text>
-          <Text style={[styles.infoText, textStyle]}>
-            {isPrediction
-              ? 'Prediction battles rank the correct result first, with engagement used as support.'
-              : 'Opinion battles rank the winner by votes plus likes and argument engagement.'}
-          </Text>
-          {!!battle.resultValue && (
-            <Text style={[styles.resultText, textStyle]}>
-              Current result signal: {battle.resultValue}
-            </Text>
-          )}
-          {!!battle.winnerName && (
-            <Text style={[styles.resultText, textStyle]}>Winner: {battle.winnerName}</Text>
-          )}
-        </View>
+            <LinearGradient
+              colors={[palette.secondary, palette.primary, palette.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCard}
+            >
+              <View style={styles.heroTopRow}>
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: `${statusMeta.color}33` },
+                  ]}
+                >
+                  <Text style={[styles.statusPillText, { color: '#FFFFFF' }]}>
+                    {statusMeta.label}
+                  </Text>
+                </View>
+                <View style={styles.heroMetaRight}>
+                  <Text style={styles.heroMetaText}>
+                    {battle.format === 'HEAD_TO_HEAD'
+                      ? 'Head-to-Head'
+                      : 'Battle Poll'}
+                  </Text>
+                  <Text style={styles.heroMetaText}>
+                    {isPrediction ? 'Prediction' : 'Opinion'}
+                  </Text>
+                </View>
+              </View>
 
-        <View
-          style={[
-            styles.infoCard,
-            cardStyle,
-            { shadowColor: palette.primary },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: text }]}>
-            {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
-          </Text>
-          {isHeadToHead && !!enforcedOpponentOption && (
-            <Text style={[styles.sideRuleText, textStyle]}>
-              The creator already locked {battle.creatorChoice}. You can only
-              join on {enforcedOpponentOption}.
-            </Text>
-          )}
+              <Text style={styles.heroTitle}>{battle.title}</Text>
+              {!!battle.description && (
+                <Text style={styles.heroDescription}>{battle.description}</Text>
+              )}
 
-          <View style={styles.optionList}>
-            {(availableOptions.length ? availableOptions : battle.options).map(
-              option => {
-                const optionSide = String(
-                  pickFirst(option?.side, option?.label, ''),
-                );
-                const isSelected =
-                  selectedOption === optionSide ||
-                  selectedOption === option.id;
-                return (
-                  <TouchableOpacity
-                    key={`${battle.id}-${option.id}`}
-                    activeOpacity={0.88}
-                    style={[
-                      styles.optionCard,
-                      { borderColor: palette.border, backgroundColor: palette.surface },
-                      isSelected && styles.optionCardSelected,
-                      isSelected && {
-                        borderColor: palette.primary,
-                        backgroundColor: palette.soft,
-                      },
-                    ]}
-                    onPress={() => setSelectedOption(option.label)}
-                  >
-                    <View style={styles.optionTopRow}>
-                      <Text
-                        style={[
-                          styles.optionLabel,
-                          textStyle,
-                          isSelected && styles.optionLabelSelected,
-                          isSelected && { color: palette.primary },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
+              <View style={styles.heroInfoRow}>
+                <Text style={styles.heroInfoText}>
+                  {battle.primaryCount} {battle.primaryCountLabel}
+                </Text>
+                <Text style={styles.heroInfoText}>{battle.stake} cred points</Text>
+                <Text style={styles.heroInfoText}>
+                  {formatBattleTime(battle.endTime)}
+                </Text>
+              </View>
+
+              {isHeadToHead && (
+                <View style={styles.duelRow}>
+                  <View style={styles.duelPlayerCard}>
+                    {battle.creator.avatar ? (
+                      <Image
+                        source={{ uri: battle.creator.avatar }}
+                        style={styles.playerAvatar}
+                      />
+                    ) : (
                       <View
+                        style={[styles.playerAvatar, styles.playerAvatarFallback]}
+                      >
+                        <Ionicons name="person-outline" size={18} color="#FFFFFF" />
+                      </View>
+                    )}
+                    <Text style={styles.playerName}>{battle.creator.name}</Text>
+                    {!!battle.creatorChoice && (
+                      <Text style={styles.playerChoice}>
+                        Picked: {battle.creatorChoice}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={styles.duelVsWrap}>
+                    <Text style={styles.duelVsText}>VS</Text>
+                  </View>
+
+                  <View style={styles.duelPlayerCard}>
+                    {battle.invitedUser.avatar ? (
+                      <Image
+                        source={{ uri: battle.invitedUser.avatar }}
+                        style={styles.playerAvatar}
+                      />
+                    ) : (
+                      <View
+                        style={[styles.playerAvatar, styles.playerAvatarFallback]}
+                      >
+                        <Ionicons name="person-outline" size={18} color="#FFFFFF" />
+                      </View>
+                    )}
+                    <Text style={styles.playerName}>{battle.invitedUser.name}</Text>
+                    {!!enforcedOpponentOption && (
+                      <Text style={styles.playerChoice}>
+                        Only side: {enforcedOpponentOption}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </LinearGradient>
+
+            <View
+              style={[
+                styles.infoCard,
+                cardStyle,
+                { shadowColor: palette.primary },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: text }]}>
+                Winner Logic
+              </Text>
+              <Text style={[styles.infoText, textStyle]}>
+                {isPrediction
+                  ? 'Prediction battles rank the correct result first, with engagement used as support.'
+                  : 'Opinion battles rank the winner by votes plus likes and argument engagement.'}
+              </Text>
+              {!!battle.resultValue && (
+                <Text style={[styles.resultText, textStyle]}>
+                  Current result signal: {battle.resultValue}
+                </Text>
+              )}
+              {!!battle.winnerName && (
+                <Text style={[styles.resultText, textStyle]}>Winner: {battle.winnerName}</Text>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.infoCard,
+                cardStyle,
+                { shadowColor: palette.primary },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: text }]}>
+                {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
+              </Text>
+              {isHeadToHead && !!enforcedOpponentOption && (
+                <Text style={[styles.sideRuleText, textStyle]}>
+                  The creator already locked {battle.creatorChoice}. You can only
+                  join on {enforcedOpponentOption}.
+                </Text>
+              )}
+
+              <View style={styles.optionList}>
+                {(availableOptions.length ? availableOptions : battle.options).map(
+                  option => {
+                    const optionSide = String(
+                      pickFirst(option?.side, option?.label, ''),
+                    );
+                    const isSelected =
+                      selectedOption === optionSide ||
+                      selectedOption === option.id;
+                    return (
+                      <TouchableOpacity
+                        key={`${battle.id}-${option.id}`}
+                        activeOpacity={0.88}
                         style={[
-                          styles.radioDot,
+                          styles.optionCard,
                           { borderColor: palette.border, backgroundColor: palette.surface },
-                          isSelected && styles.radioDotSelected,
+                          isSelected && styles.optionCardSelected,
                           isSelected && {
                             borderColor: palette.primary,
-                            backgroundColor: palette.primary,
+                            backgroundColor: palette.soft,
                           },
                         ]}
-                      />
-                    </View>
-                    {/* <View style={styles.optionMetaRow}>
+                        onPress={() => setSelectedOption(option.label)}
+                      >
+                        <View style={styles.optionTopRow}>
+                          <Text
+                            style={[
+                              styles.optionLabel,
+                              textStyle,
+                              isSelected && styles.optionLabelSelected,
+                              isSelected && { color: palette.primary },
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                          <View
+                            style={[
+                              styles.radioDot,
+                              { borderColor: palette.border, backgroundColor: palette.surface },
+                              isSelected && styles.radioDotSelected,
+                              isSelected && {
+                                borderColor: palette.primary,
+                                backgroundColor: palette.primary,
+                              },
+                            ]}
+                          />
+                        </View>
+                        {/* <View style={styles.optionMetaRow}>
                       <Text style={styles.optionMeta}>
                         {option.votes} votes
                       </Text>
@@ -1059,191 +1496,131 @@ export default function BattleInProgress() {
                         {option.percentage ? `${option.percentage}%` : 'Open'}
                       </Text>
                     </View> */}
-                  </TouchableOpacity>
-                );
-              },
-            )}
-          </View>
+                      </TouchableOpacity>
+                    );
+                  },
+                )}
+              </View>
 
-          <TextInput
-            value={argumentText}
-            onChangeText={setArgumentText}
-            placeholder={
-              isPrediction
-                ? 'Add your prediction reasoning'
-                : 'Add your argument'
-            }
-            placeholderTextColor="#9CA3AF"
-            multiline
-            style={[
-              styles.argumentInput,
-              textStyle,
-              cardStyle,
-              { borderColor: palette.border },
-            ]}
-          />
+              <TextInput
+                value={argumentText}
+                onChangeText={setArgumentText}
+                placeholder={
+                  isPrediction
+                    ? 'Add your prediction reasoning'
+                    : 'Add your argument'
+                }
+                placeholderTextColor="#9CA3AF"
+                multiline
+                style={[
+                  styles.argumentInput,
+                  textStyle,
+                  cardStyle,
+                  { borderColor: palette.border },
+                ]}
+              />
 
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={handleVote}
-            disabled={submittingVote}
-          >
-            <LinearGradient
-              colors={palette.buttonGradient}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.primaryButton}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={handleVote}
+                disabled={submittingVote || !argumentText?.trim()}
+                style={{
+                  opacity: submittingVote || !argumentText?.trim() ? 0.5 : 1,
+                }}
+              >
+                <LinearGradient
+                  colors={palette.buttonGradient}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.primaryButton}
+                >
+                  {submittingVote ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>
+                      {isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
+                    </Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={[
+                styles.infoCard,
+                cardStyle,
+                { shadowColor: palette.primary },
+              ]}
             >
-              {submittingVote ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+              {/* <Text style={[styles.sectionTitle, { color: text }]}>
+                Battle Comments
+              </Text>
+              <View style={styles.commentComposer}>
+                <TextInput
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  placeholder="Add a comment or argument"
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  style={[
+                    styles.commentInput,
+                    textStyle,
+                    cardStyle,
+                    { borderColor: palette.border },
+                  ]}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.commentButton,
+                    { backgroundColor: palette.primary },
+                  ]}
+                  onPress={handlePostComment}
+                  disabled={submittingComment}
+                >
+                  {submittingComment && !replyingToComment ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.commentButtonText}>Post</Text>
+                  )}
+                </TouchableOpacity>
+              </View> */}
+
+              {battle.comments.length > 0 ? (
+                battle.comments.map(comment => renderCommentItem(comment))
               ) : (
-                <Text style={styles.primaryButtonText}>
-                  {isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
+                <Text style={[styles.emptyCommentText, textStyle]}>
+                  No comments yet. Start the conversation and strengthen your side.
                 </Text>
               )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+            </View>
 
-        <View
-          style={[
-            styles.infoCard,
-            cardStyle,
-            { shadowColor: palette.primary },
-          ]}
-        >
-          {/* <Text style={[styles.sectionTitle, { color: text }]}>
-            Battle Comments
-          </Text>
-          <View style={styles.commentComposer}>
-            <TextInput
-              value={commentText}
-              onChangeText={setCommentText}
-              placeholder="Add a comment or argument"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              style={[
-                styles.commentInput,
-                textStyle,
-                cardStyle,
-                { borderColor: palette.border },
-              ]}
-            />
-            <TouchableOpacity
-              style={[
-                styles.commentButton,
-                { backgroundColor: palette.primary },
-              ]}
-              onPress={handlePostComment}
-              disabled={submittingComment}
-            >
-              {submittingComment ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.commentButtonText}>Post</Text>
-              )}
-            </TouchableOpacity>
-          </View> */}
-
-          {battle.comments.length > 0 ? (
-            battle.comments.map(comment => (
-              <View
-                key={comment.id}
+            <View style={styles.bottomActions}>
+              <TouchableOpacity
                 style={[
-                  styles.commentCard,
-                  { backgroundColor: palette.soft, borderColor: palette.border },
+                  styles.secondaryButton,
+                  cardStyle,
+                  { borderColor: palette.primary },
                 ]}
+                onPress={() =>
+                  navigation.navigate('BattleResults', {
+                    battleId: battle.id || battleId,
+                    battle,
+                    predictionCounts: battle?.predictionCounts || {},
+                    winnerUserId: battle?.winnerUserId || '',
+                    winningSide: battle?.winningSide || '',
+                    entryPoint: route?.params?.entryPoint || 'battle_progress',
+                    profile: profile
+                  })
+                }
               >
-                <View style={styles.commentHeader}>
-                  <View style={styles.commentAuthorRow}>
-                    {comment.avatar ? (
-                      <Image
-                        source={{ uri: comment.avatar }}
-                        style={styles.commentAvatar}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.commentAvatar,
-                          styles.commentAvatarFallback,
-                        ]}
-                      >
-                        <Ionicons
-                          name="person-outline"
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                      </View>
-                    )}
-                    <View style={styles.commentAuthorTextWrap}>
-                      <Text style={[styles.commentAuthorName, textStyle]}>
-                        {comment.authorName}
-                      </Text>
-                      {!!comment.authorHandle && (
-                        <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
-                          @{comment.authorHandle}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.commentLikeButton}
-                    onPress={() => handleCommentLike(comment.id)}
-                    disabled={likingCommentId === comment.id}
-                  >
-                    {likingCommentId === comment.id ? (
-                      <ActivityIndicator size="small" color={palette.primary} />
-                    ) : (
-                      <>
-                        <Ionicons
-                          name={comment.isLiked ? 'heart' : 'heart-outline'}
-                          size={18}
-                          color={comment.isLiked ? '#E11D48' : '#6B7280'}
-                        />
-                        <Text style={styles.commentLikeText}>
-                          {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-                <Text style={[styles.commentMessage, textStyle]}>{comment.message}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyCommentText, textStyle]}>
-              No comments yet. Start the conversation and strengthen your side.
-            </Text>
-          )}
-        </View>
+                <Text
+                  style={[styles.secondaryButtonText, { color: palette.primary }]}
+                >
+                  View Results
+                </Text>
+              </TouchableOpacity>
 
-        <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={[
-              styles.secondaryButton,
-              cardStyle,
-              { borderColor: palette.primary },
-            ]}
-            onPress={() =>
-              navigation.navigate('BattleResults', {
-                battleId: battle.id || battleId,
-                battle,
-                predictionCounts: battle?.predictionCounts || {},
-                winnerUserId: battle?.winnerUserId || '',
-                winningSide: battle?.winningSide || '',
-                entryPoint: route?.params?.entryPoint || 'battle_progress',
-                profile: profile
-              })
-            }
-          >
-            <Text
-              style={[styles.secondaryButtonText, { color: palette.primary }]}
-            >
-              View Results
-            </Text>
-          </TouchableOpacity>
-
-          {/* <TouchableOpacity
+              {/* <TouchableOpacity
             style={[
               styles.secondaryButton,
               cardStyle,
@@ -1264,8 +1641,10 @@ export default function BattleInProgress() {
               Cred Points
             </Text>
           </TouchableOpacity> */}
-        </View>
-      </ScrollView>
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1561,6 +1940,16 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  replyCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 10,
+  },
+  repliesSection: {
+    marginTop: 10,
+    marginLeft: 18,
+  },
   commentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1598,6 +1987,15 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  replyTrigger: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  replyTriggerText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
   commentLikeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1614,6 +2012,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#374151',
+  },
+  viewRepliesButton: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  viewRepliesText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  replyComposer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  replyComposerLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  replyInput: {
+    minHeight: 88,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+  },
+  replyActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 10,
+  },
+  replySecondaryButton: {
+    minWidth: 82,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+  },
+  replySecondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  replyPrimaryButton: {
+    minWidth: 82,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  replyPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   emptyCommentText: {
     fontSize: 13,
