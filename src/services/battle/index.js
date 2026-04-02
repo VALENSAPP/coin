@@ -37,7 +37,7 @@ export const joinBattle = async (data ) => {
 export const predictBattle = async (data ) => {
     return axiosInstance.post('battle/predict', data);
 };
-export const commentBattle = async (data ) => {
+export const replyCommentBattle = async (data ) => {
     return axiosInstance.post('battle/comment', data);
 };
 export const commentUpload = async (data ) => {
