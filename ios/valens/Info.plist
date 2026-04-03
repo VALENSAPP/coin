@@ -34,10 +34,30 @@
             <key>CFBundleTypeRole</key>
             <string>Editor</string>
             <key>CFBundleURLName</key>
+            <string>com.valens.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.valens.app</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
             <string>com.valens</string>
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>com.valens</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
+            <string>valens</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>valens</string>
             </array>
         </dict>
     </array>
@@ -49,17 +69,17 @@
         <string>msauth</string>
         <string>otpauth</string>
         <string>metamask</string>
-        <string>metamask-staging</string>
         <string>cbwallet</string>
         <string>wc</string>
-        <string>walletconnect</string>
         <string>trust</string>
         <string>rainbow</string>
         <string>zerion</string>
         <string>phantom</string>
-        <string>ledgerlive</string>
-        <string>imtokenv2</string>
         <string>safe</string>
+        <string>uniswap</string>
+        <string>tokenpocket</string>
+        <string>okxwallet</string>
+        <string>argent</string>
     </array>
     <key>LSRequiresIPhoneOS</key>
     <true/>
