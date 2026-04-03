@@ -139,7 +139,7 @@ export default function BattleReward({ navigation }) {
             <Ionicons name="trophy-outline" size={34} color={palette.warm} />
           </View>
           <Text style={styles.rewardBadgeText}>{rewardData.status}</Text>
-          <Text style={styles.rewardMainValue}>{rewardData.reward}</Text>
+          {/* <Text style={styles.rewardMainValue}>{rewardData.reward}</Text> */}
           <Text style={styles.rewardRank}>Battle Rank {rewardData.rank}</Text>
         </LinearGradient>
 

@@ -344,10 +344,10 @@ export default function BattleResults({ navigation }) {
               <Text style={styles.statLabel}>Comments</Text>
               <Text style={styles.statValue}>{totalComments}</Text>
             </View>
-            <View style={styles.statChip}>
+            {/* <View style={styles.statChip}>
               <Text style={styles.statLabel}>Stake</Text>
               <Text style={styles.statValue}>{stake}</Text>
-            </View>
+            </View> */}
           </View>
         </LinearGradient>
 
@@ -421,22 +421,6 @@ export default function BattleResults({ navigation }) {
             </View>
           ))}
         </View>
-
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: palette.surface,
-              borderColor: palette.softBorder,
-              shadowColor: palette.primary,
-            },
-          ]}
-        >
-          <Text style={[styles.section, { color: text }]}>Reward Pool</Text>
-          <Text style={[styles.reward, { color: text }]}>{stake}</Text>
-        </View>
-
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -571,7 +555,7 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
     flexWrap: 'wrap',
   },
   statChip: {

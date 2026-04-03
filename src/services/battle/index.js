@@ -64,3 +64,6 @@ export const battleClose = async (data ) => {
 export const battleResolve = async (data ) => {
     return axiosInstance.post('battle/resolve',data);
 };
+export const battlePoint = async (data ) => {
+    return axiosInstance.get('battle/points',data);
+};
