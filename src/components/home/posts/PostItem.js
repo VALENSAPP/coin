@@ -23,6 +23,7 @@ import { useWalletConnectSupport } from '../../../context/WalletConnectSupportCo
 import MissionSupportScreen from '../../modals/DonationModal';
 import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
+import HexAvatar from '../story.js/HexAvatar';
 
 const { width } = Dimensions.get('window');
 
@@ -66,6 +67,8 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
 
   const width = Dimensions.get("window").width;
+  const halfWidth = width / 2;
+  const halfHeight = imageHeight / 2;
 
   const onPinchEvent = Animated.event(
     [
@@ -81,11 +84,14 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
 
   const resetScale = () => {
+    setIsModalVisible(false);
+    setModalImageLoaded(false);
+    onZoomChange?.(false);
     Animated.parallel([
       Animated.spring(scale, {
         toValue: 1,
         useNativeDriver: true,
-        speed: 20,
+        speed: 18,
         bounciness: 0,
       }),
       Animated.spring(translateX, {
@@ -96,11 +102,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         toValue: 0,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setIsModalVisible(false);
-      setModalImageLoaded(false);
-      onZoomChange?.(false);
-    });
+    ]).start();
   };
 
   const onPinchStateChange = ({ nativeEvent }) => {
@@ -117,7 +119,6 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         state === State.CANCELLED ||
         state === State.FAILED)
     ) {
-      onZoomChange?.(false);
       resetScale();
     }
   };
@@ -174,30 +175,34 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
               source={imageSource}
               resizeMode="contain"
               fadeDuration={0}
+              onLoadStart={() => setModalImageLoaded(false)}
+              onLoadEnd={() => setModalImageLoaded(true)}
               style={[
                 styles.fullScreenImage,
                 {
                   width: width,
-                  height: 500,
+                  height: imageHeight,
                   transform: [
-                    { translateX: Animated.subtract(translateX, width / 2) },
-                    { translateY: Animated.subtract(translateY, 250) },
+                    { translateX: Animated.subtract(translateX, halfWidth) },
+                    { translateY: Animated.subtract(translateY, halfHeight) },
                     { scale },
                     {
                       translateX: Animated.multiply(
-                        Animated.subtract(translateX, width / 2),
+                        Animated.subtract(translateX, halfWidth),
                         -1
                       ),
                     },
                     {
                       translateY: Animated.multiply(
-                        Animated.subtract(translateY, 250),
+                        Animated.subtract(translateY, halfHeight),
                         -1
                       ),
                     },
                   ],
                 },
               ]}
+              renderToHardwareTextureAndroid
+              shouldRasterizeIOS
             />
           </PinchGestureHandler>
         </View>
@@ -289,6 +294,7 @@ function PostItem({
   const route = useRoute();
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [dataFetched, setDataFetched] = useState(false); // To prevent redundant fetches
+  const modalProfileType = normalizeProfileType(userProfile || item?.profile);
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
@@ -320,7 +326,6 @@ function PostItem({
               username: person,
             };
           }
-console.log(taggedUsers,'tagged user' )
           return {
             id: person?.id || `tagged-${index}`,
             username: person?.username || person?.userName || 'Unknown User',
@@ -890,7 +895,12 @@ console.log(taggedUsers,'tagged user' )
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+            <HexAvatar
+              uri={item.avatar}
+              size={42}
+              borderWidth={2}
+              borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
@@ -1039,7 +1049,12 @@ console.log(taggedUsers,'tagged user' )
                   <View style={styles.avatarsContainer}>
                     {buyerList.slice(0, 3).map((buyer, idx) => (
                       <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
-                        <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatar} />
+                        <HexAvatar
+                          uri={buyer.avatar}
+                          size={28}
+                          borderWidth={1.5}
+                          borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+                        />
                       </View>
                     ))}
                   </View>
@@ -1165,7 +1180,7 @@ console.log(taggedUsers,'tagged user' )
         visible={showBuyersModal}
         onClose={() => setShowBuyersModal(false)}
         buyers={buyerList}
-        profileType={item?.profile}
+        profileType={modalProfileType}
         onUserPress={(id) => {
           setShowBuyersModal(false);
           handleUserProfile(id);

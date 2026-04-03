@@ -138,8 +138,8 @@ export default function LoginScreen() {
 
   useEffect(() => {
     const loadDeviceId = async () => {
-      const DeviceId = await DeviceInfo.getDeviceName();
-      // await AsyncStorage.setItem("device_id", DeviceId);
+      const DeviceId = await DeviceInfo.getUniqueId();
+      await AsyncStorage.setItem("device_id", DeviceId);
       console.log("Saved Device ID:", DeviceId);
     };
 

@@ -23,6 +23,7 @@ import { getAllUser } from './services/users';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
+import { authSesionHistory } from './services/wallet';
 // import { getUserCountry } from './hooks/countryLocation';
  
 const linking = {
@@ -75,7 +76,6 @@ export default function Main() {
   useEffect(() => {
     requestUserPermission();
     notificationListener();
-    checkKycAndShowWelcomeModal();
   }, []);
  
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
@@ -109,6 +109,10 @@ export default function Main() {
  
   const handleWelcomeModalClose = React.useCallback(async () => {
     setWelcomeModalVisible(false);
+    await AsyncStorage.multiSet([
+      [KYC_WELCOME_SHOWN_KEY, 'true'],
+      [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+    ]);
   }, []);
  
   useEffect(() => {
@@ -132,20 +136,53 @@ export default function Main() {
     getNotification();
  
     const checkLogin = async () => {
-      const loggedI = await AsyncStorage.getItem('isLoggedIn');
-      if (loggedI === 'true') {
-        dispatch(loggedIn());
-        await ensureCurrentAccountSaved();
-        const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
-        if (storedStripeCustomerId) {
-          dispatch(setStripeCustomerId(storedStripeCustomerId));
+      try {
+        const loggedI = await AsyncStorage.getItem('isLoggedIn');
+        const deviceId = await AsyncStorage.getItem("device_id");
+
+        if (loggedI === 'true') {
+
+          // 🔥 Call API
+          const response = await authSesionHistory();
+
+          const sessions = response?.data?.sessions || [];
+
+          // ✅ Check if current device exists in sessions
+          const currentSession = sessions.find(
+            (item) => item.deviceId === deviceId
+          );
+          {
+            if (currentSession) {
+              // ✅ Device is valid → stay logged in
+              dispatch(loggedIn());
+
+              await ensureCurrentAccountSaved();
+
+              const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
+              if (storedStripeCustomerId) {
+                dispatch(setStripeCustomerId(storedStripeCustomerId));
+              }
+
+            } else {
+              // ❌ Device not found → logout
+              console.log("Session not found, logging out");
+
+              await AsyncStorage.clear();
+              dispatch(loggedOut());
+            }
+          }
+        } else {
+          dispatch(loggedOut());
         }
-      } else {
+
+      } catch (error) {
+        console.log("Error in checkLogin:", error);
         dispatch(loggedOut());
+      } finally {
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
       }
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
     };
  
     checkLogin();
@@ -185,7 +222,7 @@ export default function Main() {
       const normalizedPath = String(path || '').toLowerCase();
  
       // Check if URL is callback
-      if (normalizedPath === '/callback') {
+      if (url.includes('callback')) {
         console.log('🔔 Callback URL detected - closing InAppBrowser');
  
         try {
@@ -205,8 +242,8 @@ export default function Main() {
             .replace(/^com\.valens\.app:\/\//i, 'https://dummy.com/')
             .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
             .replace(/^valens:\/\//i, 'https://dummy.com/');
-          const callbackUrlObj = new URL(normalizedCallbackUrl);
-          status = callbackUrlObj.searchParams.get('status') || 'success';
+          const urlObj = new URL(normalizedCallbackUrl);
+          status = urlObj.searchParams.get('status') || 'success';
           console.log('📋 Payment status from URL:', status);
         } catch (error) {
           console.log('⚠️ Error parsing callback URL:', error);
@@ -260,6 +297,9 @@ export default function Main() {
  
       // Handle other deep links normally if needed
       try {
+        const urlObj = new URL(normalizeDeepLinkUrl(url));
+        const path = urlObj.pathname;
+        const normalizedPath = String(path || '').toLowerCase();
         const postId = urlObj.searchParams.get('postId');
         const fallbackTag = urlObj.searchParams.get('af');
         const sharedProfileLink = parseProfileShareUrl(url);
@@ -345,7 +385,6 @@ export default function Main() {
         console.log('response in refreshtoken------->>>>>>>>>>>>>>>', response);
         await AsyncStorage.setItem('token', response.data.access_token);
         await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
-        await ensureCurrentAccountSaved();
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }

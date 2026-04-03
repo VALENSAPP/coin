@@ -1,9 +1,24 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, PermissionsAndroid, Linking, ActivityIndicator } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Alert,
+  Platform,
+  PermissionsAndroid,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import ProfileModal from '../modals/ProfileModal';
@@ -15,7 +30,23 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
-import { WhiteDragonfly, Thread, BlueDragonfly, SoftGrayDragonfly, LilacDragonfly, GoldDragonfly, GoldLavenderDragonfly, Twitter, Tiktok, Linkedin } from '../../assets/icons';
+import { buildStoryMetaPayload } from '../../utils/buildStoryMeta';
+import {
+  appendStoryAudioFiles,
+  prepareStoryClipsAudioForUpload,
+} from '../../utils/storyAudioUpload';
+import {
+  WhiteDragonfly,
+  Thread,
+  BlueDragonfly,
+  SoftGrayDragonfly,
+  LilacDragonfly,
+  GoldDragonfly,
+  GoldLavenderDragonfly,
+  Twitter,
+  Tiktok,
+  Linkedin,
+} from '../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setProfileImg } from '../../redux/actions/ProfileImgAction';
 import { showToastMessage } from '../displaytoastmessage';
@@ -26,6 +57,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
+import HexAvatar from '../home/story.js/HexAvatar';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -58,7 +90,7 @@ const ProfilePersonData = ({
   onStoryUploaded, // Callback to refresh stories after upload
   userData,
   executeFollowAction,
-  returnByTo
+  returnByTo,
 }) => {
   // useEffect(() => {
   //   console.log(
@@ -75,8 +107,12 @@ const ProfilePersonData = ({
     fetchAllData();
   }, [profilepic]);
 
-  const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-  const avatarUri = typeof profileImage === 'string' && profileImage.length ? profileImage : PLACEHOLDER_AVATAR;
+  const PLACEHOLDER_AVATAR =
+    'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const avatarUri =
+    typeof profileImage === 'string' && profileImage.length
+      ? profileImage
+      : PLACEHOLDER_AVATAR;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
@@ -89,25 +125,29 @@ const ProfilePersonData = ({
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
+    useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const dispatch = useDispatch();
+  const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
   const effectiveProfileType = profileType || userData?.profile;
   const normalizedProfileThemeType =
-    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
+    typeof effectiveProfileType === 'string'
+      ? effectiveProfileType.toLowerCase()
+      : '';
   const isCompanyProfile = normalizedProfileThemeType === 'company';
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const { bgStyle, textStyle, text } = useAppTheme(effectiveProfileType);
+  const { bgStyle, textStyle, text, card, bg } =
+    useAppTheme(effectiveProfileType);
   const route = useRoute();
-  const isKycApproved =
-    userData?.kyc === true
+  const isKycApproved = userData?.kyc === true;
   // &&
   // userData?.kycStatus === "APPROVED";
-  const isSubscriptionActive = userData?.subscriptionStatus == "ACTIVE";
+  const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
 
   const Userdata = {
     Displayname: displayName || 'No Name',
@@ -126,7 +166,7 @@ const ProfilePersonData = ({
 
       // Run both API calls in parallel
       const [profileResponse] = await Promise.all([
-        getUserCredentials(userData?.id)
+        getUserCredentials(userData?.id),
       ]);
 
       // Handle profile response
@@ -190,20 +230,16 @@ const ProfilePersonData = ({
           style: 'cancel',
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 
   const handleStoryUpload = () => {
-    Alert.alert(
-      'Add Drops',
-      'Choose how to add your Drops',
-      [
-        { text: 'Camera', onPress: () => openStoryCamera() },
-        { text: 'Gallery', onPress: () => openStoryGallery() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Alert.alert('Add Drops', 'Choose how to add your Drops', [
+      { text: 'Camera', onPress: () => openStoryCamera() },
+      { text: 'Gallery', onPress: () => openStoryGallery() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const openStoryCamera = async () => {
@@ -281,8 +317,10 @@ const ProfilePersonData = ({
     setComposerVisible(true);
   };
 
-  const handleComposerDone = async (processedArray) => {
+  const handleComposerDone = async processedArray => {
     try {
+      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+
       setComposerVisible(false);
 
       // Prepare FormData for API call
@@ -292,9 +330,10 @@ const ProfilePersonData = ({
       formData.append('caption', '');
 
       // Add media files
-      processedArray.forEach((item, index) => {
+      clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
-        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
+        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'
+          }`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
 
         formData.append('media', {
@@ -303,6 +342,12 @@ const ProfilePersonData = ({
           name: fileName,
         });
       });
+
+      formData.append(
+        'storyMeta',
+        JSON.stringify(buildStoryMetaPayload(clips)),
+      );
+      await appendStoryAudioFiles(formData, clips);
 
       // Call API to upload story
       const response = await PostStory(formData);
@@ -315,11 +360,19 @@ const ProfilePersonData = ({
           onStoryUploaded();
         }
       } else {
-        showToastMessage(toast, 'danger', 'Failed to upload Drops please try again');
+        showToastMessage(
+          toast,
+          'danger',
+          'Failed to upload Drops please try again',
+        );
       }
     } catch (error) {
       console.error('Error uploading Drops:', error);
-      showToastMessage(toast, 'danger', 'Something Went Wrong ! please try again');
+      showToastMessage(
+        toast,
+        'danger',
+        'Something Went Wrong ! please try again',
+      );
     }
   };
 
@@ -341,7 +394,7 @@ const ProfilePersonData = ({
           style: 'cancel',
         },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
   };
 
@@ -363,10 +416,10 @@ const ProfilePersonData = ({
         },
         async response => {
           await processImageResponse(response);
-        }
+        },
       );
     } catch (err) {
-      console.error("Camera error:", err);
+      console.error('Camera error:', err);
       showToastMessage(toast, 'danger', 'Failed to open camera');
     }
   };
@@ -381,26 +434,26 @@ const ProfilePersonData = ({
         },
         async response => {
           await processImageResponse(response);
-        }
+        },
       );
     } catch (err) {
-      console.error("Gallery error:", err);
+      console.error('Gallery error:', err);
       showToastMessage(toast, 'danger', 'Failed to open gallery');
     }
   };
 
-  const processImageResponse = async (response) => {
+  const processImageResponse = async response => {
     if (response?.didCancel) return;
 
     if (response?.errorCode) {
-      console.warn("Image Picker Error:", response.errorMessage);
+      console.warn('Image Picker Error:', response.errorMessage);
       showToastMessage(toast, 'danger', 'Failed to pick image');
       return;
     }
 
     const asset = response?.assets?.[0];
     if (!asset?.uri) {
-      console.warn("No valid image URI found");
+      console.warn('No valid image URI found');
       showToastMessage(toast, 'danger', 'No image selected');
       return;
     }
@@ -410,15 +463,13 @@ const ProfilePersonData = ({
 
     // Always provide fallbacks
     const fileName = asset.fileName || `profile_${Date.now()}.jpg`;
-    const mimeType = asset.type || "image/jpeg";
+    const mimeType = asset.type || 'image/jpeg';
 
     // Special case: Android content:// URIs
-    const imageUri = pickedUri.startsWith("content://")
-      ? pickedUri
-      : pickedUri;
+    const imageUri = pickedUri.startsWith('content://') ? pickedUri : pickedUri;
 
     const formData = new FormData();
-    formData.append("image", {
+    formData.append('image', {
       uri: imageUri,
       type: mimeType,
       name: fileName,
@@ -451,9 +502,31 @@ const ProfilePersonData = ({
   const UserMessageNavigation = () => {
     navigation.navigate('UserChat', {
       userId: targetUserId,
-      user: userData
+      user: userData,
     });
-  }
+  };
+
+  const openUserHighlights = useCallback(() => {
+    if (!targetUserId) {
+      return;
+    }
+
+    navigation.navigate('ProfileMain', {
+      screen: 'HighlightsScreen',
+      params: {
+        userId: targetUserId,
+        readOnly: true,
+        profileType: userData?.profile,
+        title: userData?.displayName || userData?.userName || 'Highlights',
+      },
+    });
+  }, [
+    navigation,
+    targetUserId,
+    userData?.displayName,
+    userData?.profile,
+    userData?.userName,
+  ]);
 
   const recipientWalletAddress = useMemo(
     () => getSupportRecipientWalletAddress(userData),
@@ -463,7 +536,10 @@ const ProfilePersonData = ({
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      Alert.alert(
+        'Wallet not connected',
+        'This user has not connected a wallet yet. Follow is still active.',
+      );
       return;
     }
     setSupportDisclaimerVisible(false);
@@ -523,7 +599,9 @@ const ProfilePersonData = ({
         try {
           dispatch(showLoader());
           const id = await AsyncStorage.getItem('userId');
-          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
+          const storedWalletAddress = await AsyncStorage.getItem(
+            'walletAddress',
+          );
           setUserId(id);
           setWalletAddress(storedWalletAddress || '');
           if (!id) return;
@@ -543,8 +621,12 @@ const ProfilePersonData = ({
 
             // Check KYC approval status and show welcome modal
             if (!fromUsersProfile && response.data.kyc === true) {
-              const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
-              const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
+              const hasShownWelcome = await AsyncStorage.getItem(
+                KYC_WELCOME_SHOWN_KEY,
+              );
+              const hasShownLegacy = await AsyncStorage.getItem(
+                LEGACY_KYC_WELCOME_SHOWN_KEY,
+              );
               if (!hasShownWelcome) {
                 if (hasShownLegacy) {
                   await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
@@ -587,6 +669,88 @@ const ProfilePersonData = ({
       Alert.alert('Please wait', 'Profile data is still loading');
     }
   };
+
+  const handleOpenBattlePress = useCallback(() => {
+    if (fromUsersProfile) {
+      navigation.navigate('ProfileMain', { screen: 'OpenBattle' });
+      return;
+    }
+
+    navigation.navigate('OpenBattle');
+  }, [fromUsersProfile, navigation]);
+
+  const handleInviteBattlePress = useCallback(() => {
+    const invitedUser = {
+      id: String(targetUserId || userData?.id || ''),
+      name:
+        userData?.displayName ||
+        userData?.name ||
+        userData?.fullName ||
+        userData?.userName ||
+        displayName ||
+        'User',
+      userName: userData?.userName || userData?.username || username || '',
+      avatar:
+        userData?.image ||
+        userData?.avatar ||
+        userData?.profilePicture ||
+        profileImage ||
+        '',
+    };
+
+    const params = {
+      presetFormat: 'HEAD_TO_HEAD',
+      invitedUserId: invitedUser.id,
+      invitedUser,
+    };
+
+    if (fromUsersProfile) {
+      navigation.navigate('ProfileMain', {
+        screen: 'OpenBattle',
+        params,
+      });
+      return;
+    }
+
+    navigation.navigate('OpenBattle', params);
+  }, [
+    displayName,
+    fromUsersProfile,
+    navigation,
+    profileImage,
+    targetUserId,
+    userData?.avatar,
+    userData?.displayName,
+    userData?.fullName,
+    userData?.id,
+    userData?.image,
+    userData?.name,
+    userData?.profilePicture,
+    userData?.userName,
+    userData?.username,
+    username,
+  ]);
+
+  const handleBattleTabPress = useCallback(() => {
+    navigation.navigate('ProfileBattleScreen', {
+      profile: effectiveProfileType || userProfile || userData?.profile || 'user',
+      viewedUserId: String(targetUserId || userData?.id || userId || ''),
+      isOwner: !fromUsersProfile,
+      title: fromUsersProfile
+        ? `${displayName || 'User'} Battles`
+        : 'My Battles',
+    });
+  }, [
+    navigation,
+    targetUserId,
+    userData?.id,
+    userData?.profile,
+    userId,
+    fromUsersProfile,
+    displayName,
+    effectiveProfileType,
+    userProfile,
+  ]);
 
   const redirect = () => {
     const source = data?.id ? data : userData?.id ? userData : null;
@@ -635,18 +799,24 @@ const ProfilePersonData = ({
   // };
   const detectPlatformFromUrl = useCallback((url = '') => {
     const normalized = String(url).toLowerCase();
-    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
+    if (normalized.includes('twitter.com') || normalized.includes('x.com'))
+      return 'twitter';
     if (normalized.includes('tiktok.com')) return 'tiktok';
     if (normalized.includes('linkedin.com')) return 'linkedin';
     if (normalized.includes('instagram.com')) return 'instagram';
     return '';
   }, []);
 
-  const getSocialPlatform = useCallback((platform = '', url = '') => {
-    const normalizedPlatform = String(platform || '').trim().toLowerCase();
-    if (normalizedPlatform) return normalizedPlatform;
-    return detectPlatformFromUrl(url);
-  }, [detectPlatformFromUrl]);
+  const getSocialPlatform = useCallback(
+    (platform = '', url = '') => {
+      const normalizedPlatform = String(platform || '')
+        .trim()
+        .toLowerCase();
+      if (normalizedPlatform) return normalizedPlatform;
+      return detectPlatformFromUrl(url);
+    },
+    [detectPlatformFromUrl],
+  );
 
   const socialMediaLinks = useMemo(() => {
     const source =
@@ -673,18 +843,16 @@ const ProfilePersonData = ({
       .map(item => {
         const objectItem = item && typeof item === 'object' ? item : {};
         const directUrl = String(
-          objectItem?.url ||
-          objectItem?.link ||
-          objectItem?.value ||
-          '',
+          objectItem?.url || objectItem?.link || objectItem?.value || '',
         ).trim();
-        const keyedPlatformEntry = knownPlatformKeys.find(key => objectItem?.[key]);
+        const keyedPlatformEntry = knownPlatformKeys.find(
+          key => objectItem?.[key],
+        );
         const platform = String(
-          objectItem?.platform ||
-          keyedPlatformEntry ||
-          '',
+          objectItem?.platform || keyedPlatformEntry || '',
         ).toLowerCase();
-        const derivedUrl = directUrl || String(objectItem?.[platform] || '').trim();
+        const derivedUrl =
+          directUrl || String(objectItem?.[platform] || '').trim();
         const normalizedPlatform = getSocialPlatform(platform, derivedUrl);
         return { platform: normalizedPlatform, url: derivedUrl };
       })
@@ -699,11 +867,12 @@ const ProfilePersonData = ({
     getSocialPlatform,
   ]);
 
-  const renderSocialIcon = useCallback((platform) => {
+  const renderSocialIcon = useCallback(platform => {
     if (platform === 'tiktok') return <Tiktok width={25} height={25} />;
     if (platform === 'linkedin') return <Linkedin width={25} height={25} />;
     if (platform === 'twitter') return <Twitter width={25} height={25} />;
-    if (platform === 'instagram') return <FontAwesome name="instagram" size={23} color="#E1306C" />;
+    if (platform === 'instagram')
+      return <FontAwesome name="instagram" size={23} color="#E1306C" />;
     return <Feather name="link-2" size={22} color="#374151" />;
   }, []);
 
@@ -715,9 +884,14 @@ const ProfilePersonData = ({
       data?.websiteLink ??
       '',
     ).trim();
-  }, [userData?.website_link, data?.website_link, userData?.websiteLink, data?.websiteLink]);
+  }, [
+    userData?.website_link,
+    data?.website_link,
+    userData?.websiteLink,
+    data?.websiteLink,
+  ]);
 
-  const handleOpenSocialUrl = async (url) => {
+  const handleOpenSocialUrl = async url => {
     const raw = String(url || '').trim();
     if (!raw) {
       Alert.alert('Error', 'Link is empty');
@@ -746,7 +920,8 @@ const ProfilePersonData = ({
       id: data?.id || userData?.id || targetUserId || userId,
       userId: data?.userId || userData?.userId || targetUserId || userId,
       userName: data?.userName || userData?.userName || username || displayName,
-      displayName: data?.displayName || userData?.displayName || displayName || username,
+      displayName:
+        data?.displayName || userData?.displayName || displayName || username,
       walletAddress:
         data?.walletAddress ||
         userData?.walletAddress ||
@@ -754,11 +929,19 @@ const ProfilePersonData = ({
         walletAddress ||
         '',
     };
-  }, [data, userData, targetUserId, userId, username, displayName, walletAddress]);
+  }, [
+    data,
+    userData,
+    targetUserId,
+    userId,
+    username,
+    displayName,
+    walletAddress,
+  ]);
 
   const handleBackPress = useCallback(() => {
     const returnTo = returnByTo;
-    console.log('is this wokreing buy', returnTo)
+    console.log('is this wokreing buy', returnTo);
 
     if (returnTo) {
       // console.log()
@@ -781,9 +964,7 @@ const ProfilePersonData = ({
               onPress={() => setUsernameModalVisible(true)}
             >
               {fromUsersProfile && (
-                <TouchableOpacity
-                  onPress={handleBackPress}
-                >
+                <TouchableOpacity onPress={handleBackPress}>
                   <Ionicons
                     name="arrow-back-outline"
                     size={22}
@@ -793,7 +974,9 @@ const ProfilePersonData = ({
                 </TouchableOpacity>
               )}
               <View style={styles.userRow}>
-                <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
+                <Text style={[styles.headerText, textStyle]}>
+                  {Userdata.Username}
+                </Text>
                 {isKycApproved && (
                   <DragonflyIcon width={22} height={22} style={styles.icon} />
                 )}
@@ -809,9 +992,17 @@ const ProfilePersonData = ({
             </TouchableOpacity>
           </View>
           <View style={styles.iconContainer}>
-            {!fromUsersProfile && (
+            {/* {!fromUsersProfile && (
               <TouchableOpacity style={styles.iconButton} onPress={() => { navigation.navigate('wallet') }}>
                 <Ionicons name="wallet-outline" size={25} color="#111100" />
+              </TouchableOpacity>
+            )} */}
+            {fromUsersProfile && (
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={openUserHighlights}
+              >
+                <Feather name="circle" size={25} color="#111100" />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -862,14 +1053,18 @@ const ProfilePersonData = ({
                 activeOpacity={0.8}
                 style={{ marginBottom: 5 }}
               >
-                <Image
-                  source={{ uri: avatarUri }}
-                  style={[styles.image, { borderColor: text }]}
-                  resizeMode="cover"
+                <HexAvatar
+                  uri={avatarUri}
+                  size={90}
+                  borderWidth={2}
+                  borderColor={text}
                 />
                 {!fromUsersProfile && (
                   <TouchableOpacity
-                    style={[styles.addbutton, { backgroundColor: text, shadowColor: text }]}
+                    style={[
+                      styles.addbutton,
+                      { backgroundColor: text, shadowColor: text },
+                    ]}
                     onPress={handleProfileImagePress}
                   >
                     <Ionicons name="add" size={15} color="white" />
@@ -918,22 +1113,18 @@ const ProfilePersonData = ({
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => UserMessageNavigation()}
-                  >
+                  <TouchableOpacity onPress={() => UserMessageNavigation()}>
                     <LinearGradient
                       colors={profileActionGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.editbuttons, { shadowColor: text }]}
                     >
-                      <Text style={styles.buttonText}>
-                        Message
-                      </Text>
+                      <Text style={styles.buttonText}>Message</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                   {normalizedProfileThemeType !== 'company' && (
-                    <TouchableOpacity >
+                    <TouchableOpacity>
                       <LinearGradient
                         colors={profileActionGradient}
                         start={{ x: 0, y: 0 }}
@@ -941,14 +1132,17 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons
+                            name="trending-up-outline"
+                            size={28}
+                            color="#f2f8f2"
+                          />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
                 </>
-
               ) : (
                 <>
                   <TouchableOpacity onPress={() => handleNavigate()}>
@@ -964,7 +1158,7 @@ const ProfilePersonData = ({
                   <TouchableOpacity
                     onPress={() =>
                       navigation.navigate('Invite', {
-                        referralCode: userData?.referCode ||'Valense123',
+                        referralCode: userData?.referCode || 'Valense123',
                         avatar: Userdata.profilePic,
                       })
                     }
@@ -984,10 +1178,7 @@ const ProfilePersonData = ({
                     </LinearGradient>
                   </TouchableOpacity>
                   {!isBusinessProfile && (
-
-
-                    <TouchableOpacity
-                    >
+                    <TouchableOpacity>
                       <LinearGradient
                         colors={profileActionGradient}
                         start={{ x: 0, y: 0 }}
@@ -995,7 +1186,11 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <View style={styles.buttonContent}>
-                          <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                          <Ionicons
+                            name="trending-up-outline"
+                            size={28}
+                            color="#f2f8f2"
+                          />
                           <Text style={styles.buttonText}>Total Support</Text>
                         </View>
                       </LinearGradient>
@@ -1022,7 +1217,6 @@ const ProfilePersonData = ({
             </View>
           </View>
 
-
           {!!websiteLink && (
             <TouchableOpacity
               style={styles.bioLinkWrap}
@@ -1032,14 +1226,65 @@ const ProfilePersonData = ({
               <Text style={styles.bioLinkText}>{websiteLink}</Text>
             </TouchableOpacity>
           )}
-
         </View>
 
+        <View style={styles.battleActionWrapper}>
+          <TouchableOpacity
+            style={styles.battleBtnWrapper}
+            onPress={handleInviteBattlePress}
+          >
+            <LinearGradient
+              colors={profileActionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.battleBtn}
+            >
+              <Text style={styles.battleBtnText}>Invite to Battle</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          {!fromUsersProfile && (
+            <TouchableOpacity
+              style={styles.battleBtnWrapper}
+              onPress={handleOpenBattlePress}
+            >
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Open Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={[styles.tabContainer,]}>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              {
+                backgroundColor: text,
+                borderColor: text,
+              },
+            ]}
+            onPress={handleBattleTabPress}
+          >
+            <Text
+              style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
+            >
+              Battle
+            </Text>
+          </TouchableOpacity>
+        </View>
         {/* Stats */}
         <View style={styles.statsRow}>
           <TouchableOpacity style={styles.statItem}>
             <Ionicons name="add-circle-outline" size={16} color="#444" />
-            <Text style={[styles.statText, { color: text }]}> Mint: {Userdata.totalPost}</Text>
+            <Text style={[styles.statText, { color: text }]}>
+              {' '}
+              Mint: {Userdata.totalPost}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.statItem}
@@ -1201,9 +1446,9 @@ const styles = StyleSheet.create({
 
   // --- Profile ---
   profile: {
-    marginTop: 10,
+    marginTop: 2,
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 2,
   },
   profileView: {
     flexDirection: 'row',
@@ -1241,7 +1486,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1F2937',
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: 2,
     textAlign: 'center',
   },
 
@@ -1273,7 +1518,7 @@ const styles = StyleSheet.create({
   biobox: {
     width: '100%',
     paddingVertical: 6,
-    marginTop: 6,
+    marginTop: 2,
   },
   biotext: {
     fontStyle: 'italic',
@@ -1282,7 +1527,7 @@ const styles = StyleSheet.create({
   },
   bioLinkWrap: {
     marginTop: 2,
-    marginBottom: 6,
+    marginBottom: 2,
   },
   bioLinkText: {
     color: '#1D9BF0',
@@ -1306,8 +1551,8 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 14,
+    marginTop: 2,
+    marginBottom: 1,
   },
   statItem: {
     flexDirection: 'row',
@@ -1320,7 +1565,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   infoButton: {
-
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -1333,5 +1577,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+  },
+  battleActionWrapper: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    alignSelf: 'stretch',
+    marginHorizontal: 6,
+    marginTop: 2,
+  },
+
+  battleBtnWrapper: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginHorizontal: 5,
+    ...Platform.select({
+      ios: {
+        height: 48,
+      },
+      android: {
+        minHeight: 44,
+      },
+    }),
+  },
+
+  battleBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        paddingVertical: 0,
+      },
+      android: {
+        paddingVertical: 6,
+      },
+    }),
+  },
+
+  battleBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    ...Platform.select({
+      ios: {
+        lineHeight: 18,
+      },
+      android: {
+        lineHeight: 18,
+      },
+    }),
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+    marginTop: 2,
+    padding: 6,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });
