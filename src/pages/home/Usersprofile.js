@@ -34,6 +34,7 @@ const Usersprofile = () => {
 
   const screenParams = route?.params?.params || route?.params || {};
   const returnTo = screenParams?.returnTo;
+  const battleLiveFromRoute = Boolean(screenParams?.battleLive);
 
   console.log(returnTo,"7777777777")
 
@@ -330,7 +331,7 @@ const Usersprofile = () => {
         <ProfileTabs 
           post={posts} 
           displayName={userData?.userName} 
-          userData={userData} 
+          userData={userData ? { ...userData, battleLive: battleLiveFromRoute } : userData} 
           profileType={userData?.profile}
           dashboard={userDashboard} 
           targetUserId={targetUserId}

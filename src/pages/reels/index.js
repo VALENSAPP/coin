@@ -33,6 +33,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import { useAppTheme } from '../../theme/useApptheme';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../components/modals/ShareModal';
 import ReportFlowScreen from '../../components/modals/Report';
@@ -777,7 +778,14 @@ export default function FlipsScreen() {
         {/* User info */}
         <View style={styles.userInfo}>
           <TouchableOpacity style={styles.userRow} onPress={handleUserNavigate}>
-            <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+            <View style={{ marginRight: 8 }}>
+              <HexAvatar
+                uri={item.avatar}
+                size={32}
+                borderWidth={2}
+                borderColor="#fff"
+              />
+            </View>
             <Text style={styles.username}>
               {item.user}
               {item.verified && (

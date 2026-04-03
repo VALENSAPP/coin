@@ -241,9 +241,7 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ postCheck, userData }) => {
-  console.log(postCheck,'dta is posts ');
-  
+const PostScreen = memo(({ postCheck, userData }) => {  
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
   const navigation = useNavigation();

@@ -1,12 +1,23 @@
 // src/navigations/MainTabNavigator.js
 import React, { useMemo, useCallback, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { getFocusedRouteNameFromRoute, useNavigation, useRoute } from '@react-navigation/native';
+import {
+  getFocusedRouteNameFromRoute,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from '../pages/home';
 import ProfileScreen from '../pages/profile';
-import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSelector } from 'react-redux';
 import heartNotification from '../pages/home/HeartNotification';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -16,7 +27,7 @@ import ChatMessages from '../pages/home/chatMessages/ChatMessages';
 import PostScreen from '../pages/post';
 import FollowersFollowingScreen from '../pages/profile/FollowersScreen';
 import ProfileEditScreen from '../pages/profile/editprofile';
-import PostUploadPage from '../pages/post/uploadPost/Postupload'
+import PostUploadPage from '../pages/post/uploadPost/Postupload';
 import PostEditorScreen from '../pages/post/uploadPost/PostEditorScreen';
 import InstagramPostCreator from '../pages/post/uploadPost/EditPostSelected';
 import WalletScreen from '../pages/wallet';
@@ -63,8 +74,13 @@ import { useAppTheme } from '../theme/useApptheme';
 import TermConditionScreen from '../pages/profile/Term&ConditionScreen';
 import { DeviceEventEmitter } from 'react-native';
 import PaymentScreen from '../pages/Stripe/PaymentScreen';
-
-
+import OpenBattleScreen from '../pages/profile/OpenBattleScreen';
+import ProfileBattleScreen from '../pages/profile/ProfileBattleScreen';
+import ArchiveScreen from '../pages/settings/archeive';
+import HighlightsScreen from '../pages/settings/highlights';
+import BattleInProgress from '../pages/settings/BattleInProgress';
+import BattleResults from '../pages/settings/BattleResults';
+import BattleReward from '../pages/settings/BattleReward';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -86,7 +102,7 @@ export default function MainTabNavigator() {
 
   const HomeStack = useMemo(() => {
     return () => (
-      <Stack.Navigator screenOptions={{ headerShown: false }} >
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="HeartNotification" component={heartNotification} />
         <Stack.Screen name="ChatMessages" component={ChatMessages} />
@@ -94,39 +110,158 @@ export default function MainTabNavigator() {
         <Stack.Screen name="Following" component={Following} />
         <Stack.Screen name="UserChat" component={UserChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
+        <Stack.Screen
+          name="ProfileBattleScreen"
+          component={ProfileBattleScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="EditPost" component={EditPostScreen} />
+        {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
       </Stack.Navigator>
     );
   }, []);
 
   const ProfileStack = useMemo(() => {
     return () => (
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Profile">
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName="Profile"
+      >
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Settings" component={Settings} />
-        <Stack.Screen name="FollowersFollowingScreen" component={FollowersFollowingScreen} />
-        <Stack.Screen name="EditProfile" component={ProfileEditScreen} options={{ headerShown: true, headerStyle: [bgStyle], }} />
-        <Stack.Screen name="PostUpload" component={PostUploadPage} options={{ headerShown: false }} />
-        <Stack.Screen name="PostEditor" component={PostEditorScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="EditPost" component={EditPostScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="SelectedPost" component={InstagramPostCreator} options={{ headerShown: false }} />
-        <Stack.Screen name="PostView" component={PostView} options={{ headerShown: false, }} />
-        <Stack.Screen name="CreatorCoin" component={CreatorCoin} options={{ headerShown: false }} />
-        <Stack.Screen name="ShareProfile" component={ShareProfile} options={{ headerShown: false }} />
-        <Stack.Screen name="SavedPost" component={SavedPosts} options={{ headerShown: false }} />
-        <Stack.Screen name="QuickBuy" component={QuickBuy} options={{ headerShown: false }} />
-        <Stack.Screen name="CashOutScreen" component={CashOutScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Invite" component={InviteScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="notificationEnable" component={Notification} options={{ headerShown: false }} />
-        <Stack.Screen name="HidePosts" component={HidePosts} options={{ headerShown: false }} />
-        <Stack.Screen name="subscription" component={subscription} options={{ headerShown: false }} />
-        <Stack.Screen name="ManageSubscription" component={PaymentScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="FlipsScreen" component={FlipsScreen} options={{
-          headerShown: false,
-          presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
-          animation: 'slide_from_bottom', // Optional: adds nice animation
-        }} />
-        <Stack.Screen name="TermConditionScreen" component={TermConditionScreen} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="FollowersFollowingScreen"
+          component={FollowersFollowingScreen}
+        />
+        <Stack.Screen
+          name="EditProfile"
+          component={ProfileEditScreen}
+          options={{ headerShown: true, headerStyle: [bgStyle] }}
+        />
+        <Stack.Screen
+          name="PostUpload"
+          component={PostUploadPage}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PostEditor"
+          component={PostEditorScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EditPost"
+          component={EditPostScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SelectedPost"
+          component={InstagramPostCreator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PostView"
+          component={PostView}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CreatorCoin"
+          component={CreatorCoin}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ShareProfile"
+          component={ShareProfile}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SavedPost"
+          component={SavedPosts}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="QuickBuy"
+          component={QuickBuy}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CashOutScreen"
+          component={CashOutScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Invite"
+          component={InviteScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="notificationEnable"
+          component={Notification}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="HidePosts"
+          component={HidePosts}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleInProgress"
+          component={BattleInProgress}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleResults"
+          component={BattleResults}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleReward"
+          component={BattleReward}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="subscription"
+          component={subscription}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ManageSubscription"
+          component={PaymentScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="FlipsScreen"
+          component={FlipsScreen}
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal', // Optional: makes it feel like a modal transition
+            animation: 'slide_from_bottom', // Optional: adds nice animation
+          }}
+        />
+        <Stack.Screen
+          name="TermConditionScreen"
+          component={TermConditionScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="OpenBattle"
+          component={OpenBattleScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ProfileBattleScreen"
+          component={ProfileBattleScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ArchiveScreen"
+          component={ArchiveScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="HighlightsScreen"
+          component={HighlightsScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }, []);
@@ -141,10 +276,13 @@ export default function MainTabNavigator() {
           initialRouteName={initialScreen}
           screenOptions={({ navigation }) => ({
             headerShown: true,
-            headerStyle: [{
-              elevation: 0,
-              shadowOpacity: 0,
-            }, bgStyle],
+            headerStyle: [
+              {
+                elevation: 0,
+                shadowOpacity: 0,
+              },
+              bgStyle,
+            ],
             headerTitleStyle: {
               fontWeight: 'bold',
               color: '#111',
@@ -160,9 +298,9 @@ export default function MainTabNavigator() {
             ),
             headerTitle: () => (
               <TextGradient
-                style={{ fontWeight: "bold", fontSize: 20 }}
+                style={{ fontWeight: 'bold', fontSize: 20 }}
                 locations={[0, 1]}
-                colors={["#513189bd", "#e54ba0"]}
+                colors={['#513189bd', '#e54ba0']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 text="VALENS"
@@ -182,7 +320,7 @@ export default function MainTabNavigator() {
             component={DepositeCash}
             options={{
               headerTitle: 'Deposit',
-              headerTitleAlign: 'center'
+              headerTitleAlign: 'center',
             }}
           />
           <Stack.Screen
@@ -190,7 +328,7 @@ export default function MainTabNavigator() {
             component={CashOut}
             options={{
               headerTitle: 'Cash Out',
-              headerTitleAlign: 'center'
+              headerTitleAlign: 'center',
             }}
           />
           <Stack.Screen
@@ -282,166 +420,259 @@ export default function MainTabNavigator() {
     return () => (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Add" component={PostScreen} />
-        <Stack.Screen name="SelectedPost" component={InstagramPostCreator} options={{ headerShown: false }} />
-        <Stack.Screen name="PostEditor" component={PostEditorScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="EditPost" component={EditPostScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="CreateMission" component={CreateMission} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="SelectedPost"
+          component={InstagramPostCreator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PostEditor"
+          component={PostEditorScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EditPost"
+          component={EditPostScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CreateMission"
+          component={CreateMission}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }, []);
 
   // Memoize tab bar styles
-  const defaultTabBarStyle = useMemo(() => ({
-    display: 'flex',
-    backgroundColor: bg,
-    borderTopWidth: 1.5,
-    borderTopColor: '#dbdbdb',
-    height: 50,
-    position: 'absolute',
-    bottom: Platform.OS == "android" ? 0 : 25,
-    left: 0,
-    right: 0,
-    paddingTop: 5
-  }), []);
+  const defaultTabBarStyle = useMemo(
+    () => ({
+      display: 'flex',
+      backgroundColor: bg,
+      borderTopWidth: 1.5,
+      borderTopColor: '#dbdbdb',
+      height: 50,
+      position: 'absolute',
+      bottom: Platform.OS == 'android' ? 0 : 25,
+      left: 0,
+      right: 0,
+      paddingTop: 5,
+    }),
+    [],
+  );
 
-  const reelsTabBarStyle = useMemo(() => ({
-    backgroundColor: '#000',
-    borderTopWidth: 1.5,
-    borderTopColor: '#fff',
-    height: 50,
-    position: 'absolute',
-    bottom: Platform.OS == "android" ? 0 : 25,
-    left: 0,
-    right: 0,
-    paddingTop: 5
-  }), []);
+  const reelsTabBarStyle = useMemo(
+    () => ({
+      backgroundColor: '#000',
+      borderTopWidth: 1.5,
+      borderTopColor: '#fff',
+      height: 50,
+      position: 'absolute',
+      bottom: Platform.OS == 'android' ? 0 : 25,
+      left: 0,
+      right: 0,
+      paddingTop: 5,
+    }),
+    [],
+  );
 
-  const hiddenTabBarStyle = useMemo(() => ({
-    display: 'none'
-  }), []);
+  const hiddenTabBarStyle = useMemo(
+    () => ({
+      display: 'none',
+    }),
+    [],
+  );
 
   // Memoize screen options function
-  const getScreenOptions = useCallback(({ route, navigation }) => {
-    const isFocused = navigation.isFocused();
+  const getScreenOptions = useCallback(
+    ({ route, navigation }) => {
+      const isFocused = navigation.isFocused();
 
-    const baseOptions = {
-      headerShown: false,
-      tabBarShowLabel: false,
-      tabBarActiveTintColor: route.name === 'Reels' && isFocused ? '#fff' : '#000',
-      tabBarInactiveTintColor: route.name === 'Reels' && isFocused ? '#fff' : '#666',
-      tabBarHideOnKeyboard: true,
-      tabBarIcon: ({ focused, color, size }) => {
-        const isReelsFocused = route.name === 'Reels' && isFocused;
-        const iconColor = isReelsFocused ? '#fff' : color;
+      const baseOptions = {
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor:
+          route.name === 'Reels' && isFocused ? '#fff' : '#000',
+        tabBarInactiveTintColor:
+          route.name === 'Reels' && isFocused ? '#fff' : '#666',
+        tabBarHideOnKeyboard: true,
+        tabBarIcon: ({ focused, color, size }) => {
+          const isReelsFocused = route.name === 'Reels' && isFocused;
+          const iconColor = isReelsFocused ? '#fff' : color;
 
-        switch (route.name) {
-          case 'HomeMain':
-            return <Ionicons name={focused ? 'home' : 'home-outline'} size={26} color={iconColor} />;
-          case 'Search':
-            return <Ionicons name={focused ? 'search' : 'search-outline'} size={25} color={iconColor} />;
-          case 'Add':
-            return <FontAwesome name={'plus-square-o'} size={28} color={iconColor} />;
-          case 'wallet':
-            return <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={26} color={iconColor} />;
-          case 'ProfileMain':
-            if (profileImage) {
+          switch (route.name) {
+            case 'HomeMain':
               return (
-                <Image
-                  source={{ uri: profileImage }}
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 13,
-                    borderWidth: focused ? 2 : 0,
-                    borderColor: focused ? iconColor : 'transparent'
-                  }}
+                <Ionicons
+                  name={focused ? 'home' : 'home-outline'}
+                  size={26}
+                  color={iconColor}
                 />
               );
-            } else {
-              return <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={26} color={iconColor} />;
-            }
-          default:
-            return null;
-        }
-      },
-    };
-
-    if (route.name === 'Search' || route.name === 'wallet') {
-      return {
-        ...baseOptions,
-        tabBarStyle: defaultTabBarStyle,
+            case 'Search':
+              return (
+                <Ionicons
+                  name={focused ? 'search' : 'search-outline'}
+                  size={25}
+                  color={iconColor}
+                />
+              );
+            case 'Add':
+              return (
+                <FontAwesome
+                  name={'plus-square-o'}
+                  size={28}
+                  color={iconColor}
+                />
+              );
+            case 'wallet':
+              return (
+                <Ionicons
+                  name={focused ? 'wallet' : 'wallet-outline'}
+                  size={26}
+                  color={iconColor}
+                />
+              );
+            case 'ProfileMain':
+              if (profileImage) {
+                return (
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 13,
+                      borderWidth: focused ? 2 : 0,
+                      borderColor: focused ? iconColor : 'transparent',
+                    }}
+                  />
+                );
+              } else {
+                return (
+                  <Ionicons
+                    name={focused ? 'person-circle' : 'person-circle-outline'}
+                    size={26}
+                    color={iconColor}
+                  />
+                );
+              }
+            default:
+              return null;
+          }
+        },
       };
-    }
 
-    return baseOptions;
-  }, [profileImage, defaultTabBarStyle, reelsTabBarStyle]);
+      if (route.name === 'Search' || route.name === 'wallet') {
+        return {
+          ...baseOptions,
+          tabBarStyle: defaultTabBarStyle,
+        };
+      }
+
+      return baseOptions;
+    },
+    [profileImage, defaultTabBarStyle, reelsTabBarStyle],
+  );
 
   // Memoize HomeMain options function
-  const getHomeMainOptions = useCallback(({ route }) => {
-    const routeName = getFocusedRouteNameFromRoute(route);
+  const getHomeMainOptions = useCallback(
+    ({ route }) => {
+      const routeName = getFocusedRouteNameFromRoute(route);
+      const visibleTabRoutes = [
+        'BattleInProgress',
+        'BattleResults',
+        'BattleReward',
+        'ProfileBattleScreen',
+        'OpenBattle',
+      ];
 
-    const hideTabBarRoutes = [
-      'ChatMessages', 'HeartNotification', 'Following', 'UserChat',
-      'PostUpload', 'PostEditor', 'EditPost', 'SelectedPost',
-      'SavedPost', 'CreatorCoin', 'notificationEnable', 'HidePosts',
-      'FollowersFollowingScreen', 'Settings', 'subscription',
-      'QuickBuy', 'CashOutScreen', 'Invite', 'ShareProfile', 'EditProfile',
-      'CreateMission'
-    ];
+      const hideTabBarRoutes = [
+        'ChatMessages',
+        'HeartNotification',
+        'Following',
+        'UserChat',
+        'PostUpload',
+        'PostEditor',
+        'EditPost',
+        'SelectedPost',
+        'SavedPost',
+        'ArchiveScreen',
+        'HighlightsScreen',
+        'CreatorCoin',
+        'notificationEnable',
+        'HidePosts',
+        'FollowersFollowingScreen',
+        'Settings',
+        'subscription',
+        'QuickBuy',
+        'CashOutScreen',
+        'Invite',
+        'ShareProfile',
+        'EditProfile',
+        'CreateMission',
+      ];
 
-    let currentRouteName = routeName;
+      let currentRouteName = routeName;
 
-    if (!currentRouteName && route.state) {
-      const activeRoute = route.state.routes[route.state.index];
-      currentRouteName = activeRoute?.name;
-    }
-
-    if (!currentRouteName && route.state?.routes?.[route.state.index]?.state) {
-      const nestedState = route.state.routes[route.state.index].state;
-      if (nestedState.routes && nestedState.routes[nestedState.index]) {
-        currentRouteName = nestedState.routes[nestedState.index].name;
+      if (!currentRouteName && route.state) {
+        const activeRoute = route.state.routes[route.state.index];
+        currentRouteName = activeRoute?.name;
       }
-    }
 
-    if (!currentRouteName && navigation.getState) {
-      try {
-        const navState = navigation.getState();
-        const currentRoute = navState.routes[navState.index];
-        if (currentRoute?.state?.routes) {
-          const activeNestedRoute = currentRoute.state.routes[currentRoute.state.index];
-          currentRouteName = activeNestedRoute?.name;
+      if (
+        !currentRouteName &&
+        route.state?.routes?.[route.state.index]?.state
+      ) {
+        const nestedState = route.state.routes[route.state.index].state;
+        if (nestedState.routes && nestedState.routes[nestedState.index]) {
+          currentRouteName = nestedState.routes[nestedState.index].name;
         }
-      } catch (error) {
-        console.error('Error getting navigation state:', error);
       }
-    }
 
-    if (!currentRouteName) {
-      if (route.name === 'ProfileMain' && route.state) {
-        const profileRoute = route.state.routes[route.state.index];
-        if (profileRoute?.name === 'subscription') {
-          currentRouteName = 'subscription';
+      if (!currentRouteName && navigation.getState) {
+        try {
+          const navState = navigation.getState();
+          const currentRoute = navState.routes[navState.index];
+          if (currentRoute?.state?.routes) {
+            const activeNestedRoute =
+              currentRoute.state.routes[currentRoute.state.index];
+            currentRouteName = activeNestedRoute?.name;
+          }
+        } catch (error) {
+          console.error('Error getting navigation state:', error);
         }
       }
-    }
 
-    let hideTabBar = hideTabBarRoutes.includes(currentRouteName);
-
-    // Check dynamic param for PostView
-    if (currentRouteName === 'PostView') {
-      const routeObj =
-        route?.state?.routes?.[route?.state?.index]?.params;
-
-      if (routeObj?.hideTabBar !== undefined) {
-        hideTabBar = routeObj.hideTabBar;  // override
+      if (!currentRouteName) {
+        if (route.name === 'ProfileMain' && route.state) {
+          const profileRoute = route.state.routes[route.state.index];
+          if (profileRoute?.name === 'subscription') {
+            currentRouteName = 'subscription';
+          }
+        }
       }
-    }
 
+      let hideTabBar = hideTabBarRoutes.includes(currentRouteName);
 
-    return {
-      tabBarStyle: hideTabBar ? hiddenTabBarStyle : defaultTabBarStyle
-    };
-  }, [hiddenTabBarStyle, defaultTabBarStyle]);
+      if (visibleTabRoutes.includes(currentRouteName)) {
+        hideTabBar = false;
+      }
+
+      // Check dynamic param for PostView
+      if (currentRouteName === 'PostView') {
+        const routeObj = route?.state?.routes?.[route?.state?.index]?.params;
+
+        if (routeObj?.hideTabBar !== undefined) {
+          hideTabBar = routeObj.hideTabBar; // override
+        }
+      }
+
+      return {
+        tabBarStyle: hideTabBar ? hiddenTabBarStyle : defaultTabBarStyle,
+      };
+    },
+    [hiddenTabBarStyle, defaultTabBarStyle],
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -468,7 +699,7 @@ export default function MainTabNavigator() {
           name="Search"
           component={SearchScreen}
           options={{
-            tabBarStyle: defaultTabBarStyle
+            tabBarStyle: defaultTabBarStyle,
           }}
         />
         <Tab.Screen
@@ -476,12 +707,13 @@ export default function MainTabNavigator() {
           component={PostStack}
           options={getHomeMainOptions}
           listeners={({ navigation }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               e.preventDefault();
               const state = navigation.getState();
               const currentRoute = state.routes.find(r => r.name === 'Add');
               if (currentRoute) {
-                const isCurrentTab = state.index === state.routes.findIndex(r => r.name === 'Add');
+                const isCurrentTab =
+                  state.index === state.routes.findIndex(r => r.name === 'Add');
                 if (isCurrentTab) {
                   navigation.reset({
                     index: 0,
@@ -509,7 +741,7 @@ export default function MainTabNavigator() {
           name="wallet"
           component={WalletStack}
           options={{
-            tabBarStyle: defaultTabBarStyle
+            tabBarStyle: defaultTabBarStyle,
           }}
           listeners={({ navigation, route }) => ({
             focus: () => {
@@ -529,7 +761,7 @@ export default function MainTabNavigator() {
           component={ProfileStack}
           options={getHomeMainOptions}
           listeners={({ navigation }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               e.preventDefault();
               navigation.navigate('ProfileMain', {
                 screen: 'Profile',
