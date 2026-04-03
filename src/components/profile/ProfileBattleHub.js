@@ -176,7 +176,7 @@ export default function ProfileBattleHub({
 
   useEffect(() => {
     loadBattles();
-    getBattlePoint
+    getBattlePoint();
   }, [loadBattles,getBattlePoint]);
 
   const stats = useMemo(() => {
