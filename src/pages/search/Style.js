@@ -16,12 +16,13 @@ export default StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f2f2f2',
     paddingHorizontal: 12,
-    paddingVertical: 3,
+    // paddingVertical: 3,
     marginBottom: 16,
     borderWidth: 1.5,
     borderRadius: 24,
     borderColor: "#e6e6e6",
-   marginTop: Platform.OS === 'android' ? 35 : 55
+   marginTop: Platform.OS === 'android' ? 35 : 55,
+   paddingVertical: Platform.OS === 'android' ? 3 : 10
   },
   searchInput: {
     flex: 1,
