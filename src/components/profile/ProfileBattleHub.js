@@ -11,7 +11,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import { battleByUserId } from '../../services/battle';
+import { battleByUserId, battlePoint } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 
 
@@ -83,6 +83,14 @@ export default function ProfileBattleHub({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [battles, setBattles] = useState([]);
+  const [battlePointSummary, setBattlePointSummary] = useState({
+    level: 'Rookie',
+    totals: {
+      totalBattlesJoined: 0,
+      totalBattlesWon: 0,
+    },
+    liveCount: 0,
+  });
 
   const PRIMARY_GRADIENT =
     profile === 'user'
@@ -117,25 +125,84 @@ export default function ProfileBattleHub({
     }
   }, [viewedUserId]);
 
+  const getBattlePoint = useCallback(async () => {
+    if (!viewedUserId) {
+      setBattlePointSummary({
+        level: 'Rookie',
+        totals: {
+          totalBattlesJoined: 0,
+          totalBattlesWon: 0,
+        },
+        liveCount: 0,
+      });
+      return;
+    }
+
+    try {
+      const response = await battlePoint({ params: { userId: viewedUserId } });
+      console.log(response, 'data in thi apia ');
+
+      const rawData =
+        response?.data?.data ||
+        response?.data ||
+        response ||
+        {};
+      const totals = rawData?.totals || {};
+      const items = Array.isArray(rawData?.items) ? rawData.items : [];
+      const liveCount = items.filter(item =>
+        String(item?.status || '').toUpperCase() === 'LIVE',
+      ).length;
+
+      setBattlePointSummary({
+        level: String(rawData?.level || 'Rookie'),
+        totals: {
+          totalBattlesJoined: Number(totals?.totalBattlesJoined || 0),
+          totalBattlesWon: Number(totals?.totalBattlesWon || 0),
+        },
+        liveCount,
+      });
+    } catch (errr) {
+      console.log(errr, 'fail to load dataa');
+      setBattlePointSummary({
+        level: 'Rookie',
+        totals: {
+          totalBattlesJoined: 0,
+          totalBattlesWon: 0,
+        },
+        liveCount: 0,
+      });
+    }
+  }, [viewedUserId]);
+
   useEffect(() => {
     loadBattles();
-  }, [loadBattles]);
+    getBattlePoint
+  }, [loadBattles,getBattlePoint]);
 
   const stats = useMemo(() => {
-    const total = battles.length;
-    const live = battles.filter(item => item.status.includes('live')).length;
-    const won = battles.filter(item =>
-      item.status.includes('won') || item.status.includes('winner'),
-    ).length;
-    const prediction = battles.filter(item => item.battleType === 'prediction').length;
-
     return [
-      { key: 'total', label: 'Battles', value: total },
-      { key: 'live', label: 'Live', value: live },
-      // { key: 'prediction', label: 'Prediction', value: prediction },
-      // { key: 'won', label: 'Wins', value: won },
+      {
+        key: 'level',
+        label: 'Level',
+        value: battlePointSummary.level,
+      },
+      {
+        key: 'joined',
+        label: 'Battle Joined',
+        value: battlePointSummary.totals.totalBattlesJoined,
+      },
+      {
+        key: 'won',
+        label: 'Battle Won',
+        value: battlePointSummary.totals.totalBattlesWon,
+      },
+      {
+        key: 'live',
+        label: 'Live',
+        value: battlePointSummary.liveCount,
+      },
     ];
-  }, [battles]);
+  }, [battlePointSummary]);
 
   const openBattle = useCallback(
     battle => {
@@ -165,10 +232,11 @@ export default function ProfileBattleHub({
     setRefreshing(true);
     try {
       await loadBattles();
+      await getBattlePoint();
     } finally {
       setRefreshing(false);
     }
-  }, [loadBattles]);
+  }, [getBattlePoint, loadBattles]);
 
   return (
     <ScrollView
@@ -259,7 +327,7 @@ export default function ProfileBattleHub({
 
               <View style={styles.cardFooter}>
                 {/* <Text style={styles.footerText}>{battle.votes} votes</Text> */}
-                <Text style={styles.footerText}>{battle.stake} points</Text>
+                {/* <Text style={styles.footerText}>{battle.stake} points</Text> */}
                 <Text style={styles.footerText}>{formatDate(battle.endTime)}</Text>
               </View>
             </TouchableOpacity>

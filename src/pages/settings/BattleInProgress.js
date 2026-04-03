@@ -527,6 +527,7 @@ export default function BattleInProgress() {
   const resolvedProfileType = normalizeProfileType(profile);
   const { bgStyle, textStyle, cardStyle, text, card } = useAppTheme(resolvedProfileType);
   const routeBattle = route?.params?.battle || {};
+  const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
   const battleId =
     route?.params?.battleId ||
     routeBattle.id ||
@@ -543,7 +544,7 @@ export default function BattleInProgress() {
   const [replyText, setReplyText] = useState('');
   const [replyingToComment, setReplyingToComment] = useState(null);
   const [expandedReplies, setExpandedReplies] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasInitialBattleData);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingVote, setSubmittingVote] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -621,7 +622,7 @@ export default function BattleInProgress() {
         return;
       }
 
-      if (!isSilent) {
+      if (!isSilent && !hasInitialBattleData) {
         setLoading(true);
       }
 
@@ -654,7 +655,7 @@ export default function BattleInProgress() {
         setRefreshing(false);
       }
     },
-    [battleId, currentUserId, routeBattle],
+    [battleId, currentUserId, hasInitialBattleData, routeBattle],
   );
 
   useEffect(() => {
@@ -1339,7 +1340,7 @@ export default function BattleInProgress() {
                 <Text style={styles.heroInfoText}>
                   {battle.primaryCount} {battle.primaryCountLabel}
                 </Text>
-                <Text style={styles.heroInfoText}>{battle.stake} cred points</Text>
+                {/* <Text style={styles.heroInfoText}>{battle.stake} cred points</Text> */}
                 <Text style={styles.heroInfoText}>
                   {formatBattleTime(battle.endTime)}
                 </Text>
