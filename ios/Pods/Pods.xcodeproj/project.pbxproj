@@ -9,7 +9,6 @@
 /* Begin PBXAggregateTarget section */
 		072CEA044D2EF26F03496D5996BBF59F /* Firebase */ = {
 			isa = PBXAggregateTarget;
-<<<<<<< HEAD
 			buildConfigurationList = 46EB2E00021C10 /* Build configuration list for PBXAggregateTarget "Firebase" */;
 			buildPhases = (
 			);
@@ -17,15 +16,6 @@
 				46EB2E0004C180 /* PBXTargetDependency */,
 				46EB2E0004C1A0 /* PBXTargetDependency */,
 				46EB2E0004C1C0 /* PBXTargetDependency */,
-=======
-			buildConfigurationList = 46EB2E00021860 /* Build configuration list for PBXAggregateTarget "Firebase" */;
-			buildPhases = (
-			);
-			dependencies = (
-				46EB2E0004B420 /* PBXTargetDependency */,
-				46EB2E0004B440 /* PBXTargetDependency */,
-				46EB2E0004B460 /* PBXTargetDependency */,
->>>>>>> 090e41537fad66455eb11bffd019b4b07a3ed791
 			);
 			name = Firebase;
 		};
