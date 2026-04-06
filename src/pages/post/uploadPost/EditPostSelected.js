@@ -327,8 +327,8 @@ const InstagramPostCreator = () => {
 
       const downloadPath = await downloadMedia(uriToDownload, filename, isVideo, toast);
 
-      showToastMessage(toast, 'success', `Saved: ${filename}`);
-      console.log('Download saved to:', downloadPath);
+      showToastMessage(toast, 'success', `Saved to gallery`);
+      console.log('Download saved to gallery', downloadPath);
     } catch (error) {
       console.error('Download error:', error);
       // Error toast/alert handled in downloadMedia

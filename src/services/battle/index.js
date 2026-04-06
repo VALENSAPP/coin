@@ -67,3 +67,8 @@ export const battleResolve = async (data ) => {
 export const battlePoint = async (data ) => {
     return axiosInstance.get('battle/points',data);
 };
+export const battleWinner = async (battleId) => {
+    return axiosInstance.get('battle/winner', {
+        params: { battleId },
+    });
+};

@@ -29,7 +29,7 @@ import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEl
 
 const { width } = Dimensions.get('window');
 
-/* ----------------------------------------- */ 
+/* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -1131,15 +1131,16 @@ function PostItem({
               }
             }}
           >
-            <Text
-              style={[
-                styles.captionUsername,
-                { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
-              ]}
-            >
-              {item.username}{' '}
-            </Text>
-
+            <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
+              <Text
+                style={[
+                  styles.captionUsername,
+                  { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
+                ]}
+              >
+                {item.username}{' '}
+              </Text>
+            </TouchableOpacity>
             <Text style={styles.captionText}>
               {item.caption}
             </Text>
