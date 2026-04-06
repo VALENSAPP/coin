@@ -15,7 +15,7 @@ import {
   useProvider,
   useAppKitState,
 } from '@reown/appkit-react-native';
-import { AppState, InteractionManager, Platform } from 'react-native';
+import { AppState, InteractionManager, Platform, DeviceEventEmitter } from 'react-native';
 import { RequestModal } from '../components/modals/RequestModal';
 import { WalletConnectedSuccessModal } from '../components/modals/WalletConnectedSuccessModal';
 import { showToastMessage } from '../components/displaytoastmessage';
@@ -96,6 +96,7 @@ function WalletConnectSupportInner({ children }) {
   /** Set when opening AppKit for a support payment; cleared when success UI shows or flow errors/cancels. */
   const supportConnectIntentRef = useRef(null);
   const connectRevealInProgressRef = useRef(false);
+  const continueToPayAfterHideRef = useRef(false);
   const showWalletConnectedModalRef = useRef(false);
   const requestModalVisibleRef = useRef(false);
 
@@ -114,12 +115,68 @@ function WalletConnectSupportInner({ children }) {
     requestModalVisibleRef.current = requestModalVisible;
   }, [requestModalVisible]);
 
+  // 🦊 Listen for MetaMask return from deep link handler in index.js
+useEffect(() => {
+  const subscription = DeviceEventEmitter.addListener('METAMASK_RETURN', async () => {
+    console.log(LOG, '🦊 METAMASK_RETURN received — attempting to resume session');
+
+    const intent = supportConnectIntentRef.current;
+    if (!intent?.recipientAddress) {
+      console.warn(LOG, 'METAMASK_RETURN: no pending intent, skipping');
+      return;
+    }
+
+    if (
+      showWalletConnectedModalRef.current ||
+      requestModalVisibleRef.current ||
+      connectRevealInProgressRef.current
+    ) {
+      console.log(LOG, 'METAMASK_RETURN: modal already showing, skipping');
+      return;
+    }
+
+    const wc = getProviderFromAppKit();
+    if (!wc?.request) {
+      console.warn(LOG, 'METAMASK_RETURN: no provider yet — AppState will retry');
+      return;
+    }
+
+    let addr;
+    try {
+      let accounts = await wc.request({ method: 'eth_accounts' });
+      addr = accounts?.[0];
+      if (!addr) {
+        accounts = await wc.request({ method: 'eth_requestAccounts' });
+        addr = accounts?.[0];
+      }
+    } catch (e) {
+      console.warn(LOG, 'METAMASK_RETURN: account read failed — AppState will retry', e);
+      return;
+    }
+
+    if (!addr) {
+      console.warn(LOG, 'METAMASK_RETURN: no address yet — AppState will retry');
+      return;
+    }
+
+    try {
+      await persistConnectedWallet(addr);
+      await revealConnectedSuccessUi(addr, intent.recipientAddress, intent.options);
+    } catch (e) {
+      console.warn(LOG, 'METAMASK_RETURN: reveal failed', e);
+    }
+  });
+
+  return () => subscription.remove();
+}, [persistConnectedWallet, revealConnectedSuccessUi]);
+
   const openWalletConnectModal = useCallback(async () => {
     console.log(LOG, 'open() invoked → AppKit modal should open');
     if (Platform.OS === 'ios') {
       await new Promise((resolve) => requestAnimationFrame(() => resolve()));
     }
     try {
+      await AsyncStorage.setItem('pending_metamask_connect', 'true');
       open();
     } catch (e) {
       console.warn(LOG, 'open() error', e);
@@ -307,6 +364,7 @@ function WalletConnectSupportInner({ children }) {
       });
 
       console.log(LOG, 'tx submitted', txHash);
+      console.log('tx submitted options', options);
       setRpcResponse(buildSupportPaymentResultModalPayload(txHash, options));
       showToastMessage(toast, 'success', 'Support transaction submitted');
     },
@@ -415,7 +473,9 @@ function WalletConnectSupportInner({ children }) {
       if (next !== 'active') return;
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        void tryResumeConnect();
+        tryResumeConnect().catch((error) => {
+          console.warn(LOG, 'AppState active: resume task crashed', error);
+        });
       }, 450);
     };
 
@@ -469,7 +529,7 @@ function WalletConnectSupportInner({ children }) {
         console.log(LOG, 'connect path: opening AppKit…');
         await openWalletConnectModal();
 
-        const { address: userAddress } = await waitForSessionAddressAndProvider();
+        const { address: userAddress } = await waitForSessionAddressAndProvider(15000);
 
         if (!userAddress) {
           throw new Error('No wallet account available');
@@ -478,11 +538,21 @@ function WalletConnectSupportInner({ children }) {
         await persistConnectedWallet(userAddress);
         await revealConnectedSuccessUi(userAddress, recipientAddress, options);
       } catch (error) {
-        supportConnectIntentRef.current = null;
         const message =
           error instanceof Error ? error.message : String(error ?? 'Unknown error');
+        
+        // ✅ Only clear intent if it's NOT a timeout — timeout means user went to MetaMask
+        // and AppState/METAMASK_RETURN will recover it
+        if (!message.includes('timed out')) {
+          supportConnectIntentRef.current = null;
+        }
+        
         console.warn(LOG, 'startSupportPayment (connect) error', message, error);
-        showToastMessage(toast, 'danger', message);
+        
+        // ✅ Don't show error toast for timeout — MetaMask return will handle it
+        if (!message.includes('timed out')) {
+          showToastMessage(toast, 'danger', message);
+        }
       }
     },
     [
@@ -495,17 +565,19 @@ function WalletConnectSupportInner({ children }) {
     ],
   );
 
-  const continueToPayAfterConnect = useCallback(async () => {
+  const openPendingPaymentRequest = useCallback(async () => {
     const pending = pendingPaymentRef.current;
     if (!pending?.recipientAddress) {
-      console.warn(LOG, 'continueToPayAfterConnect: no pending payment');
-      setShowWalletConnectedModal(false);
+      console.warn(LOG, 'openPendingPaymentRequest: no pending payment');
       pendingPaymentRef.current = null;
       return;
     }
 
-    console.log(LOG, 'continueToPayAfterConnect: opening payment modal');
-    setShowWalletConnectedModal(false);
+    await new Promise((resolve) => {
+      InteractionManager.runAfterInteractions(() => resolve());
+    });
+
+    console.log(LOG, 'openPendingPaymentRequest: opening payment modal');
     setRequestModalVisible(true);
     setLoading(true);
     setRpcResponse(null);
@@ -521,12 +593,37 @@ function WalletConnectSupportInner({ children }) {
     } finally {
       setLoading(false);
       pendingPaymentRef.current = null;
-      console.log(LOG, 'continueToPayAfterConnect finished');
+      console.log(LOG, 'openPendingPaymentRequest finished');
     }
   }, [runPaymentSteps, toast]);
 
+  const continueToPayAfterConnect = useCallback(() => {
+    if (!pendingPaymentRef.current?.recipientAddress) {
+      console.warn(LOG, 'continueToPayAfterConnect: no pending payment');
+      setShowWalletConnectedModal(false);
+      pendingPaymentRef.current = null;
+      return;
+    }
+
+    console.log(LOG, 'continueToPayAfterConnect: waiting for success modal to hide');
+    continueToPayAfterHideRef.current = true;
+    setShowWalletConnectedModal(false);
+  }, []);
+
+  const handleWalletConnectedModalHide = useCallback(() => {
+    if (!continueToPayAfterHideRef.current) {
+      return;
+    }
+
+    continueToPayAfterHideRef.current = false;
+    openPendingPaymentRequest().catch((error) => {
+      console.warn(LOG, 'handleWalletConnectedModalHide: failed to open payment modal', error);
+    });
+  }, [openPendingPaymentRequest]);
+
   const dismissWalletConnectedSuccess = useCallback(() => {
     console.log(LOG, 'WalletConnectedSuccessModal dismissed');
+    continueToPayAfterHideRef.current = false;
     setShowWalletConnectedModal(false);
     pendingPaymentRef.current = null;
     supportConnectIntentRef.current = null;
@@ -567,6 +664,7 @@ function WalletConnectSupportInner({ children }) {
         isVisible={showWalletConnectedModal}
         onClose={dismissWalletConnectedSuccess}
         onContinueToPay={continueToPayAfterConnect}
+        onModalHide={handleWalletConnectedModalHide}
         address={connectedSuccessAddress}
       />
       <RequestModal

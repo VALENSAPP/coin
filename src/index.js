@@ -25,7 +25,7 @@ import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
 // import { getUserCountry } from './hooks/countryLocation';
- 
+
 const linking = {
   prefixes: [
     'https://www.valenscorp.com',
@@ -45,8 +45,8 @@ const linking = {
     },
   },
 };
- 
- 
+
+
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
@@ -59,7 +59,7 @@ export default function Main() {
   const toast = useToast();
   const navigationRef = useRef(null);
   const appState = useRef(AppState.currentState);
- 
+
   useEffect(() => {
     const setup = async () => {
       try {
@@ -72,25 +72,25 @@ export default function Main() {
     };
     setup();
   }, []);
- 
+
   useEffect(() => {
     requestUserPermission();
     notificationListener();
   }, []);
- 
+
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
     try {
       if (!isLoggedIn) {
         setWelcomeModalVisible(false);
         return;
       }
- 
- 
+
+
       const id = await AsyncStorage.getItem('userId');
       if (!id) {
         return;
       }
- 
+
       const response = await getUserCredentials(id);
       if (response?.statusCode !== 200) {
         return;
@@ -100,13 +100,13 @@ export default function Main() {
       const isKycApproved =
         canAccessPlatform === true ||
         String(canAccessPlatform || '').toLowerCase() === 'true';
- 
+
       setWelcomeModalVisible(isKycApproved);
     } catch (error) {
       console.log('KYC polling check failed:', error?.message || error);
     }
   }, [isLoggedIn]);
- 
+
   const handleWelcomeModalClose = React.useCallback(async () => {
     setWelcomeModalVisible(false);
     await AsyncStorage.multiSet([
@@ -114,27 +114,27 @@ export default function Main() {
       [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
     ]);
   }, []);
- 
+
   useEffect(() => {
     if (!isLoggedIn) {
       return;
     }
- 
+
     checkKycAndShowWelcomeModal();
     const intervalId = setInterval(() => {
       checkKycAndShowWelcomeModal();
     }, 90000);
- 
+
     return () => {
       clearInterval(intervalId);
     };
   }, [checkKycAndShowWelcomeModal, isLoggedIn]);
- 
+
   useEffect(() => {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
     getNotification();
- 
+
     const checkLogin = async () => {
       try {
         const loggedI = await AsyncStorage.getItem('isLoggedIn');
@@ -184,9 +184,9 @@ export default function Main() {
         }, 1000);
       }
     };
- 
+
     checkLogin();
- 
+
     // Track app state changes
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
       console.log('AppState changed:', appState.current, '->', nextAppState);
@@ -195,21 +195,41 @@ export default function Main() {
       }
       appState.current = nextAppState;
     });
- 
+
     // Deep Link Handler - FIXED FOR iOS
     const handleDeepLink = async (event) => {
       console.log('Deep link received:', event.url);
       const url = String(event?.url || '').trim();
- 
+
       if (!url) {
         return;
       }
- 
+
+      // At the top of handleDeepLink, after receiving com.valens.app://
+      const isMetaMaskReturn = url === 'com.valens.app://' || url === 'com.valens.app';
+      console.log("isMetaMaskReturn-------------",isMetaMaskReturn)
+      if (isMetaMaskReturn) {
+        const pendingMetamask = await AsyncStorage.getItem('pending_metamask_connect');
+      console.log("pendingMetamask-------------",pendingMetamask)
+
+        if (pendingMetamask === 'true') {
+          await AsyncStorage.removeItem('pending_metamask_connect');
+          console.log('🦊 Returned from MetaMask');
+
+          // Handle MetaMask return — trigger your wallet connect completion logic here
+          DeviceEventEmitter.emit('METAMASK_RETURN', { timestamp: Date.now() });
+          return;
+        }
+
+        // Not from MetaMask, just a bare deep link — ignore or handle as home
+        return;
+      }
+
       const normalizeDeepLinkUrl = (incomingUrl = '') => String(incomingUrl || '')
         .replace(/^com\.valens\.app:\/\//i, 'https://dummy.com/')
         .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
         .replace(/^valens:\/\//i, 'https://dummy.com/');
- 
+
       let urlObj;
       try {
         urlObj = new URL(normalizeDeepLinkUrl(url));
@@ -217,14 +237,14 @@ export default function Main() {
         console.error('URL parsing error:', error);
         return;
       }
- 
+
       const path = urlObj.pathname;
       const normalizedPath = String(path || '').toLowerCase();
- 
+
       // Check if URL is callback
       if (url.includes('callback')) {
         console.log('🔔 Callback URL detected - closing InAppBrowser');
- 
+
         try {
           // ✅ CRITICAL: Close InAppBrowser on iOS
           if (await InAppBrowser.isAvailable()) {
@@ -234,7 +254,7 @@ export default function Main() {
         } catch (error) {
           console.log('❌ Error closing InAppBrowser:', error);
         }
- 
+
         // Parse query params to check payment status
         let status = 'success';
         try {
@@ -248,23 +268,23 @@ export default function Main() {
         } catch (error) {
           console.log('⚠️ Error parsing callback URL:', error);
         }
- 
+
         // ✅ Emit event FIRST before hiding loader
         console.log('📢 Emitting PAYMENT_COMPLETED event with status:', status);
         DeviceEventEmitter.emit('PAYMENT_COMPLETED', {
           status: status,
           timestamp: Date.now()
         });
- 
+
         // Hide loader after a small delay to ensure event is processed
         setTimeout(() => {
           dispatch(hideLoader());
           console.log('✅ Loader hidden - user back on screen');
         }, 500);
- 
+
         return;
       }
- 
+
       const navigateToUserProfile = (resolvedUserId) => {
         if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
         navigationRef.current.navigate('MainApp', {
@@ -277,7 +297,7 @@ export default function Main() {
           },
         });
       };
- 
+
       const resolveUserIdFromUsername = async (incomingUsername) => {
         const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
         if (!cleanUsername) return null;
@@ -294,7 +314,7 @@ export default function Main() {
           return null;
         }
       };
- 
+
       // Handle other deep links normally if needed
       try {
         const urlObj = new URL(normalizeDeepLinkUrl(url));
@@ -303,7 +323,7 @@ export default function Main() {
         const postId = urlObj.searchParams.get('postId');
         const fallbackTag = urlObj.searchParams.get('af');
         const sharedProfileLink = parseProfileShareUrl(url);
- 
+
         if (navigationRef.current && isNavigationReady) {
           setTimeout(() => {
             if (postId && fallbackTag === 'dd') {
@@ -321,7 +341,7 @@ export default function Main() {
             } else if (sharedProfileLink) {
               const deepLinkUserId = String(sharedProfileLink.userId || '').trim();
               const resolvedUsername = String(sharedProfileLink.username || '').trim();
- 
+
               if (deepLinkUserId) {
                 navigateToUserProfile(deepLinkUserId);
               } else if (resolvedUsername) {
@@ -357,10 +377,10 @@ export default function Main() {
         console.error('URL parsing error:', error);
       }
     };
- 
+
     // Listen for deep links when app is open
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
- 
+
     // Handle deep link when app was closed
     Linking.getInitialURL().then((url) => {
       if (url) {
@@ -368,13 +388,13 @@ export default function Main() {
         handleDeepLink({ url });
       }
     });
- 
+
     return () => {
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
   }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
- 
+
   const fetchRefreshToken = async () => {
     const oldToken = await AsyncStorage.getItem('refreshToken');
     try {
@@ -394,19 +414,19 @@ export default function Main() {
       dispatch(hideLoader());
     }
   };
- 
+
   const getNotification = async () => {
     // messaging().onMessage(async remoteMessage => {
     //   setModalVisible(true);
     //   setMessage(remoteMessage.notification.body);
     // });
- 
+
     messaging().onNotificationOpenedApp(remoteMessage => {
       console.log("onNotificationOpenedApp data------------------------", remoteMessage)
       setMessage(remoteMessage.notification.body);
       setModalVisible(true);
     });
- 
+
     messaging()
       .getInitialNotification()
       .then(remoteMessage => {
@@ -417,16 +437,16 @@ export default function Main() {
         }
       });
   }
- 
+
   const handleNavigationReady = () => {
     console.log('Navigation is ready');
     setIsNavigationReady(true);
   };
- 
+
   const closeModal = () => {
     setModalVisible(false);
   };
- 
+
   if (isLoading) {
     return (
       <ThemeProvider activeProfile={userProfile}>
@@ -434,7 +454,7 @@ export default function Main() {
       </ThemeProvider>
     );
   }
- 
+
   return (
     <>
       <ThemeProvider activeProfile={userProfile}>
@@ -456,7 +476,7 @@ export default function Main() {
         }
         <WelcomeValensModal
           visible={welcomeModalVisible}
- 
+
           onClose={handleWelcomeModalClose}
         />
       </ThemeProvider>
