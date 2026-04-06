@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import SignClient from '@walletconnect/sign-client';
 
 let client = null;
@@ -52,6 +53,11 @@ export async function connectWallet(projectId, walletType = null) {
 
   const selectedWalletDeepLink =
     walletType && deepLinks[walletType] ? deepLinks[walletType] : normalizedUri;
+
+  // ✅ Set flag so deep link handler knows we're expecting a MetaMask return
+  if (walletType === 'metamask') {
+    await AsyncStorage.setItem('pending_metamask_connect', 'true');
+  }
 
   return {
     connected: Boolean(approval),

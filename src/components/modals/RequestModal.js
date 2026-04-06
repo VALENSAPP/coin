@@ -21,6 +21,10 @@ export function RequestModal({
   return (
     <Modal
       isVisible={isVisible}
+      coverScreen
+      statusBarTranslucent
+      avoidKeyboard
+      backdropTransitionOutTiming={0}
       onBackdropPress={onClose}
       onBackButtonPress={onClose}
       style={styles.modalRoot}>

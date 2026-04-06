@@ -94,6 +94,8 @@
 #import "RNCImageCropPickerSpecJSI.h"
 #import "rnclipboard/rnclipboard.h"
 #import "rnclipboardJSI.h"
+#import "RNCNetInfoSpec/RNCNetInfoSpec.h"
+#import "RNCNetInfoSpecJSI.h"
 #import "RNCWebViewSpec/RNCWebViewSpec.h"
 #import "RNCWebViewSpecJSI.h"
 #import "RNDatePickerSpecs/RNDatePickerSpecs.h"

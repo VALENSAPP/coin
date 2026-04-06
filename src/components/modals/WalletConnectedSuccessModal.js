@@ -23,6 +23,7 @@ export function WalletConnectedSuccessModal({
   isVisible,
   onClose,
   onContinueToPay,
+  onModalHide,
   address,
 }) {
   const hasAddress = !!address && typeof address === 'string';
@@ -37,6 +38,7 @@ export function WalletConnectedSuccessModal({
       backdropOpacity={0.55}
       onBackdropPress={onClose}
       onBackButtonPress={onClose}
+      onModalHide={onModalHide}
       onModalShow={() => {
         console.log('[WalletConnectedSuccessModal] visible', {
           hasAddress,
