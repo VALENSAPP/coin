@@ -373,7 +373,7 @@ export default function FlipsScreen() {
   const handleScroll = useCallback((event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const maxScroll = (reels.length - 1) * viewportHeight;
-    
+
     // If trying to scroll beyond the last reel, prevent it
     if (offsetY > maxScroll + 50) { // 50px threshold
       flatListRef.current?.scrollToIndex({
@@ -647,125 +647,129 @@ export default function FlipsScreen() {
       currentUserId != null &&
       item?.userId != null &&
       String(currentUserId) === String(item.userId);
+      
 
     return (
       <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
         <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
-      {/* Progress bar */}
-      <View style={styles.progressContainer}>
-        <Animated.View
-          style={[
-            styles.progressBar,
-            {
-              width: progressAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
-            },
-          ]}
-        />
-      </View>
-
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={() => handleDoubleTap(item.id)}
-        style={styles.videoContainer}
-      >
-        <Video
-          ref={ref => {
-            videoRefs.current[item.id] = ref;
-          }}
-          source={{ uri: item.video }}
-          style={styles.video}
-          resizeMode="cover"
-          repeat
-          paused={!isFocused || currentIndex !== index || paused[item.id] === true}
-          muted={muted[item.id] === true}
-        />
-
-        {/* Loading indicator */}
-        {isBuffering[item.id] && (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
-        )}
-
-        {/* Play/Pause overlay */}
-        {paused[item.id] === true && (
-          <View style={styles.playPauseOverlay}>
-            <Icon name="play" size={80} color="rgba(255,255,255,0.8)" />
-          </View>
-        )}
-
-        {/* Double tap heart animation */}
-        {heartAnimatingId === item.id && (
+        {/* Progress bar */}
+        <View style={styles.progressContainer}>
           <Animated.View
             style={[
-              styles.heartAnimation,
+              styles.progressBar,
               {
-                transform: [{ scale: scaleAnim }],
+                width: progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
               },
             ]}
-          >
-            <Icon name="heart" size={100} color="#ff3040" />
-          </Animated.View>
-        )}
-      </TouchableOpacity>
-
-      {/* Side actions */}
-      <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleLike(item.id)}
-        >
-          <Icon
-            name={liked[item.id] ? 'heart' : 'heart-outline'}
-            size={32}
-            color={liked[item.id] ? '#ff3040' : '#fff'}
           />
-          <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
-        </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleComment(item.id)}
+          activeOpacity={1}
+          onPress={() => handleDoubleTap(item.id)}
+          style={styles.videoContainer}
         >
-          <Icon name="chatbubble-outline" size={30} color="#fff" />
-          <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
+          <Video
+            ref={ref => {
+              videoRefs.current[item.id] = ref;
+            }}
+            source={{ uri: item.video }}
+            style={styles.video}
+            resizeMode="cover"
+            repeat
+            paused={!isFocused || currentIndex !== index || paused[item.id] === true}
+            muted={muted[item.id] === true}
+          />
+
+          {/* Loading indicator */}
+          {isBuffering[item.id] && (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          )}
+
+          {/* Play/Pause overlay */}
+          {paused[item.id] === true && (
+            <View style={styles.playPauseOverlay}>
+              <Icon name="play" size={80} color="rgba(255,255,255,0.8)" />
+            </View>
+          )}
+
+          {/* Double tap heart animation */}
+          {heartAnimatingId === item.id && (
+            <Animated.View
+              style={[
+                styles.heartAnimation,
+                {
+                  transform: [{ scale: scaleAnim }],
+                },
+              ]}
+            >
+              <Icon name="heart" size={100} color="#ff3040" />
+            </Animated.View>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          // onPress={() => handleShare(item)}
-          onPress={() => shareRef.current?.open?.()}
-        >
-          <Icon name="paper-plane-outline" size={30} color="#fff" />
-          <Text style={styles.actionLabel}>Share</Text>
-        </TouchableOpacity>
+        {/* Side actions */}
+        <View style={styles.horizontalActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleLike(item.id)}
+          >
+            <Icon
+              name={liked[item.id] ? 'heart' : 'heart-outline'}
+              size={32}
+              color={liked[item.id] ? '#ff3040' : '#fff'}
+            />
+            <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleMoreOptions(item)}
-        >
-          <Icon name="ellipsis-vertical" size={30} color="#fff" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleComment(item.id)}
+          >
+            <Icon name="chatbubble-outline" size={30} color="#fff" />
+            <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
+          </TouchableOpacity>
 
-        {/* Music disc */}
-        <TouchableOpacity style={styles.musicDisc}>
-          <View style={styles.discContainer}>
-            <Image source={{ uri: item.avatar }} style={styles.discImage} />
-          </View>
-          <View style={styles.musicIconWrapper}>
-            <Feather name="music" size={15} color="#fff" />
-          </View>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.actionButton}
+            // onPress={() => handleShare(item)}
+            onPress={() => shareRef.current?.open?.()}
+          >
+            <Icon name="paper-plane-outline" size={30} color="#fff" />
+            <Text style={styles.actionLabel}>Share</Text>
+          </TouchableOpacity>
 
-      {/* Bottom content */}
-      <View style={[styles.bottomContent, { bottom: bottomContentBottom }]}>
-        {/* Try Remix button */}
-        {/* {item.isRemixable && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleMoreOptions(item)}
+          >
+            <Icon name="ellipsis-vertical" size={30} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
+
+
+          {/* Music disc */}
+          <TouchableOpacity style={styles.musicDisc}>
+            <View style={styles.discContainer}>
+              <Image source={{ uri: item.avatar }} style={styles.discImage} />
+            </View>
+            <View style={styles.musicIconWrapper}>
+              <Feather name="music" size={15} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom content */}
+        <View style={[styles.bottomContent, { bottom: bottomContentBottom }]}>
+          {/* Try Remix button */}
+          {/* {item.isRemixable && (
           <TouchableOpacity
             style={styles.remixButton}
             onPress={() => handleRemix(item)}
@@ -775,70 +779,65 @@ export default function FlipsScreen() {
           </TouchableOpacity>
         )} */}
 
-        {/* User info */}
-        <View style={styles.userInfo}>
-          <TouchableOpacity style={styles.userRow} onPress={handleUserNavigate}>
-            <View style={{ marginRight: 8 }}>
-              <HexAvatar
-                uri={item.avatar}
-                size={32}
-                borderWidth={2}
-                borderColor="#fff"
-              />
-            </View>
-            <Text style={styles.username}>
-              {item.user}
-              {item.verified && (
-                <Icon name="checkmark-circle" size={15} color="#1DA1F2" style={styles.verifiedIcon} />
-              )}
-              <View style={{ flexDirection: 'row', gap: 3 }}>
-                <Feather name="music" size={12} color="#fff" style={styles.musicIcon} />
-                <CustomMarquee
-                  speed={3}
-                  loop={true}
-                  delay={1000}
-                  style={{ width: 100, maxWidth: 300 }}
-                  textStyle={{ fontSize: 13, color: 'white' }}
-                >
-                  {item.music}
-                </CustomMarquee>
+          {/* User info */}
+          <View style={styles.userInfo}>
+            <TouchableOpacity style={styles.userRow} onPress={handleUserNavigate}>
+              <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+              <Text style={styles.username}>
+                {item.user}
+                {item.verified && (
+                  <Icon name="checkmark-circle" size={15} color="#1DA1F2" style={styles.verifiedIcon} />
+                )}
+                <View style={{ flexDirection: 'row', gap: 3 }}>
+                  <Feather name="music" size={12} color="#fff" style={styles.musicIcon} />
+                  <CustomMarquee
+                    speed={3}
+                    loop={true}
+                    delay={1000}
+                    style={{ width: 100, maxWidth: 300 }}
+                    textStyle={{ fontSize: 13, color: 'white' }}
+                  >
+                    {item.music}
+                  </CustomMarquee>
 
-              </View>
+                </View>
+              </Text>
+              {!isOwnReel && (
+                <TouchableOpacity
+                  style={styles.followButton}
+                  onPress={() => switchFollowing(item.id)}
+                >
+                  <Text style={styles.followButtonText}>
+                    {!item.isFollowing ? 'Follow' : 'Following'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.caption} numberOfLines={2}>
+            {item.caption}
+          </Text>
+
+          {/* Liked by section */}
+          <TouchableOpacity style={styles.likedBySection}>
+            <Text style={styles.likedByText}>
+              ❤️ Liked by{' '}
+              <Text style={styles.likedByBold}>
+                {(() => {
+                  const likeCount = Number(item.likes ?? item.likeCount ?? 0);
+
+                  if (likeCount === 0) return 'no one yet';
+                  if (likeCount === 1) return '1 person';
+                  return `${likeCount} others`;
+                })()}
+              </Text>
             </Text>
-            {!isOwnReel && (
-              <TouchableOpacity
-                style={styles.followButton}
-                onPress={() => switchFollowing(item.id)}
-              >
-                <Text style={styles.followButtonText}>
-                  {!item.isFollowing ? 'Follow' : 'Following'}
-                </Text>
-              </TouchableOpacity>
-            )}
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.caption} numberOfLines={2}>
-          {item.caption}
-        </Text>
-
-        {/* Liked by section */}
-        <TouchableOpacity style={styles.likedBySection}>
-          <Text style={styles.likedByText}>
-            ❤️ Liked by{' '}
-            <Text style={styles.likedByBold}>
-              {item.likes === 0
-                ? 'no one yet'
-                : item.likes === 1
-                  ? '1 person'
-                  : `${item.likes} others`}
-            </Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Bottom navigation placeholder */}
-      {/* <View style={styles.bottomNavPlaceholder}>
+        {/* Bottom navigation placeholder */}
+        {/* <View style={styles.bottomNavPlaceholder}>
         <View style={styles.navIcon}>
           <Icon name="home" size={24} color="#fff" />
         </View>
@@ -912,14 +911,14 @@ export default function FlipsScreen() {
           const offsetY = e.nativeEvent.contentOffset.y || 0;
           const idx = Math.round(offsetY / viewportHeight);
           const maxIndex = reels.length - 1;
-          
+
           // Ensure we don't go beyond the last reel
           const validIdx = Math.min(idx, maxIndex);
-          
+
           if (validIdx !== currentIndex) {
             setCurrentIndex(validIdx);
           }
-          
+
           // If scrolled beyond last reel, snap back
           if (idx > maxIndex) {
             flatListRef.current?.scrollToIndex({
@@ -1241,6 +1240,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     alignItems: 'center',
+  },
+  horizontalActions: {
+    position: 'absolute',
+    bottom: 200, // adjust based on your UI
+    left: 16,
+    right: 80, // keep space for right-side music icon
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal:10,
+    gap:30,
+
   },
   actionButton: {
     alignItems: 'center',
