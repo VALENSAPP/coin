@@ -17,6 +17,7 @@ import { useRoute } from '@react-navigation/native';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
+import { battleWinner } from '../../services/battle';
 
 const withAlpha = (hex, alpha) => {
   if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
@@ -54,6 +55,7 @@ export default function BattleResults({ navigation }) {
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
   const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
   const { battle = {} } = route.params || {};
+  const [winnerData, setWinnerData] = useState(null);
   const predictionCounts =
     route?.params?.predictionCounts || battle?.predictionCounts || {};
   const winnerUserId =
@@ -63,6 +65,7 @@ export default function BattleResults({ navigation }) {
   const optionVoteCount = route?.params?.optionVoteCount || battle?.optionVoteCount || {};
   const [winnerProfile, setWinnerProfile] = useState(null);
   const [winnerLoading, setWinnerLoading] = useState(false);
+  const battleId = battle?.id || battle?.battleId || route?.params?.battleId || '';
   const title = battle.title || 'Battle';
   const description = battle.question || '';
   const endedAt = battle.endTime || '';
@@ -140,6 +143,7 @@ export default function BattleResults({ navigation }) {
     const secondary =
       primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
 
+
     return {
       primary,
       secondary,
@@ -209,6 +213,22 @@ export default function BattleResults({ navigation }) {
       active = false;
     };
   }, [winnerUserId]);
+  const getWinner = async () => {
+    if (!battleId) {
+      return;
+    }
+
+    try {
+      const response = await battleWinner(battleId);
+      setWinnerData(response?.data || response);
+      console.log(response, 'data in this apis')
+    } catch (err) {
+      console.log(err, 'erro here in this api ')
+    }
+  }
+  useEffect(() => {
+    getWinner();
+  }, [battleId]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -291,6 +311,23 @@ export default function BattleResults({ navigation }) {
                       Side: {winningSide}
                     </Text>
                   )}
+                  <View
+                    style={[
+                      styles.pointsContainer,
+                      {
+                        backgroundColor: palette.soft,
+                        borderColor: palette.softBorder,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.pointsLabel, { color: palette.muted }]}>
+                      Points Earned
+                    </Text>
+
+                    <Text style={[styles.pointsValue, { color: palette.primary }]}>
+                      {winnerData?.points || 0}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -648,4 +685,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
+  pointsContainer: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  pointsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  pointsValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+
 });

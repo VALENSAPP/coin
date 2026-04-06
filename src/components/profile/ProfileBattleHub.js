@@ -14,8 +14,6 @@ import { useNavigation } from '@react-navigation/native';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 
-
-
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
 
@@ -26,7 +24,7 @@ const normalizeBattleItem = raw => {
     pickFirst(raw?._count?.participants, raw?.participantsCount, raw?.votes, 0),
   );
   const stake = Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0));
-  const endTime = pickFirst(raw?.endTime, raw?.endsAt, null);
+  const endTime = pickFirst(raw?.endTime, raw?.endsAt, raw?.resolvedAt, null);
   const type = String(pickFirst(raw?.battleType, raw?.type, 'opinion')).toLowerCase();
 
   return {
@@ -46,6 +44,21 @@ const normalizeBattleItem = raw => {
           : pickFirst(option?.label, option?.text, option?.value, `Option ${index + 1}`),
     })),
   };
+};
+
+const emptySummary = {
+  level: 'Rookie',
+  totals: {
+    totalBattlesJoined: 0,
+    totalBattlesWon: 0,
+    totalPredictionsCorrect: 0,
+    totalPredictionsWrong: 0,
+    totalArgumentLikes: 0,
+  },
+  predictionAccuracyPercent: 0,
+  credibilityScore: 0,
+  liveCount: 0,
+  points: 0,
 };
 
 const formatDate = value => {
@@ -76,25 +89,17 @@ export default function ProfileBattleHub({
   viewedUserId,
   isOwner = false,
   openBattleRoute = 'OpenBattle',
-  profile
+  profile,
 }) {
   const navigation = useNavigation();
   const { text, card } = useAppTheme(profile);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [battles, setBattles] = useState([]);
-  const [battlePointSummary, setBattlePointSummary] = useState({
-    level: 'Rookie',
-    totals: {
-      totalBattlesJoined: 0,
-      totalBattlesWon: 0,
-    },
-    liveCount: 0,
-  });
+  const [battlePointSummary, setBattlePointSummary] = useState(emptySummary);
 
   const PRIMARY_GRADIENT =
-    profile === 'user'
-      ? ['#513189bd', '#e54ba0'] : ['#D3B683', '#D3B683'];
+    profile === 'user' ? ['#513189bd', '#e54ba0'] : ['#D3B683', '#D3B683'];
 
   const loadBattles = useCallback(async () => {
     if (!viewedUserId) {
@@ -105,7 +110,6 @@ export default function ProfileBattleHub({
     setLoading(true);
     try {
       const response = await battleByUserId({ params: { userId: viewedUserId } });
-      console.log(response, 'reposne in battle by use id ')
       const rawBattles =
         response?.data?.battles ||
         response?.data?.data ||
@@ -118,7 +122,7 @@ export default function ProfileBattleHub({
         : [];
 
       setBattles(normalized);
-    } catch (error) {
+    } catch (_error) {
       setBattles([]);
     } finally {
       setLoading(false);
@@ -127,60 +131,52 @@ export default function ProfileBattleHub({
 
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {
-      setBattlePointSummary({
-        level: 'Rookie',
-        totals: {
-          totalBattlesJoined: 0,
-          totalBattlesWon: 0,
-        },
-        liveCount: 0,
-      });
+      setBattlePointSummary(emptySummary);
       return;
     }
 
     try {
       const response = await battlePoint({ params: { userId: viewedUserId } });
-      console.log(response, 'data in thi apia ');
-
       const rawData =
         response?.data?.data ||
         response?.data ||
         response ||
         {};
       const totals = rawData?.totals || {};
-      const items = Array.isArray(rawData?.items) ? rawData.items : [];
-      const liveCount = items.filter(item =>
-        String(item?.status || '').toUpperCase() === 'LIVE',
-      ).length;
+      const rawItems = Array.isArray(rawData?.items) ? rawData.items : [];
 
       setBattlePointSummary({
         level: String(rawData?.level || 'Rookie'),
         totals: {
           totalBattlesJoined: Number(totals?.totalBattlesJoined || 0),
           totalBattlesWon: Number(totals?.totalBattlesWon || 0),
+          totalPredictionsCorrect: Number(totals?.totalPredictionsCorrect || 0),
+          totalPredictionsWrong: Number(totals?.totalPredictionsWrong || 0),
+          totalArgumentLikes: Number(totals?.totalArgumentLikes || 0),
         },
-        liveCount,
+        predictionAccuracyPercent: Number(rawData?.predictionAccuracyPercent || 0),
+        credibilityScore: Number(rawData?.credibilityScore || 0),
+        liveCount: rawItems.filter(item =>
+          String(item?.status || '').toUpperCase().includes('LIVE'),
+        ).length,
+        points: Number(totals?.totalBattlePoints || 0),
       });
-    } catch (errr) {
-      console.log(errr, 'fail to load dataa');
-      setBattlePointSummary({
-        level: 'Rookie',
-        totals: {
-          totalBattlesJoined: 0,
-          totalBattlesWon: 0,
-        },
-        liveCount: 0,
-      });
+
+      if (rawItems.length > 0) {
+        setBattles(rawItems.map(normalizeBattleItem).filter(item => item.id));
+      }
+    } catch (_err) {
+      setBattlePointSummary(emptySummary);
     }
   }, [viewedUserId]);
 
   useEffect(() => {
     loadBattles();
-    getBattlePoint
-  }, [loadBattles,getBattlePoint]);
+    getBattlePoint();
+  }, [loadBattles, getBattlePoint]);
 
-  const stats = useMemo(() => {
-    return [
+  const stats = useMemo(
+    () => [
       {
         key: 'level',
         label: 'Level',
@@ -197,12 +193,23 @@ export default function ProfileBattleHub({
         value: battlePointSummary.totals.totalBattlesWon,
       },
       {
-        key: 'live',
-        label: 'Live',
-        value: battlePointSummary.liveCount,
+        key: 'accuracy',
+        label: 'Accuracy',
+        value: `${battlePointSummary.predictionAccuracyPercent}%`,
       },
-    ];
-  }, [battlePointSummary]);
+      {
+        key: 'points',
+        label: 'Points',
+        value: battlePointSummary.points,
+      },
+      {
+        key: 'credibility',
+        label: 'Credibility',
+        value: battlePointSummary.credibilityScore,
+      },
+    ],
+    [battlePointSummary],
+  );
 
   const openBattle = useCallback(
     battle => {
@@ -250,11 +257,17 @@ export default function ProfileBattleHub({
         <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
           Battle Performance
         </Text>
-        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>
+        <Text
+          style={[
+            styles.heroTitle,
+            { color: profile === 'user' ? '#5a2d82' : '#D3B683' },
+          ]}
+        >
           Compete, predict, and build your Valens reputation.
         </Text>
         <Text style={styles.heroSubtitle}>
-          Opinion battles reward votes and engagement. Prediction battles reward accuracy first.
+          Opinion battles reward votes and engagement. Prediction battles reward
+          accuracy first.
         </Text>
 
         <View style={styles.statsGrid}>
@@ -284,8 +297,17 @@ export default function ProfileBattleHub({
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>Recent Battles</Text>
-        <Text style={styles.sectionSubtitle}>Open any battle to continue the flow.</Text>
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: profile === 'user' ? '#5a2d82' : '#D3B683' },
+          ]}
+        >
+          Recent Battles
+        </Text>
+        <Text style={styles.sectionSubtitle}>
+          Open any battle to continue the flow.
+        </Text>
       </View>
 
       {loading ? (
@@ -303,7 +325,12 @@ export default function ProfileBattleHub({
               onPress={() => openBattle(battle)}
             >
               <View style={styles.cardHeader}>
-                <View style={[styles.statusPill, { backgroundColor: `${statusMeta.tone}18` }]}>
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: `${statusMeta.tone}18` },
+                  ]}
+                >
                   <Text style={[styles.statusText, { color: statusMeta.tone }]}>
                     {statusMeta.label}
                   </Text>
@@ -326,8 +353,6 @@ export default function ProfileBattleHub({
               )}
 
               <View style={styles.cardFooter}>
-                {/* <Text style={styles.footerText}>{battle.votes} votes</Text> */}
-                {/* <Text style={styles.footerText}>{battle.stake} points</Text> */}
                 <Text style={styles.footerText}>{formatDate(battle.endTime)}</Text>
               </View>
             </TouchableOpacity>
@@ -338,7 +363,8 @@ export default function ProfileBattleHub({
           <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
           <Text style={[styles.emptyTitle, { color: text }]}>No battles yet</Text>
           <Text style={styles.emptySubtitle}>
-            Start with an opinion battle or invite someone into a head-to-head duel.
+            Start with an opinion battle or invite someone into a head-to-head
+            duel.
           </Text>
         </View>
       )}
@@ -349,7 +375,7 @@ export default function ProfileBattleHub({
 const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 20,
-    padding: 10
+    padding: 10,
   },
   heroCard: {
     borderRadius: 18,
@@ -416,7 +442,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 10,
-
   },
   sectionTitle: {
     fontSize: 16,
@@ -488,7 +513,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 14,
     gap: 8,
-    marginBottom: '10%'
+    marginBottom: '10%',
   },
   footerText: {
     fontSize: 11,
