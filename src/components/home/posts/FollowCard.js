@@ -12,15 +12,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import HexAvatar from '../story.js/HexAvatar'; // Import your HexAvatar component
 import { useAppTheme } from '../../../theme/useApptheme';
-import { useDispatch } from 'react-redux';
-import { useToast } from 'react-native-toast-notifications';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
-import WalletSelectionModal from '../../modals/WalletSelectionModal';
-import { getSupportRecipientWalletAddress, openWalletPayment } from '../../../utils/metaMaskSupport';
+import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
+import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { getUserCredentials } from '../../../services/post';
-import { showToastMessage } from '../../displaytoastmessage';
-import { connectWalletLogin } from '../../../pages/authentication/socialLogin';
-import { updateWallet } from '../../../services/wallet';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 
 export default function FollowCard({
@@ -41,12 +36,9 @@ export default function FollowCard({
   const [targetWalletAddress, setTargetWalletAddress] = useState('');
   const [targetProfileType, setTargetProfileType] = useState(item?.profile || type || 'user');
   const [modalVisible, setModalVisible] = useState(false);
-  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
-  const [pendingSupportPromptAfterWalletConnect, setPendingSupportPromptAfterWalletConnect] = useState(false);
   const navigation = useNavigation();
-  const dispatch = useDispatch();
-  const toast = useToast();
+  const { startSupportPayment } = useWalletConnectSupport();
   const { textStyle, text } = useAppTheme();
 
   const handleUserProfile = userId => {
@@ -90,69 +82,17 @@ export default function FollowCard({
   );
   const canSupport = !!recipientWalletAddress;
 
-  const ensureSupportFlowReady = async ({ openSupportModalOnSuccess = false } = {}) => {
-    const currentWalletAddress = walletAddress || await AsyncStorage.getItem('walletAddress');
-
-    if (!currentWalletAddress) {
-      if (openSupportModalOnSuccess) {
-        setPendingSupportPromptAfterWalletConnect(true);
-      }
-      setWalletSelectionVisible(true);
-      return false;
-    }
-
-    if (currentWalletAddress !== walletAddress) {
-      setWalletAddress(currentWalletAddress);
-    }
-
-    if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-      setPendingSupportPromptAfterWalletConnect(false);
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleWalletSelect = async (wallet) => {
-    setWalletSelectionVisible(false);
-
-    try {
-      const connectedAddress = await connectWalletLogin(toast, navigation, dispatch, {
-        returnAddressOnly: true,
-        walletType: wallet.id,
-      });
-
-      if (connectedAddress) {
-        await AsyncStorage.setItem('walletAddress', connectedAddress);
-        await AsyncStorage.setItem('walletType', wallet.id);
-        setWalletAddress(connectedAddress);
-        try {
-          await updateWallet({ walletAddress: connectedAddress });
-        } catch (walletUpdateError) {
-          console.error('Wallet update API error:', walletUpdateError);
-        }
-
-        showToastMessage(toast, 'success', 'Wallet connected successfully');
-
-        if (pendingSupportPromptAfterWalletConnect) {
-          setPendingSupportPromptAfterWalletConnect(false);
-          if (!canSupport) {
-            Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
-            return;
-          }
-          setModalVisible(true);
-          return;
-        }
-
-        const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-        const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-        await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
-      }
-    } catch (error) {
-      console.error('Wallet connection error:', error);
-    }
-  };
+  const supporterProfile = useMemo(
+    () =>
+      typeof isBusinessProfile === 'boolean'
+        ? (isBusinessProfile ? 'company' : 'user')
+        : 'user',
+    [isBusinessProfile],
+  );
+  const recipientProfile = useMemo(
+    () => normalizeProfileType(targetProfileType || type || item?.profile),
+    [targetProfileType, type, item?.profile],
+  );
 
   const handleSupportNow = async () => {
     if (!canSupport) {
@@ -160,14 +100,23 @@ export default function FollowCard({
       return;
     }
     setSupportDisclaimerVisible(false);
-    const ready = await ensureSupportFlowReady();
-    if (!ready) return;
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = await AsyncStorage.getItem('walletType') || 'metamask';
-    await openWalletPayment(recipientWalletAddress, connectedWalletChainId, walletType);
+    const receiverId = userId ?? item?.id ?? '';
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: currentUserId != null ? String(currentUserId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
+      chain: 'SEPOLIA',
+    });
   };
 
   const handleOpenSupportDisclaimer = () => {
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        'Support unavailable',
+        'Tips are not available for business profiles.',
+      );
+      setModalVisible(false);
+      return;
+    }
     setModalVisible(false);
     setSupportDisclaimerVisible(true);
   };
@@ -261,16 +210,7 @@ export default function FollowCard({
 
             if (!success || !shouldFollow) return;
 
-            const supporterProfile =
-              typeof isBusinessProfile === 'boolean'
-                ? (isBusinessProfile ? 'company' : 'user')
-                : 'user';
-            const recipientProfile = normalizeProfileType(targetProfileType || type || item?.profile);
-
-            // Only show support/wallet flow when support is allowed by platform rules.
-            if (isSupportAllowed({ supporterProfile, recipientProfile })) {
-              setModalVisible(true);
-            }
+            setModalVisible(true);
           }}
           disabled={loading}
         >
@@ -295,11 +235,6 @@ export default function FollowCard({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
-      />
-      <WalletSelectionModal
-        visible={walletSelectionVisible}
-        onClose={() => setWalletSelectionVisible(false)}
-        onSelectWallet={handleWalletSelect}
       />
     </View>
   );

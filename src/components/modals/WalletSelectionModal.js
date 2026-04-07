@@ -141,6 +141,7 @@ export default function WalletSelectionModal({ visible, onClose, onSelectWallet 
       animationType="slide"
       visible={visible}
       onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContent, bgStyle]}>

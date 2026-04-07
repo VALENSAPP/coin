@@ -20,6 +20,7 @@ import {
   Keyboard,
 } from 'react-native';
 import Video from 'react-native-video';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -35,6 +36,11 @@ import {
   burstStyles,
 } from './Style';
 import { getStoryByUser, PostStory, DeleteStory, getFollowingUserStories } from '../../../services/stories';
+import { buildStoryMetaPayload } from '../../../utils/buildStoryMeta';
+import {
+  appendStoryAudioFiles,
+  prepareStoryClipsAudioForUpload,
+} from '../../../utils/storyAudioUpload';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastMessage } from '../../displaytoastmessage';
 import { Toast, useToast } from 'react-native-toast-notifications';
@@ -52,6 +58,125 @@ import ShareModal from '../../modals/ShareModal';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DOUBLE_TAP_DELAY = 300;
+
+/** API may return `storyMeta` as object or JSON string */
+function parseStoryMeta(raw) {
+  if (raw == null) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return typeof raw === 'object' ? raw : null;
+}
+
+/**
+ * YouTube WebView needs a real viewport (≥~200×200) and must sit above opaque media
+ * or playback/sound often never starts. Keep off-screen + nearly invisible.
+ */
+const storyYoutubeAudioStyle = {
+  position: 'absolute',
+  width: 200,
+  height: 200,
+  opacity: 0.02,
+  left: -220,
+  top: 0,
+  zIndex: 5,
+  overflow: 'hidden',
+};
+
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolveStoryDurationMs(storyLike) {
+  const isVideo = storyLike?.type === 'video' || !!storyLike?.isVideo;
+  const fallbackMs = isVideo ? 15000 : 5000;
+
+  const explicitMs = toFiniteNumber(storyLike?.duration);
+  if (explicitMs != null && explicitMs > 0) return explicitMs;
+
+  const visualTrimStart = Math.max(0, toFiniteNumber(storyLike?.trim?.start) || 0);
+  const visualTrimEndRaw = toFiniteNumber(storyLike?.trim?.end);
+  const visualTrimSec =
+    visualTrimEndRaw != null && visualTrimEndRaw > visualTrimStart
+      ? visualTrimEndRaw - visualTrimStart
+      : null;
+
+  const audioTrimStart = Math.max(0, toFiniteNumber(storyLike?.audioTrim?.start) || 0);
+  const audioTrimEndRaw = toFiniteNumber(storyLike?.audioTrim?.end);
+  const audioTrimSec =
+    audioTrimEndRaw != null && audioTrimEndRaw > audioTrimStart
+      ? audioTrimEndRaw - audioTrimStart
+      : null;
+
+  const chosenSec = isVideo ? visualTrimSec : (audioTrimSec ?? visualTrimSec);
+  if (chosenSec != null && chosenSec > 0) {
+    return Math.max(1000, Math.round(chosenSec * 1000));
+  }
+  return fallbackMs;
+}
+
+function looksLikeUrl(v) {
+  return typeof v === 'string' && /^(https?:)?\/\//i.test(v.trim());
+}
+
+function resolveStoryAudioPayload(storyLike) {
+  const src =
+    storyLike?.audio ??
+    storyLike?.song ??
+    storyLike?.music ??
+    storyLike?.track ??
+    null;
+
+  if (typeof src === 'string') {
+    if (looksLikeUrl(src)) {
+      return { directUrl: src.trim(), youtubeVideoId: null };
+    }
+    return { directUrl: null, youtubeVideoId: src.trim() || null };
+  }
+
+  if (src && typeof src === 'object') {
+    // Prefer uploaded / CDN audio URLs — avoid previewUrl (may be YouTube thumbnail).
+    const directUrl =
+      src.audioUrl ||
+      src.s3Url ||
+      src.fileUrl ||
+      src.url ||
+      src.songUrl ||
+      src.musicUrl ||
+      null;
+    const youtubeVideoId =
+      src.videoId ||
+      src.youtubeVideoId ||
+      src.ytVideoId ||
+      null;
+    return {
+      directUrl: looksLikeUrl(directUrl) ? String(directUrl).trim() : null,
+      youtubeVideoId:
+        typeof youtubeVideoId === 'string' && youtubeVideoId.trim()
+          ? youtubeVideoId.trim()
+          : null,
+    };
+  }
+
+  const storyLevelUrl =
+    storyLike?.audioUrl ||
+    storyLike?.songUrl ||
+    storyLike?.musicUrl ||
+    storyLike?.previewUrl ||
+    null;
+  return {
+    directUrl: looksLikeUrl(storyLevelUrl) ? String(storyLevelUrl).trim() : null,
+    youtubeVideoId:
+      typeof storyLike?.videoId === 'string' && storyLike.videoId.trim()
+        ? storyLike.videoId.trim()
+        : null,
+  };
+}
 
 
 // Story Analytics Modal Component
@@ -328,6 +453,9 @@ const StoryViewer = ({
   const timerRef = useRef(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const videoRef = useRef(null);
+  const youtubeRef = useRef(null);
+  const directAudioRef = useRef(null);
+  const directAudioDurationRef = useRef(0);
   const shareRef = useRef(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
 
@@ -398,6 +526,31 @@ const StoryViewer = ({
   const currentUser = stories[currentUserIndex];
   const currentStory = currentUser?.stories[currentStoryIndex];
   const isViewingOwnStory = currentUser?.isUser;
+  const currentStoryAudio = currentStory?.audio || null;
+  const resolvedAudio = resolveStoryAudioPayload(currentStory);
+  const youtubeVideoId = resolvedAudio.youtubeVideoId;
+  const directAudioUrl = resolvedAudio.directUrl;
+  const hasDirectAudio = typeof directAudioUrl === 'string' && directAudioUrl.length > 0;
+  const isYoutubeAudio =
+    currentStory?.type !== 'video' &&
+    !hasDirectAudio &&
+    !!youtubeVideoId;
+  const isDirectAudio =
+    currentStory?.type !== 'video' &&
+    hasDirectAudio;
+  const audioTrimStartSec = Math.max(
+    0,
+    Number(currentStory?.audioTrim?.start) || 0,
+  );
+  const audioTrimEndSecRaw = Number(currentStory?.audioTrim?.end);
+  const audioTrimEndSec =
+    Number.isFinite(audioTrimEndSecRaw) && audioTrimEndSecRaw > audioTrimStartSec
+      ? audioTrimEndSecRaw
+      : null;
+  const audioVolumePercent = Math.max(
+    0,
+    Math.min(100, Math.round((Number(currentStory?.volume) || 1) * 100)),
+  );
 
   // Helper: fully stop & clear timers/animation
   const stopAndResetProgress = (resetToZero = true) => {
@@ -423,6 +576,9 @@ const StoryViewer = ({
     // seek to start if video
     if (currentStory.type === 'video' && videoRef.current?.seek) {
       try { videoRef.current.seek(0); } catch (_e) { }
+    }
+    if (isDirectAudio && directAudioRef.current?.seek) {
+      try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) { }
     }
 
     return () => {
@@ -457,6 +613,36 @@ const StoryViewer = ({
     }
   }, [visible]);
 
+  // Keep retrying YouTube play commands when story is active (WebView autoplay can be flaky).
+  useEffect(() => {
+    if (!isYoutubeAudio || !visible || paused) return;
+    let cancelled = false;
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    const run = async () => {
+      const delays = [0, 350, 900, 1600];
+      for (const d of delays) {
+        if (cancelled) return;
+        if (d > 0) await wait(d);
+        try {
+          await youtubeRef.current?.setVolume?.(audioVolumePercent);
+          await youtubeRef.current?.unMuteVideo?.();
+          await youtubeRef.current?.playVideo?.();
+          if (audioTrimStartSec > 0) {
+            await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
+          }
+        } catch (_e) {
+          // no-op, keep retrying while this story is active
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isYoutubeAudio, visible, paused, youtubeVideoId, audioVolumePercent, audioTrimStartSec]);
+
   const startProgress = (duration) => {
     Animated.timing(progressAnimation, {
       toValue: 1,
@@ -477,10 +663,7 @@ const StoryViewer = ({
     setPaused(false);
     // if (!loading) {
     const remaining = Math.max(0, 1 - currentProgress);
-    const totalDuration =
-      currentStory.type === 'video'
-        ? (currentStory.duration || 15000)
-        : 5000;
+    const totalDuration = resolveStoryDurationMs(currentStory);
     const remainingDuration = totalDuration * remaining;
     if (remainingDuration > 50) {
       startProgress(remainingDuration);
@@ -746,13 +929,13 @@ const StoryViewer = ({
   const onImageLoaded = () => {
     dispatch(hideLoader());
     if (visibleRef.current && !pausedRef.current) {
-      startProgress(5000);
+      startProgress(resolveStoryDurationMs(currentStory));
     }
   };
 
   const onVideoLoaded = () => {
     dispatch(hideLoader());
-    const duration = currentStory.duration || 15000;
+    const duration = resolveStoryDurationMs(currentStory);
     if (visibleRef.current && !pausedRef.current) {
       startProgress(duration);
     }
@@ -761,9 +944,7 @@ const StoryViewer = ({
   const onMediaError = () => {
     dispatch(hideLoader());
     if (visibleRef.current && !pausedRef.current) {
-      const duration = currentStory.type === 'video'
-        ? (currentStory.duration || 15000)
-        : 5000;
+      const duration = resolveStoryDurationMs(currentStory);
       startProgress(duration);
     }
   };
@@ -862,7 +1043,6 @@ const StoryViewer = ({
             isViewingOwnStory && modalStyles.storyContentOwn,
           ]}
         >
-
           {currentStory.type === 'image' ? (
             <Image
               source={{ uri: currentStory.uri }}
@@ -893,6 +1073,90 @@ const StoryViewer = ({
               pointerEvents="none"
             />
           )}
+
+          {isYoutubeAudio ? (
+            <View
+              style={storyYoutubeAudioStyle}
+              pointerEvents="none"
+              collapsable={false}
+            >
+              <YoutubePlayer
+                ref={youtubeRef}
+                key={`story_yt_${storyId}_${youtubeVideoId}`}
+                height={200}
+                width={200}
+                videoId={youtubeVideoId}
+                play={visible && !paused}
+                mute={false}
+                volume={audioVolumePercent}
+                forceAndroidAutoplay
+                initialPlayerParams={{
+                  autoplay: true,
+                  controls: false,
+                  modestbranding: true,
+                  rel: false,
+                }}
+                onReady={async () => {
+                  try {
+                    await youtubeRef.current?.setVolume?.(audioVolumePercent);
+                    await youtubeRef.current?.unMuteVideo?.();
+                    await youtubeRef.current?.playVideo?.();
+                    if (audioTrimStartSec > 0) {
+                      await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
+                    }
+                  } catch (_e) { }
+                }}
+                onChangeState={state => {
+                  if (state === 'paused' || state === 'unstarted' || state === 'video cued') {
+                    try {
+                      youtubeRef.current?.playVideo?.();
+                    } catch (_e) { }
+                  }
+                  if (state === 'ended') {
+                    try {
+                      youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
+                      youtubeRef.current?.playVideo?.();
+                    } catch (_e) { }
+                  }
+                }}
+                onError={e => {
+                  console.warn('[StoryViewer] YouTube audio error', e);
+                }}
+              />
+            </View>
+          ) : null}
+          {isDirectAudio ? (
+            <Video
+              ref={directAudioRef}
+              source={{ uri: directAudioUrl }}
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+              paused={paused || !visible}
+              muted={false}
+              repeat={false}
+              playInBackground={false}
+              playWhenInactive={false}
+              volume={Math.max(0, Math.min(1, Number(currentStory?.volume) || 1))}
+              onLoad={data => {
+                directAudioDurationRef.current = Number(data?.duration) || 0;
+                if (audioTrimStartSec > 0) {
+                  try { directAudioRef.current?.seek(audioTrimStartSec); } catch (_e) { }
+                }
+              }}
+              onProgress={({ currentTime }) => {
+                const fallbackEnd = directAudioDurationRef.current || 0;
+                const end = audioTrimEndSec != null ? audioTrimEndSec : fallbackEnd;
+                if (end > 0 && currentTime >= end - 0.12) {
+                  try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) { }
+                }
+              }}
+              onEnd={() => {
+                try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) { }
+              }}
+              onError={e => {
+                console.warn('[StoryViewer] Direct audio error', e);
+              }}
+            />
+          ) : null}
 
           <TouchableWithoutFeedback
             onPress={handleTap}
@@ -1246,11 +1510,29 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         muted: false,
         stories: userStoriesRaw.flatMap((story) => {
           const ts = new Date(story.createdAt || story.updatedAt || Date.now()).getTime();
+          const meta = parseStoryMeta(story.storyMeta);
           return (story.media || []).map((url, idx) => ({
+            ...(() => {
+              const clipMeta = meta?.clips?.[idx] || {};
+              const fallbackAudio =
+                clipMeta.audio ??
+                meta?.audio ??
+                story?.audio ??
+                story?.song ??
+                story?.music ??
+                null;
+              return {
+                ...clipMeta,
+                audio: fallbackAudio,
+                duration: resolveStoryDurationMs({
+                  ...clipMeta,
+                  type: (String(url).toLowerCase().includes('.mp4') || String(url).toLowerCase().includes('video')) ? 'video' : 'image',
+                }),
+              };
+            })(),
             id: `${story.id}_${idx}`,
             type: (String(url).toLowerCase().includes('.mp4') || String(url).toLowerCase().includes('video')) ? 'video' : 'image',
             uri: String(url).trim(),
-            duration: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('video') ? 15000 : 5000,
             timestamp: ts,
             seen: false,
             views: [],
@@ -1269,6 +1551,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         const userImage = userStory.user?.image || '';
 
         const ts = new Date(userStory.createdAt || userStory.updatedAt || Date.now()).getTime();
+        const followingMeta = parseStoryMeta(userStory.storyMeta);
         const getMediaType = (url) => {
           if (typeof url !== 'string') return 'image';
           const lower = url.toLowerCase().trim();
@@ -1283,10 +1566,27 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         };
         // Create story objects for this user's media
         const storyObjects = (userStory.media || []).map((url, idx) => ({
+          ...(() => {
+            const clipMeta = followingMeta?.clips?.[idx] || {};
+            const fallbackAudio =
+              clipMeta.audio ??
+              followingMeta?.audio ??
+              userStory?.audio ??
+              userStory?.song ??
+              userStory?.music ??
+              null;
+            return {
+              ...clipMeta,
+              audio: fallbackAudio,
+              duration: resolveStoryDurationMs({
+                ...clipMeta,
+                type: getMediaType(url),
+              }),
+            };
+          })(),
           id: `${userStory.id}_${idx}`,
           type: getMediaType(url),
           uri: String(url).trim(),
-          duration: getMediaType(url) === 'video' ? 15000 : 5000,
           timestamp: ts,
           seen: false,
           views: [],
@@ -1521,6 +1821,8 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
   const handleComposerDone = async (processedArray) => {
     try {
+      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+
       setComposerVisible(false);
 
       // Prepare FormData for API call
@@ -1530,7 +1832,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       formData.append('caption', '');
 
       // Add media files
-      processedArray.forEach((item, index) => {
+      clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
         const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
@@ -1541,6 +1843,12 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           name: fileName,
         });
       });
+
+      formData.append(
+        'storyMeta',
+        JSON.stringify(buildStoryMetaPayload(clips)),
+      );
+      await appendStoryAudioFiles(formData, clips);
 
       // Call API to upload story
       const response = await PostStory(formData);
@@ -1555,13 +1863,21 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
                 hasUnseenStory: true,
                 stories: [
                   ...user.stories,
-                  ...processedArray.map(item => ({
+                  ...clips.map(item => ({
                     id: `story_${Date.now()}_${Math.random()}`,
                     type: item.isVideo ? 'video' : 'image',
                     uri: item.processedUri || item.original.uri,
-                    duration: item.isVideo
-                      ? item.original.duration || 15000
-                      : 5000,
+                    audio: item.audio || { mode: 'original' },
+                    audioTrim: item.audioTrim || { start: 0, end: null },
+                    trim: item.trim || { start: 0, end: null },
+                    volume: item.volume ?? 1,
+                    duration: resolveStoryDurationMs({
+                      type: item.isVideo ? 'video' : 'image',
+                      isVideo: item.isVideo,
+                      duration: item.original?.duration,
+                      trim: item.trim,
+                      audioTrim: item.audioTrim,
+                    }),
                     timestamp: Date.now(),
                     seen: false,
                     views: [],
@@ -2047,7 +2363,7 @@ const sidebarStyles = StyleSheet.create({
   },
   verticalDropsText: {
     marginTop: 2,
-    fontSize: 16,
+    fontSize: 12,
     color: '#6b6b6b',
     fontWeight: '600',
     textAlign: 'center',

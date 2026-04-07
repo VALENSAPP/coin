@@ -668,7 +668,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           return;
         }
 
-        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        const deepLink = `com.valens.app://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
         Clipboard.setString(deepLink);
         showToastMessage(toast, 'success', 'Post copied');
         closeOptionsModal();
