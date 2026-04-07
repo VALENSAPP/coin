@@ -33,6 +33,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import { useAppTheme } from '../../theme/useApptheme';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../components/modals/ShareModal';
 import ReportFlowScreen from '../../components/modals/Report';
