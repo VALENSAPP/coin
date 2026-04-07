@@ -253,7 +253,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       senderId: selfUserId != null ? String(selfUserId) : '',
       receiverId:
         selectedSupportUser?.id != null ? String(selectedSupportUser.id) : '',
-      chain: 'SEPOLIA',
+      chain: 'POLYGON',
     });
   }, [
     canSupport,

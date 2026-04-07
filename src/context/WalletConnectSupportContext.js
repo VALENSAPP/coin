@@ -1,3 +1,4 @@
+/* global BigInt */
 import React, {
   createContext,
   useCallback,
@@ -20,9 +21,14 @@ import { RequestModal } from '../components/modals/RequestModal';
 import { WalletConnectedSuccessModal } from '../components/modals/WalletConnectedSuccessModal';
 import { showToastMessage } from '../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import { polygon } from 'viem/chains';
 import { appKit } from '../config/AppKitConfig';
+import { verifyUsdtTransaction } from '../services/wallet';
 
-const SEPOLIA_CHAIN_ID = '0xaa36a7';
+const SUPPORT_NETWORK = polygon;
+const SUPPORT_CHAIN_ID = String(SUPPORT_NETWORK.id);
+const SUPPORT_CHAIN_ID_HEX = `0x${SUPPORT_NETWORK.id.toString(16)}`;
+const SUPPORT_CHAIN_LABEL = 'POLYGON';
 
 const WalletConnectSupportContext = createContext(null);
 
@@ -50,11 +56,25 @@ function getProviderFromAppKit() {
   }
 }
 
-/** Default Sepolia tip amount (ETH). */
+function getSupportNetworkConfig() {
+  const config = {
+    chainId: SUPPORT_CHAIN_ID_HEX,
+    chainName: SUPPORT_NETWORK.name,
+    rpcUrls: SUPPORT_NETWORK.rpcUrls.default.http,
+    nativeCurrency: SUPPORT_NETWORK.nativeCurrency,
+  };
+  const explorerUrl = SUPPORT_NETWORK.blockExplorers?.default?.url;
+  if (explorerUrl) {
+    config.blockExplorerUrls = [explorerUrl];
+  }
+  return config;
+}
+
+/** Default Polygon tip amount in the native token. */
 export const DEFAULT_SUPPORT_AMOUNT_ETH = 0.000001;
 
 /** Shown in the result modal unless `options.chain` is passed (e.g. `'POLYGON'`). */
-export const DEFAULT_SUPPORT_CHAIN_LABEL = 'SEPOLIA';
+export const DEFAULT_SUPPORT_CHAIN_LABEL = SUPPORT_CHAIN_LABEL;
 
 /**
  * Shape shown in RequestModal after a successful tip tx.
@@ -74,6 +94,24 @@ export function buildSupportPaymentResultModalPayload(txHash, options = {}) {
     receiverId,
     txHash: txHash != null ? String(txHash) : '',
     chain: chainRaw.toUpperCase(),
+  };
+}
+
+function buildSupportPaymentVerificationPayload(
+  txHash,
+  options = {},
+) {
+  const senderId =
+    options.senderId != null ? String(options.senderId).trim() : '';
+  const receiverId =
+    options.receiverId != null ? String(options.receiverId).trim() : '';
+  const chain = SUPPORT_CHAIN_LABEL;
+
+  return {
+    senderId,
+    receiverId,
+    txHash: txHash != null ? String(txHash) : '',
+    chain,
   };
 }
 
@@ -266,40 +304,32 @@ useEffect(() => {
     throw new Error('Wallet provider not ready. Try again.');
   }, []);
 
-  const ensureSepolia = useCallback(async (wcProvider) => {
+  const ensurePolygon = useCallback(async (wcProvider) => {
     if (!wcProvider?.request) {
       throw new Error('Wallet provider is not ready');
     }
     try {
       await wcProvider.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: SEPOLIA_CHAIN_ID }],
+        params: [{ chainId: SUPPORT_CHAIN_ID_HEX }],
       });
     } catch {
       await wcProvider.request({
         method: 'wallet_addEthereumChain',
-        params: [
-          {
-            chainId: SEPOLIA_CHAIN_ID,
-            chainName: 'Sepolia',
-            rpcUrls: ['https://rpc.sepolia.org'],
-            nativeCurrency: {
-              name: 'Sepolia ETH',
-              symbol: 'ETH',
-              decimals: 18,
-            },
-            blockExplorerUrls: ['https://sepolia.etherscan.io'],
-          },
-        ],
+        params: [getSupportNetworkConfig()],
+      });
+      await wcProvider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: SUPPORT_CHAIN_ID_HEX }],
       });
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const chainId = await wcProvider.request({ method: 'eth_chainId' });
-    if (normalizeChainIdHex(chainId) !== normalizeChainIdHex(SEPOLIA_CHAIN_ID)) {
+    if (normalizeChainIdHex(chainId) !== normalizeChainIdHex(SUPPORT_CHAIN_ID_HEX)) {
       throw new Error(
-        'Please switch to Sepolia in your wallet and try again.',
+        'Please switch to Polygon in your wallet and try again.',
       );
     }
   }, []);
@@ -308,7 +338,7 @@ useEffect(() => {
     if (!walletAddress) return;
     try {
       await AsyncStorage.setItem('walletAddress', walletAddress);
-      await AsyncStorage.setItem('walletChainId', '11155111');
+      await AsyncStorage.setItem('walletChainId', SUPPORT_CHAIN_ID);
       await AsyncStorage.setItem('walletType', 'walletconnect');
       console.log(LOG, 'persisted wallet', {
         preview: `${String(walletAddress).slice(0, 8)}…`,
@@ -328,12 +358,12 @@ useEffect(() => {
         throw new Error('Wallet is not connected.');
       }
 
-      console.log(LOG, 'ensureSepolia…');
-      await ensureSepolia(wcProvider);
+      console.log(LOG, 'ensurePolygon…');
+      await ensurePolygon(wcProvider);
 
       const chainId = await wcProvider.request({ method: 'eth_chainId' });
-      if (normalizeChainIdHex(chainId) !== normalizeChainIdHex(SEPOLIA_CHAIN_ID)) {
-        throw new Error('Please switch to Sepolia network');
+      if (normalizeChainIdHex(chainId) !== normalizeChainIdHex(SUPPORT_CHAIN_ID_HEX)) {
+        throw new Error('Please switch to Polygon network');
       }
 
       let userAddress = modalSnapshotRef.current.address;
@@ -353,7 +383,7 @@ useEffect(() => {
         from: userAddress,
         to: recipientAddress,
         value: ethValueHexFromEth(amountEth),
-        chainId: SEPOLIA_CHAIN_ID,
+        chainId: SUPPORT_CHAIN_ID_HEX,
         data: '0x',
       };
 
@@ -363,12 +393,40 @@ useEffect(() => {
         params: [transaction],
       });
 
-      console.log(LOG, 'tx submitted', txHash);
-      console.log('tx submitted options', options);
-      setRpcResponse(buildSupportPaymentResultModalPayload(txHash, options));
+      const paymentResultPayload = buildSupportPaymentResultModalPayload(
+        txHash,
+        options,
+      );
+
+      setRpcResponse(paymentResultPayload);
       showToastMessage(toast, 'success', 'Support transaction submitted');
+
+      await verifyUsdtTransaction(
+        buildSupportPaymentVerificationPayload(
+          txHash,
+          options,
+        ),
+      ).then((verificationResponse) => {
+        console.log(
+          LOG,
+          'verifyUsdtTransaction response',
+          verificationResponse?.data ?? verificationResponse,
+        );
+        return verificationResponse;
+      }).catch((verificationError) => {
+        console.warn(
+          LOG,
+          'verifyUsdtTransaction failed after tx submission',
+          verificationError,
+        );
+        showToastMessage(
+          toast,
+          'warning',
+          'Payment was sent, but verification is still pending.',
+        );
+      });
     },
-    [waitForProvider, ensureSepolia, persistConnectedWallet, toast],
+    [waitForProvider, ensurePolygon, persistConnectedWallet, toast],
   );
 
   const revealConnectedSuccessUi = useCallback(

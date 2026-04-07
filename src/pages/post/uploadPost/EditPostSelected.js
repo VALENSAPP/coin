@@ -78,6 +78,28 @@ const IMAGE_SIZE = SCREEN_WIDTH - 32;
 const EMOJI_REGEX =
   /(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u;
 
+const FLIP_EMOJI_STICKERS = [
+  '🔥',
+  '✨',
+  '🎵',
+  '💫',
+  '😍',
+  '😎',
+  '🚀',
+  '💖',
+  '🎉',
+  '📸',
+  '🌈',
+  '⚡',
+];
+
+const FLIP_MUSIC_LIBRARY = [
+  { id: 'flip-track-1', title: 'Night Drive', artist: 'Valens Mix' },
+  { id: 'flip-track-2', title: 'City Lights', artist: 'Valens Mix' },
+  { id: 'flip-track-3', title: 'Golden Hour', artist: 'Valens Mix' },
+  { id: 'flip-track-4', title: 'Afterglow', artist: 'Valens Mix' },
+];
+
 const InstagramPostCreator = () => {
   const navigation = useNavigation();
   const route = useRoute();

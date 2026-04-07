@@ -2,7 +2,7 @@ import '@walletconnect/react-native-compat';
 
 import { createAppKit } from '@reown/appkit-react-native';
 import { WagmiAdapter } from '@reown/appkit-wagmi-react-native';
-import { sepolia } from 'viem/chains';
+import { polygon } from 'viem/chains';
 import ConfigUtils from '../utils/walletConnectModalConfig';
 import { appKitStorage } from './appKitStorage';
 
@@ -10,14 +10,14 @@ const projectId = ConfigUtils.ENV_PROJECT_ID;
 
 export const wagmiAdapter = new WagmiAdapter({
   projectId,
-  networks: [sepolia],
+  networks: [polygon],
 });
 
 /** Singleton from `createAppKit` — safe to import for `getProvider` outside React render. */
 export const appKit = createAppKit({
   projectId,
-  networks: [sepolia],
-  defaultNetwork: sepolia,
+  networks: [polygon],
+  defaultNetwork: polygon,
   adapters: [wagmiAdapter],
   storage: appKitStorage,
   metadata: {
