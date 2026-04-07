@@ -18,6 +18,7 @@ export const getSupportRecipientWalletAddress = (target = {}) =>
 const CHAIN_ID_MAP = {
   ethereum: '1',
   mainnet: '1',
+  sepolia: '11155111',
   polygon: '137',
   matic: '137',
   bsc: '56',
@@ -28,8 +29,11 @@ const CHAIN_ID_MAP = {
   base: '8453',
 };
 
+/** Resolves a chain id for deep links. Returns null when unknown so MetaMask uses the wallet's current network (avoids "chain 1 not found" when Mainnet is disabled and user is on Sepolia). */
 const normalizeChainId = (chainId) => {
-  if (!chainId) return '1'; // ← default to Ethereum mainnet instead of ''
+  if (chainId === undefined || chainId === null || String(chainId).trim() === '') {
+    return null;
+  }
 
   const str = String(chainId).trim().toLowerCase();
 
@@ -37,7 +41,7 @@ const normalizeChainId = (chainId) => {
   if (/^0x[0-9a-f]+$/i.test(str)) return String(parseInt(str, 16));
   if (CHAIN_ID_MAP[str]) return CHAIN_ID_MAP[str];
 
-  return '1'; // ← fallback here too instead of ''
+  return null;
 };
 
 const openMetaMaskPayment = async (recipientWalletAddress, chainId) => {

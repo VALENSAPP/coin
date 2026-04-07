@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   TextInput,
   Dimensions,
   ScrollView,
@@ -25,6 +24,7 @@ import { number } from 'yup';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { getHideChatConversation, chatStatusUpdate } from '../../../services/post';
+import HexAvatar from '../../../components/home/story.js/HexAvatar';
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -686,28 +686,6 @@ export default function ChatMessages() {
     setSelectedConversation(null);
   };
 
-  // Safe image loading with error handling
-  const SafeImage = ({ source, style, ...props }) => {
-    const [imageError, setImageError] = useState(false);
-
-    if (imageError || !source?.uri) {
-      return (
-        <View style={[style, { backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: '#888', fontSize: 12 }}>👤</Text>
-        </View>
-      );
-    }
-
-    return (
-      <Image
-        source={source}
-        style={style}
-        onError={() => setImageError(true)}
-        {...props}
-      />
-    );
-  };
-
   const renderChatItem = ({ item }) => (
     <TouchableOpacity
       style={[styles.chatItem, bgStyle, { shadowColor: text }]}
@@ -717,7 +695,12 @@ export default function ChatMessages() {
     >
       <View style={styles.avatarContainer}>
         <View style={styles.storyNoRing}>
-          <SafeImage source={{ uri: item.avatar || ONLINE_PLACEHOLDER }} style={styles.chatAvatar} />
+          <HexAvatar
+            uri={item.avatar || ONLINE_PLACEHOLDER}
+            size={48}
+            borderWidth={2}
+            borderColor={text}
+          />
           {item.isOnline && <View style={styles.onlineDot} />}
         </View>
       </View>

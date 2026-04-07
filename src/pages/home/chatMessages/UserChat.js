@@ -41,6 +41,7 @@ import { sharePost } from '../../../services/post';
 import { getAllUser } from '../../../services/users';
 import { parseProfileShareUrl } from '../../../utils/profileShare';
 import StoryViewerModal from '../../../components/modals/StoryViewerModal';
+import HexAvatar from '../../../components/home/story.js/HexAvatar';
 
 const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX = /((?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi;
@@ -1557,14 +1558,11 @@ const UserChat = ({ route, navigation }) => {
               onPress={handleNavigateToProfile}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Image
-                source={
-                  item.senderInfo?.image || user?.image
-                    ? { uri: item.senderInfo?.image || user?.image }
-                    : require('../../../assets/icons/pngicons/user.png')
-                }
-                style={styles.avatarImage}
-                defaultSource={require('../../../assets/icons/pngicons/user.png')}
+              <HexAvatar
+                uri={item.senderInfo?.image || user?.image}
+                size={32}
+                borderWidth={2}
+                borderColor={text}
               />
             </TouchableOpacity>
           )}
@@ -1754,10 +1752,14 @@ const UserChat = ({ route, navigation }) => {
                   >
                     <View style={styles.sharedPostHeader}>
                       <View style={styles.sharedPostUserInfo}>
-                        <Image
-                          source={{ uri: postUser.image }}
-                          style={styles.sharedPostAvatar}
-                        />
+                        <View style={{ marginRight: 10 }}>
+                          <HexAvatar
+                            uri={postUser.image}
+                            size={36}
+                            borderWidth={2}
+                            borderColor={text}
+                          />
+                        </View>
                         <View>
                           <Text style={styles.sharedPostUserName}>
                             {postUser.displayName}
@@ -1898,10 +1900,14 @@ const UserChat = ({ route, navigation }) => {
                   >
                     {/* User Header */}
                     <View style={styles.reelCardHeader}>
-                      <Image
-                        source={{ uri: reelAvatar || 'https://via.placeholder.com/32' }}
-                        style={styles.reelCardAvatar}
-                      />
+                      <View style={{ marginRight: 8 }}>
+                        <HexAvatar
+                          uri={reelAvatar || 'https://via.placeholder.com/32'}
+                          size={32}
+                          borderWidth={2}
+                          borderColor={text}
+                        />
+                      </View>
                       <View style={styles.reelCardUserInfo}>
                         <Text style={styles.reelCardUsername} numberOfLines={1}>
                           {reelUser || 'Unknown User'}
@@ -2016,10 +2022,14 @@ const UserChat = ({ route, navigation }) => {
                     {/* User Header */}
                     <View style={styles.sharedPostHeader}>
                       <View style={styles.sharedPostUserInfo}>
-                        <Image
-                          source={{ uri: storyUser.image }}
-                          style={styles.sharedPostAvatar}
-                        />
+                        <View style={{ marginRight: 10 }}>
+                          <HexAvatar
+                            uri={storyUser.image}
+                            size={36}
+                            borderWidth={2}
+                            borderColor={text}
+                          />
+                        </View>
                         <View>
                           <Text style={styles.sharedPostUserName}>
                             {storyUser.displayName}
@@ -2317,15 +2327,14 @@ const UserChat = ({ route, navigation }) => {
                     onPress={handleNavigateToProfile}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={[styles.profileImage, { backgroundColor: '#E5E7EB' }]}
+                    style={styles.profileImage}
                   >
-                    <View style={styles.profileGradient}>
-                      <Image
-                        source={user?.image ? { uri: user.image } : DEFAULT_AVATAR}
-                        style={styles.avatarImage}
-                        defaultSource={DEFAULT_AVATAR}
-                      />
-                    </View>
+                    <HexAvatar
+                      uri={user?.image}
+                      size={32}
+                      borderWidth={2}
+                      borderColor={text}
+                    />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={{ flex: 1 }}
@@ -2632,13 +2641,9 @@ const createStyles = () => ({
     borderBottomColor: '#ebe7e5ff',
   },
   profileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
   },
   profileGradient: {
     width: 32,
@@ -2708,14 +2713,9 @@ const createStyles = () => ({
     paddingRight: 60,
   },
   botAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    // backgroundColor: '#1157e4ff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
-    overflow: 'hidden',
   },
   messageContent: {
     flexShrink: 1,

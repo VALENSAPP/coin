@@ -82,6 +82,9 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
+# Generated from .env when Metro starts (see scripts/writeEnvShim.js)
+src/shims/env.js
+
 # dotenv environment variable files
 .env
 .env.development.local

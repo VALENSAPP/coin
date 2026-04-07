@@ -18,6 +18,11 @@ import { Reels } from '../../assets/icons';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { PostStory } from '../../services/stories';
+import { buildStoryMetaPayload } from '../../utils/buildStoryMeta';
+import {
+  appendStoryAudioFiles,
+  prepareStoryClipsAudioForUpload,
+} from '../../utils/storyAudioUpload';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import StoryComposer from '../home/story.js/StoryComposer';
@@ -168,6 +173,8 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
   const handleComposerDone = async (processedArray) => {
     try {
+      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+
       setComposerVisible(false);
 
       // Prepare FormData for API call
@@ -177,7 +184,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       formData.append('caption', '');
 
       // Add media files
-      processedArray.forEach((item, index) => {
+      clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
         const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
@@ -188,6 +195,12 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
           name: fileName,
         });
       });
+
+      formData.append(
+        'storyMeta',
+        JSON.stringify(buildStoryMetaPayload(clips)),
+      );
+      await appendStoryAudioFiles(formData, clips);
 
       // Call API to upload story
       const response = await PostStory(formData);
@@ -229,7 +242,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         handleAddStory();
         break;
       case 'drops highlights': // storyHighlight
-        navigation.navigate('');
+        navigation.navigate('HighlightsScreen');
         hideModal();
         break;
       // case 'live':
@@ -300,7 +313,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops highlights')}>
                 <Feather name="circle" size={20} color="#111100" />
-                <Text style={styles.lText}>drops highlights</Text>
+                <Text style={styles.lText}>Drops Highlights</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>

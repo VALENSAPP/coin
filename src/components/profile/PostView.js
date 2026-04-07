@@ -33,12 +33,13 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../services/tokens';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 export default function PostView({ postData = [] }) {
   // ─── All hooks at the very top ───────────────────────────────
   const route = useRoute();
   const navigation = useNavigation();
-  console.log(postData,'post data in post view ');
+ 
   
 
   // Extract params including the source screen info
@@ -84,6 +85,7 @@ export default function PostView({ postData = [] }) {
   const commentSheetRef = useRef();
   const flatListRef = useRef();
   const playingDebounceRef = useRef(null);
+  const pendingInitialScrollRef = useRef(false);
   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
@@ -338,22 +340,48 @@ export default function PostView({ postData = [] }) {
   }, [posts]);
 
   // ─── Auto-scroll to startIndex when component mounts ────────
+  const startPostId = useMemo(() => {
+    if (
+      startIndex !== undefined &&
+      startIndex >= 0 &&
+      startIndex < posts.length
+    ) {
+      return String(posts[startIndex]?.id ?? '');
+    }
+    return '';
+  }, [startIndex, posts]);
+
+  const scrollToStartIndex = useCallback(
+    (animated = false) => {
+      if (
+        startIndex === undefined ||
+        startIndex < 0 ||
+        startIndex >= posts.length
+      ) {
+        return;
+      }
+      flatListRef.current?.scrollToIndex({
+        index: startIndex,
+        animated,
+        viewPosition: 0,
+      });
+    },
+    [startIndex, posts.length],
+  );
+
   useEffect(() => {
     if (
       startIndex !== undefined &&
       startIndex >= 0 &&
       startIndex < posts.length
     ) {
+      pendingInitialScrollRef.current = true;
       const timer = setTimeout(() => {
-        flatListRef.current?.scrollToIndex({
-          index: startIndex,
-          animated: true,
-          viewPosition: 0,
-        });
-      }, 100);
+        scrollToStartIndex(false);
+      }, 0);
       return () => clearTimeout(timer);
     }
-  }, [startIndex, posts.length]);
+  }, [startIndex, posts.length, scrollToStartIndex]);
 
   // ─── Handle scroll to index errors ─────────────────────────
   const onScrollToIndexFailed = useCallback(info => {
@@ -365,6 +393,16 @@ export default function PostView({ postData = [] }) {
         viewPosition: 0,
       });
     });
+  }, []);
+
+  const handleContentSizeChange = useCallback(() => {
+    if (pendingInitialScrollRef.current) {
+      scrollToStartIndex(false);
+    }
+  }, [scrollToStartIndex]);
+
+  const handleScrollBeginDrag = useCallback(() => {
+    pendingInitialScrollRef.current = false;
   }, []);
 
   // ─── Like ───────────────────────────────────────────────────
@@ -610,6 +648,20 @@ export default function PostView({ postData = [] }) {
         return;
       }
 
+      if (action === 'copyAddress') {
+        if (!modalPostId) {
+          showToastMessage(toast, 'danger', 'Post ID not found');
+          closeOptions();
+          return;
+        }
+
+        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        Clipboard.setString(deepLink);
+        showToastMessage(toast, 'success', 'Post copied');
+        closeOptions();
+        return;
+      }
+
       if (action === 'editPost') {
         if (!canDelete) {
           showToastMessage(toast, 'danger', "You can't edit this post.");
@@ -844,15 +896,6 @@ export default function PostView({ postData = [] }) {
     return 0;
   };
 
-  // ─── Dynamic item height calculation ─────────────────────────
-  const getItemLayout = useCallback((data, index) => {
-    const baseHeight = 150;
-    const mediaHeight = 300;
-    const progressHeight = 100;
-    const totalHeight = baseHeight + mediaHeight + progressHeight;
-    return { length: totalHeight, offset: totalHeight * index, index };
-  }, []);
-
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }) => {
       if (!viewableItems || viewableItems.length === 0) {
@@ -863,6 +906,17 @@ export default function PostView({ postData = [] }) {
 
       let mostVisiblePost = null;
       let highestPercentage = 0;
+      let topMostViewable = null;
+      for (const viewableItem of viewableItems) {
+        if (viewableItem.index == null) continue;
+        if (!topMostViewable || viewableItem.index < topMostViewable.index) {
+          topMostViewable = viewableItem;
+        }
+      }
+      const isStartPostAtTop =
+        pendingInitialScrollRef.current &&
+        startPostId &&
+        String(topMostViewable?.item?.id ?? '') === startPostId;
 
       for (const viewableItem of viewableItems) {
         if (viewableItem.isViewable && viewableItem.item?.id) {
@@ -872,6 +926,10 @@ export default function PostView({ postData = [] }) {
             mostVisiblePost = viewableItem.item.id;
           }
         }
+      }
+
+      if (isStartPostAtTop) {
+        pendingInitialScrollRef.current = false;
       }
 
       if (mostVisiblePost !== currentlyVisiblePostId) {
@@ -888,7 +946,7 @@ export default function PostView({ postData = [] }) {
         }, 250);
       }
     },
-    [currentlyVisiblePostId]
+    [currentlyVisiblePostId, startPostId]
   );
 
   const viewabilityConfigRef = useRef({
@@ -928,8 +986,9 @@ export default function PostView({ postData = [] }) {
           contentContainerStyle={styles.feedContainer}
           showsVerticalScrollIndicator={false}
           initialScrollIndex={getInitialScrollIndex()}
+          onContentSizeChange={handleContentSizeChange}
+          onScrollBeginDrag={handleScrollBeginDrag}
           onScrollToIndexFailed={onScrollToIndexFailed}
-          getItemLayout={getItemLayout}
           viewabilityConfig={viewabilityConfig}
           onViewableItemsChanged={handleViewableItemsChanged}
           removeClippedSubviews={true}

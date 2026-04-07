@@ -103,8 +103,12 @@ export async function getComments(postId) {
   return axiosInstance.get(`post/comment/list?postId=${postId}`);
 }
 
-export async function postComment(postId, comment) {
-  return axiosInstance.post('/post/comment', { postId, comment });
+export async function postComment(postId, comment, parentCommentId = null) {
+  const payload = { postId, comment };
+  if (parentCommentId) {
+    payload.parentCommentId = parentCommentId;
+  }
+  return axiosInstance.post('/post/comment', payload);
 }
 
 export async function deleteComment(commentId, postId) {

@@ -34,6 +34,12 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+
+        <!-- Wallet app detection for AppKit / WalletConnect (optional) -->
+        <package android:name="io.metamask" />
+        <package android:name="com.wallet.crypto.trustapp" />
+        <package android:name="io.gnosis.safe" />
+        <package android:name="me.rainbow" />
     </queries>
 
     <application
@@ -57,19 +63,11 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
-
         <intent-filter>
             <action android:name="android.intent.action.VIEW" />
- 
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
- 
             <data android:scheme="com.valens" />
-            <data android:scheme="com.valens" android:host="callback" />
-            <!-- <data
-                android:scheme="https"
-                android:host="valensGoApp.com"
-                /> -->
         </intent-filter>
       </activity>
       
