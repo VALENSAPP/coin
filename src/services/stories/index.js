@@ -16,7 +16,10 @@ export const getStoryByUser = async (userId, params = {}) => {
 }
 
 export const PostStory = async (formData) => {
-  return axiosInstance.post('story/upload', formData);
+  console.log(formData,"33333333333333333333333333333.....formData==>>>>>>>>>>>>>>>>>>>>>");
+  const response = await axiosInstance.post('story/upload', formData);
+  console.log('[Story upload] story/upload API response:', response);
+  return response;
 };
 
 export const DeleteStory = async (storyId) => {

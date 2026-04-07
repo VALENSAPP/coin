@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { BASE_URL, API_PARAM } from '@env';
+import { BASE_URL, API_PARAM } from '../shims/env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const baseUrl = BASE_URL;

@@ -363,11 +363,11 @@ export default function BattleResults({ navigation }) {
                 </Text>
               )}
 
-              {winnerUserId && (
+              {/* {winnerUserId && (
                 <Text style={styles.sub}>
                   Winner user: {String(winnerUserId).slice(0, 8)}
                 </Text>
-              )}
+              )} */}
             </>
           )}
 
@@ -380,10 +380,6 @@ export default function BattleResults({ navigation }) {
               <Text style={styles.statLabel}>Comments</Text>
               <Text style={styles.statValue}>{totalComments}</Text>
             </View>
-            {/* <View style={styles.statChip}>
-              <Text style={styles.statLabel}>Stake</Text>
-              <Text style={styles.statValue}>{stake}</Text>
-            </View> */}
           </View>
         </LinearGradient>
 
@@ -593,6 +589,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     flexWrap: 'wrap',
+    marginBottom:'10%'
   },
   statChip: {
     width: '31%',

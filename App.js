@@ -8,6 +8,13 @@ import Loader from './src/utils/loader';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { StyleSheet } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { AppKitProvider } from '@reown/appkit-react-native';
+import { appKit, wagmiAdapter } from './src/config/AppKitConfig';
+import { WalletConnectSupportProvider } from './src/context/WalletConnectSupportContext';
+
+const queryClient = new QueryClient();
 
 const App = () => {
   return (
@@ -23,11 +30,19 @@ const App = () => {
         dangerColor="red"
         warningColor="orange"
       >
-        <Provider store={store}>
-          <Loader>
-            <Main />
-          </Loader>
-        </Provider>
+        <AppKitProvider instance={appKit}>
+          <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+            <QueryClientProvider client={queryClient}>
+              <Provider store={store}>
+                <Loader>
+                  <WalletConnectSupportProvider>
+                    <Main />
+                  </WalletConnectSupportProvider>
+                </Loader>
+              </Provider>
+            </QueryClientProvider>
+          </WagmiProvider>
+        </AppKitProvider>
       </ToastProvider>
     </SafeAreaProvider>
     </StripeProvider>

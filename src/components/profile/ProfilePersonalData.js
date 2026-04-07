@@ -26,12 +26,15 @@ import UsernameModal from '../modals/UsernameModal';
 import TradeModal from '../modals/TradeModal';
 import SupportCreatorModal from '../modals/SupportCreatorModal';
 import WelcomeValensModal from '../modals/WelcomeValensModal';
-import WalletSelectionModal from '../modals/WalletSelectionModal';
-import WalletConnectedModal from '../modals/WalletConnectedModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
 import { PostStory } from '../../services/stories'; // Import PostStory API
+import { buildStoryMetaPayload } from '../../utils/buildStoryMeta';
+import {
+  appendStoryAudioFiles,
+  prepareStoryClipsAudioForUpload,
+} from '../../utils/storyAudioUpload';
 import {
   WhiteDragonfly,
   Thread,
@@ -51,16 +54,10 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
-import {
-  getSupportRecipientWalletAddress,
-  openWalletPayment,
-} from '../../utils/metaMaskSupport';
-import { connectWalletLogin } from '../../pages/authentication/socialLogin';
-import { updateWallet } from '../../services/wallet';
-import {
-  isSupportAllowed,
-  normalizeProfileType,
-} from '../../utils/supportEligibility';
+import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
+import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
+import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
+import HexAvatar from '../home/story.js/HexAvatar';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -131,20 +128,10 @@ const ProfilePersonData = ({
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
     useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
-  const [walletSelectionVisible, setWalletSelectionVisible] = useState(false);
-  const [walletConnectedModalVisible, setWalletConnectedModalVisible] =
-    useState(false);
-  const [connectedWalletInfo, setConnectedWalletInfo] = useState({
-    name: '',
-    address: '',
-  });
-  const [
-    pendingSupportPromptAfterWalletConnect,
-    setPendingSupportPromptAfterWalletConnect,
-  ] = useState(false);
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
+  const { startSupportPayment } = useWalletConnectSupport();
   const effectiveProfileType = profileType || userData?.profile;
   const normalizedProfileThemeType =
     typeof effectiveProfileType === 'string'
@@ -332,6 +319,8 @@ const ProfilePersonData = ({
 
   const handleComposerDone = async processedArray => {
     try {
+      const clips = await prepareStoryClipsAudioForUpload(processedArray);
+
       setComposerVisible(false);
 
       // Prepare FormData for API call
@@ -341,7 +330,7 @@ const ProfilePersonData = ({
       formData.append('caption', '');
 
       // Add media files
-      processedArray.forEach((item, index) => {
+      clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
         const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'
           }`;
@@ -353,6 +342,12 @@ const ProfilePersonData = ({
           name: fileName,
         });
       });
+
+      formData.append(
+        'storyMeta',
+        JSON.stringify(buildStoryMetaPayload(clips)),
+      );
+      await appendStoryAudioFiles(formData, clips);
 
       // Call API to upload story
       const response = await PostStory(formData);
@@ -539,112 +534,6 @@ const ProfilePersonData = ({
   );
   const canSupport = !!recipientWalletAddress;
 
-  const ensureSupportFlowReady = useCallback(
-    async ({ openSupportModalOnSuccess = false } = {}) => {
-      const currentWalletAddress =
-        walletAddress || (await AsyncStorage.getItem('walletAddress'));
-
-      if (!currentWalletAddress) {
-        if (openSupportModalOnSuccess) {
-          setPendingSupportPromptAfterWalletConnect(true);
-        }
-        setWalletSelectionVisible(true);
-        return false;
-      }
-
-      if (currentWalletAddress !== walletAddress) {
-        setWalletAddress(currentWalletAddress);
-      }
-
-      if (!canSupport) {
-        Alert.alert(
-          'Wallet not connected',
-          'This user has not connected a wallet yet. Follow is still active.',
-        );
-        setPendingSupportPromptAfterWalletConnect(false);
-        return false;
-      }
-
-      return true;
-    },
-    [walletAddress, canSupport],
-  );
-
-  const handleWalletSelect = useCallback(
-    async wallet => {
-      setWalletSelectionVisible(false);
-
-      try {
-        const connectedAddress = await connectWalletLogin(
-          toast,
-          navigation,
-          dispatch,
-          {
-            returnAddressOnly: true,
-            walletType: wallet.id,
-          },
-        );
-
-        if (connectedAddress) {
-          await AsyncStorage.setItem('walletAddress', connectedAddress);
-          await AsyncStorage.setItem('walletType', wallet.id);
-          setWalletAddress(connectedAddress);
-          try {
-            await updateWallet({ walletAddress: connectedAddress });
-          } catch (walletUpdateError) {
-            console.error('Wallet update API error:', walletUpdateError);
-          }
-
-          if (pendingSupportPromptAfterWalletConnect) {
-            setPendingSupportPromptAfterWalletConnect(false);
-            if (!canSupport) {
-              Alert.alert(
-                'Wallet not connected',
-                'This user has not connected a wallet yet. Follow is still active.',
-              );
-              return;
-            }
-            setSupportModalVisible(true);
-            return;
-          }
-
-          setConnectedWalletInfo({
-            name: wallet.name,
-            address: connectedAddress,
-          });
-          setWalletConnectedModalVisible(true);
-        }
-      } catch (error) {
-        console.error('Wallet connection error:', error);
-        showToastMessage(
-          toast,
-          'danger',
-          'Failed to connect wallet. Please try again.',
-        );
-      }
-    },
-    [
-      toast,
-      navigation,
-      dispatch,
-      pendingSupportPromptAfterWalletConnect,
-      canSupport,
-    ],
-  );
-
-  const handleWalletConnectedContinue = useCallback(async () => {
-    setWalletConnectedModalVisible(false);
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = (await AsyncStorage.getItem('walletType')) || 'metamask';
-
-    // Open payment flow with the connected wallet
-    await openWalletPayment(
-      recipientWalletAddress,
-      connectedWalletChainId,
-      walletType,
-    );
-  }, [recipientWalletAddress]);
-
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
       Alert.alert(
@@ -654,21 +543,42 @@ const ProfilePersonData = ({
       return;
     }
     setSupportDisclaimerVisible(false);
-    const ready = await ensureSupportFlowReady();
-    if (!ready) return;
-    const connectedWalletChainId = await AsyncStorage.getItem('walletChainId');
-    const walletType = (await AsyncStorage.getItem('walletType')) || 'metamask';
-    await openWalletPayment(
-      recipientWalletAddress,
-      connectedWalletChainId,
-      walletType,
-    );
-  }, [canSupport, recipientWalletAddress, ensureSupportFlowReady]);
+    const receiverId =
+      targetUserId ??
+      userData?.userId ??
+      userData?.UserId ??
+      userData?.id ??
+      '';
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: userId != null ? String(userId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
+      chain: 'SEPOLIA',
+    });
+  }, [
+    canSupport,
+    recipientWalletAddress,
+    startSupportPayment,
+    userId,
+    targetUserId,
+    userData,
+  ]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
+    const supporterProfile = isBusinessProfile ? 'company' : 'user';
+    const recipientProfile = normalizeProfileType(
+      effectiveProfileType || userProfile || userData?.profile,
+    );
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        'Support unavailable',
+        'Tips are not available for business profiles.',
+      );
+      setSupportModalVisible(false);
+      return;
+    }
     setSupportModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, []);
+  }, [isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
 
   const handleFollowButtonPress = useCallback(async () => {
     const shouldFollow = !isFollowing;
@@ -677,24 +587,8 @@ const ProfilePersonData = ({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    const supporterProfile = isBusinessProfile ? 'company' : 'user';
-    const recipientProfile = normalizeProfileType(
-      effectiveProfileType || userProfile || userData?.profile,
-    );
-
-    // Only show support/wallet flow when support is allowed by platform rules.
-    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
-      setSupportModalVisible(true);
-    }
-  }, [
-    isFollowing,
-    executeFollowAction,
-    onToggleFollow,
-    isBusinessProfile,
-    effectiveProfileType,
-    userProfile,
-    userData?.profile,
-  ]);
+    setSupportModalVisible(true);
+  }, [isFollowing, executeFollowAction, onToggleFollow]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1159,10 +1053,11 @@ const ProfilePersonData = ({
                 activeOpacity={0.8}
                 style={{ marginBottom: 5 }}
               >
-                <Image
-                  source={{ uri: avatarUri }}
-                  style={[styles.image, { borderColor: text }]}
-                  resizeMode="cover"
+                <HexAvatar
+                  uri={avatarUri}
+                  size={90}
+                  borderWidth={2}
+                  borderColor={text}
                 />
                 {!fromUsersProfile && (
                   <TouchableOpacity
@@ -1500,18 +1395,6 @@ const ProfilePersonData = ({
             [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
           ]);
         }}
-      />
-      <WalletSelectionModal
-        visible={walletSelectionVisible}
-        onClose={() => setWalletSelectionVisible(false)}
-        onSelectWallet={handleWalletSelect}
-      />
-      <WalletConnectedModal
-        visible={walletConnectedModalVisible}
-        onClose={() => setWalletConnectedModalVisible(false)}
-        walletName={connectedWalletInfo.name}
-        walletAddress={connectedWalletInfo.address}
-        onContinue={handleWalletConnectedContinue}
       />
     </View>
   );

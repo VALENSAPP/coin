@@ -73,6 +73,58 @@ export default function HomeScreen() {
 
   const formatBadgeCount = (count) => (count > 9 ? '9+' : count);
 
+  const extractNotificationUnreadCount = useCallback((response) => {
+    if (response == null) return null;
+    const data = response.data;
+    if (typeof data?.unreadCount === 'number') return data.unreadCount;
+    if (typeof response?.unreadCount === 'number') return response.unreadCount;
+    if (typeof data === 'number') return data;
+    return null;
+  }, []);
+
+  const unreadNotification = useCallback(async () => {
+    try {
+      const response = await unReadNotification();
+      const ok =
+        response?.statusCode === 200 ||
+        response?.status === 200 ||
+        response?.success === true;
+
+      const count = extractNotificationUnreadCount(response);
+
+      if (ok && typeof count === 'number') {
+        setNotificationUnreadCount(count);
+        return;
+      }
+
+      // Some backends omit statusCode but still return the count (axios already unwraps to body).
+      if (typeof count === 'number') {
+        setNotificationUnreadCount(count);
+        return;
+      }
+
+      if (ok) {
+        setNotificationUnreadCount(0);
+        return;
+      }
+
+      console.warn('Unexpected unread-count response:', response);
+    } catch (err) {
+      console.log('Error in unreadNotification:', err);
+    }
+  }, [extractNotificationUnreadCount]);
+
+  // Refresh bell badge when notifications are marked read elsewhere (e.g. HeartNotification).
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      'NOTIFICATION_BADGE_REFRESH',
+      () => {
+        unreadNotification();
+      },
+    );
+    return () => subscription.remove();
+  }, [unreadNotification]);
+
   // ✅ Get current user ID on mount and initialize socket
   useEffect(() => {
     const initializeUserAndSocket = async () => {
@@ -162,7 +214,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       unreadNotification();
-    }, [])
+    }, [unreadNotification]),
   );
 
   // ✅ Listen for chat box updates (similar to userConversation in UserChat)
@@ -270,21 +322,6 @@ export default function HomeScreen() {
       }
     }
   }, [currentUserId]);
-
-
-  const unreadNotification = async () => {
-    try {
-      const response = await unReadNotification();
-      if (response?.statusCode === 200) {
-        const count = response?.data?.unreadCount;
-        setNotificationUnreadCount(count);
-      } else {
-        console.warn('Unexpected status:', response?.status);
-      }
-    } catch (err) {
-      console.log('Error in unreadNotification:', err);
-    }
-  };
 
   // ✅ Periodic refresh to catch any missed messages
   useEffect(() => {
