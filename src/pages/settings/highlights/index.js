@@ -426,7 +426,7 @@ const HighlightsScreen = ({ navigation, route }) => {
       return;
     }
 
-    Alert.alert('Remove story', 'Remove this story from the highlight?', [
+    Alert.alert('Remove Drops', 'Remove this Drops from the highlight?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -445,7 +445,7 @@ const HighlightsScreen = ({ navigation, route }) => {
             };
 
             const response = await removeHighlight(payload);
-            showToastMessage(toast, 'success', response?.data?.message || 'Story removed');
+            showToastMessage(toast, 'success', response?.data?.message || 'Drops removed');
 
             const nextStories = viewerStories.filter((_, index) => index !== viewerIndex);
             const nextHighlight = {
@@ -471,11 +471,11 @@ const HighlightsScreen = ({ navigation, route }) => {
                 .filter(item => (item.storyCount || 0) > 0),
             );
           } catch (error) {
-            console.error('Error removing highlight story:', error);
+            console.error('Error removing highlight Drops:', error);
             showToastMessage(
               toast,
               'danger',
-              error?.response?.data?.message || 'Failed to remove story',
+              error?.response?.data?.message || 'Failed to remove Drops',
             );
           } finally {
             setRemovingStory(false);

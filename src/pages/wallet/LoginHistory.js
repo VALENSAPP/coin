@@ -63,6 +63,8 @@ const LoginHistoryScreen = () => {
         const deviceId = session?.deviceId ?? session?.device_id ?? '';
         const ipAddress = session?.ipAddress ?? session?.ip ?? session?.ip_address ?? '';
         const userAgent = session?.userAgent ?? session?.user_agent ?? '';
+        const locationName = session?.locationName ?? session?.location_name ?? '';
+        const location = session?.location ?? '';
         const resolvedDeviceLabel = (deviceLabel === 'Device' && userAgent) ? userAgent : deviceLabel;
 
         const rawDate =
@@ -87,6 +89,8 @@ const LoginHistoryScreen = () => {
             deviceId: String(deviceId || ''),
             ipAddress: String(ipAddress || ''),
             userAgent: String(userAgent || ''),
+            locationName: String(locationName || ''),
+            location: String(location || ''),
             time: formatLoginTime(rawDate || new Date().toISOString()),
             status: isCurrent ? 'current' : 'success',
             raw: session,
@@ -98,6 +102,7 @@ const LoginHistoryScreen = () => {
             dispatch(showLoader());
             const id = await AsyncStorage.getItem('userId');
             const response = await authSesionHistory(id ? { userId: id } : {});
+            console.log(response, 'data in this api fro deive logins infos ')
             if (response?.statusCode === 200) {
                 const sessionsPayload =
                     response?.data?.sessions ??
@@ -209,9 +214,13 @@ const LoginHistoryScreen = () => {
                                     ]} />
                                     <View>
                                         <Text style={styles.loginDevice}>{login.device}</Text>
-                                        {!!login.deviceId && <Text style={styles.loginLocation}>DeviceId:{login.deviceId}</Text>}
-                                        {!!login.ipAddress && <Text style={styles.loginLocation}>IpAdress:{login.ipAddress}</Text>}
-                                        {/* {!!login.userAgent && <Text style={styles.loginLocation}>{login.userAgent}</Text>} */}
+                                        {/* {!!login.deviceId && <Text style={styles.loginLocation}>DeviceId:{login.deviceId}</Text>}
+                                        {!!login.ipAddress && <Text style={styles.loginLocation}>IpAdress:{login.ipAddress}</Text>} */}
+                                        {!!(login.locationName || login.location) && (
+                                            <Text style={[styles.loginLocation,{paddingRight:12}]}>
+                                               {login.locationName || login.location}
+                                            </Text>
+                                        )}
                                         {/* <Text style={styles.loginTime}>{login.time}</Text> */}
                                     </View>
                                 </View>
