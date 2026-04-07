@@ -221,7 +221,6 @@ export default function BattleResults({ navigation }) {
     try {
       const response = await battleWinner(battleId);
       setWinnerData(response?.data || response);
-      console.log(response, 'data in this apis')
     } catch (err) {
       console.log(err, 'erro here in this api ')
     }

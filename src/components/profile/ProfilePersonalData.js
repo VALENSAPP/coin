@@ -1155,7 +1155,7 @@ const ProfilePersonData = ({
           <View style={styles.profileView}>
             <View style={styles.profileWraper}>
               <TouchableOpacity
-                onPress={handleProfileImagePress}
+                onPress={!fromUsersProfile ? handleProfileImagePress : null}
                 activeOpacity={0.8}
                 style={{ marginBottom: 5 }}
               >

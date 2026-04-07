@@ -6,17 +6,20 @@ import {
   StyleSheet,
   ScrollView,
   Dimensions,
+  Alert,
 } from "react-native";
 import RBSheet from "react-native-raw-bottom-sheet";
 import Icon from "react-native-vector-icons/Ionicons";
+import { reportPost } from "../../services/post";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const ReportFlowScreen = forwardRef((props, ref) => {
+const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
   const reasonSheet = useRef(null);
   const confirmSheet = useRef(null);
 
   const [selectedReason, setSelectedReason] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const reportReasons = [
     { id: 1, title: "It's spam", icon: "alert-circle" },
@@ -34,21 +37,56 @@ const ReportFlowScreen = forwardRef((props, ref) => {
     setTimeout(() => confirmSheet.current?.open(), 200);
   };
 
-  const submitReport = () => {
-    console.log("REPORT SUBMITTED:", selectedReason);
+  const submitReport = async () => {
+    if (!postId) {
+      Alert.alert("Unable to report", "Missing post id.");
+      return;
+    }
+    if (!selectedReason) {
+      Alert.alert("Select a reason", "Please choose a reason for this report.");
+      return;
+    }
 
-    confirmSheet.current?.close();
-    setSelectedReason(null);
+    try {
+      setSubmitting(true);
 
-    alert("Thanks! Your report has been submitted.");
+      // ✅ Store response
+      const response = await reportPost({
+        postId: String(postId),
+        reason: selectedReason,
+      });
+
+      // ✅ Log full response
+      console.log("Report API Response:", response);
+
+      // ✅ If using axios, log data specifically
+      console.log("Response Data:", response?.data);
+
+      confirmSheet.current?.close();
+      setSelectedReason(null);
+
+      onReported?.({ postId: String(postId), reason: selectedReason });
+
+      Alert.alert("Report submitted", "Thanks! Your report has been submitted.");
+    } catch (err) {
+      console.log("Report API Error:", err);
+      console.log("Error Response:", err?.response);
+
+      Alert.alert(
+        "Report failed",
+        err?.response?.data?.message || err?.message || "Something went wrong.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   // Expose the open method via ref
   React.useImperativeHandle(ref, () => ({
     open: () => reasonSheet.current?.open(),
     close: () => reasonSheet.current?.close(),
   }));
-
   return (
     <>
       {/* 🔴 Sheet 1 - Select Reason */}
@@ -75,7 +113,7 @@ const ReportFlowScreen = forwardRef((props, ref) => {
           </View>
         </View>
 
-        <ScrollView 
+        <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.reasonsContent}
         >
@@ -122,14 +160,21 @@ const ReportFlowScreen = forwardRef((props, ref) => {
           <Text style={styles.selectedReason}>{selectedReason}</Text>
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
+        <TouchableOpacity
+          style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+          onPress={submitReport}
+          disabled={submitting}
+        >
           <Icon name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.submitButtonText}>Submit Report</Text>
+          <Text style={styles.submitButtonText}>
+            {submitting ? "Submitting..." : "Submit Report"}
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.cancelButton}
           onPress={() => confirmSheet.current?.close()}
+          disabled={submitting}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
@@ -286,6 +331,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
 
   submitButtonText: {

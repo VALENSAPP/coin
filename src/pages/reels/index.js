@@ -1145,7 +1145,7 @@ export default function FlipsScreen() {
       </RBSheet>
 
       <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
-      <ReportFlowScreen ref={reportSheetRef} />
+      <ReportFlowScreen ref={reportSheetRef} postId={selectedReelId || reels[currentIndex]?.id} />
     </SafeAreaView>
   );
 }

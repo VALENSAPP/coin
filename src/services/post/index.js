@@ -159,13 +159,13 @@ export async function unfollow(followingId) {
 }
 
 export async function HidePost(postId) {
-    console.log(HidePost,'hide post')
+  console.log(HidePost, 'hide post')
 
   return axiosInstance.post('post/hide', { postId })
 }
 
 export async function unHidePost(postId) {
-  console.log(unHidePost,'unhide post')
+  console.log(unHidePost, 'unhide post')
   return axiosInstance.post('post/unhide', { postId })
 }
 
@@ -177,14 +177,17 @@ export async function sharePost(body) {
   return axiosInstance.post('post/sharepost', body)
 }
 
-export async function GetAllReels(){
+export async function GetAllReels() {
   return axiosInstance.get('/post/getAllReel')
 }
 
-export async function getHideChatConversation(chatId){
+export async function getHideChatConversation(chatId) {
   return axiosInstance.post('/post/hideChat', { chatId });
 }
 
-export async function chatStatusUpdate(chatId){
+export async function chatStatusUpdate(chatId) {
   return axiosInstance.post('/post/chatStatusUpdate', { chatId });
+}
+export async function reportPost(data) {
+  return axiosInstance.post('/post/report', data);
 }

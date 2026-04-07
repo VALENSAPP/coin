@@ -309,10 +309,10 @@ const ArchiveScreen = ({ navigation, route }) => {
       showToastMessage(
         toast,
         'danger',
-        response?.data?.message || response?.message || 'Failed to add drop to highlight',
+        'Failed to add drop to highlight',
       );
     } catch (error) {
-      console.error('Error adding story to highlight:', error);
+      console.error('Error adding Drops to highlight:', error);
       showToastMessage(
         toast,
         'danger',
