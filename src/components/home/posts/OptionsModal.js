@@ -30,6 +30,7 @@ export default function OptionsModal({
   const toast = useToast();
   const [localHidden, setLocalHidden] = useState(!!isHidden);
   const [localHideBusy, setLocalHideBusy] = useState(false);
+  const [reportPostId, setReportPostId] = useState('');
 
   const effectiveHidden = useMemo(() => localHidden, [localHidden]);
   const effectiveHideBusy = useMemo(() => Boolean(hideBusy || localHideBusy), [hideBusy, localHideBusy]);
@@ -43,6 +44,12 @@ export default function OptionsModal({
     setLocalHidden(!!isHidden);
   }, [isHidden]);
 
+  useEffect(() => {
+    if (postId) {
+      setReportPostId(String(postId));
+    }
+  }, [postId]);
+
   const tap = (action) => {
     onSelect?.(action, { postId });
     // sheetRef.current?.close();
@@ -50,6 +57,9 @@ export default function OptionsModal({
   // console.log(postId,'post it sgreaag');
   
   const report = () => {
+    if (postId) {
+      setReportPostId(String(postId));
+    }
     sheetRef.current?.close();
 
     setTimeout(() => {
@@ -174,7 +184,7 @@ console.log(resp,'repone in hide post')
           </View>
         </ScrollView>
       </RBSheet>
-      <ReportFlowScreen ref={reportRef} />
+      <ReportFlowScreen ref={reportRef} postId={reportPostId} />
     </>
   );
 }

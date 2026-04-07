@@ -9,16 +9,25 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getAllNotifactions, readNotification } from '../../services/notifications';
-import { useDispatch } from 'react-redux';
+import {
+  getAllNotifactions,
+  readNotification,
+  battleNotification,
+} from '../../services/notifications';
+import { acceptBattle, declinetBattle } from '../../services/battle';
 const { width } = Dimensions.get('window');
 
-const normalizeNotificationType = (type) => String(type || '').toLowerCase().trim();
+const normalizeNotificationType = type =>
+  String(type || '')
+    .toLowerCase()
+    .trim();
 
 const pickFirstString = (...values) => {
   for (const value of values) {
@@ -29,7 +38,7 @@ const pickFirstString = (...values) => {
   return null;
 };
 
-const extractPostIdFromNotification = (item) => {
+const extractPostIdFromNotification = item => {
   const data = item?.data || {};
   return pickFirstString(
     data.postId,
@@ -40,16 +49,17 @@ const extractPostIdFromNotification = (item) => {
     data.post?.postId,
     item?.postId,
     item?.post_id,
-    item?.postID
+    item?.postID,
   );
 };
 
-const extractPostImageFromNotification = (item) => {
+const extractPostImageFromNotification = item => {
   const data = item?.data || {};
   const post = data.post || item?.post || {};
   const images = Array.isArray(post.images) ? post.images : [];
   const firstImage = images[0];
-  const firstImageUrl = typeof firstImage === 'string' ? firstImage : firstImage?.url;
+  const firstImageUrl =
+    typeof firstImage === 'string' ? firstImage : firstImage?.url;
 
   return pickFirstString(
     data.postImage,
@@ -62,11 +72,11 @@ const extractPostImageFromNotification = (item) => {
     post.image,
     post.mediaUrl,
     post.mediaURL,
-    firstImageUrl
+    firstImageUrl,
   );
 };
 
-const extractAvatarFromNotification = (item) => {
+const extractAvatarFromNotification = item => {
   const data = item?.data || {};
   return pickFirstString(
     item?.avatar,
@@ -78,57 +88,188 @@ const extractAvatarFromNotification = (item) => {
     data.sender?.avatar,
     data.sender?.profileImage,
     data.user?.avatar,
-    data.user?.profileImage
+    data.user?.profileImage,
   );
 };
 
-const isFollowType = (type) => normalizeNotificationType(type).includes('follow');
-const isCommentType = (type) => normalizeNotificationType(type).includes('comment');
-const isLikeType = (type) => normalizeNotificationType(type).includes('like');
-const isPostActivityType = (type) => isLikeType(type) || isCommentType(type);
+const isFollowType = type => normalizeNotificationType(type).includes('follow');
+const isCommentType = type =>
+  normalizeNotificationType(type).includes('comment');
+const isLikeType = type => normalizeNotificationType(type).includes('like');
+const isPostActivityType = type => isLikeType(type) || isCommentType(type);
+
+const formatRelativeTime = iso => {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return `${diff}s`;
+  const mins = Math.floor(diff / 60);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const date = new Date(iso);
+  return date.toLocaleDateString();
+};
+
+const pickFirstValue = (...values) =>
+  values.find(value => value !== undefined && value !== null && value !== '');
+
+const extractBattleActionPayload = item => {
+  const raw = item?.raw ?? item ?? {};
+  const data = raw?.data ?? {};
+  const payload = {};
+
+  const battleId = pickFirstValue(
+    raw?.battleId,
+    raw?.battle_id,
+    raw?.battle?._id,
+    raw?.battle?.id,
+    data?.battleId,
+    data?.battle_id,
+    data?.battle?._id,
+    data?.battle?.id,
+  );
+
+  const invitationId = pickFirstValue(
+    raw?.invitationId,
+    raw?.invitation_id,
+    raw?.inviteId,
+    raw?.invite_id,
+    data?.invitationId,
+    data?.invitation_id,
+    data?.inviteId,
+    data?.invite_id,
+  );
+
+  const invitedUserId = pickFirstValue(
+    raw?.invitedUserId,
+    raw?.invited_user_id,
+    data?.invitedUserId,
+    data?.invited_user_id,
+  );
+
+  if (battleId) payload.battleId = battleId;
+  if (invitationId) payload.invitationId = invitationId;
+  if (invitedUserId) payload.invitedUserId = invitedUserId;
+
+  return payload;
+};
+
+const normalizeBattleNotification = item => {
+  const data = item?.data || {};
+  const battle = data?.battle || item?.battle || {};
+  const actionPayload = extractBattleActionPayload(item);
+  const normalizedType = normalizeNotificationType(data?.type ?? item?.type);
+  const normalizedFormat = String(
+    pickFirstString(battle?.format, data?.format) || '',
+  )
+    .toUpperCase()
+    .trim();
+  const normalizedStatus = String(battle?.status || data?.status || '')
+    .toUpperCase()
+    .trim();
+  const isHeadToHeadInvite =
+    normalizedType === 'battle_invite' && normalizedFormat === 'HEAD_TO_HEAD';
+  const isBattleActionable =
+    isHeadToHeadInvite &&
+    !['RESOLVED', 'CLOSED', 'DECLINED', 'CANCELLED', 'COMPLETED'].includes(
+      normalizedStatus,
+    );
+
+  return {
+    id:
+      item?.id ??
+      item?._id ??
+      actionPayload.battleId ??
+      actionPayload.invitationId ??
+      `${Date.now()}-${Math.random()}`,
+    type: data?.type ?? item?.type ?? 'battle',
+    title: item?.title ?? data?.title ?? battle?.title ?? 'Battle invitation',
+    message:
+      item?.body ??
+      item?.message ??
+      data?.message ??
+      data?.body ??
+      'You have a new battle request.',
+    time: formatRelativeTime(
+      item?.createdAt ?? item?.updatedAt ?? data?.createdAt,
+    ),
+    avatar: extractAvatarFromNotification(item),
+    image: pickFirstString(
+      battle?.image,
+      battle?.coverImage,
+      battle?.thumbnail,
+      data?.battleImage,
+      data?.thumbnail,
+    ),
+    isRead: !!item?.isRead,
+    raw: item,
+    actionPayload,
+    question: pickFirstString(battle?.question, battle?.title, data?.question),
+    format: normalizedFormat || pickFirstString(battle?.format, data?.format),
+    status: normalizedStatus,
+    stake: pickFirstValue(battle?.stake, data?.stake),
+    options: Array.isArray(battle?.options) ? battle.options : [],
+    isBattleActionable,
+  };
+};
 
 export default function Notifications() {
   const [activeTab, setActiveTab] = useState('all');
   const scrollViewRef = useRef(null);
   const tabScrollRef = useRef(null);
-  const dispatch = useDispatch();
-
   const currentIndexRef = useRef(0);
   const { bgStyle, textStyle, text } = useAppTheme();
 
   const [notifications, setNotifications] = useState([]);
+  const [battleNotifications, setBattleNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true); // Track loading state
+  const [battleLoading, setBattleLoading] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [SelectedNotification, setSelectedNotification] = useState(null);
+  const [processingBattleId, setProcessingBattleId] = useState(null);
 
   const navigation = useNavigation();
 
-  const tabs = [
-    { key: 'all', label: 'All' },
-    // { key: 'trades', label: 'Trades' },
-    // { key: 'comments', label: 'Comments' },
-    // { key: 'follows', label: 'Follows' }
-  ];
+  const tabs = useMemo(
+    () => [
+      { key: 'all', label: 'All' },
+      { key: 'Battle', label: 'Battles' },
+      // { key: 'comments', label: 'Comments' },
+      // { key: 'follows', label: 'Follows' }
+    ],
+    [],
+  );
 
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = type => {
     const normalizedType = normalizeNotificationType(type);
     if (normalizedType.includes('follow')) return '👥';
     if (normalizedType.includes('comment')) return '💬';
     if (normalizedType.includes('like')) return '❤️';
     switch (normalizedType) {
-      case 'mint': return '🎨';
-      case 'sale': return '💰';
-      case 'trade': return '🔄';
-      case 'bid': return '🏷️';
-      case 'token_purchase': return '💎';
-      default: return '🔔';
+      case 'mint':
+        return '🎨';
+      case 'sale':
+        return '💰';
+      case 'trade':
+        return '🔄';
+      case 'bid':
+        return '🏷️';
+      case 'token_purchase':
+        return '💎';
+      default:
+        return '🔔';
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       getNotification();
-    }, [])
+      getBattleNotifications();
+    }, []),
   );
 
   const getNotification = async () => {
@@ -143,22 +284,6 @@ export default function Notifications() {
         response ??
         [];
       const raw = Array.isArray(rawPayload) ? rawPayload : [];
-
-      const formatRelativeTime = (iso) => {
-        if (!iso) return '';
-        const then = new Date(iso).getTime();
-        const now = Date.now();
-        const diff = Math.floor((now - then) / 1000); // seconds
-        if (diff < 60) return `${diff}s`;
-        const mins = Math.floor(diff / 60);
-        if (mins < 60) return `${mins}m`;
-        const hours = Math.floor(mins / 60);
-        if (hours < 24) return `${hours}h`;
-        const days = Math.floor(hours / 24);
-        if (days < 7) return `${days}d`;
-        const date = new Date(iso);
-        return date.toLocaleDateString();
-      };
 
       const mapped = raw.map(item => {
         const data = item?.data || {};
@@ -183,7 +308,6 @@ export default function Notifications() {
       });
 
       setNotifications(mapped);
-
     } catch (err) {
       console.log(err, 'error getting notifications');
     } finally {
@@ -191,13 +315,38 @@ export default function Notifications() {
     }
   };
 
-  const read = async (notificationIds) => {
+  const getBattleNotifications = async () => {
+    try {
+      setBattleLoading(true);
+      const response = await battleNotification();
+      console.log(response,'battle notificartiopmm')
+      const rawPayload =
+        response?.notifications ??
+        response?.data?.notifications ??
+        response?.data?.battles ??
+        response?.data ??
+        response ??
+        [];
+      const raw = Array.isArray(rawPayload) ? rawPayload : [];
+
+      setBattleNotifications(raw.map(normalizeBattleNotification));
+    } catch (err) {
+      console.log(err, 'error getting battle notifications');
+      setBattleNotifications([]);
+    } finally {
+      setBattleLoading(false);
+    }
+  };
+
+  const read = async notificationIds => {
     console.log(notificationIds, 'notification IDs to mark as read');
     try {
-      const idsArray = Array.isArray(notificationIds) ? notificationIds : [notificationIds];
+      const idsArray = Array.isArray(notificationIds)
+        ? notificationIds
+        : [notificationIds];
 
       const payload = {
-        notificationIds: idsArray
+        notificationIds: idsArray,
       };
 
       console.log(payload, 'payload being sent');
@@ -214,51 +363,47 @@ export default function Notifications() {
     }
   };
 
-  const markAsRead = async (id) => {
+  const markAsRead = async id => {
     setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
+      prev.map(notif => (notif.id === id ? { ...notif, isRead: true } : notif)),
     );
 
     await read(id);
   };
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications
-      .filter(n => !n.isRead)
-      .map(n => n.id);
+    const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
 
     if (unreadIds.length > 0) {
-      setNotifications(prev =>
-        prev.map(notif => ({ ...notif, isRead: true }))
-      );
+      setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
 
       await read(unreadIds);
     }
   };
 
-  const popupOpen = (item) => {
+  const popupOpen = item => {
     console.log(item, 'selected notification');
     const selected = notifications.find(n => n.id === item.id);
     setSelectedNotification(selected);
     setPopupVisible(true);
   };
 
-  const splitNotificationMessage = useCallback((message) => {
+  const splitNotificationMessage = useCallback(message => {
     const safeMessage = String(message || '');
     const actionRegex =
       /\b(?:unfollow(?:ed|ing|s)?|follow(?:ed|ing|s)?|started|buy(?:ing|s)?|bought|purchase(?:d|s|ing)?|subscribe(?:d|s|ing)?|subscribed)\b/i;
 
     const match = safeMessage.match(actionRegex);
     const splitIndex = match?.index ?? -1;
-    const usernameText = splitIndex > 0 ? safeMessage.slice(0, splitIndex).trimEnd() : '';
-    const restText = splitIndex >= 0 ? safeMessage.slice(splitIndex).trimStart() : safeMessage;
+    const usernameText =
+      splitIndex > 0 ? safeMessage.slice(0, splitIndex).trimEnd() : '';
+    const restText =
+      splitIndex >= 0 ? safeMessage.slice(splitIndex).trimStart() : safeMessage;
 
     return { usernameText, restText };
   }, []);
 
-  const getNotificationTargetUserId = useCallback((notification) => {
+  const getNotificationTargetUserId = useCallback(notification => {
     const data = notification?.raw?.data ?? {};
 
     const directCandidates = [
@@ -298,24 +443,29 @@ export default function Notifications() {
     );
   }, []);
 
-  const navigateToPost = useCallback((notification) => {
-    const postId = notification?.postId;
-    if (!postId) return;
+  const navigateToPost = useCallback(
+    notification => {
+      const postId = notification?.postId;
+      if (!postId) return;
 
-    const postPayload = notification?.raw?.data?.post && typeof notification?.raw?.data?.post === 'object'
-      ? notification.raw.data.post
-      : { id: postId };
+      const postPayload =
+        notification?.raw?.data?.post &&
+        typeof notification?.raw?.data?.post === 'object'
+          ? notification.raw.data.post
+          : { id: postId };
 
-    navigation.navigate('ProfileMain', {
-      screen: 'PostView',
-      params: {
-        postData: postPayload,
-        userChat: true,
-        fromScreen: 'Notifications',
-        hideTabBar: true,
-      },
-    });
-  }, [navigation]);
+      navigation.navigate('ProfileMain', {
+        screen: 'PostView',
+        params: {
+          postData: postPayload,
+          userChat: true,
+          fromScreen: 'Notifications',
+          hideTabBar: true,
+        },
+      });
+    },
+    [navigation],
+  );
 
   const handlePopupNavigateToProfile = useCallback(() => {
     const targetUserId = getNotificationTargetUserId(SelectedNotification);
@@ -324,6 +474,82 @@ export default function Notifications() {
     setPopupVisible(false);
     navigation.navigate('UsersProfile', { userId: targetUserId });
   }, [SelectedNotification, getNotificationTargetUserId, navigation]);
+
+  const openBattleFlow = useCallback(
+    item => {
+      const payload = item?.actionPayload ?? extractBattleActionPayload(item);
+      const battleData = item?.raw?.data?.battle || item?.raw?.battle || {};
+
+      navigation.navigate('ProfileMain', {
+        screen: 'BattleInProgress',
+        params: {
+          battleId:
+            payload?.battleId || battleData?.id || battleData?._id || '',
+          battle: battleData,
+          entryPoint: 'notifications',
+        },
+      });
+    },
+    [navigation],
+  );
+
+  const handleBattleAction = async (item, action) => {
+    const payload = item?.actionPayload ?? extractBattleActionPayload(item);
+
+    if (!payload?.battleId && !payload?.invitationId) {
+      Alert.alert(
+        'Action unavailable',
+        'Battle details are missing for this request.',
+      );
+      return;
+    }
+
+    try {
+      setProcessingBattleId(item.id);
+      const response =
+        action === 'accept'
+          ? await acceptBattle(payload)
+          : await declinetBattle(payload);
+
+      const success =
+        (typeof response?.status === 'number' &&
+          response.status >= 200 &&
+          response.status < 300) ||
+        (typeof response?.statusCode === 'number' &&
+          response.statusCode >= 200 &&
+          response.statusCode < 300) ||
+        response?.success === true ||
+        response?.error === false;
+
+      if (!success) {
+        Alert.alert(
+          'Unable to update battle',
+          response?.message || 'Please try again.',
+        );
+        return;
+      }
+
+      setBattleNotifications(prev =>
+        prev.filter(notification => notification.id !== item.id),
+      );
+      await Promise.all([getBattleNotifications(), getNotification()]);
+      if (action === 'accept') {
+        openBattleFlow(item);
+      } else {
+        Alert.alert(
+          'Battle declined',
+          response?.message || 'The battle request was declined.',
+        );
+      }
+    } catch (err) {
+      Alert.alert(
+        'Unable to update battle',
+        err?.response?.data?.message || err?.message || 'Please try again.',
+      );
+    } finally {
+      setProcessingBattleId(null);
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -336,42 +562,52 @@ export default function Notifications() {
     });
   }, []);
 
-  const switchToTab = useCallback((tabKey) => {
-    const newIndex = tabs.findIndex(tab => tab.key === tabKey);
-    if (newIndex < 0) return;
+  const switchToTab = useCallback(
+    tabKey => {
+      const newIndex = tabs.findIndex(tab => tab.key === tabKey);
+      if (newIndex < 0) return;
 
-    setActiveTab(tabKey);
-    currentIndexRef.current = newIndex;
+      setActiveTab(tabKey);
+      currentIndexRef.current = newIndex;
 
-    const targetScrollX = newIndex * width;
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        x: targetScrollX,
-        animated: true,
-      });
-    }
+      const targetScrollX = newIndex * width;
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({
+          x: targetScrollX,
+          animated: true,
+        });
+      }
 
-    scrollTabsToIndex(newIndex);
-  }, [tabs, scrollTabsToIndex]);
+      scrollTabsToIndex(newIndex);
+    },
+    [tabs, scrollTabsToIndex],
+  );
 
-  const tabDataMap = useMemo(() => ({
-    all: notifications,
-    comments: notifications.filter(n => isPostActivityType(n.type)),
-    follows: notifications.filter(n => isFollowType(n.type)),
-  }), [notifications]);
+  const tabDataMap = useMemo(
+    () => ({
+      all: notifications,
+      Battle: battleNotifications,
+      comments: notifications.filter(n => isPostActivityType(n.type)),
+      follows: notifications.filter(n => isFollowType(n.type)),
+    }),
+    [notifications, battleNotifications],
+  );
 
-  const handleMomentumScrollEnd = useCallback((event) => {
-    const x = event?.nativeEvent?.contentOffset?.x ?? 0;
-    const index = Math.round(x / width);
-    if (index < 0 || index >= tabs.length) return;
+  const handleMomentumScrollEnd = useCallback(
+    event => {
+      const x = event?.nativeEvent?.contentOffset?.x ?? 0;
+      const index = Math.round(x / width);
+      if (index < 0 || index >= tabs.length) return;
 
-    currentIndexRef.current = index;
-    const newKey = tabs[index].key;
-    setActiveTab((prev) => (prev === newKey ? prev : newKey));
-    scrollTabsToIndex(index);
-  }, [tabs, scrollTabsToIndex]);
+      currentIndexRef.current = index;
+      const newKey = tabs[index].key;
+      setActiveTab(prev => (prev === newKey ? prev : newKey));
+      scrollTabsToIndex(index);
+    },
+    [tabs, scrollTabsToIndex],
+  );
 
-  const EmptyState = ({ tabType }) => {
+  const renderEmptyState = tabType => {
     const getEmptyStateContent = () => {
       switch (tabType) {
         case 'comments':
@@ -379,21 +615,28 @@ export default function Notifications() {
             icon: '💬',
             title: 'No post activity yet',
             subtitle: 'Likes and comments will show up here',
-            showCreatePost: false
+            showCreatePost: false,
           };
         case 'follows':
           return {
             icon: '👥',
             title: 'No new follows',
-            subtitle: 'When people follow you, you\'ll see it here',
-            showCreatePost: false
+            subtitle: "When people follow you, you'll see it here",
+            showCreatePost: false,
+          };
+        case 'Battle':
+          return {
+            icon: '⚔️',
+            title: 'No battle requests',
+            subtitle: 'Battle invitations will show up here',
+            showCreatePost: false,
           };
         default:
           return {
             icon: '🔔',
             title: 'No notifications yet',
-            subtitle: 'When you get notifications, they\'ll show up here',
-            showCreatePost: true
+            subtitle: "When you get notifications, they'll show up here",
+            showCreatePost: true,
           };
       }
     };
@@ -408,7 +651,10 @@ export default function Notifications() {
 
         {content.showCreatePost && (
           <TouchableOpacity
-            style={[styles.createPostButton, { backgroundColor: text, shadowColor: text }]}
+            style={[
+              styles.createPostButton,
+              { backgroundColor: text, shadowColor: text },
+            ]}
             activeOpacity={0.8}
             onPress={() => navigation.navigate('Add')}
           >
@@ -431,25 +677,27 @@ export default function Notifications() {
         onRequestClose={() => setPopupVisible(false)}
       >
         <View style={styles.popupOverlay}>
-
           <View style={styles.popupContainer}>
             <View style={styles.popupBell}>
               <Text style={styles.popupBellIcon}>🔔</Text>
             </View>
             <View style={styles.popupTextContainer}>
-              <Text style={styles.popupTitle}>{SelectedNotification?.title}</Text>
+              <Text style={styles.popupTitle}>
+                {SelectedNotification?.title}
+              </Text>
               <Text style={[styles.popupMessage, { color: text }]}>
-                {!!usernameText && (targetUserId ? (
-                  <Text
-                    suppressHighlighting
-                    style={styles.popupMessageHighlight}
-                    onPress={handlePopupNavigateToProfile}
-                  >
-                    {`${usernameText} `}
-                  </Text>
-                ) : (
-                  <Text>{`${usernameText} `}</Text>
-                ))}
+                {!!usernameText &&
+                  (targetUserId ? (
+                    <Text
+                      suppressHighlighting
+                      style={styles.popupMessageHighlight}
+                      onPress={handlePopupNavigateToProfile}
+                    >
+                      {`${usernameText} `}
+                    </Text>
+                  ) : (
+                    <Text>{`${usernameText} `}</Text>
+                  ))}
                 <Text>{restText}</Text>
               </Text>
             </View>
@@ -467,6 +715,117 @@ export default function Notifications() {
   };
 
   const renderTabContent = (tabData, tabKey) => {
+    const renderBattleItem = ({ item, index }) => {
+      const isProcessing = processingBattleId === item.id;
+      const isActionable = !!item?.isBattleActionable;
+      const stakeText =
+        item?.stake !== undefined && item?.stake !== null && item?.stake !== ''
+          ? `Stake: ${item.stake}`
+          : null;
+
+      return (
+        <TouchableOpacity
+          style={styles.notificationItem}
+          activeOpacity={0.9}
+          onPress={() => openBattleFlow(item)}
+        >
+          <View style={[styles.battleCard, { shadowColor: text }]}>
+            <View style={styles.battleTopRow}>
+              <View style={styles.battleAvatarWrap}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                ) : (
+                  <View
+                    style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}
+                  >
+                    <Text style={styles.avatarPlaceholderText}>⚔️</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.battleTextWrap}>
+                <Text style={styles.notificationTitle}>{item.title}</Text>
+                {!!item.question && (
+                  <Text style={styles.battleQuestion}>{item.question}</Text>
+                )}
+                <Text style={styles.notificationMessage}>{item.message}</Text>
+
+                <View style={styles.battleMetaRow}>
+                  {!!item.format && (
+                    <Text style={styles.battleMetaChip}>{item.format}</Text>
+                  )}
+                  {!!stakeText && (
+                    <Text style={styles.battleMetaChip}>{stakeText}</Text>
+                  )}
+                  {!!item.time && (
+                    <Text style={styles.timeText}>{item.time}</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {Array.isArray(item.options) && item.options.length > 0 && (
+              <View style={styles.battleOptionsWrap}>
+                {item.options.map((option, optionIndex) => {
+                  const optionLabel =
+                    typeof option === 'string'
+                      ? option
+                      : option?.label ||
+                        option?.text ||
+                        `Option ${optionIndex + 1}`;
+
+                  return (
+                    <View
+                      key={`${item.id}-option-${optionIndex}`}
+                      style={styles.battleOptionChip}
+                    >
+                      <Text style={styles.battleOptionText}>{optionLabel}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {isActionable && (
+              <View style={styles.battleActionRow}>
+                <TouchableOpacity
+                  style={[styles.battleActionButton, styles.battleDeclineButton]}
+                  onPress={() => handleBattleAction(item, 'decline')}
+                  activeOpacity={0.85}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#B91C1C" />
+                  ) : (
+                    <Text style={styles.battleDeclineText}>Decline</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.battleActionButton,
+                    styles.battleAcceptButton,
+                    { backgroundColor: text },
+                  ]}
+                  onPress={() => handleBattleAction(item, 'accept')}
+                  activeOpacity={0.85}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.battleAcceptText}>Accept</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {index < tabData.length - 1 && <View style={styles.separator} />}
+        </TouchableOpacity>
+      );
+    };
+
     const renderItem = ({ item, index }) => {
       const message = item.message || '';
       const { usernameText, restText } = splitNotificationMessage(message);
@@ -494,12 +853,16 @@ export default function Notifications() {
                 {item.avatar ? (
                   <Image source={{ uri: item.avatar }} style={styles.avatar} />
                 ) : (
-                  <View style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}>
+                  <View
+                    style={[styles.avatar, styles.avatarPlaceholder, bgStyle]}
+                  >
                     <Text style={styles.avatarPlaceholderText}>🔔</Text>
                   </View>
                 )}
                 <View style={[styles.iconBadge, bgStyle]}>
-                  <Text style={styles.iconEmoji}>{getNotificationIcon(item.type)}</Text>
+                  <Text style={styles.iconEmoji}>
+                    {getNotificationIcon(item.type)}
+                  </Text>
                 </View>
               </View>
 
@@ -519,7 +882,10 @@ export default function Notifications() {
 
             <View style={styles.rightSection}>
               {item.image && (
-                <Image source={{ uri: item.image }} style={[styles.nftImage, bgStyle]} />
+                <Image
+                  source={{ uri: item.image }}
+                  style={[styles.nftImage, bgStyle]}
+                />
               )}
               {item.price && (
                 <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
@@ -528,26 +894,29 @@ export default function Notifications() {
             </View>
           </View>
 
-          {index < tabData.length - 1 && (
-            <View style={styles.separator} />
-          )}
+          {index < tabData.length - 1 && <View style={styles.separator} />}
         </TouchableOpacity>
       );
     };
 
     return (
       <View style={styles.tabContentContainer}>
-        {!isLoading && tabData.length === 0 ? (
-          <EmptyState tabType={tabKey} />
-        ) : isLoading ? (
+        {!(tabKey === 'Battle' ? battleLoading : isLoading) &&
+        tabData.length === 0 ? (
+          renderEmptyState(tabKey)
+        ) : (tabKey === 'Battle' ? battleLoading : isLoading) ? (
           <View style={styles.loadingContainer}>
-            <Text style={[styles.loadingText, textStyle]}>Loading notifications...</Text>
+            <Text style={[styles.loadingText, textStyle]}>
+              {tabKey === 'Battle'
+                ? 'Loading battle requests...'
+                : 'Loading notifications...'}
+            </Text>
           </View>
         ) : (
           <FlatList
             data={tabData}
-            renderItem={renderItem}
-            keyExtractor={(item) => String(item.id)}
+            renderItem={tabKey === 'Battle' ? renderBattleItem : renderItem}
+            keyExtractor={item => String(item.id)}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
           />
@@ -561,13 +930,19 @@ export default function Notifications() {
       {/* Header */}
       <View style={[styles.header, bgStyle, { shadowColor: text }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <Icon name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, textStyle]}>Notifications</Text>
         </View>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllAsRead} style={[styles.markAllButton, { shadowColor: text }]}>
+          <TouchableOpacity
+            onPress={markAllAsRead}
+            style={[styles.markAllButton, { shadowColor: text }]}
+          >
             <Text style={[styles.markAllText, textStyle]}>Mark all read</Text>
           </TouchableOpacity>
         )}
@@ -581,21 +956,23 @@ export default function Notifications() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabScrollContent}
         >
-          {tabs.map((tab) => (
+          {tabs.map(tab => (
             <TouchableOpacity
               key={tab.key}
               style={[
                 styles.tab,
                 activeTab === tab.key && { backgroundColor: text },
-                { shadowColor: text }
+                { shadowColor: text },
               ]}
               onPress={() => switchToTab(tab.key)}
               activeOpacity={0.7}
             >
-              <Text style={[
-                styles.tabText,
-                activeTab === tab.key && styles.activeTabText,
-              ]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab.key && styles.activeTabText,
+                ]}
+              >
                 {tab.label}
               </Text>
               {tab.key === 'all' && unreadCount > 0 && (
@@ -617,7 +994,7 @@ export default function Notifications() {
         onMomentumScrollEnd={handleMomentumScrollEnd}
         style={styles.horizontalScrollView}
       >
-        {tabs.map((tab) => {
+        {tabs.map(tab => {
           const tabData = tabDataMap[tab.key] || notifications;
 
           return (
@@ -676,7 +1053,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
     position: 'relative',
-    width: '100%'
+    width: '100%',
   },
   tabScrollContent: {
     paddingHorizontal: 16,
@@ -734,7 +1111,7 @@ const styles = StyleSheet.create({
   notificationItem: {
     paddingHorizontal: 16,
     paddingVertical: 0,
-    marginBottom: '-1%'
+    marginBottom: '-1%',
   },
   notificationContent: {
     flexDirection: 'row',
@@ -746,6 +1123,97 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+  },
+  battleCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 14,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  battleTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  battleAvatarWrap: {
+    marginRight: 12,
+  },
+  battleTextWrap: {
+    flex: 1,
+  },
+  battleQuestion: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  battleMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  battleMetaChip: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  battleOptionsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  battleOptionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  battleOptionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  battleActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  battleActionButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  battleDeclineButton: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  battleAcceptButton: {
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  battleDeclineText: {
+    color: '#B91C1C',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  battleAcceptText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   leftSection: {
     flexDirection: 'row',
@@ -850,7 +1318,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     textAlign: 'center',
-    color: '#fff'
+    color: '#fff',
   },
   emptyMessage: {
     fontSize: 16,
@@ -894,7 +1362,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 10,
-
   },
   popupMessage: {
     fontSize: 14,
@@ -950,5 +1417,4 @@ const styles = StyleSheet.create({
   popupBellIcon: {
     fontSize: 30,
   },
-
 });
