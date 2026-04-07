@@ -2047,7 +2047,7 @@ const sidebarStyles = StyleSheet.create({
   },
   verticalDropsText: {
     marginTop: 2,
-    fontSize: 16,
+    fontSize: 12,
     color: '#6b6b6b',
     fontWeight: '600',
     textAlign: 'center',
