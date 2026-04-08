@@ -27,8 +27,27 @@ import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { updateWallet } from '../../../services/wallet';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 import HexAvatar from '../story.js/HexAvatar';
+import YoutubePlayer from 'react-native-youtube-iframe';
+import { parsePostMeta, getPostMusicForSlide } from '../../../utils/postSoundtracks';
 
 const { width } = Dimensions.get('window');
+
+/** Same window logic as post editor / Stories for looping feed soundtrack within trim. */
+function getFeedMusicPlaybackWindow(trim, durationSec) {
+  const prev = Math.max(0.1, Number(durationSec) || 30);
+  const a = Math.max(0, Number(trim?.start) || 0);
+  const rawEnd = trim?.end;
+  const b =
+    rawEnd == null || rawEnd === '' || !Number.isFinite(Number(rawEnd))
+      ? Infinity
+      : Number(rawEnd);
+  const ovStart = Math.max(0, a);
+  const ovEnd = Math.min(b, prev);
+  if (ovEnd <= ovStart || ovStart >= prev) {
+    return { start: 0, end: prev, hasOverlap: false };
+  }
+  return { start: ovStart, end: ovEnd, hasOverlap: true };
+}
 
 /* ----------------------------------------- */ 
 function InstagramZoomableImage({ uri, onZoomChange }) {
@@ -229,7 +248,7 @@ function PostItem({
   followingBusy = false,
   isBusinessProfile,
   executeFollowAction,
-  isVisible = true,
+  isVisible = false,
   screenFocused = true,
   playingPostId,
   currentlyVisiblePostId,
@@ -293,6 +312,10 @@ function PostItem({
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
+  const postFeedYoutubeRef = useRef(null);
+  const postFeedMp3Ref = useRef(null);
+  const postFeedMusicDurRef = useRef(180);
+  const shouldPlayAudioRef = useRef(false);
   const dispatch = useDispatch();
   const toast = useToast();
   const { text } = useAppTheme();
@@ -321,6 +344,21 @@ function PostItem({
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
+
+  const parsedPostMeta = useMemo(() => parsePostMeta(item?.postMeta), [item?.postMeta]);
+
+  const postMusic = useMemo(
+    () => getPostMusicForSlide(item, currentIndex, parsedPostMeta),
+    [
+      currentIndex,
+      parsedPostMeta,
+      item?.id,
+      item?.music,
+      item?.youtubeMusicMeta,
+      item?.postMeta,
+      item?.media,
+    ],
+  );
   const taggedUsers = useMemo(
     () =>
       (Array.isArray(taggedPeople || item?.taggedPeople) ? (taggedPeople || item?.taggedPeople) : [])
@@ -750,6 +788,27 @@ function PostItem({
     return exts.some((ext) => lower.endsWith(`.${ext}`));
   }, []);
 
+  const isCurrentSlideVideo = useMemo(() => {
+    const m = safeMedia[currentIndex];
+    if (!m) return false;
+    return m.type === 'video' || isVideoUrl(m.url);
+  }, [safeMedia, currentIndex, isVideoUrl]);
+
+  /**
+   * Video + attached music may play only when this post is visible in the feed and (if the parent
+   * supplies playingPostId) this post is the designated one. Fixes: audio on all posts when
+   * playingPostId was null, and music continuing after scroll-away.
+   */
+  const playbackEligible = useMemo(
+    () =>
+      screenFocused &&
+      isVisible &&
+      (playingPostId != null && playingPostId !== ''
+        ? String(playingPostId) === String(item.id)
+        : true),
+    [screenFocused, isVisible, playingPostId, item.id],
+  );
+
   const buyerList = useMemo(() => Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [], [item.boughtBy, item.buyers]);
 
   const animateHeart = useCallback(() => {
@@ -869,14 +928,7 @@ function PostItem({
     const isPaused = videoStates[index] ?? false;
     const isVideoReady = !!videoLoaded[index];
 
-    // Simplified shouldPlay - only check if not paused and current index
-    const isThisPostActive =
-      screenFocused &&
-      (playingPostId === undefined ||
-        playingPostId === null ||
-        String(playingPostId) === String(item.id));
-
-    const shouldPlay = index === currentIndex && isThisPostActive && !isZooming;
+    const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
     return (
       <View style={styles.mediaContainer}>
@@ -953,7 +1005,67 @@ function PostItem({
         )}
       </View>
     );
-  }, [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted]);
+  }, [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted, playbackEligible]);
+
+  const shouldPlayPostFeedMusic =
+    Boolean(postMusic) && playbackEligible && !isZooming && !isCurrentSlideVideo;
+
+  const shouldPlayAudio = shouldPlayPostFeedMusic && !isMuted;
+
+  useEffect(() => {
+    shouldPlayAudioRef.current = shouldPlayAudio;
+  }, [shouldPlayAudio]);
+
+  useEffect(() => {
+    if (postMusic?.kind !== 'youtube') return;
+    if (shouldPlayAudio) return;
+    (async () => {
+      try {
+        await postFeedYoutubeRef.current?.pauseVideo?.();
+      } catch (_) {}
+    })();
+  }, [shouldPlayAudio, postMusic?.kind]);
+
+  useEffect(() => {
+    if (!postMusic) return;
+    return () => {
+      try {
+        postFeedYoutubeRef.current?.pauseVideo?.();
+        postFeedMp3Ref.current?.pause?.();
+      } catch (_) {}
+    };
+  }, [postMusic?.kind, postMusic?.videoId, postMusic?.audioUrl, item.id]);
+
+  useEffect(() => {
+    if (postMusic?.kind !== 'youtube' || !screenFocused) return;
+    const trim = postMusic.trim;
+    const tick = setInterval(() => {
+      (async () => {
+        try {
+          if (!shouldPlayAudioRef.current) return;
+          const cur = await postFeedYoutubeRef.current?.getCurrentTime?.();
+          if (typeof cur !== 'number' || Number.isNaN(cur)) return;
+          const dur = postFeedMusicDurRef.current || 180;
+          const { start: playStart, end: playEnd, hasOverlap } = getFeedMusicPlaybackWindow(
+            trim,
+            dur,
+          );
+          const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
+          if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
+            await postFeedYoutubeRef.current?.seekTo?.(playStart, true);
+          }
+        } catch (_) {}
+      })();
+    }, 320);
+    return () => clearInterval(tick);
+  }, [
+    postMusic?.kind,
+    postMusic?.videoId,
+    postMusic?.trim?.start,
+    postMusic?.trim?.end,
+    screenFocused,
+    item?.id,
+  ]);
 
   return (
 
@@ -991,6 +1103,91 @@ function PostItem({
         </View>
 
         <View style={styles.mediaWrapper}>
+          {postMusic?.kind === 'mp3' ? (
+            <Video
+              ref={postFeedMp3Ref}
+              key={`feed_mp3_${item.id}_${postMusic.audioUrl}_${currentIndex}`}
+              source={{ uri: postMusic.audioUrl }}
+              style={styles.hiddenPostAudio}
+              paused={!shouldPlayAudio}
+              muted={!shouldPlayAudio}
+              repeat={false}
+              volume={shouldPlayAudio ? 1 : 0}
+              resizeMode="contain"
+              controls={false}
+              playWhenInactive={false}
+              ignoreSilentSwitch="ignore"
+              onLoad={e => {
+                const d = e?.duration > 0 ? e.duration : 180;
+                postFeedMusicDurRef.current = d;
+                const { start, hasOverlap } = getFeedMusicPlaybackWindow(postMusic.trim, d);
+                const seekTo = hasOverlap ? start : 0;
+                setTimeout(() => postFeedMp3Ref.current?.seek?.(seekTo), 80);
+              }}
+              onProgress={({ currentTime }) => {
+                const dur = postFeedMusicDurRef.current || 180;
+                const { start: ps, end: pe, hasOverlap } = getFeedMusicPlaybackWindow(
+                  postMusic.trim,
+                  dur,
+                );
+                const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
+                if (hasOverlap && pe > ps && currentTime >= pe - margin) {
+                  postFeedMp3Ref.current?.seek?.(ps);
+                }
+              }}
+            />
+          ) : null}
+          {postMusic?.kind === 'youtube' ? (
+            <View style={styles.hiddenPostYoutube} pointerEvents="none" collapsable={false}>
+              <YoutubePlayer
+                ref={postFeedYoutubeRef}
+                key={`feed_yt_${item.id}_${postMusic.videoId}`}
+                height={200}
+                width={200}
+                videoId={postMusic.videoId}
+                play={shouldPlayAudio}
+                mute={!shouldPlayAudio}
+                volume={shouldPlayAudio ? 100 : 0}
+                forceAndroidAutoplay
+                initialPlayerParams={{
+                  controls: false,
+                  modestbranding: true,
+                  rel: false,
+                }}
+                onReady={async () => {
+                  try {
+                    const d = await postFeedYoutubeRef.current?.getDuration?.();
+                    if (typeof d === 'number' && d > 0) {
+                      postFeedMusicDurRef.current = d;
+                    } else if (
+                      postMusic.durationSec != null &&
+                      Number.isFinite(Number(postMusic.durationSec))
+                    ) {
+                      postFeedMusicDurRef.current = Number(postMusic.durationSec);
+                    }
+                    const dur = postFeedMusicDurRef.current || 180;
+                    const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(
+                      postMusic.trim,
+                      dur,
+                    );
+                    const seekTo = hasOverlap ? ps : 0;
+                    await postFeedYoutubeRef.current?.seekTo?.(seekTo, true);
+                  } catch (_) {}
+                }}
+                onChangeState={state => {
+                  if (state === 'ended' && shouldPlayAudioRef.current) {
+                    const dur = postFeedMusicDurRef.current || 180;
+                    const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(
+                      postMusic.trim,
+                      dur,
+                    );
+                    postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
+                    postFeedYoutubeRef.current?.playVideo?.();
+                  }
+                }}
+              />
+            </View>
+          ) : null}
           {taggedUsers.length > 0 && (
             <TouchableOpacity
               style={styles.tagButton}
@@ -1047,6 +1244,15 @@ function PostItem({
                 ))}
               </View>
             </>
+          )}
+          {postMusic && !isCurrentSlideVideo && (
+            <TouchableOpacity
+              style={styles.speakerButton}
+              onPress={() => setIsMuted(prev => !prev)}
+              accessibilityLabel={isMuted ? 'Unmute music' : 'Mute music'}
+            >
+              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
+            </TouchableOpacity>
           )}
         </View>
 
@@ -1367,9 +1573,10 @@ const styles = StyleSheet.create({
   //   overflow: 'hidden',
   // },
   mediaWrapper: {
-    width: "100%",
-    backgroundColor: "#000",
-
+    width: '100%',
+    backgroundColor: '#000',
+    position: 'relative',
+    overflow: 'visible',
   },
   // mediaContainer: {
   //   width,
@@ -1615,6 +1822,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#666',
     letterSpacing: 0.3,
+  },
+  hiddenPostAudio: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    opacity: 0,
+    left: 0,
+    top: 0,
+    zIndex: 0,
+    pointerEvents: 'none',
+  },
+  hiddenPostYoutube: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    opacity: 0.02,
+    left: -220,
+    top: 0,
+    zIndex: 0,
+    overflow: 'hidden',
+    pointerEvents: 'none',
   },
   speakerButton: {
     position: 'absolute',

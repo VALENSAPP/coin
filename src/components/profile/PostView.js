@@ -34,6 +34,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../services/tokens';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 
 export default function PostView({ postData = [] }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -840,6 +841,7 @@ export default function PostView({ postData = [] }) {
           typeof followingByUserId[String(item.userId)] === 'boolean'
             ? followingByUserId[String(item.userId)]
             : !!item.isFollow,
+        ...extractPostMusicPayloadFromApi(item),
       };
       const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
       return (

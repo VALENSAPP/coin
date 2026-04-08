@@ -42,6 +42,7 @@ import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
+import { extractPostMusicPayloadFromApi } from '../../../utils/postSoundtracks';
 
 export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   
@@ -310,6 +311,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
           tokenBalance: item.tokenBalance || 0,
           shareCount:item.shareCount || 0,
           taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
+          ...extractPostMusicPayloadFromApi(item),
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId]);
