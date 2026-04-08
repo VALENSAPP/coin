@@ -778,11 +778,13 @@ const ProfilePersonData = ({
 
   const handleOpenBattlePress = useCallback(() => {
     if (fromUsersProfile) {
-      navigation.navigate('ProfileMain', { screen: 'OpenBattle' });
+      navigation.navigate('ProfileMain', { screen: 'OpenBattle', params: { returnTo: 'UserProfile' }, });
       return;
     }
 
-    navigation.navigate('OpenBattle');
+    navigation.navigate('OpenBattle', {
+      returnTo: 'Home', // optional (if needed)
+    });
   }, [fromUsersProfile, navigation]);
 
   const handleInviteBattlePress = useCallback(() => {

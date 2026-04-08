@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -7,10 +7,13 @@ import { buyCreditHits } from '../../services/stirpe';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import { Linking } from 'react-native';
-import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
-import { useStripeCustomer } from '../../hooks/useStripeCustomer';
-import StripePaymentMethodModal from './StripePaymentMethodModal';
+import {
+  getPaymentSessionUrl,
+  STRIPE_BROWSER_OPTIONS,
+  STRIPE_ERROR_MESSAGES,
+  createOnboardingLink,
+  getOnboardingStatus,
+} from '../../utils/stripeOnboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useRoute } from '@react-navigation/native';
@@ -18,14 +21,12 @@ import { useRoute } from '@react-navigation/native';
 const MAX_CREDITS = 5;
 
 const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCredits = 0 }) => {
-  const [creditsToBuy, setCreditsToBuy] = useState(1);
+  const [creditsToBuy, setCreditsToBuy] = useState('');
   const sheetRef = useRef(null);
   const dispatch = useDispatch();
   const toast = useToast();
   const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
-  const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
-  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   const safeCurrentCredits = useMemo(() => {
     const value = Number(currentCredits);
@@ -37,6 +38,56 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
     () => Math.max(0, MAX_CREDITS - safeCurrentCredits),
     [safeCurrentCredits]
   );
+
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
+  const isOnboardingReady = (status) => status?.canReceivePayments === true && Boolean(status?.accountId);
+
+  const GetInbordingstatus = async () => {
+    try {
+      const response = await getOnboardingStatus();
+      if (response?.statusCode === 200) {
+        return response?.data ?? null;
+      }
+      return null;
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  const GetInbordingLink = async () => {
+    const response = await createOnboardingLink();
+    const onboardingUrl = response?.data?.onboardingUrl ?? response?.data?.data?.onboardingUrl;
+
+    if (!onboardingUrl) {
+      const latestStatus = await GetInbordingstatus();
+      if (isOnboardingReady(latestStatus)) {
+        return { alreadyOnboarded: true };
+      }
+      throw new Error('Onboarding link not found');
+    }
+
+    if (await InAppBrowser.isAvailable()) {
+      return await InAppBrowser.open(onboardingUrl, {
+        ...STRIPE_BROWSER_OPTIONS,
+        forceCloseOnRedirection: true,
+      });
+    }
+
+    await Linking.openURL(onboardingUrl);
+    return { type: 'opened_external' };
+  };
+
+  const waitForOnboardingCompletion = async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const status = await GetInbordingstatus();
+      if (isOnboardingReady(status)) {
+        return status;
+      }
+      await delay(2000);
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (visible) {
@@ -72,11 +123,6 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       );
       return;
     }
-    const canProceed = await requireStripeCustomerForPayment();
-    if (!canProceed) {
-      setShowPaymentMethodModal(true);
-      return;
-    }
     dispatch(showLoader());
     try {
       const id = await AsyncStorage.getItem('userId');
@@ -87,19 +133,65 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
         hitCount: creditsToBuy,
         userId: id
       };
-      const response = await buyCreditHits(dataToSend);
-      const url = getPaymentSessionUrl(response);
-      if (url) {
+      const onboardingStatus = await GetInbordingstatus();
+      if (isOnboardingReady(onboardingStatus)) {
+        const response = await buyCreditHits(dataToSend);
+        const url = getPaymentSessionUrl(response);
+        if (!url) {
+          showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+          return;
+        }
         await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
         if (await InAppBrowser.isAvailable()) {
           await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
-          if (onPurchaseComplete) onPurchaseComplete();
         } else {
           await Linking.openURL(url);
         }
-      } else {
-        showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+        if (onPurchaseComplete) onPurchaseComplete();
+        return;
       }
+
+      const onboardingResult = await GetInbordingLink();
+      if (onboardingResult?.alreadyOnboarded) {
+        const response = await buyCreditHits(dataToSend);
+        const url = getPaymentSessionUrl(response);
+        if (!url) {
+          showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+          return;
+        }
+        await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
+        if (await InAppBrowser.isAvailable()) {
+          await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+        } else {
+          await Linking.openURL(url);
+        }
+        if (onPurchaseComplete) onPurchaseComplete();
+        return;
+      }
+
+      if (isBrowserCancelled(onboardingResult)) {
+        return;
+      }
+
+      const updatedStatus = await waitForOnboardingCompletion();
+      if (isOnboardingReady(updatedStatus)) {
+        const response = await buyCreditHits(dataToSend);
+        const url = getPaymentSessionUrl(response);
+        if (!url) {
+          showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+          return;
+        }
+        await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
+        if (await InAppBrowser.isAvailable()) {
+          await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+        } else {
+          await Linking.openURL(url);
+        }
+        if (onPurchaseComplete) onPurchaseComplete();
+        return;
+      }
+
+      showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
     } catch (error) {
       showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
@@ -225,17 +317,6 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       </View>
     </RBSheet>
 
-    <StripePaymentMethodModal
-      visible={showPaymentMethodModal}
-      onClose={() => setShowPaymentMethodModal(false)}
-      onConnectStripe={async () => {
-        try {
-          await openPaymentConnectionAndRefresh();
-        } catch (e) {
-          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
-        }
-      }}
-    />
     </>
   );
 };

@@ -411,6 +411,9 @@ const normalizeBattle = (raw, currentUserId = '') => {
     format,
     battleType,
     status,
+    participants: participantEntries,
+    predictions: predictionEntries,
+    votes: voteEntries,
     options: normalizedOptions,
     totalVotes,
     primaryCount: totalVotes,
@@ -590,6 +593,26 @@ export default function BattleInProgress() {
     currentUserId &&
     battle.creatorId &&
     currentUserId === String(battle.creatorId);
+  const hasUserVoted = useMemo(() => {
+    if (!currentUserId) return false;
+    console.log(currentUserId,'cutren use id ')
+    const matchByUserId = entry =>
+      String(
+        pickFirst(
+          entry?.userId,
+          entry?.user?.id,
+          entry?.user?._id,
+          entry?.user?.userId,
+          entry?.user?.UserId,
+          '',
+        ),
+      ) === String(currentUserId);
+    return (
+      (Array.isArray(battle?.participants) && battle.participants.some(matchByUserId)) ||
+      (Array.isArray(battle?.predictions) && battle.predictions.some(matchByUserId)) ||
+      (Array.isArray(battle?.votes) && battle.votes.some(matchByUserId))
+    );
+  }, [battle?.participants, battle?.predictions, battle?.votes, currentUserId]);
 
   const enforcedOpponentOption = useMemo(() => {
     if (!isHeadToHead || !battle.creatorChoice || battle.options.length < 2) {
@@ -758,6 +781,7 @@ export default function BattleInProgress() {
         response = await predictBattle(payload);
       } else {
         response = await voteBattle(payload);
+        console.log(response,'dta hree')
       }
       console.log(response, 'in postr polll')
       if (!isSuccessfulResponse(response)) {
@@ -1422,129 +1446,131 @@ export default function BattleInProgress() {
               )}
             </View>
 
-            <View
-              style={[
-                styles.infoCard,
-                cardStyle,
-                { shadowColor: palette.primary },
-              ]}
-            >
-              <Text style={[styles.sectionTitle, { color: text }]}>
-                {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
-              </Text>
-              {isHeadToHead && !!enforcedOpponentOption && (
-                <Text style={[styles.sideRuleText, textStyle]}>
-                  The creator already locked {battle.creatorChoice}. You can only
-                  join on {enforcedOpponentOption}.
-                </Text>
-              )}
-
-              <View style={styles.optionList}>
-                {(availableOptions.length ? availableOptions : battle.options).map(
-                  option => {
-                    const optionSide = String(
-                      pickFirst(option?.side, option?.label, ''),
-                    );
-                    const isSelected =
-                      selectedOption === optionSide ||
-                      selectedOption === option.id;
-                    return (
-                      <TouchableOpacity
-                        key={`${battle.id}-${option.id}`}
-                        activeOpacity={0.88}
-                        style={[
-                          styles.optionCard,
-                          { borderColor: palette.border, backgroundColor: palette.surface },
-                          isSelected && styles.optionCardSelected,
-                          isSelected && {
-                            borderColor: palette.primary,
-                            backgroundColor: palette.soft,
-                          },
-                        ]}
-                        onPress={() => setSelectedOption(option.label)}
-                      >
-                        <View style={styles.optionTopRow}>
-                          <Text
-                            style={[
-                              styles.optionLabel,
-                              textStyle,
-                              isSelected && styles.optionLabelSelected,
-                              isSelected && { color: palette.primary },
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                          <View
-                            style={[
-                              styles.radioDot,
-                              { borderColor: palette.border, backgroundColor: palette.surface },
-                              isSelected && styles.radioDotSelected,
-                              isSelected && {
-                                borderColor: palette.primary,
-                                backgroundColor: palette.primary,
-                              },
-                            ]}
-                          />
-                        </View>
-                        {/* <View style={styles.optionMetaRow}>
-                      <Text style={styles.optionMeta}>
-                        {option.votes} votes
-                      </Text>
-                      <Text style={styles.optionMeta}>
-                        {option.likes} likes
-                      </Text>
-                      <Text style={styles.optionMeta}>
-                        {option.percentage ? `${option.percentage}%` : 'Open'}
-                      </Text>
-                    </View> */}
-                      </TouchableOpacity>
-                    );
-                  },
-                )}
-              </View>
-
-              <TextInput
-                value={argumentText}
-                onChangeText={setArgumentText}
-                placeholder={
-                  isPrediction
-                    ? 'Add your prediction reasoning'
-                    : 'Add your argument'
-                }
-                placeholderTextColor="#9CA3AF"
-                multiline
+            {!hasUserVoted && (
+              <View
                 style={[
-                  styles.argumentInput,
-                  textStyle,
+                  styles.infoCard,
                   cardStyle,
-                  { borderColor: palette.border },
+                  { shadowColor: palette.primary },
                 ]}
-              />
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={handleVote}
-                disabled={submittingVote || !argumentText?.trim()}
-                style={{
-                  opacity: submittingVote || !argumentText?.trim() ? 0.5 : 1,
-                }}
               >
-                <LinearGradient
-                  colors={palette.buttonGradient}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.primaryButton}
-                >
-                  {submittingVote ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>
-                      {isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
-                    </Text>
+                <Text style={[styles.sectionTitle, { color: text }]}>
+                  {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
+                </Text>
+                {isHeadToHead && !!enforcedOpponentOption && (
+                  <Text style={[styles.sideRuleText, textStyle]}>
+                    The creator already locked {battle.creatorChoice}. You can only
+                    join on {enforcedOpponentOption}.
+                  </Text>
+                )}
+
+                <View style={styles.optionList}>
+                  {(availableOptions.length ? availableOptions : battle.options).map(
+                    option => {
+                      const optionSide = String(
+                        pickFirst(option?.side, option?.label, ''),
+                      );
+                      const isSelected =
+                        selectedOption === optionSide ||
+                        selectedOption === option.id;
+                      return (
+                        <TouchableOpacity
+                          key={`${battle.id}-${option.id}`}
+                          activeOpacity={0.88}
+                          style={[
+                            styles.optionCard,
+                            { borderColor: palette.border, backgroundColor: palette.surface },
+                            isSelected && styles.optionCardSelected,
+                            isSelected && {
+                              borderColor: palette.primary,
+                              backgroundColor: palette.soft,
+                            },
+                          ]}
+                          onPress={() => setSelectedOption(option.label)}
+                        >
+                          <View style={styles.optionTopRow}>
+                            <Text
+                              style={[
+                                styles.optionLabel,
+                                textStyle,
+                                isSelected && styles.optionLabelSelected,
+                                isSelected && { color: palette.primary },
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                            <View
+                              style={[
+                                styles.radioDot,
+                                { borderColor: palette.border, backgroundColor: palette.surface },
+                                isSelected && styles.radioDotSelected,
+                                isSelected && {
+                                  borderColor: palette.primary,
+                                  backgroundColor: palette.primary,
+                                },
+                              ]}
+                            />
+                          </View>
+                          {/* <View style={styles.optionMetaRow}>
+                        <Text style={styles.optionMeta}>
+                          {option.votes} votes
+                        </Text>
+                        <Text style={styles.optionMeta}>
+                          {option.likes} likes
+                        </Text>
+                        <Text style={styles.optionMeta}>
+                          {option.percentage ? `${option.percentage}%` : 'Open'}
+                        </Text>
+                      </View> */}
+                        </TouchableOpacity>
+                      );
+                    },
                   )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+                </View>
+
+                <TextInput
+                  value={argumentText}
+                  onChangeText={setArgumentText}
+                  placeholder={
+                    isPrediction
+                      ? 'Add your prediction reasoning'
+                      : 'Add your argument'
+                  }
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  style={[
+                    styles.argumentInput,
+                    textStyle,
+                    cardStyle,
+                    { borderColor: palette.border },
+                  ]}
+                />
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={handleVote}
+                  disabled={submittingVote || !argumentText?.trim()}
+                  style={{
+                    opacity: submittingVote || !argumentText?.trim() ? 0.5 : 1,
+                  }}
+                >
+                  <LinearGradient
+                    colors={palette.buttonGradient}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.primaryButton}
+                  >
+                    {submittingVote ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>
+                        {isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
+                      </Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View
               style={[

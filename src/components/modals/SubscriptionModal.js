@@ -21,9 +21,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FanPageSubscription } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
-import { useStripeCustomer } from '../../hooks/useStripeCustomer';
-import StripePaymentMethodModal from './StripePaymentMethodModal';
+import {
+    getPaymentSessionUrl,
+    STRIPE_BROWSER_OPTIONS,
+    STRIPE_ERROR_MESSAGES,
+    createOnboardingLink,
+    getOnboardingStatus,
+} from '../../utils/stripeOnboarding';
 import { useNavigation } from '@react-navigation/native';
 
 const SubscribeFlowModal = ({
@@ -41,7 +45,6 @@ const SubscribeFlowModal = ({
     const step2Ref = useRef(null);
 
     const [acceptedTerms, setAcceptedTerms] = useState(false);
-    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
     const [subscriptionAmount, setSubscriptionAmount] = useState(null);
     const [userProfile, setUserProfile] = useState('');
     const [comment, setComment] = useState('');
@@ -50,9 +53,58 @@ const SubscribeFlowModal = ({
     const dispatch = useDispatch();
     const navigation = useNavigation();
     const { bgStyle, textStyle, text } = useAppTheme();
-    const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
 
     const isCompanyProfile = userProfile === 'company';
+
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
+    const isOnboardingReady = (status) => status?.canReceivePayments === true && Boolean(status?.accountId);
+
+    const GetInbordingstatus = async () => {
+        try {
+            const response = await getOnboardingStatus();
+            if (response?.statusCode === 200) {
+                return response?.data ?? null;
+            }
+            return null;
+        } catch (_error) {
+            return null;
+        }
+    };
+
+    const GetInbordingLink = async () => {
+        const response = await createOnboardingLink();
+        const onboardingUrl = response?.data?.onboardingUrl ?? response?.data?.data?.onboardingUrl;
+
+        if (!onboardingUrl) {
+            const latestStatus = await GetInbordingstatus();
+            if (isOnboardingReady(latestStatus)) {
+                return { alreadyOnboarded: true };
+            }
+            throw new Error('Onboarding link not found');
+        }
+
+        if (await InAppBrowser.isAvailable()) {
+            return await InAppBrowser.open(onboardingUrl, {
+                ...STRIPE_BROWSER_OPTIONS,
+                forceCloseOnRedirection: true,
+            });
+        }
+
+        await Linking.openURL(onboardingUrl);
+        return { type: 'opened_external' };
+    };
+
+    const waitForOnboardingCompletion = async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            const status = await GetInbordingstatus();
+            if (isOnboardingReady(status)) {
+                return status;
+            }
+            await delay(2000);
+        }
+        return null;
+    };
 
     /* =========================
        PROPER MODAL RESET
@@ -60,7 +112,6 @@ const SubscribeFlowModal = ({
     const closeAllModals = () => {
         step1Ref.current?.close();
         step2Ref.current?.close();
-        setShowPaymentMethodModal(false);
         setAcceptedTerms(false);
         onClose?.();
     };
@@ -71,7 +122,6 @@ const SubscribeFlowModal = ({
     useEffect(() => {
         if (visible) {
             setAcceptedTerms(false);
-            setShowPaymentMethodModal(false);
 
             setTimeout(() => {
                 step1Ref.current?.open();
@@ -100,22 +150,10 @@ const SubscribeFlowModal = ({
        STRIPE SUBSCRIPTION FLOW
     ========================== */
     const getSubscription = async () => {
-        const canProceed = await requireStripeCustomerForPayment();
         const amount = Number(subscriptionAmount);
 
         if (!amount || Number.isNaN(amount)) {
             showToastMessage(toast, 'danger', 'Subscription amount is not available. Please try again.');
-            return;
-        }
-
-        if (!canProceed) {
-            step1Ref.current?.close();
-            step2Ref.current?.close();
-
-            setTimeout(() => {
-                setShowPaymentMethodModal(true);
-            }, 500);
-
             return;
         }
 
@@ -128,12 +166,21 @@ const SubscribeFlowModal = ({
                 // fanUserId: userId,
             };
 
-            const response = await FanPageSubscription(payload);
-            console.log(response,'data in buy subcription');
-            
-            const url = getPaymentSessionUrl(response);
-
-            if (url) {
+            const onboardingStatus = await GetInbordingstatus();
+            console.log(onboardingStatus,'data in fanpage')
+            if (isOnboardingReady(onboardingStatus)) {
+                const response = await FanPageSubscription(payload);
+                const url = getPaymentSessionUrl(response);
+                if (!url) {
+                    showToastMessage(
+                        toast,
+                        'danger',
+                        response?.message ||
+                        response?.data?.message ||
+                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                    );
+                    return;
+                }
                 if (await InAppBrowser.isAvailable()) {
                     await InAppBrowser.open(url, {
                         ...STRIPE_BROWSER_OPTIONS,
@@ -142,17 +189,67 @@ const SubscribeFlowModal = ({
                 } else {
                     await Linking.openURL(url);
                 }
-
                 closeAllModals();
-            } else {
-                showToastMessage(
-                    toast,
-                    'danger',
-                    response?.message ||
-                    response?.data?.message ||
-                    STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY 
-                );
+                return;
             }
+
+            const onboardingResult = await GetInbordingLink();
+            if (onboardingResult?.alreadyOnboarded) {
+                const response = await FanPageSubscription(payload);
+                const url = getPaymentSessionUrl(response);
+                if (!url) {
+                    showToastMessage(
+                        toast,
+                        'danger',
+                        response?.message ||
+                        response?.data?.message ||
+                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                    );
+                    return;
+                }
+                if (await InAppBrowser.isAvailable()) {
+                    await InAppBrowser.open(url, {
+                        ...STRIPE_BROWSER_OPTIONS,
+                        forceCloseOnRedirection: true,
+                    });
+                } else {
+                    await Linking.openURL(url);
+                }
+                closeAllModals();
+                return;
+            }
+
+            if (isBrowserCancelled(onboardingResult)) {
+                return;
+            }
+
+            const updatedStatus = await waitForOnboardingCompletion();
+            if (isOnboardingReady(updatedStatus)) {
+                const response = await FanPageSubscription(payload);
+                const url = getPaymentSessionUrl(response);
+                if (!url) {
+                    showToastMessage(
+                        toast,
+                        'danger',
+                        response?.message ||
+                        response?.data?.message ||
+                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                    );
+                    return;
+                }
+                if (await InAppBrowser.isAvailable()) {
+                    await InAppBrowser.open(url, {
+                        ...STRIPE_BROWSER_OPTIONS,
+                        forceCloseOnRedirection: true,
+                    });
+                } else {
+                    await Linking.openURL(url);
+                }
+                closeAllModals();
+                return;
+            }
+
+            showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
         } catch (error) {
             showToastMessage(
                 toast,
@@ -333,22 +430,6 @@ const SubscribeFlowModal = ({
                 </ScrollView>
             </RBSheet>
 
-            <StripePaymentMethodModal
-                visible={showPaymentMethodModal}
-                onClose={() => setShowPaymentMethodModal(false)}
-                onConnectStripe={async () => {
-                    try {
-                        await openPaymentConnectionAndRefresh();
-                    } catch (e) {
-                        showToastMessage(
-                            toast,
-                            'danger',
-                            e?.message ||
-                            STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED
-                        );
-                    }
-                }}
-            />
         </>
     );
 };

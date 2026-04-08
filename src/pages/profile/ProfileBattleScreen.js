@@ -14,16 +14,26 @@ import { useAppTheme } from '../../theme/useApptheme';
 export default function ProfileBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  console.log(route, 'data in route in thi screen')
+  const returnTo = route?.params?.returnTo;
   const { profile, } = route.params || {};
   const { bgStyle, text } = useAppTheme(profile);
   const viewedUserId = route?.params?.viewedUserId || '';
   const isOwner = Boolean(route?.params?.isOwner);
   const title = route?.params?.title || 'Battle';
+
+  const handleBack = () => {
+    if (returnTo === 'UserProfile') {
+      navigation.navigate('ProfileMain'); // 👈 go back to profile root
+    } else {
+      navigation.goBack(); // default behavior
+    }
+  };
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
           style={styles.headerIconBtn}
         >
           <Icon name="arrow-back-ios-new" size={20} color={text} />

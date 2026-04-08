@@ -21,18 +21,18 @@ import { addMissionDonation, purchaseTokenWithUSD } from '../../services/tokens'
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
-import { useStripeCustomer } from '../../hooks/useStripeCustomer';
-import StripePaymentMethodModal from './StripePaymentMethodModal';
-import { useNavigation } from '@react-navigation/native';
+import {
+    getPaymentSessionUrl,
+    STRIPE_BROWSER_OPTIONS,
+    STRIPE_ERROR_MESSAGES,
+    createOnboardingLink,
+    getOnboardingStatus,
+} from '../../utils/stripeOnboarding';
 
 export default function MissionSupportScreen({ visible, onClose, item, onDonationSuccess }) {
     const { bgStyle, textStyle, bg } = useAppTheme();
     const dispatch = useDispatch();
     const toast = useToast();
-    const navigation = useNavigation();
-    const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
-    const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
@@ -42,6 +42,56 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
 
     const amounts = [5, 10, 25, 50];
+
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
+    const isOnboardingReady = (status) => status?.canReceivePayments === true && Boolean(status?.accountId);
+
+    const GetInbordingstatus = async () => {
+        try {
+            const response = await getOnboardingStatus();
+            if (response?.statusCode === 200) {
+                return response?.data ?? null;
+            }
+            return null;
+        } catch (_error) {
+            return null;
+        }
+    };
+
+    const GetInbordingLink = async () => {
+        const response = await createOnboardingLink();
+        const onboardingUrl = response?.data?.onboardingUrl ?? response?.data?.data?.onboardingUrl;
+
+        if (!onboardingUrl) {
+            const latestStatus = await GetInbordingstatus();
+            if (isOnboardingReady(latestStatus)) {
+                return { alreadyOnboarded: true };
+            }
+            throw new Error('Onboarding link not found');
+        }
+
+        if (await InAppBrowser.isAvailable()) {
+            return await InAppBrowser.open(onboardingUrl, {
+                ...STRIPE_BROWSER_OPTIONS,
+                forceCloseOnRedirection: true,
+            });
+        }
+
+        await Linking.openURL(onboardingUrl);
+        return { type: 'opened_external' };
+    };
+
+    const waitForOnboardingCompletion = async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            const status = await GetInbordingstatus();
+            if (isOnboardingReady(status)) {
+                return status;
+            }
+            await delay(2000);
+        }
+        return null;
+    };
 
     // ✅ Listen for payment completion events
     useEffect(() => {
@@ -81,12 +131,83 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
         };
     }, [visible]); // ✅ Only depend on visible prop
 
-    const handleConfirm = async () => {
-        const canProceed = await requireStripeCustomerForPayment();
-        if (!canProceed) {
-            setShowPaymentMethodModal(true);
+    const runPaymentFlow = async (createPaymentSession) => {
+        const onboardingStatus = await GetInbordingstatus();
+        console.log(onboardingStatus, 'data in donation')
+
+        if (isOnboardingReady(onboardingStatus)) {
+            const response = await createPaymentSession();
+            const url = getPaymentSessionUrl(response);
+            if (!url) {
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                return;
+            }
+            if (await InAppBrowser.isAvailable()) {
+                await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+            } else {
+                await Linking.openURL(url);
+                setCustomAmount('');
+                setSelectedAmount(null);
+                setNote('');
+                setIsButtonLoading(false);
+                onClose();
+                dispatch(hideLoader());
+            }
             return;
         }
+
+        const onboardingResult = await GetInbordingLink();
+        if (onboardingResult?.alreadyOnboarded) {
+            const response = await createPaymentSession();
+            const url = getPaymentSessionUrl(response);
+            if (!url) {
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                return;
+            }
+            if (await InAppBrowser.isAvailable()) {
+                await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+            } else {
+                await Linking.openURL(url);
+                setCustomAmount('');
+                setSelectedAmount(null);
+                setNote('');
+                setIsButtonLoading(false);
+                onClose();
+                dispatch(hideLoader());
+            }
+            return;
+        }
+
+        if (isBrowserCancelled(onboardingResult)) {
+            return;
+        }
+
+        const updatedStatus = await waitForOnboardingCompletion();
+        if (isOnboardingReady(updatedStatus)) {
+            const response = await createPaymentSession();
+            const url = getPaymentSessionUrl(response);
+            if (!url) {
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                return;
+            }
+            if (await InAppBrowser.isAvailable()) {
+                await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+            } else {
+                await Linking.openURL(url);
+                setCustomAmount('');
+                setSelectedAmount(null);
+                setNote('');
+                setIsButtonLoading(false);
+                onClose();
+                dispatch(hideLoader());
+            }
+            return;
+        }
+
+        showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+    };
+
+    const handleConfirm = async () => {
         setIsButtonLoading(true);
 
         if (item?.profile === "user") {
@@ -107,39 +228,14 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 };
 
                 console.log('Purchase request body:', requestBody);
-                const response = await purchaseTokenWithUSD(requestBody);
                 setTimeout(async () => {
-                    const url = getPaymentSessionUrl(response);
-                    if (url) {
-                        try {
-                            if (await InAppBrowser.isAvailable()) {
-                                paymentCompletedRef.current = false;
-                                await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
-                                if (!paymentCompletedRef.current) {
-                                    setIsButtonLoading(false);
-                                    dispatch(hideLoader());
-                                    showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.PAYMENT_CANCELLED);
-                                }
-                            } else {
-                                await Linking.openURL(url);
-                                setCustomAmount('');
-                                setSelectedAmount(null);
-                                setNote('');
-                                setIsButtonLoading(false);
-                                onClose();
-                                dispatch(hideLoader());
-                            }
-                        } catch (err) {
-                            await InAppBrowser.close();
-                            setIsButtonLoading(false);
-                            dispatch(hideLoader());
-                            showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
-                        }
-                    } else {
-                        const msg = response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY;
-                        showToastMessage(toast, 'danger', msg);
+                    try {
+                        await runPaymentFlow(() => purchaseTokenWithUSD(requestBody));
+                    } catch (err) {
+                        await InAppBrowser.close();
                         setIsButtonLoading(false);
                         dispatch(hideLoader());
+                        showToastMessage(toast, 'danger', err?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
                     }
                 }, 1000);
             } catch (error) {
@@ -169,29 +265,10 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
             console.log('Mission Donation Request:', requestBody);
 
-            const response = await addMissionDonation(requestBody);
-            const url = getPaymentSessionUrl(response);
-
-            if (url) {
-                try {
-                    if (await InAppBrowser.isAvailable()) {
-                        await InAppBrowser.open(url, STRIPE_BROWSER_OPTIONS);
-                    } else {
-                        await Linking.openURL(url);
-                        setCustomAmount('');
-                        setSelectedAmount(null);
-                        setNote('');
-                        setIsButtonLoading(false);
-                        dispatch(hideLoader());
-                        onClose();
-                    }
-                } catch (err) {
-                    setIsButtonLoading(false);
-                    dispatch(hideLoader());
-                    showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
-                }
-            } else {
-                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+            try {
+                await runPaymentFlow(() => addMissionDonation(requestBody));
+            } catch (err) {
+                showToastMessage(toast, 'danger', err?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
@@ -206,121 +283,110 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     return (
         <>
         <Modal
-            visible={visible && !showPaymentMethodModal}
+            visible={visible}
             transparent
             animationType="fade"
             onRequestClose={onClose}
         >
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{ flex: 1 }}
-            >
-                <View style={styles.overlay}>
-                    <View style={styles.modalBox}>
-                        <ScrollView contentContainerStyle={[styles.container, bgStyle]}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={{ flex: 1 }}
+                >
+                    <View style={styles.overlay}>
+                        <View style={styles.modalBox}>
+                            <ScrollView contentContainerStyle={[styles.container, bgStyle]}>
 
-                            <Text style={[styles.title, textStyle]}>💜 VALENS MISSION POST</Text>
+                                <Text style={[styles.title, textStyle]}>💜 VALENS MISSION POST</Text>
 
-                            <Text style={styles.heading}>Fund this Mission. Fuel their vision.</Text>
+                                <Text style={styles.heading}>Fund this Mission. Fuel their vision.</Text>
 
-                            <Text style={styles.description}>
-                                Your contribution helps this creator complete a specific goal or project.
-                            </Text>
+                                <Text style={styles.description}>
+                                    Your contribution helps this creator complete a specific goal or project.
+                                </Text>
 
-                            <Text style={styles.label}>Leave a note (optional):</Text>
-                            <TextInput
-                                style={styles.noteInput}
-                                placeholder="Type a short message of support..."
-                                placeholderTextColor="#999"
-                                multiline
-                                value={note}
-                                onChangeText={setNote}
-                            />
+                                <Text style={styles.label}>Leave a note (optional):</Text>
+                                <TextInput
+                                    style={styles.noteInput}
+                                    placeholder="Type a short message of support..."
+                                    placeholderTextColor="#999"
+                                    multiline
+                                    value={note}
+                                    onChangeText={setNote}
+                                />
 
-                            <Text style={styles.label}>Choose your support amount:</Text>
+                                <Text style={styles.label}>Choose your support amount:</Text>
 
-                            <View style={styles.amountContainer}>
-                                {amounts.map((amt) => (
-                                    <TouchableOpacity
-                                        key={amt}
-                                        style={[styles.amountBox, selectedAmount === amt && styles.amountSelected]}
-                                        onPress={() => {
-                                            setSelectedAmount(amt);
-                                            setCustomAmount('');
-                                        }}
-                                    >
-                                        <Text style={styles.amountText}>${amt}</Text>
-                                    </TouchableOpacity>
-                                ))}
+                                <View style={styles.amountContainer}>
+                                    {amounts.map((amt) => (
+                                        <TouchableOpacity
+                                            key={amt}
+                                            style={[styles.amountBox, selectedAmount === amt && styles.amountSelected]}
+                                            onPress={() => {
+                                                setSelectedAmount(amt);
+                                                setCustomAmount('');
+                                            }}
+                                        >
+                                            <Text style={styles.amountText}>${amt}</Text>
+                                        </TouchableOpacity>
+                                    ))}
 
-                                <View style={[styles.customBox, customAmount && styles.amountSelected]}>
-                                    <TextInput
-                                        keyboardType="numeric"
-                                        style={styles.customInput}
-                                        value={customAmount}
-                                        onChangeText={(t) => {
-                                            setCustomAmount(t);
-                                            setSelectedAmount(null);
-                                        }}
-                                        placeholder='Enter amount'
-                                        placeholderTextColor="#000"
-                                        cursorColor="#000"
-                                        selectionColor="#000"
-                                    />
+                                    <View style={[styles.customBox, customAmount && styles.amountSelected]}>
+                                        <TextInput
+                                            keyboardType="numeric"
+                                            style={styles.customInput}
+                                            value={customAmount}
+                                            onChangeText={(t) => {
+                                                setCustomAmount(t);
+                                                setSelectedAmount(null);
+                                            }}
+                                            placeholder='Enter amount'
+                                            placeholderTextColor="#000"
+                                            cursorColor="#000"
+                                            selectionColor="#000"
+                                        />
+                                    </View>
                                 </View>
-                            </View>
 
-                            <Text style={styles.secureText}>
-                                Your payment is processed securely. Standard Valens platform fees apply.
-                            </Text>
+                                <Text style={styles.secureText}>
+                                    Your payment is processed securely. Standard Valens platform fees apply.
+                                </Text>
 
-                            <View style={styles.bottomButtons}>
-                                <TouchableOpacity
-                                    style={[styles.confirmBtn, bg, isButtonLoading && styles.confirmBtnDisabled]}
-                                    onPress={handleConfirm}
-                                    disabled={isButtonLoading}
-                                >
-                                    {isButtonLoading ? (
-                                        <View style={styles.loadingContainer}>
-                                            <ActivityIndicator size="small" color="#fff" />
-                                            <Text style={[styles.confirmText, { marginLeft: 8 }]}>Processing...</Text>
-                                        </View>
-                                    ) : (
-                                        <Text style={styles.confirmText}>🚀 Confirm & Support</Text>
-                                    )}
-                                </TouchableOpacity>
+                                <View style={styles.bottomButtons}>
+                                    <TouchableOpacity
+                                        style={[styles.confirmBtn, bg, isButtonLoading && styles.confirmBtnDisabled]}
+                                        onPress={handleConfirm}
+                                        disabled={isButtonLoading}
+                                    >
+                                        {isButtonLoading ? (
+                                            <View style={styles.loadingContainer}>
+                                                <ActivityIndicator size="small" color="#fff" />
+                                                <Text style={[styles.confirmText, { marginLeft: 8 }]}>Processing...</Text>
+                                            </View>
+                                        ) : (
+                                            <Text style={styles.confirmText}>🚀 Confirm & Support</Text>
+                                        )}
+                                    </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={styles.cancelBtn}
-                                    onPress={() => {
-                                        setIsButtonLoading(false);
-                                        dispatch(hideLoader());
-                                        onClose();
-                                    }}
-                                // disabled={isButtonLoading}
-                                >
-                                    <Text style={styles.cancelText}>Cancel</Text>
-                                </TouchableOpacity>
-                            </View>
+                                    <TouchableOpacity
+                                        style={styles.cancelBtn}
+                                        onPress={() => {
+                                            setIsButtonLoading(false);
+                                            dispatch(hideLoader());
+                                            onClose();
+                                        }}
+                                    // disabled={isButtonLoading}
+                                    >
+                                        <Text style={styles.cancelText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </View>
 
-                        </ScrollView>
+                            </ScrollView>
+                        </View>
                     </View>
-                </View>
-            </KeyboardAvoidingView>
-        </Modal>
+                </KeyboardAvoidingView>
+            </Modal>
 
-        <StripePaymentMethodModal
-            visible={showPaymentMethodModal}
-            onClose={() => setShowPaymentMethodModal(false)}
-            onConnectStripe={async () => {
-                try {
-                    await openPaymentConnectionAndRefresh();
-                } catch (e) {
-                    showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
-                }
-            }}
-        />
-    </>
+        </>
     );
 }
 
