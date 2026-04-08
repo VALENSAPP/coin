@@ -1,5 +1,5 @@
 /**
- * Reown / WalletConnect project config for Sepolia support payments.
+ * Reown / WalletConnect project config for Polygon support payments.
  * Create a project at https://cloud.reown.com and set WALLETCONNECT_PROJECT_ID in env when you add react-native-dotenv.
  * Register the same native redirect URL in the project mobile settings.
  *
@@ -34,7 +34,7 @@ export const sessionParams = {
         'wallet_switchEthereumChain',
         'wallet_addEthereumChain',
       ],
-      chains: ['eip155:11155111'],
+      chains: ['eip155:137'],
       events: ['chainChanged', 'accountsChanged'],
       rpcMap: {},
     },

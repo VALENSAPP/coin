@@ -104,7 +104,7 @@ export default function FollowCard({
     await startSupportPayment(recipientWalletAddress, {
       senderId: currentUserId != null ? String(currentUserId) : '',
       receiverId: receiverId !== '' ? String(receiverId) : '',
-      chain: 'SEPOLIA',
+      chain: 'POLYGON',
     });
   };
 

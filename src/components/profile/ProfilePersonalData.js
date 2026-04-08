@@ -552,7 +552,7 @@ const ProfilePersonData = ({
     await startSupportPayment(recipientWalletAddress, {
       senderId: userId != null ? String(userId) : '',
       receiverId: receiverId !== '' ? String(receiverId) : '',
-      chain: 'SEPOLIA',
+      chain: 'POLYGON',
     });
   }, [
     canSupport,
