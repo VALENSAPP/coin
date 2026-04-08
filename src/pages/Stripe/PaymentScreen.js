@@ -156,7 +156,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         /**
          * Use openAuth so the browser auto-closes when Stripe redirects to your custom scheme.
          * IMPORTANT: Configure your backend Checkout URLs as HTTPS pages that immediately
-         * window.location.replace('com.valens://payment-success?session_id=...') etc.
+         * window.location.replace('com.valens.app://payment-success?session_id=...') etc.
          */
         const authResult = await InAppBrowser.openAuth(url, 'com.valens://', {
           showTitle: true,

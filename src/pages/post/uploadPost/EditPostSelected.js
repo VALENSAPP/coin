@@ -499,6 +499,29 @@ const InstagramPostCreator = () => {
     maxY: editorCanvasHeight - 50,  // Changed from editorCanvasHeight - 60
   });
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+  const containsEmoji = value => EMOJI_REGEX.test(String(value || ''));
+  const resolveOverlayFontFamily = (value, requestedFontFamily) => {
+    if (containsEmoji(value)) {
+      return undefined;
+    }
+    return requestedFontFamily || undefined;
+  };
+  const getTextStyleWithFont = (value, requestedFontFamily) => {
+    const resolvedFontFamily = resolveOverlayFontFamily(value, requestedFontFamily);
+    return resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {};
+  };
+  const getAnimatedNumericValue = (animatedNode, fallback = 0) => {
+    const directValue =
+      typeof animatedNode?.__getValue === 'function'
+        ? animatedNode.__getValue()
+        : animatedNode?._value;
+
+    return Number.isFinite(directValue) ? directValue : fallback;
+  };
+  const getAnimatedPositionValue = (animatedPosition, fallback = { x: 0, y: 0 }) => ({
+    x: getAnimatedNumericValue(animatedPosition?.x, fallback.x),
+    y: getAnimatedNumericValue(animatedPosition?.y, fallback.y),
+  });
 
   const getTouchDistance = (touches) => {
     if (!touches || touches.length < 2) return 0;
@@ -562,8 +585,8 @@ const InstagramPostCreator = () => {
 
       const downloadPath = await downloadMedia(uriToDownload, filename, isVideo, toast);
 
-      showToastMessage(toast, 'success', `Saved: ${filename}`);
-      console.log('Download saved to:', downloadPath);
+      showToastMessage(toast, 'success', `Saved to gallery`);
+      console.log('Download saved to gallery', downloadPath);
     } catch (error) {
       console.error('Download error:', error);
       // Error toast/alert handled in downloadMedia
@@ -677,6 +700,53 @@ const InstagramPostCreator = () => {
       setVideoPaused(initialVideoPaused);
     }
   }, [routeImages]);
+
+  useEffect(() => {
+    if (isOverlayTransforming) {
+      return;
+    }
+
+    const currentEdits = imageEdits[currentImageIndex];
+    if (!currentEdits) {
+      return;
+    }
+
+    currentEdits.textOverlays?.forEach(overlay => {
+      const nextPosition = overlay.position || { x: 0, y: 0 };
+      const animatedPosition = getAnimatedValue(
+        currentImageIndex,
+        overlay.id,
+        nextPosition.x,
+        nextPosition.y,
+      );
+      const currentPosition = getAnimatedPositionValue(animatedPosition, nextPosition);
+
+      if (
+        Math.abs(currentPosition.x - nextPosition.x) > 1 ||
+        Math.abs(currentPosition.y - nextPosition.y) > 1
+      ) {
+        animatedPosition.setValue(nextPosition);
+      }
+    });
+
+    currentEdits.overlayImages?.forEach(overlay => {
+      const nextPosition = overlay.position || { x: 50, y: 50 };
+      const animatedPosition = getAnimatedValue(
+        currentImageIndex,
+        `image-${overlay.id}`,
+        nextPosition.x,
+        nextPosition.y,
+      );
+      const currentPosition = getAnimatedPositionValue(animatedPosition, nextPosition);
+
+      if (
+        Math.abs(currentPosition.x - nextPosition.x) > 1 ||
+        Math.abs(currentPosition.y - nextPosition.y) > 1
+      ) {
+        animatedPosition.setValue(nextPosition);
+      }
+    });
+  }, [currentImageIndex, imageEdits, isOverlayTransforming]);
 
   const getCurrentImageEdits = () => {
     return imageEdits[currentImageIndex] || createEmptyImageEdits();
@@ -914,6 +984,13 @@ const InstagramPostCreator = () => {
     if (!target) {
       return PanResponder.create({ onStartShouldSetPanResponder: () => false });
     }
+    const animatedPosition = getAnimatedValue(
+      imageIndex,
+      `image-${id}`,
+      target.position?.x || 50,
+      target.position?.y || 50,
+    );
+    const fallbackPosition = target.position || { x: 50, y: 50 };
 
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -925,16 +1002,22 @@ const InstagramPostCreator = () => {
         const currentOverlay = (imageEdits[imageIndex] || getCurrentImageEdits())
           .overlayImages
           .find(o => o.id === id) || target;
+        const safePosition = getAnimatedPositionValue(
+          animatedPosition,
+          currentOverlay.position || fallbackPosition,
+        );
 
         overlayGestureState.current[id] = {
           mode: touches.length >= 2 ? 'transform' : 'drag',
-          startPosition: { ...(currentOverlay.position || { x: 50, y: 50 }) },
+          startPosition: safePosition,
           startScale: currentOverlay.scale || 1,
           startRotation: currentOverlay.rotation || 0,
           startDistance: getTouchDistance(touches),
           startAngle: getTouchAngle(touches),
           startCenter: getTouchCenter(touches),
+          moved: false,
         };
+        animatedPosition.setValue(safePosition);
 
         setIsOverlayTransforming(true);
         setIsScrollEnabled(false);
@@ -952,7 +1035,10 @@ const InstagramPostCreator = () => {
               .find(o => o.id === id) || target;
 
             session.mode = 'transform';
-            session.startPosition = { ...(currentOverlay.position || { x: 50, y: 50 }) };
+            session.startPosition = getAnimatedPositionValue(
+              animatedPosition,
+              currentOverlay.position || fallbackPosition,
+            );
             session.startScale = currentOverlay.scale || 1;
             session.startRotation = currentOverlay.rotation || 0;
             session.startDistance = getTouchDistance(touches);
@@ -964,24 +1050,28 @@ const InstagramPostCreator = () => {
           const angle = getTouchAngle(touches);
           const center = getTouchCenter(touches);
           const scaleRatio = session.startDistance > 0 ? distance / session.startDistance : 1;
+          const nextPosition = {
+            x: clamp(
+              session.startPosition.x + (center.x - session.startCenter.x),
+              overlayBounds.minX,
+              overlayBounds.maxX,
+            ),
+            y: clamp(
+              session.startPosition.y + (center.y - session.startCenter.y),
+              overlayBounds.minY,
+              overlayBounds.maxY,
+            ),
+          };
+          animatedPosition.setValue(nextPosition);
 
           updateOverlayImageById(imageIndex, id, overlay => ({
             ...overlay,
-            position: {
-              x: clamp(
-                session.startPosition.x + (center.x - session.startCenter.x),
-                overlayBounds.minX,
-                overlayBounds.maxX,
-              ),
-              y: clamp(
-                session.startPosition.y + (center.y - session.startCenter.y),
-                overlayBounds.minY,
-                overlayBounds.maxY,
-              ),
-            },
+            position: nextPosition,
             scale: clamp(session.startScale * scaleRatio, 0.35, 4),
             rotation: session.startRotation + (angle - session.startAngle),
           }));
+          session.pendingPosition = nextPosition;
+          session.moved = true;
           return;
         }
 
@@ -990,31 +1080,56 @@ const InstagramPostCreator = () => {
             .overlayImages
             .find(o => o.id === id) || target;
           session.mode = 'drag';
-          session.startPosition = { ...(currentOverlay.position || { x: 50, y: 50 }) };
+          session.startPosition = getAnimatedPositionValue(
+            animatedPosition,
+            currentOverlay.position || fallbackPosition,
+          );
         }
-
-        updateOverlayImageById(imageIndex, id, overlay => ({
-          ...overlay,
-          position: {
-            x: clamp(
-              session.startPosition.x + gestureState.dx,
-              overlayBounds.minX,
-              overlayBounds.maxX,
-            ),
-            y: clamp(
-              session.startPosition.y + gestureState.dy,
-              overlayBounds.minY,
-              overlayBounds.maxY,
-            ),
-          },
-        }));
+        const nextPosition = {
+          x: clamp(
+            session.startPosition.x + gestureState.dx,
+            overlayBounds.minX,
+            overlayBounds.maxX,
+          ),
+          y: clamp(
+            session.startPosition.y + gestureState.dy,
+            overlayBounds.minY,
+            overlayBounds.maxY,
+          ),
+        };
+        animatedPosition.setValue(nextPosition);
+        if (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2) {
+          session.moved = true;
+        }
+        session.pendingPosition = nextPosition;
       },
       onPanResponderRelease: () => {
+        const session = overlayGestureState.current[id];
+        const finalPosition = session?.pendingPosition || getAnimatedPositionValue(
+          animatedPosition,
+          fallbackPosition,
+        );
+        updateOverlayImageById(imageIndex, id, overlay => ({
+          ...overlay,
+          position: finalPosition,
+        }));
+        if (session?.moved) {
+          recentDragTimestamps.current[`image-${id}`] = Date.now();
+        }
         delete overlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
       },
       onPanResponderTerminate: () => {
+        const session = overlayGestureState.current[id];
+        const finalPosition = session?.pendingPosition || getAnimatedPositionValue(
+          animatedPosition,
+          fallbackPosition,
+        );
+        updateOverlayImageById(imageIndex, id, overlay => ({
+          ...overlay,
+          position: finalPosition,
+        }));
         delete overlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
@@ -1145,6 +1260,8 @@ const InstagramPostCreator = () => {
         delete textOverlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
+        setIsOverlayTransforming(false);
+        delete overlayGestureState.current[`text-${id}`];
       },
     });
   };
@@ -1232,7 +1349,10 @@ const InstagramPostCreator = () => {
               ...o,
               text,
               color: textColor,
-              fontFamily: selectedFont.fontFamily || selectedFont,
+              fontFamily: resolveOverlayFontFamily(
+                text,
+                selectedFont.fontFamily || selectedFont,
+              ),
               textAlign,
               highlightColor,
             }
@@ -1259,7 +1379,10 @@ const InstagramPostCreator = () => {
         fontSize: 28,
         scale: 1,
         color: textColor,
-        fontFamily: selectedFont.fontFamily || selectedFont,
+        fontFamily: resolveOverlayFontFamily(
+          text,
+          selectedFont.fontFamily || selectedFont,
+        ),
         textAlign,
         highlightColor,
         // Store position as plain object
@@ -1556,7 +1679,7 @@ const InstagramPostCreator = () => {
 
   const renderImageCarousel = () => {
     const currentEdits = getCurrentImageEdits();
-    const currentCanvasHeight = getCanvasHeightForMedia(selectedImages[currentImageIndex]);
+    const currentCanvasHeight = editorCanvasHeight;
     const FilterComponent =
       filterOptions.find(f => f.value === selectedFilter)?.component ||
       React.Fragment;
@@ -1881,16 +2004,21 @@ const InstagramPostCreator = () => {
                       <>
                         {currentEdits.overlayImages.map(img => {
                           const panResponder = createPanResponder(img.id);
+                          const animatedPosition = getAnimatedValue(
+                            currentImageIndex,
+                            `image-${img.id}`,
+                            img.position?.x || 50,
+                            img.position?.y || 50,
+                          );
                           return (
-                            <View
+                            <Animated.View
                               key={img.id}
                               {...panResponder.panHandlers}
                               testID="overlay-element"
                               style={[
                                 styles.overlayImageWrapper,
+                                animatedPosition.getLayout(),
                                 {
-                                  left: img.position?.x || 0,
-                                  top: img.position?.y || 0,
                                   width: img.baseSize || 100,
                                   height: img.baseSize || 100,
                                   transform: [
@@ -1901,7 +2029,16 @@ const InstagramPostCreator = () => {
                               ]}
                             >
                               <TouchableOpacity
-                                onLongPress={() => removeOverlay(img.id)}
+                                onLongPress={() => {
+                                  if (
+                                    Date.now() - (recentDragTimestamps.current[`image-${img.id}`] || 0) <
+                                    250
+                                  ) {
+                                    return;
+                                  }
+                                  removeOverlay(img.id);
+                                }}
+                                delayLongPress={250}
                                 activeOpacity={1}
                                 style={styles.overlayTouchTarget}
                               >
@@ -1910,7 +2047,7 @@ const InstagramPostCreator = () => {
                                   style={styles.overlayImage}
                                 />
                               </TouchableOpacity>
-                            </View>
+                            </Animated.View>
                           );
                         })}
 
@@ -1933,6 +2070,12 @@ const InstagramPostCreator = () => {
                               <TouchableOpacity
                                 onLongPress={() => removeTextOverlay(overlay.id)}
                                 onPress={() => {
+                                  if (
+                                    Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
+                                    250
+                                  ) {
+                                    return;
+                                  }
                                   setEditingOverlayId(overlay.id);
                                   setText(overlay.text);
                                   setTextColor(overlay.color);
@@ -1948,16 +2091,18 @@ const InstagramPostCreator = () => {
                                 }}
                               >
                                 <Text
-                                  style={{
-                                    fontSize: overlay.fontSize,
-                                    color: overlay.color,
-                                    fontFamily: overlay.fontFamily,
-                                    textAlign: overlay.textAlign,
-                                    textShadowColor: 'rgba(0,0,0,0.8)',
-                                    textShadowOffset: { width: 1, height: 1 },
-                                    textShadowRadius: 3,
-                                    maxWidth: 200,
-                                  }}
+                                  style={[
+                                    getTextStyleWithFont(overlay.text, overlay.fontFamily),
+                                    {
+                                      fontSize: overlay.fontSize,
+                                      color: overlay.color,
+                                      textAlign: overlay.textAlign,
+                                      textShadowColor: 'rgba(0,0,0,0.8)',
+                                      textShadowOffset: { width: 1, height: 1 },
+                                      textShadowRadius: 3,
+                                      maxWidth: 200,
+                                    },
+                                  ]}
                                   numberOfLines={3}
                                 >
                                   {overlay.text}
@@ -1984,7 +2129,10 @@ const InstagramPostCreator = () => {
                             <Text
                               style={[
                                 { fontSize: 28 },
-                                selectedFont,
+                                getTextStyleWithFont(
+                                  text,
+                                  selectedFont.fontFamily || selectedFont,
+                                ),
                                 {
                                   color: textColor,
                                   textAlign,
@@ -2047,16 +2195,18 @@ const InstagramPostCreator = () => {
                             }}
                           >
                             <Text
-                              style={{
-                                fontSize: overlay.fontSize,
-                                color: overlay.color,
-                                fontFamily: overlay.fontFamily,
-                                textAlign: overlay.textAlign,
-                                textShadowColor: 'rgba(0,0,0,0.8)',
-                                textShadowOffset: { width: 1, height: 1 },
-                                textShadowRadius: 3,
-                                maxWidth: 200,
-                              }}
+                              style={[
+                                getTextStyleWithFont(overlay.text, overlay.fontFamily),
+                                {
+                                  fontSize: overlay.fontSize,
+                                  color: overlay.color,
+                                  textAlign: overlay.textAlign,
+                                  textShadowColor: 'rgba(0,0,0,0.8)',
+                                  textShadowOffset: { width: 1, height: 1 },
+                                  textShadowRadius: 3,
+                                  maxWidth: 200,
+                                },
+                              ]}
                               numberOfLines={3}
                             >
                               {overlay.text}
@@ -2744,7 +2894,10 @@ const InstagramPostCreator = () => {
                 placeholderTextColor="#ccc"
                 style={[
                   styles.textInput,
-                  selectedFont,
+                  getTextStyleWithFont(
+                    text,
+                    selectedFont.fontFamily || selectedFont,
+                  ),
                   {
                     color: textColor,
                     textAlign,
@@ -3135,7 +3288,7 @@ const InstagramPostCreator = () => {
           <Text style={styles.headerButtonText}>×</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ height: isFlipPost ? "75%" : "70%" }} showsVerticalScrollIndicator={false}>
+      <View style={styles.editorWorkspace}>
         {renderFilters()}
         {renderImageCarousel()}
         {/* {renderZoomIndicator()} */}
@@ -3150,7 +3303,9 @@ const InstagramPostCreator = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-
+  },
+  editorWorkspace: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -3172,14 +3327,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    height: '80%',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 0,
     zIndex: 1,
     elevation: 1,
-    // backgroundColor:'#ed1010ff'
-
-
   },
   /** Host for hidden soundtrack players; sibling of mainImageContainer so overflow:hidden does not clip YouTube. */
   postEditorMusicBgHost: {
@@ -3206,26 +3357,20 @@ const styles = StyleSheet.create({
   },
   mainImageContainer: {
     width: IMAGE_SIZE,
-    height: '100%',
-    // alignSelf: 'center',
+    flex: 1,
+    alignSelf: 'center',
     overflow: 'hidden',
-
   },
   mainScrollView: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    flex: 1,
   },
   mainScrollContent: {
     alignItems: 'center',
-    height: '100%',
-    // alignSelf: 'center',
+    flexGrow: 1,
   },
   imageSlide: {
-    //  height: '100%' ,
-    // justifyContent: 'center',
-    // alignItems: 'center',
     height: "100%",
-
   },
   mainImage: {
     width: IMAGE_SIZE,
@@ -3291,7 +3436,7 @@ const styles = StyleSheet.create({
   imageZoomContainer: {
     width: IMAGE_SIZE,
     height: '100%',
-    backgroundColor: '#000',
+    // backgroundColor: '#000',
   },
   staticImageCanvas: {
     width: IMAGE_SIZE,
@@ -3299,7 +3444,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 8,
-    backgroundColor: '#000',
+    // backgroundColor: '#000',
   },
   drawingSurface: {
     width: IMAGE_SIZE,
@@ -3307,7 +3452,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 8,
-    backgroundColor: '#000',
+    // backgroundColor: '#000',
   },
   filterOverlay: {
     borderRadius: 8,
@@ -3393,7 +3538,7 @@ const styles = StyleSheet.create({
   },
   pageIndicator: {
     position: 'absolute',
-    bottom: 10,
+    bottom: 4,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -3410,8 +3555,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   thumbnailScrollView: {
-    marginTop: 12,
-    height: 60,
+    marginTop: -2,
+    height: 54,
   },
   thumbnail: {
     width: 50,
@@ -3468,8 +3613,9 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   editingSection: {
-    paddingTop: 12,
-
+    paddingTop: 4,
+    paddingBottom: 4,
+    marginTop: -2,
   },
   editingSectionFlip: {
     backgroundColor: '#000',

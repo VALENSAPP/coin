@@ -1,4 +1,4 @@
 module.exports = {
   preset: 'react-native',
-  setupFiles: ['<rootDir>/jest/setup-env-shim.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 };

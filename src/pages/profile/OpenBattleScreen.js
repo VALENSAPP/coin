@@ -501,7 +501,7 @@ export default function OpenBattleScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
+        // keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
       >
         <View style={styles.header}>
           <TouchableOpacity
@@ -908,7 +908,7 @@ export default function OpenBattleScreen() {
             )}
           </View>
 
-          <View style={styles.section}>
+          {/* <View style={styles.section}>
             <Text style={[styles.label, { color: text }]}>
               Stake (Optional)
             </Text>
@@ -930,7 +930,7 @@ export default function OpenBattleScreen() {
             {!!errors.stake && (
               <Text style={styles.errorText}>{errors.stake}</Text>
             )}
-          </View>
+          </View> */}
 
           <View style={styles.section}>
             <View
