@@ -19,6 +19,12 @@ const BUILTIN_AUDIO_URLS = {
   energy: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
 };
 
+/** Resolve URL for Story/Post library quick-pick ids (`chill`, `energy`, `vibe`). */
+export function getStoryBuiltinLibraryUrl(trackId) {
+  if (!trackId || typeof trackId !== 'string') return null;
+  return BUILTIN_AUDIO_URLS[trackId] || null;
+}
+
 function getExtFromPathLike(value) {
   if (typeof value !== 'string') return null;
   const noQuery = value.split('?')[0].split('#')[0];

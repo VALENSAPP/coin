@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/Ionicons';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../../components/home/posts/PostItem';
+import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import OptionsModal from '../../components/home/posts/OptionsModal';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -138,6 +139,7 @@ const SavedPostsScreen = ({ navigation }) => {
           ? followingMapByUserId[String(item.userId)]
           : !!item.isFollow,
       shareCount: item.shareCount ?? 0,
+      ...extractPostMusicPayloadFromApi(item),
     };
   }, [formatUrl, getMediaType]);
 

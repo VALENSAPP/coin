@@ -3,7 +3,7 @@
  * Matches StoryComposer `handleExport` clip shape (audio, trims, overlays).
  */
 
-function normalizeTrim(t) {
+export function normalizeTrim(t) {
   if (!t || typeof t !== 'object') {
     return { start: 0, end: null };
   }
@@ -18,7 +18,7 @@ function normalizeTrim(t) {
   return { start, end };
 }
 
-function sanitizeSerializable(value) {
+export function sanitizeSerializable(value) {
   if (value == null) {
     return null;
   }
