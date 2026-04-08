@@ -1,8 +1,21 @@
 import { Platform } from 'react-native';
 import axiosInstance from '..';
+import { appendStoryAudioFiles } from '../../utils/storyAudioUpload';
 
 export const createPost = async data => {
   const formData = new FormData();
+
+  if (data.music != null && String(data.music).trim() !== '') {
+    formData.append('music', String(data.music).trim());
+  }
+
+  if (data.youtubeMusicMeta != null && String(data.youtubeMusicMeta).trim() !== '') {
+    const ytm =
+      typeof data.youtubeMusicMeta === 'string'
+        ? data.youtubeMusicMeta
+        : JSON.stringify(data.youtubeMusicMeta);
+    formData.append('youtubeMusicMeta', ytm);
+  }
 
   if (data.caption) {
     formData.append("caption", data.caption);
@@ -50,6 +63,24 @@ export const createPost = async data => {
       });
     });
   }
+
+  if (data.postMeta != null) {
+    const meta =
+      typeof data.postMeta === 'string' ? data.postMeta : JSON.stringify(data.postMeta);
+    formData.append('postMeta', meta);
+  }
+
+  // Same shape as story upload (`story/upload`): lets backend reuse `storyMeta` + `audio_0`… handling.
+  if (data.storyMeta != null) {
+    const sm =
+      typeof data.storyMeta === 'string' ? data.storyMeta : JSON.stringify(data.storyMeta);
+    formData.append('storyMeta', sm);
+  }
+
+  if (Array.isArray(data.storyAudioClips) && data.storyAudioClips.length > 0) {
+    await appendStoryAudioFiles(formData, data.storyAudioClips);
+  }
+
   return axiosInstance.post('post/create', formData);
 }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PostItem from '../../components/home/posts/PostItem';
+import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import CommentSheet from '../../components/home/posts/CommentSheet';
 import OptionsModal from '../../components/home/posts/OptionsModal';
 
@@ -33,11 +34,15 @@ import {
 import { buildPostMaps } from '../../utils/postMaps';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const HidePosts = ({ navigation }) => {
+  const isScreenFocused = useIsFocused();
+  const [feedVisiblePostId, setFeedVisiblePostId] = useState(null);
+  const [feedPlayingPostId, setFeedPlayingPostId] = useState(null);
+
   // Data
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -247,6 +252,7 @@ const HidePosts = ({ navigation }) => {
           typeof followingByUserId[userKey] === 'boolean'
             ? followingByUserId[userKey]
             : !!p.isFollow,
+        ...extractPostMusicPayloadFromApi(p),
       };
     },
     [followingByUserId, currentUsername, formatUrl, getMediaType, normalizeProfileType, userDetailsById]
@@ -268,6 +274,73 @@ const HidePosts = ({ navigation }) => {
       setFollowingByUserId((prev) => ({ ...prev, ...maps.nextFollowing }));
     }
   }, []);
+
+  const handleHidePostsViewableChanged = useCallback(({ viewableItems }) => {
+    if (!viewableItems?.length) {
+      setFeedVisiblePostId(null);
+      setFeedPlayingPostId(null);
+      return;
+    }
+    let best = null;
+    let bestPct = -1;
+    for (const vi of viewableItems) {
+      const pid = vi.item?.id ?? vi.item?._id;
+      if (!vi.isViewable || pid == null) continue;
+      const pct =
+        typeof vi.percentVisible === 'number'
+          ? vi.percentVisible
+          : typeof vi.viewablePercent === 'number'
+            ? vi.viewablePercent
+            : 100;
+      if (pct > bestPct) {
+        bestPct = pct;
+        best = vi.item;
+      }
+    }
+    const id = best?.id ?? best?._id ?? null;
+    setFeedVisiblePostId(id);
+    setFeedPlayingPostId(id);
+  }, []);
+
+  const hidePostsViewableRef = useRef(handleHidePostsViewableChanged);
+  useEffect(() => {
+    hidePostsViewableRef.current = handleHidePostsViewableChanged;
+  }, [handleHidePostsViewableChanged]);
+
+  const hidePostsViewabilityPairs = useRef([
+    {
+      viewabilityConfig: {
+        viewAreaCoveragePercentThreshold: 50,
+        minimumViewTime: 50,
+        waitForInteraction: false,
+      },
+      onViewableItemsChanged: info => hidePostsViewableRef.current?.(info),
+    },
+  ]);
+
+  useEffect(() => {
+    if (!posts.length) {
+      setFeedVisiblePostId(null);
+      setFeedPlayingPostId(null);
+      return;
+    }
+    if (feedVisiblePostId != null) {
+      const stillThere = posts.some(
+        p => String(p.id ?? p._id) === String(feedVisiblePostId),
+      );
+      if (!stillThere) {
+        const nextId = posts[0]?.id ?? posts[0]?._id ?? null;
+        setFeedVisiblePostId(nextId);
+        setFeedPlayingPostId(nextId);
+      }
+      return;
+    }
+    const firstId = posts[0]?.id ?? posts[0]?._id ?? null;
+    if (firstId != null) {
+      setFeedVisiblePostId(firstId);
+      setFeedPlayingPostId(firstId);
+    }
+  }, [posts, feedVisiblePostId]);
 
   // --- fetch ---
   const fetchHiddenPosts = useCallback(async () => {
@@ -626,6 +699,7 @@ const HidePosts = ({ navigation }) => {
   const renderPostItem = useCallback(
     ({ item }) => {
       const mapped = mapApiPostToPostItem(item);
+      const postId = item.id ?? item._id;
       // Pass "saved" to keep PostItem UI identical; here it means "isHidden"
       return (
         <PostItem
@@ -641,6 +715,10 @@ const HidePosts = ({ navigation }) => {
           onComment={() => handleComment(item.id, mapped.UserId)}
           onOptions={() => openOptions(item.id)}
           onSuggest={[]}
+          isVisible={String(postId) === String(feedVisiblePostId)}
+          screenFocused={isScreenFocused}
+          playingPostId={feedPlayingPostId}
+          currentlyVisiblePostId={feedVisiblePostId}
         />
       );
     },
@@ -656,6 +734,9 @@ const HidePosts = ({ navigation }) => {
       followingBusy,
       handleComment,
       openOptions,
+      feedVisiblePostId,
+      feedPlayingPostId,
+      isScreenFocused,
     ]
   );
 
@@ -712,6 +793,7 @@ const HidePosts = ({ navigation }) => {
           maxToRenderPerBatch={5}
           windowSize={10}
           initialNumToRender={3}
+          viewabilityConfigCallbackPairs={hidePostsViewabilityPairs.current}
         />
       )}
 
