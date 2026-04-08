@@ -1,7 +1,5 @@
 import axiosinstance from '../../services';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loggedIn } from '../../redux/actions/LoginAction';
-import { showToastMessage } from '../../components/displaytoastmessage';
 import DeviceInfo from 'react-native-device-info';
 import Geolocation from 'react-native-geolocation-service';
 import { PermissionsAndroid, Platform } from 'react-native';
@@ -22,6 +20,16 @@ export const signup = async (data) => {
 }
 
 const requestLocationPermission = async () => {
+    if (Platform.OS === 'ios') {
+        try {
+            const status = await Geolocation.requestAuthorization('whenInUse');
+            return status === 'granted';
+        } catch (error) {
+            console.log(error, 'error requesting ios location permission');
+            return false;
+        }
+    }
+
     if (Platform.OS !== 'android') {
         return true;
     }
