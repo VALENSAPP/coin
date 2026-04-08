@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   Image,
   TextInput,
   Platform,
-  Animated,
-  PanResponder,
   FlatList,
   ScrollView,
   Alert,
@@ -21,6 +19,7 @@ import {
   ActivityIndicator,
   AppState,
 } from 'react-native';
+import { GestureHandlerRootView, Text as GestureText } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import LinearGradient from 'react-native-linear-gradient';
@@ -28,38 +27,24 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { captureRef } from 'react-native-view-shot';
 import { useAppTheme } from '../../../theme/useApptheme';
 import ImagePicker from 'react-native-image-crop-picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   searchYoutubeMusicTracks,
   getYoutubeSearchApiKey,
 } from '../../../services/youtubeMusic';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-/** Draggable music sticker card (matches export clamp size). */
-const MUSIC_STICKER_CARD_W = Math.min(280, SCREEN_WIDTH - 40);
-const MUSIC_STICKER_CARD_H = 56;
-
-function clampMusicBadgePosition(x, y, layout) {
-  const lw = layout?.width || SCREEN_WIDTH;
-  const lh = layout?.height || SCREEN_HEIGHT * 0.65;
-  const maxX = Math.max(0, lw - MUSIC_STICKER_CARD_W);
-  const maxY = Math.max(0, lh - MUSIC_STICKER_CARD_H);
-  return {
-    x: Math.max(0, Math.min(x, maxX)),
-    y: Math.max(0, Math.min(y, maxY)),
-  };
-}
-
-function defaultMusicBadgePosition(layout) {
-  const lw = layout?.width || SCREEN_WIDTH;
-  const lh = layout?.height || SCREEN_HEIGHT * 0.65;
-  return clampMusicBadgePosition(
-    (lw - MUSIC_STICKER_CARD_W) / 2,
-    lh * 0.42,
-    { width: lw, height: lh },
-  );
-}
+import StoryInteractiveOverlay from './StoryInteractiveOverlay';
+import {
+  SCREEN_WIDTH,
+  SCREEN_HEIGHT,
+  MUSIC_STICKER_CARD_W,
+  MUSIC_STICKER_CARD_H,
+  clampMusicBadgePosition,
+  defaultMusicBadgePosition,
+  OVERLAY_MIN_SCALE_STICKER,
+  OVERLAY_MIN_SCALE_TEXT,
+  OVERLAY_MIN_SCALE_MUSIC,
+  OVERLAY_MAX_SCALE,
+} from './storyOverlayConstants';
 
 const WAVE_BAR_STEP = 4;
 
@@ -362,57 +347,6 @@ function normalizeStoryMediaItem(raw) {
   return { ...raw, uri, type };
 }
 
-const Draggable = ({
-  id,
-  initialX = 50,
-  initialY = 50,
-  onStart,
-  onEnd,
-  children,
-}) => {
-  const pan = useRef(
-    new Animated.ValueXY({ x: initialX, y: initialY }),
-  ).current;
-
-  const responder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: e => e.nativeEvent.touches.length === 1,
-      onMoveShouldSetPanResponder: (e, g) =>
-        e.nativeEvent.touches.length === 1 &&
-        (Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3),
-
-      onPanResponderGrant: () => {
-        onStart?.();
-        pan.setOffset({ x: pan.x.__getValue(), y: pan.y.__getValue() });
-        pan.setValue({ x: 0, y: 0 });
-      },
-
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-        onEnd?.(pan.x.__getValue(), pan.y.__getValue());
-      },
-
-      onPanResponderTerminate: () => {
-        pan.flattenOffset();
-        onEnd?.(pan.x.__getValue(), pan.y.__getValue());
-      },
-    }),
-  ).current;
-
-  return (
-    <Animated.View
-      style={[styles.overlayItem, pan.getLayout()]}
-      {...responder.panHandlers}
-    >
-      {children}
-    </Animated.View>
-  );
-};
-
 export default function StoryComposer({
   modalVisible,
   mediaList = [],
@@ -450,6 +384,18 @@ export default function StoryComposer({
   const [waveformViewportW, setWaveformViewportW] = useState(SCREEN_WIDTH - 48);
   const [audioTrimPerIndex, setAudioTrimPerIndex] = useState({});
   const { bgStyle, textStyle, bg } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const trashZoneRef = useRef(null);
+  const [trashRect, setTrashRect] = useState(null);
+  const [showTrashZone, setShowTrashZone] = useState(false);
+
+  const measureTrashZone = useCallback(() => {
+    trashZoneRef.current?.measureInWindow((x, y, width, height) => {
+      if (width > 0 && height > 0) {
+        setTrashRect({ x, y, width, height });
+      }
+    });
+  }, []);
 
   const canvasRefs = useRef({});
   const videoRef = useRef(null);
@@ -756,6 +702,7 @@ export default function StoryComposer({
           x: 24,
           y: Math.round(SCREEN_HEIGHT * 0.28),
           kind: 'lyrics',
+          scale: 1,
         },
       ];
       return next;
@@ -776,7 +723,7 @@ export default function StoryComposer({
       const next = { ...prev };
       next[index] = [
         ...(next[index] || []),
-        { id: `${Date.now()}_${Math.random()}`, emoji, x: 50, y: 50 },
+        { id: `${Date.now()}_${Math.random()}`, emoji, x: 50, y: 50, scale: 1 },
       ];
       return next;
     });
@@ -796,6 +743,7 @@ export default function StoryComposer({
           fontFamily: textFont.fontFamily,
           x: 50,
           y: 50,
+          scale: 1,
         },
       ];
       return next;
@@ -803,11 +751,11 @@ export default function StoryComposer({
     setDraftText('');
   };
 
-  const setStickerPos = (id, x, y) => {
+  const setStickerTransform = (id, x, y, scaleVal) => {
     setStickersPerIndex(prev => {
       const next = { ...prev };
       next[index] = (next[index] || []).map(s =>
-        s.id === id ? { ...s, x, y } : s,
+        s.id === id ? { ...s, x, y, scale: scaleVal } : s,
       );
       return next;
     });
@@ -822,11 +770,28 @@ export default function StoryComposer({
   };
 
   const setTextPos = (id, x, y) => {
+  const removeStickerById = id => {
+    setStickersPerIndex(prev => ({
+      ...prev,
+      [index]: (prev[index] || []).filter(s => s.id !== id),
+    }));
+  };
+
+  const setTextTransform = (id, x, y, scaleVal) => {
     setTextsPerIndex(prev => {
       const next = { ...prev };
       next[index] = (next[index] || []).map(t =>
-        t.id === id ? { ...t, x, y } : t,
+        t.id === id ? { ...t, x, y, scale: scaleVal } : t,
       );
+      return next;
+    });
+  };
+
+  const clearLibraryMusicForClip = () => {
+    setAudioPerIndex(prev => ({ ...prev, [index]: 'original' }));
+    setMusicBadgePosPerIndex(prev => {
+      const next = { ...prev };
+      delete next[index];
       return next;
     });
   };
@@ -1427,6 +1392,13 @@ export default function StoryComposer({
 
   if (!modalVisible) return null;
 
+  const musicBadgeStored = musicBadgePosPerIndex[index];
+  const musicBadgeX =
+    musicBadgeStored?.x ?? defaultMusicBadgePosition(canvasLayout).x;
+  const musicBadgeY =
+    musicBadgeStored?.y ?? defaultMusicBadgePosition(canvasLayout).y;
+  const musicBadgeScale = musicBadgeStored?.scale ?? 1;
+
   return (
     <Modal
       visible={modalVisible}
@@ -1434,7 +1406,7 @@ export default function StoryComposer({
       onRequestClose={onCancel}
       presentationStyle="fullScreen"
     >
-      <View style={styles.modalRoot}>
+      <GestureHandlerRootView style={styles.modalRoot}>
       <View style={[styles.container, bgStyle]}>
         {/* Top bar */}
         <View style={styles.topBar}>
@@ -1457,6 +1429,7 @@ export default function StoryComposer({
           onLayout={e => {
             const { width, height } = e.nativeEvent.layout;
             setCanvasLayout({ width, height });
+            requestAnimationFrame(() => measureTrashZone());
           }}
           collapsable={false}
         >
@@ -1599,8 +1572,9 @@ export default function StoryComposer({
             </View>
           ) : null}
           {currentMedia && !isVideo(currentMedia) ? (
-            <View style={styles.imageContainer}>
+            <View style={styles.imageContainer} pointerEvents="box-none">
               <Image
+                pointerEvents="none"
                 source={{ uri: currentMedia.uri }}
                 style={styles.fullScreenImage}
                 resizeMode="cover"
@@ -1615,20 +1589,23 @@ export default function StoryComposer({
                 />
               ) : null}
               {useLibraryMusic ? (
-                <Draggable
+                <StoryInteractiveOverlay
                   key={`music_sticker_${index}`}
-                  initialX={
-                    musicBadgePosPerIndex[index]?.x ??
-                    defaultMusicBadgePosition(canvasLayout).x
-                  }
-                  initialY={
-                    musicBadgePosPerIndex[index]?.y ??
-                    defaultMusicBadgePosition(canvasLayout).y
-                  }
-                  onEnd={(x, y) => {
-                    const p = clampMusicBadgePosition(x, y, canvasLayout);
-                    setMusicBadgePosPerIndex(prev => ({ ...prev, [index]: p }));
+                  initialX={musicBadgeX}
+                  initialY={musicBadgeY}
+                  initialScale={musicBadgeScale}
+                  minScale={OVERLAY_MIN_SCALE_MUSIC}
+                  zIndex={24}
+                  trashRect={trashRect}
+                  onDragActive={setShowTrashZone}
+                  onCommit={(x, y, sc) => {
+                    const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
+                    setMusicBadgePosPerIndex(prev => ({
+                      ...prev,
+                      [index]: { x: p.x, y: p.y, scale: sc },
+                    }));
                   }}
+                  onDelete={clearLibraryMusicForClip}
                 >
                   <View style={styles.musicStickerCard}>
                     {trackArtworkUri ? (
@@ -1650,12 +1627,13 @@ export default function StoryComposer({
                       </Text>
                     </View>
                   </View>
-                </Draggable>
+                </StoryInteractiveOverlay>
               ) : null}
             </View>
           ) : currentMedia ? (
-            <View style={styles.videoWrap}>
+            <View style={styles.videoWrap} pointerEvents="box-none">
               <Video
+                pointerEvents="none"
                 ref={videoRef}
                 key={`story_vid_${index}_${currentMedia.uri}`}
                 source={{ uri: currentMedia.uri }}
@@ -1703,20 +1681,23 @@ export default function StoryComposer({
                 }}
               />
               {useLibraryMusic ? (
-                <Draggable
+                <StoryInteractiveOverlay
                   key={`music_sticker_${index}`}
-                  initialX={
-                    musicBadgePosPerIndex[index]?.x ??
-                    defaultMusicBadgePosition(canvasLayout).x
-                  }
-                  initialY={
-                    musicBadgePosPerIndex[index]?.y ??
-                    defaultMusicBadgePosition(canvasLayout).y
-                  }
-                  onEnd={(x, y) => {
-                    const p = clampMusicBadgePosition(x, y, canvasLayout);
-                    setMusicBadgePosPerIndex(prev => ({ ...prev, [index]: p }));
+                  initialX={musicBadgeX}
+                  initialY={musicBadgeY}
+                  initialScale={musicBadgeScale}
+                  minScale={OVERLAY_MIN_SCALE_MUSIC}
+                  zIndex={24}
+                  trashRect={trashRect}
+                  onDragActive={setShowTrashZone}
+                  onCommit={(x, y, sc) => {
+                    const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
+                    setMusicBadgePosPerIndex(prev => ({
+                      ...prev,
+                      [index]: { x: p.x, y: p.y, scale: sc },
+                    }));
                   }}
+                  onDelete={clearLibraryMusicForClip}
                 >
                   <View style={styles.musicStickerCard}>
                     {trackArtworkUri ? (
@@ -1738,7 +1719,7 @@ export default function StoryComposer({
                       </Text>
                     </View>
                   </View>
-                </Draggable>
+                </StoryInteractiveOverlay>
               ) : null}
             </View>
           ) : null}
@@ -1768,36 +1749,80 @@ export default function StoryComposer({
 
           {/* Stickers */}
           {(stickersPerIndex[index] || []).map(s => (
-            <Draggable
+            <StoryInteractiveOverlay
               key={s.id}
-              id={s.id}
               initialX={s.x}
               initialY={s.y}
-              onEnd={(x, y) => setStickerPos(s.id, x, y)}
+              initialScale={s.scale ?? 1}
+              minScale={OVERLAY_MIN_SCALE_STICKER}
+              zIndex={14}
+              trashRect={trashRect}
+              onDragActive={setShowTrashZone}
+              onCommit={(x, y, sc) => setStickerTransform(s.id, x, y, sc)}
+              onDelete={() => removeStickerById(s.id)}
             >
-              <Text style={styles.sticker}>{s.emoji}</Text>
-            </Draggable>
+              <View style={styles.stickerHitArea} collapsable={false}>
+                <GestureText style={styles.sticker}>{s.emoji}</GestureText>
+              </View>
+            </StoryInteractiveOverlay>
           ))}
 
           {/* Text overlays */}
           {(textsPerIndex[index] || []).map(t => (
-            <Draggable
+            <StoryInteractiveOverlay
               key={t.id}
-              id={t.id}
               initialX={t.x}
               initialY={t.y}
-              onEnd={(x, y) => setTextPos(t.id, x, y)}
+              initialScale={t.scale ?? 1}
+              minScale={OVERLAY_MIN_SCALE_TEXT}
+              zIndex={16}
+              trashRect={trashRect}
+              onDragActive={setShowTrashZone}
+              onCommit={(x, y, sc) => setTextTransform(t.id, x, y, sc)}
+              onDelete={() => removeTextById(t.id)}
             >
-              <Text
-                style={[
-                  styles.textOverlay,
-                  { color: t.color, fontFamily: t.fontFamily },
-                ]}
-              >
-                {t.text}
-              </Text>
-            </Draggable>
+              <View style={styles.textOverlayHitArea} collapsable={false}>
+                <GestureText
+                  style={[
+                    styles.textOverlay,
+                    { color: t.color, fontFamily: t.fontFamily },
+                  ]}
+                >
+                  {t.text}
+                </GestureText>
+              </View>
+            </StoryInteractiveOverlay>
           ))}
+
+          {/* Instagram-style trash — drop stickers/text/music here to remove */}
+          <View
+            ref={trashZoneRef}
+            pointerEvents="none"
+            onLayout={() => {
+              measureTrashZone();
+            }}
+            style={[
+              styles.storyTrashZone,
+              {
+                paddingBottom: Math.max(10, insets.bottom + 6),
+                opacity: showTrashZone ? 1 : 0,
+              },
+            ]}
+          >
+            <Icon
+              name="trash"
+              size={32}
+              color={showTrashZone ? '#ff4d6a' : 'rgba(255,255,255,0.35)'}
+            />
+            <Text
+              style={[
+                styles.storyTrashHint,
+                showTrashZone && styles.storyTrashHintActive,
+              ]}
+            >
+              Release to delete
+            </Text>
+          </View>
         </View>
 
         {/* Clips strip — hidden for now (thumbnails + add) */}
@@ -2667,7 +2692,7 @@ export default function StoryComposer({
           </View>
         </SafeAreaView>
       ) : null}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -3296,6 +3321,44 @@ const styles = StyleSheet.create({
   },
 
   overlayItem: { position: 'absolute' },
+  storyTrashZone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    zIndex: 100,
+    paddingTop: 10,
+    backgroundColor: 'transparent',
+  },
+  storyTrashHint: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.42)',
+    letterSpacing: 0.3,
+  },
+  storyTrashHintActive: {
+    color: '#ff4d6a',
+  },
+  /** Min touch target + padding so Pan/Pinch hit tests succeed (emoji glyphs alone are too small). */
+  stickerHitArea: {
+    minWidth: 72,
+    minHeight: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  textOverlayHitArea: {
+    minWidth: 48,
+    minHeight: 44,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sticker: {
     fontSize: 56,
     shadowColor: '#000',

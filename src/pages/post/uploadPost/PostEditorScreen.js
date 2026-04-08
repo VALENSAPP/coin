@@ -17,6 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../../components/customButton/customButton';
 import { useToast } from 'react-native-toast-notifications';
 import { createPost } from '../../../services/post';
+import {
+  buildPostMetaFromImages,
+  buildCreatePostMusicPayload,
+} from '../../../utils/postSoundtracks';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
@@ -119,10 +123,18 @@ const PostEditorScreen = () => {
         postType === 'private'
           ? 'private'
           : 'normal',
-      };
+    };
+
+    const postMeta = buildPostMetaFromImages(images);
+    const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(images);
 
     try {
-      const response = await createPost(payload);
+      const response = await createPost({
+        ...payload,
+        postMeta,
+        ...(music ? { music } : {}),
+        ...(youtubeMusicMeta ? { youtubeMusicMeta } : {}),
+      });
       console.log('Post creation response:', response);
 
       if (response.statusCode == 200) {
