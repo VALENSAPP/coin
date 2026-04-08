@@ -37,7 +37,7 @@ export const joinBattle = async (data ) => {
 export const predictBattle = async (data ) => {
     return axiosInstance.post('battle/predict', data);
 };
-export const commentBattle = async (data ) => {
+export const replyCommentBattle = async (data ) => {
     return axiosInstance.post('battle/comment', data);
 };
 export const commentUpload = async (data ) => {
@@ -63,4 +63,12 @@ export const battleClose = async (data ) => {
 };
 export const battleResolve = async (data ) => {
     return axiosInstance.post('battle/resolve',data);
+};
+export const battlePoint = async (data ) => {
+    return axiosInstance.get('battle/points',data);
+};
+export const battleWinner = async (battleId) => {
+    return axiosInstance.get('battle/winner', {
+        params: { battleId },
+    });
 };
