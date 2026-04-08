@@ -5,7 +5,6 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Image,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -23,9 +22,15 @@ import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
-import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
-import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
+import { useDispatch } from 'react-redux';
+import { connectWalletLogin } from '../authentication/socialLogin';
+import { updateWallet } from '../../services/wallet';
+import {
+  getSupportRecipientWalletAddress,
+  handleMetaMaskSupportFlow,
+  openWalletPayment,
+} from '../../utils/metaMaskSupport';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
@@ -41,7 +46,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     'Unknown User';
   const profileUserIdFromRoute = route?.params.userId || null;
 
-  const [imageError, setImageError] = useState(false);
   const [selfUserId, setSelfUserId] = useState(null);
   const [activeTab, setActiveTab] = useState(initialTab == 'following' ? 'following' : 'followers');
   const [search, setSearch] = useState('');
@@ -315,13 +319,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
         return (
           <TouchableOpacity style={[styles.userRow, { shadowColor: accentColor }]} activeOpacity={0.7} onPress={() => goToUserProfile(item)}>
-            <Image
-              source={{
-                uri: !imageError && item.avatar ? item.avatar : DEFAULT_AVATAR,
-              }}
-              style={[styles.avatar, { borderColor: accentColor }]}
-              onError={() => setImageError(true)}
-            />
+            <View style={styles.avatarWrap}>
+              <HexAvatar
+                uri={item.avatar || DEFAULT_AVATAR}
+                size={50}
+                borderWidth={2}
+                borderColor={accentColor}
+              />
+            </View>
             <View style={styles.userInfo}>
               <Text style={[styles.username,{color:accentColor} ]}>{item.username}</Text>
               {!!item.fullName && (
@@ -540,13 +545,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  avatarWrap: {
     marginRight: 14,
-    borderWidth: 2,
-    backgroundColor: '#f3f0f7',
   },
   userInfo: { flex: 1 },
   username: { fontWeight: '700', fontSize: 16 },

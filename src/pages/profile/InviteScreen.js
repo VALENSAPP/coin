@@ -5,7 +5,6 @@ import {
     View,
     Text,
     TouchableOpacity,
-    Image,
     StyleSheet,
     Dimensions,
     Share,
@@ -17,13 +16,14 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useAppTheme } from '../../theme/useApptheme';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const { width } = Dimensions.get('window');
 
 export default function InviteScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { bgStyle, textStyle } = useAppTheme();
+    const { bgStyle } = useAppTheme();
 
     // Generate unique referral code for this user
     const userReferralCode = route?.params?.referralCode;
@@ -112,11 +112,15 @@ export default function InviteScreen() {
                         <View style={[styles.avatarWrapper, {
                             width: avatarSize,
                             height: avatarSize,
-                            borderRadius: avatarSize / 2,
                             top: avatarPos,
                             left: avatarPos,
                         }]}>
-                            <Image source={{ uri: avatar }} style={styles.avatar} />
+                            <HexAvatar
+                                uri={avatar}
+                                size={avatarSize}
+                                borderWidth={2.5}
+                                borderColor="#5a2d82"
+                            />
                         </View>
                     </View>
                 </LinearGradient>
@@ -210,13 +214,9 @@ const styles = StyleSheet.create({
 
     avatarWrapper: {
         position: 'absolute',
-        borderWidth: 3,
-        borderColor: '#fff',
-        overflow: 'hidden',
-        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    avatar: { width: '100%', height: '100%' },
-
     shareRow: {
         flexDirection: 'row',
         alignItems: 'center',
