@@ -309,7 +309,7 @@ const ArchiveScreen = ({ navigation, route }) => {
       showToastMessage(
         toast,
         'danger',
-        'Failed to add drop to highlight',
+        'drop already added to the highlight',
       );
     } catch (error) {
       console.error('Error adding Drops to highlight:', error);
