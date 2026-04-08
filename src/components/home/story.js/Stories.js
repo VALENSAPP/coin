@@ -458,6 +458,9 @@ const StoryViewer = ({
   const directAudioDurationRef = useRef(0);
   const shareRef = useRef(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
+  const [isMediaReady, setIsMediaReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const mediaDurationRef = useRef(null);
 
   // --- keep latest callbacks for PanResponder (fix slide stale-closure) ---
   const nextUserCb = useRef(onNextUser);
@@ -571,6 +574,9 @@ const StoryViewer = ({
 
     dispatch(hideLoader());
     setPaused(false);
+    setIsMediaReady(false);
+    setIsBuffering(false);
+    mediaDurationRef.current = null;
     stopAndResetProgress(true);
 
     // seek to start if video
@@ -928,14 +934,21 @@ const StoryViewer = ({
 
   const onImageLoaded = () => {
     dispatch(hideLoader());
+    setIsMediaReady(true);
     if (visibleRef.current && !pausedRef.current) {
       startProgress(resolveStoryDurationMs(currentStory));
     }
   };
 
-  const onVideoLoaded = () => {
+  const onVideoLoaded = (meta) => {
     dispatch(hideLoader());
-    const duration = resolveStoryDurationMs(currentStory);
+    const duration =
+      (meta?.duration ? meta.duration * 1000 : null) ||
+      currentStory.duration ||
+      15000;
+    mediaDurationRef.current = duration;
+    setIsMediaReady(true);
+    setIsBuffering(false);
     if (visibleRef.current && !pausedRef.current) {
       startProgress(duration);
     }
@@ -943,9 +956,25 @@ const StoryViewer = ({
 
   const onMediaError = () => {
     dispatch(hideLoader());
+    setIsMediaReady(true);
     if (visibleRef.current && !pausedRef.current) {
       const duration = resolveStoryDurationMs(currentStory);
       startProgress(duration);
+    }
+  };
+
+  const onVideoBuffer = ({ isBuffering: buffering }) => {
+    setIsBuffering(buffering);
+    if (buffering) {
+      stopAndResetProgress(false);
+      return;
+    }
+    if (!visibleRef.current || pausedRef.current) return;
+    const duration = mediaDurationRef.current || currentStory?.duration || 15000;
+    const remaining = Math.max(0, 1 - currentProgress);
+    const remainingDuration = duration * remaining;
+    if (remainingDuration > 50) {
+      startProgress(remainingDuration);
     }
   };
 
@@ -1058,8 +1087,14 @@ const StoryViewer = ({
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
               resizeMode="cover"
-              paused={paused}
+              paused={paused || !isMediaReady || isBuffering}
+              onLoadStart={() => {
+                setIsMediaReady(false);
+                setIsBuffering(true);
+                dispatch(showLoader());
+              }}
               onLoad={onVideoLoaded}
+              onBuffer={onVideoBuffer}
               onError={onMediaError}
               onEnd={() => {
                 stopAndResetProgress(true);

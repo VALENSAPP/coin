@@ -185,6 +185,12 @@ const SafeIcon = ({ name, size = 24, color = '#000', style }) => {
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const FALLBACK_AVATAR =require('../../../assets/icons/pngicons/user.png');
+const getAvatarSource = (avatar) =>
+  avatar && typeof avatar === 'string' && avatar.trim() !== ''
+    ? { uri: avatar }
+    : FALLBACK_AVATAR;
+   
 
 const UserChat = ({ route, navigation }) => {
   // Safe destructuring with fallbacks
@@ -1581,27 +1587,6 @@ const UserChat = ({ route, navigation }) => {
                   {renderMessageText(item.content, isUser)}
                 </View>
 
-                {/* Show status only for user messages */}
-                {isUser && !item.isTemp && isLastMessage && (
-                  <View style={styles.messageStatus}>
-                    <SafeIcon
-                      name="checkmark-done"
-                      size={16}
-                      color={item.isSeen ? '#3b82f6' : '#9ca3af'}
-                      style={styles.seenIcon}
-                    />
-                    <Text style={styles.statusText}>
-                      {item.isSeen ? 'Seen' : 'Sent'}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Show sending indicator for temp messages */}
-                {item.isTemp && (
-                  <View style={styles.messageStatus}>
-                    <Text style={styles.sendingText}>Sending...</Text>
-                  </View>
-                )}
                 {/* If this message has a shared item (temp send), render compact preview */}
                 {item.shared && (
                   <TouchableOpacity
@@ -1710,7 +1695,7 @@ const UserChat = ({ route, navigation }) => {
                 // Extract user information with proper fallbacks
                 const postUser = {
                   displayName: postData.userName || postData.user?.displayName || postData.user?.name || item.senderInfo?.displayName || 'Unknown User',
-                  image: postData.userImage || postData.user?.image || item.senderInfo?.image || 'https://via.placeholder.com/40'
+                  image: postData.userImage || postData.user?.image || item.senderInfo?.image || ''
                 };
 
                 const images = postData.images || [];
@@ -1752,14 +1737,10 @@ const UserChat = ({ route, navigation }) => {
                   >
                     <View style={styles.sharedPostHeader}>
                       <View style={styles.sharedPostUserInfo}>
-                        <View style={{ marginRight: 10 }}>
-                          <HexAvatar
-                            uri={postUser.image}
-                            size={36}
-                            borderWidth={2}
-                            borderColor={text}
-                          />
-                        </View>
+                        <Image
+                          source={getAvatarSource(postUser.image)}
+                          style={styles.sharedPostAvatar}
+                        />
                         <View>
                           <Text style={styles.sharedPostUserName}>
                             {postUser.displayName}
@@ -1900,14 +1881,10 @@ const UserChat = ({ route, navigation }) => {
                   >
                     {/* User Header */}
                     <View style={styles.reelCardHeader}>
-                      <View style={{ marginRight: 8 }}>
-                        <HexAvatar
-                          uri={reelAvatar || 'https://via.placeholder.com/32'}
-                          size={32}
-                          borderWidth={2}
-                          borderColor={text}
-                        />
-                      </View>
+                      <Image
+                        source={getAvatarSource(reelAvatar)}
+                        style={styles.reelCardAvatar}
+                      />
                       <View style={styles.reelCardUserInfo}>
                         <Text style={styles.reelCardUsername} numberOfLines={1}>
                           {reelUser || 'Unknown User'}
@@ -1982,7 +1959,7 @@ const UserChat = ({ route, navigation }) => {
                       (storyUserData?.displayName || storyUserData?.name ||
                         item.senderInfo?.displayName || 'Unknown User')),
                   image: storyData.userImage || storyUserData?.image ||
-                    item.senderInfo?.image || 'https://via.placeholder.com/40'
+                    item.senderInfo?.image || ''
                 };
 
                 const caption = storyData.caption || storyData.text || item.content || '';
@@ -2022,14 +1999,10 @@ const UserChat = ({ route, navigation }) => {
                     {/* User Header */}
                     <View style={styles.sharedPostHeader}>
                       <View style={styles.sharedPostUserInfo}>
-                        <View style={{ marginRight: 10 }}>
-                          <HexAvatar
-                            uri={storyUser.image}
-                            size={36}
-                            borderWidth={2}
-                            borderColor={text}
-                          />
-                        </View>
+                        <Image
+                          source={getAvatarSource(storyUser.image)}
+                          style={styles.sharedPostAvatar}
+                        />
                         <View>
                           <Text style={styles.sharedPostUserName}>
                             {storyUser.displayName}
@@ -2111,6 +2084,21 @@ const UserChat = ({ route, navigation }) => {
                   </TouchableOpacity>
                 );
               })()
+            )}
+
+            {/* Show status for user messages (applies to posts/reels/stories too) */}
+            {isUser && !item.isTemp && isLastMessage && (
+              <View style={styles.messageStatus}>
+                <SafeIcon
+                  name="checkmark-done"
+                  size={16}
+                  color={item.isSeen ? '#3b82f6' : '#9ca3af'}
+                  style={styles.seenIcon}
+                />
+                <Text style={styles.statusText}>
+                  {item.isSeen ? 'Seen' : 'Sent'}
+                </Text>
+              </View>
             )}
           </View>
         </View>

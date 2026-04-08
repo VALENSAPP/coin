@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -229,6 +229,7 @@ export default function Notifications() {
   const [battleNotifications, setBattleNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true); // Track loading state
   const [battleLoading, setBattleLoading] = useState(false);
+  const markAllOnFocusRef = useRef(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [SelectedNotification, setSelectedNotification] = useState(null);
   const [processingBattleId, setProcessingBattleId] = useState(null);
@@ -270,8 +271,16 @@ export default function Notifications() {
     useCallback(() => {
       getNotification();
       getBattleNotifications();
+      markAllOnFocusRef.current = true;
     }, []),
   );
+
+  useEffect(() => {
+    if (!markAllOnFocusRef.current) return;
+    if (!notifications.length) return;
+    markAllOnFocusRef.current = false;
+    markAllAsRead();
+  }, [notifications]);
 
   const getNotification = async () => {
     try {
