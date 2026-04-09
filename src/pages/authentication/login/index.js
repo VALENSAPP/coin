@@ -220,6 +220,7 @@ export default function LoginScreen() {
         registrationType: 'NORMAL',
       });
       if (response && response.statusCode == 200) {
+        console.log(response,"response===>>>>>>>>>>>>22222222222222222222222")
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
         await AsyncStorage.setItem(

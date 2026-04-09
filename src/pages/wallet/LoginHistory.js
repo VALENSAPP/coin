@@ -173,7 +173,7 @@ const LoginHistoryScreen = () => {
                     onPress: async () => {
                         try {
                             dispatch(showLoader());
-                            const response = await logoutDeviecAll({});
+                            const response = await logoutDeviecAll();
                             if (response?.statusCode === 200) {
                                 showToastMessage(toast, 'success', response?.data?.message || 'Logged out other devices');
                                 fetchLoginHistory();
