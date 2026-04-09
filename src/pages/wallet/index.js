@@ -13,8 +13,10 @@ import {
   Alert,
   Platform,
   Keyboard,
+  Image,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 import { LineChart } from 'react-native-wagmi-charts';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -23,15 +25,18 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { useAppTheme } from '../../theme/useApptheme';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const { width } = Dimensions.get('window');
+const FALLBACK_AVATAR =
+  'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 export const WalletDashboardScreen = ({ navigation }) => {
   const [activityPeriod, setActivityPeriod] = useState('Weekly');
@@ -45,11 +50,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [missionDonationTotal, setMissionDonationTotal] = useState(0);
   const [kpiData, setKpiData] = useState([
-    { id: 'portfolio', title: 'Portfolio Value', value: '-', icon: 'wallet', color: '#5a2d82' },
+    { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet', color: '#5a2d82' },
     { id: 'support', title: 'total support', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
     { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
+    { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
+    { id: 'Mission Post', title: 'Mission Post', value: '-', icon: 'ribbon', color: '#8b5cf6' },
+     { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift', color: '#14b8a6' },
+  { id: 'metamask', title: 'MetaMask Received', value: '-', icon: 'logo-usd', color: '#f97316' },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
@@ -60,7 +70,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
     stripeCustomerId: '',
     walletAddress: '',
   });
-console.log(userWalletData,'datatai walaletete')
+  const [userProfile, setUserProfile] = useState({
+    name: 'User',
+    image: FALLBACK_AVATAR,
+  });
+  console.log(userWalletData, 'datatai walaletete')
   const loadProfileType = useCallback(async () => {
     try {
       const profileType = await AsyncStorage.getItem('profile');
@@ -100,6 +114,22 @@ console.log(userWalletData,'datatai walaletete')
       setUserWalletData({
         stripeCustomerId,
         walletAddress,
+      });
+
+      const profileName =
+        response?.data?.userName ||
+        response?.data?.username ||
+        response?.data?.name ||
+        'User';
+
+      const profileImage =
+        response?.data?.image ||
+        response?.data?.userImage ||
+        FALLBACK_AVATAR;
+
+      setUserProfile({
+        name: profileName,
+        image: profileImage || FALLBACK_AVATAR,
       });
 
     } catch (error) {
@@ -157,6 +187,11 @@ console.log(userWalletData,'datatai walaletete')
             loadProfileType(),
             fetchCreditsLeft(),
             fetchFollowers(),
+            fetchTotalSupport(),
+            fetchTotalEarning(),
+            fetchReferralPoints(),
+            fetchMetaMaskReceived(),
+            totalMissonDonation(),
             // fetchActivityOverview(),
             fetchTopCreators(),
             // fetchActivities(),
@@ -205,9 +240,13 @@ console.log(userWalletData,'datatai walaletete')
       await Promise.allSettled([
         // fetchAllTransaction(),
         loadProfileType(),
-        fetchDashboardData(),
+        // fetchDashboardData(),
         fetchCreditsLeft(),
         fetchFollowers(),
+        fetchTotalSupport(),
+        fetchTotalEarning(),
+        fetchReferralPoints(),
+        fetchMetaMaskReceived(),
         // fetchActivityOverview(),
         fetchTopCreators(),
         // fetchActivities(),
@@ -327,6 +366,7 @@ console.log(userWalletData,'datatai walaletete')
   const fetchCreditsLeft = async () => {
     try {
       const response = await getCreditsLeft();
+      console.log(response, 'credits left')
       if (response?.statusCode === 200) {
         const hitLeftRaw = response?.data?.hitLeft;
         const hitLeft = Number(hitLeftRaw);
@@ -335,8 +375,8 @@ console.log(userWalletData,'datatai walaletete')
           const newKpiData = [...prevKpiData];
           newKpiData[3] = {
             ...newKpiData[3],
-            value: `${safeHitLeft} / 5`,
-            currentCredits: safeHitLeft
+            value: `${hitLeft} / 5`,
+            currentCredits: hitLeft
           };
           return newKpiData;
         });
@@ -402,12 +442,15 @@ console.log(userWalletData,'datatai walaletete')
       const response = await getUserDashboard(id);
       if (response?.statusCode === 200) {
         setKpiData(prevKpiData => {
-          const newKpiData = [...prevKpiData];
-          newKpiData[2] = {
-            ...newKpiData[2],
-            value: response.data.dashboardData.totalFollowers.toString() || '0'
-          };
-          return newKpiData;
+          return prevKpiData.map(item => {
+            if (item.id === 'followers') {
+              return {
+                ...item,
+                value: response.data.dashboardData.totalFollowers.toString() || '0',
+              };
+            }
+            return item;
+          });
         });
       } else {
         showToastMessage(toast, 'danger', response.data.message);
@@ -416,6 +459,127 @@ console.log(userWalletData,'datatai walaletete')
       console.error('Error in fetchFollowers:', error);
     }
   };
+
+  const fetchTotalSupport = async () => {
+    try {
+      const response = await totalSupport();
+      console.log(response, 'data in total support ')
+      const rawValue =
+        response?.data?.totalAmount ??
+        response?.data?.data?.totalAmount ??
+        response?.data?.totalSupportReceived ??
+        response?.data?.totalSupport ??
+        response?.data?.supportedAmount ??
+        response?.data?.amount ??
+        0;
+      const supportAmount = Number(rawValue) || 0;
+
+      setKpiData(prevKpiData =>
+        prevKpiData.map(item =>
+          item.id === 'support'
+            ? { ...item, value: `$ ${supportAmount.toFixed(2)}` }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error('Error in fetchTotalSupport:', error);
+    }
+  };
+  const fetchTotalEarning = async () => {
+    try {
+      const response = await totalamount();
+      const rawValue =
+        response?.data?.totalAmount ??
+        response?.data?.data?.totalAmount ??
+        response?.data?.amount ??
+        response?.data?.data?.amount ??
+        0;
+      const totalValue = Number(rawValue) || 0;
+
+      setKpiData(prevKpiData =>
+        prevKpiData.map(item =>
+          item.id === 'Total Earning'
+            ? { ...item, value: `$ ${totalValue.toFixed(2)}` }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error('Error in fetchTotalEarning:', error);
+    }
+  };
+  const fetchReferralPoints = async () => {
+    try {
+      const response = await referPoints();
+      const rawValue =
+        response?.data?.referPoints ??
+        response?.data?.referralPoints ??
+        response?.data?.referPoint ??
+        response?.data?.data?.referPoints ??
+        response?.data?.data?.referralPoints ??
+        response?.data?.data?.referPoint ??
+        response?.data?.points ??
+        response?.data?.data?.points ??
+        0;
+      const pointsValue = Number(rawValue) || 0;
+
+      setKpiData(prevKpiData =>
+        prevKpiData.map(item =>
+          item.id === 'referralPoints'
+            ? { ...item, value: `${pointsValue} pts` }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error('Error in fetchReferralPoints:', error);
+    }
+  };
+  const fetchMetaMaskReceived = async () => {
+    try {
+      const response = await metaMaskRecived();
+      const rawValue =
+        response?.data?.totalAmount ??
+        response?.data?.data?.totalAmount ??
+        response?.data?.amount ??
+        response?.data?.data?.amount ??
+        0;
+      const totalValue = Number(rawValue) || 0;
+
+      setKpiData(prevKpiData =>
+        prevKpiData.map(item =>
+          item.id === 'metamask'
+            ? { ...item, value: `$ ${totalValue.toFixed(2)}` }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error('Error in fetchMetaMaskReceived:', error);
+    }
+  };
+  const totalMissonDonation = async () => {
+    try {
+      const response = await totalMission();
+
+      console.log(response, "Total Mission API response");
+
+      const totalAmount = Number(response?.data?.totalAmount || 0);
+
+      // ✅ Update local state (optional)
+      setMissionDonationTotal(totalAmount);
+
+      // ✅ UPDATE KPI CARD
+      setKpiData(prevKpiData =>
+        prevKpiData.map(item =>
+          item.id === 'Mission Post'
+            ? { ...item, value: `$ ${totalAmount.toFixed(2)}` }
+            : item
+        )
+      );
+
+    } catch (error) {
+      console.log(error, "Error in total mission API");
+    } 
+  };
+
 
   const fetchTopCreators = async () => {
     try {
@@ -657,12 +821,33 @@ console.log(userWalletData,'datatai walaletete')
         }
       >
         {/* Header */}
-        {/* <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Dashboard Overview</Text>
-            <Text style={styles.headerSubtitle}>Welcome back! Here's what's happening with your account today.</Text>
+        <View style={styles.header}>
+          <View style={styles.headerCard}>
+            <View style={styles.headerGlow} />
+            <View style={styles.headerRow}>
+              <View style={styles.headerAvatarWrap}>
+                <HexAvatar
+                  uri={userProfile.image || FALLBACK_AVATAR}
+                  size={72}
+                  borderWidth={3}
+                  borderColor="#b794f4"
+                />
+              </View>
+              <View style={styles.headerText}>
+                <Text style={styles.headerName} numberOfLines={1}>
+                  @{userProfile.name || 'User'}
+                </Text>
+                <View style={styles.headerStatus}>
+                  <Ionicons name="checkmark-circle" size={16} color="#fef3c7" />
+                  <Text style={styles.headerStatusText}>Verified</Text>
+                </View>
+              </View>
+              {/* <View style={styles.headerBadge}>
+                <Ionicons name="sparkles" size={14} color="#a78bfa" />
+              </View> */}
+            </View>
           </View>
-        </View> */}
+        </View>
 
         {/* KPI Cards */}
         <View style={styles.section}>
@@ -889,17 +1074,61 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 14,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111',
-    marginBottom: 4,
+  headerCard: {
+    backgroundColor: '#3b1a4f',
+    borderRadius: 20,
+    padding: 12,
+    overflow: 'hidden',
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
+  headerGlow: {
+    position: 'absolute',
+    width: 180,
+    height: 120,
+    borderRadius: 80,
+    top: -20,
+    right: -40,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerAvatarWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
+  },
+  headerName: {
+    color: '#fef3c7',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  headerStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  headerStatusText: {
+    color: '#f9fafb',
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  headerBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
     paddingHorizontal: 20,
@@ -909,6 +1138,176 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  battleMissionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  battleCard: {
+    width: '48%',
+    minHeight: 210,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    padding: 14,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  missionCard: {
+    width: '48%',
+    minHeight: 210,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    padding: 14,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  cardHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#3b1a4f',
+  },
+  livePill: {
+    backgroundColor: '#f5e1f7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  livePillSmall: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    marginLeft: 6,
+  },
+  livePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7c3aed',
+  },
+  battleBanner: {
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+  battleBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  battleBannerTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  battleBannerSub: {
+    color: '#f3e8ff',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  battleAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  battleAmount: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  battleDelta: {
+    color: '#86efac',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  battleBannerFoot: {
+    color: '#e9d5ff',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6b5a84',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2a1b3d',
+  },
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statValueGreen: {
+    color: '#22c55e',
+  },
+  monthPill: {
+    backgroundColor: '#f3e8ff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  monthPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7c3aed',
+  },
+  missionMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  missionMainValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2a1b3d',
+  },
+  missionSub: {
+    fontSize: 12,
+    color: '#6b5a84',
+    marginTop: 2,
+  },
+  missionRight: {
+    alignItems: 'flex-end',
+  },
+  missionAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2a1b3d',
+  },
+  missionDelta: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#22c55e',
+    marginTop: 2,
+  },
+  primaryButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   // KPI Cards
   kpiCard: {
@@ -1189,3 +1588,4 @@ const styles = StyleSheet.create({
 });
 
 export default WalletDashboardScreen;
+
