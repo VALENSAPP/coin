@@ -28,7 +28,7 @@ import CommentSection from '../../components/comments/CommentSection';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CustomMarquee from '../../components/customMarquee/CustomMarquee';
 import { getAllReels } from '../../services/reels';
-import { likePost, savePost, unSavePost } from '../../services/post';
+import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -40,6 +40,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../components/modals/ShareModal';
 import ReportFlowScreen from '../../components/modals/Report';
 import Clipboard from '@react-native-clipboard/clipboard';
+import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
+import TokenSellModal from '../../components/modals/TokenSellModal';
+import SupportCreatorModal from '../../components/modals/SupportCreatorModal';
+import { getUserTokenInfoByBlockChain } from '../../services/tokens';
+import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
+import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
+import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -153,8 +160,19 @@ export default function FlipsScreen() {
 
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
+  const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
+  const [pendingFollowAction, setPendingFollowAction] = useState(null);
+  const [followingBusy, setFollowingBusy] = useState(new Set());
+  const [tokenAddress, setTokenAddress] = useState(null);
+  const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
   const { bgStyle, textStyle } = useAppTheme();
+  const { startSupportPayment } = useWalletConnectSupport();
   const shareRef = useRef(null);
+  const purchaseSheetRef = useRef();
+  const sellSheetRef = useRef();
   const viewportHeight = Math.max(1, windowHeight);
   const tabBarHeight = useBottomTabBarHeight();
   const bottomOverlayInset = Math.max(
@@ -233,6 +251,15 @@ export default function FlipsScreen() {
           isSaved: item.isSaved || false,
           isHide: item.isHide || false,
           userId: item.userId,
+          UserId: item.UserId || item.userId,
+          profile: item.profile || 'user',
+          walletAddress:
+            item.walletAddress ||
+            item.userWalletAddress ||
+            item.creatorWalletAddress ||
+            item.vendorWalletAddress ||
+            item.receiverWalletAddress ||
+            null,
           hashtag: item.hashtag || [],
           location: item.location || null,
           taggedPeople: item.taggedPeople || [],
@@ -293,6 +320,15 @@ export default function FlipsScreen() {
         isSaved: paramReel.isSaved || false,
         isHide: paramReel.isHide || false,
         userId: paramReel.userId || paramReel.UserId,
+        UserId: paramReel.UserId || paramReel.userId,
+        profile: paramReel.profile || 'user',
+        walletAddress:
+          paramReel.walletAddress ||
+          paramReel.userWalletAddress ||
+          paramReel.creatorWalletAddress ||
+          paramReel.vendorWalletAddress ||
+          paramReel.receiverWalletAddress ||
+          null,
         hashtag: paramReel.hashtag || [],
         location: paramReel.location || null,
         taggedPeople: paramReel.taggedPeople || [],
@@ -446,12 +482,189 @@ export default function FlipsScreen() {
     [liked, likesCount, likingIds, toast],
   );
 
-  const switchFollowing = (id) => {
-    const updated = reels.map(item =>
-      item.id === id ? { ...item, isFollowing: !item.isFollowing } : item
+  const getReelOwnerId = useCallback((reel) => reel?.userId || reel?.UserId || null, []);
+
+  const fetchToken = useCallback(async (targetUserId) => {
+    dispatch(showLoader());
+    try {
+      const response = await getUserTokenInfoByBlockChain(targetUserId);
+      if (response?.statusCode === 200 && response?.data) {
+        setTokenAddress(response.data.data?.tokenAddress || null);
+      }
+    } catch (err) {
+      console.error('Error fetching profile token info:', err);
+    } finally {
+      dispatch(hideLoader());
+    }
+  }, [dispatch]);
+
+  const executeFollowAction = useCallback(async (targetUserId, shouldFollow) => {
+    if (!targetUserId) return false;
+    const key = String(targetUserId);
+
+    setFollowingBusy(prev => new Set(prev).add(key));
+    setReels(prev =>
+      prev.map(reel =>
+        String(getReelOwnerId(reel)) === key
+          ? { ...reel, isFollowing: shouldFollow }
+          : reel,
+      ),
     );
-    setReels(updated);
-  };
+
+    try {
+      const res = shouldFollow ? await follow(targetUserId) : await unfollow(targetUserId);
+      const ok = res?.statusCode === 200 && (res?.success ?? true);
+
+      if (!ok) {
+        setReels(prev =>
+          prev.map(reel =>
+            String(getReelOwnerId(reel)) === key
+              ? { ...reel, isFollowing: !shouldFollow }
+              : reel,
+          ),
+        );
+        showToastMessage(
+          toast,
+          'danger',
+          res?.data?.message || res?.message || 'Unable to update follow',
+        );
+        return false;
+      }
+
+      const resolvedFollowing =
+        typeof res?.data?.following === 'boolean' ? res.data.following : shouldFollow;
+
+      setReels(prev =>
+        prev.map(reel =>
+          String(getReelOwnerId(reel)) === key
+            ? { ...reel, isFollowing: resolvedFollowing }
+            : reel,
+        ),
+      );
+      return true;
+    } catch (e) {
+      setReels(prev =>
+        prev.map(reel =>
+          String(getReelOwnerId(reel)) === key
+            ? { ...reel, isFollowing: !shouldFollow }
+            : reel,
+        ),
+      );
+      showToastMessage(
+        toast,
+        'danger',
+        e?.response?.data?.message || 'Something went wrong',
+      );
+      return false;
+    } finally {
+      setFollowingBusy(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, [getReelOwnerId, toast]);
+
+  const handleToggleFollow = useCallback(async (targetUserId, shouldFollow) => {
+    if (!targetUserId) return false;
+    const key = String(targetUserId);
+    if (followingBusy.has(key)) return false;
+
+    setPendingFollowUserId(targetUserId);
+    setPendingFollowAction(shouldFollow);
+
+    if (shouldFollow) {
+      setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
+      return true;
+    }
+
+    return executeFollowAction(targetUserId, false);
+  }, [executeFollowAction, followingBusy]);
+
+  const handleFollowPress = useCallback(async (item) => {
+    const targetUserId = getReelOwnerId(item);
+    if (!targetUserId || String(targetUserId) === String(currentUserId) || followingBusy.has(String(targetUserId))) return;
+
+    const shouldFollow = !item.isFollowing;
+    const followHandler = executeFollowAction || handleToggleFollow;
+    if (!followHandler) return;
+
+    const result = await followHandler(targetUserId, shouldFollow, item.userTokenAddress);
+    const success = typeof result === 'boolean' ? result : true;
+    if (!success || !shouldFollow) return;
+
+    setModalVisible(true);
+  }, [
+    currentUserId,
+    executeFollowAction,
+    followingBusy,
+    getReelOwnerId,
+    handleToggleFollow,
+  ]);
+
+  const handleTokenPurchase = useCallback(async () => {
+    try {
+      purchaseSheetRef.current?.close?.();
+      if (pendingFollowUserId != null && pendingFollowAction != null) {
+        await executeFollowAction(pendingFollowUserId, pendingFollowAction);
+      }
+    } finally {
+      setPendingFollowUserId(null);
+      setPendingFollowAction(null);
+      setPurchaseAutoFocus(false);
+    }
+  }, [executeFollowAction, pendingFollowAction, pendingFollowUserId]);
+
+  const handleTokenSell = useCallback(async () => {
+    sellSheetRef.current?.close?.();
+    if (pendingFollowUserId != null) {
+      await executeFollowAction(pendingFollowUserId, false);
+    }
+    setPendingFollowUserId(null);
+    setPendingFollowAction(null);
+    showToastMessage(toast, 'success', 'Tokens sold successfully!');
+  }, [executeFollowAction, pendingFollowUserId, toast]);
+
+  const handleTokenModalClose = useCallback(() => {
+    purchaseSheetRef.current?.close?.();
+    setPendingFollowUserId(null);
+    setPendingFollowAction(null);
+    setPurchaseAutoFocus(false);
+  }, []);
+
+  const currentReel = reels[currentIndex] || null;
+  const recipientWalletAddress = getSupportRecipientWalletAddress(currentReel || {});
+  const supporterProfile = normalizeProfileType(currentUserProfileType);
+  const recipientProfile = normalizeProfileType(currentReel?.profile);
+
+  const handleSupportNow = useCallback(async () => {
+    if (!recipientWalletAddress) {
+      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      return;
+    }
+
+    setSupportDisclaimerVisible(false);
+    const receiverId = currentReel?.UserId ?? currentReel?.userId ?? '';
+    await startSupportPayment(recipientWalletAddress, {
+      senderId: currentUserId != null ? String(currentUserId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
+      chain: 'POLYGON',
+    });
+  }, [currentReel, currentUserId, recipientWalletAddress, startSupportPayment]);
+
+  const handleOpenSupportDisclaimer = useCallback(() => {
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        'Support unavailable',
+        'Tips are not available for business profiles.',
+      );
+      setModalVisible(false);
+      return;
+    }
+
+    setModalVisible(false);
+    setSupportDisclaimerVisible(true);
+  }, [recipientProfile, supporterProfile]);
 
   const animateHeart = (id) => {
     setHeartAnimatingId(id);
@@ -640,7 +853,17 @@ export default function FlipsScreen() {
       }
     };
 
+    const loadCurrentUserProfile = async () => {
+      try {
+        const profile = await AsyncStorage.getItem('profile');
+        if (isMounted) setCurrentUserProfileType(normalizeProfileType(profile || 'user'));
+      } catch (e) {
+        if (isMounted) setCurrentUserProfileType('user');
+      }
+    };
+
     loadCurrentUserId();
+    loadCurrentUserProfile();
     return () => {
       isMounted = false;
     };
@@ -809,7 +1032,8 @@ export default function FlipsScreen() {
               {!isOwnReel && (
                 <TouchableOpacity
                   style={styles.followButton}
-                  onPress={() => switchFollowing(item.id)}
+                  onPress={() => handleFollowPress(item)}
+                  disabled={followingBusy.has(String(getReelOwnerId(item)))}
                 >
                   <Text style={styles.followButtonText}>
                     {!item.isFollowing ? 'Follow' : 'Following'}
@@ -1149,8 +1373,89 @@ export default function FlipsScreen() {
         </ScrollView>
       </RBSheet>
 
+      {/* <RBSheet
+        ref={purchaseSheetRef}
+        height={500}
+        openDuration={250}
+        draggable={true}
+        closeOnPressMask={true}
+        customModalProps={{ statusBarTranslucent: true }}
+        onOpen={() => setPurchaseAutoFocus(true)}
+        onClose={() => {
+          Keyboard.dismiss();
+          setPurchaseAutoFocus(false);
+          setPendingFollowUserId(null);
+          setPendingFollowAction(null);
+        }}
+        customStyles={{
+          container: [{
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            bottom: -30,
+          }, bgStyle],
+          draggableIcon: {
+            backgroundColor: '#ccc',
+            width: 60,
+          },
+        }}
+      >
+        <TokenPurchaseModal
+          onClose={handleTokenModalClose}
+          onPurchase={handleTokenPurchase}
+          hasFollowing={true}
+          autoFocus={purchaseAutoFocus}
+          vendorid={pendingFollowUserId}
+        />
+      </RBSheet> */}
+{/* 
+      <RBSheet
+        ref={sellSheetRef}
+        height={550}
+        openDuration={250}
+        draggable={true}
+        closeOnPressMask={true}
+        customModalProps={{ statusBarTranslucent: true }}
+        onOpen={() => setPurchaseAutoFocus(true)}
+        onClose={() => {
+          Keyboard.dismiss();
+          setPurchaseAutoFocus(false);
+          setPendingFollowUserId(null);
+          setPendingFollowAction(null);
+        }}
+        customStyles={{
+          container: [{
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            bottom: -30,
+          }, bgStyle],
+          draggableIcon: {
+            backgroundColor: '#ccc',
+            width: 60,
+          },
+        }}
+      >
+        <TokenSellModal
+          onSell={handleTokenSell}
+          userId={pendingFollowUserId}
+          tokenAddress={tokenAddress}
+        />
+      </RBSheet> */}
+
       <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
       <ReportFlowScreen ref={reportSheetRef} postId={selectedReelId || reels[currentIndex]?.id} />
+      <SupportCreatorModal
+        visible={modalVisible}
+        creatorName={currentReel?.user || 'Creator'}
+        onClose={() => setModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={currentReel?.user || 'Creator'}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
+        onSupport={handleSupportNow}
+      />
     </SafeAreaView>
   );
 }

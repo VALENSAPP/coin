@@ -110,6 +110,7 @@ export default function ProfileBattleHub({
     setLoading(true);
     try {
       const response = await battleByUserId({ params: { userId: viewedUserId } });
+      console.log(response,'data in this apiiaa')
       const rawBattles =
         response?.data?.battles ||
         response?.data?.data ||
@@ -137,6 +138,7 @@ export default function ProfileBattleHub({
 
     try {
       const response = await battlePoint({ params: { userId: viewedUserId } });
+      console.log(response,'data in this ao')
       const rawData =
         response?.data?.data ||
         response?.data ||

@@ -42,7 +42,7 @@ import { getUserCredentials } from '../../services/post';
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 
 const SubventionSetupScreen = () => {
-    const [price, setPrice] = useState('9');
+    const [price, setPrice] = useState('');
     const [subscriptionId, setSubscriptionId] = useState(null);
     const [selectedTab, setSelectedTab] = useState('posts');
     const [showPrintWarning, setShowPrintWarning] = useState(false);
@@ -383,8 +383,6 @@ const SubventionSetupScreen = () => {
             const id = await AsyncStorage.getItem('userId');
             dispatch(showLoader());
             const response = await getSubscriptionByUserID(id);
-            console.log('getSubscriptionByUserID response:', id);
-
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
                 if (subscriptions && subscriptions.length > 0) {

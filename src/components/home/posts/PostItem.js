@@ -301,7 +301,17 @@ function PostItem({
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const usernameText = item?.username || 'Unknown User';
+  const captionValue = item?.caption?.trim() || '';
+  const previewCaptionLength = Math.max(18, 60 - usernameText.length);
+  const hasExpandableCaption = captionValue.length > previewCaptionLength;
+  const collapsedCaption = hasExpandableCaption
+    ? `${captionValue.slice(0, previewCaptionLength).trimEnd()}... `
+    : captionValue;
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [item?.caption, item?.id, item?.UserId]);
 
   const navigation = useNavigation();
   const shareRef = useRef(null);
@@ -1274,35 +1284,55 @@ function PostItem({
           )}
 
         <View style={styles.captionSection}>
-          <Text
-            numberOfLines={expanded ? undefined : 1}
-            onTextLayout={(e) => {
-              if (e.nativeEvent.lines.length > 1) {
-                setShowMore(true);
-              }
-            }}
-          >
-            <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
-              <Text
-                style={[
-                  styles.captionUsername,
-                  { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
-                ]}
-              >
-                {item.username}{' '}
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.captionText}>
-              {item.caption}
-            </Text>
-          </Text>
+          {!!captionValue && (
+            <>
+              {expanded ? (
+                <Text style={styles.captionRow}>
+                  <Text
+                    onPress={() => handleUserProfile(item.UserId)}
+                    style={[
+                      styles.captionUsername,
+                      { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
+                    ]}
+                  >
+                    {usernameText}{' '}
+                  </Text>
+                  <Text style={styles.captionText}>{captionValue}</Text>
+                </Text>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={hasExpandableCaption ? () => setExpanded(true) : undefined}
+                  disabled={!hasExpandableCaption}
+                >
+                  <Text style={styles.captionRow} numberOfLines={1} ellipsizeMode="tail">
+                    <Text
+                      onPress={() => handleUserProfile(item.UserId)}
+                      style={[
+                        styles.captionUsername,
+                        { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
+                      ]}
+                    >
+                      {usernameText}{' '}
+                    </Text>
+                    <Text style={styles.captionText}>{collapsedCaption}</Text>
+                    {hasExpandableCaption ? (
+                      <Text style={styles.captionMoreText}>
+                        see more
+                      </Text>
+                    ) : null}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
-          {showMore && (
+          {hasExpandableCaption && expanded && (
             <Text
-              style={{ color: '#999', marginTop: 2 }}
-              onPress={() => setExpanded(!expanded)}
+              style={styles.captionToggleText}
+              onPress={() => setExpanded(false)}
             >
-              {expanded ? 'See less' : 'More'}
+              see less
             </Text>
           )}
           {item.link ? (
@@ -1663,16 +1693,31 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: '#FFFFFF',
   },
+  captionRow: {
+    lineHeight: 20,
+  },
   captionUsername: {
     fontWeight: '700',
     fontSize: 15,
+    lineHeight: 20,
   },
   captionText: {
     fontSize: 15,
     color: '#1F2937',
     fontWeight: '400',
     lineHeight: 20,
-    marginTop: 4,
+  },
+  captionMoreText: {
+    color: '#999',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  captionToggleText: {
+    color: '#999',
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '500',
   },
   progressContainer: {
     height: 6,

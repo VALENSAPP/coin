@@ -72,3 +72,19 @@ export const verifyUsdtTransaction = async (data) => {
   console.log("data in verify usdt transc", data)
   return axiosInstance.post('billing/verify-usdt-transaction', data);
 }
+
+export const totalSupport = async (data) => {
+  return axiosInstance.get('billing/pay-following/received', data);
+}
+export const totalMission = async (data) => {
+  return axiosInstance.get('token-purchase/mission-donation/received', data);
+}
+export const totalamount = async (data) => {
+  return axiosInstance.get('billing/received-totals', data);
+}
+export const referPoints = async (data) => {
+  return axiosInstance.get('/user/refer-points', data);
+}
+export const metaMaskRecived = async (data) => {
+  return axiosInstance.get('/billing/usdt-transfers/received', data);
+}
