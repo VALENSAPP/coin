@@ -770,6 +770,15 @@ export default function StoryComposer({
   };
 
   const setTextPos = (id, x, y) => {
+    setTextsPerIndex(prev => {
+      const next = { ...prev };
+      next[index] = (next[index] || []).map(t =>
+        t.id === id ? { ...t, x, y } : t,
+      );
+      return next;
+    });
+  };
+
   const removeStickerById = id => {
     setStickersPerIndex(prev => ({
       ...prev,
@@ -1069,8 +1078,9 @@ export default function StoryComposer({
   const mutedForVideo = useLibraryMusic || volForVideo === 0;
   const musicPreviewUri = getAudioPreviewUri(audioSel);
   const musicPreviewVol = volumePerIndex[index] ?? 1;
+  const isYoutubeAudio = isYoutubeTrack(audioSel);
   const hasLibraryMusicPlayback =
-    Boolean(musicPreviewUri) || isYoutubeTrack(audioSel);
+    Boolean(musicPreviewUri) || isYoutubeAudio;
   const musicPreviewKey =
     typeof audioSel === 'object' && audioSel?.videoId
       ? `yt_${audioSel.videoId}`
@@ -1118,7 +1128,7 @@ export default function StoryComposer({
         musicPreviewRef.current?.seek(playStart);
         musicPreviewRef.current?.resume?.();
       }
-      if (isYoutubeTrack(audioSel)) {
+      if (isYoutubeAudio) {
         youtubePreviewRef.current?.seekTo?.(playStart, true);
       }
       setMusicPreviewSec(playStart);
@@ -1135,6 +1145,7 @@ export default function StoryComposer({
     index,
     musicPreviewKey,
     hasLibraryMusicPlayback,
+    isYoutubeAudio,
     musicPreviewUri,
   ]);
 
@@ -1179,7 +1190,7 @@ export default function StoryComposer({
   ]);
 
   useEffect(() => {
-    if (!isYoutubeTrack(audioSel)) return;
+    if (!isYoutubeAudio) return;
     const at = {
       start: audioTrimStartCur,
       end: audioTrimEndCur,
@@ -1200,11 +1211,11 @@ export default function StoryComposer({
     audioTrimEndCur,
     index,
     musicPreviewKey,
-    audioSel,
+    isYoutubeAudio,
   ]);
 
   useEffect(() => {
-    if (!isYoutubeTrack(audioSel) || !modalVisible) return;
+    if (!isYoutubeAudio || !modalVisible) return;
     const tick = setInterval(() => {
       if (showAudioTrimModal && musicEditorPaused) return;
       const run = async () => {
@@ -1244,6 +1255,7 @@ export default function StoryComposer({
     showAudioTrimModal,
     musicEditorPaused,
     musicPreviewKey,
+    isYoutubeAudio,
   ]);
 
   const openAudioPicker = () => {
@@ -1514,7 +1526,7 @@ export default function StoryComposer({
               }}
             />
           ) : null}
-          {useLibraryMusic && isYoutubeTrack(audioSel) && !trimPreviewPaused ? (
+          {useLibraryMusic && isYoutubeAudio && !trimPreviewPaused ? (
             <View style={styles.hiddenYoutubePlayer} pointerEvents="none">
               <YoutubePlayer
                 ref={youtubePreviewRef}
@@ -3352,10 +3364,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   textOverlayHitArea: {
-    minWidth: 48,
-    minHeight: 44,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    minWidth: 72,
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
-  Keyboard,
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -45,8 +44,9 @@ export default function PostView({ postData = [] }) {
 
   // Extract params including the source screen info
   const routeParams = route.params || {};
-  const { startIndex, fromScreen, userChat } = routeParams;
+  const { startIndex, userChat } = routeParams;
   const navPostData = routeParams.postData;
+  const returnTo = route?.params?.returnTo;
 
   const normalizePosts = useCallback((candidate, fallback = []) => {
     if (Array.isArray(candidate) && candidate.length) return candidate;
@@ -87,7 +87,7 @@ export default function PostView({ postData = [] }) {
   const flatListRef = useRef();
   const playingDebounceRef = useRef(null);
   const pendingInitialScrollRef = useRef(false);
-  const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle } = useAppTheme();
 
   useEffect(() => {
     const nextPosts = normalizePosts(navPostData, postData);
@@ -154,7 +154,7 @@ export default function PostView({ postData = [] }) {
     };
 
     fetchPostFromUserChat();
-  }, [userChat, posts]);
+  }, [posts, toast, userChat]);
 
   // ─── Refetch post data ──────────────────────────────────────
   const refetchPostData = useCallback(async (postId) => {
@@ -204,17 +204,17 @@ export default function PostView({ postData = [] }) {
   // ─── Handle Back Button Press ────────────────────────────────
   const handleBackPress = useCallback(() => {
 
-    const returnTo = route.params?.returnTo;
+    const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
-    if (returnTo) {
+    if (backTarget) {
       // Check if returnParams has nested screen navigation
       if (returnParams?.screen) {
         // Navigate to the main stack and then to the nested screen
-        navigation.navigate(returnTo, returnParams);
+        navigation.navigate(backTarget, returnParams);
       } else {
         // Simple navigation
-        navigation.navigate(returnTo, returnParams);
+        navigation.navigate(backTarget, returnParams);
       }
     } else {
       navigation.goBack();
@@ -279,6 +279,11 @@ export default function PostView({ postData = [] }) {
   useEffect(() => {
     setList(posts || []);
   }, [posts]);
+
+  const visiblePosts = useMemo(
+    () => list.filter(item => !hiddenById[item.id]),
+    [list, hiddenById],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -352,62 +357,78 @@ export default function PostView({ postData = [] }) {
     return '';
   }, [startIndex, posts]);
 
+  const resolvedInitialIndex = useMemo(() => {
+    if (!visiblePosts.length) return -1;
+    if (startPostId) {
+      const visibleIndex = visiblePosts.findIndex(
+        post => String(post?.id ?? '') === startPostId,
+      );
+      if (visibleIndex >= 0) return visibleIndex;
+    }
+    if (
+      startIndex !== undefined &&
+      startIndex >= 0 &&
+      startIndex < visiblePosts.length
+    ) {
+      return startIndex;
+    }
+    return 0;
+  }, [startIndex, startPostId, visiblePosts]);
+
   const scrollToStartIndex = useCallback(
     (animated = false) => {
-      if (
-        startIndex === undefined ||
-        startIndex < 0 ||
-        startIndex >= posts.length
-      ) {
+      if (!flatListRef.current || resolvedInitialIndex < 0 || visiblePosts.length === 0) {
         return;
       }
       flatListRef.current?.scrollToIndex({
-        index: startIndex,
+        index: resolvedInitialIndex,
         animated,
         viewPosition: 0,
       });
     },
-    [startIndex, posts.length],
+    [resolvedInitialIndex, visiblePosts.length],
   );
 
   useEffect(() => {
-    if (
-      startIndex !== undefined &&
-      startIndex >= 0 &&
-      startIndex < posts.length
-    ) {
+    if (resolvedInitialIndex >= 0 && visiblePosts.length > 0) {
       pendingInitialScrollRef.current = true;
       const timer = setTimeout(() => {
         scrollToStartIndex(false);
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [startIndex, posts.length, scrollToStartIndex]);
+    pendingInitialScrollRef.current = false;
+  }, [resolvedInitialIndex, scrollToStartIndex, visiblePosts.length]);
 
   // ─── Handle scroll to index errors ─────────────────────────
   const onScrollToIndexFailed = useCallback(info => {
+    if (!flatListRef.current || visiblePosts.length === 0) {
+      pendingInitialScrollRef.current = false;
+      return;
+    }
+    const safeIndex = Math.max(0, Math.min(info.index, visiblePosts.length - 1));
     const wait = new Promise(resolve => setTimeout(resolve, 500));
     wait.then(() => {
       flatListRef.current?.scrollToIndex({
-        index: info.index,
+        index: safeIndex,
         animated: true,
         viewPosition: 0,
       });
     });
-  }, []);
+  }, [visiblePosts.length]);
 
   const handleContentSizeChange = useCallback(() => {
-    if (pendingInitialScrollRef.current) {
+    if (pendingInitialScrollRef.current && visiblePosts.length > 0) {
       scrollToStartIndex(false);
     }
-  }, [scrollToStartIndex]);
+  }, [scrollToStartIndex, visiblePosts.length]);
 
   const handleScrollBeginDrag = useCallback(() => {
     pendingInitialScrollRef.current = false;
   }, []);
 
   // ─── Like ───────────────────────────────────────────────────
-  const toggleLike = async (postId) => {
+  const toggleLike = useCallback(async (postId) => {
     if (!postId) return;
     if (likingIds.has(postId)) return;
 
@@ -455,10 +476,10 @@ export default function PostView({ postData = [] }) {
         return next;
       });
     }
-  };
+  }, [liked, likingIds, postLikesCount, refetchPostData, toast, userChat]);
 
   // ─── Save / Unsave ──────────────────────────────────────────
-  const handleToggleSave = async id => {
+  const handleToggleSave = useCallback(async id => {
     if (!id) return;
     if (savingIds.has(id)) return;
 
@@ -467,7 +488,7 @@ export default function PostView({ postData = [] }) {
 
     try {
       const resp = isCurrentlySaved ? await unSavePost(id) : await savePost(id);
-      if (resp && resp.statusCode == 200) {
+      if (resp && resp.statusCode === 200) {
         showToastMessage(toast, 'success', resp.data.message);
 
         // If coming from UserChat, refetch the post data
@@ -492,7 +513,7 @@ export default function PostView({ postData = [] }) {
         return next;
       });
     }
-  };
+  }, [refetchPostData, saved, savingIds, toast, userChat]);
 
   // ─── Hide / Unhide ──────────────────────────────────────────
   const handleToggleHide = useCallback(
@@ -614,10 +635,10 @@ export default function PostView({ postData = [] }) {
     setModalVisible(true);
   };
 
-  const closeOptions = () => {
+  const closeOptions = useCallback(() => {
     setModalVisible(false);
     setModalPostId(null);
-  };
+  }, []);
 
   const handlePostEdited = useCallback(updatedPost => {
     if (!updatedPost?.id) return;
@@ -698,6 +719,13 @@ export default function PostView({ postData = [] }) {
             text: 'Delete',
             style: 'destructive',
             onPress: async () => {
+              const previousList = list;
+              const nextList = previousList.filter(
+                p => String(p.id) !== String(modalPostId),
+              );
+              const nextVisiblePosts = nextList.filter(
+                p => !hiddenById[p.id],
+              );
               try {
                 dispatch(showLoader());
                 let userId = currentUserId;
@@ -713,9 +741,7 @@ export default function PostView({ postData = [] }) {
                   }
                   userId = String(id);
                 }
-                setList(prev =>
-                  prev.filter(p => String(p.id) !== String(modalPostId)),
-                );
+                setList(nextList);
                 const res = await deletePost(modalPostId, userId);
                 closeOptions();
                 if (res?.statusCode === 200 && res?.success) {
@@ -724,7 +750,11 @@ export default function PostView({ postData = [] }) {
                     'success',
                     res?.data?.message || 'Post deleted',
                   );
+                  if (nextVisiblePosts.length === 0) {
+                    handleBackPress();
+                  }
                 } else {
+                  setList(previousList);
                   showToastMessage(
                     toast,
                     'danger',
@@ -732,6 +762,7 @@ export default function PostView({ postData = [] }) {
                   );
                 }
               } catch (err) {
+                setList(previousList);
                 showToastMessage(
                   toast,
                   'danger',
@@ -769,6 +800,8 @@ export default function PostView({ postData = [] }) {
       currentUserId,
       dispatch,
       handleToggleHide,
+      hiddenById,
+      handleBackPress,
     ],
   );
 
@@ -836,7 +869,7 @@ export default function PostView({ postData = [] }) {
         userId: item.userId,
         boughtBy: item.boughtBy || [],
         taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
-        returnTo: route?.params?.returnTo,
+        returnTo,
         follow:
           typeof followingByUserId[String(item.userId)] === 'boolean'
             ? followingByUserId[String(item.userId)]
@@ -859,7 +892,7 @@ export default function PostView({ postData = [] }) {
             onComment={() => handleComment(item.id, mapped.UserId)}
             onOptions={() => openOptions(item.id)} 
             onSuggest={[]}
-            returnTo={route?.params?.returnTo}
+            returnTo={returnTo}
             shareCount={item.shareCount}
             taggedPeople={mapped.taggedPeople}
             isVisible={isPostVisible}
@@ -880,6 +913,9 @@ export default function PostView({ postData = [] }) {
       followingByUserId,
       followingBusy,
       handleToggleFollow,
+      handleToggleSave,
+      returnTo,
+      toggleLike,
       currentlyVisiblePostId,
       screenFocused,
       playingPostId,
@@ -888,14 +924,7 @@ export default function PostView({ postData = [] }) {
 
   // ─── Get initial scroll index for FlatList ──────────────────
   const getInitialScrollIndex = () => {
-    if (
-      startIndex !== undefined &&
-      startIndex >= 0 &&
-      startIndex < posts.length
-    ) {
-      return startIndex;
-    }
-    return 0;
+    return resolvedInitialIndex >= 0 ? resolvedInitialIndex : 0;
   };
 
   const handleViewableItemsChanged = useCallback(
@@ -982,12 +1011,12 @@ export default function PostView({ postData = [] }) {
 
         <FlatList
           ref={flatListRef}
-          data={list.filter(item => !hiddenById[item.id])}
+          data={visiblePosts}
           keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
           renderItem={renderFeedItem}
           contentContainerStyle={styles.feedContainer}
           showsVerticalScrollIndicator={false}
-          initialScrollIndex={getInitialScrollIndex()}
+          initialScrollIndex={visiblePosts.length > 0 ? getInitialScrollIndex() : undefined}
           onContentSizeChange={handleContentSizeChange}
           onScrollBeginDrag={handleScrollBeginDrag}
           onScrollToIndexFailed={onScrollToIndexFailed}

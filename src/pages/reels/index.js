@@ -15,8 +15,10 @@ import {
   Alert,
   ScrollView,
   Keyboard,
+  Platform,
 } from 'react-native';
 import Video from 'react-native-video';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -154,8 +156,13 @@ export default function FlipsScreen() {
   const { bgStyle, textStyle } = useAppTheme();
   const shareRef = useRef(null);
   const viewportHeight = Math.max(1, windowHeight);
-  const sideActionsBottom = Math.max(insets.bottom + 24, 100);
-  const bottomContentBottom = Math.max(insets.bottom + 24, 110);
+  const tabBarHeight = useBottomTabBarHeight();
+  const bottomOverlayInset = Math.max(
+    tabBarHeight + (Platform.OS === 'ios' ? 28 : 12),
+    insets.bottom + 32,
+  );
+  const sideActionsBottom = bottomOverlayInset + 8;
+  const bottomContentBottom = bottomOverlayInset + 20;
   const options = [
     "I don't like this post",
     "I've already seen this",
@@ -188,7 +195,7 @@ export default function FlipsScreen() {
         useNativeDriver: false,
       }).start();
     }
-  }, [currentIndex, paused, isFocused]);
+  }, [currentIndex, isFocused, paused, progressAnim, reels]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -197,56 +204,9 @@ export default function FlipsScreen() {
       });
       progressAnim.stopAnimation();
     }
-  }, [isFocused]);
+  }, [isFocused, progressAnim]);
 
-  useEffect(() => {
-    // Get reel from params if exists — support both 'uniqueKey' and 'key' as callers may use either.
-    const paramReel = route.params?.item;
-    const paramKey = route.params?.uniqueKey ?? route.params?.key ?? null;
-
-    if (paramReel) {
-      // Transform param reel to match app structure
-      const transformedParamReel = {
-        id: paramReel.id || `param_${Date.now()}`,
-        video: paramReel.images?.[0] || paramReel.video || '',
-        user: paramReel.userName || paramReel.username || 'Unknown User',
-        avatar: paramReel.userImage || paramReel.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
-        caption: paramReel.caption || paramReel.text || 'No caption',
-        music: paramReel.music || 'Original Audio',
-        likes: paramReel.likeCount || 0,
-        comments: paramReel.commentCount || 0,
-        shares: paramReel.shareCount || 0,
-        isLiked: paramReel.isLike || false,
-        isFollowing: paramReel.isFollow || false,
-        views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
-        duration: 30000,
-        verified: false,
-        likedBy: [`${paramReel.likeCount || 0} others`],
-        isRemixable: true,
-        isSaved: paramReel.isSaved || false,
-        isHide: paramReel.isHide || false,
-        userId: paramReel.userId || paramReel.UserId,
-        hashtag: paramReel.hashtag || [],
-        location: paramReel.location || null,
-        taggedPeople: paramReel.taggedPeople || [],
-      };
-
-      // Set param reel as first item and reset index so we open the selected reel
-      setReels([transformedParamReel]);
-      setSelectedReelId(transformedParamReel.id);
-      setCurrentIndex(0);
-      // Reset paused/muted states so the new reel plays correctly
-      setPaused({});
-      setMuted({});
-
-    }
-
-    // Fetch all reels (will be appended after param reel)
-    fetchAllReels(paramReel);
-    // Re-run effect when route params key or uniqueKey or the item id changes
-  }, [route.params?.uniqueKey, route.params?.key, route.params?.item?.id]);
-
-  const fetchAllReels = async (paramReel) => {
+  const fetchAllReels = useCallback(async (paramReel) => {
     try {
       dispatch(showLoader());
       const response = await getAllReels();
@@ -305,7 +265,51 @@ export default function FlipsScreen() {
     } finally {
       dispatch(hideLoader());
     }
-  };
+  }, [dispatch, toast]);
+
+  useEffect(() => {
+    // Get reel from params if exists — support both 'uniqueKey' and 'key' as callers may use either.
+    const paramReel = route.params?.item;
+
+    if (paramReel) {
+      // Transform param reel to match app structure
+      const transformedParamReel = {
+        id: paramReel.id || `param_${Date.now()}`,
+        video: paramReel.images?.[0] || paramReel.video || '',
+        user: paramReel.userName || paramReel.username || 'Unknown User',
+        avatar: paramReel.userImage || paramReel.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
+        caption: paramReel.caption || paramReel.text || 'No caption',
+        music: paramReel.music || 'Original Audio',
+        likes: paramReel.likeCount || 0,
+        comments: paramReel.commentCount || 0,
+        shares: paramReel.shareCount || 0,
+        isLiked: paramReel.isLike || false,
+        isFollowing: paramReel.isFollow || false,
+        views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
+        duration: 30000,
+        verified: false,
+        likedBy: [`${paramReel.likeCount || 0} others`],
+        isRemixable: true,
+        isSaved: paramReel.isSaved || false,
+        isHide: paramReel.isHide || false,
+        userId: paramReel.userId || paramReel.UserId,
+        hashtag: paramReel.hashtag || [],
+        location: paramReel.location || null,
+        taggedPeople: paramReel.taggedPeople || [],
+      };
+
+      // Set param reel as first item and reset index so we open the selected reel
+      setReels([transformedParamReel]);
+      setSelectedReelId(transformedParamReel.id);
+      setCurrentIndex(0);
+      // Reset paused/muted states so the new reel plays correctly
+      setPaused({});
+      setMuted({});
+    }
+
+    // Fetch all reels (will be appended after param reel)
+    fetchAllReels(paramReel);
+  }, [fetchAllReels, route.params?.item, route.params?.key, route.params?.uniqueKey]);
 
   const copyToClipboard = (url) => {
     if (!url) {
@@ -722,7 +726,7 @@ export default function FlipsScreen() {
           >
             <Icon
               name={liked[item.id] ? 'heart' : 'heart-outline'}
-              size={32}
+              size={22}
               color={liked[item.id] ? '#ff3040' : '#fff'}
             />
             <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
@@ -732,7 +736,7 @@ export default function FlipsScreen() {
             style={styles.actionButton}
             onPress={() => handleComment(item.id)}
           >
-            <Icon name="chatbubble-outline" size={30} color="#fff" />
+            <Icon name="chatbubble-outline" size={20} color="#fff" />
             <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
           </TouchableOpacity>
 
@@ -741,7 +745,7 @@ export default function FlipsScreen() {
             // onPress={() => handleShare(item)}
             onPress={() => shareRef.current?.open?.()}
           >
-            <Icon name="paper-plane-outline" size={30} color="#fff" />
+            <Icon name="paper-plane-outline" size={20} color="#fff" />
             <Text style={styles.actionLabel}>Share</Text>
           </TouchableOpacity>
 
@@ -749,7 +753,7 @@ export default function FlipsScreen() {
             style={styles.actionButton}
             onPress={() => handleMoreOptions(item)}
           >
-            <Icon name="ellipsis-vertical" size={30} color="#fff" />
+            <Icon name="ellipsis-vertical" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
         <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
@@ -876,7 +880,7 @@ export default function FlipsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity

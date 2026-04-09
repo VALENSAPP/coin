@@ -34,11 +34,32 @@ export default function StoryInteractiveOverlay({
   const startX = useSharedValue(initialX);
   const startY = useSharedValue(initialY);
   const pinchStartScale = useSharedValue(initialScale);
+  const pinchStartX = useSharedValue(initialX);
+  const pinchStartY = useSharedValue(initialY);
+  const pinchLocalOffsetX = useSharedValue(0);
+  const pinchLocalOffsetY = useSharedValue(0);
+  const layoutWidth = useSharedValue(0);
+  const layoutHeight = useSharedValue(0);
   const trashRectRef = useRef(trashRect);
 
   useEffect(() => {
     trashRectRef.current = trashRect;
   }, [trashRect]);
+
+  useEffect(() => {
+    translateX.value = initialX;
+    startX.value = initialX;
+  }, [initialX, startX, translateX]);
+
+  useEffect(() => {
+    translateY.value = initialY;
+    startY.value = initialY;
+  }, [initialY, startY, translateY]);
+
+  useEffect(() => {
+    scale.value = initialScale;
+    pinchStartScale.value = initialScale;
+  }, [initialScale, pinchStartScale, scale]);
 
   const trashHintVisibleRef = useRef(false);
 
@@ -103,12 +124,26 @@ export default function StoryInteractiveOverlay({
     });
 
   const pinch = Gesture.Pinch()
-    .onBegin(() => {
+    .onBegin(e => {
       pinchStartScale.value = scale.value;
+      pinchStartX.value = translateX.value;
+      pinchStartY.value = translateY.value;
+      const baseScale = Math.max(pinchStartScale.value, 0.001);
+      pinchLocalOffsetX.value =
+        (e.focalX - layoutWidth.value / 2) / baseScale;
+      pinchLocalOffsetY.value =
+        (e.focalY - layoutHeight.value / 2) / baseScale;
     })
     .onUpdate(e => {
       const next = pinchStartScale.value * e.scale;
-      scale.value = Math.min(maxScale, Math.max(minScale, next));
+      const nextScale = Math.min(maxScale, Math.max(minScale, next));
+      scale.value = nextScale;
+      translateX.value =
+        pinchStartX.value -
+        pinchLocalOffsetX.value * (nextScale - pinchStartScale.value);
+      translateY.value =
+        pinchStartY.value -
+        pinchLocalOffsetY.value * (nextScale - pinchStartScale.value);
     })
     .onEnd(() => {
       runOnJS(commitPinchOnly)(
@@ -122,19 +157,22 @@ export default function StoryInteractiveOverlay({
 
   const animatedStyle = useAnimatedStyle(() => ({
     position: 'absolute',
-    left: 0,
-    top: 0,
+    left: translateX.value,
+    top: translateY.value,
     zIndex,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+    transform: [{ scale: scale.value }],
   }));
 
   return (
     <GestureDetector gesture={composed}>
-      <Animated.View style={animatedStyle} collapsable={false}>
+      <Animated.View
+        style={animatedStyle}
+        collapsable={false}
+        onLayout={event => {
+          layoutWidth.value = event.nativeEvent.layout.width;
+          layoutHeight.value = event.nativeEvent.layout.height;
+        }}
+      >
         {children}
       </Animated.View>
     </GestureDetector>

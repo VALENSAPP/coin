@@ -25,11 +25,16 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { connectWalletLogin } from '../authentication/socialLogin';
 import { updateWallet } from '../../services/wallet';
+import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import {
   getSupportRecipientWalletAddress,
   handleMetaMaskSupportFlow,
   openWalletPayment,
 } from '../../utils/metaMaskSupport';
+import {
+  isSupportAllowed,
+  normalizeProfileType,
+} from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
