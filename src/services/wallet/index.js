@@ -18,8 +18,8 @@ export const authSesionHistory = async (data) => {
 export const logoutDeviec = async (data) => {
   return axiosInstance.post('/auth/logout-session', data);
 }
-export const logoutDeviecAll = async (data) => {
-  return axiosInstance.post('/auth/logout-all', data);
+export const logoutDeviecAll = async () => {
+  return axiosInstance.post('/auth/logout-all');
 }
 export const userProfileStatusSet = async (data) => {
   return axiosInstance.post('/user/profileStatusSet', data);

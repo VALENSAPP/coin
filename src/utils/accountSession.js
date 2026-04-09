@@ -60,7 +60,9 @@ export const saveOrUpdateAccount = async account => {
   }
 
   const accounts = await getSavedAccounts();
-  const index = accounts.findIndex(item => item.userId === account.userId);
+  const index = accounts.findIndex(
+    item => String(item.userId) === String(account.userId),
+  );
 
   const normalized = {
     ...account,
@@ -115,7 +117,8 @@ export const applyAccountSession = async account => {
 export const removeSavedAccount = async userId => {
   if (!userId) return;
   const accounts = await getSavedAccounts();
-  const next = accounts.filter(item => item.userId !== userId);
+  const id = String(userId);
+  const next = accounts.filter(item => String(item.userId) !== id);
   await AsyncStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(next));
 };
 

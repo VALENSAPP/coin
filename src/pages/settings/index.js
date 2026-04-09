@@ -11,6 +11,7 @@ import {
   Modal,
   Image,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { loggedIn, loggedOut } from '../../redux/actions/LoginAction';
 import { useDispatch } from 'react-redux';
@@ -21,8 +22,21 @@ import createStyles from './Style';
 import data from '../../list.json';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useToast } from 'react-native-toast-notifications';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
-import { logout } from '../../services/authentication';
+import {
+  logout,
+  fetchDeviceAccounts,
+  extractAccountsFromDeviceAccountsResponse,
+  switchAccountRequest,
+  extractUserFromSwitchResponse,
+  persistSwitchedUser,
+  removeDeviceAccountRequest,
+  resolveRefreshTokenForAccountSwitch,
+  refreshToken,
+  extractTokensFromRefreshResponse,
+} from '../../services/authentication';
+import { showToastMessage } from '../../components/displaytoastmessage';
 import {
   ADDING_ACCOUNT_FLAG_KEY,
   applyAccountSession,
@@ -31,14 +45,25 @@ import {
   getSavedAccounts,
   removeSavedAccount,
 } from '../../utils/accountSession';
+import { logoutDeviecAll } from '../../services/wallet';
+import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+
+/** __DEV__ only: set to '' to use real tokens from resolveRefreshTokenForAccountSwitch. */
+const DEBUG_STATIC_REFRESH_TOKEN_FOR_SWITCH_TEST = __DEV__
+  ? '7a2b9d5913744d3e019e38403e92c925cb9499f727d116898f5dda20af7d9d86'
+  : '';
 
 const Settings = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const toast = useToast();
   const styles = createStyles();
   const refRBSheet = useRef();
   const [accountSwitcherVisible, setAccountSwitcherVisible] = useState(false);
   const [switchableAccounts, setSwitchableAccounts] = useState([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [switchInFlight, setSwitchInFlight] = useState(false);
+  const [removeAccountConfirm, setRemoveAccountConfirm] = useState(null);
   const { bgStyle, textStyle, bg, text, card } = useAppTheme();
 
   // Handler functions for all menu items
@@ -69,7 +94,7 @@ const Settings = () => {
   };
 
   const handleArchivePress = () => {
-    
+
     navigation.navigate('ArchiveScreen');
   };
 
@@ -288,30 +313,118 @@ const Settings = () => {
     dispatch(loggedOut());
   };
 
+  const mergeAccountsServerAndLocal = (serverRows, localRows) => {
+    const map = new Map();
+    (localRows || []).forEach(a => {
+      if (a?.userId) map.set(String(a.userId), { ...a });
+    });
+    (serverRows || []).forEach(s => {
+      if (!s?.userId) return;
+      const id = String(s.userId);
+      const prev = map.get(id) || {};
+      map.set(id, {
+        ...prev,
+        ...s,
+        refreshToken: s.refreshToken || prev.refreshToken,
+        displayName: s.displayName || prev.displayName,
+        image: s.image || prev.image,
+      });
+    });
+    return Array.from(map.values());
+  };
+
   const switchAccount = async account => {
-    await applyAccountSession(account);
-    dispatch(setUserProfile(account?.profile || 'normal'));
-    setAccountSwitcherVisible(false);
-    dispatch(loggedOut());
-    setTimeout(() => {
-      dispatch(loggedIn());
-    }, 50);
+    try {
+      setSwitchInFlight(true);
+      const targetUserId = account?.id;
+      console.log(targetUserId, "targetUserId==>switch");
+
+      const res = await switchAccountRequest({ targetUserId });
+      console.log("switchAccountRequest res==> ", res);
+      if (res?.statusCode === 401) {
+        showToastMessage(
+          toast,
+          'danger',
+          res?.message ||
+          'Session expired for this account. Remove it from this device, then sign in again.',
+          4000,
+        );
+        return;
+      }
+      const ok = res?.statusCode === 200 || res?.statusCode === 201;
+      if (ok) {
+        await persistSwitchedUser(res.data, account, dispatch, String(targetUserId));
+        const profile = await AsyncStorage.getItem('profile');
+        dispatch(setUserProfile(profile || 'normal'));
+        setAccountSwitcherVisible(false);
+        dispatch(loggedOut());
+        setTimeout(() => {
+          dispatch(loggedIn());
+        }, 50);
+        showToastMessage(toast, 'success', 'Switched account', 1500);
+        return;
+      }
+    } catch (e) {
+      console.warn('switchAccount', e);
+      showToastMessage(toast, 'danger', e?.message || 'Switch failed');
+    } finally {
+      setSwitchInFlight(false);
+    }
+  };
+
+  const resolveAccountUserId = account =>
+    account?.userId ?? account?.id ?? account?.user_id ?? account?._id;
+
+  const openRemoveAccountConfirm = account => {
+    const userId = resolveAccountUserId(account);
+    if (userId == null || userId === '') return;
+    setRemoveAccountConfirm({ ...account, userId: String(userId) });
+  };
+
+  const closeRemoveAccountConfirm = () => setRemoveAccountConfirm(null);
+
+  const confirmRemoveAccountFromDevice = async () => {
+    const account = removeAccountConfirm;
+    const userId = account?.userId;
+    if (!userId) return;
+    closeRemoveAccountConfirm();
+    try {
+      const res = await removeDeviceAccountRequest({ userId });
+      const ok = res?.statusCode === 200 || res?.statusCode === 201;
+      if (ok) {
+        await removeSavedAccount(userId);
+        setSwitchableAccounts(prev =>
+          prev.filter(a => String(resolveAccountUserId(a)) !== String(userId)),
+        );
+        showToastMessage(toast, 'success', 'Account removed from device', 2000);
+      } else {
+        showToastMessage(toast, 'danger', res?.message || 'Could not remove account');
+      }
+    } catch (err) {
+      showToastMessage(toast, 'danger', err?.message || 'Remove failed');
+    }
   };
 
   const handleAddAccountPress = async () => {
+    if (loadingAccounts) return;
     try {
       await ensureCurrentAccountSaved();
-      const currentUserId = await AsyncStorage.getItem('userId');
-      const accounts = await getSavedAccounts();
-      const filteredAccounts = accounts.filter(account => account.userId !== currentUserId);
+      setLoadingAccounts(true);
 
-      if (!filteredAccounts.length) {
-        await moveToLoginForAddingAccount();
-        return;
+      let merged = [];
+      try {
+        const apiRes = await fetchDeviceAccounts();
+        const accounts = apiRes?.data?.accounts || [];
+        setSwitchableAccounts(accounts);
+        setAccountSwitcherVisible(true);
+      } catch (e) {
+        console.warn('fetchDeviceAccounts', e);
+        merged = await getSavedAccounts();
+      } finally {
+        setLoadingAccounts(false);
       }
 
-      setSwitchableAccounts(filteredAccounts.slice(0, 6));
-      setAccountSwitcherVisible(true);
+
     } catch (error) {
       Alert.alert('Error', 'Unable to open account switcher right now.');
     }
@@ -359,6 +472,51 @@ const Settings = () => {
     ]);
   };
 
+  const performLogoutAllAccounts = async () => {
+    try {
+      dispatch(setUserProfile('normal'));
+      dispatch(showLoader());
+
+      let response;
+      try {
+        response = await logoutDeviecAll();
+      } catch (e) {
+        console.log('Logout API failed:', e);
+      }
+
+      if (response?.statusCode === 200) {
+        await AsyncStorage.multiRemove([
+          'token',
+          'refreshToken',
+          'firebaseToken',
+          'userId',
+          'username',
+          'email',
+          'walletAddress',
+          'walletPrivateKey',
+          'walletMnemonic',
+          'walletChainId',
+          'walletType',
+          'profile',
+          'stripeCustomerId',
+          ADDING_ACCOUNT_FLAG_KEY,
+        ]);
+
+        await AsyncStorage.setItem('isLoggedIn', 'false');
+
+        await clearSavedAccounts();
+
+        dispatch(loggedOut());
+      } else {
+        console.log('Logout all failed:', response);
+      }
+    } catch (error) {
+      console.log('Logout All Error:', error);
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
   const handleLogoutAllPress = () => {
     Alert.alert(
       'Log Out of All Accounts',
@@ -369,37 +527,17 @@ const Settings = () => {
           text: 'Log Out All',
           style: 'destructive',
           onPress: () => {
-            (async () => {
-              dispatch(setUserProfile('normal'));
-              try {
-                const token = await AsyncStorage.getItem('token');
-                const refreshToken = await AsyncStorage.getItem('refreshToken');
-                await logout({ token, refreshToken });
-              } catch (e) {
-                // Ignore logout API failure; proceed with local logout.
-              }
-              await AsyncStorage.setItem('isLoggedIn', 'false');
-              await AsyncStorage.removeItem('token');
-              await AsyncStorage.removeItem('refreshToken');
-              await AsyncStorage.removeItem('firebaseToken');
-              await AsyncStorage.removeItem('userId');
-              await AsyncStorage.removeItem('username');
-              await AsyncStorage.removeItem('email');
-              await AsyncStorage.removeItem('walletAddress');
-              await AsyncStorage.removeItem('walletPrivateKey');
-              await AsyncStorage.removeItem('walletMnemonic');
-              await AsyncStorage.removeItem('walletChainId');
-              await AsyncStorage.removeItem('walletType');
-              await AsyncStorage.removeItem('profile');
-              await AsyncStorage.removeItem('stripeCustomerId');
-              await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
-              await clearSavedAccounts();
-              dispatch(loggedOut());
-            })();
+            void performLogoutAllAccounts();
           },
         },
       ],
     );
+  };
+
+  const handleRemoveModalLogoutAllDevices = () => {
+    closeRemoveAccountConfirm();
+    setAccountSwitcherVisible(false);
+    void performLogoutAllAccounts();
   };
 
   const SettingsItem = ({
@@ -535,7 +673,7 @@ const Settings = () => {
             title="Hide Posts"
             onPress={handleHideStoryPress}
           />
-           {/* <SettingsItem
+          {/* <SettingsItem
             icon="visibility-off"
             title="Battle in progress"
             onPress={handleBattleInProgressPress}
@@ -568,7 +706,7 @@ const Settings = () => {
         <View style={styles.section}>
           <SectionHeader title="Login" />
           <ActionItem
-            title="Add accounts"
+            title={loadingAccounts ? 'Loading accounts…' : 'Add accounts'}
             onPress={handleAddAccountPress}
             isDestructive={true}
           />
@@ -577,11 +715,11 @@ const Settings = () => {
             onPress={handleLogoutPress}
             isDestructive={true}
           />
-          <ActionItem
+          {/* <ActionItem
             title="Log out all accounts"
             onPress={handleLogoutAllPress}
             isDestructive={true}
-          />
+          /> */}
         </View>
         <RBSheet
           ref={refRBSheet}
@@ -625,45 +763,80 @@ const Settings = () => {
         <View style={switcherStyles.overlay}>
           <View style={[switcherStyles.card, { backgroundColor: card }]}>
             <Text style={[switcherStyles.title, { color: text }]}>Switch account</Text>
-            <Text style={[switcherStyles.subtitle, { color: text }]}>Select account or add another one</Text>
+            <Text style={[switcherStyles.subtitle, { color: text }]}>
+              Select an account, remove one from this device, or add another.
+            </Text>
+
+            {switchInFlight ? (
+              <View style={switcherStyles.inlineLoading}>
+                <ActivityIndicator style={switcherStyles.inlineSpinner} color={text} />
+                <Text style={[switcherStyles.inlineLoadingText, { color: text }]}>Switching…</Text>
+              </View>
+            ) : null}
 
             <ScrollView
               style={switcherStyles.list}
               contentContainerStyle={switcherStyles.listContent}
               showsVerticalScrollIndicator={false}
             >
-              {switchableAccounts.map(account => {
-                const label =
-                  account.displayName ||
-                  account.username ||
-                  account.email ||
-                  `Account ${account.userId}`;
-                const avatarUri = account.image || account.userImage || account.profileImage;
-                const initial = (label?.trim?.()?.charAt(0) || 'U').toUpperCase();
+              {switchableAccounts
+                .filter(account => !account.isCurrent)
+                .map(account => {
+                  const label =
+                    account.displayName ||
+                    account.username ||
+                    account.email ||
+                    `Account ${account.id}`;
 
-                return (
-                  <TouchableOpacity
-                    key={account.userId}
-                    style={[switcherStyles.accountRow, { backgroundColor: bg }]}
-                    onPress={() => switchAccount(account)}
-                  >
-                    {avatarUri ? (
-                      <Image source={{ uri: avatarUri }} style={switcherStyles.avatar} />
-                    ) : (
-                      <View style={[switcherStyles.avatarFallback, { backgroundColor: text }]}>
-                        <Text style={switcherStyles.avatarInitial}>{initial}</Text>
-                      </View>
-                    )}
-                    <Text style={[switcherStyles.accountName, { color: text }]} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                  const avatarUri =
+                    account.image || account.userImage || account.profileImage;
+
+                  const initial = (label?.trim?.()?.charAt(0) || 'U').toUpperCase();
+
+                  const rowKey = String(resolveAccountUserId(account) ?? account.id ?? label);
+
+                  return (
+                    <View
+                      key={rowKey}
+                      style={[switcherStyles.accountRow, { backgroundColor: bg }]}
+                    >
+                      <TouchableOpacity
+                        style={switcherStyles.accountRowMain}
+                        disabled={switchInFlight}
+                        onPress={() => switchAccount(account)}
+                      >
+                        {avatarUri ? (
+                          <Image source={{ uri: avatarUri }} style={switcherStyles.avatar} />
+                        ) : (
+                          <View style={[switcherStyles.avatarFallback, { backgroundColor: text }]}>
+                            <Text style={switcherStyles.avatarInitial}>{initial}</Text>
+                          </View>
+                        )}
+                        <Text
+                          style={[switcherStyles.accountName, { color: text }]}
+                          numberOfLines={1}
+                        >
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => openRemoveAccountConfirm(account)}
+                        disabled={switchInFlight}
+                        style={switcherStyles.removeBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Remove account from this device"
+                      >
+                        <Icon name="delete-outline" size={22} color="#c62828" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
             </ScrollView>
 
             <TouchableOpacity
               style={[switcherStyles.addBtn, { backgroundColor: text }]}
+              disabled={switchInFlight}
               onPress={async () => {
                 setAccountSwitcherVisible(false);
                 await moveToLoginForAddingAccount();
@@ -675,6 +848,44 @@ const Settings = () => {
             <TouchableOpacity
               style={[switcherStyles.cancelBtn, { borderColor: text }]}
               onPress={() => setAccountSwitcherVisible(false)}
+            >
+              <Text style={[switcherStyles.cancelBtnText, { color: text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!removeAccountConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={closeRemoveAccountConfirm}
+      >
+        <View style={switcherStyles.overlay}>
+          <View style={[switcherStyles.card, { backgroundColor: card }]}>
+            <Text style={[switcherStyles.title, { color: text }]}>Log out</Text>
+            <Text style={[switcherStyles.confirmBody, { color: text }]}>
+              {/* Do you want to log out this account from this device only, or from all devices? */}
+              Do you want to log out this account from this device
+            </Text>
+            <TouchableOpacity
+              style={[switcherStyles.addBtn, { backgroundColor: text }]}
+              onPress={confirmRemoveAccountFromDevice}
+              disabled={switchInFlight}
+            >
+              <Text style={switcherStyles.addBtnText}>From this device</Text>
+            </TouchableOpacity>
+            {/* <TouchableOpacity
+              style={[switcherStyles.dangerBtn, switcherStyles.choiceBtnSpacing]}
+              onPress={handleRemoveModalLogoutAllDevices}
+              disabled={switchInFlight}
+            >
+              <Text style={switcherStyles.dangerBtnText}>From all devices</Text>
+            </TouchableOpacity> */}
+            <TouchableOpacity
+              style={[switcherStyles.cancelBtn, { borderColor: text }]}
+              onPress={closeRemoveAccountConfirm}
+              disabled={switchInFlight}
             >
               <Text style={[switcherStyles.cancelBtnText, { color: text }]}>Cancel</Text>
             </TouchableOpacity>
@@ -709,6 +920,27 @@ const switcherStyles = StyleSheet.create({
     fontSize: 13,
     color: '#6F6F6F',
   },
+  confirmBody: {
+    marginTop: 6,
+    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6F6F6F',
+  },
+  dangerBtn: {
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    backgroundColor: '#c62828',
+  },
+  choiceBtnSpacing: {
+    marginTop: 8,
+  },
+  dangerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   list: {
     maxHeight: 250,
   },
@@ -718,10 +950,33 @@ const switcherStyles = StyleSheet.create({
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 6,
+    paddingLeft: 10,
+    paddingRight: 4,
     borderRadius: 10,
     backgroundColor: '#F7F7F7',
+  },
+  accountRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  removeBtn: {
+    padding: 8,
+  },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  inlineSpinner: {
+    marginRight: 8,
+  },
+  inlineLoadingText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   avatar: {
     width: 36,
