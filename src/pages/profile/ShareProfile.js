@@ -116,7 +116,17 @@ const ShareProfile = ({ navigation }) => {
     }
   };
 
-
+  const toBold = (str) =>
+    String(str)
+      .split('')
+      .map((c) => {
+        const code = c.codePointAt(0);
+        if (code >= 65 && code <= 90) return String.fromCodePoint(code + 0x1D400 - 65);  // A–Z
+        if (code >= 97 && code <= 122) return String.fromCodePoint(code + 0x1D41A - 97);  // a–z
+        if (code >= 48 && code <= 57) return String.fromCodePoint(code + 0x1D7CE - 48);  // 0–9
+        return c; // keep @, ., :, / etc. as-is
+      })
+    .join('');
 
   const resolvedUsername = useMemo(() => (
     String(
@@ -180,10 +190,13 @@ const ShareProfile = ({ navigation }) => {
         return;
       }
 
-      const result = await Share.share({
-        url: qrShareUrl,
-        message: shareMessage,
-      });
+      const resolvedUsername = String(username || '').trim();
+      const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';
+
+     const result = await Share.share({
+      url: qrShareUrl,  
+      message: `👤 Check out ${toBold(profileLabel)} on Valens!\n\n🔗 Open profile`,
+    });
 
       if (result.action === Share.sharedAction) {
         if (result.activityType) {

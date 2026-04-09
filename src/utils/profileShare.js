@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 const ANDROID_CALLBACK_URL = 'com.valens://callback';
 const IOS_CALLBACK_URL = 'com.valens://';
 const WEB_BASE_URL = 'com.valens://callback';
-const APP_BASE_URL = 'com.valens://';
+const APP_BASE_URL = 'com.valens.app://';
 
 export const getProfileShareCallbackUrl = () => (
   Platform.OS === 'ios' ? IOS_CALLBACK_URL : ANDROID_CALLBACK_URL
@@ -81,7 +81,7 @@ export const buildProfileSharePayload = ({ username = '', userId = '' } = {}) =>
 
 export const normalizeProfileShareUrl = (rawUrl = '') => String(rawUrl || '')
   .trim()
-  .replace(/^com\.valens:\/\//i, `${WEB_BASE_URL}/`)
+  .replace(/^com\.valens\.app:\/\//i, `${WEB_BASE_URL}/`)
   .replace(/^valens:\/\//i, `${WEB_BASE_URL}/`);
 
 export const parseProfileShareUrl = (rawUrl = '') => {

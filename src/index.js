@@ -35,7 +35,7 @@ const linking = {
     'https://valensGoApp.com',
     'com.valens.app://',
     'com.valens://',
-    'valens://',
+    // 'valens://',
   ],
   config: {
     screens: {
@@ -74,7 +74,7 @@ export default function Main() {
   }, []);
 
   useEffect(() => {
-    requestUserPermission();
+    // requestUserPermission();
     notificationListener();
   }, []);
 
@@ -282,7 +282,7 @@ export default function Main() {
           console.log('✅ Loader hidden - user back on screen');
         }, 500);
 
-        return;
+        // return;
       }
 
       const navigateToUserProfile = (resolvedUserId) => {

@@ -40,6 +40,7 @@ import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import DeviceInfo from 'react-native-device-info';
 import { getOnboardingStatus } from '../../../services/profile';
 import { ensureCurrentAccountSaved, ADDING_ACCOUNT_FLAG_KEY } from '../../../utils/accountSession';
+import { requestUserPermission } from '../../../services/NotificationService';
 
 const { width, height } = Dimensions.get('window');
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
@@ -82,6 +83,7 @@ export default function LoginScreen() {
 
         const normalizedKycStatus = String(response?.data?.kycStatus || '').toUpperCase();
         if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED' && normalizedKycStatus === 'true')) {
+          requestUserPermission();
           await ensureCurrentAccountSaved({
             profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
             username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
