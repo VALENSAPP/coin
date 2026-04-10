@@ -56,10 +56,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
     { id: 'support', title: 'total support', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
     { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
-    { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
+    // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
     { id: 'Mission Post', title: 'Mission Post', value: '-', icon: 'ribbon', color: '#8b5cf6' },
      { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift', color: '#14b8a6' },
-  { id: 'metamask', title: 'MetaMask Received', value: '-', icon: 'logo-usd', color: '#f97316' },
+  { id: 'metamask', title: 'MetaMask', value: '-', icon: 'logo-usd', color: '#f97316' },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();

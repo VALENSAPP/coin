@@ -821,7 +821,12 @@ const Settings = () => {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => openRemoveAccountConfirm(account)}
+                        onPress={() => {
+                          setAccountSwitcherVisible(false);   // CLOSE FIRST MODAL
+                          setTimeout(() => {
+                            openRemoveAccountConfirm(account); // THEN OPEN SECOND
+                          }, 300);
+                        }}
                         disabled={switchInFlight}
                         style={switcherStyles.removeBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
