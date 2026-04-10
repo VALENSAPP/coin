@@ -55,7 +55,7 @@ export default function InviteScreen() {
         try {
             await Share.share({
                 message: `Join Valens and earn rewards! Use my referral code: ${userReferralCode}\n\n${deepLinkUrl}`,
-                url: deepLinkUrl,
+                // url: deepLinkUrl,
                 title: 'Join Valens',
             });
         } catch (e) {

@@ -176,8 +176,8 @@ export default function FlipsScreen() {
   const viewportHeight = Math.max(1, windowHeight);
   const tabBarHeight = useBottomTabBarHeight();
   const bottomOverlayInset = Math.max(
-    tabBarHeight + (Platform.OS === 'ios' ? 28 : 12),
-    insets.bottom + 32,
+    tabBarHeight + (Platform.OS === 'ios' ? 10 : 12),
+    // insets.bottom,
   );
   const sideActionsBottom = bottomOverlayInset + 8;
   const bottomContentBottom = bottomOverlayInset + 20;
@@ -1463,8 +1463,8 @@ export default function FlipsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-    // marginBottom:'10%'
+    paddingBottom: SCREEN_HEIGHT > 800 && 25,
+    backgroundColor: '#f8f2fc',
   },
   reelContainer: {
     width: '100%',
