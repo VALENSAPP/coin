@@ -5,6 +5,7 @@ import profileImgReducer from '../reducers/ProfileImgReducer';
 import drawerReducer from '../reducers/GlobalDrawerReducer';
 import userProfileReducer from '../reducers/UserProfileReducer';
 import userReducer from '../reducers/UserReducer';
+import addAccountReducer from '../reducers/AddAccountReducer';
 
 const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ const store = configureStore({
     drawer: drawerReducer,
     userProfile: userProfileReducer,
     user: userReducer,
+    addAccount: addAccountReducer,
   },
 });
 
