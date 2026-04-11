@@ -13,8 +13,8 @@ import {
   Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getAllConversations } from '../../../services/chatMessage';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { getAllConversations, sendMessage as sendMessageAPI } from '../../../services/chatMessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../../theme/useApptheme';
@@ -23,7 +23,7 @@ import useSocket from '../../../hooks/useSocket';
 import { number } from 'yup';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
-import { getHideChatConversation, chatStatusUpdate } from '../../../services/post';
+import { getHideChatConversation, chatStatusUpdate, sharePost } from '../../../services/post';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 
 // Fallback icon component
@@ -86,6 +86,7 @@ const NOTE_CARD_HEIGHT = 32;
 
 export default function ChatMessages() {
   const navigation = useNavigation();
+  const route = useRoute();
   const [search, setSearch] = useState('');
   const [conversations, setConversations] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -103,6 +104,9 @@ export default function ChatMessages() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [dataSource, setDataSource] = useState('none'); // Track data source: 'socket', 'api', or 'none'
+  
+  // Track if we've already processed the shared content
+  const hasProcessedShareRef = useRef(false);
 
   // ✅ Get current user ID and initialize socket on mount
   useEffect(() => {
@@ -192,6 +196,209 @@ export default function ChatMessages() {
       }
     }
   }, [currentUserId, socketReady]);
+
+  // ✅ Handle shared content from ShareModal
+  useEffect(() => {
+    const handleSharedContent = async () => {
+      // Check if this screen received shared content from ShareModal
+      const { selectedUserIds, sharedContent, fromShareModal } = route?.params || {};
+      
+      if (!fromShareModal || !sharedContent || !selectedUserIds || selectedUserIds.length === 0) {
+        return;
+      }
+
+      // Prevent duplicate processing
+      if (hasProcessedShareRef.current) {
+        console.log('🚫 Shared content already processed, skipping');
+        return;
+      }
+      
+      // Ensure we have the current user ID
+      if (!currentUserId) {
+        console.log('⏳ Waiting for currentUserId to be set...');
+        return;
+      }
+
+      hasProcessedShareRef.current = true;
+
+      console.log('📤 ChatMessages: Received shared content:', {
+        sharedContent,
+        selectedUserIds,
+        userCount: selectedUserIds.length,
+        currentUserId: currentUserId
+      });
+
+      try {
+        console.log('📬 Sending shared content to', selectedUserIds.length, 'user(s)');
+        
+        // Show loading toast
+        showToastMessage(
+          toast,
+          'success',
+          `Sharing with ${selectedUserIds.length} user${selectedUserIds.length > 1 ? 's' : ''}...`,
+          2000
+        );
+
+        let successCount = 0;
+        let failCount = 0;
+
+        // Step 1: Call sharePost API ONCE with all receiver user IDs
+        console.log('📋 Starting Step 1: sharePost API call (ONCE with all users)');
+        try {
+          let mediaType, mediaId;
+          if (sharedContent.post) {
+            mediaType = 'POST';
+            mediaId = sharedContent.postId;
+          } else if (sharedContent.reel) {
+            mediaType = 'REEL';
+            mediaId = sharedContent.reelId;
+          } else if (sharedContent.story) {
+            mediaType = 'STORY';
+            mediaId = sharedContent.storyId;
+            // Clean story ID (remove _0 suffix if present)
+            if (mediaId && mediaId.includes('_')) {
+              mediaId = mediaId.split('_')[0];
+            }
+          }
+
+          console.log('📋 Media details:', { mediaType, mediaId });
+
+          if (mediaType && mediaId) {
+            const sharePayload = {
+              mediaId: mediaId,
+              mediaType: mediaType,
+              conversationType: 'MEDIA',
+              sharedUserId: currentUserId,
+              receiverUserId: selectedUserIds  // Send ALL user IDs in array!
+            };
+            console.log('📡 Calling sharePost API ONCE with', selectedUserIds.length, 'users:', sharePayload);
+            const shareResponse = await sharePost(sharePayload);
+            console.log('✅ SharePost API response: Success');
+          }
+        } catch (shareError) {
+          console.error('❌ SharePost API error:', shareError.message);
+          // Continue anyway - try to send messages
+        }
+
+        // Step 2: Send message to each user sequentially
+        console.log('📋 Starting Step 2: Send messages to', selectedUserIds.length, 'users');
+        for (let i = 0; i < selectedUserIds.length; i++) {
+          const userId = selectedUserIds[i];
+          
+          // Add delay between sends to avoid overwhelming the server
+          if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          
+          try {
+            console.log(`📤 Sending message to user ${userId} (${i + 1}/${selectedUserIds.length})...`);
+
+            const messageType = sharedContent.post ? 'POST_SHARE'
+              : sharedContent.reel ? 'REEL_SHARE'
+                : sharedContent.story ? 'STORY_SHARE'
+                  : 'MEDIA';
+            
+            const messageText = sharedContent.post ? 'Shared a post'
+              : sharedContent.reel ? 'Shared a reel'
+                : sharedContent.story ? 'Shared a story'
+                  : '';
+            
+            const messageData = {
+              senderId: String(currentUserId),
+              receiverId: String(userId),
+              // message: messageText,
+              type: messageType,
+            };
+
+            if (sharedContent.postId) messageData.postId = sharedContent.postId;
+            if (sharedContent.reelId) messageData.reelId = sharedContent.reelId;
+            if (sharedContent.storyId) {
+              let storyId = sharedContent.storyId;
+              if (storyId.includes('_')) storyId = storyId.split('_')[0];
+              messageData.storyId = storyId;
+            }
+
+            console.log('📤 Sending message data to user', userId, ':', messageData);
+
+            // Socket FIRST
+            const socket = getSocket();
+            if (socket?.connected) {
+              socket.emit('sendMessage', messageData);
+              console.log('📡 Socket sent for', userId);
+            }
+
+            // API backup
+            try {
+              const response = await sendMessageAPI(messageData);
+              if (response?.success) {
+                console.log(`✅ API success for ${userId}`);
+                successCount++;
+              } else {
+                console.warn(`⚠️ API failed for ${userId}:`, response?.message);
+              }
+            } catch (apiErr) {
+              console.error(`❌ API error for ${userId}:`, apiErr.message);
+            }
+          } catch (err) {
+            console.error(`❌ Failed to send to user ${userId}:`, err.message);
+            failCount++;
+          }
+        }
+
+        console.log('✅ Completed sending to all users:', { successCount, failCount });
+
+        // Refresh chat list immediately after sharing
+        const socket = getSocket();
+        if (socket?.connected) {
+          console.log('📡 Refreshing chat box after multi-share');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
+
+        // Show final result
+        if (successCount > 0) {
+          showToastMessage(
+            toast,
+            'success',
+            `Shared to ${successCount} user${successCount > 1 ? 's' : ''}`,
+            2000
+          );
+        }
+        
+        if (failCount > 0) {
+          showToastMessage(
+            toast,
+            'error',
+            `Failed to share with ${failCount} user${failCount > 1 ? 's' : ''}`,
+            2000
+          );
+        }
+
+        // Clear params after short delay (let refresh complete)
+        setTimeout(() => {
+          navigation.setParams({
+            selectedUserIds: undefined,
+            sharedContent: undefined,
+            fromShareModal: undefined,
+          });
+        }, 500);
+
+      } catch (error) {
+        console.error('❌ Error processing shared content:', error);
+        Alert.alert('Error', 'Failed to share content. Please try again.');
+        hasProcessedShareRef.current = false;
+      }
+    };
+
+    handleSharedContent();
+  }, [route?.params, conversations, navigation, currentUserId, toast]);
+
+  // ✅ Reset shared content processing flag when shared content is cleared
+  useEffect(() => {
+    const { fromShareModal } = route?.params || {};
+    if (!fromShareModal) {
+      hasProcessedShareRef.current = false;
+    }
+  }, [route?.params]);
 
   // ✅ Listen for chat box updates (conversation list)
   useSocket('userChatBox', (data) => {
@@ -432,10 +639,10 @@ export default function ChatMessages() {
         console.log(`✅ Item ${index}: NEW FORMAT (conversation)`);
 
         // ✅ CHECK isHidden FIRST - before processing
-        if (item.isHidden === true) {
-          console.log(`🚫 Skipping hidden conversation: ${item.id}`);
-          return;
-        }
+        // if (item.isHidden === true) {
+        //   console.log(`🚫 Skipping hidden conversation: ${item.id}`);
+        //   return;
+        // }
 
         conversation = item;
         message = item.lastMessage;
