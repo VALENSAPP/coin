@@ -505,7 +505,10 @@ export default function OpenBattleScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              const returnTo = route?.params?.returnTo || 'Home';
+              navigation.navigate(returnTo);
+            }}
             style={styles.headerIconBtn}
           >
             <Ionicons name="chevron-back" size={24} color={text} />

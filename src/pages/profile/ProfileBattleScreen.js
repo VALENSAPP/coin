@@ -24,9 +24,11 @@ export default function ProfileBattleScreen() {
 
   const handleBack = () => {
     if (returnTo === 'UserProfile') {
-      navigation.navigate('ProfileMain'); // 👈 go back to profile root
+      navigation.navigate('ProfileMain', { screen: 'UserProfile' });
+    } else if (returnTo) {
+      navigation.navigate(returnTo);
     } else {
-      navigation.goBack(); // default behavior
+      navigation.goBack();
     }
   };
   return (
@@ -47,6 +49,7 @@ export default function ProfileBattleScreen() {
         isOwner={isOwner}
         openBattleRoute="OpenBattle"
         profile={profile}
+        returnTo={returnTo}
       />
     </SafeAreaView>
   );

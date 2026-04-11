@@ -90,6 +90,7 @@ export default function ProfileBattleHub({
   isOwner = false,
   openBattleRoute = 'OpenBattle',
   profile,
+  returnTo = 'Home',
 }) {
   const navigation = useNavigation();
   const { text, card } = useAppTheme(profile);
@@ -284,7 +285,7 @@ export default function ProfileBattleHub({
         {isOwner && (
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={() => navigation.navigate(openBattleRoute)}
+            onPress={() => navigation.navigate(openBattleRoute, { returnTo })}
           >
             <LinearGradient
               colors={PRIMARY_GRADIENT}

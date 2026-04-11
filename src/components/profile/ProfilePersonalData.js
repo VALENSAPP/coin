@@ -672,12 +672,15 @@ const ProfilePersonData = ({
 
   const handleOpenBattlePress = useCallback(() => {
     if (fromUsersProfile) {
-      navigation.navigate('ProfileMain', { screen: 'OpenBattle', params: { returnTo: 'UserProfile' }, });
+      navigation.navigate('ProfileMain', { 
+        screen: 'OpenBattle', 
+        params: { returnTo: 'UserProfile' } 
+      });
       return;
     }
 
     navigation.navigate('OpenBattle', {
-      returnTo: 'Home', // optional (if needed)
+      returnTo: 'Home',
     });
   }, [fromUsersProfile, navigation]);
 
@@ -704,6 +707,7 @@ const ProfilePersonData = ({
       presetFormat: 'HEAD_TO_HEAD',
       invitedUserId: invitedUser.id,
       invitedUser,
+      returnTo: fromUsersProfile ? 'UserProfile' : 'Home',
     };
 
     if (fromUsersProfile) {
@@ -741,6 +745,7 @@ const ProfilePersonData = ({
       title: fromUsersProfile
         ? `${displayName || 'User'} Battles`
         : 'My Battles',
+      returnTo: fromUsersProfile ? 'UserProfile' : 'Home',
     });
   }, [
     navigation,
