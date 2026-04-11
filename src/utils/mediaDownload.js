@@ -13,10 +13,27 @@ const isLocalUri = (uri) =>
   uri.startsWith('file://') ||
   uri.startsWith('/') ||
   (!uri.startsWith('http://') && !uri.startsWith('https://'));
+
+const getUniqueDestinationPath = async (filename) => {
+  const dotIndex = filename.lastIndexOf('.');
+  const hasExtension = dotIndex > 0;
+  const name = hasExtension ? filename.slice(0, dotIndex) : filename;
+  const extension = hasExtension ? filename.slice(dotIndex) : '';
+
+  let attempt = 0;
+  let candidate = `${DOWNLOAD_DIR}/${filename}`;
+
+  while (await RNFS.exists(candidate)) {
+    attempt += 1;
+    candidate = `${DOWNLOAD_DIR}/${name}_${attempt}${extension}`;
+  }
+
+  return candidate;
+};
  
 export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
   try {
-    const destPath = `${DOWNLOAD_DIR}/${filename}`;
+    const destPath = await getUniqueDestinationPath(filename);
     const cleanSrc = uri.replace(/^file:\/\//, ''); // RNFS.copyFile wants bare path
  
     if (isLocalUri(uri)) {
@@ -64,12 +81,12 @@ export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
 export const getMediaFilename = (uri, index = 0) => {
   const base = uri.split('/').pop().split('?')[0] || `media_${Date.now()}`;
   const hasExt = base.includes('.');
-  if (hasExt) return `Valens_edited_${index + 1}_${base}`;
+  if (hasExt) return `Valens_edited_${index + 1}_${Date.now()}_${base}`;
   const ext =
     uri.toLowerCase().includes('.mp4') || uri.toLowerCase().includes('.mov')
       ? 'mp4'
       : 'jpg';
-  return `Valens_edited_${index + 1}.${ext}`;
+  return `Valens_edited_${index + 1}_${Date.now()}.${ext}`;
 };
  
 export const isVideoMedia = (media) => {

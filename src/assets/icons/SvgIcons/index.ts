@@ -23,10 +23,13 @@ import WhiteSmokeDragonfly from './whitesmokeDragonfly.svg'
 import CoinBase from './coinBase.svg'
 import Tiktok from './tiktok.svg'
 import Linkedin from './linkedin.svg'
+import Like from './thumbs-up.svg'
+import Comment from './comments.svg'
+import Share1 from './share.svg'
 
 
 export {
     Google, Twitter, Eyeopen, Eyeclosed, Metamask, Reels, Chat, ReelWhite, Thread, LogoIcon, Dragonfly,
     ProfileReelIcon, LockKey, AppleLogo, WhiteDragonfly, BlueDragonfly, GoldDragonfly,GoldLavenderDragonfly,
-    LavenderDragonfly, LilacDragonfly, SoftGrayDragonfly, WhiteSmokeDragonfly,CoinBase,Tiktok,Linkedin
+    LavenderDragonfly, LilacDragonfly, SoftGrayDragonfly, WhiteSmokeDragonfly,CoinBase,Tiktok,Linkedin,Like,Comment,Share1
 };

@@ -690,7 +690,7 @@ const InstagramPostCreator = () => {
       }
 
       const currentEdits = imageEdits[currentImageIndex] || {};
-      const uriToDownload = currentEdits.processedImageUri || currentMedia.path || currentMedia.uri;
+      const uriToDownload = getMediaDisplayUri(currentMedia, currentEdits.processedImageUri);
       if (!uriToDownload) {
         showToastMessage(toast, 'danger', 'No media URI available');
         return;

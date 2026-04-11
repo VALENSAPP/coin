@@ -9,7 +9,6 @@ import {
   OVERLAY_MAX_SCALE,
   OVERLAY_MIN_SCALE_STICKER,
   pointInTrash,
-  shouldShowTrashHint,
 } from './storyOverlayConstants';
 
 /**
@@ -26,6 +25,8 @@ export default function StoryInteractiveOverlay({
   onCommit,
   onDelete,
   onDragActive,
+  onInteractionStart,
+  onInteractionEnd,
   children,
 }) {
   const translateX = useSharedValue(initialX);
@@ -61,23 +62,18 @@ export default function StoryInteractiveOverlay({
     pinchStartScale.value = initialScale;
   }, [initialScale, pinchStartScale, scale]);
 
-  const trashHintVisibleRef = useRef(false);
-
-  const hideTrashHint = useCallback(() => {
-    trashHintVisibleRef.current = false;
-    onDragActive?.(false);
-  }, [onDragActive]);
-
-  const updateTrashHint = useCallback(
-    (translationY, absoluteY) => {
-      const next = shouldShowTrashHint(translationY, absoluteY);
-      if (next !== trashHintVisibleRef.current) {
-        trashHintVisibleRef.current = next;
-        onDragActive?.(next);
-      }
+  const setInteractionActive = useCallback(
+    isActive => {
+      onInteractionStart?.();
+      onDragActive?.(isActive);
     },
-    [onDragActive],
+    [onDragActive, onInteractionStart],
   );
+
+  const endInteraction = useCallback(() => {
+    onInteractionEnd?.();
+    onDragActive?.(false);
+  }, [onDragActive, onInteractionEnd]);
 
   const handlePanEnd = useCallback(
     (ax, ay, x, y, s) => {
@@ -105,15 +101,14 @@ export default function StoryInteractiveOverlay({
     .onBegin(() => {
       startX.value = translateX.value;
       startY.value = translateY.value;
-      runOnJS(hideTrashHint)();
+      runOnJS(setInteractionActive)(true);
     })
     .onUpdate(e => {
       translateX.value = startX.value + e.translationX;
       translateY.value = startY.value + e.translationY;
-      runOnJS(updateTrashHint)(e.translationY, e.absoluteY);
     })
     .onEnd(e => {
-      runOnJS(hideTrashHint)();
+      runOnJS(endInteraction)();
       runOnJS(handlePanEnd)(
         e.absoluteX,
         e.absoluteY,
@@ -125,6 +120,7 @@ export default function StoryInteractiveOverlay({
 
   const pinch = Gesture.Pinch()
     .onBegin(e => {
+      runOnJS(setInteractionActive)(true);
       pinchStartScale.value = scale.value;
       pinchStartX.value = translateX.value;
       pinchStartY.value = translateY.value;
@@ -146,6 +142,7 @@ export default function StoryInteractiveOverlay({
         pinchLocalOffsetY.value * (nextScale - pinchStartScale.value);
     })
     .onEnd(() => {
+      runOnJS(endInteraction)();
       runOnJS(commitPinchOnly)(
         translateX.value,
         translateY.value,

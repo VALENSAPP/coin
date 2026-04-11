@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   SafeAreaView,
-  Image,
   Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -20,6 +19,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import { getProfile } from '../../services/createProfile';
 import { useAppTheme } from '../../theme/useApptheme';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 export const SettingsScreen = ({ navigation }) => {
   const [autoInvest, setAutoInvest] = useState(true);
@@ -30,6 +30,10 @@ export const SettingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const profilePhotoUri =
+    profileImage ||
+    userData?.image ||
+    'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
   useFocusEffect(
     React.useCallback(() => {
@@ -202,12 +206,14 @@ export const SettingsScreen = ({ navigation }) => {
 
         {/* User Info Card */}
         <View style={[styles.userInfoCard, {shadowColor: text}]}>
-          <Image
-            source={{
-              uri: profileImage ? profileImage : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-            }}
-            style={styles.profileImage}
-          />
+          <View style={styles.profileAvatarWrap}>
+            <HexAvatar
+              uri={profilePhotoUri}
+              size={72}
+              borderWidth={2.5}
+              borderColor={text}
+            />
+          </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{userData?.displayName}</Text>
             <Text style={styles.userUsername}>@{userData?.userName}</Text>
@@ -333,12 +339,10 @@ const styles = StyleSheet.create({
     color: '#111',
     marginLeft: 12,
   },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 35,
-    borderWidth: 2,
+  profileAvatarWrap: {
     marginRight: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingRight: {
     flexDirection: 'row',

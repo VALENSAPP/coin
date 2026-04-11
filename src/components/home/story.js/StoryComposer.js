@@ -387,7 +387,8 @@ export default function StoryComposer({
   const insets = useSafeAreaInsets();
   const trashZoneRef = useRef(null);
   const [trashRect, setTrashRect] = useState(null);
-  const [showTrashZone, setShowTrashZone] = useState(false);
+  const [, setShowTrashZone] = useState(false);
+  const [isOverlayInteracting, setIsOverlayInteracting] = useState(false);
 
   const measureTrashZone = useCallback(() => {
     trashZoneRef.current?.measureInWindow((x, y, width, height) => {
@@ -479,6 +480,8 @@ export default function StoryComposer({
       badgePos[i] = defaultMusicBadgePosition(layout);
     });
     setMusicBadgePosPerIndex(badgePos);
+    setIsOverlayInteracting(false);
+    setShowTrashZone(false);
   }, [modalVisible, mediaList]);
 
   /** While Sound trim is open, playback must follow draft start/end (waveform), not saved trim. */
@@ -503,6 +506,17 @@ export default function StoryComposer({
   const currentFilterKey = filterPerIndex[index] || 'none';
   const currentFilterOverlay =
     FILTERS.find(f => f.key === currentFilterKey)?.overlay || null;
+  const deleteButtonVisible = isOverlayInteracting;
+
+  const hideOverlayDeleteUi = useCallback(() => {
+    setIsOverlayInteracting(false);
+    setShowTrashZone(false);
+  }, []);
+
+  const beginOverlayInteraction = useCallback(() => {
+    setIsOverlayInteracting(true);
+    setShowTrashZone(true);
+  }, []);
 
   useEffect(() => {
     if (!currentMedia || !isVideo(currentMedia)) return;
@@ -512,6 +526,11 @@ export default function StoryComposer({
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- trimStartCur/trimEndCur mirror trim for index
   }, [trimStartCur, trimEndCur, index, currentMedia]);
+
+  useEffect(() => {
+    setIsOverlayInteracting(false);
+    setShowTrashZone(false);
+  }, [index]);
 
   useEffect(() => {
     if (showAudioModal) {
@@ -811,6 +830,18 @@ export default function StoryComposer({
       [index]: (prev[index] || []).filter(t => t.id !== id),
     }));
   };
+
+  const removeStickerOverlay = useCallback(id => {
+    removeStickerById(id);
+  }, []);
+
+  const removeTextOverlay = useCallback(id => {
+    removeTextById(id);
+  }, []);
+
+  const removeMusicOverlay = useCallback(() => {
+    clearLibraryMusicForClip();
+  }, []);
 
   const removeAllLyricsOverlays = () => {
     setTextsPerIndex(prev => ({
@@ -1610,6 +1641,8 @@ export default function StoryComposer({
                   zIndex={24}
                   trashRect={trashRect}
                   onDragActive={setShowTrashZone}
+                  onInteractionStart={beginOverlayInteraction}
+                  onInteractionEnd={hideOverlayDeleteUi}
                   onCommit={(x, y, sc) => {
                     const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
                     setMusicBadgePosPerIndex(prev => ({
@@ -1617,7 +1650,7 @@ export default function StoryComposer({
                       [index]: { x: p.x, y: p.y, scale: sc },
                     }));
                   }}
-                  onDelete={clearLibraryMusicForClip}
+                  onDelete={removeMusicOverlay}
                 >
                   <View style={styles.musicStickerCard}>
                     {trackArtworkUri ? (
@@ -1702,6 +1735,8 @@ export default function StoryComposer({
                   zIndex={24}
                   trashRect={trashRect}
                   onDragActive={setShowTrashZone}
+                  onInteractionStart={beginOverlayInteraction}
+                  onInteractionEnd={hideOverlayDeleteUi}
                   onCommit={(x, y, sc) => {
                     const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
                     setMusicBadgePosPerIndex(prev => ({
@@ -1709,7 +1744,7 @@ export default function StoryComposer({
                       [index]: { x: p.x, y: p.y, scale: sc },
                     }));
                   }}
-                  onDelete={clearLibraryMusicForClip}
+                  onDelete={removeMusicOverlay}
                 >
                   <View style={styles.musicStickerCard}>
                     {trackArtworkUri ? (
@@ -1770,8 +1805,10 @@ export default function StoryComposer({
               zIndex={14}
               trashRect={trashRect}
               onDragActive={setShowTrashZone}
+              onInteractionStart={beginOverlayInteraction}
+              onInteractionEnd={hideOverlayDeleteUi}
               onCommit={(x, y, sc) => setStickerTransform(s.id, x, y, sc)}
-              onDelete={() => removeStickerById(s.id)}
+              onDelete={() => removeStickerOverlay(s.id)}
             >
               <View style={styles.stickerHitArea} collapsable={false}>
                 <GestureText style={styles.sticker}>{s.emoji}</GestureText>
@@ -1790,8 +1827,10 @@ export default function StoryComposer({
               zIndex={16}
               trashRect={trashRect}
               onDragActive={setShowTrashZone}
+              onInteractionStart={beginOverlayInteraction}
+              onInteractionEnd={hideOverlayDeleteUi}
               onCommit={(x, y, sc) => setTextTransform(t.id, x, y, sc)}
-              onDelete={() => removeTextById(t.id)}
+              onDelete={() => removeTextOverlay(t.id)}
             >
               <View style={styles.textOverlayHitArea} collapsable={false}>
                 <GestureText
@@ -1817,22 +1856,22 @@ export default function StoryComposer({
               styles.storyTrashZone,
               {
                 paddingBottom: Math.max(10, insets.bottom + 6),
-                opacity: showTrashZone ? 1 : 0,
+                opacity: deleteButtonVisible ? 1 : 0,
               },
             ]}
           >
             <Icon
               name="trash"
               size={32}
-              color={showTrashZone ? '#ff4d6a' : 'rgba(255,255,255,0.35)'}
+              color={deleteButtonVisible ? '#ff4d6a' : 'rgba(255,255,255,0.35)'}
             />
             <Text
               style={[
                 styles.storyTrashHint,
-                showTrashZone && styles.storyTrashHintActive,
+                deleteButtonVisible && styles.storyTrashHintActive,
               ]}
             >
-              Release to delete
+              Drop here to delete
             </Text>
           </View>
         </View>
