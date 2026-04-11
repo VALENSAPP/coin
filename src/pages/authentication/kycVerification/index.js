@@ -33,6 +33,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { EditProfile } from '../../../services/createProfile';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
+import { setIsAddAccount } from '../../../redux/actions/AddAccountAction';
 
 const { width, height } = Dimensions.get('window');
 
@@ -443,6 +444,7 @@ export default function KYCVerification({ route }) {
 
                     await AsyncStorage.setItem('isLoggedIn', 'true');
                     dispatch(loggedIn());
+                    dispatch(setIsAddAccount(false));
                     if (navigation.canGoBack()) {
                         navigation.goBack();
                         return;
@@ -522,6 +524,7 @@ export default function KYCVerification({ route }) {
 
                     await AsyncStorage.setItem('isLoggedIn', 'true');
                     dispatch(loggedIn());
+                    dispatch(setIsAddAccount(false));
                     if (navigation.canGoBack()) {
                         navigation.goBack();
                         return;
