@@ -138,8 +138,10 @@ export default function FlipsScreen() {
 
   // Animation states
   const [heartAnimatingId, setHeartAnimatingId] = useState(null);
+  const [forwardAnimatingId, setForwardAnimatingId] = useState(null);
   const [lastTap, setLastTap] = useState(0);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const forwardScaleAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   // UI states
@@ -157,6 +159,10 @@ export default function FlipsScreen() {
   const reportSheetRef = useRef();
   const [videoProgress, setVideoProgress] = useState({});
   const [isBuffering, setIsBuffering] = useState({});
+  const [videoDuration, setVideoDuration] = useState({});
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartTime, setDragStartTime] = useState(0);
 
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
@@ -685,6 +691,84 @@ export default function FlipsScreen() {
     ]).start(() => setHeartAnimatingId(null));
   };
 
+  const animateForward = (id) => {
+    setForwardAnimatingId(id);
+    forwardScaleAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(forwardScaleAnim, {
+        toValue: 1.2,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 3,
+      }),
+      Animated.delay(300),
+      Animated.timing(forwardScaleAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setForwardAnimatingId(null));
+  };
+
+  const handleVideoTap = (id, event) => {
+    // Get the X position of the tap
+    const tapX = event.nativeEvent.locationX;
+    const isRightSide = tapX > SCREEN_WIDTH / 2;
+
+    if (isRightSide) {
+      // Right side tap: seek forward by 10 seconds (2x speed effect)
+      handleSeekForward(id);
+    } else {
+      // Left side tap: normal double tap behavior
+      handleDoubleTap(id);
+    }
+  };
+
+  const handleSeekForward = (id) => {
+    const videoRef = videoRefs.current[id];
+    if (!videoRef) return;
+
+    try {
+      // Get current time from videoProgress state and add 10 seconds
+      const currentTime = videoProgress[id] || 0;
+      const newPosition = currentTime + 10;
+
+      videoRef.seek(newPosition);
+      animateForward(id);
+
+      console.log('Seeking forward from', currentTime, 'to', newPosition);
+    } catch (error) {
+      console.log('Error seeking video:', error);
+    }
+  };
+
+  const handleProgressBarTap = (id, event) => {
+    const videoRef = videoRefs.current[id];
+    if (!videoRef) return;
+
+    try {
+      const tapX = event.nativeEvent.locationX;
+      const duration = videoDuration[id] || reels[currentIndex]?.duration || 30000;
+      const durationInSeconds = duration / 1000;
+      const seekPosition = (tapX / SCREEN_WIDTH) * durationInSeconds; // Convert to seconds
+
+      videoRef.seek(seekPosition);
+      setIsSeeking(false);
+
+      console.log('Progress bar tapped, seeking to', seekPosition, 'seconds');
+    } catch (error) {
+      console.log('Error seeking video:', error);
+    }
+  };
+
+  const handleProgressBarPressIn = () => {
+    setIsSeeking(true);
+  };
+
+  const handleProgressBarPressOut = () => {
+    setIsSeeking(false);
+  };
+
   const handleDoubleTap = (id) => {
     const now = Date.now();
     if (lastTap && now - lastTap < 300) {
@@ -874,14 +958,47 @@ export default function FlipsScreen() {
       currentUserId != null &&
       item?.userId != null &&
       String(currentUserId) === String(item.userId);
-      
+
 
     return (
       <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
         <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
         {/* Progress bar */}
-        <View style={styles.progressContainer}>
+        <View
+          style={styles.progressContainer}
+          onTouchStart={(event) => {
+            setDragStartX(event.nativeEvent.locationX);
+            setDragStartTime(videoProgress[item.id] || 0);
+            setIsSeeking(true);
+          }}
+          onTouchMove={(event) => {
+            const videoRef = videoRefs.current[item.id];
+            if (!videoRef || dragStartX === 0) return;
+
+            try {
+              const currentX = event.nativeEvent.locationX;
+              const deltaX = currentX - dragStartX;
+              const duration = videoDuration[item.id] || reels[currentIndex]?.duration || 30000;
+              const durationInSeconds = duration / 1000;
+
+              const pixelsPerSecond = SCREEN_WIDTH / durationInSeconds;
+              const deltaTime = deltaX / pixelsPerSecond;
+              const newPosition = Math.max(0, Math.min(durationInSeconds, dragStartTime + deltaTime));
+
+              videoRef.seek(newPosition);
+              console.log('Dragging video, position:', newPosition);
+            } catch (error) {
+              console.log('Error dragging video:', error);
+            }
+          }}
+          onTouchEnd={() => setIsSeeking(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(event) => handleProgressBarTap(item.id, event)}
+            style={StyleSheet.absoluteFillObject}
+          />
           <Animated.View
             style={[
               styles.progressBar,
@@ -897,7 +1014,7 @@ export default function FlipsScreen() {
 
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => handleDoubleTap(item.id)}
+          onPress={(event) => handleVideoTap(item.id, event)}
           style={styles.videoContainer}
         >
           <Video
@@ -910,6 +1027,20 @@ export default function FlipsScreen() {
             repeat
             paused={!isFocused || currentIndex !== index || paused[item.id] === true}
             muted={muted[item.id] === true}
+            onLoad={(data) => {
+              setVideoDuration(prev => ({
+                ...prev,
+                [item.id]: data.duration * 1000, // Convert to milliseconds
+              }));
+            }}
+            onProgress={(data) => {
+              if (!isSeeking) {
+                setVideoProgress(prev => ({
+                  ...prev,
+                  [item.id]: data.currentTime,
+                }));
+              }
+            }}
           />
 
           {/* Loading indicator */}
@@ -937,6 +1068,23 @@ export default function FlipsScreen() {
               ]}
             >
               <Icon name="heart" size={100} color="#ff3040" />
+            </Animated.View>
+          )}
+
+          {/* Fast forward animation */}
+          {forwardAnimatingId === item.id && (
+            <Animated.View
+              style={[
+                styles.forwardAnimation,
+                {
+                  transform: [{ scale: forwardScaleAnim }],
+                },
+              ]}
+            >
+              <View style={styles.forwardIconContainer}>
+                <Icon name="play-forward" size={80} color="#fff" />
+                <Text style={styles.forwardText}>+10s</Text>
+              </View>
             </Animated.View>
           )}
         </TouchableOpacity>
@@ -1015,19 +1163,6 @@ export default function FlipsScreen() {
                 {item.verified && (
                   <Icon name="checkmark-circle" size={15} color="#1DA1F2" style={styles.verifiedIcon} />
                 )}
-                <View style={{ flexDirection: 'row', gap: 3 }}>
-                  <Feather name="music" size={12} color="#fff" style={styles.musicIcon} />
-                  <CustomMarquee
-                    speed={3}
-                    loop={true}
-                    delay={1000}
-                    style={{ width: 100, maxWidth: 300 }}
-                    textStyle={{ fontSize: 13, color: 'white' }}
-                  >
-                    {item.music}
-                  </CustomMarquee>
-
-                </View>
               </Text>
               {!isOwnReel && (
                 <TouchableOpacity
@@ -1041,6 +1176,19 @@ export default function FlipsScreen() {
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', marginBottom: 7, marginTop: -12, left: 38 }}>
+            <Feather name="music" size={12} color="#fff" style={styles.musicIcon} />
+            <CustomMarquee
+              speed={3}
+              loop={true}
+              delay={1000}
+              style={{ width: 80, maxWidth: 250, left: 8 }}
+              textStyle={{ fontSize: 13, color: 'white' }}
+            >
+              {item.music}
+            </CustomMarquee>
           </View>
 
           <Text style={styles.caption} numberOfLines={2}>
@@ -1407,7 +1555,7 @@ export default function FlipsScreen() {
           vendorid={pendingFollowUserId}
         />
       </RBSheet> */}
-{/* 
+      {/* 
       <RBSheet
         ref={sellSheetRef}
         height={550}
@@ -1471,13 +1619,14 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#000',
     position: 'relative',
+    top: Platform.OS == "android" && 40
   },
   progressContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
+    height: 4,
     backgroundColor: 'rgba(255,255,255,0.3)',
     zIndex: 10,
   },
@@ -1513,6 +1662,22 @@ const styles = StyleSheet.create({
     top: '50%',
     left: '50%',
     transform: [{ translateX: -50 }, { translateY: -50 }],
+  },
+  forwardAnimation: {
+    position: 'absolute',
+    top: '50%',
+    right: '15%',
+    transform: [{ translateX: 0 }, { translateY: -50 }],
+  },
+  forwardIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forwardText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 4,
   },
   header: {
     position: 'absolute',
@@ -1558,8 +1723,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal:10,
-    gap:30,
+    paddingHorizontal: 10,
+    gap: 30,
 
   },
   actionButton: {
@@ -1637,8 +1802,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fff',
     borderRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   followButtonText: {
     color: '#fff',

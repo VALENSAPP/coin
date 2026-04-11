@@ -22,6 +22,7 @@ import { sharePost } from '../../services/post';
 import Share from 'react-native-share';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation } from '@react-navigation/native';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const COLS = 3;
@@ -37,6 +38,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [search, setSearch] = useState('');
   const navigation = useNavigation();
+  const { text } = useAppTheme();
   
   useEffect(() => {
     (async () => {
@@ -87,69 +89,13 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   // const toggleSelectUser = (id) => {
   //   setSelectedUsers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   // };
-  const toggleSelectUser = (user) => {
-    // Normalize incoming param: sometimes caller passed id, sometimes full user
-    const selected = typeof user === 'string' || typeof user === 'number' ?
-      following.find(u => u.id === String(user)) : user;
-
-    if (!selected) {
-      console.warn('ShareModal: selected user not found', user);
-      return;
-    }
-
-    // Close the sheet first
-    if (ref?.current) ref.current.close();
-
-    // Call onClose callback if provided (to close story viewer)
-    if (onClose) {
-      onClose();
-    }
-
-    // Call onShare callback if provided
-    if (onShare) {
-      onShare();
-    }
-
-    // Small delay to ensure sheet closes smoothly before navigation
-    setTimeout(() => {
-      // Prepare story data with proper structure
-      let storyData = null;
-      if (story) {
-        storyData = {
-          id: story.id || story._id,
-          uri: story.uri,
-          type: story.type,
-          caption: story.caption,
-          userName: story.userName,
-          userImage: story.userImage,
-          user: story.user,
-          timestamp: story.timestamp,
-          duration: story.duration,
-          views: story.views,
-          likes: story.likes,
-          comments: story.comments
-        };
-      }
-      console.log(selected,'check------------')
-
-      navigation.navigate('HomeMain', {
-        screen: 'UserChat',
-        params: {
-          userId: String(selected.id),
-          user: {
-            id: selected.id,
-            displayName: selected.username,
-            image: selected.avatar,
-          },
-          post,
-          postId,
-          reelId,
-          reel,
-          story: storyData,
-          storyId: story?.id || story?._id,
-        },
-      });
-    }, 200);
+const toggleSelectUser = (user) => {
+    const userId = String(user.id);
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const resolvePostId = () => {
@@ -185,58 +131,47 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     return null;
   };
 
+const handleSend = async () => {
+  if (selectedUsers.length === 0) {
+    Alert.alert('No Selection', 'Please select at least one user.');
+    return;
+  }
 
+  if (!selfUserId) {
+    Alert.alert('Not logged in', 'Please log in again.');
+    return;
+  }
 
+  setSending(true);
 
-  // const handleSend = async () => {
+  try {
+    // Prepare shared content
+    const sharedContent = {
+      post,
+      postId: resolvePostId(),
+      reel,
+      reelId,
+      story,
+    };
 
-  //   const resolvedPostId = resolvePostId();
-  //   if (!resolvedPostId) {
-  //     Alert.alert('Missing post', 'No postId provided to ShareModal.');
-  //     return;
-  //   }
+    // Navigate to ChatMessages with multi-selected users
+    if (ref?.current) ref.current.close();
 
-  //   if (!selfUserId) {
-  //     Alert.alert('Not logged in', 'Please log in again.');
-  //     return;
-  //   }
+    setTimeout(() => {
+      navigation.navigate('ChatMessages', {
+        selectedUserIds: selectedUsers,
+        sharedContent,
+        fromShareModal: true,
+      });
+      setSelectedUsers([]);
+    }, 300);
 
-  //   if (selectedUsers.length === 0) return;
-
-  //   setSending(true);
-  //   try {
-  //     const results = await Promise.allSettled(
-
-  //       selectedUsers.map(receiverId =>
-  //         sharePost({
-  //           mediaId: post,
-  //           mediaType:'post',
-  //           conversationType:'chat',
-  //           // postId: String(resolvedPostId),
-  //           sharedUserId: String(selfUserId),
-  //           receiverUserId: String(receiverId),
-  //         })
-  //       )
-  //     );
-  //     console.log(results, 'what sersult hed in thisss s s s s s s s s ')
-  //     const ok = results.filter(r => r.status === 'fulfilled').length;
-  //     const fail = results.length - ok;
-
-  //     //   if (ok > 0) {
-  //     //     Alert.alert('Shared', `Post sent to ${ok} user${ok > 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}.`);
-  //     //   } else {
-  //     //     Alert.alert('Failed', 'Could not share the post.');
-  //     //   }
-
-  //     // Close and reset
-  //     setSelectedUsers([]);
-  //     if (ref?.current) ref.current.close();
-  //   } catch (e) {
-  //     Alert.alert('Error', e?.response?.data?.message || 'Share failed.');
-  //   } finally {
-  //     setSending(false);
-  //   }
-  // };
+  } catch (e) {
+    Alert.alert('Error', 'Navigation failed.');
+  } finally {
+    setSending(false);
+  }
+};
 
   const generateShareLink = () => {
     const id = resolvePostId();
@@ -291,7 +226,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   };
 
   const renderUserCell = ({ item }) => {
-    const isSelected = selectedUsers.includes(item);
+    const isSelected = selectedUsers.includes(String(item.id));
     return (
       <TouchableOpacity
         style={styles.cell}
@@ -302,7 +237,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
           <Image source={{ uri: item.avatar || DEFAULT_AVATAR }} style={styles.avatar} />
           {isSelected && (
             <View style={styles.tickOverlay}>
-              <Ionicons name="checkmark-circle" size={26} color="#4CAF50" />
+              <Ionicons name="checkmark-circle" size={28} color={text} />
             </View>
           )}
         </View>
@@ -382,20 +317,18 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       {/* Bottom actions */}
       {selectedUsers.length > 0 ? (
         <View style={styles.sendBar}>
-          <TouchableOpacity
-            style={[styles.sendButton, sending && { opacity: 0.7 }]}
-            activeOpacity={0.85}
-            onPress={handleSend}
-          // disabled={sending}
-
-          >
-
-            {sending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.sendButtonText}>Send ({selectedUsers.length})</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sendButton, {backgroundColor: text}, sending && { opacity: 0.7 }]}
+              activeOpacity={0.85}
+              onPress={handleSend}
+              disabled={sending || selectedUsers.length === 0}
+            >
+              {sending ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.sendButtonText}>Send to {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''}</Text>
+              )}
+            </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.bottomBar}>
@@ -442,10 +375,22 @@ const styles = StyleSheet.create({
   gridArea: { flex: 1 },
   cell: { width: CELL_W, alignItems: 'center', paddingVertical: 12 },
   avatarWrap: {
-    width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
-    overflow: 'hidden', position: 'relative', backgroundColor: '#eee',
+    width: AVATAR_SIZE + 16, 
+    height: AVATAR_SIZE + 16, 
+    borderRadius: (AVATAR_SIZE + 16) / 2,
+    overflow: 'visible', 
+    position: 'relative', 
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  avatar: { width: '100%', height: '100%' },
+  avatar: { 
+    width: AVATAR_SIZE, 
+    height: AVATAR_SIZE, 
+    borderRadius: AVATAR_SIZE / 2,
+    borderWidth: 2,
+    borderColor: '#f0f0f0',
+  },
   nameRow: {
     marginTop: 8, flexDirection: 'row', alignItems: 'center', maxWidth: CELL_W - 18,
   },
@@ -459,14 +404,27 @@ const styles = StyleSheet.create({
   actionItem: { alignItems: 'center', width: 70 },
   actionLabel: { marginTop: 6, fontSize: 11, color: '#222' },
 
-  tickOverlay: { position: 'absolute', right: 4, bottom: 4, backgroundColor: 'white', borderRadius: 13 },
+  tickOverlay: { 
+    position: 'absolute', 
+    right: 2, 
+    bottom: 2, 
+    width: 32,
+    height: 32,
+    borderRadius: 16, 
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
 
   sendBar: {
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e9e9e9',
     backgroundColor: '#fff', padding: 12, alignItems: 'center',
   },
   sendButton: {
-    backgroundColor: '#4c2a88ab', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10, width: '100%',
+    borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10, width: '100%',
   },
   sendButtonText: { color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' },
 });
