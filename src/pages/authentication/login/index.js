@@ -10,12 +10,13 @@ import {
   Image,
   TouchableWithoutFeedback,
   Dimensions,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 // Removed expo LinearGradient - using pure React Native styling
 import { useNavigation } from '@react-navigation/native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import CustomButton from '../../../components/customButton/customButton';
 import { AppleLogo, Google, Twitter } from '../../../assets/icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +42,8 @@ import DeviceInfo from 'react-native-device-info';
 import { getOnboardingStatus } from '../../../services/profile';
 import { ensureCurrentAccountSaved, ADDING_ACCOUNT_FLAG_KEY } from '../../../utils/accountSession';
 import { requestUserPermission } from '../../../services/NotificationService';
+import { setIsAddAccount } from '../../../redux/actions/AddAccountAction';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const { width, height } = Dimensions.get('window');
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
@@ -53,7 +56,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const styles = createStyles();
+  const insets = useSafeAreaInsets();
   const [showPassword, setShowPassword] = useState(false);
+  const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
+
+  const safeTop =
+    insets.top > 0
+      ? insets.top
+      : Platform.OS === 'android'
+        ? StatusBar.currentHeight ?? 0
+        : 0;
 
   // useEffect(() => {
   //   getProfileData();
@@ -92,6 +104,7 @@ export default function LoginScreen() {
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
+          dispatch(setIsAddAccount(false));
           // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
         }
@@ -128,6 +141,7 @@ export default function LoginScreen() {
           showToastMessage(toast, 'success', 'User logged in successfully');
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
+          dispatch(setIsAddAccount(false));
         }
       }
     } catch (err) {
@@ -222,7 +236,7 @@ export default function LoginScreen() {
         registrationType: 'NORMAL',
       });
       if (response && response.statusCode == 200) {
-        console.log(response,"response===>>>>>>>>>>>>22222222222222222222222")
+        console.log(response, "response===>>>>>>>>>>>>22222222222222222222222")
         await AsyncStorage.setItem('userId', response.data.user.id);
         await AsyncStorage.setItem('token', response.data.user.access_token);
         await AsyncStorage.setItem(
@@ -272,6 +286,15 @@ export default function LoginScreen() {
     navigation.navigate('ForgotPassword');
   };
 
+  const handleBackToApp = async () => {
+    try {
+      await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
+      dispatch(setIsAddAccount(false));
+    } catch (e) {
+      console.warn('handleBackToApp', e);
+    }
+  };
+
   return (
     // <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -286,6 +309,21 @@ export default function LoginScreen() {
         extraHeight={Platform.OS === 'ios' ? 120 : 150}
         resetScrollToCoords={{ x: 0, y: 0 }}
       >
+        {isAddAccount && (
+          <View style={[styles.backToAppBar, { paddingTop: safeTop + 10 }]}>
+            <TouchableOpacity
+              style={styles.backToAppButton}
+              onPress={handleBackToApp}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Back to the app"
+            >
+              <Icon name="arrow-back" size={22} color="#374151" />
+              <Text style={styles.backToAppLabel}>Back to the app</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Enhanced Header */}
         <AuthHeader
           subtitle="Social media just got an upgrade"
@@ -293,7 +331,8 @@ export default function LoginScreen() {
           headerHeight={height * 0.28}
         />
 
-        {/* Enhanced Form Card */}
+
+       {/* Enhanced Form Card */}
         <View style={styles.formWrapper}>
           <View style={styles.card}>
             <View style={styles.welcomeSection}>

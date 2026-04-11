@@ -587,7 +587,21 @@ const StoryViewer = ({
       try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) { }
     }
 
+    // FALLBACK: Auto-start progress if media takes too long
+    // For images: 3s, for videos: 5s (videos need more time but not indefinite)
+    const isVideo = currentStory.type === 'video';
+    const fallbackDelay = isVideo ? 5000 : 3000;
+    
+    const fallbackTimer = setTimeout(() => {
+      if (!pausedRef.current && visibleRef.current && !isMediaReady) {
+        console.warn('[StoryViewer] Media taking too long, starting progress');
+        const duration = resolveStoryDurationMs(currentStory);
+        startProgress(duration);
+      }
+    }, fallbackDelay);
+
     return () => {
+      clearTimeout(fallbackTimer);
       stopAndResetProgress(false);
     };
   }, [visible, currentUserIndex, currentStoryIndex]);
@@ -936,7 +950,12 @@ const StoryViewer = ({
     dispatch(hideLoader());
     setIsMediaReady(true);
     if (visibleRef.current && !pausedRef.current) {
-      startProgress(resolveStoryDurationMs(currentStory));
+      // Small delay to ensure image is actually rendered
+      setTimeout(() => {
+        if (visibleRef.current && !pausedRef.current) {
+          startProgress(resolveStoryDurationMs(currentStory));
+        }
+      }, 100);
     }
   };
 
@@ -949,8 +968,14 @@ const StoryViewer = ({
     mediaDurationRef.current = duration;
     setIsMediaReady(true);
     setIsBuffering(false);
+    
+    // Start progress with a small delay to ensure video actually started playing
     if (visibleRef.current && !pausedRef.current) {
-      startProgress(duration);
+      setTimeout(() => {
+        if (visibleRef.current && !pausedRef.current && !pausedRef.current) {
+          startProgress(duration);
+        }
+      }, 200);
     }
   };
 
@@ -966,10 +991,13 @@ const StoryViewer = ({
   const onVideoBuffer = ({ isBuffering: buffering }) => {
     setIsBuffering(buffering);
     if (buffering) {
-      stopAndResetProgress(false);
+      // Don't pause progress - let it continue while buffering
+      // Just mark that we're buffering for UI feedback
       return;
     }
     if (!visibleRef.current || pausedRef.current) return;
+    
+    // Resume progress when buffering finishes
     const duration = mediaDurationRef.current || currentStory?.duration || 15000;
     const remaining = Math.max(0, 1 - currentProgress);
     const remainingDuration = duration * remaining;
@@ -1087,13 +1115,23 @@ const StoryViewer = ({
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
               resizeMode="cover"
-              paused={paused || !isMediaReady || isBuffering}
+              paused={paused || isBuffering}
               onLoadStart={() => {
                 setIsMediaReady(false);
                 setIsBuffering(true);
                 dispatch(showLoader());
               }}
               onLoad={onVideoLoaded}
+              onProgress={(data) => {
+                // Sync progress bar with actual video playback
+                if (data?.currentTime != null && mediaDurationRef.current) {
+                  const videoProgress = data.currentTime / (mediaDurationRef.current / 1000);
+                  if (Math.abs(videoProgress - currentProgress) > 0.05) {
+                    // Only update if progress has diverged more than 5%
+                    progressAnimation.setValue(Math.min(1, videoProgress));
+                  }
+                }
+              }}
               onBuffer={onVideoBuffer}
               onError={onMediaError}
               onEnd={() => {
@@ -1979,11 +2017,29 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   };
 
   const openStoryViewer = (user, userIndex) => {
-    // Warm the image cache for the first item to reduce first-open delay
-    const first = user.stories?.[0];
-    if (first?.type === 'image' && first?.uri) {
-      try { Image.prefetch(first.uri); } catch (_e) { }
-    }
+    // Prefetch current and next 3 stories to reduce loading delays
+    const storiesToPrefetch = user.stories?.slice(0, 4) || [];
+    storiesToPrefetch.forEach(story => {
+      if (story?.uri) {
+        try {
+          if (story.type === 'image') {
+            Image.prefetch(story.uri);
+          } else if (story.type === 'video') {
+            // For videos, use Video component's preload if available
+            // or just start buffering by creating the source
+          }
+        } catch (_e) { }
+      }
+    });
+
+    // Also prefetch audio URLs if present
+    storiesToPrefetch.forEach(story => {
+      const audio = resolveStoryAudioPayload(story);
+      if (audio?.directUrl) {
+        try { Image.prefetch(audio.directUrl); } catch (_e) { }
+      }
+    });
+
     setCurrentUserIndex(userIndex);
     setCurrentStoryIndex(0);
     // bump session to force a fresh StoryViewer mount (prevents "stuck" on reopen)
@@ -2020,11 +2076,26 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }
 
     if (currentStoryIndex < (user.stories?.length || 0) - 1) {
+      // Prefetch next story in this user's queue
+      const nextStory = user.stories[currentStoryIndex + 1];
+      if (nextStory?.uri) {
+        try {
+          nextStory.type === 'image' ? Image.prefetch(nextStory.uri) : null;
+        } catch (_e) { }
+      }
       setCurrentStoryIndex(i => i + 1);
       return;
     }
     const nextIdx = nextUserWithStories(currentUserIndex);
     if (nextIdx !== -1) {
+      // Prefetch first story of next user
+      const nextUser = stories[nextIdx];
+      const firstStory = nextUser?.stories?.[0];
+      if (firstStory?.uri) {
+        try {
+          firstStory.type === 'image' ? Image.prefetch(firstStory.uri) : null;
+        } catch (_e) { }
+      }
       setCurrentUserIndex(nextIdx);
       setCurrentStoryIndex(0);
       return;
@@ -2036,11 +2107,26 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     const user = stories[currentUserIndex];
     if (!user) return handleCloseViewer();
     if (currentStoryIndex > 0) {
+      // Prefetch previous story
+      const prevStory = user.stories[currentStoryIndex - 1];
+      if (prevStory?.uri) {
+        try {
+          prevStory.type === 'image' ? Image.prefetch(prevStory.uri) : null;
+        } catch (_e) { }
+      }
       setCurrentStoryIndex(i => i - 1);
       return;
     }
     const prevIdx = prevUserWithStories(currentUserIndex);
     if (prevIdx !== -1) {
+      // Prefetch last story of previous user
+      const prevUser = stories[prevIdx];
+      const lastStory = prevUser?.stories?.[prevUser.stories.length - 1];
+      if (lastStory?.uri) {
+        try {
+          lastStory.type === 'image' ? Image.prefetch(lastStory.uri) : null;
+        } catch (_e) { }
+      }
       setCurrentUserIndex(prevIdx);
       setCurrentStoryIndex(stories[prevIdx].stories.length - 1);
       return;
@@ -2070,6 +2156,14 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const handleNextUser = () => {
     const nextIdx = nextUserWithStories(currentUserIndex);
     if (nextIdx !== -1) {
+      // Prefetch first story of next user
+      const nextUser = stories[nextIdx];
+      const firstStory = nextUser?.stories?.[0];
+      if (firstStory?.uri) {
+        try {
+          firstStory.type === 'image' ? Image.prefetch(firstStory.uri) : null;
+        } catch (_e) { }
+      }
       setCurrentUserIndex(nextIdx);
       setCurrentStoryIndex(0);
     }
@@ -2079,6 +2173,14 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const handlePrevUser = () => {
     const prevIdx = prevUserWithStories(currentUserIndex);
     if (prevIdx !== -1) {
+      // Prefetch last story of previous user
+      const prevUser = stories[prevIdx];
+      const lastStory = prevUser?.stories?.[prevUser.stories.length - 1];
+      if (lastStory?.uri) {
+        try {
+          lastStory.type === 'image' ? Image.prefetch(lastStory.uri) : null;
+        } catch (_e) { }
+      }
       setCurrentUserIndex(prevIdx);
       setCurrentStoryIndex(stories[prevIdx].stories.length - 1);
     }

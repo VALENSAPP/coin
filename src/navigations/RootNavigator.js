@@ -319,6 +319,7 @@ const GlobalDrawerNavigator = () => {
 
 export default function MainStack() {
   const isLogin = useSelector(state => state.login.IS_LOGGED_IN);
+  const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
   // const toast = useToast();
   // const dispatch = useDispatch();
 
@@ -382,7 +383,7 @@ export default function MainStack() {
   //   }
   // };
 
-  if (!isLogin) {
+  if (!isLogin || isAddAccount) {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="Login" component={LoginScreen} />

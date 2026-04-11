@@ -15,7 +15,32 @@ const createStyles = () => {
       flexGrow: 1,
       backgroundColor: bg,
     },
-    
+    backToAppBar: {
+      paddingHorizontal: 16,
+      paddingBottom: 6,
+    },
+    backToAppButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: '#F3F4F6',
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+      top: 50,
+      position: 'absolute',
+      zIndex: 10,
+      left: 16,
+    },
+    backToAppLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#374151',
+    },
+
     // Form wrapper styles
     formWrapper: {
       flex: 1,

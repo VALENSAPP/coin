@@ -25,7 +25,7 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -33,10 +33,17 @@ import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { log } from 'console';
 
 const { width } = Dimensions.get('window');
 const FALLBACK_AVATAR =
   'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const DEFAULT_REWARD_POINTS = {
+  totalPlatformPoints: 0,
+  totalBattlePoints: 0,
+  referPoints: 0,
+  used: 0,
+};
 
 export const WalletDashboardScreen = ({ navigation }) => {
   const [activityPeriod, setActivityPeriod] = useState('Weekly');
@@ -51,15 +58,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [tokenAddress, setTokenAddress] = useState(null);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [missionDonationTotal, setMissionDonationTotal] = useState(0);
+  const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet', color: '#5a2d82' },
     { id: 'support', title: 'total support', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
     { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
-    { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
+    // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
     { id: 'Mission Post', title: 'Mission Post', value: '-', icon: 'ribbon', color: '#8b5cf6' },
      { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift', color: '#14b8a6' },
-  { id: 'metamask', title: 'MetaMask Received', value: '-', icon: 'logo-usd', color: '#f97316' },
+  { id: 'metamask', title: 'MetaMask', value: '-', icon: 'logo-usd', color: '#f97316' },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
@@ -85,6 +93,87 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setIsBusinessProfile(false);
     }
   }, []);
+  const formatPointValue = (value) => {
+    const numericValue = Number(value) || 0;
+    return numericValue.toLocaleString('en-US');
+  };
+
+  const rewardPointCards = useMemo(
+    () => [
+      {
+        id: 'battlePoints',
+        title: 'Battle Points',
+        value: rewardSummary.totalBattlePoints,
+        icon: 'trophy-outline',
+        iconBackground: 'rgba(250, 204, 21, 0.16)',
+        iconColor: '#facc15',
+      },
+      {
+        id: 'referPoints',
+        title: 'Refer Points',
+        value: rewardSummary.referPoints,
+        icon: 'gift-outline',
+        iconBackground: 'rgba(34, 211, 238, 0.16)',
+        iconColor: '#67e8f9',
+      },
+      {
+        id: 'usedPoints',
+        title: 'Used Points',
+        value: rewardSummary.used,
+        icon: 'remove-circle-outline',
+        iconBackground: 'rgba(248, 113, 113, 0.16)',
+        iconColor: '#fca5a5',
+      },
+    ],
+    [rewardSummary]
+  );
+
+  const rewardPoints = async () => {
+    try {
+      const response = await totalPoints();
+      console.log(response, 'daat in al pointss s sß');
+
+      const statusCode =
+        response?.statusCode ??
+        response?.data?.statusCode ??
+        response?.status;
+      const responseData =
+        response?.data?.data ??
+        response?.data ??
+        DEFAULT_REWARD_POINTS;
+
+      if (statusCode === 200) {
+        setRewardSummary({
+          totalPlatformPoints:
+            Number(
+              responseData?.totalPlatformPoints ??
+              responseData?.platformPoints
+            ) || 0,
+          totalBattlePoints:
+            Number(
+              responseData?.totalBattlePoints ??
+              responseData?.battlePoints
+            ) || 0,
+          referPoints:
+            Number(
+              responseData?.referPoints ??
+              responseData?.referralPoints
+            ) || 0,
+          used:
+            Number(
+              responseData?.used ??
+              responseData?.usedPoints
+            ) || 0,
+        });
+        return;
+      }
+
+      setRewardSummary(DEFAULT_REWARD_POINTS);
+    } catch (err) {
+      console.log(err, 'erro in thi aposississsi');
+      setRewardSummary(DEFAULT_REWARD_POINTS);
+    }
+  };
 
   const getUserDetail = async () => {
     try {
@@ -186,6 +275,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             getUserDetail(),
             loadProfileType(),
             fetchCreditsLeft(),
+            rewardPoints(),
             fetchFollowers(),
             fetchTotalSupport(),
             fetchTotalEarning(),
@@ -239,9 +329,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
       await Promise.allSettled([
         // fetchAllTransaction(),
+        getUserDetail(),
         loadProfileType(),
         // fetchDashboardData(),
         fetchCreditsLeft(),
+        rewardPoints(),
         fetchFollowers(),
         fetchTotalSupport(),
         fetchTotalEarning(),
@@ -860,6 +952,52 @@ export const WalletDashboardScreen = ({ navigation }) => {
             scrollEnabled={false}
           />
         </View>
+        <View style={[styles.section,{marginBottom:10}]}>
+          <Text style={[styles.sectionTitle, styles.pointsSectionTitle, textStyle]}>
+            Battle Points
+          </Text>
+          <LinearGradient
+            colors={['#261236', '#43205d', '#6d2f8d']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.pointsCard}
+          >
+            <View style={styles.pointsGlow} />
+          
+
+            <Text style={styles.pointsLabel}>Total Platform Points</Text>
+            <Text style={styles.pointsValue}>
+              {formatPointValue(rewardSummary.totalPlatformPoints)}
+            </Text>
+            {/* <Text style={styles.pointsSubtext}>
+              Your battle, referral, and used points are synced here from the
+              wallet API.
+            </Text> */}
+
+            <View style={styles.pointsBreakdownRow}>
+              {rewardPointCards.map((item) => (
+                <View key={item.id} style={styles.pointsBreakdownCard}>
+                  <View
+                    style={[
+                      styles.pointsBreakdownIcon,
+                      { backgroundColor: item.iconBackground },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={18}
+                      color={item.iconColor}
+                    />
+                  </View>
+                  <Text style={styles.pointsBreakdownValue}>
+                    {formatPointValue(item.value)}
+                  </Text>
+                  <Text style={styles.pointsBreakdownLabel}>{item.title}</Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+        </View>
 
         {/* Activity Overview */}
         <View style={styles.section}>
@@ -931,7 +1069,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Recent Activities */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>Recent Activities</Text>
           <View style={[styles.activitiesContainer, { shadowColor: text }]}>
             {recentActivities.length > 0 ? (
@@ -947,12 +1085,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
               </View>
             )}
           </View>
-        </View>
+        </View> */}
 
         {/* My Wallets */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>My Wallets</Text>
-          <View style={[styles.walletsContainer, { shadowColor: text }]}>
+          <View style={[styles.walletsContainer, { shadowColor: text }]}> */}
             {/* <FlatList
               data={walletTransactions}
               renderItem={renderWallet}
@@ -962,7 +1100,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             {/* // <Text style={styles.walletTip}>
             //   Tip: Convert followers into holders with Post Coins. Your monthly credits renew automatically.
             // </Text> */}
-            <View style={styles.walletInfoBox}>
+            {/* <View style={styles.walletInfoBox}>
               <Text style={styles.walletLabel}>Stripe Account ID</Text>
               <Text style={styles.walletValue}> {userWalletData.stripeCustomerId || 'Not Connected'}</Text>
             </View>
@@ -971,10 +1109,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
               <Text style={styles.walletValue}> {userWalletData.walletAddress || 'Not Available'}</Text>
             </View>
           </View>
-        </View>
+        </View> */}
 
         {/* Top Creators */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>Top Creators (Trending)</Text>
           <View style={[styles.creatorsContainer, { shadowColor: text }]}>
             {topCreators.length > 0 ? (
@@ -990,7 +1128,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               </View>
             )}
           </View>
-        </View>
+        </View> */}
 
         {/* Token Purchase Modal */}
         <RBSheet
@@ -1138,6 +1276,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  pointsSectionTitle: {
+    marginBottom: 8,
   },
   battleMissionRow: {
     flexDirection: 'row',
@@ -1308,6 +1449,104 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  pointsCard: {
+    borderRadius: 24,
+    padding: 18,
+    overflow: 'hidden',
+    shadowColor: '#16091f',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+
+  pointsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+ 
+  pointsProfileText: {
+    flex: 1,
+  },
+  pointsOverline: {
+    fontSize: 12,
+    color: '#ddd6fe',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  pointsUserName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  pointsLiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pointsLiveText: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fef3c7',
+  },
+  pointsLabel: {
+    fontSize: 13,
+    color: '#e9d5ff',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  pointsValue: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  pointsSubtext: {
+    marginTop: 6,
+    marginBottom: 18,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#f3e8ff',
+  },
+  pointsBreakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginRight:20,
+    gap:10,
+
+  },
+  pointsBreakdownCard: {
+    width: '30%',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    paddingHorizontal: 8,
+    paddingVertical: 14,
+    marginBottom:25,
+  
+  },
+  pointsBreakdownIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  pointsBreakdownValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  pointsBreakdownLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#f3e8ff',
   },
   // KPI Cards
   kpiCard: {
@@ -1588,4 +1827,3 @@ const styles = StyleSheet.create({
 });
 
 export default WalletDashboardScreen;
-

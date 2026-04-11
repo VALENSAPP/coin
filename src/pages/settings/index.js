@@ -47,6 +47,7 @@ import {
 } from '../../utils/accountSession';
 import { logoutDeviecAll } from '../../services/wallet';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 
 /** __DEV__ only: set to '' to use real tokens from resolveRefreshTokenForAccountSwitch. */
 const DEBUG_STATIC_REFRESH_TOKEN_FOR_SWITCH_TEST = __DEV__
@@ -309,8 +310,8 @@ const Settings = () => {
 
   const moveToLoginForAddingAccount = async () => {
     await AsyncStorage.setItem(ADDING_ACCOUNT_FLAG_KEY, 'true');
-    await AsyncStorage.setItem('isLoggedIn', 'false');
-    dispatch(loggedOut());
+    // await AsyncStorage.setItem('isLoggedIn', 'true');
+    dispatch(setIsAddAccount(true));
   };
 
   const mergeAccountsServerAndLocal = (serverRows, localRows) => {
@@ -821,7 +822,12 @@ const Settings = () => {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => openRemoveAccountConfirm(account)}
+                        onPress={() => {
+                          setAccountSwitcherVisible(false);   // CLOSE FIRST MODAL
+                          setTimeout(() => {
+                            openRemoveAccountConfirm(account); // THEN OPEN SECOND
+                          }, 300);
+                        }}
                         disabled={switchInFlight}
                         style={switcherStyles.removeBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

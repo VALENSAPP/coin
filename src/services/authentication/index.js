@@ -17,7 +17,29 @@ export const handleLoginSuccess = async (token, dispatch, navigation, getProfile
 
 
 export const signup = async (data) => {
-    return axiosinstance.post('/user/register', data);
+    try {
+        const deviceId = DeviceInfo.getUniqueId ? await Promise.resolve(DeviceInfo.getUniqueId()) : undefined;
+        const deviceName = DeviceInfo.getDeviceName ? await DeviceInfo.getDeviceName() : undefined;
+        const deviceType = DeviceInfo.getSystemName ? DeviceInfo.getSystemName() : undefined;
+        const location = await getCurrentLocationString();
+
+        const devicePayload = {
+            // Prefer backend-friendly camelCase keys
+            ...(deviceId ? { deviceId } : {}),
+            ...(deviceName ? { deviceName } : {}),
+            ...(deviceType ? { deviceType } : {}),
+            ...(location ? { location } : {}),
+            // Backward compatible snake_case keys (in case backend expects these)
+            ...(deviceId ? { device_id: deviceId } : {}),
+            ...(deviceName ? { device_name: deviceName } : {}),
+            ...(deviceType ? { device_type: deviceType } : {}),
+        };
+        console.log(devicePayload, 'data in devieve info')
+        return axiosinstance.post('/user/register', { ...(data || {}), ...devicePayload });
+    } catch (error) {
+        // Fallback to normal login if device info fails for any reason
+        return axiosinstance.post('/user/register', data);
+    }
 }
 
 const requestLocationPermission = async () => {

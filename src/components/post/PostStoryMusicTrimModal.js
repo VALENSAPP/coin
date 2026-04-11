@@ -765,8 +765,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0c0c0f',
   },
-  igMusicEditorInner: { flex: 1 },
+  igMusicEditorInner: { flex: 1,    marginTop:'5%',
+ },
   igMusicHeader: {
+    marginTop:'10%',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,

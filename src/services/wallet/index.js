@@ -88,3 +88,6 @@ export const referPoints = async (data) => {
 export const metaMaskRecived = async (data) => {
   return axiosInstance.get('/billing/usdt-transfers/received', data);
 }
+export const totalPoints = async (data) => {
+  return axiosInstance.get('user/totalplatfrompoints', data);
+}
