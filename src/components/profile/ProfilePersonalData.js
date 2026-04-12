@@ -947,17 +947,12 @@ const ProfilePersonData = ({
   ]);
 
   const handleBackPress = useCallback(() => {
-    const returnTo = returnByTo;
-    console.log('is this wokreing buy', returnTo);
+    console.log('ProfilePersonalData handleBackPress, returnByTo:', returnByTo);
 
-    if (returnTo) {
-      // console.log()
-      navigation.navigate(returnTo);
-      return;
-    }
-    // 3️⃣ Absolute fallback
+    // Always use goBack() to preserve the previous screen state
+    // This ensures the post or content is still there as before
     navigation.goBack();
-  }, []);
+  }, [navigation]);
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>

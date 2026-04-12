@@ -1721,12 +1721,7 @@ const UserChat = ({ route, navigation }) => {
                           params: {
                             postData: [postData],
                             startIndex: 0,
-                            returnTo: 'HomeMain',
                             userChat: true, // Add this flag to indicate coming from UserChat
-                            returnParams: {
-                              screen: 'UserChat',
-                              params: { userId: targetUserId, postData }
-                            }
                           }
                         });
                       } else {
@@ -1865,12 +1860,6 @@ const UserChat = ({ route, navigation }) => {
                             reelId: reelId,
                             initialIndex: 0,
                             userChat: true, // Add this flag to indicate coming from UserChat
-
-                            returnTo: 'HomeMain',
-                            returnParams: {
-                              screen: 'UserChat',
-                              params: { userId: targetUserId, user }
-                            }
                           }
                         });
                       } else {

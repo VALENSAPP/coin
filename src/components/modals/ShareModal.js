@@ -158,10 +158,13 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       if (ref?.current) ref.current.close();
 
       setTimeout(() => {
-        navigation.navigate('ChatMessages', {
-          selectedUserIds: selectedUsers,
-          sharedContent,
-          fromShareModal: true,
+        navigation.navigate('HomeMain', {
+          screen: 'ChatMessages',
+          params: {
+            selectedUserIds: selectedUsers,
+            sharedContent,
+            fromShareModal: true,
+          },
         });
         setSelectedUsers([]);
       }, 300);

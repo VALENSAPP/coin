@@ -694,22 +694,22 @@ function PostItem({
 
   const handleUserProfile = useCallback((id) => {
     console.log("handleUserProfile==>>>>>")
-    // const origin = {
-    //   returnTo: returnTo,
-    //   returnParams: route.params?.returnParams,
-    // };
     if (userId === id) {
-
       navigation.navigate('ProfileMain', { screen: 'Profile' });
     } else {
+      // Navigate to UsersProfile with proper returnTo context
+      // Return to the current route (e.g., PostView or ChatMessages)
+      const currentRoute = route?.name || 'Home';
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: { userId: id, returnTo },
-
+        params: { 
+          userId: id, 
+          returnTo: currentRoute 
+        },
       });
       console.log(userId, 'can user id came heree')
     }
-  }, [userId, navigation, returnTo]);
+  }, [userId, navigation, route?.name]);
 
   const formatNumber = useCallback((n) => {
     if (typeof n !== 'number') n = Number(n) || 0;

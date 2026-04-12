@@ -58,6 +58,8 @@ export default function HomeScreen() {
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const scrollViewRef = useRef(null);
 
+  // Track if this is the first mount to prevent unnecessary refetches on navigation back
+  const isInitialMountRef = useRef(true);
 
   // Track conversations to calculate unread properly
   const conversationsRef = useRef([]);
@@ -213,8 +215,23 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Refresh only the unread notification badge when screen comes into focus
+      // without refetching all posts
       unreadNotification();
     }, [unreadNotification]),
+  );
+
+  // Update unread chat badge when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId && socketReady) {
+        const socket = getSocket();
+        if (socket?.connected) {
+          console.log('👁️ HomeScreen: Screen focused, requesting unread chat count');
+          socket.emit('getUserChatBox', { userId: currentUserId });
+        }
+      }
+    }, [currentUserId, socketReady]),
   );
 
   // ✅ Listen for chat box updates (similar to userConversation in UserChat)
@@ -442,10 +459,11 @@ export default function HomeScreen() {
     }
   }, [hasCheckedBusinessSubscription, isBusinessProfile]);
 
-  // Initial load on screen focus - optimized to prevent redundant calls
+  // Initial load on mount only - not on every focus to preserve scroll position
   useEffect(() => {
-    if (isFocused) {
-      console.log('👁️ HomeScreen focused - fetching data');
+    if (isInitialMountRef.current) {
+      console.log('👁️ HomeScreen initial mount - fetching data');
+      isInitialMountRef.current = false;
       setStoryRefreshTick(t => t + 1);
 
       // Batch data fetching
@@ -463,9 +481,9 @@ export default function HomeScreen() {
         }
       }
     }
-  }, [isFocused, currentUserId, socketReady]);
+  }, []);
 
-  // AppState listener - optimized
+  // AppState listener - only refresh when app comes from background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       console.log('📱 AppState changed:', appState.current, '→', nextAppState);
@@ -499,7 +517,7 @@ export default function HomeScreen() {
     });
 
     return () => subscription.remove();
-  }, [isFocused, currentUserId, socketReady]);
+  }, [fetchData, fetchProfileData, isFocused, currentUserId, socketReady]);
 
   useEffect(() => {
     addFcmToken();

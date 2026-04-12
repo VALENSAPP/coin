@@ -448,8 +448,9 @@ export default function MainTabNavigator() {
   const defaultTabBarStyle = useMemo(
     () => ({
       display: 'flex',
-      backgroundColor: bg,
+      // backgroundColor: bg,
       borderTopWidth: 1.5,
+      bgStyle,
       borderTopColor: '#dbdbdb',
       height: 50,
       position: 'absolute',
