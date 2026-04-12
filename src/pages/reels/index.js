@@ -47,6 +47,7 @@ import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
+import { Comments, ShareIcom, Thumbup } from '../../assets/icons';
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -1095,10 +1096,13 @@ export default function FlipsScreen() {
             style={styles.actionButton}
             onPress={() => handleLike(item.id)}
           >
-            <Icon
-              name={liked[item.id] ? 'heart' : 'heart-outline'}
-              size={22}
-              color={liked[item.id] ? '#ff3040' : '#fff'}
+            <Thumbup
+              width={24}
+              height={24}
+              style={[
+                styles.actionSvgIcon,
+                !liked[item.id] && styles.actionSvgIconInactive,
+              ]}
             />
             <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
           </TouchableOpacity>
@@ -1107,7 +1111,7 @@ export default function FlipsScreen() {
             style={styles.actionButton}
             onPress={() => handleComment(item.id)}
           >
-            <Icon name="chatbubble-outline" size={20} color="#fff" />
+            <Comments width={22} height={22} style={styles.actionSvgIcon} />
             <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
           </TouchableOpacity>
 
@@ -1116,7 +1120,7 @@ export default function FlipsScreen() {
             // onPress={() => handleShare(item)}
             onPress={() => shareRef.current?.open?.()}
           >
-            <Icon name="paper-plane-outline" size={20} color="#fff" />
+            <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
             <Text style={styles.actionLabel}>Share</Text>
           </TouchableOpacity>
 
@@ -1730,6 +1734,12 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: 'center',
     marginBottom: 20,
+  },
+  actionSvgIcon: {
+    opacity: 1,
+  },
+  actionSvgIconInactive: {
+    opacity: 0.7,
   },
   actionLabel: {
     color: '#fff',

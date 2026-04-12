@@ -39,7 +39,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [search, setSearch] = useState('');
   const navigation = useNavigation();
   const { text } = useAppTheme();
-  
+
   useEffect(() => {
     (async () => {
       const id = await AsyncStorage.getItem('userId');
@@ -89,10 +89,10 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   // const toggleSelectUser = (id) => {
   //   setSelectedUsers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   // };
-const toggleSelectUser = (user) => {
+  const toggleSelectUser = (user) => {
     const userId = String(user.id);
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
+    setSelectedUsers(prev =>
+      prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
@@ -131,47 +131,47 @@ const toggleSelectUser = (user) => {
     return null;
   };
 
-const handleSend = async () => {
-  if (selectedUsers.length === 0) {
-    Alert.alert('No Selection', 'Please select at least one user.');
-    return;
-  }
+  const handleSend = async () => {
+    if (selectedUsers.length === 0) {
+      Alert.alert('No Selection', 'Please select at least one user.');
+      return;
+    }
 
-  if (!selfUserId) {
-    Alert.alert('Not logged in', 'Please log in again.');
-    return;
-  }
+    if (!selfUserId) {
+      Alert.alert('Not logged in', 'Please log in again.');
+      return;
+    }
 
-  setSending(true);
+    setSending(true);
 
-  try {
-    // Prepare shared content
-    const sharedContent = {
-      post,
-      postId: resolvePostId(),
-      reel,
-      reelId,
-      story,
-    };
+    try {
+      // Prepare shared content
+      const sharedContent = {
+        post,
+        postId: resolvePostId(),
+        reel,
+        reelId,
+        story,
+      };
 
-    // Navigate to ChatMessages with multi-selected users
-    if (ref?.current) ref.current.close();
+      // Navigate to ChatMessages with multi-selected users
+      if (ref?.current) ref.current.close();
 
-    setTimeout(() => {
-      navigation.navigate('ChatMessages', {
-        selectedUserIds: selectedUsers,
-        sharedContent,
-        fromShareModal: true,
-      });
-      setSelectedUsers([]);
-    }, 300);
+      setTimeout(() => {
+        navigation.navigate('ChatMessages', {
+          selectedUserIds: selectedUsers,
+          sharedContent,
+          fromShareModal: true,
+        });
+        setSelectedUsers([]);
+      }, 300);
 
-  } catch (e) {
-    Alert.alert('Error', 'Navigation failed.');
-  } finally {
-    setSending(false);
-  }
-};
+    } catch (e) {
+      Alert.alert('Error', 'Navigation failed.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   const generateShareLink = () => {
     const id = resolvePostId();
@@ -317,18 +317,18 @@ const handleSend = async () => {
       {/* Bottom actions */}
       {selectedUsers.length > 0 ? (
         <View style={styles.sendBar}>
-            <TouchableOpacity
-              style={[styles.sendButton, {backgroundColor: text}, sending && { opacity: 0.7 }]}
-              activeOpacity={0.85}
-              onPress={handleSend}
-              disabled={sending || selectedUsers.length === 0}
-            >
-              {sending ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.sendButtonText}>Send to {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''}</Text>
-              )}
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sendButton, { backgroundColor: text }, sending && { opacity: 0.7 }]}
+            activeOpacity={0.85}
+            onPress={handleSend}
+            disabled={sending || selectedUsers.length === 0}
+          >
+            {sending ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.sendButtonText}>Send to {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''}</Text>
+            )}
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.bottomBar}>
@@ -375,18 +375,18 @@ const styles = StyleSheet.create({
   gridArea: { flex: 1 },
   cell: { width: CELL_W, alignItems: 'center', paddingVertical: 12 },
   avatarWrap: {
-    width: AVATAR_SIZE + 16, 
-    height: AVATAR_SIZE + 16, 
+    width: AVATAR_SIZE + 16,
+    height: AVATAR_SIZE + 16,
     borderRadius: (AVATAR_SIZE + 16) / 2,
-    overflow: 'visible', 
-    position: 'relative', 
+    overflow: 'visible',
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  avatar: { 
-    width: AVATAR_SIZE, 
-    height: AVATAR_SIZE, 
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 2,
     borderColor: '#f0f0f0',
@@ -404,17 +404,17 @@ const styles = StyleSheet.create({
   actionItem: { alignItems: 'center', width: 70 },
   actionLabel: { marginTop: 6, fontSize: 11, color: '#222' },
 
-  tickOverlay: { 
-    position: 'absolute', 
-    right: 2, 
-    bottom: 2, 
+  tickOverlay: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
     width: 32,
     height: 32,
-    borderRadius: 16, 
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
@@ -424,7 +424,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', padding: 12, alignItems: 'center',
   },
   sendButton: {
-    borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10, width: '100%',
+    borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, width: '90%',
+    bottom: 5
   },
   sendButtonText: { color: '#fff', fontWeight: '600', fontSize: 15, textAlign: 'center' },
 });
