@@ -600,7 +600,7 @@ const ProfileEditScreen = () => {
                     style={[styles.profileImage, { borderColor: text }]}
                   />
                 ) : (
-                  <MaterialCommunityIcon name="account-circle-outline" size={100} color="#..." />
+                  <MaterialCommunityIcon name="account-circle-outline" size={110} color="#..." />
                 )
               }
               <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]} >

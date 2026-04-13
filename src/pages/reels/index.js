@@ -151,6 +151,7 @@ export default function FlipsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const bottomOverlayInset = Math.max(tabBarHeight + (Platform.OS === 'ios' ? 10 : 12));
   const bottomContentBottom = bottomOverlayInset + 20;
+  const sideActionsBottom = bottomOverlayInset + 8;
 
   const options = ["I don't like this post", "I've already seen this", "It's inappropriate", "Other"];
 
@@ -318,7 +319,7 @@ export default function FlipsScreen() {
     else navigation.navigate('HomeMain');
   }, [navigation, route.params]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {}).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }) => { }).current;
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 95 });
 
   const handleScroll = useCallback(event => {
@@ -558,7 +559,7 @@ export default function FlipsScreen() {
         flatListRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 });
       } catch {
         setTimeout(() => {
-          try { flatListRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 }); } catch {}
+          try { flatListRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0 }); } catch { }
         }, 200);
       }
       setSelectedReelId(null);
@@ -740,30 +741,39 @@ export default function FlipsScreen() {
         </GestureDetector>
         {/* ─────────────────────────────────────────────────────────────── */}
 
-        {/* Horizontal action bar */}
-        <View style={[styles.horizontalActions, { bottom: bottomContentBottom + 115 }]}>
+        {/* Horizontal actions */}
+        <View style={styles.horizontalActions}>
           <TouchableOpacity style={styles.actionButton} onPress={() => handleLike(item.id)}>
-            <Thumbup width={24} height={24} style={[styles.actionSvgIcon, !liked[item.id] && styles.actionSvgIconInactive]} />
+            <Thumbup
+              width={24}
+              height={24}
+              style={[styles.actionSvgIcon, !liked[item.id] && styles.actionSvgIconInactive]}
+            />
             <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionButton} onPress={() => handleComment(item.id)}>
             <Comments width={22} height={22} style={styles.actionSvgIcon} />
             <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionButton} onPress={() => shareRef.current?.open?.()}>
             <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
             <Text style={styles.actionLabel}>Share</Text>
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionButton} onPress={() => handleMoreOptions(item)}>
             <Icon name="ellipsis-vertical" size={20} color="#fff" />
-            <Text style={styles.actionLabel}>More</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
           <TouchableOpacity style={styles.musicDisc}>
             <View style={styles.discContainer}>
               <Image source={{ uri: item.avatar }} style={styles.discImage} />
             </View>
             <View style={styles.musicIconWrapper}>
-              <Feather name="music" size={13} color="#fff" />
+              <Feather name="music" size={15} color="#fff" />
             </View>
           </TouchableOpacity>
         </View>
@@ -1005,15 +1015,56 @@ const styles = StyleSheet.create({
   chevronIcon: { marginLeft: 8 },
   headerIconButton: { padding: 8 },
   buttons: { padding: 8 },
-  horizontalActions: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 16 },
-  actionButton: { alignItems: 'center' },
-  actionSvgIcon: { opacity: 1 },
-  actionSvgIconInactive: { opacity: 0.6 },
-  actionLabel: { color: '#fff', fontSize: 11, marginTop: 3, fontWeight: '500' },
-  musicDisc: { alignItems: 'center' },
-  discContainer: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: '#fff' },
-  discImage: { width: '100%', height: '100%', borderRadius: 6 },
-  musicIconWrapper: { marginTop: 3 },
+  horizontalActions: {
+    position: 'absolute',
+    bottom: 190, // adjust based on your UI
+    left: 10,
+    right: 80, // keep space for right-side music icon
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 10,
+    gap: 30,
+
+  },
+  actionButton: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  actionSvgIcon: {
+    opacity: 1,
+  },
+  actionSvgIconInactive: {
+    opacity: 0.7,
+  },
+  actionLabel: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  musicDisc: {
+    marginTop: 10,
+    marginBottom: '10%'
+  },
+  discContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  discImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 25,
+  },
+
+  musicIconWrapper: {
+    position: 'absolute',
+    top: 7,
+    left: 5,
+  },
   bottomContent: { position: 'absolute', left: 0, right: 0, padding: 16 },
   userInfo: { marginBottom: 8 },
   userRow: { flexDirection: 'row', alignItems: 'center' },
@@ -1062,4 +1113,9 @@ const styles = StyleSheet.create({
   reasonItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 10, borderRadius: 12, marginBottom: 10, backgroundColor: '#F8F8F8', borderWidth: 1, borderColor: '#F0F0F0' },
   reasonIconWrapper: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(90,45,130,0.06)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   reasonText: { fontSize: 15, fontWeight: '600', color: '#000', flex: 1 },
+  sideActions: {
+    position: 'absolute',
+    right: 12,
+    alignItems: 'center',
+  },
 });
