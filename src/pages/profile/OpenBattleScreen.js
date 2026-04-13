@@ -501,7 +501,7 @@ export default function OpenBattleScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        // keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
       >
         <View style={styles.header}>
           <TouchableOpacity
@@ -1001,6 +1001,7 @@ export default function OpenBattleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingBottom: 40
   },
   header: {
     flexDirection: 'row',
@@ -1271,7 +1272,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '15%',
   },
   createBtnText: {
     color: '#fff',

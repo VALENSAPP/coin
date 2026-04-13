@@ -21,6 +21,8 @@ import { loggedIn } from '../../redux/actions/LoginAction';
 import { persistStripeCustomerId } from '../../hooks/useStripeCustomer';
 import { useToast } from 'react-native-toast-notifications';
 import { ensureCurrentAccountSaved } from '../../utils/accountSession';
+import { requestUserPermission } from '../../services/NotificationService';
+import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 
 const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
 
@@ -128,8 +130,13 @@ export const signInWithFirebase = async idToken => {
     const lookupResponse = await firebasePost('lookup', { idToken });
     console.log('-----lookupResponse-------', lookupResponse);
 
+    const username =
+        lookupResponse?.users?.[0]?.displayName ??
+        lookupResponse?.users?.[0]?.providerUserInfo?.[1]?.displayName ??
+        'Unknown';
+
     AsyncStorage.setItem('userId', lookupResponse.users[0].localId);
-    AsyncStorage.setItem('username', lookupResponse.users[0].displayName);
+    AsyncStorage.setItem('username', username);
     AsyncStorage.setItem('email', lookupResponse.users[0].email);
     dispatch(loggedIn());
   } catch (err) {
@@ -182,26 +189,47 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
 }
 
 const getProfileData = async (dispatch, navigation, toast) => {
-   console.log('profile status--------after toast---------')
+  console.log('profile status--------after toast---------')
   try {
     dispatch(showLoader());
     const id = await AsyncStorage.getItem('userId');
     if (id) {
       const response = await getProfile(id);
-      console.log('profile status-----------------', response)
-      if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
-        showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+      const normalizedKycStatus = String(response?.data?.kycStatus || '').toUpperCase();
+      if (response.statusCode === 200 && (normalizedKycStatus === 'PENDING' || normalizedKycStatus === 'SUBMITTED' && normalizedKycStatus === 'true')) {
+        requestUserPermission();
+        await ensureCurrentAccountSaved({
+          profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
+          username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+          email: response?.data?.email || (await AsyncStorage.getItem('email')),
+        });
+        await AsyncStorage.setItem('isLoggedIn', 'true');
+        dispatch(loggedIn());
+        dispatch(setIsAddAccount(false));
+        // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
         return;
       }
-      else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
+      else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
         showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
         navigation.navigate('CreateProfile');
       }
       else if (response.statusCode === 200 && response.data.kyc == false) {
-        navigation.navigate('CreateProfile')
+
+        const profile = response.data.profile
+        if (profile) {
+          await AsyncStorage.setItem('profile', profile);
+          dispatch(setUserProfile(profile));
+        }
+        navigation.navigate('CreateProfile');
       }
       else if (response.statusCode === 200 && response.data.bio == null) {
-        navigation.navigate('CreateProfile')
+
+        const profile = response.data.profile
+        if (profile) {
+          await AsyncStorage.setItem('profile', profile);
+          dispatch(setUserProfile(profile));
+        }
+        navigation.navigate('CreateProfile');
       }
       else {
         await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
@@ -210,8 +238,10 @@ const getProfileData = async (dispatch, navigation, toast) => {
           username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
           email: response?.data?.email || (await AsyncStorage.getItem('email')),
         });
+        showToastMessage(toast, 'success', 'User logged in successfully');
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
+        dispatch(setIsAddAccount(false));
       }
     }
   } catch (err) {
@@ -237,9 +267,9 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
     } else {
       payload.twitterId = idtoken
     }
-
+    console.log("payload-----------------",payload)
     const response = await signup(payload);
-    console.log('google signup',response)
+    console.log('google signup', response)
     if (
       response && (response.statusCode == 200 || response.statusCode == 201)
     ) {

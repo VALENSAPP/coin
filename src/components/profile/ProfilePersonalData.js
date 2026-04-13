@@ -672,9 +672,9 @@ const ProfilePersonData = ({
 
   const handleOpenBattlePress = useCallback(() => {
     if (fromUsersProfile) {
-      navigation.navigate('ProfileMain', { 
-        screen: 'OpenBattle', 
-        params: { returnTo: 'UserProfile' } 
+      navigation.navigate('ProfileMain', {
+        screen: 'OpenBattle',
+        params: { returnTo: 'UserProfile' }
       });
       return;
     }
@@ -1230,9 +1230,15 @@ const ProfilePersonData = ({
           )}
         </View>
 
-        <View style={styles.battleActionWrapper}>
+        <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
           <TouchableOpacity
-            style={styles.battleBtnWrapper}
+            style={[
+              styles.battleBtnWrapper,
+              {
+                backgroundColor: text,
+                borderColor: text,
+              },
+            ]}
             onPress={handleInviteBattlePress}
           >
             <LinearGradient
@@ -1245,23 +1251,29 @@ const ProfilePersonData = ({
             </LinearGradient>
           </TouchableOpacity>
           {!fromUsersProfile && (
-            <TouchableOpacity
-              style={styles.battleBtnWrapper}
-              onPress={handleOpenBattlePress}
+          <TouchableOpacity
+            style={[
+              styles.battleBtnWrapper,
+              {
+                backgroundColor: text,
+                borderColor: text,
+              },
+            ]}
+            onPress={handleOpenBattlePress}
+          >
+            <LinearGradient
+              colors={profileActionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.battleBtn}
             >
-              <LinearGradient
-                colors={profileActionGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.battleBtn}
-              >
-                <Text style={styles.battleBtnText}>Open Battle</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+              <Text style={styles.battleBtnText}>Open Battle</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          )} 
         </View>
 
-        <View style={[styles.tabContainer,]}>
+        <View style={[styles.tabContainer,{height: 50}]}>
           <TouchableOpacity
             style={[
               styles.tab,
@@ -1591,17 +1603,9 @@ const styles = StyleSheet.create({
 
   battleBtnWrapper: {
     flex: 1,
-    borderRadius: 10,
     overflow: 'hidden',
-    marginHorizontal: 5,
-    ...Platform.select({
-      ios: {
-        height: 48,
-      },
-      android: {
-        minHeight: 44,
-      },
-    }),
+    borderRadius: 12,
+    // borderWidth: 1,
   },
 
   battleBtn: {
@@ -1621,7 +1625,7 @@ const styles = StyleSheet.create({
   battleBtnText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     ...Platform.select({
       ios: {
         lineHeight: 18,
@@ -1644,6 +1648,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabText: {
     fontSize: 14,
