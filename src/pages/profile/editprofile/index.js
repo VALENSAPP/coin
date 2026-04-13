@@ -20,6 +20,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Icon from 'react-native-vector-icons/Feather';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
@@ -592,14 +593,16 @@ const ProfileEditScreen = () => {
             style={styles.avatarTouchable}
           >
             <View style={styles.imageWrapper}>
-              <Image
-                source={
-                  profileImage
-                    ? { uri: profileImage }
-                    : require('../../../assets/icons/pngicons/user.png')
-                }
-                style={[styles.profileImage, { borderColor: text }]}
-              />
+              {
+                profileImage ? (
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={[styles.profileImage, { borderColor: text }]}
+                  />
+                ) : (
+                  <MaterialCommunityIcon name="account-circle-outline" size={100} color="#..." />
+                )
+              }
               <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]} >
                 <Text style={styles.cameraText}>📷</Text>
               </View>
@@ -899,7 +902,7 @@ const styles = StyleSheet.create({
   },
   cameraText: { fontSize: 12, color: '#fff' },
   avatarText: {
-    marginTop: 10,
+    marginTop: 5,
     fontSize: 14,
     fontWeight: '600',
   },

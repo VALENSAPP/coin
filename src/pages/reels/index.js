@@ -16,6 +16,7 @@ import {
   ScrollView,
   Keyboard,
   Platform,
+  PanResponder,
 } from 'react-native';
 import Video from 'react-native-video';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -112,6 +113,110 @@ const mockComments = {
     },
   ],
 };
+const ProgressBar = React.memo(({ itemId, videoProgress, videoDuration, videoRefs, setVideoProgress, setIsSeeking, dragRef, topOffset }) => {
+  const [progressPercent, setProgressPercent] = useState(0);
+
+  // Store latest refs on a local ref so PanResponder always reads fresh values
+  const latestRefs = useRef({ videoProgress, videoDuration, videoRefs, setVideoProgress, setIsSeeking, dragRef, itemId });
+  useEffect(() => {
+    latestRefs.current = { videoProgress, videoDuration, videoRefs, setVideoProgress, setIsSeeking, dragRef, itemId };
+  });
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+
+      onPanResponderGrant: (evt) => {
+        const { videoProgress, itemId, dragRef, setIsSeeking } = latestRefs.current;
+        dragRef.current = {
+          startX: evt.nativeEvent.locationX,
+          startTime: videoProgress.current[itemId] || 0,
+          dragging: true,
+        };
+        setIsSeeking(true);
+      },
+
+      onPanResponderMove: (evt) => {
+        const { dragRef, videoRefs, videoDuration, itemId, setVideoProgress } = latestRefs.current;
+        if (!dragRef.current.dragging) return;
+        const videoRef = videoRefs.current[itemId];
+        if (!videoRef) return;
+
+        const deltaX = evt.nativeEvent.locationX - dragRef.current.startX;
+        const duration = videoDuration.current[itemId] || 30;
+        const deltaTime = (deltaX / SCREEN_WIDTH) * duration;
+        const newPos = Math.max(0, Math.min(duration, dragRef.current.startTime + deltaTime));
+
+        videoRef.seek(newPos);
+        setVideoProgress(itemId, newPos);
+      },
+
+      onPanResponderRelease: () => {
+        const { dragRef, setIsSeeking } = latestRefs.current;
+        dragRef.current.dragging = false;
+        setIsSeeking(false);
+      },
+
+      onPanResponderTerminate: () => {
+        const { dragRef, setIsSeeking } = latestRefs.current;
+        dragRef.current.dragging = false;
+        setIsSeeking(false);
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = videoProgress.current[itemId] || 0;
+      const duration = videoDuration.current[itemId] || 30;
+      setProgressPercent(Math.min(100, (current / duration) * 100));
+    }, 100);
+    return () => clearInterval(interval);
+  }, [itemId, videoProgress, videoDuration]);
+
+  return (
+    <View style={[progressStyles.container, { top: topOffset }]} {...panResponder.panHandlers}>
+      <View style={progressStyles.track}>
+        <View style={[progressStyles.fill, { width: `${progressPercent}%` }]} />
+      </View>
+      <View style={[progressStyles.thumb, { left: `${progressPercent}%` }]} />
+    </View>
+  );
+});
+
+const progressStyles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    // top: Platform.OS === 'android' ? 40 : insets?.top || 0,  // match reelContainer offset
+    left: 0,
+    right: 0,
+    height: 28,
+    zIndex: 9999,
+    justifyContent: 'flex-start',
+  },
+  track: {
+    width: '100%',
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  fill: {
+    height: '100%',
+    backgroundColor: '#fff',
+  },
+  thumb: {
+    position: 'absolute',
+    top: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#fff',
+    marginLeft: -7,
+    elevation: 4,
+  },
+});
 
 export default function FlipsScreen() {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -143,7 +248,7 @@ export default function FlipsScreen() {
   const [lastTap, setLastTap] = useState(0);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const forwardScaleAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  // const progressAnim = useRef(new Animated.Value(0)).current;
 
   // UI states
   const flatListRef = useRef();
@@ -162,8 +267,58 @@ export default function FlipsScreen() {
   const [isBuffering, setIsBuffering] = useState({});
   const [videoDuration, setVideoDuration] = useState({});
   const [isSeeking, setIsSeeking] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartTime, setDragStartTime] = useState(0);
+  // const [dragStartX, setDragStartX] = useState(0);
+  const dragRef = useRef({ startX: 0, startTime: 0, dragging: false });
+  // const scrubberRef = useRef(null);
+
+  // ADD these two refs
+  const videoProgressRef = useRef({});
+  const videoDurationRef = useRef({});
+
+  // // Create pan responder once (outside renderItem, inside component)
+  // const createScrubPanResponder = useCallback((itemId) => {
+  //   return PanResponder.create({
+  //     onStartShouldSetPanResponder: () => true,
+  //     onMoveShouldSetPanResponder: () => true,
+  //     onStartShouldSetPanResponderCapture: () => true,
+  //     onMoveShouldSetPanResponderCapture: () => true,
+
+  //     onPanResponderGrant: (evt) => {
+  //       dragRef.current = {
+  //         startX: evt.nativeEvent.locationX,
+  //         startTime: videoProgress[itemId] || 0,
+  //         dragging: true,
+  //       };
+  //       setIsSeeking(true);
+  //     },
+
+  //     onPanResponderMove: (evt) => {
+  //       if (!dragRef.current.dragging) return;
+  //       const videoRef = videoRefs.current[itemId];
+  //       if (!videoRef) return;
+
+  //       const deltaX = evt.nativeEvent.locationX - dragRef.current.startX;
+  //       const duration = (videoDuration[itemId] || 30000) / 1000;
+  //       const deltaTime = (deltaX / SCREEN_WIDTH) * duration;
+  //       const newPos = Math.max(0, Math.min(duration, dragRef.current.startTime + deltaTime));
+
+  //       videoRef.seek(newPos);
+  //       setVideoProgress(prev => ({ ...prev, [itemId]: newPos }));
+  //     },
+
+  //     onPanResponderRelease: () => {
+  //       dragRef.current.dragging = false;
+  //       setIsSeeking(false);
+  //     },
+
+  //     onPanResponderTerminate: () => {
+  //       dragRef.current.dragging = false;
+  //       setIsSeeking(false);
+  //     },
+  //   });
+  // }, [videoDuration, videoProgress]);
+
+  // const [dragStartTime, setDragStartTime] = useState(0);
 
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
@@ -210,26 +365,14 @@ export default function FlipsScreen() {
     console.log('Not interested reason:', option);
   };
   // Progress bar animation
-  useEffect(() => {
-    const currentReel = reels[currentIndex];
-    if (currentReel && !paused[currentReel.id] && isFocused) {
-      progressAnim.setValue(0);
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: currentReel.duration,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [currentIndex, isFocused, paused, progressAnim, reels]);
-
+  // KEEP THIS, but without progressAnim
   useEffect(() => {
     if (!isFocused) {
       Object.values(videoRefs.current).forEach(ref => {
         if (ref && ref.seek) ref.seek(0);
       });
-      progressAnim.stopAnimation();
     }
-  }, [isFocused, progressAnim]);
+  }, [isFocused]);
 
   const fetchAllReels = useCallback(async (paramReel) => {
     try {
@@ -954,64 +1097,23 @@ export default function FlipsScreen() {
     };
   }, [isFocused]);
 
+  // Add updateVideoProgress OUTSIDE renderItem, near other callbacks in FlipsScreen:
+  const updateVideoProgress = useCallback((id, pos) => {
+    videoProgressRef.current[id] = pos;
+    setVideoProgress(prev => ({ ...prev, [id]: pos }));
+  }, []);
+
+  // Then your clean renderItem:
   const renderItem = ({ item, index }) => {
     const isOwnReel =
       currentUserId != null &&
       item?.userId != null &&
       String(currentUserId) === String(item.userId);
 
-
     return (
       <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
         <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
-        {/* Progress bar */}
-        <View
-          style={styles.progressContainer}
-          onTouchStart={(event) => {
-            setDragStartX(event.nativeEvent.locationX);
-            setDragStartTime(videoProgress[item.id] || 0);
-            setIsSeeking(true);
-          }}
-          onTouchMove={(event) => {
-            const videoRef = videoRefs.current[item.id];
-            if (!videoRef || dragStartX === 0) return;
-
-            try {
-              const currentX = event.nativeEvent.locationX;
-              const deltaX = currentX - dragStartX;
-              const duration = videoDuration[item.id] || reels[currentIndex]?.duration || 30000;
-              const durationInSeconds = duration / 1000;
-
-              const pixelsPerSecond = SCREEN_WIDTH / durationInSeconds;
-              const deltaTime = deltaX / pixelsPerSecond;
-              const newPosition = Math.max(0, Math.min(durationInSeconds, dragStartTime + deltaTime));
-
-              videoRef.seek(newPosition);
-              console.log('Dragging video, position:', newPosition);
-            } catch (error) {
-              console.log('Error dragging video:', error);
-            }
-          }}
-          onTouchEnd={() => setIsSeeking(false)}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(event) => handleProgressBarTap(item.id, event)}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <Animated.View
-            style={[
-              styles.progressBar,
-              {
-                width: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%'],
-                }),
-              },
-            ]}
-          />
-        </View>
 
         <TouchableOpacity
           activeOpacity={1}
@@ -1019,9 +1121,7 @@ export default function FlipsScreen() {
           style={styles.videoContainer}
         >
           <Video
-            ref={ref => {
-              videoRefs.current[item.id] = ref;
-            }}
+            ref={ref => { videoRefs.current[item.id] = ref; }}
             source={{ uri: item.video }}
             style={styles.video}
             resizeMode="cover"
@@ -1029,59 +1129,38 @@ export default function FlipsScreen() {
             paused={!isFocused || currentIndex !== index || paused[item.id] === true}
             muted={muted[item.id] === true}
             onLoad={(data) => {
-              setVideoDuration(prev => ({
-                ...prev,
-                [item.id]: data.duration * 1000, // Convert to milliseconds
-              }));
+              const durSecs = data.duration;
+              videoDurationRef.current[item.id] = durSecs;
+              setVideoDuration(prev => ({ ...prev, [item.id]: durSecs * 1000 }));
             }}
             onProgress={(data) => {
+              videoProgressRef.current[item.id] = data.currentTime;
               if (!isSeeking) {
-                setVideoProgress(prev => ({
-                  ...prev,
-                  [item.id]: data.currentTime,
-                }));
+                setVideoProgress(prev => ({ ...prev, [item.id]: data.currentTime }));
               }
             }}
           />
 
-          {/* Loading indicator */}
           {isBuffering[item.id] && (
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading...</Text>
             </View>
           )}
 
-          {/* Play/Pause overlay */}
           {paused[item.id] === true && (
             <View style={styles.playPauseOverlay}>
               <Icon name="play" size={80} color="rgba(255,255,255,0.8)" />
             </View>
           )}
 
-          {/* Double tap heart animation */}
           {heartAnimatingId === item.id && (
-            <Animated.View
-              style={[
-                styles.heartAnimation,
-                {
-                  transform: [{ scale: scaleAnim }],
-                },
-              ]}
-            >
+            <Animated.View style={[styles.heartAnimation, { transform: [{ scale: scaleAnim }] }]}>
               <Icon name="heart" size={100} color="#ff3040" />
             </Animated.View>
           )}
 
-          {/* Fast forward animation */}
           {forwardAnimatingId === item.id && (
-            <Animated.View
-              style={[
-                styles.forwardAnimation,
-                {
-                  transform: [{ scale: forwardScaleAnim }],
-                },
-              ]}
-            >
+            <Animated.View style={[styles.forwardAnimation, { transform: [{ scale: forwardScaleAnim }] }]}>
               <View style={styles.forwardIconContainer}>
                 <Icon name="play-forward" size={80} color="#fff" />
                 <Text style={styles.forwardText}>+10s</Text>
@@ -1090,51 +1169,33 @@ export default function FlipsScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Side actions */}
+        {/* Horizontal actions */}
         <View style={styles.horizontalActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleLike(item.id)}
-          >
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleLike(item.id)}>
             <Thumbup
               width={24}
               height={24}
-              style={[
-                styles.actionSvgIcon,
-                !liked[item.id] && styles.actionSvgIconInactive,
-              ]}
+              style={[styles.actionSvgIcon, !liked[item.id] && styles.actionSvgIconInactive]}
             />
             <Text style={styles.actionLabel}>{formatCount(likesCount[item.id] || 0)}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleComment(item.id)}
-          >
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleComment(item.id)}>
             <Comments width={22} height={22} style={styles.actionSvgIcon} />
             <Text style={styles.actionLabel}>{formatCount(commentsCount[item.id] || 0)}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            // onPress={() => handleShare(item)}
-            onPress={() => shareRef.current?.open?.()}
-          >
+          <TouchableOpacity style={styles.actionButton} onPress={() => shareRef.current?.open?.()}>
             <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
             <Text style={styles.actionLabel}>Share</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleMoreOptions(item)}
-          >
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleMoreOptions(item)}>
             <Icon name="ellipsis-vertical" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
+
         <View style={[styles.sideActions, { bottom: sideActionsBottom }]}>
-
-
-          {/* Music disc */}
           <TouchableOpacity style={styles.musicDisc}>
             <View style={styles.discContainer}>
               <Image source={{ uri: item.avatar }} style={styles.discImage} />
@@ -1147,18 +1208,6 @@ export default function FlipsScreen() {
 
         {/* Bottom content */}
         <View style={[styles.bottomContent, { bottom: bottomContentBottom }]}>
-          {/* Try Remix button */}
-          {/* {item.isRemixable && (
-          <TouchableOpacity
-            style={styles.remixButton}
-            onPress={() => handleRemix(item)}
-          >
-            <MaterialIcons name="auto-awesome" size={16} color="#fff" />
-            <Text style={styles.remixText}>Try Remix</Text>
-          </TouchableOpacity>
-        )} */}
-
-          {/* User info */}
           <View style={styles.userInfo}>
             <TouchableOpacity style={styles.userRow} onPress={handleUserNavigate}>
               <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
@@ -1195,18 +1244,14 @@ export default function FlipsScreen() {
             </CustomMarquee>
           </View>
 
-          <Text style={styles.caption} numberOfLines={2}>
-            {item.caption}
-          </Text>
+          <Text style={styles.caption} numberOfLines={2}>{item.caption}</Text>
 
-          {/* Liked by section */}
           <TouchableOpacity style={styles.likedBySection}>
             <Text style={styles.likedByText}>
               ❤️ Liked by{' '}
               <Text style={styles.likedByBold}>
                 {(() => {
                   const likeCount = Number(item.likes ?? item.likeCount ?? 0);
-
                   if (likeCount === 0) return 'no one yet';
                   if (likeCount === 1) return '1 person';
                   return `${likeCount} others`;
@@ -1215,25 +1260,6 @@ export default function FlipsScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Bottom navigation placeholder */}
-        {/* <View style={styles.bottomNavPlaceholder}>
-        <View style={styles.navIcon}>
-          <Icon name="home" size={24} color="#fff" />
-        </View>
-        <View style={styles.navIcon}>
-          <Icon name="search" size={24} color="#fff" />
-        </View>
-        <View style={styles.navIcon}>
-          <Icon name="add-circle-outline" size={24} color="#fff" />
-        </View>
-        <View style={styles.navIcon}>
-          <MaterialIcons name="movie" size={24} color="#fff" />
-        </View>
-        <View style={styles.navIcon}>
-          <Icon name="person-circle-outline" size={24} color="#fff" />
-        </View>
-      </View> */}
       </View>
     );
   };
@@ -1322,7 +1348,19 @@ export default function FlipsScreen() {
         removeClippedSubviews={true}
         extraData={viewportHeight}
       />
-
+      {/* Progress bar */}
+      {reels.length > 0 && reels[currentIndex] && (
+        <ProgressBar
+          itemId={reels[currentIndex].id}
+          videoProgress={videoProgressRef}
+          videoDuration={videoDurationRef}
+          videoRefs={videoRefs}
+          setVideoProgress={updateVideoProgress}
+          setIsSeeking={setIsSeeking}
+          dragRef={dragRef}
+          topOffset={Platform.OS === 'android' ? insets.top + 8 : insets.top}
+        />
+      )}
       {/* Dropdown Menu */}
       {dropdownVisible && (
         <View style={styles.dropdownOverlay}>
@@ -1615,8 +1653,7 @@ export default function FlipsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: SCREEN_HEIGHT > 800 && 25,
-    backgroundColor: '#f8f2fc',
+    backgroundColor: '#000',
   },
   reelContainer: {
     width: '100%',
@@ -1630,13 +1667,18 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    height: 28,          // tall touch area (like Instagram)
+    justifyContent: 'flex-start',
     zIndex: 10,
   },
   progressBar: {
     height: '100%',
     backgroundColor: '#fff',
+  },
+  progressTrack: {
+    width: '100%',
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   videoContainer: {
     flex: 1,
