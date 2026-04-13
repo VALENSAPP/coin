@@ -16,7 +16,6 @@ import {
   ScrollView,
   Keyboard,
   Platform,
-  PanResponder,
 } from 'react-native';
 import Video from 'react-native-video';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -79,110 +78,6 @@ const mockComments = {
     },
   ],
 };
-const ProgressBar = React.memo(({ itemId, videoProgress, videoDuration, videoRefs, setVideoProgress, setIsSeeking, dragRef, topOffset }) => {
-  const [progressPercent, setProgressPercent] = useState(0);
-
-  // Store latest refs on a local ref so PanResponder always reads fresh values
-  const latestRefs = useRef({ videoProgress, videoDuration, videoRefs, setVideoProgress, setIsSeeking, dragRef, itemId });
-  useEffect(() => {
-    latestRefs.current = { videoProgress, videoDuration, videoRefs, setVideoProgress, setIsSeeking, dragRef, itemId };
-  });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-
-      onPanResponderGrant: (evt) => {
-        const { videoProgress, itemId, dragRef, setIsSeeking } = latestRefs.current;
-        dragRef.current = {
-          startX: evt.nativeEvent.locationX,
-          startTime: videoProgress.current[itemId] || 0,
-          dragging: true,
-        };
-        setIsSeeking(true);
-      },
-
-      onPanResponderMove: (evt) => {
-        const { dragRef, videoRefs, videoDuration, itemId, setVideoProgress } = latestRefs.current;
-        if (!dragRef.current.dragging) return;
-        const videoRef = videoRefs.current[itemId];
-        if (!videoRef) return;
-
-        const deltaX = evt.nativeEvent.locationX - dragRef.current.startX;
-        const duration = videoDuration.current[itemId] || 30;
-        const deltaTime = (deltaX / SCREEN_WIDTH) * duration;
-        const newPos = Math.max(0, Math.min(duration, dragRef.current.startTime + deltaTime));
-
-        videoRef.seek(newPos);
-        setVideoProgress(itemId, newPos);
-      },
-
-      onPanResponderRelease: () => {
-        const { dragRef, setIsSeeking } = latestRefs.current;
-        dragRef.current.dragging = false;
-        setIsSeeking(false);
-      },
-
-      onPanResponderTerminate: () => {
-        const { dragRef, setIsSeeking } = latestRefs.current;
-        dragRef.current.dragging = false;
-        setIsSeeking(false);
-      },
-    })
-  ).current;
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const current = videoProgress.current[itemId] || 0;
-      const duration = videoDuration.current[itemId] || 30;
-      setProgressPercent(Math.min(100, (current / duration) * 100));
-    }, 100);
-    return () => clearInterval(interval);
-  }, [itemId, videoProgress, videoDuration]);
-
-  return (
-    <View style={[progressStyles.container, { top: topOffset }]} {...panResponder.panHandlers}>
-      <View style={progressStyles.track}>
-        <View style={[progressStyles.fill, { width: `${progressPercent}%` }]} />
-      </View>
-      <View style={[progressStyles.thumb, { left: `${progressPercent}%` }]} />
-    </View>
-  );
-});
-
-const progressStyles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    // top: Platform.OS === 'android' ? 40 : insets?.top || 0,  // match reelContainer offset
-    left: 0,
-    right: 0,
-    height: 28,
-    zIndex: 9999,
-    justifyContent: 'flex-start',
-  },
-  track: {
-    width: '100%',
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  fill: {
-    height: '100%',
-    backgroundColor: '#fff',
-  },
-  thumb: {
-    position: 'absolute',
-    top: -5,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#fff',
-    marginLeft: -7,
-    elevation: 4,
-  },
-});
 
 export default function FlipsScreen() {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -208,7 +103,7 @@ export default function FlipsScreen() {
   const [forwardAnimatingId, setForwardAnimatingId] = useState(null);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const forwardScaleAnim = useRef(new Animated.Value(0)).current;
-  // const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Reanimated shared values for pinch-to-zoom (no native animated driver conflict)
   const pinchScale = useSharedValue(1);
@@ -233,56 +128,6 @@ export default function FlipsScreen() {
   const [isBuffering, setIsBuffering] = useState({});
   const [videoDuration, setVideoDuration] = useState({});
   const [isSeeking, setIsSeeking] = useState(false);
-  // const [dragStartX, setDragStartX] = useState(0);
-  const dragRef = useRef({ startX: 0, startTime: 0, dragging: false });
-  // const scrubberRef = useRef(null);
-  const videoDurationRef = useRef({});
-
-  // // Create pan responder once (outside renderItem, inside component)
-  // const createScrubPanResponder = useCallback((itemId) => {
-  //   return PanResponder.create({
-  //     onStartShouldSetPanResponder: () => true,
-  //     onMoveShouldSetPanResponder: () => true,
-  //     onStartShouldSetPanResponderCapture: () => true,
-  //     onMoveShouldSetPanResponderCapture: () => true,
-
-  //     onPanResponderGrant: (evt) => {
-  //       dragRef.current = {
-  //         startX: evt.nativeEvent.locationX,
-  //         startTime: videoProgress[itemId] || 0,
-  //         dragging: true,
-  //       };
-  //       setIsSeeking(true);
-  //     },
-
-  //     onPanResponderMove: (evt) => {
-  //       if (!dragRef.current.dragging) return;
-  //       const videoRef = videoRefs.current[itemId];
-  //       if (!videoRef) return;
-
-  //       const deltaX = evt.nativeEvent.locationX - dragRef.current.startX;
-  //       const duration = (videoDuration[itemId] || 30000) / 1000;
-  //       const deltaTime = (deltaX / SCREEN_WIDTH) * duration;
-  //       const newPos = Math.max(0, Math.min(duration, dragRef.current.startTime + deltaTime));
-
-  //       videoRef.seek(newPos);
-  //       setVideoProgress(prev => ({ ...prev, [itemId]: newPos }));
-  //     },
-
-  //     onPanResponderRelease: () => {
-  //       dragRef.current.dragging = false;
-  //       setIsSeeking(false);
-  //     },
-
-  //     onPanResponderTerminate: () => {
-  //       dragRef.current.dragging = false;
-  //       setIsSeeking(false);
-  //     },
-  //   });
-  // }, [videoDuration, videoProgress]);
-
-  // const [dragStartTime, setDragStartTime] = useState(0);
-
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartTime, setDragStartTime] = useState(0);
   const [commentPostId, setCommentPostId] = useState(null);
@@ -342,7 +187,7 @@ export default function FlipsScreen() {
       Object.values(videoRefs.current).forEach(ref => { if (ref && ref.seek) ref.seek(0); });
       progressAnim.stopAnimation();
     }
-  }, [isFocused]);
+  }, [isFocused, progressAnim]);
 
   // Reset pinch zoom when switching reels
   useEffect(() => {
