@@ -48,8 +48,7 @@ import { getUserCredentials } from '../../../services/post';
 import Feather from 'react-native-vector-icons/Feather';
 import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
 
-// Import the new API functions
-import { postCommentStory, postLikeStory } from '../../../services/stories'; // Adjust path as needed
+import { postCommentStory, postLikeStory } from '../../../services/stories';
 import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
@@ -72,10 +71,6 @@ function parseStoryMeta(raw) {
   return typeof raw === 'object' ? raw : null;
 }
 
-/**
- * YouTube WebView needs a real viewport (≥~200×200) and must sit above opaque media
- * or playback/sound often never starts. Keep off-screen + nearly invisible.
- */
 const storyYoutubeAudioStyle = {
   position: 'absolute',
   width: 200,
@@ -140,7 +135,6 @@ function resolveStoryAudioPayload(storyLike) {
   }
 
   if (src && typeof src === 'object') {
-    // Prefer uploaded / CDN audio URLs — avoid previewUrl (may be YouTube thumbnail).
     const directUrl =
       src.audioUrl ||
       src.s3Url ||
@@ -181,7 +175,7 @@ function resolveStoryAudioPayload(storyLike) {
 
 // Story Analytics Modal Component
 const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
-  const [activeTab, setActiveTab] = useState('likes'); // Default to 'likes', removed 'views'
+  const [activeTab, setActiveTab] = useState('likes');
 
   const analyticsStyles = {
     backdrop: {
@@ -461,6 +455,15 @@ const StoryViewer = ({
   const [isMediaReady, setIsMediaReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const mediaDurationRef = useRef(null);
+  const [videoOverlayVisible, setVideoOverlayVisible] = useState(false);
+  const overlayOpacity = useRef(new Animated.Value(1)).current;
+
+  // FIX: ref to track whether progress animation has been started
+  // for the current story, preventing double-start from onVideoLoaded
+  // and the fallback timer firing simultaneously.
+  const progressStartedRef = useRef(false);
+  const mediaFullyLoadedRef = useRef(false);
+  const videoReadyDurationRef = useRef(null);
 
   // --- keep latest callbacks for PanResponder (fix slide stale-closure) ---
   const nextUserCb = useRef(onNextUser);
@@ -572,14 +575,31 @@ const StoryViewer = ({
   useEffect(() => {
     if (!visible || !currentStory) return;
 
-    dispatch(hideLoader());
+    // Reset all state for the incoming story
+    progressStartedRef.current = false;
+mediaFullyLoadedRef.current = false;   // ← add this line
+mediaDurationRef.current = null;
+
+    // Stop any running animation and reset to 0
+    progressAnimation.stopAnimation();
+    progressAnimation.setValue(0);
+    setCurrentProgress(0);
+
+    // Clear any existing timers
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // For videos: start paused=false so the Video component
+    // begins loading immediately. onVideoLoaded will start progress.
+    // For images: same — onImageLoaded starts progress.
     setPaused(false);
     setIsMediaReady(false);
     setIsBuffering(false);
-    mediaDurationRef.current = null;
-    stopAndResetProgress(true);
+    dispatch(hideLoader());
 
-    // seek to start if video
+    // Seek video to beginning when switching stories
     if (currentStory.type === 'video' && videoRef.current?.seek) {
       try { videoRef.current.seek(0); } catch (_e) { }
     }
@@ -587,22 +607,33 @@ const StoryViewer = ({
       try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) { }
     }
 
-    // FALLBACK: Auto-start progress if media takes too long
-    // For images: 3s, for videos: 5s (videos need more time but not indefinite)
+    // FALLBACK: if onLoad never fires (network error, bad URL, codec issue)
+    // force-start the progress bar so the story doesn't hang forever.
     const isVideo = currentStory.type === 'video';
-    const fallbackDelay = isVideo ? 5000 : 3000;
-    
+    const fallbackDelay = isVideo ? 8000 : 5000;
     const fallbackTimer = setTimeout(() => {
-      if (!pausedRef.current && visibleRef.current && !isMediaReady) {
-        console.warn('[StoryViewer] Media taking too long, starting progress');
-        const duration = resolveStoryDurationMs(currentStory);
-        startProgress(duration);
-      }
-    }, fallbackDelay);
+  // Only fire if media NEVER loaded (onLoad/onImageLoaded never called)
+  if (
+    !pausedRef.current &&
+    visibleRef.current &&
+    !progressStartedRef.current &&
+    !mediaFullyLoadedRef.current   // ← guard: don't fire if media already loaded
+  ) {
+    progressStartedRef.current = true;
+    const duration = resolveStoryDurationMs(currentStory);
+    startProgress(duration);
+  }
+}, fallbackDelay);
 
     return () => {
       clearTimeout(fallbackTimer);
-      stopAndResetProgress(false);
+      // Stop animation on cleanup but don't reset value —
+      // the next iteration of this effect resets it at the top.
+      progressAnimation.stopAnimation();
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [visible, currentUserIndex, currentStoryIndex]);
 
@@ -633,7 +664,7 @@ const StoryViewer = ({
     }
   }, [visible]);
 
-  // Keep retrying YouTube play commands when story is active (WebView autoplay can be flaky).
+  // Keep retrying YouTube play commands when story is active
   useEffect(() => {
     if (!isYoutubeAudio || !visible || paused) return;
     let cancelled = false;
@@ -651,16 +682,12 @@ const StoryViewer = ({
           if (audioTrimStartSec > 0) {
             await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
           }
-        } catch (_e) {
-          // no-op, keep retrying while this story is active
-        }
+        } catch (_e) { }
       }
     };
 
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isYoutubeAudio, visible, paused, youtubeVideoId, audioVolumePercent, audioTrimStartSec]);
 
   const startProgress = (duration) => {
@@ -681,14 +708,12 @@ const StoryViewer = ({
   const handleResume = () => {
     if (!currentStory) return;
     setPaused(false);
-    // if (!loading) {
     const remaining = Math.max(0, 1 - currentProgress);
     const totalDuration = resolveStoryDurationMs(currentStory);
     const remainingDuration = totalDuration * remaining;
     if (remainingDuration > 50) {
       startProgress(remainingDuration);
     }
-    // }
   };
 
   // Pan responder: swipe down to close, left/right to switch users
@@ -946,64 +971,57 @@ const StoryViewer = ({
     },
   };
 
-  const onImageLoaded = () => {
-    dispatch(hideLoader());
-    setIsMediaReady(true);
-    if (visibleRef.current && !pausedRef.current) {
-      // Small delay to ensure image is actually rendered
-      setTimeout(() => {
+const onImageLoaded = () => {
+  dispatch(hideLoader());
+  mediaFullyLoadedRef.current = true;
+  setIsMediaReady(true);
+  if (!progressStartedRef.current) {
+    progressStartedRef.current = true;
+    // rAF ensures the image has actually painted before bar moves
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {   // double rAF = after next paint
         if (visibleRef.current && !pausedRef.current) {
           startProgress(resolveStoryDurationMs(currentStory));
         }
-      }, 100);
-    }
-  };
+      });
+    });
+  }
+};
 
-  const onVideoLoaded = (meta) => {
-    dispatch(hideLoader());
-    const duration =
-      (meta?.duration ? meta.duration * 1000 : null) ||
-      currentStory.duration ||
-      15000;
-    mediaDurationRef.current = duration;
-    setIsMediaReady(true);
-    setIsBuffering(false);
-    
-    // Start progress with a small delay to ensure video actually started playing
-    if (visibleRef.current && !pausedRef.current) {
-      setTimeout(() => {
-        if (visibleRef.current && !pausedRef.current && !pausedRef.current) {
-          startProgress(duration);
-        }
-      }, 200);
-    }
-  };
+const onVideoLoaded = (meta) => {
+  dispatch(hideLoader());
+  const duration =
+    (meta?.duration ? meta.duration * 1000 : null) ||
+    currentStory?.duration ||
+    15000;
+  mediaDurationRef.current = duration;
+  videoReadyDurationRef.current = duration;   // store for onReadyForDisplay
+  mediaFullyLoadedRef.current = true;
+  setIsMediaReady(true);
+  setIsBuffering(false);
+  // Do NOT call startProgress here
+};
 
-  const onMediaError = () => {
-    dispatch(hideLoader());
-    setIsMediaReady(true);
-    if (visibleRef.current && !pausedRef.current) {
-      const duration = resolveStoryDurationMs(currentStory);
-      startProgress(duration);
-    }
-  };
+const onMediaError = () => {
+  dispatch(hideLoader());
+  // On error we still mark loaded so the fallback timer doesn't also fire
+  mediaFullyLoadedRef.current = true;
+  setIsMediaReady(true);
+  if (visibleRef.current && !pausedRef.current && !progressStartedRef.current) {
+    progressStartedRef.current = true;
+    const duration = resolveStoryDurationMs(currentStory);
+    startProgress(duration);
+  }
+};
 
+  // FIX: removed all progress animation logic from onVideoBuffer.
+  // Toggling `paused` on buffer events causes the visible stutter — the
+  // native player handles rebuffering silently on its own. We only track
+  // the buffering state for a UI spinner if needed.
   const onVideoBuffer = ({ isBuffering: buffering }) => {
     setIsBuffering(buffering);
-    if (buffering) {
-      // Don't pause progress - let it continue while buffering
-      // Just mark that we're buffering for UI feedback
-      return;
-    }
-    if (!visibleRef.current || pausedRef.current) return;
-    
-    // Resume progress when buffering finishes
-    const duration = mediaDurationRef.current || currentStory?.duration || 15000;
-    const remaining = Math.max(0, 1 - currentProgress);
-    const remainingDuration = duration * remaining;
-    if (remainingDuration > 50) {
-      startProgress(remainingDuration);
-    }
+    // Do NOT restart progress here — it creates a second competing
+    // Animated.timing() that fights the existing one and causes jumps.
   };
 
   return (
@@ -1105,7 +1123,7 @@ const StoryViewer = ({
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
               resizeMode="cover"
-              onLoad={onImageLoaded}
+              onLoadEnd={onImageLoaded}
               onError={onMediaError}
               pointerEvents="none"
             />
@@ -1115,23 +1133,29 @@ const StoryViewer = ({
               source={{ uri: currentStory.uri }}
               style={modalStyles.storyMedia}
               resizeMode="cover"
-              paused={paused || isBuffering}
+              // FIX: removed `|| isBuffering` — pausing on buffer events causes
+              // the native media engine to fully stop/restart, which is the
+              // primary source of visible stuttering. Let the player buffer silently.
+              paused={paused}
               onLoadStart={() => {
                 setIsMediaReady(false);
                 setIsBuffering(true);
-                dispatch(showLoader());
               }}
               onLoad={onVideoLoaded}
-              onProgress={(data) => {
-                // Sync progress bar with actual video playback
-                if (data?.currentTime != null && mediaDurationRef.current) {
-                  const videoProgress = data.currentTime / (mediaDurationRef.current / 1000);
-                  if (Math.abs(videoProgress - currentProgress) > 0.05) {
-                    // Only update if progress has diverged more than 5%
-                    progressAnimation.setValue(Math.min(1, videoProgress));
-                  }
-                }
-              }}
+              onReadyForDisplay={() => {
+  if (!progressStartedRef.current && visibleRef.current && !pausedRef.current) {
+    progressStartedRef.current = true;
+    const duration = videoReadyDurationRef.current || resolveStoryDurationMs(currentStory);
+    requestAnimationFrame(() => {
+      if (visibleRef.current && !pausedRef.current) {
+        startProgress(duration);
+      }
+    });
+  }
+}}
+              // FIX: removed onProgress entirely — calling progressAnimation.setValue()
+              // inside onProgress interrupts the running Animated.timing() and causes
+              // the progress bar to jump and restart on every progress tick.
               onBuffer={onVideoBuffer}
               onError={onMediaError}
               onEnd={() => {
@@ -1143,6 +1167,14 @@ const StoryViewer = ({
               controls={false}
               playInBackground={false}
               playWhenInactive={false}
+              // FIX: explicit buffer config so the player starts playback sooner
+              // (after 1s buffered) and recovers from rebuffer faster.
+              bufferConfig={{
+                minBufferMs: 2500,
+                maxBufferMs: 10000,
+                bufferForPlaybackMs: 1000,
+                bufferForPlaybackAfterRebufferMs: 2000,
+              }}
               pointerEvents="none"
             />
           )}
@@ -1198,6 +1230,7 @@ const StoryViewer = ({
               />
             </View>
           ) : null}
+
           {isDirectAudio ? (
             <Video
               ref={directAudioRef}
@@ -1215,6 +1248,17 @@ const StoryViewer = ({
                   try { directAudioRef.current?.seek(audioTrimStartSec); } catch (_e) { }
                 }
               }}
+              onReadyForDisplay={() => {
+  if (!progressStartedRef.current && visibleRef.current && !pausedRef.current) {
+    progressStartedRef.current = true;
+    const duration = videoReadyDurationRef.current || resolveStoryDurationMs(currentStory);
+    requestAnimationFrame(() => {
+      if (visibleRef.current && !pausedRef.current) {
+        startProgress(duration);
+      }
+    });
+  }
+}}
               onProgress={({ currentTime }) => {
                 const fallbackEnd = directAudioDurationRef.current || 0;
                 const end = audioTrimEndSec != null ? audioTrimEndSec : fallbackEnd;
@@ -1267,16 +1311,6 @@ const StoryViewer = ({
         {/* Show analytics for user's own stories */}
         {isViewingOwnStory && (
           <View style={userAnalyticsStyles.bottomContainer}>
-            {/* <TouchableOpacity
-              style={userAnalyticsStyles.analyticsButton}
-              onPress={openAnalytics}
-            >
-              <Icon name="stats-chart-outline" size={18} color="#fff" />
-              <Text style={userAnalyticsStyles.analyticsText}>
-                Story Activity
-              </Text>
-            </TouchableOpacity> */}
-
             <View style={userAnalyticsStyles.statsRow}>
               {currentStory.likes?.length > 0 && (
                 <View style={userAnalyticsStyles.statItem}>
@@ -1295,7 +1329,6 @@ const StoryViewer = ({
                   </Text>
                 </View>
               )}
-
             </View>
 
             <View style={userAnalyticsStyles.actionsRow}>
@@ -1312,7 +1345,6 @@ const StoryViewer = ({
                 onPress={() => {
                   handlePause();
                   shareRef.current?.open?.();
-                  // Include user information with the story
                   const storyWithUser = {
                     ...currentStory,
                     userName: currentUser?.username,
@@ -1334,14 +1366,11 @@ const StoryViewer = ({
               ref={shareRef}
               story={selectedPostId}
               onClose={() => {
-                onClose(); // Close stories viewer using the prop
+                onClose();
               }}
               onShare={() => {
-                // Close story viewer first
                 stopAndResetProgress(true);
                 onClose();
-
-                // Close drawer after navigation starts
                 setTimeout(() => {
                   if (onDrawerClose) onDrawerClose();
                 }, 150);
@@ -1434,14 +1463,11 @@ const StoryViewer = ({
                       onAddComment(ownerId, storyId, text);
                       setCommentText('');
                       return;
-
                     }
                     Keyboard.dismiss();
-
                     setTimeout(() => {
                       shareRef.current?.open?.();
                       handlePause();
-                      // Include user information with the story
                       const storyWithUser = {
                         ...currentStory,
                         userName: currentUser?.username,
@@ -1454,7 +1480,6 @@ const StoryViewer = ({
                       };
                       setSelectedPostId(storyWithUser);
                     }, 150);
-
                   }}
                 >
                   <Icon name="send" size={20} color="#fff" />
@@ -1465,14 +1490,11 @@ const StoryViewer = ({
               ref={shareRef}
               story={selectedPostId}
               onClose={() => {
-                onClose(); // Close stories viewer using the prop
+                onClose();
               }}
               onShare={() => {
-                // Close story viewer first
                 stopAndResetProgress(true);
                 onClose();
-
-                // Close drawer after navigation starts
                 setTimeout(() => {
                   if (onDrawerClose) onDrawerClose();
                 }, 150);
@@ -1535,11 +1557,8 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const [composerList, setComposerList] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
-  const toast = useToast()
+  const toast = useToast();
   const dispatch = useDispatch();
-
-  // Fetch stories from API
-  // Replace your existing fetchStories function with this corrected version
 
   const fetchStories = async () => {
     try {
@@ -1547,11 +1566,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       setCurrentUserId(id);
       dispatch(showLoader());
 
-      // Fetch user's own stories
       const userStoriesResponse = await getStoryByUser(id);
-      console.log(userStoriesResponse, 'respose for user storeis')
+      console.log(userStoriesResponse, 'respose for user storeis');
 
-      // Fetch following users' stories
       let followingStoriesResponse;
       try {
         followingStoriesResponse = await getFollowingUserStories();
@@ -1560,7 +1577,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         followingStoriesResponse = { data: [] };
       }
 
-      // Process user's own stories
       const userStoriesRaw = userStoriesResponse?.data
         ? (Array.isArray(userStoriesResponse.data)
           ? userStoriesResponse.data
@@ -1568,12 +1584,10 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         ).reverse()
         : [];
 
-      // Process following users' stories
       const followingStoriesRaw = followingStoriesResponse?.data
         ? (Array.isArray(followingStoriesResponse.data) ? followingStoriesResponse.data : [followingStoriesResponse.data])
         : [];
 
-      // Create current user bucket
       const currentUserBucket = {
         id: 'current_user',
         username: 'Your Drops',
@@ -1615,7 +1629,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         }),
       };
 
-      // Group following users' stories by userId
       const userStoriesMap = new Map();
 
       followingStoriesRaw.forEach((userStory) => {
@@ -1637,7 +1650,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           }
           return 'image';
         };
-        // Create story objects for this user's media
+
         const storyObjects = (userStory.media || []).map((url, idx) => ({
           ...(() => {
             const clipMeta = followingMeta?.clips?.[idx] || {};
@@ -1667,13 +1680,10 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           comments: [],
         }));
 
-        // Check if this user already exists in the map
         if (userStoriesMap.has(userId)) {
-          // Add stories to existing user
           const existingUser = userStoriesMap.get(userId);
           existingUser.stories.push(...storyObjects);
         } else {
-          // Create new user entry
           userStoriesMap.set(userId, {
             id: userId,
             username: username,
@@ -1686,11 +1696,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         }
       });
 
-      // Convert map to array and filter out users without stories
       const followingUsersBuckets = Array.from(userStoriesMap.values())
         .filter(user => user.stories.length > 0 && user.id);
 
-      // Combine all stories: current user first, then following users
       const transformedStories = [currentUserBucket, ...followingUsersBuckets];
 
       setStories(transformedStories);
@@ -1717,7 +1725,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     );
   }, [profileImage]);
 
-
   const loadProfileData = async () => {
     try {
       const viewerId = await AsyncStorage.getItem('userId');
@@ -1726,7 +1733,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       if (resp?.statusCode === 200) {
         const raw = resp?.data?.image;
         console.log('innnnnnn load profile data----------', raw);
-
         dispatch(setProfileImg(raw));
       }
     } catch (e) {
@@ -1734,14 +1740,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }
   };
 
-
-  // Load stories on component mount
   useEffect(() => {
     fetchStories();
     loadProfileData();
   }, []);
 
-  // Re-fetch whenever the screen gains focus
   useFocusEffect(
     useCallback(() => {
       fetchStories();
@@ -1749,7 +1752,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }, [])
   );
 
-  // Re-fetch when HomeScreen triggers a refresh (pull-to-refresh)
   useEffect(() => {
     if (typeof refreshTick === 'number') {
       fetchStories();
@@ -1835,7 +1837,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
       setComposerList([mediaItem]);
       setComposerVisible(true);
-
     });
   };
 
@@ -1853,16 +1854,13 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         setComposerMedia(null);
         setComposerVisible(false);
         return;
-      };
+      }
       const assets = response?.assets || [];
-      // if (!assets.length) return;
       if (!assets.length) {
         setComposerList([]);
         setComposerMedia(null);
         return;
       }
-
-
 
       const list = assets.map(a => ({
         uri: a.uri,
@@ -1898,13 +1896,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
       setComposerVisible(false);
 
-      // Prepare FormData for API call
       const formData = new FormData();
-
-      // Add caption (optional)
       formData.append('caption', '');
 
-      // Add media files
       clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
         const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
@@ -1923,11 +1917,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       );
       await appendStoryAudioFiles(formData, clips);
 
-      // Call API to upload story
       const response = await PostStory(formData);
 
       if (response?.success) {
-        // Update local state with new stories
         setStories(prev =>
           prev.map(user =>
             user.isUser
@@ -1968,7 +1960,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           ),
         );
 
-
         showToastMessage(toast, 'success', 'Story Uploaded Successfully');
         fetchStories();
       } else {
@@ -1981,13 +1972,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   };
 
   const handleOpenStory = (user, userIndex) => {
-    // If user has no stories, directly open add story
     if (user.isUser && user.stories.length === 0) {
       handleAddStory();
       return;
     }
 
-    // If user has stories, show options dialog
     if (user.isUser && user.stories.length > 0) {
       Alert.alert(
         'Your Drops',
@@ -2011,28 +2000,22 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       return;
     }
 
-    // For other users' stories, directly open viewer
     if (!user.stories?.length || user.muted) return;
     openStoryViewer(user, userIndex);
   };
 
   const openStoryViewer = (user, userIndex) => {
-    // Prefetch current and next 3 stories to reduce loading delays
     const storiesToPrefetch = user.stories?.slice(0, 4) || [];
     storiesToPrefetch.forEach(story => {
       if (story?.uri) {
         try {
           if (story.type === 'image') {
             Image.prefetch(story.uri);
-          } else if (story.type === 'video') {
-            // For videos, use Video component's preload if available
-            // or just start buffering by creating the source
           }
         } catch (_e) { }
       }
     });
 
-    // Also prefetch audio URLs if present
     storiesToPrefetch.forEach(story => {
       const audio = resolveStoryAudioPayload(story);
       if (audio?.directUrl) {
@@ -2042,11 +2025,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
     setCurrentUserIndex(userIndex);
     setCurrentStoryIndex(0);
-    // bump session to force a fresh StoryViewer mount (prevents "stuck" on reopen)
     setViewerSession(s => s + 1);
     setViewerVisible(true);
 
-    // Mark first story as seen for following users (not for current user's own stories)
     if (!user.isUser) {
       setTimeout(() => {
         markStoryAsSeen(user.id, 0);
@@ -2070,13 +2051,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     const user = stories[currentUserIndex];
     if (!user) return handleCloseViewer();
 
-    // Mark current story as seen if it's not the user's own story
     if (!user.isUser) {
       markStoryAsSeen(user.id, currentStoryIndex);
     }
 
     if (currentStoryIndex < (user.stories?.length || 0) - 1) {
-      // Prefetch next story in this user's queue
       const nextStory = user.stories[currentStoryIndex + 1];
       if (nextStory?.uri) {
         try {
@@ -2088,7 +2067,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }
     const nextIdx = nextUserWithStories(currentUserIndex);
     if (nextIdx !== -1) {
-      // Prefetch first story of next user
       const nextUser = stories[nextIdx];
       const firstStory = nextUser?.stories?.[0];
       if (firstStory?.uri) {
@@ -2107,7 +2085,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     const user = stories[currentUserIndex];
     if (!user) return handleCloseViewer();
     if (currentStoryIndex > 0) {
-      // Prefetch previous story
       const prevStory = user.stories[currentStoryIndex - 1];
       if (prevStory?.uri) {
         try {
@@ -2119,7 +2096,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }
     const prevIdx = prevUserWithStories(currentUserIndex);
     if (prevIdx !== -1) {
-      // Prefetch last story of previous user
       const prevUser = stories[prevIdx];
       const lastStory = prevUser?.stories?.[prevUser.stories.length - 1];
       if (lastStory?.uri) {
@@ -2134,7 +2110,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     handleCloseViewer();
   };
 
-  // Mark individual story as seen
   const markStoryAsSeen = (userId, storyIndex) => {
     setStories(prev =>
       prev.map(user =>
@@ -2144,7 +2119,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
             stories: user.stories.map((story, idx) =>
               idx === storyIndex ? { ...story, seen: true } : story
             ),
-            // Check if all stories are seen to update hasUnseenStory
             hasUnseenStory: user.stories.some((story, idx) => idx !== storyIndex && !story.seen),
           }
           : user,
@@ -2152,11 +2126,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     );
   };
 
-  // Go to next user (stop at last)
   const handleNextUser = () => {
     const nextIdx = nextUserWithStories(currentUserIndex);
     if (nextIdx !== -1) {
-      // Prefetch first story of next user
       const nextUser = stories[nextIdx];
       const firstStory = nextUser?.stories?.[0];
       if (firstStory?.uri) {
@@ -2169,11 +2141,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }
   };
 
-  // Go to previous user (stop at first)
   const handlePrevUser = () => {
     const prevIdx = prevUserWithStories(currentUserIndex);
     if (prevIdx !== -1) {
-      // Prefetch last story of previous user
       const prevUser = stories[prevIdx];
       const lastStory = prevUser?.stories?.[prevUser.stories.length - 1];
       if (lastStory?.uri) {
@@ -2198,13 +2168,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     navigation.navigate('UsersProfile', { userId: user.id });
   }, [navigation]);
 
-  // Delete story function
   const handleDeleteStory = async (storyId) => {
     try {
       const response = await DeleteStory(storyId.replace('_0', ''));
 
       if (response?.success) {
-        // Remove story from local state
         setStories(prev =>
           prev.map(user =>
             user.isUser
@@ -2219,16 +2187,13 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
         showToastMessage(toast, 'success', 'Story deleted successfully!');
 
-        // If this was the last story or only story, close viewer
         const currentUser = stories[currentUserIndex];
         if (!currentUser || currentUser.stories.length <= 1) {
           handleCloseViewer();
         } else if (currentStoryIndex >= currentUser.stories.length - 1) {
-          // If we deleted the last story, go to previous one
           setCurrentStoryIndex(Math.max(0, currentStoryIndex - 1));
         }
 
-        // Refresh stories from server
         fetchStories();
       } else {
         showToastMessage(toast, 'danger', 'Failed to delete story. Please try again.');
@@ -2238,17 +2203,12 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     }
   };
 
-  // API-integrated handlers
   const onToggleLike = async (ownerId, storyId, nextLiked) => {
     try {
-      // Extract the actual story ID (remove the _0 suffix that was added for display)
       const actualStoryId = storyId.replace('_0', '');
-
-      // Call the API
       const response = await postLikeStory({ storyId: actualStoryId });
 
       if (response?.success) {
-        // Update local state on success
         const key = `${ownerId}:${storyId}`;
         setLikes(prev => {
           const curr = prev[key] || { liked: false, count: 0 };
@@ -2257,10 +2217,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           if (!nextLiked && curr.liked && count > 0) count -= 1;
           return { ...prev, [key]: { liked: nextLiked, count } };
         });
-
-        // Show success feedback if needed
       } else {
-        // Handle API error
         console.error('Failed to like story:', response);
         showToastMessage(toast, 'danger', 'Failed to like story. Please try again.');
       }
@@ -2272,20 +2229,17 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
   const onAddComment = async (ownerId, storyId, text) => {
     try {
-      // Extract the actual story ID (remove the _0 suffix that was added for display)
       const actualStoryId = storyId.replace('_0', '');
       const cleanText = String(text || '').trim();
 
       if (!cleanText) return;
 
-      // Call the API
       const response = await postCommentStory({
         comment: cleanText,
         storyId: actualStoryId
       });
 
       if (response?.success) {
-        // Update local state on success
         const key = `${ownerId}:${storyId}`;
         setComments(prev => {
           const arr = prev[key] || [];
@@ -2295,7 +2249,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           };
         });
 
-        // Also push the story reply into chat inbox of story owner.
         try {
           if (ownerId && currentUserId && String(ownerId) !== String(currentUserId)) {
             await sendChatMessage({
@@ -2309,7 +2262,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           console.warn('Failed to deliver story reply to inbox:', chatError);
         }
       } else {
-        // Handle API error
         console.error('Failed to add comment:', response);
         showToastMessage(toast, 'danger', 'Failed to send comment. Please try again.');
       }

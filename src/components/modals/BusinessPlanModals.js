@@ -1,9 +1,26 @@
-import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) => {
   const { bgStyle, textStyle, text } = useAppTheme();
+  const [isLoading, setIsLoading] = useState(false);  // ← local to modal
+
+  const handleActivate = async () => {
+    setIsLoading(true);
+    try {
+      await onActivate();
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -14,17 +31,35 @@ export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) 
           <Text style={[styles.message, textStyle, styles.messageMuted]}>
             Valens was built for businesses that want more than followers.
             {'\n\n'}
-            Activate your Business Plan to unlock mission posts, subscriber channels, brand analytics, and tools designed to turn attention into real engagement.
+            Activate your Business Plan to unlock mission posts, subscriber channels,
+            brand analytics, and tools designed to turn attention into real engagement.
           </Text>
 
           <Text style={[styles.price, { color: text }]}>Business Plan: $9.90/month</Text>
 
-          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={onActivate}>
-            <Text style={styles.primaryText}>Activate Business Tools</Text>
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: text }, isLoading && { opacity: 0.75 }]}
+            onPress={handleActivate}
+            disabled={isLoading}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              {isLoading && (
+                <ActivityIndicator
+                  size="small"
+                  color="#ffffff"
+                  style={{ marginRight: 8 }}
+                />
+              )}
+              <Text style={styles.primaryText}>
+                {isLoading ? 'Activating...' : 'Activate Business Tools'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue}>
-            <Text style={[styles.secondaryText, { color: text }]}>Continue with Basic Profile</Text>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue} disabled={isLoading}>
+            <Text style={[styles.secondaryText, { color: text, opacity: isLoading ? 0.4 : 1 }]}>
+              Continue with Basic Profile
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -34,6 +69,16 @@ export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) 
 
 export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose }) => {
   const { bgStyle, textStyle, text } = useAppTheme();
+  const [isLoading, setIsLoading] = useState(false);  // ← local to modal
+
+  const handleUpgrade = async () => {
+    setIsLoading(true);
+    try {
+      await onUpgrade();
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -55,8 +100,19 @@ export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose 
             Activate the Business Plan to unlock the full Valens experience.
           </Text>
 
-          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text }]} onPress={onUpgrade}>
-            <Text style={styles.primaryText}>Unlock Business Features</Text>
+          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text },isLoading && { opacity: 0.75 }]} onPress={handleUpgrade} disabled={isLoading}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              {isLoading && (
+                <ActivityIndicator
+                  size="small"
+                  color="#ffffff"
+                  style={{ marginRight: 8 }}
+                />
+              )}
+              <Text style={styles.primaryText}>
+                {isLoading ? 'Processing...' : 'Unlock Business Features'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue}>
@@ -135,5 +191,16 @@ const styles = StyleSheet.create({
   secondaryText: {
     textAlign: 'center',
     fontWeight: '500',
+  },
+  btnDisabled: {
+  opacity: 0.75,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinner: {
+    marginRight: 8,
   },
 });

@@ -1,7 +1,7 @@
 // / mediaDownload.js
 import RNFS from 'react-native-fs';
 import { Platform, Alert } from 'react-native';
-import CameraRoll from '@react-native-camera-roll/camera-roll';
+import { CameraRoll } from '@react-native-camera-roll/camera-roll';
 import { showToastMessage } from '../components/displaytoastmessage';
  
 const DOWNLOAD_DIR =
@@ -63,7 +63,8 @@ export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
     // ── iOS: Use CameraRoll to save to photo library ─────────────
     if (Platform.OS === 'ios') {
       const photoType = isVideo ? 'video' : 'photo';
-      await CameraRoll.save(localPath, { type: photoType });
+      const fileUri = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
+      await CameraRoll.save(fileUri, { type: photoType });
     }
     // ── Android: tell the gallery the file exists ─────────────
     else if (Platform.OS === 'android') {

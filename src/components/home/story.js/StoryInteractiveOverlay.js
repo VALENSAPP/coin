@@ -96,8 +96,8 @@ export default function StoryInteractiveOverlay({
 
   const pan = Gesture.Pan()
     .minDistance(0)
+    .averageTouches(true)   
     .minPointers(1)
-    .maxPointers(1)
     .onBegin(() => {
       startX.value = translateX.value;
       startY.value = translateY.value;
