@@ -1,11 +1,12 @@
 // / mediaDownload.js
 import RNFS from 'react-native-fs';
 import { Platform, Alert } from 'react-native';
+import CameraRoll from '@react-native-camera-roll/camera-roll';
 import { showToastMessage } from '../components/displaytoastmessage';
  
 const DOWNLOAD_DIR =
   Platform.OS === 'ios'
-    ? RNFS.DocumentDirectoryPath
+    ? RNFS.TemporaryDirectoryPath
     : RNFS.DownloadDirectoryPath ?? RNFS.ExternalDirectoryPath;
  
 /** True when the URI is a local file path (not an http/https URL). */
@@ -33,12 +34,14 @@ const getUniqueDestinationPath = async (filename) => {
  
 export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
   try {
-    const destPath = await getUniqueDestinationPath(filename);
+    let localPath = uri;
+    let destPath = await getUniqueDestinationPath(filename);
     const cleanSrc = uri.replace(/^file:\/\//, ''); // RNFS.copyFile wants bare path
  
     if (isLocalUri(uri)) {
-      // ── Local file: just copy it ──────────────────────────────
+      // ── Local file: just copy it to temp location ──────────────────────────────
       await RNFS.copyFile(cleanSrc, destPath);
+      localPath = destPath;
     } else {
       // ── Remote URL: download it ───────────────────────────────
       const result = await RNFS.downloadFile({
@@ -54,11 +57,17 @@ export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
       if (result.statusCode !== 200) {
         throw new Error(`Download failed with status ${result.statusCode}`);
       }
+      localPath = destPath;
     }
  
+    // ── iOS: Use CameraRoll to save to photo library ─────────────
+    if (Platform.OS === 'ios') {
+      const photoType = isVideo ? 'video' : 'photo';
+      await CameraRoll.save(localPath, { type: photoType });
+    }
     // ── Android: tell the gallery the file exists ─────────────
-    if (Platform.OS === 'android') {
-      RNFS.scanFile(destPath).catch(err =>
+    else if (Platform.OS === 'android') {
+      RNFS.scanFile(localPath).catch(err =>
         console.warn('MediaScanner error (non-fatal):', err)
       );
     }
@@ -66,9 +75,9 @@ export const downloadMedia = async (uri, filename, isVideo = false, toast) => {
     showToastMessage(
       toast,
       'success',
-      `Saved to ${isVideo ? 'Downloads' : 'Photos'}`
+      `Saved to ${isVideo ? 'Videos' : 'Photos'}`
     );
-    return destPath;
+    return localPath;
  
   } catch (error) {
     console.error('downloadMedia error:', error);
