@@ -238,7 +238,8 @@ const InstagramPostCreator = () => {
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
   const [canvasKey, setCanvasKey] = useState(0);
   const [isOverlayTransforming, setIsOverlayTransforming] = useState(false);
-  const [editorCanvasHeight, setEditorCanvasHeight] = useState(IMAGE_SIZE);
+  /** Height of the flex region between header + optional filters and the bottom toolbar (from onLayout). */
+  const [editorRegionLayoutHeight, setEditorRegionLayoutHeight] = useState(0);
   const [tagSearch, setTagSearch] = useState('');
   const [selectedTaggedPeople, setSelectedTaggedPeople] = useState([]);
   const [userSuggestions, setUserSuggestions] = useState([]);
@@ -515,12 +516,6 @@ const InstagramPostCreator = () => {
     })();
   }, [isFlipPost]);
 
-  useEffect(() => {
-    const currentMedia = selectedImages[currentImageIndex];
-    if (!currentMedia) return;
-    setEditorCanvasHeight(getCanvasHeightForMedia(currentMedia));
-  }, [currentImageIndex, selectedImages]);
-
   useEffect(() => () => {
     if (zoomTimeout.current) {
       clearTimeout(zoomTimeout.current);
@@ -557,6 +552,14 @@ const InstagramPostCreator = () => {
 
     return Math.min(450, Math.max(220, (IMAGE_SIZE * mediaHeight) / mediaWidth));
   };
+
+  const editorCanvasHeight = useMemo(() => {
+    if (editorRegionLayoutHeight > 0) {
+      return Math.max(200, Math.floor(editorRegionLayoutHeight));
+    }
+    const currentMedia = selectedImages[currentImageIndex];
+    return getCanvasHeightForMedia(currentMedia);
+  }, [editorRegionLayoutHeight, currentImageIndex, selectedImages]);
 
   const getOverlayBounds = (size = 100) => ({
     minX: 0,
@@ -1843,7 +1846,15 @@ const InstagramPostCreator = () => {
     };
 
     return (
-      <View style={styles.imageContainer}>
+      <View
+        style={styles.imageContainer}
+        onLayout={e => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && Math.abs(h - editorRegionLayoutHeight) > 0.5) {
+            setEditorRegionLayoutHeight(h);
+          }
+        }}
+      >
         {isFlipPost && selectedImages.length > 0 && (
           <View style={styles.flipHeaderOverlay} pointerEvents="box-none">
             <View style={styles.flipHeaderRow}>
@@ -1868,7 +1879,14 @@ const InstagramPostCreator = () => {
         )}
         {selectedImages.length > 0 ? (
           <>
-          <View style={[styles.mainImageContainer, { height: currentCanvasHeight }]}>
+          <View
+            style={[
+              styles.mainImageContainer,
+              { height: currentCanvasHeight },
+              /** Let strokes reach true edges; default overflow:hidden + radius was clipping corners/sides */
+              isDrawing && styles.mainImageContainerWhileDrawing,
+            ]}
+          >
             <ScrollView
               ref={mainScrollViewRef}
               horizontal
@@ -1879,6 +1897,7 @@ const InstagramPostCreator = () => {
               style={[styles.mainScrollView, { height: currentCanvasHeight }]}
               contentContainerStyle={[styles.mainScrollContent, { height: currentCanvasHeight }]}
               scrollEnabled={isScrollEnabled}   // ← THIS LINE
+              removeClippedSubviews={!isDrawing}
             >
               {selectedImages.map((image, index) => {
                 const slideEditsForMute = imageEdits[index] || {};
@@ -1892,12 +1911,6 @@ const InstagramPostCreator = () => {
                     ref={ref => {
                       if (ref) {
                         imageViewRefs.current[index] = ref;
-                      }
-                    }}
-                    onLayout={(event) => {
-                      const { height } = event.nativeEvent.layout;
-                      if (height > 0 && index === currentImageIndex && Math.abs(height - editorCanvasHeight) > 1) {
-                        setEditorCanvasHeight(height);
                       }
                     }}
                     style={{
@@ -3511,9 +3524,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   imageContainer: {
-    // flex: 1,
+    flex: 1,
+    minHeight: 0,
     position: 'relative',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 0,
@@ -3547,6 +3561,9 @@ const styles = StyleSheet.create({
     width: IMAGE_SIZE,
     alignSelf: 'center',
     overflow: 'hidden',
+  },
+  mainImageContainerWhileDrawing: {
+    overflow: 'visible',
   },
   mainScrollView: {
     width: IMAGE_SIZE,
@@ -3637,8 +3654,9 @@ const styles = StyleSheet.create({
     width: IMAGE_SIZE,
     height: '100%',
     position: 'relative',
-    overflow: 'hidden',
-    borderRadius: 8,
+    /** Visible overflow so strokeWidth isn’t clipped at edges when tracing a square */
+    overflow: 'visible',
+    borderRadius: 0,
     // backgroundColor: '#000',
   },
   filterOverlay: {
