@@ -401,8 +401,18 @@ export default function FlipsScreen() {
     const result = await executeFollowAction(targetUserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
-    setModalVisible(true);
-  }, [currentUserId, executeFollowAction, followingBusy, getReelOwnerId]);
+    const recipientProfile = normalizeProfileType(item?.profile);
+    const supporterProfile = normalizeProfileType(currentUserProfileType);
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
+      setModalVisible(true);
+    }
+  }, [
+    currentUserId,
+    executeFollowAction,
+    followingBusy,
+    getReelOwnerId,
+    currentUserProfileType,
+  ]);
 
   const handleTokenPurchase = useCallback(async () => {
     try {

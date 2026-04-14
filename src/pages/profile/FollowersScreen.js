@@ -211,8 +211,16 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         updateFollowState(user.id, resolvedFollowing);
 
         if (resolvedFollowing && shouldFollow) {
-          setSelectedSupportUser({ ...user, isFollowing: true });
-          setSupportModalVisible(true);
+          const recipientProfile = normalizeProfileType(user.profile);
+          if (
+            isSupportAllowed({
+              supporterProfile: selfProfileType,
+              recipientProfile,
+            })
+          ) {
+            setSelectedSupportUser({ ...user, isFollowing: true });
+            setSupportModalVisible(true);
+          }
         }
       } catch (e) {
         showToastMessage(
@@ -224,7 +232,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         setFollowBusyById(prev => ({ ...prev, [user.id]: false }));
       }
     },
-    [followBusyById, toast, updateFollowState],
+    [followBusyById, toast, updateFollowState, selfProfileType],
   );
 
   const recipientWalletAddress = useMemo(

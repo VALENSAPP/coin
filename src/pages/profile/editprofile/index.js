@@ -25,6 +25,7 @@ import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
@@ -61,6 +62,7 @@ const ProfileEditScreen = () => {
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { openWalletConnect } = useWalletConnectSupport();
 
   const genderOptions = [
     { label: 'Male', value: 'MALE', icon: '👨' },
@@ -664,16 +666,36 @@ const ProfileEditScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Wallet Address (Read-only)</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={`${wallet.slice(0, 6)}...${wallet.slice(-25)}`}
-
-              editable={false}
-              placeholderTextColor="#999"
-            />
+            <Text style={styles.label}>Wallet Address</Text>
+            <View style={styles.walletRow}>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.inputDisabled,
+                  styles.walletInputFlex,
+                ]}
+                value={
+                  wallet && String(wallet).length > 0
+                    ? `${String(wallet).slice(0, 6)}...${String(wallet).slice(-12)}`
+                    : ''
+                }
+                placeholder="Not connected"
+                editable={false}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity
+                style={[
+                  styles.connectWalletBtnInline,
+                  { backgroundColor: text, shadowColor: text },
+                ]}
+                onPress={() => openWalletConnect()}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.connectWalletBtnText}>Connect</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.helperText}>
-              Your wallet address cannot be changed here
+              Tap Connect to open your wallet. Address updates after you connect.
             </Text>
           </View>
           <View style={styles.inputContainer}>
@@ -927,6 +949,30 @@ const styles = StyleSheet.create({
   inputWithStatus: { paddingRight: 42 },
   inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
   inputDisabled: { backgroundColor: '#f3f0f7', color: '#6B7280' },
+
+  walletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  walletInputFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  connectWalletBtnInline: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  connectWalletBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 
   // Status indicators
   inputStatus: {

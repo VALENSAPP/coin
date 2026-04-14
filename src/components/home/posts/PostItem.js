@@ -855,7 +855,9 @@ function PostItem({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    setModalVisible(true);
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
+      setModalVisible(true);
+    }
   }, [
     item?.UserId,
     item.follow,
@@ -864,6 +866,8 @@ function PostItem({
     followingBusy,
     executeFollowAction,
     onToggleFollow,
+    supporterProfile,
+    recipientProfile,
   ]);
 
 

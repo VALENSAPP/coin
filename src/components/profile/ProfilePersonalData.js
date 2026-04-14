@@ -587,8 +587,22 @@ const ProfilePersonData = ({
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
 
-    setSupportModalVisible(true);
-  }, [isFollowing, executeFollowAction, onToggleFollow]);
+    const supporterProfile = isBusinessProfile ? 'company' : 'user';
+    const recipientProfile = normalizeProfileType(
+      effectiveProfileType || userProfile || userData?.profile,
+    );
+    if (isSupportAllowed({ supporterProfile, recipientProfile })) {
+      setSupportModalVisible(true);
+    }
+  }, [
+    isFollowing,
+    executeFollowAction,
+    onToggleFollow,
+    isBusinessProfile,
+    effectiveProfileType,
+    userProfile,
+    userData?.profile,
+  ]);
 
   useFocusEffect(
     useCallback(() => {

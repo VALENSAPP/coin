@@ -1,6 +1,7 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React from 'react';
 import {
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -60,6 +61,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
+    marginTop: Platform.OS === 'android' ? '5%' : 0,
+    marginBottom:'10%'
   },
   header: {
     flexDirection: 'row',

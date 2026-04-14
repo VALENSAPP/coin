@@ -210,7 +210,11 @@ export default function FollowCard({
 
             if (!success || !shouldFollow) return;
 
-            setModalVisible(true);
+            if (
+              isSupportAllowed({ supporterProfile, recipientProfile })
+            ) {
+              setModalVisible(true);
+            }
           }}
           disabled={loading}
         >

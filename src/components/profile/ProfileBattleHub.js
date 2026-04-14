@@ -130,6 +130,9 @@ export default function ProfileBattleHub({
       setLoading(false);
     }
   }, [viewedUserId]);
+    useEffect(() => {
+    loadBattles();
+  }, []);
 
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {

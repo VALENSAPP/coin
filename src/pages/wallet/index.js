@@ -33,7 +33,8 @@ import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
 import TokenSellModal from '../../components/modals/TokenSellModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
-import { log } from 'console';
+import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
+import { appKit } from '../../config/AppKitConfig';
 
 const { width } = Dimensions.get('window');
 const FALLBACK_AVATAR =
@@ -55,6 +56,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [topCreators, setTopCreators] = useState([]);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
+  const [kyc, setKyc] = useState(null);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [missionDonationTotal, setMissionDonationTotal] = useState(0);
@@ -66,11 +68,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
     // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
     { id: 'Mission Post', title: 'Mission Post', value: '-', icon: 'ribbon', color: '#8b5cf6' },
-     { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift', color: '#14b8a6' },
-  { id: 'metamask', title: 'MetaMask', value: '-', icon: 'logo-usd', color: '#f97316' },
+    { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift', color: '#14b8a6' },
+    { id: 'metamask', title: 'MetaMask', value: '-', icon: 'logo-usd', color: '#f97316' },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
+  const {
+    openWalletConnect,
+    isConnected: isWalletConnected,
+    address: connectedWalletAddress,
+  } = useWalletConnectSupport();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
@@ -82,7 +89,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     name: 'User',
     image: FALLBACK_AVATAR,
   });
-  console.log(userWalletData, 'datatai walaletete')
+
   const loadProfileType = useCallback(async () => {
     try {
       const profileType = await AsyncStorage.getItem('profile');
@@ -131,7 +138,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const rewardPoints = async () => {
     try {
       const response = await totalPoints();
-      console.log(response, 'daat in al pointss s sß');
 
       const statusCode =
         response?.statusCode ??
@@ -186,8 +192,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
       const response = await getUserCredentials(id);
 
-      console.log('API Response:', response);
-
+      console.log('API Response: data in thi apiaiaaiaiaai', response);
+      setKyc(response?.data?.kycStatus || null);
       // 🔥 Adjust keys based on your API response
       const stripeCustomerId =
         response?.data?.stripeAccountId ||
@@ -242,6 +248,24 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
     return list;
   }, [visibleKpiData]);
+
+  /** Profile header, KPI grid, Battle Points — same gradient */
+  const walletScreenGradient = useMemo(
+    () =>
+      isBusinessProfile
+        ? ['#D3B683', '#f8f2fd']
+        : ['#513189', '#f8f2fd'],
+    [isBusinessProfile],
+  );
+
+  const connectedWallet = useMemo(
+    () =>
+      String(
+        connectedWalletAddress || userWalletData?.walletAddress || '',
+      ).trim(),
+    [connectedWalletAddress, userWalletData?.walletAddress],
+  );
+  const isMetaMaskConnected = isWalletConnected || !!connectedWallet;
 
   useEffect(() => {
     let timeout;
@@ -350,6 +374,36 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setRefreshing(false);
     }
   };
+
+  const handleDisconnectWallet = useCallback(async () => {
+    try {
+      await appKit?.disconnect?.();
+      await AsyncStorage.multiRemove(['walletAddress', 'walletChainId', 'walletType']);
+      setUserWalletData((prev) => ({ ...prev, walletAddress: '' }));
+      showToastMessage(toast, 'success', 'Wallet disconnected');
+    } catch (error) {
+      showToastMessage(toast, 'danger', 'Unable to disconnect wallet');
+    }
+  }, [toast]);
+
+  const handleMetaMaskCardPress = useCallback(() => {
+    if (isMetaMaskConnected) {
+      Alert.alert(
+        'Disconnect wallet',
+        'Do you want to disconnect your wallet?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Disconnect',
+            style: 'destructive',
+            onPress: handleDisconnectWallet,
+          },
+        ],
+      );
+      return;
+    }
+    openWalletConnect();
+  }, [handleDisconnectWallet, isMetaMaskConnected, openWalletConnect]);
 
   const hapticFeedback = (type) => {
     const options = {
@@ -650,9 +704,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const totalMissonDonation = async () => {
     try {
       const response = await totalMission();
-
-      console.log(response, "Total Mission API response");
-
       const totalAmount = Number(response?.data?.totalAmount || 0);
 
       // ✅ Update local state (optional)
@@ -669,7 +720,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
     } catch (error) {
       console.log(error, "Error in total mission API");
-    } 
+    }
   };
 
 
@@ -763,15 +814,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
   // }
 
   const handleTokenModalClose = () => {
-    console.log(doesNotMatch, 'done')
-
     purchaseSheetRef.current?.close?.();
     setPendingFollowUserId(null);
   };
 
   const handleTokenPurchase = async () => {
-    console.log(doesNotMatch, 'done')
-
     // try {
     //   purchaseSheetRef.current?.close?.();
     // } catch (error) {
@@ -788,7 +835,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const handleTokenSell = useCallback(() => {
     // sellSheetRef.current?.close();
-    console.log(doesNotMatch, 'done')
     showToastMessage(toast, 'success', 'Tokens sold successfully!');
     onRefresh();
   }, []);
@@ -798,104 +844,138 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return <View style={[styles.kpiCard, styles.kpiCardPlaceholder]} />;
     }
 
-    const isCreditsCard = item.id === 'credits';
-    const isClickable = isCreditsCard && item.currentCredits < 1;
+    const onDarkGradient = !isBusinessProfile;
+    const kpiTitleColor = onDarkGradient
+      ? 'rgba(255,255,255,0.92)'
+      : 'rgba(42,27,61,0.85)';
+    const kpiValueColor = onDarkGradient ? '#ffffff' : '#2a1b3d';
 
-    return (
-      <View
+    const isMetaMaskCard = item.id === 'metamask';
+    const metaStatusText = isMetaMaskConnected ? 'Connected' : 'Disconnected';
+    const metaActionText = isMetaMaskConnected ? 'Tap to disconnect' : 'Tap to connect';
+
+    const cardContent = (
+      <LinearGradient
+        colors={walletScreenGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
+          isMetaMaskCard && styles.kpiCardNoOuterSpacing,
+          isMetaMaskCard && styles.kpiCardFillTouchable,
           { shadowColor: text },
-          isClickable && styles.kpiCardClickable // Optional: add visual feedback
         ]}
-        // onPress={isClickable ? handleBuyCredits : null}
-        activeOpacity={isClickable ? 0.7 : 1}
-        disabled={!isClickable}
       >
         <View style={styles.kpiHeader}>
           <Ionicons name={item.icon} size={24} color={item.color} />
-          <Text style={styles.kpiTitle}>{item.title}</Text>
-        </View>
-        <Text style={styles.kpiValue}>{item.value}</Text>
-        {/* {isClickable && (
-          <Text style={styles.clickableHint}>Tap to buy more</Text>
-        )} */}
-      </View>
-    );
-  };
-
-  const renderActivity = ({ item }) => (
-    <View style={styles.activityItem}>
-      <View style={[styles.activityIcon, {
-        backgroundColor: item.type === 'buy' ? '#10b981' :
-          item.type === 'sell' ? '#ef4444' :
-            item.type === 'follow' ? '#3b82f6' : '#8b5cf6'
-      }]}>
-        <Ionicons
-          name={item.type === 'buy' ? 'add' :
-            item.type === 'sell' ? 'remove' :
-              item.type === 'follow' ? 'people' : 'flash'}
-          size={16}
-          color="#fff"
-        />
-      </View>
-      <View style={styles.activityContent}>
-        <Text style={styles.activityAction}>{item.action}</Text>
-        <Text style={styles.activityTime}>{item.time}</Text>
-      </View>
-    </View>
-  );
-
-  const renderWallet = ({ item }) => (
-    <View style={styles.walletItem}>
-      <View>
-        <Text style={styles.walletChain}>
-          {item.forPayment.charAt(0).toUpperCase() + item.forPayment.slice(1)}
-        </Text>
-        <Text style={styles.walletAddress}>{(item.stripeInvoiceId || '').trim().slice(0, 15) + '...'}
-        </Text>
-      </View>
-      <View style={styles.walletRight}>
-        <Text style={styles.walletBalance}>{item.amount}</Text>
-        <View style={[styles.kycBadge, {
-          backgroundColor: item.status === 'succeeded' ? '#dcfce7' : '#fef3c7'
-        }]}>
-          <Text style={[styles.kycText, {
-            color: item.status === 'succeeded' ? '#166534' : '#92400e'
-          }]}>
-            {item.status}
+          <Text style={[styles.kpiTitle, { color: kpiTitleColor }]} numberOfLines={2}>
+            {item.title}
           </Text>
         </View>
-      </View>
-    </View>
-  );
+        <Text style={[styles.kpiValue, { color: kpiValueColor }]} numberOfLines={2}>
+          {item.value}
+        </Text>
+        {isMetaMaskCard ? (
+          <Text
+            style={[
+              styles.kpiMetaSingleLine,
+              isMetaMaskConnected ? styles.kpiMetaConnected : styles.kpiMetaDisconnected,
+            ]}
+            numberOfLines={2}
+          >
+            {metaStatusText} · {metaActionText}
+          </Text>
+        ) : null}
+      </LinearGradient>
+    );
 
-  const renderCreator = ({ item }) => (
-    <TouchableOpacity
-      style={styles.creatorItem}
-      onPress={() => {
-        setPendingFollowUserId(item.vendorId);
-        setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
-      }}
-    >
-      <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
-        <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
-      </View>
-      <View style={styles.creatorInfo}>
-        <Text style={styles.creatorName}>{item.name}</Text>
-        <Text style={[styles.creatorPrice, textStyle]}>{item.followers}</Text>
-      </View>
-      {/* Arrow indicator at the end */}
-      <View style={styles.arrowContainer}>
-        {item.tokenStatus === 'high' && (
-          <Ionicons name="arrow-up" size={20} color="#22c55e" />
-        )}
-        {item.tokenStatus === 'low' && (
-          <Ionicons name="arrow-down" size={20} color="#ef4444" />
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+    if (isMetaMaskCard) {
+      return (
+        <TouchableOpacity
+          style={styles.kpiCardTouchable}
+          activeOpacity={0.86}
+          onPress={handleMetaMaskCardPress}
+        >
+          {cardContent}
+        </TouchableOpacity>
+      );
+    }
+
+    return cardContent;
+  };
+
+  // const renderActivity = ({ item }) => (
+  //   <View style={styles.activityItem}>
+  //     <View style={[styles.activityIcon, {
+  //       backgroundColor: item.type === 'buy' ? '#10b981' :
+  //         item.type === 'sell' ? '#ef4444' :
+  //           item.type === 'follow' ? '#3b82f6' : '#8b5cf6'
+  //     }]}>
+  //       <Ionicons
+  //         name={item.type === 'buy' ? 'add' :
+  //           item.type === 'sell' ? 'remove' :
+  //             item.type === 'follow' ? 'people' : 'flash'}
+  //         size={16}
+  //         color="#fff"
+  //       />
+  //     </View>
+  //     <View style={styles.activityContent}>
+  //       <Text style={styles.activityAction}>{item.action}</Text>
+  //       <Text style={styles.activityTime}>{item.time}</Text>
+  //     </View>
+  //   </View>
+  // );
+
+  // const renderWallet = ({ item }) => (
+  //   <View style={styles.walletItem}>
+  //     <View>
+  //       <Text style={styles.walletChain}>
+  //         {item.forPayment.charAt(0).toUpperCase() + item.forPayment.slice(1)}
+  //       </Text>
+  //       <Text style={styles.walletAddress}>{(item.stripeInvoiceId || '').trim().slice(0, 15) + '...'}
+  //       </Text>
+  //     </View>
+  //     <View style={styles.walletRight}>
+  //       <Text style={styles.walletBalance}>{item.amount}</Text>
+  //       <View style={[styles.kycBadge, {
+  //         backgroundColor: item.status === 'succeeded' ? '#dcfce7' : '#fef3c7'
+  //       }]}>
+  //         <Text style={[styles.kycText, {
+  //           color: item.status === 'succeeded' ? '#166534' : '#92400e'
+  //         }]}>
+  //           {item.status}
+  //         </Text>
+  //       </View>
+  //     </View>
+  //   </View>
+  // );
+
+  // const renderCreator = ({ item }) => (
+  //   <TouchableOpacity
+  //     style={styles.creatorItem}
+  //     onPress={() => {
+  //       setPendingFollowUserId(item.vendorId);
+  //       setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
+  //     }}
+  //   >
+  //     <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
+  //       <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
+  //     </View>
+  //     <View style={styles.creatorInfo}>
+  //       <Text style={styles.creatorName}>{item.name}</Text>
+  //       <Text style={[styles.creatorPrice, textStyle]}>{item.followers}</Text>
+  //     </View>
+  //     {/* Arrow indicator at the end */}
+  //     <View style={styles.arrowContainer}>
+  //       {item.tokenStatus === 'high' && (
+  //         <Ionicons name="arrow-up" size={20} color="#22c55e" />
+  //       )}
+  //       {item.tokenStatus === 'low' && (
+  //         <Ionicons name="arrow-down" size={20} color="#ef4444" />
+  //       )}
+  //     </View>
+  //   </TouchableOpacity>
+  // );
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -912,9 +992,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
           />
         }
       >
-        {/* Header */}
+        {/* Header — same gradient as KPI + Battle Points */}
         <View style={styles.header}>
-          <View style={styles.headerCard}>
+          <LinearGradient
+            colors={walletScreenGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerCard}
+          >
             <View style={styles.headerGlow} />
             <View style={styles.headerRow}>
               <View style={styles.headerAvatarWrap}>
@@ -922,23 +1007,41 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   uri={userProfile.image || FALLBACK_AVATAR}
                   size={72}
                   borderWidth={3}
-                  borderColor="#b794f4"
+                  borderColor="rgba(255,255,255,0.45)"
                 />
               </View>
               <View style={styles.headerText}>
-                <Text style={styles.headerName} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.headerName,
+                    isBusinessProfile ? { color: '#2a1b3d' } : { color: '#fef3c7' },
+                  ]}
+                  numberOfLines={1}
+                >
                   @{userProfile.name || 'User'}
                 </Text>
+                {kyc === 'verified' && (
                 <View style={styles.headerStatus}>
-                  <Ionicons name="checkmark-circle" size={16} color="#fef3c7" />
-                  <Text style={styles.headerStatusText}>Verified</Text>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={16}
+                    color={isBusinessProfile ? '#5a2d82' : '#fef3c7'}
+                  />
+                  <Text
+                    style={[
+                      styles.headerStatusText,
+                      isBusinessProfile
+                        ? { color: 'rgba(42,27,61,0.85)' }
+                        : { color: '#f9fafb' },
+                    ]}
+                  >
+                    Verified
+                  </Text>
                 </View>
+                )}
               </View>
-              {/* <View style={styles.headerBadge}>
-                <Ionicons name="sparkles" size={14} color="#a78bfa" />
-              </View> */}
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* KPI Cards */}
@@ -952,21 +1055,34 @@ export const WalletDashboardScreen = ({ navigation }) => {
             scrollEnabled={false}
           />
         </View>
-        <View style={[styles.section,{marginBottom:10}]}>
+        <View style={[styles.section, { marginBottom: 10 }]}>
           <Text style={[styles.sectionTitle, styles.pointsSectionTitle, textStyle]}>
             Battle Points
           </Text>
           <LinearGradient
-            colors={['#261236', '#43205d', '#6d2f8d']}
+            colors={walletScreenGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.pointsCard}
           >
             <View style={styles.pointsGlow} />
-          
 
-            <Text style={styles.pointsLabel}>Total Platform Points</Text>
-            <Text style={styles.pointsValue}>
+            <Text
+              style={[
+                styles.pointsLabel,
+                isBusinessProfile
+                  ? { color: 'rgba(42,27,61,0.75)' }
+                  : { color: 'rgba(255,255,255,0.92)' },
+              ]}
+            >
+              Total Platform Points
+            </Text>
+            <Text
+              style={[
+                styles.pointsValue,
+                isBusinessProfile ? { color: '#2a1b3d' } : { color: '#fff' },
+              ]}
+            >
               {formatPointValue(rewardSummary.totalPlatformPoints)}
             </Text>
             {/* <Text style={styles.pointsSubtext}>
@@ -976,7 +1092,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
             <View style={styles.pointsBreakdownRow}>
               {rewardPointCards.map((item) => (
-                <View key={item.id} style={styles.pointsBreakdownCard}>
+                <View
+                  key={item.id}
+                  style={[
+                    styles.pointsBreakdownCard,
+                    isBusinessProfile
+                      ? styles.pointsBreakdownCardBiz
+                      : styles.pointsBreakdownCardUser,
+                  ]}
+                >
                   <View
                     style={[
                       styles.pointsBreakdownIcon,
@@ -989,10 +1113,26 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       color={item.iconColor}
                     />
                   </View>
-                  <Text style={styles.pointsBreakdownValue}>
+                  <Text
+                    style={[
+                      styles.pointsBreakdownValue,
+                      isBusinessProfile
+                        ? { color: '#2a1b3d' }
+                        : { color: '#5a2d82' },
+                    ]}
+                  >
                     {formatPointValue(item.value)}
                   </Text>
-                  <Text style={styles.pointsBreakdownLabel}>{item.title}</Text>
+                  <Text
+                    style={[
+                      styles.pointsBreakdownLabel,
+                      isBusinessProfile
+                        ? { color: 'rgba(42,27,61,0.75)' }
+                        : { color: 'rgba(90,45,130,0.88)' },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -1091,16 +1231,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
         {/* <View style={styles.section}>
           <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>My Wallets</Text>
           <View style={[styles.walletsContainer, { shadowColor: text }]}> */}
-            {/* <FlatList
+        {/* <FlatList
               data={walletTransactions}
               renderItem={renderWallet}
               keyExtractor={(item, index) => index.toString()}
               scrollEnabled={false}
             // /> */}
-            {/* // <Text style={styles.walletTip}>
+        {/* // <Text style={styles.walletTip}>
             //   Tip: Convert followers into holders with Post Coins. Your monthly credits renew automatically.
             // </Text> */}
-            {/* <View style={styles.walletInfoBox}>
+        {/* <View style={styles.walletInfoBox}>
               <Text style={styles.walletLabel}>Stripe Account ID</Text>
               <Text style={styles.walletValue}> {userWalletData.stripeCustomerId || 'Not Connected'}</Text>
             </View>
@@ -1206,7 +1346,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 20,
+    // paddingTop: 20,
     paddingBottom: 40,
     marginBottom: Platform.OS == "ios" ? 60 : 0
   },
@@ -1215,9 +1355,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   headerCard: {
-    backgroundColor: '#3b1a4f',
     borderRadius: 20,
-    padding: 12,
+    padding: 14,
     overflow: 'hidden',
   },
   headerGlow: {
@@ -1227,7 +1366,7 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     top: -20,
     right: -40,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -1459,6 +1598,15 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 6,
   },
+  pointsGlow: {
+    position: 'absolute',
+    width: 180,
+    height: 120,
+    borderRadius: 80,
+    top: -24,
+    right: -40,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
 
   pointsHeaderRow: {
     flexDirection: 'row',
@@ -1466,7 +1614,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 18,
   },
- 
+
   pointsProfileText: {
     flex: 1,
   },
@@ -1516,18 +1664,27 @@ const styles = StyleSheet.create({
   pointsBreakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginRight:20,
-    gap:10,
-
+    gap: 10,
+    marginTop: 4,
   },
   pointsBreakdownCard: {
-    width: '30%',
+    flex: 1,
+    minWidth: 0,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.10)',
     paddingHorizontal: 8,
     paddingVertical: 14,
-    marginBottom:25,
-  
+    marginBottom: 0,
+    alignItems: 'center',
+  },
+  pointsBreakdownCardUser: {
+    backgroundColor: 'rgba(90,45,130,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(90,45,130,0.18)',
+  },
+  pointsBreakdownCardBiz: {
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(42,27,61,0.1)',
   },
   pointsBreakdownIcon: {
     width: 34,
@@ -1540,25 +1697,42 @@ const styles = StyleSheet.create({
   pointsBreakdownValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
     marginBottom: 4,
+    textAlign: 'center',
   },
   pointsBreakdownLabel: {
     fontSize: 12,
     lineHeight: 16,
-    color: '#f3e8ff',
+    textAlign: 'center',
   },
   // KPI Cards
   kpiCard: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
     flex: 1,
     marginHorizontal: 6,
+    alignSelf: 'stretch',
+    minHeight: 132,
+    justifyContent: 'flex-start',
+  },
+  kpiCardNoOuterSpacing: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  kpiCardFillTouchable: {
+    flexGrow: 1,
+  },
+  kpiCardTouchable: {
+    flex: 1,
+    marginHorizontal: 6,
+    marginBottom: 12,
+    alignSelf: 'stretch',
+    minHeight: 132,
   },
   kpiCardPlaceholder: {
     backgroundColor: 'transparent',
@@ -1574,15 +1748,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   kpiTitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    fontWeight: '600',
     marginLeft: 8,
+    flex: 1,
+    textTransform: 'capitalize',
   },
   kpiValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111',
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  kpiMetaSingleLine: {
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
+    opacity: 0.95,
+  },
+  kpiMetaConnected: {
+    color: '#16a34a',
+  },
+  kpiMetaDisconnected: {
+    color: '#b45309',
   },
   kpiChange: {
     fontSize: 12,
