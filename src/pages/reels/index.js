@@ -112,6 +112,7 @@ export default function FlipsScreen() {
   const forwardScaleAnim = useRef(new Animated.Value(0)).current;
   /** 1 = normal, 0.5 = half speed (react-native-video `rate`) */
   const [playbackRate, setPlaybackRate] = useState({});
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   // Reanimated shared values for pinch-to-zoom (no native animated driver conflict)
   const pinchScale = useSharedValue(1);
@@ -894,6 +895,7 @@ export default function FlipsScreen() {
                 onStartShouldSetResponder={() => true}
                 onMoveShouldSetResponder={() => true}
                 onResponderGrant={e => {
+                  setIsScrubbing(true); // 👈 ADD THIS
                   scrubbingReelIdRef.current = activeId;
                   seekReelToLocationX(activeId, e.nativeEvent.locationX);
                 }}
@@ -903,10 +905,12 @@ export default function FlipsScreen() {
                   }
                 }}
                 onResponderRelease={() => {
-                  if (scrubbingReelIdRef.current === activeId) scrubbingReelIdRef.current = null;
+                  setIsScrubbing(false); // 👈 ADD THIS
+                  scrubbingReelIdRef.current = null;
                 }}
                 onResponderTerminate={() => {
-                  if (scrubbingReelIdRef.current === activeId) scrubbingReelIdRef.current = null;
+                  setIsScrubbing(false);
+                  scrubbingReelIdRef.current = null;
                 }}
               >
                 <View style={styles.progressTrack}>
@@ -919,6 +923,21 @@ export default function FlipsScreen() {
                       },
                     ]}
                   />
+
+                  {isScrubbing && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: `${fillRatio * 100}%`,
+                        transform: [{ translateX: -6 }],
+                        top: -3,
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: '#fff',
+                      }}
+                    />
+                  )}
                 </View>
               </View>
             );
@@ -1120,8 +1139,8 @@ const styles = StyleSheet.create({
   loadingContainer: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -30 }, { translateY: -10 }] },
   loadingText: { color: '#fff', fontSize: 16 },
   playPauseOverlay: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -40 }, { translateY: -40 }] },
-  heartAnimation: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -50 }, { translateY: -50 }] },
-  forwardAnimation: { position: 'absolute', top: '50%', right: '15%', transform: [{ translateX: 0 }, { translateY: -50 }] },
+  heartAnimation: { position: 'absolute', top: '40%', left: '40%', right: '50', transform: [{ translateX: -50 }, { translateY: -50 }] },
+  forwardAnimation: { position: 'absolute', top: '50%', left: '30%', height: '100%', width: '100%', transform: [{ translateX: 0 }, { translateY: -50 }] },
   forwardIconContainer: { alignItems: 'center', justifyContent: 'center' },
   forwardText: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginTop: 4 },
   header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10 },
