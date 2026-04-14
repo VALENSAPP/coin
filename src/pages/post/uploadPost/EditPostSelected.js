@@ -238,7 +238,8 @@ const InstagramPostCreator = () => {
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
   const [canvasKey, setCanvasKey] = useState(0);
   const [isOverlayTransforming, setIsOverlayTransforming] = useState(false);
-  const [editorCanvasHeight, setEditorCanvasHeight] = useState(IMAGE_SIZE);
+  /** Height of the flex region between header + optional filters and the bottom toolbar (from onLayout). */
+  const [editorRegionLayoutHeight, setEditorRegionLayoutHeight] = useState(0);
   const [tagSearch, setTagSearch] = useState('');
   const [selectedTaggedPeople, setSelectedTaggedPeople] = useState([]);
   const [userSuggestions, setUserSuggestions] = useState([]);
@@ -360,7 +361,7 @@ const InstagramPostCreator = () => {
           if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
             await postBgYoutubeRef.current?.seekTo?.(playStart, true);
           }
-        } catch (_) {}
+        } catch (_) { }
       })();
     }, 320);
     return () => clearInterval(tick);
@@ -515,12 +516,6 @@ const InstagramPostCreator = () => {
     })();
   }, [isFlipPost]);
 
-  useEffect(() => {
-    const currentMedia = selectedImages[currentImageIndex];
-    if (!currentMedia) return;
-    setEditorCanvasHeight(getCanvasHeightForMedia(currentMedia));
-  }, [currentImageIndex, selectedImages]);
-
   useEffect(() => () => {
     if (zoomTimeout.current) {
       clearTimeout(zoomTimeout.current);
@@ -540,12 +535,12 @@ const InstagramPostCreator = () => {
   const getMediaDisplayUri = (media, preferredUri = null) =>
     ensureMediaDisplayUri(
       preferredUri ||
-        media?.processedImageUri ||
-        media?.uri ||
-        media?.path ||
-        media?.sourceURL ||
-        media?.originalUri ||
-        '',
+      media?.processedImageUri ||
+      media?.uri ||
+      media?.path ||
+      media?.sourceURL ||
+      media?.originalUri ||
+      '',
     );
 
   const getCanvasHeightForMedia = (media) => {
@@ -557,6 +552,14 @@ const InstagramPostCreator = () => {
 
     return Math.min(450, Math.max(220, (IMAGE_SIZE * mediaHeight) / mediaWidth));
   };
+
+  const editorCanvasHeight = useMemo(() => {
+    if (editorRegionLayoutHeight > 0) {
+      return Math.max(200, Math.floor(editorRegionLayoutHeight));
+    }
+    const currentMedia = selectedImages[currentImageIndex];
+    return getCanvasHeightForMedia(currentMedia);
+  }, [editorRegionLayoutHeight, currentImageIndex, selectedImages]);
 
   const getOverlayBounds = (size = 100) => ({
     minX: 0,
@@ -1605,7 +1608,7 @@ const InstagramPostCreator = () => {
         });
         showToastMessage(toast, 'success', 'Clips added', 1500);
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const addStickerEmoji = emoji => {
@@ -1648,6 +1651,8 @@ const InstagramPostCreator = () => {
   };
 
   const handleNext = async () => {
+    setVideoMuted(true);
+    setVideoPaused(true);
     if (isDrawing) {
       await captureAndMergeDrawing(false);
     }
@@ -1843,7 +1848,15 @@ const InstagramPostCreator = () => {
     };
 
     return (
-      <View style={styles.imageContainer}>
+      <View
+        style={styles.imageContainer}
+        onLayout={e => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && Math.abs(h - editorRegionLayoutHeight) > 0.5) {
+            setEditorRegionLayoutHeight(h);
+          }
+        }}
+      >
         {isFlipPost && selectedImages.length > 0 && (
           <View style={styles.flipHeaderOverlay} pointerEvents="box-none">
             <View style={styles.flipHeaderRow}>
@@ -1868,414 +1881,520 @@ const InstagramPostCreator = () => {
         )}
         {selectedImages.length > 0 ? (
           <>
-          <View style={[styles.mainImageContainer, { height: currentCanvasHeight }]}>
-            <ScrollView
-              ref={mainScrollViewRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={handleMainImageScroll}
-              scrollEventThrottle={16}
-              style={[styles.mainScrollView, { height: currentCanvasHeight }]}
-              contentContainerStyle={[styles.mainScrollContent, { height: currentCanvasHeight }]}
-              scrollEnabled={isScrollEnabled}   // ← THIS LINE
+            <View
+              style={[
+                styles.mainImageContainer,
+                { height: currentCanvasHeight },
+                /** Let strokes reach true edges; default overflow:hidden + radius was clipping corners/sides */
+                isDrawing && styles.mainImageContainerWhileDrawing,
+              ]}
             >
-              {selectedImages.map((image, index) => {
-                const slideEditsForMute = imageEdits[index] || {};
-                const hasLibMusicOnSlide = slideHasLibraryMusic(slideEditsForMute);
-                return (
-                <View
-                  key={getMediaKey(image, index)}
-                  style={[styles.imageSlide, { width: IMAGE_SIZE, height: currentCanvasHeight }]}
-                >
-                  <View
-                    ref={ref => {
-                      if (ref) {
-                        imageViewRefs.current[index] = ref;
-                      }
-                    }}
-                    onLayout={(event) => {
-                      const { height } = event.nativeEvent.layout;
-                      if (height > 0 && index === currentImageIndex && Math.abs(height - editorCanvasHeight) > 1) {
-                        setEditorCanvasHeight(height);
-                      }
-                    }}
-                    style={{
-                      width: IMAGE_SIZE,
-                      height: currentCanvasHeight,
-                      position: 'relative'
-                    }}
-                    collapsable={false}
-                  >
-                    {isMediaVideo(image) ? (
-                      // Enhanced Video Player with better controls
-                      <View style={styles.videoContainer}>
-                        <Video
-                          ref={ref => {
-                            if (ref) {
-                              videoRefs.current[index] = ref;
-                            }
-                          }}
-                          source={{ uri: getMediaDisplayUri(image) }}
-                          style={styles.mainImage}
-                          resizeMode='cover'
-                          paused={videoPaused[index] !== false}
-                          muted={
-                            isFlipPost
-                              ? (flipVolumeByIndex[index] ?? 1) === 0 ||
-                                (hasLibMusicOnSlide && index === currentImageIndex)
-                              : videoMuted ||
-                                (hasLibMusicOnSlide && index === currentImageIndex)
-                          }
-                          volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1}
-                          repeat={true}
-                          onLoad={(data) => {
-                            console.log('Video loaded for index:', index, 'Duration:', data.duration);
-                          }}
-                          onError={(error) => console.log('Video error:', error)}
-                          poster={image.thumbnail || undefined} // Show thumbnail if available
-                        />
-
-                        {/* Enhanced Play/Pause Button Overlay */}
-                        <TouchableOpacity
-                          style={styles.videoPlayButton}
-                          onPress={() => handleVideoPress(index)}
-                          activeOpacity={0.8}
-                        >
-                          <View style={styles.playButtonBackground}>
-                            <Icon
-                              name={videoPaused[index] !== false ? 'play' : 'pause'}
-                              size={40}
-                              color="white"
-                            />
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Video indicator with duration if available */}
-                        <View style={styles.videoIndicator}>
-                          <Icon name="videocam" size={16} color="white" />
-                          {image.duration && (
-                            <Text style={styles.videoDuration}>
-                              {Math.floor(image.duration / 1000)}s
-                            </Text>
-                          )}
-                        </View>
-
-                        {/* Video controls overlay */}
-                        <View style={styles.videoControls}>
-                          <TouchableOpacity
-                            style={styles.muteButton}
-                            onPress={() => {
-                              if (isFlipPost) {
-                                const v = flipVolumeByIndex[index] ?? 1;
-                                setFlipVolumeByIndex(prev => ({
-                                  ...prev,
-                                  [index]: v === 0 ? 1 : 0,
-                                }));
-                              } else {
-                                setVideoMuted(!videoMuted);
-                              }
-                            }}
-                          >
-                            <Icon
-                              name={
-                                isFlipPost
-                                  ? (flipVolumeByIndex[index] ?? 1) === 0
-                                    ? 'volume-mute'
-                                    : 'volume-high'
-                                  : videoMuted
-                                    ? 'volume-mute'
-                                    : 'volume-high'
-                              }
-                              size={20}
-                              color="white"
-                            />
-                          </TouchableOpacity>
-                        </View>
-
-                        {selectedFilter !== 'none' && index === currentImageIndex && (
-                          <View
-                            pointerEvents="none"
-                            style={[
-                              StyleSheet.absoluteFillObject,
-                              {
-                                backgroundColor:
-                                  selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
-                                    selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
-                                      selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
-                                        selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
-                                          selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
-                                            'transparent',
-                              }
-                            ]}
-                          />
-                        )}
-                      </View>
-                    ) : isDrawing && index === currentImageIndex ? (
+              <ScrollView
+                ref={mainScrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={handleMainImageScroll}
+                scrollEventThrottle={16}
+                style={[styles.mainScrollView, { height: currentCanvasHeight }]}
+                contentContainerStyle={[styles.mainScrollContent, { height: currentCanvasHeight }]}
+                scrollEnabled={isScrollEnabled}   // ← THIS LINE
+                removeClippedSubviews={!isDrawing}
+              >
+                {selectedImages.map((image, index) => {
+                  const slideEditsForMute = imageEdits[index] || {};
+                  const hasLibMusicOnSlide = slideHasLibraryMusic(slideEditsForMute);
+                  return (
+                    <View
+                      key={getMediaKey(image, index)}
+                      style={[styles.imageSlide, { width: IMAGE_SIZE, height: currentCanvasHeight }]}
+                    >
                       <View
                         ref={ref => {
                           if (ref) {
-                            drawingSurfaceRefs.current[index] = ref;
+                            imageViewRefs.current[index] = ref;
                           }
                         }}
+                        style={{
+                          width: IMAGE_SIZE,
+                          height: currentCanvasHeight,
+                          position: 'relative'
+                        }}
                         collapsable={false}
-                        style={[
-                          styles.drawingSurface,
-                          { width: IMAGE_SIZE, height: currentCanvasHeight },
-                        ]}
                       >
-                        <View
-                          style={[
-                            styles.staticImageCanvas,
-                            { width: IMAGE_SIZE, height: currentCanvasHeight },
-                          ]}
-                        >
-                          {(() => {
-                            const slideEdits = imageEdits[index] || {};
-                            const currentImageUri =
-                              getMediaDisplayUri(image, slideEdits.processedImageUri);
-
-                            return (
-                              <Image
-                                source={{ uri: currentImageUri }}
-                                style={[
-                                  styles.mainImage,
-                                  { width: IMAGE_SIZE, height: currentCanvasHeight },
-                                ]}
-                                resizeMode='cover'
-                              />
-                            );
-                          })()}
-
-                          {selectedFilter !== 'none' && (
-                            <View
-                              pointerEvents="none"
-                              style={[
-                                StyleSheet.absoluteFillObject,
-                                styles.filterOverlay,
-                                {
-                                  backgroundColor:
-                                    selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
-                                      selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
-                                        selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
-                                          selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
-                                            selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
-                                              'transparent',
+                        {isMediaVideo(image) ? (
+                          // Enhanced Video Player with better controls
+                          <View style={styles.videoContainer}>
+                            <Video
+                              ref={ref => {
+                                if (ref) {
+                                  videoRefs.current[index] = ref;
                                 }
-                              ]}
+                              }}
+                              source={{ uri: getMediaDisplayUri(image) }}
+                              style={styles.mainImage}
+                              resizeMode='cover'
+                              paused={videoPaused[index] !== false}
+                              muted={
+                                isFlipPost
+                                  ? (flipVolumeByIndex[index] ?? 1) === 0 ||
+                                  (hasLibMusicOnSlide && index === currentImageIndex)
+                                  : videoMuted ||
+                                  (hasLibMusicOnSlide && index === currentImageIndex)
+                              }
+                              volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1}
+                              repeat={true}
+                              onLoad={(data) => {
+                                console.log('Video loaded for index:', index, 'Duration:', data.duration);
+                              }}
+                              onError={(error) => console.log('Video error:', error)}
+                              poster={image.thumbnail || undefined} // Show thumbnail if available
                             />
-                          )}
-                        </View>
 
-                        <SketchCanvas
-                          key={`canvas-${currentImageIndex}-${canvasKey}`}
-                          ref={canvasRef}
-                          style={[StyleSheet.absoluteFill, styles.activeDrawCanvas]}
-                          strokeColor={drawColor}
-                          strokeWidth={5}
-                          touchEnabled={true}
-                          pointerEvents="auto"
-                        />
-                      </View>
-                    ) : (
-                      // Image with zoom functionality
-                      <ImageZoom
-                        {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})}
-                        cropWidth={IMAGE_SIZE}
-                        cropHeight={currentCanvasHeight}
-                        imageWidth={IMAGE_SIZE}
-                        imageHeight={currentCanvasHeight}
-                        enableImageZoom={!isDrawing && !isOverlayTransforming}
-                        minScale={0.5}
-                        maxScale={4}
-                        pinchToZoom={!isDrawing && !isOverlayTransforming}
-                        enableDoubleClickZoom={!isDrawing && !isOverlayTransforming}
-                        doubleClickInterval={175}
-                        style={[
-                          styles.imageZoomContainer,
-                          { width: IMAGE_SIZE, height: currentCanvasHeight },
-                        ]}
-                        onStartShouldSetPanResponder={evt => {
-                          if (isDrawing) return false;
-                          return (
-                            evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
-                          );
-                        }}
-                        onMoveShouldSetPanResponder={evt => {
-                          if (isDrawing) return false;
-                          return (
-                            evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
-                          );
-                        }}
-                        onPanResponderGrant={handleZoomStart}
-                        onPanResponderRelease={handleZoomEnd}
-                        onMove={({ scale }) => handleZoomChange(scale)}
-                      >
-                        <View
-                          style={[
-                            styles.staticImageCanvas,
-                            { width: IMAGE_SIZE, height: currentCanvasHeight },
-                          ]}
-                        >
-                          {/* Use processedImageUri if drawing was saved, otherwise original */}
-                          {(() => {
-                            const slideEdits = imageEdits[index] || {};
-                            const currentImageUri =
-                              getMediaDisplayUri(image, slideEdits.processedImageUri);
+                            {/* Enhanced Play/Pause Button Overlay */}
+                            <TouchableOpacity
+                              style={styles.videoPlayButton}
+                              onPress={() => handleVideoPress(index)}
+                              activeOpacity={0.8}
+                            >
+                              <View style={styles.playButtonBackground}>
+                                <Icon
+                                  name={videoPaused[index] !== false ? 'play' : 'pause'}
+                                  size={40}
+                                  color="white"
+                                />
+                              </View>
+                            </TouchableOpacity>
 
-                            return (
-                              <Image
-                                source={{ uri: currentImageUri }}
+                            {/* Video indicator with duration if available */}
+                            <View style={styles.videoIndicator}>
+                              <Icon name="videocam" size={16} color="white" />
+                              {image.duration && (
+                                <Text style={styles.videoDuration}>
+                                  {Math.floor(image.duration / 1000)}s
+                                </Text>
+                              )}
+                            </View>
+
+                            {/* Video controls overlay */}
+                            <View style={styles.videoControls}>
+                              <TouchableOpacity
+                                style={styles.muteButton}
+                                onPress={() => {
+                                  if (isFlipPost) {
+                                    const v = flipVolumeByIndex[index] ?? 1;
+                                    setFlipVolumeByIndex(prev => ({
+                                      ...prev,
+                                      [index]: v === 0 ? 1 : 0,
+                                    }));
+                                  } else {
+                                    setVideoMuted(!videoMuted);
+                                  }
+                                }}
+                              >
+                                <Icon
+                                  name={
+                                    isFlipPost
+                                      ? (flipVolumeByIndex[index] ?? 1) === 0
+                                        ? 'volume-mute'
+                                        : 'volume-high'
+                                      : videoMuted
+                                        ? 'volume-mute'
+                                        : 'volume-high'
+                                  }
+                                  size={20}
+                                  color="white"
+                                />
+                              </TouchableOpacity>
+                            </View>
+
+                            {selectedFilter !== 'none' && index === currentImageIndex && (
+                              <View
+                                pointerEvents="none"
                                 style={[
-                                  styles.mainImage,
-                                  { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                  StyleSheet.absoluteFillObject,
+                                  {
+                                    backgroundColor:
+                                      selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                        selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                          selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                            selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                              selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                                'transparent',
+                                  }
                                 ]}
-                                resizeMode='cover'
                               />
-                            );
-                          })()}
-
-                          {/* Fake filter overlay (your current visual effect) */}
-                          {selectedFilter !== 'none' && (
+                            )}
+                          </View>
+                        ) : isDrawing && index === currentImageIndex ? (
+                          <View
+                            ref={ref => {
+                              if (ref) {
+                                drawingSurfaceRefs.current[index] = ref;
+                              }
+                            }}
+                            collapsable={false}
+                            style={[
+                              styles.drawingSurface,
+                              { width: IMAGE_SIZE, height: currentCanvasHeight },
+                            ]}
+                          >
                             <View
-                              pointerEvents="none"
                               style={[
-                                StyleSheet.absoluteFillObject,
-                                styles.filterOverlay,
-                                {
-                                  backgroundColor:
-                                    selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
-                                      selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
-                                        selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
-                                          selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
-                                            selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
-                                              'transparent',
-                                }
-                              ]}
-                            />
-                          )}
-                        </View>
-                      </ImageZoom>
-                    )}
-
-                    {index === currentImageIndex && (
-                      <>
-                        {currentEdits.overlayImages.map(img => {
-                          const overlayPanResponder = createPanResponder(img.id);
-                          const animatedPosition = getAnimatedValue(
-                            currentImageIndex,
-                            `image-${img.id}`,
-                            img.position?.x || 50,
-                            img.position?.y || 50,
-                          );
-                          return (
-                            <Animated.View
-                              key={img.id}
-                              {...overlayPanResponder.panHandlers}
-                              testID="overlay-element"
-                              style={[
-                                styles.overlayImageWrapper,
-                                animatedPosition.getLayout(),
-                                {
-                                  width: img.baseSize || 100,
-                                  height: img.baseSize || 100,
-                                  transform: [
-                                    { scale: img.scale || 1 },
-                                    { rotate: `${img.rotation || 0}rad` },
-                                  ],
-                                },
+                                styles.staticImageCanvas,
+                                { width: IMAGE_SIZE, height: currentCanvasHeight },
                               ]}
                             >
-                              <TouchableOpacity
-                                onLongPress={() => {
-                                  if (
-                                    Date.now() - (recentDragTimestamps.current[`image-${img.id}`] || 0) <
-                                    250
-                                  ) {
-                                    return;
-                                  }
-                                  removeOverlay(img.id);
-                                }}
-                                delayLongPress={250}
-                                activeOpacity={1}
-                                style={styles.overlayTouchTarget}
+                              {(() => {
+                                const slideEdits = imageEdits[index] || {};
+                                const currentImageUri =
+                                  getMediaDisplayUri(image, slideEdits.processedImageUri);
+
+                                return (
+                                  <Image
+                                    source={{ uri: currentImageUri }}
+                                    style={[
+                                      styles.mainImage,
+                                      { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                    ]}
+                                    resizeMode='cover'
+                                  />
+                                );
+                              })()}
+
+                              {selectedFilter !== 'none' && (
+                                <View
+                                  pointerEvents="none"
+                                  style={[
+                                    StyleSheet.absoluteFillObject,
+                                    styles.filterOverlay,
+                                    {
+                                      backgroundColor:
+                                        selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                          selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                            selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                              selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                                selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                                  'transparent',
+                                    }
+                                  ]}
+                                />
+                              )}
+                            </View>
+
+                            <SketchCanvas
+                              key={`canvas-${currentImageIndex}-${canvasKey}`}
+                              ref={canvasRef}
+                              style={[StyleSheet.absoluteFill, styles.activeDrawCanvas]}
+                              strokeColor={drawColor}
+                              strokeWidth={5}
+                              touchEnabled={true}
+                              pointerEvents="auto"
+                            />
+                          </View>
+                        ) : (
+                          // Image with zoom functionality
+                          <ImageZoom
+                            {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})}
+                            cropWidth={IMAGE_SIZE}
+                            cropHeight={currentCanvasHeight}
+                            imageWidth={IMAGE_SIZE}
+                            imageHeight={currentCanvasHeight}
+                            enableImageZoom={!isDrawing && !isOverlayTransforming}
+                            minScale={0.5}
+                            maxScale={4}
+                            pinchToZoom={!isDrawing && !isOverlayTransforming}
+                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming}
+                            doubleClickInterval={175}
+                            style={[
+                              styles.imageZoomContainer,
+                              { width: IMAGE_SIZE, height: currentCanvasHeight },
+                            ]}
+                            onStartShouldSetPanResponder={evt => {
+                              if (isDrawing) return false;
+                              return (
+                                evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
+                              );
+                            }}
+                            onMoveShouldSetPanResponder={evt => {
+                              if (isDrawing) return false;
+                              return (
+                                evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
+                              );
+                            }}
+                            onPanResponderGrant={handleZoomStart}
+                            onPanResponderRelease={handleZoomEnd}
+                            onMove={({ scale }) => handleZoomChange(scale)}
+                          >
+                            <View
+                              style={[
+                                styles.staticImageCanvas,
+                                { width: IMAGE_SIZE, height: currentCanvasHeight },
+                              ]}
+                            >
+                              {/* Use processedImageUri if drawing was saved, otherwise original */}
+                              {(() => {
+                                const slideEdits = imageEdits[index] || {};
+                                const currentImageUri =
+                                  getMediaDisplayUri(image, slideEdits.processedImageUri);
+
+                                return (
+                                  <Image
+                                    source={{ uri: currentImageUri }}
+                                    style={[
+                                      styles.mainImage,
+                                      { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                    ]}
+                                    resizeMode='cover'
+                                  />
+                                );
+                              })()}
+
+                              {/* Fake filter overlay (your current visual effect) */}
+                              {selectedFilter !== 'none' && (
+                                <View
+                                  pointerEvents="none"
+                                  style={[
+                                    StyleSheet.absoluteFillObject,
+                                    styles.filterOverlay,
+                                    {
+                                      backgroundColor:
+                                        selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                          selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                            selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                              selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                                selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                                  'transparent',
+                                    }
+                                  ]}
+                                />
+                              )}
+                            </View>
+                          </ImageZoom>
+                        )}
+
+                        {index === currentImageIndex && (
+                          <>
+                            {currentEdits.overlayImages.map(img => {
+                              const overlayPanResponder = createPanResponder(img.id);
+                              const animatedPosition = getAnimatedValue(
+                                currentImageIndex,
+                                `image-${img.id}`,
+                                img.position?.x || 50,
+                                img.position?.y || 50,
+                              );
+                              return (
+                                <Animated.View
+                                  key={img.id}
+                                  {...overlayPanResponder.panHandlers}
+                                  testID="overlay-element"
+                                  style={[
+                                    styles.overlayImageWrapper,
+                                    animatedPosition.getLayout(),
+                                    {
+                                      width: img.baseSize || 100,
+                                      height: img.baseSize || 100,
+                                      transform: [
+                                        { scale: img.scale || 1 },
+                                        { rotate: `${img.rotation || 0}rad` },
+                                      ],
+                                    },
+                                  ]}
+                                >
+                                  <TouchableOpacity
+                                    onLongPress={() => {
+                                      if (
+                                        Date.now() - (recentDragTimestamps.current[`image-${img.id}`] || 0) <
+                                        250
+                                      ) {
+                                        return;
+                                      }
+                                      removeOverlay(img.id);
+                                    }}
+                                    delayLongPress={250}
+                                    activeOpacity={1}
+                                    style={styles.overlayTouchTarget}
+                                  >
+                                    <Image
+                                      source={{ uri: img.uri }}
+                                      style={styles.overlayImage}
+                                    />
+                                  </TouchableOpacity>
+                                </Animated.View>
+                              );
+                            })}
+
+                            {/* Text Overlays */}
+                            {currentEdits.textOverlays.map(overlay => {
+                              const responder = createTextPanResponder(overlay.id);
+                              const animatedPosition = getAnimatedValue(
+                                currentImageIndex,
+                                overlay.id,
+                                overlay.position?.x ?? 0,
+                                overlay.position?.y ?? 0,
+                              );
+                              return (
+                                <Animated.View
+                                  key={overlay.id}
+                                  {...responder.panHandlers}
+                                  testID="overlay-element"
+                                  onLayout={event => {
+                                    const layoutKey = getTextOverlayLayoutKey(
+                                      currentImageIndex,
+                                      overlay.id,
+                                    );
+                                    const { width, height } = event.nativeEvent.layout;
+                                    const prev = textOverlayLayoutRefs.current[layoutKey];
+                                    if (
+                                      !prev ||
+                                      Math.abs(prev.width - width) > 1 ||
+                                      Math.abs(prev.height - height) > 1
+                                    ) {
+                                      textOverlayLayoutRefs.current[layoutKey] = { width, height };
+                                    }
+                                  }}
+                                  style={{
+                                    position: 'absolute',
+                                    zIndex: 1000,
+                                    ...animatedPosition.getLayout(),
+                                    transform: [{ scale: overlay.scale ?? 1 }],
+                                  }}
+                                >
+                                  <TouchableOpacity
+                                    onLongPress={() => {
+                                      if (
+                                        Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
+                                        250
+                                      ) {
+                                        return;
+                                      }
+                                      removeTextOverlay(overlay.id);
+                                    }}
+                                    delayLongPress={250}
+                                    activeOpacity={1}
+                                    onPress={() => {
+                                      if (
+                                        Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
+                                        250
+                                      ) {
+                                        return;
+                                      }
+                                      setEditingOverlayId(overlay.id);
+                                      setText(overlay.text);
+                                      setTextColor(overlay.color);
+                                      setHighlightColor(overlay.highlightColor);
+                                      setTextAlign(overlay.textAlign);
+                                      setSelectedFont({ fontFamily: overlay.fontFamily });
+                                      setModalVisible2(true);
+                                    }}
+                                    style={{
+                                      padding: 4,
+                                      borderRadius: 4,
+                                      backgroundColor: overlay.highlightColor || 'transparent',
+                                    }}
+                                  >
+                                    <Text
+                                      style={[
+                                        getTextStyleWithFont(overlay.text, overlay.fontFamily),
+                                        {
+                                          fontSize: overlay.fontSize,
+                                          color: overlay.color,
+                                          textAlign: overlay.textAlign,
+                                          textShadowColor: 'rgba(0,0,0,0.8)',
+                                          textShadowOffset: { width: 1, height: 1 },
+                                          textShadowRadius: 3,
+                                          maxWidth: 200,
+                                        },
+                                      ]}
+                                      numberOfLines={3}
+                                    >
+                                      {overlay.text}
+                                    </Text>
+                                  </TouchableOpacity>
+                                </Animated.View>
+                              );
+                            })}
+
+                            {/* Text Preview while editing */}
+                            {modalVisible2 && (
+                              <Animated.View
+                                {...panResponder.panHandlers}
+                                style={[
+                                  pan.getLayout(),
+                                  {
+                                    position: 'absolute',
+                                    zIndex: 1001,
+                                    padding: 4,
+                                    borderRadius: 4,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    { fontSize: 28 },
+                                    getTextStyleWithFont(
+                                      text,
+                                      selectedFont.fontFamily || selectedFont,
+                                    ),
+                                    {
+                                      color: textColor,
+                                      textAlign,
+                                      backgroundColor: highlightColor,
+                                      textShadowColor: 'rgba(0,0,0,0.8)',
+                                      textShadowOffset: { width: 1, height: 1 },
+                                      textShadowRadius: 3,
+                                      minWidth: 50,
+                                    },
+                                  ]}
+                                >
+                                  {text || 'Type text...'}
+                                </Text>
+                              </Animated.View>
+                            )}
+                          </>
+                        )}
+
+                        {/* Show saved overlays for non-current images */}
+                        {index !== currentImageIndex && imageEdits[index] && (
+                          <>
+                            {/* Show saved overlay images */}
+                            {imageEdits[index].overlayImages?.map(img => (
+                              <View
+                                key={`saved-overlay-${img.id}`}
+                                style={[
+                                  styles.overlayImageWrapper,
+                                  {
+                                    width: img.baseSize || 100,
+                                    height: img.baseSize || 100,
+                                    left: img.position?.x || 0,
+                                    top: img.position?.y || 0,
+                                    transform: [
+                                      { scale: img.scale || 1 },
+                                      { rotate: `${img.rotation || 0}rad` },
+                                    ],
+                                  },
+                                ]}
                               >
                                 <Image
                                   source={{ uri: img.uri }}
-                                  style={styles.overlayImage}
+                                  style={styles.savedOverlayImage}
                                 />
-                              </TouchableOpacity>
-                            </Animated.View>
-                          );
-                        })}
+                              </View>
+                            ))}
 
-                        {/* Text Overlays */}
-                        {currentEdits.textOverlays.map(overlay => {
-                          const responder = createTextPanResponder(overlay.id);
-                          const animatedPosition = getAnimatedValue(
-                            currentImageIndex,
-                            overlay.id,
-                            overlay.position?.x ?? 0,
-                            overlay.position?.y ?? 0,
-                          );
-                          return (
-                            <Animated.View
-                              key={overlay.id}
-                              {...responder.panHandlers}
-                              testID="overlay-element"
-                              onLayout={event => {
-                                const layoutKey = getTextOverlayLayoutKey(
-                                  currentImageIndex,
-                                  overlay.id,
-                                );
-                                const { width, height } = event.nativeEvent.layout;
-                                const prev = textOverlayLayoutRefs.current[layoutKey];
-                                if (
-                                  !prev ||
-                                  Math.abs(prev.width - width) > 1 ||
-                                  Math.abs(prev.height - height) > 1
-                                ) {
-                                  textOverlayLayoutRefs.current[layoutKey] = { width, height };
-                                }
-                              }}
-                              style={{
-                                position: 'absolute',
-                                zIndex: 1000,
-                                ...animatedPosition.getLayout(),
-                                transform: [{ scale: overlay.scale ?? 1 }],
-                              }}
-                            >
-                              <TouchableOpacity
-                                onLongPress={() => {
-                                  if (
-                                    Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
-                                    250
-                                  ) {
-                                    return;
-                                  }
-                                  removeTextOverlay(overlay.id);
-                                }}
-                                delayLongPress={250}
-                                activeOpacity={1}
-                                onPress={() => {
-                                  if (
-                                    Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
-                                    250
-                                  ) {
-                                    return;
-                                  }
-                                  setEditingOverlayId(overlay.id);
-                                  setText(overlay.text);
-                                  setTextColor(overlay.color);
-                                  setHighlightColor(overlay.highlightColor);
-                                  setTextAlign(overlay.textAlign);
-                                  setSelectedFont({ fontFamily: overlay.fontFamily });
-                                  setModalVisible2(true);
-                                }}
+                            {/* Show saved text overlays */}
+                            {imageEdits[index].textOverlays?.map(overlay => (
+                              <View
+                                key={`saved-text-${overlay.id}`}
                                 style={{
+                                  position: 'absolute',
+                                  left: overlay.position?.x || 0,
+                                  top: overlay.position?.y || 0,
+                                  zIndex: 1000,
                                   padding: 4,
                                   borderRadius: 4,
                                   backgroundColor: overlay.highlightColor || 'transparent',
+                                  transform: [{ scale: overlay.scale ?? 1 }],
                                 }}
                               >
                                 <Text
@@ -2295,313 +2414,209 @@ const InstagramPostCreator = () => {
                                 >
                                   {overlay.text}
                                 </Text>
-                              </TouchableOpacity>
-                            </Animated.View>
-                          );
-                        })}
-
-                        {/* Text Preview while editing */}
-                        {modalVisible2 && (
-                          <Animated.View
-                            {...panResponder.panHandlers}
-                            style={[
-                              pan.getLayout(),
-                              {
-                                position: 'absolute',
-                                zIndex: 1001,
-                                padding: 4,
-                                borderRadius: 4,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                { fontSize: 28 },
-                                getTextStyleWithFont(
-                                  text,
-                                  selectedFont.fontFamily || selectedFont,
-                                ),
-                                {
-                                  color: textColor,
-                                  textAlign,
-                                  backgroundColor: highlightColor,
-                                  textShadowColor: 'rgba(0,0,0,0.8)',
-                                  textShadowOffset: { width: 1, height: 1 },
-                                  textShadowRadius: 3,
-                                  minWidth: 50,
-                                },
-                              ]}
-                            >
-                              {text || 'Type text...'}
-                            </Text>
-                          </Animated.View>
+                              </View>
+                            ))}
+                          </>
                         )}
-                      </>
-                    )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
 
-                    {/* Show saved overlays for non-current images */}
-                    {index !== currentImageIndex && imageEdits[index] && (
-                      <>
-                        {/* Show saved overlay images */}
-                        {imageEdits[index].overlayImages?.map(img => (
-                          <View
-                            key={`saved-overlay-${img.id}`}
-                            style={[
-                              styles.overlayImageWrapper,
-                              {
-                                width: img.baseSize || 100,
-                                height: img.baseSize || 100,
-                                left: img.position?.x || 0,
-                                top: img.position?.y || 0,
-                                transform: [
-                                  { scale: img.scale || 1 },
-                                  { rotate: `${img.rotation || 0}rad` },
-                                ],
-                              },
-                            ]}
-                          >
-                            <Image
-                              source={{ uri: img.uri }}
-                              style={styles.savedOverlayImage}
-                            />
-                          </View>
-                        ))}
+              {/* Draw controls - only show for images */}
+              {isDrawing && !isCurrentMediaVideo() && (
+                <View style={styles.drawControls}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (canvasRef.current) {
+                        canvasRef.current.undo();
+                      }
+                    }}
+                    style={styles.controlButton}
+                  >
+                    <Text style={styles.controlButtonText}>↩</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      // Always save/merge drawing first (even on cancel)
+                      if (canvasRef.current) {
+                        await captureAndMergeDrawing(false); // false = don't exit yet
+                      }
+                      // Then exit draw mode
+                      setIsDrawing(false);
+                      setIsScrollEnabled(true);
+                      // setActiveTab('null');
+                      // setCanvasKey(prev => prev + 1);
+                    }}
+                    style={[
+                      styles.controlButton,
+                      { backgroundColor: 'rgba(255,0,0,0.6)' },
+                    ]}
+                  >
+                    <Text style={styles.controlButtonText}>✕</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      captureAndMergeDrawing(true)
+                    }} // Now just exits cleanly
+                    style={[styles.controlButton, { backgroundColor: 'rgba(0,128,0,0.8)' }]}
+                  >
+                    <Text style={styles.controlButtonText}>✓</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-                        {/* Show saved text overlays */}
-                        {imageEdits[index].textOverlays?.map(overlay => (
-                          <View
-                            key={`saved-text-${overlay.id}`}
-                            style={{
-                              position: 'absolute',
-                              left: overlay.position?.x || 0,
-                              top: overlay.position?.y || 0,
-                              zIndex: 1000,
-                              padding: 4,
-                              borderRadius: 4,
-                              backgroundColor: overlay.highlightColor || 'transparent',
-                              transform: [{ scale: overlay.scale ?? 1 }],
-                            }}
-                          >
-                            <Text
-                              style={[
-                                getTextStyleWithFont(overlay.text, overlay.fontFamily),
-                                {
-                                  fontSize: overlay.fontSize,
-                                  color: overlay.color,
-                                  textAlign: overlay.textAlign,
-                                  textShadowColor: 'rgba(0,0,0,0.8)',
-                                  textShadowOffset: { width: 1, height: 1 },
-                                  textShadowRadius: 3,
-                                  maxWidth: 200,
-                                },
-                              ]}
-                              numberOfLines={3}
-                            >
-                              {overlay.text}
-                            </Text>
-                          </View>
-                        ))}
-                      </>
-                    )}
-                  </View>
+              {isDrawing && !isCurrentMediaVideo() && (
+                <ScrollView
+                  horizontal
+                  style={styles.colorPalette}
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {['red', 'blue', 'green', 'yellow', 'white', 'black'].map(color => (
+                    <TouchableOpacity
+                      key={color}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        drawColor === color && styles.activeColorOption,
+                      ]}
+                      onPress={() => setDrawColor(color)}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Image Counter */}
+              {selectedImages.length > 1 && (
+                <View style={styles.imageCounter}>
+                  <Text style={styles.imageCounterText}>
+                    {currentImageIndex + 1}/{selectedImages.length}
+                  </Text>
+                </View>
+              )}
+
+              {/* Page Indicator Dots */}
+              {selectedImages.length > 1 && (
+                <View style={styles.pageIndicator}>
+                  {selectedImages.map((_, index) => (
+                    <TouchableOpacity
+                      key={`${getMediaKey(selectedImages[index], index)}-dot`}
+                      onPress={() => scrollToImage(index)}
+                      style={[
+                        styles.dot,
+                        index === currentImageIndex && styles.activeDot,
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+            {(() => {
+              if (!slideHasLibraryMusic(currentEdits) || postStorySoundTrimVisible) return null;
+              const builtinUrl =
+                currentEdits.musicSource === 'builtin'
+                  ? getPostSoundtrackUrl(currentEdits.musicId)
+                  : null;
+              const ytId =
+                currentEdits.musicSource === 'youtube' && currentEdits.musicYoutubeVideoId
+                  ? currentEdits.musicYoutubeVideoId
+                  : null;
+              if (!builtinUrl && !ytId) return null;
+              const trimStart = Number(currentEdits.musicTrimStart) || 0;
+              const trimEnd = currentEdits.musicTrimEnd;
+              return (
+                <View style={styles.postEditorMusicBgHost} pointerEvents="none" collapsable={false}>
+                  {builtinUrl ? (
+                    <View style={styles.hiddenPostMusicPlayer}>
+                      <Video
+                        ref={postBgBuiltinVideoRef}
+                        key={`post_bg_builtin_${currentEdits.musicId}_${currentImageIndex}`}
+                        source={{ uri: builtinUrl }}
+                        paused={false}
+                        repeat={false}
+                        muted={false}
+                        volume={1}
+                        ignoreSilentSwitch="ignore"
+                        resizeMode="contain"
+                        style={{ width: 2, height: 2 }}
+                        onLoad={d => {
+                          const dur = d?.duration || 30;
+                          postBgMusicDurRef.current = dur;
+                          const { start, hasOverlap } = getBgPlaybackWindow(trimStart, trimEnd, dur);
+                          const seekTo = hasOverlap ? start : 0;
+                          setTimeout(() => postBgBuiltinVideoRef.current?.seek?.(seekTo), 80);
+                        }}
+                        onProgress={({ currentTime }) => {
+                          const dur = postBgMusicDurRef.current || 30;
+                          const { start: ps, end: pe, hasOverlap } = getBgPlaybackWindow(
+                            trimStart,
+                            trimEnd,
+                            dur,
+                          );
+                          const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
+                          if (hasOverlap && pe > ps && currentTime >= pe - margin) {
+                            postBgBuiltinVideoRef.current?.seek?.(ps);
+                          }
+                        }}
+                      />
+                    </View>
+                  ) : null}
+                  {ytId ? (
+                    <View style={styles.hiddenPostYoutubePlayer} pointerEvents="none">
+                      <YoutubePlayer
+                        ref={postBgYoutubeRef}
+                        key={`post_bg_yt_${ytId}_${currentImageIndex}`}
+                        height={200}
+                        width={200}
+                        videoId={ytId}
+                        play
+                        mute={false}
+                        volume={100}
+                        forceAndroidAutoplay
+                        initialPlayerParams={{
+                          controls: false,
+                          modestbranding: true,
+                          rel: false,
+                        }}
+                        onReady={async () => {
+                          try {
+                            const d = await postBgYoutubeRef.current?.getDuration?.();
+                            if (typeof d === 'number' && d > 0) postBgMusicDurRef.current = d;
+                            else if (
+                              currentEdits.musicYoutubeDurationSec != null &&
+                              Number.isFinite(Number(currentEdits.musicYoutubeDurationSec))
+                            ) {
+                              postBgMusicDurRef.current = Number(currentEdits.musicYoutubeDurationSec);
+                            }
+                            const dur = postBgMusicDurRef.current || 180;
+                            const { start: ps, hasOverlap } = getBgPlaybackWindow(
+                              trimStart,
+                              trimEnd,
+                              dur,
+                            );
+                            const seekTo = hasOverlap ? ps : 0;
+                            await postBgYoutubeRef.current?.seekTo?.(seekTo, true);
+                          } catch (_) { }
+                        }}
+                        onChangeState={state => {
+                          if (state === 'ended') {
+                            const dur = postBgMusicDurRef.current || 180;
+                            const { start: ps, hasOverlap } = getBgPlaybackWindow(
+                              trimStart,
+                              trimEnd,
+                              dur,
+                            );
+                            postBgYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
+                            postBgYoutubeRef.current?.playVideo?.();
+                          }
+                        }}
+                      />
+                    </View>
+                  ) : null}
                 </View>
               );
-              })}
-            </ScrollView>
-
-            {/* Draw controls - only show for images */}
-            {isDrawing && !isCurrentMediaVideo() && (
-              <View style={styles.drawControls}>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (canvasRef.current) {
-                      canvasRef.current.undo();
-                    }
-                  }}
-                  style={styles.controlButton}
-                >
-                  <Text style={styles.controlButtonText}>↩</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={async () => {
-                    // Always save/merge drawing first (even on cancel)
-                    if (canvasRef.current) {
-                      await captureAndMergeDrawing(false); // false = don't exit yet
-                    }
-                    // Then exit draw mode
-                    setIsDrawing(false);
-                    setIsScrollEnabled(true);
-                    // setActiveTab('null');
-                    // setCanvasKey(prev => prev + 1);
-                  }}
-                  style={[
-                    styles.controlButton,
-                    { backgroundColor: 'rgba(255,0,0,0.6)' },
-                  ]}
-                >
-                  <Text style={styles.controlButtonText}>✕</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    captureAndMergeDrawing(true)
-                  }} // Now just exits cleanly
-                  style={[styles.controlButton, { backgroundColor: 'rgba(0,128,0,0.8)' }]}
-                >
-                  <Text style={styles.controlButtonText}>✓</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {isDrawing && !isCurrentMediaVideo() && (
-              <ScrollView
-                horizontal
-                style={styles.colorPalette}
-                showsHorizontalScrollIndicator={false}
-              >
-                {['red', 'blue', 'green', 'yellow', 'white', 'black'].map(color => (
-                  <TouchableOpacity
-                    key={color}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color },
-                      drawColor === color && styles.activeColorOption,
-                    ]}
-                    onPress={() => setDrawColor(color)}
-                  />
-                ))}
-              </ScrollView>
-            )}
-
-            {/* Image Counter */}
-            {selectedImages.length > 1 && (
-              <View style={styles.imageCounter}>
-                <Text style={styles.imageCounterText}>
-                  {currentImageIndex + 1}/{selectedImages.length}
-                </Text>
-              </View>
-            )}
-
-            {/* Page Indicator Dots */}
-            {selectedImages.length > 1 && (
-              <View style={styles.pageIndicator}>
-                {selectedImages.map((_, index) => (
-                  <TouchableOpacity
-                    key={`${getMediaKey(selectedImages[index], index)}-dot`}
-                    onPress={() => scrollToImage(index)}
-                    style={[
-                      styles.dot,
-                      index === currentImageIndex && styles.activeDot,
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-          {(() => {
-            if (!slideHasLibraryMusic(currentEdits) || postStorySoundTrimVisible) return null;
-            const builtinUrl =
-              currentEdits.musicSource === 'builtin'
-                ? getPostSoundtrackUrl(currentEdits.musicId)
-                : null;
-            const ytId =
-              currentEdits.musicSource === 'youtube' && currentEdits.musicYoutubeVideoId
-                ? currentEdits.musicYoutubeVideoId
-                : null;
-            if (!builtinUrl && !ytId) return null;
-            const trimStart = Number(currentEdits.musicTrimStart) || 0;
-            const trimEnd = currentEdits.musicTrimEnd;
-            return (
-              <View style={styles.postEditorMusicBgHost} pointerEvents="none" collapsable={false}>
-                {builtinUrl ? (
-                  <View style={styles.hiddenPostMusicPlayer}>
-                    <Video
-                      ref={postBgBuiltinVideoRef}
-                      key={`post_bg_builtin_${currentEdits.musicId}_${currentImageIndex}`}
-                      source={{ uri: builtinUrl }}
-                      paused={false}
-                      repeat={false}
-                      muted={false}
-                      volume={1}
-                      ignoreSilentSwitch="ignore"
-                      resizeMode="contain"
-                      style={{ width: 2, height: 2 }}
-                      onLoad={d => {
-                        const dur = d?.duration || 30;
-                        postBgMusicDurRef.current = dur;
-                        const { start, hasOverlap } = getBgPlaybackWindow(trimStart, trimEnd, dur);
-                        const seekTo = hasOverlap ? start : 0;
-                        setTimeout(() => postBgBuiltinVideoRef.current?.seek?.(seekTo), 80);
-                      }}
-                      onProgress={({ currentTime }) => {
-                        const dur = postBgMusicDurRef.current || 30;
-                        const { start: ps, end: pe, hasOverlap } = getBgPlaybackWindow(
-                          trimStart,
-                          trimEnd,
-                          dur,
-                        );
-                        const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
-                        if (hasOverlap && pe > ps && currentTime >= pe - margin) {
-                          postBgBuiltinVideoRef.current?.seek?.(ps);
-                        }
-                      }}
-                    />
-                  </View>
-                ) : null}
-                {ytId ? (
-                  <View style={styles.hiddenPostYoutubePlayer} pointerEvents="none">
-                    <YoutubePlayer
-                      ref={postBgYoutubeRef}
-                      key={`post_bg_yt_${ytId}_${currentImageIndex}`}
-                      height={200}
-                      width={200}
-                      videoId={ytId}
-                      play
-                      mute={false}
-                      volume={100}
-                      forceAndroidAutoplay
-                      initialPlayerParams={{
-                        controls: false,
-                        modestbranding: true,
-                        rel: false,
-                      }}
-                      onReady={async () => {
-                        try {
-                          const d = await postBgYoutubeRef.current?.getDuration?.();
-                          if (typeof d === 'number' && d > 0) postBgMusicDurRef.current = d;
-                          else if (
-                            currentEdits.musicYoutubeDurationSec != null &&
-                            Number.isFinite(Number(currentEdits.musicYoutubeDurationSec))
-                          ) {
-                            postBgMusicDurRef.current = Number(currentEdits.musicYoutubeDurationSec);
-                          }
-                          const dur = postBgMusicDurRef.current || 180;
-                          const { start: ps, hasOverlap } = getBgPlaybackWindow(
-                            trimStart,
-                            trimEnd,
-                            dur,
-                          );
-                          const seekTo = hasOverlap ? ps : 0;
-                          await postBgYoutubeRef.current?.seekTo?.(seekTo, true);
-                        } catch (_) {}
-                      }}
-                      onChangeState={state => {
-                        if (state === 'ended') {
-                          const dur = postBgMusicDurRef.current || 180;
-                          const { start: ps, hasOverlap } = getBgPlaybackWindow(
-                            trimStart,
-                            trimEnd,
-                            dur,
-                          );
-                          postBgYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
-                          postBgYoutubeRef.current?.playVideo?.();
-                        }
-                      }}
-                    />
-                  </View>
-                ) : null}
-              </View>
-            );
-          })()}
+            })()}
           </>
         ) : (
           <TouchableOpacity style={styles.addImageButton} onPress={pickImages}>
@@ -2789,118 +2804,118 @@ const InstagramPostCreator = () => {
           ))}
         </ScrollView>
       ) : (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabScroll}
-        contentContainerStyle={styles.tabScrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {[
-          { title: 'Text', icon: 'text-outline', disabled: false },
-          { title: 'Overlay', icon: 'layers-outline', disabled: false },
-          { title: 'Music', icon: 'musical-notes-outline', disabled: false },
-          { title: 'Sound', icon: 'timer-outline', disabled: false },
-          { title: 'Filter', icon: 'color-filter-outline', disabled: false },
-          { title: 'Tag', icon: 'pricetag-outline', disabled: false },
-          { title: 'Download', icon: 'download-outline', disabled: false },
-          ...(!isCurrentMediaVideo()
-            ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScroll}
+          contentContainerStyle={styles.tabScrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {[
+            { title: 'Text', icon: 'text-outline', disabled: false },
+            { title: 'Overlay', icon: 'layers-outline', disabled: false },
+            { title: 'Music', icon: 'musical-notes-outline', disabled: false },
+            { title: 'Sound', icon: 'timer-outline', disabled: false },
+            { title: 'Filter', icon: 'color-filter-outline', disabled: false },
+            { title: 'Tag', icon: 'pricetag-outline', disabled: false },
+            { title: 'Download', icon: 'download-outline', disabled: false },
+            ...(!isCurrentMediaVideo()
+              ? [{ title: 'Draw', icon: 'create-outline', disabled: false }]
 
-            : []),
-        ].map(tab => (
-          <TouchableOpacity
-            key={tab.title}
-            style={[styles.tabButton, tab.disabled && styles.disabledTabButton]}
-            onPress={async () => {
-              if (tab.disabled) return;
-              if (tab.title !== 'Filter' && showFilters) {
-                setShowFilters(false);
-              }
+              : []),
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.title}
+              style={[styles.tabButton, tab.disabled && styles.disabledTabButton]}
+              onPress={async () => {
+                if (tab.disabled) return;
+                if (tab.title !== 'Filter' && showFilters) {
+                  setShowFilters(false);
+                }
 
-              if (tab.title === 'Draw') {
-                if (isDrawing) {
-                  // Exiting draw mode → always save drawing first
-                  await captureAndMergeDrawing(true);
-                } else {
-                  // Entering draw mode
-                  setIsDrawing(true);
-                  setIsScrollEnabled(false);
-                  setCanvasKey(prev => prev + 1);
+                if (tab.title === 'Draw') {
+                  if (isDrawing) {
+                    // Exiting draw mode → always save drawing first
+                    await captureAndMergeDrawing(true);
+                  } else {
+                    // Entering draw mode
+                    setIsDrawing(true);
+                    setIsScrollEnabled(false);
+                    setCanvasKey(prev => prev + 1);
+                  }
                 }
-              }
-              else if (tab.title === 'Filter') {
-                setShowFilters(prev => !prev);
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Filter') {
+                  setShowFilters(prev => !prev);
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
                 }
-              }
-              else if (tab.title === 'Text') {
-                setModalVisible2(true);
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Text') {
+                  setModalVisible2(true);
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
                 }
-              }
 
-              else if (tab.title === 'Overlay') {
-                setActiveTab('Overlay');
-                bottomSheetRef.current?.open();
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Overlay') {
+                  setActiveTab('Overlay');
+                  bottomSheetRef.current?.open();
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
+                  return;
                 }
-                return;
-              }
-              else if (tab.title === 'Music') {
-                setFlipAudioModal(true);
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Music') {
+                  setFlipAudioModal(true);
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
+                  return;
                 }
-                return;
-              }
-              else if (tab.title === 'Sound') {
-                openPostMusicTrimModal();
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Sound') {
+                  openPostMusicTrimModal();
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
+                  return;
                 }
-                return;
-              }
-              else if (tab.title === 'Tag') {
-                setActiveTab('Tag');
-                bottomSheetRef.current?.open();
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Tag') {
+                  setActiveTab('Tag');
+                  bottomSheetRef.current?.open();
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
+                  return;
                 }
-                return;
-              }
-              else if (tab.title === 'Download') {
-                if (isDrawing) {
-                  setIsDrawing(false);
-                  setIsScrollEnabled(true);
-                  setCanvasKey(prev => prev + 1);
+                else if (tab.title === 'Download') {
+                  if (isDrawing) {
+                    setIsDrawing(false);
+                    setIsScrollEnabled(true);
+                    setCanvasKey(prev => prev + 1);
+                  }
+                  handleDownload();
                 }
-                handleDownload();
-              }
-              setActiveTab(tab.title);
-            }}
-            disabled={tab.disabled}
-          >
-            <Icon name={tab.icon} size={15} color={tab.disabled ? '#555' : '#aaa'} style={{ marginBottom: 2 }} />
-            <Text style={[styles.tabButtonText, tab.disabled && styles.disabledTabButtonText]}>{tab.title}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+                setActiveTab(tab.title);
+              }}
+              disabled={tab.disabled}
+            >
+              <Icon name={tab.icon} size={15} color={tab.disabled ? '#555' : '#aaa'} style={{ marginBottom: 2 }} />
+              <Text style={[styles.tabButtonText, tab.disabled && styles.disabledTabButtonText]}>{tab.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       )}
       <RBSheet
         ref={bottomSheetRef}
@@ -3469,20 +3484,20 @@ const InstagramPostCreator = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-    <SafeAreaView style={[styles.container, bgStyle]}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={handleBack}>
-          <Text style={styles.headerButtonText}>×</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.editorWorkspace}>
-        {renderFilters()}
-        {renderImageCarousel()}
-        {/* {renderZoomIndicator()} */}
-      </View>
-      {renderEditingTabs()}
-    </SafeAreaView>
+      <SafeAreaView style={[styles.container, bgStyle]}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleBack}>
+            <Text style={styles.headerButtonText}>×</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.editorWorkspace}>
+          {renderFilters()}
+          {renderImageCarousel()}
+          {/* {renderZoomIndicator()} */}
+        </View>
+        {renderEditingTabs()}
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
@@ -3511,9 +3526,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   imageContainer: {
-    // flex: 1,
+    flex: 1,
+    minHeight: 0,
     position: 'relative',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 0,
@@ -3547,6 +3563,9 @@ const styles = StyleSheet.create({
     width: IMAGE_SIZE,
     alignSelf: 'center',
     overflow: 'hidden',
+  },
+  mainImageContainerWhileDrawing: {
+    overflow: 'visible',
   },
   mainScrollView: {
     width: IMAGE_SIZE,
@@ -3637,8 +3656,9 @@ const styles = StyleSheet.create({
     width: IMAGE_SIZE,
     height: '100%',
     position: 'relative',
-    overflow: 'hidden',
-    borderRadius: 8,
+    /** Visible overflow so strokeWidth isn’t clipped at edges when tracing a square */
+    overflow: 'visible',
+    borderRadius: 0,
     // backgroundColor: '#000',
   },
   filterOverlay: {

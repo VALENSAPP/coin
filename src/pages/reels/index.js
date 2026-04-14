@@ -61,6 +61,13 @@ import Reanimated, {
 // ──────────────────────────────────────────────────────────────────────────────────────
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+/** Must match `progressHitArea` horizontal padding so scrub math matches the visible track (0 = edge-to-edge) */
+const FLIPS_PROGRESS_H_PADDING = 0;
+/** Flush under status bar */
+const FLIPS_PROGRESS_TOP_GAP = 0;
+const FLIPS_PROGRESS_STRIP_HEIGHT = 28;
+/** Space between progress strip and Flips header row */
+const FLIPS_HEADER_AFTER_PROGRESS = 8;
 
 const musicTemplates = [
   { id: 't1', name: 'Trending Dance Challenge', music: 'Viral Dance Mix 2025', uses: '2.3M', thumbnail: 'https://randomuser.me/api/portraits/women/10.jpg', category: 'Dance' },
@@ -103,7 +110,9 @@ export default function FlipsScreen() {
   const [forwardAnimatingId, setForwardAnimatingId] = useState(null);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const forwardScaleAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  /** 1 = normal, 0.5 = half speed (react-native-video `rate`) */
+  const [playbackRate, setPlaybackRate] = useState({});
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   // Reanimated shared values for pinch-to-zoom (no native animated driver conflict)
   const pinchScale = useSharedValue(1);
@@ -127,9 +136,8 @@ export default function FlipsScreen() {
   const [videoProgress, setVideoProgress] = useState({});
   const [isBuffering, setIsBuffering] = useState({});
   const [videoDuration, setVideoDuration] = useState({});
-  const [isSeeking, setIsSeeking] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartTime, setDragStartTime] = useState(0);
+  const progressBarWidthRef = useRef(windowWidth);
+  const scrubbingReelIdRef = useRef(null);
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -176,19 +184,13 @@ export default function FlipsScreen() {
   };
 
   useEffect(() => {
-    const currentReel = reels[currentIndex];
-    if (currentReel && !paused[currentReel.id] && isFocused) {
-      progressAnim.setValue(0);
-      Animated.timing(progressAnim, { toValue: 1, duration: currentReel.duration, useNativeDriver: false }).start();
-    }
-  }, [currentIndex, isFocused, paused, progressAnim, reels]);
-
-  useEffect(() => {
     if (!isFocused) {
-      Object.values(videoRefs.current).forEach(ref => { if (ref && ref.seek) ref.seek(0); });
-      progressAnim.stopAnimation();
+      Object.values(videoRefs.current).forEach(ref => {
+        if (ref && ref.seek) ref.seek(0);
+      });
+      scrubbingReelIdRef.current = null;
     }
-  }, [isFocused, progressAnim]);
+  }, [isFocused]);
 
   // Reset pinch zoom when switching reels
   useEffect(() => {
@@ -512,19 +514,42 @@ export default function FlipsScreen() {
   }, []);
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleProgressBarTap = (id, event) => {
-    const videoRef = videoRefs.current[id];
-    if (!videoRef) return;
-    try {
-      const tapX = event.nativeEvent.locationX;
-      const duration = videoDuration[id] || reels[currentIndex]?.duration || 30000;
-      const durationInSeconds = duration / 1000;
-      videoRef.seek((tapX / SCREEN_WIDTH) * durationInSeconds);
-      setIsSeeking(false);
-    } catch (error) {
-      console.log('Error seeking video:', error);
-    }
-  };
+  const getDurationSecForReel = useCallback(
+    (id, fallbackMs = 30000) => {
+      const ms = videoDuration[id] ?? reels.find(r => r.id === id)?.duration ?? fallbackMs;
+      return Math.max(0.001, Number(ms) / 1000);
+    },
+    [reels, videoDuration],
+  );
+
+  const seekReelToLocationX = useCallback(
+    (id, locationX) => {
+      const videoRef = videoRefs.current[id];
+      if (!videoRef?.seek) return;
+      const outerW = progressBarWidthRef.current || windowWidth;
+      const innerW = Math.max(1, outerW - 2 * FLIPS_PROGRESS_H_PADDING);
+      const x = Math.min(Math.max(locationX - FLIPS_PROGRESS_H_PADDING, 0), innerW);
+      const durSec = getDurationSecForReel(id);
+      const ratio = Math.min(1, Math.max(0, x / innerW));
+      const t = ratio * durSec;
+      try {
+        videoRef.seek(t);
+        videoProgressRef.current[id] = t;
+        setVideoProgress(prev => ({ ...prev, [id]: t }));
+      } catch (error) {
+        console.log('Error seeking video:', error);
+      }
+    },
+    [getDurationSecForReel, windowWidth],
+  );
+
+  const togglePlaybackSpeed = useCallback(id => {
+    setPlaybackRate(prev => {
+      const cur = prev[id] ?? 1;
+      const next = cur >= 1 ? 0.5 : 1;
+      return { ...prev, [id]: next };
+    });
+  }, []);
 
   const handleComment = postId => {
     setCommentPostId(postId);
@@ -632,7 +657,8 @@ export default function FlipsScreen() {
   const buildGesture = useCallback(itemId => {
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)
-      .maxDuration(250)
+      .maxDuration(280)
+      .maxDistance(14)
       .onEnd(e => {
         const isRightSide = e.x > SCREEN_WIDTH / 2;
         if (isRightSide) runOnJS(handleSeekForward)(itemId);
@@ -641,7 +667,8 @@ export default function FlipsScreen() {
 
     const singleTap = Gesture.Tap()
       .numberOfTaps(1)
-      .maxDuration(250)
+      .maxDuration(450)
+      .maxDistance(18)
       .requireExternalGestureToFail(doubleTap)
       .onEnd(() => {
         runOnJS(handleSingleTapToggle)(itemId);
@@ -678,28 +705,7 @@ export default function FlipsScreen() {
       <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
         <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
-        {/* Progress bar */}
-        <View
-          style={styles.progressContainer}
-          onTouchStart={event => { setDragStartX(event.nativeEvent.locationX); setDragStartTime(videoProgress[item.id] || 0); setIsSeeking(true); }}
-          onTouchMove={event => {
-            const videoRef = videoRefs.current[item.id];
-            if (!videoRef || dragStartX === 0) return;
-            try {
-              const deltaX = event.nativeEvent.locationX - dragStartX;
-              const duration = videoDuration[item.id] || reels[currentIndex]?.duration || 30000;
-              const durationInSeconds = duration / 1000;
-              const newPosition = Math.max(0, Math.min(durationInSeconds, dragStartTime + deltaX / (SCREEN_WIDTH / durationInSeconds)));
-              videoRef.seek(newPosition);
-            } catch (error) { console.log('Error dragging video:', error); }
-          }}
-          onTouchEnd={() => setIsSeeking(false)}
-        >
-          <TouchableOpacity activeOpacity={1} onPress={event => handleProgressBarTap(item.id, event)} style={StyleSheet.absoluteFillObject} />
-          <Animated.View
-            style={[styles.progressBar, { width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]}
-          />
-        </View>
+        {/* Progress scrubber lives at screen root (see below) so it is not clipped by FlatList */}
 
         {/* ── GestureDetector replaces all nested handlers — no warning ── */}
         <GestureDetector gesture={gesture}>
@@ -710,14 +716,16 @@ export default function FlipsScreen() {
               style={styles.video}
               resizeMode="cover"
               repeat
+              rate={playbackRate[item.id] ?? 1}
               paused={!isFocused || currentIndex !== index || paused[item.id] === true}
               muted={muted[item.id] === true}
-              onLoad={data => { setVideoDuration(prev => ({ ...prev, [item.id]: data.duration * 1000 })); }}
+              onLoad={data => {
+                setVideoDuration(prev => ({ ...prev, [item.id]: data.duration * 1000 }));
+              }}
               onProgress={data => {
-                if (!isSeeking) {
-                  videoProgressRef.current[item.id] = data.currentTime;
-                  setVideoProgress(prev => ({ ...prev, [item.id]: data.currentTime }));
-                }
+                if (scrubbingReelIdRef.current === item.id) return;
+                videoProgressRef.current[item.id] = data.currentTime;
+                setVideoProgress(prev => ({ ...prev, [item.id]: data.currentTime }));
               }}
             />
 
@@ -753,6 +761,15 @@ export default function FlipsScreen() {
 
         {/* Horizontal actions */}
         <View style={styles.horizontalActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => togglePlaybackSpeed(item.id)}
+            accessibilityLabel="Toggle playback speed"
+          >
+            <Text style={styles.speedBadge}>{(playbackRate[item.id] ?? 1) >= 1 ? '1×' : '0.5×'}</Text>
+            <Text style={styles.actionLabel}>Speed</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionButton} onPress={() => handleLike(item.id)}>
             <Thumbup
               width={24}
@@ -837,7 +854,19 @@ export default function FlipsScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container} edges={['left', 'right']}>
         {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop:
+                insets.top +
+                FLIPS_PROGRESS_TOP_GAP +
+                FLIPS_PROGRESS_STRIP_HEIGHT +
+                FLIPS_HEADER_AFTER_PROGRESS,
+            },
+          ]}
+          pointerEvents="box-none"
+        >
           <TouchableOpacity onPress={handleBackPress} style={styles.buttons}>
             <Icon name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -849,6 +878,81 @@ export default function FlipsScreen() {
             <Feather name="camera" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* Single overlay for the active reel — always above video + header safe zone; avoids removeClippedSubviews clipping */}
+        {reels.length > 0 && reels[currentIndex]?.id ? (
+          (() => {
+            const activeId = reels[currentIndex].id;
+            const durSec = getDurationSecForReel(activeId);
+            const cur = videoProgress[activeId] ?? 0;
+            const fillRatio = Math.min(1, Math.max(0, cur / durSec));
+            return (
+              <View
+                style={[
+                  styles.progressHitArea,
+                  styles.progressScreenOverlay,
+                  {
+                    top: insets.top + FLIPS_PROGRESS_TOP_GAP,
+                    /** Full window width — SafeAreaView only insets left/right */
+                    left: -insets.left,
+                    width: windowWidth,
+                  },
+                ]}
+                collapsable={false}
+                onLayout={e => {
+                  progressBarWidthRef.current = e.nativeEvent.layout.width;
+                }}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={e => {
+                  setIsScrubbing(true); // 👈 ADD THIS
+                  scrubbingReelIdRef.current = activeId;
+                  seekReelToLocationX(activeId, e.nativeEvent.locationX);
+                }}
+                onResponderMove={e => {
+                  if (scrubbingReelIdRef.current === activeId) {
+                    seekReelToLocationX(activeId, e.nativeEvent.locationX);
+                  }
+                }}
+                onResponderRelease={() => {
+                  setIsScrubbing(false); // 👈 ADD THIS
+                  scrubbingReelIdRef.current = null;
+                }}
+                onResponderTerminate={() => {
+                  setIsScrubbing(false);
+                  scrubbingReelIdRef.current = null;
+                }}
+              >
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${fillRatio * 100}%`,
+                        minWidth: fillRatio > 0.003 ? 6 : 0,
+                      },
+                    ]}
+                  />
+
+                  {isScrubbing && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: `${fillRatio * 100}%`,
+                        transform: [{ translateX: -6 }],
+                        top: -3,
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: '#fff',
+                      }}
+                    />
+                  )}
+                </View>
+              </View>
+            );
+          })()
+        ) : null}
 
         <FlatList
           ref={flatListRef}
@@ -877,8 +981,8 @@ export default function FlipsScreen() {
           overScrollMode="never"
           bounces={false}
           scrollEnabled={reels.length > 0}
-          removeClippedSubviews
-          extraData={viewportHeight}
+          removeClippedSubviews={false}
+          extraData={{ viewportHeight, videoProgress, playbackRate, paused, currentIndex }}
         />
 
         {dropdownVisible && (
@@ -1008,15 +1112,45 @@ export default function FlipsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingBottom: SCREEN_HEIGHT > 800 && 25, backgroundColor: '#f8f2fc' },
   reelContainer: { width: '100%', height: '100%', backgroundColor: '#000', position: 'relative', top: Platform.OS === 'android' && 40 },
-  progressContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: 'rgba(255,255,255,0.3)', zIndex: 10 },
-  progressBar: { height: '100%', backgroundColor: '#fff' },
+  progressHitArea: {
+    position: 'absolute',
+    height: FLIPS_PROGRESS_STRIP_HEIGHT,
+    justifyContent: 'flex-start',
+    paddingHorizontal: FLIPS_PROGRESS_H_PADDING,
+    paddingTop: 2,
+    paddingBottom: 10,
+    /** Width/left set inline for full bleed; strip readable on any video */
+    // backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  /** Sibling of FlatList under SafeAreaView — must paint above header + list */
+  progressScreenOverlay: {
+    zIndex: 400,
+    elevation: 28,
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 0,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 0,
+  },
+  speedBadge: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
   videoContainer: { flex: 1 },
   video: { width: '100%', height: '100%' },
   loadingContainer: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -30 }, { translateY: -10 }] },
   loadingText: { color: '#fff', fontSize: 16 },
   playPauseOverlay: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -40 }, { translateY: -40 }] },
-  heartAnimation: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -50 }, { translateY: -50 }] },
-  forwardAnimation: { position: 'absolute', top: '50%', right: '15%', transform: [{ translateX: 0 }, { translateY: -50 }] },
+  heartAnimation: { position: 'absolute', top: '40%', left: '40%', right: '50', transform: [{ translateX: -50 }, { translateY: -50 }] },
+  forwardAnimation: { position: 'absolute', top: '50%', left: '30%', height: '100%', width: '100%', transform: [{ translateX: 0 }, { translateY: -50 }] },
   forwardIconContainer: { alignItems: 'center', justifyContent: 'center' },
   forwardText: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginTop: 4 },
   header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10 },
