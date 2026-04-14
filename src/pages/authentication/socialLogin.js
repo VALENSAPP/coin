@@ -23,6 +23,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { ensureCurrentAccountSaved } from '../../utils/accountSession';
 import { requestUserPermission } from '../../services/NotificationService';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
+import { setUserProfile } from '../../redux/actions/UserProfileAction';
 
 const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
 

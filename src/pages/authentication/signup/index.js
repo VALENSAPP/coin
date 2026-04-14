@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useDispatch } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppleLogo, Google, Twitter } from '../../../assets/icons';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../../components/displaytoastmessage';
@@ -30,6 +30,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const toast = useToast();
   const [email, setEmail] = useState('');
   const [userName, setUsername] = useState('');
@@ -37,10 +38,13 @@ export default function SignupScreen() {
   const [referralCode, setReferralCode] = useState('');
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
+  
+  // Get profile from route params (if coming from SelectAccountType)
+  const profileFromRoute = route?.params?.profile || 'user';
+  
   const styles = useSignupStyles();
   const dispatch = useDispatch();
-  const profile = isChecked ? 'company' : 'user';
+  const profile = profileFromRoute;
   const { text } = useAppTheme();
 
   useEffect(() => {
@@ -81,9 +85,7 @@ export default function SignupScreen() {
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
-  const toggleCheckbox = () => {
-    setIsChecked(prev => !prev);
-  };
+
   const handleSignUp = async () => {
     Keyboard.dismiss();
     if (!validate()) return;
@@ -320,20 +322,6 @@ export default function SignupScreen() {
                 <Text style={styles.helperText}>
                   Have a referral code? Add it now to apply it during signup.
                 </Text>
-              </View>
-
-              <View>
-                <TouchableOpacity onPress={toggleCheckbox} style={styles.checkboxContainer}>
-                  {/* Conditionally render icons based on checkbox state */}
-                  <MaterialDesignIcons
-                    name={isChecked ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                    size={30}
-                    color={isChecked ? text : 'gray'}
-                  />
-                  <Text style={styles.text}>
-                    This is a business account
-                  </Text>
-                </TouchableOpacity>
               </View>
 
               {/* Sign Up Button */}

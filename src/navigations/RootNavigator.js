@@ -42,6 +42,7 @@ import WalletComponent from '../pages/wallet/WalletScreen';
 import KYCVerification from '../pages/authentication/kycVerification';
 import Usersprofile from '../pages/home/Usersprofile';
 import { useAppTheme } from '../theme/useApptheme';
+import SelectAccountType from '../pages/authentication/setAccountType';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -398,6 +399,7 @@ export default function MainStack() {
         <Stack.Screen name="Splash" component={Splash} />
         <Stack.Screen name="TermsCondition" component={TermsCondition} />
         <Stack.Screen name="ManageSubscription" component={PaymentScreen} />
+        <Stack.Screen name="SelectAccountType" component={SelectAccountType} />
       </Stack.Navigator>
     );
   }

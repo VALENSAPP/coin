@@ -14,11 +14,12 @@ const AuthHeader = ({
   headerHeight = height * 0.3,
   logoSize = 80,
   titleSize = 30,
-  subtitleSize = 14
+  subtitleSize = 14,
+  fromsetAccountType = false,
 }) => {
   const { bgStyle, textStyle, bg, text } = useAppTheme();
   return (
-    <View style={[styles.headerGradient, { height: headerHeight }, bgStyle]}>
+    <View style={[styles.headerGradient, { height: headerHeight }, !fromsetAccountType && bgStyle]}>
       <View style={styles.headerContent}>
         {showBackButton && (
           <TouchableOpacity

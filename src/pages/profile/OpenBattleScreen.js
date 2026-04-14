@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,12 +14,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import DatePicker from 'react-native-date-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { createBattle } from '../../services/battle';
 import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -34,7 +37,10 @@ const createInitialForm = () => ({
   format: 'POLL',
   battleType: 'OPINION',
   question: '',
-  options: ['', ''],
+  options: [
+    { text: '', image: null },
+    { text: '', image: null },
+  ],
   endTime: null,
   isPublic: true,
   invitedUserId: '',
@@ -47,7 +53,7 @@ const pickFirst = (...values) =>
 
 const getFilledOptions = options =>
   (Array.isArray(options) ? options : [])
-    .map(option => option.trim())
+    .map(option => (typeof option === 'string' ? option.trim() : option.text?.trim() || ''))
     .filter(Boolean);
 
 const formatDisplayDate = value => {
@@ -80,7 +86,9 @@ export default function OpenBattleScreen() {
   const [inviteSearchResults, setInviteSearchResults] = useState([]);
   const [inviteSearchLoading, setInviteSearchLoading] = useState(false);
   const [selectedInviteUser, setSelectedInviteUser] = useState(null);
+  const [imagePickerIndex, setImagePickerIndex] = useState(null);
   const inviteSearchTimeoutRef = useRef(null);
+  const imagePickerSheetRef = useRef(null);
 
   const inputBackground = card || '#FFFFFF';
   const isPoll = form.format === 'POLL';
@@ -259,6 +267,91 @@ export default function OpenBattleScreen() {
     updateField('invitedUserId', nextUser.id);
   };
 
+  const openImagePicker = index => {
+    setImagePickerIndex(index);
+    imagePickerSheetRef.current?.open();
+  };
+
+  const handlePickFromGallery = async () => {
+    imagePickerSheetRef.current?.close();
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        maxWidth: 800,
+        maxHeight: 800,
+      },
+      response => {
+        if (response.didCancel) {
+          return;
+        }
+        if (response.errorCode) {
+          showToastMessage(toast, 'danger', 'Failed to pick image');
+          return;
+        }
+
+        const asset = response.assets?.[0];
+        if (asset && imagePickerIndex !== null) {
+          updateOptionImage(imagePickerIndex, asset.uri);
+          setImagePickerIndex(null);
+        }
+      },
+    );
+  };
+
+  const handlePickFromCamera = async () => {
+    imagePickerSheetRef.current?.close();
+    launchCamera(
+      {
+        mediaType: 'photo',
+        maxWidth: 800,
+        maxHeight: 800,
+      },
+      response => {
+        if (response.didCancel) {
+          return;
+        }
+        if (response.errorCode) {
+          showToastMessage(toast, 'danger', 'Failed to capture image');
+          return;
+        }
+
+        const asset = response.assets?.[0];
+        if (asset && imagePickerIndex !== null) {
+          updateOptionImage(imagePickerIndex, asset.uri);
+          setImagePickerIndex(null);
+        }
+      },
+    );
+  };
+
+  const updateOptionImage = (index, imageUri) => {
+    setForm(prev => {
+      const options = [...prev.options];
+      options[index] = {
+        ...options[index],
+        image: imageUri,
+      };
+      return {
+        ...prev,
+        options,
+      };
+    });
+  };
+
+  const removeOptionImage = index => {
+    setForm(prev => {
+      const options = [...prev.options];
+      options[index] = {
+        ...options[index],
+        image: null,
+      };
+      return {
+        ...prev,
+        options,
+      };
+    });
+  };
+
   const updateField = (field, value) => {
     setForm(prev => {
       if (field === 'format') {
@@ -266,7 +359,10 @@ export default function OpenBattleScreen() {
           ...prev,
           format: value,
           invitedUserId: value === 'HEAD_TO_HEAD' ? prev.invitedUserId : '',
-          options: value === 'POLL' ? prev.options : ['', ''],
+          options: value === 'POLL' ? prev.options : [
+            { text: '', image: null },
+            { text: '', image: null },
+          ],
           creatorChoice: value === 'HEAD_TO_HEAD' ? prev.creatorChoice : '',
         };
       }
@@ -294,7 +390,10 @@ export default function OpenBattleScreen() {
   const updateOption = (index, value) => {
     setForm(prev => {
       const options = [...prev.options];
-      options[index] = value;
+      options[index] = {
+        ...options[index],
+        text: value,
+      };
       return {
         ...prev,
         options,
@@ -311,7 +410,7 @@ export default function OpenBattleScreen() {
   const addOption = () => {
     setForm(prev => ({
       ...prev,
-      options: [...prev.options, ''],
+      options: [...prev.options, { text: '', image: null }],
     }));
   };
 
@@ -436,6 +535,10 @@ export default function OpenBattleScreen() {
 
     if (isPoll) {
       payload.options = filledOptions;
+      // Include image metadata if needed
+      payload.optionImages = form.options
+        .slice(0, filledOptions.length)
+        .map(opt => ({ image: opt.image }));
     }
 
     if (isHeadToHead) {
@@ -444,6 +547,10 @@ export default function OpenBattleScreen() {
       payload.creatorChoice = form.creatorChoice;
       payload.creatorLockedOption = form.creatorChoice;
       payload.invitedUserChoice = lockedOpponentChoice;
+      // Include image metadata if needed
+      payload.optionImages = form.options
+        .slice(0, filledOptions.length)
+        .map(opt => ({ image: opt.image }));
     }
 
     if (form.stake !== '' && !Number.isNaN(Number(form.stake))) {
@@ -506,8 +613,13 @@ export default function OpenBattleScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => {
-              const returnTo = route?.params?.returnTo || 'Home';
-              navigation.navigate(returnTo);
+              if (route?.params?.fromUsersProfile) {
+                navigation.navigate('ProfileMain', {
+                  screen: 'Profile',
+                });
+              } else {
+                navigation.goBack();
+              }
             }}
             style={styles.headerIconBtn}
           >
@@ -692,35 +804,60 @@ export default function OpenBattleScreen() {
               </View>
 
               {form.options.map((option, index) => (
-                <View key={`option-${index}`} style={styles.optionRow}>
-                  <TextInput
+                <View key={`option-${index}`} style={styles.optionSection}>
+                  <View
                     style={[
-                      styles.input,
-                      styles.optionInput,
-                      {
-                        backgroundColor: inputBackground,
-                        color: text,
-                        borderColor: errors.options ? ERROR : BORDER,
-                      },
+                      styles.optionEditCard,
+                      { backgroundColor: inputBackground, borderColor: BORDER },
                     ]}
-                    placeholder={
-                      isHeadToHead ? `Side ${index + 1}` : `Option ${index + 1}`
-                    }
-                    placeholderTextColor={MUTED}
-                    value={option}
-                    onChangeText={value => updateOption(index, value)}
-                  />
-                  <TouchableOpacity
-                    onPress={() => removeOption(index)}
-                    disabled={form.options.length <= 2}
-                    style={styles.removeBtn}
                   >
-                    <Ionicons
-                      name="close-circle"
-                      size={24}
-                      color={form.options.length <= 2 ? '#CBD5E1' : '#EF4444'}
+                    <TouchableOpacity
+                      style={styles.optionImagePickerBtn}
+                      onPress={() => openImagePicker(index)}
+                    >
+                      {option.image ? (
+                        <Image
+                          source={{ uri: option.image }}
+                          style={styles.optionEditImage}
+                        />
+                      ) : (
+                        <View style={styles.optionImagePlaceholder}>
+                          <Ionicons name="image-outline" size={20} color={MUTED} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.optionEditTextField,
+                        {
+                          backgroundColor: 'transparent',
+                          color: text,
+                          borderColor: errors.options ? ERROR : 'transparent',
+                          borderWidth: 0,
+                        },
+                      ]}
+                      placeholder={
+                        isHeadToHead ? `Side ${index + 1}` : `Option ${index + 1}`
+                      }
+                      placeholderTextColor={MUTED}
+                      value={option.text}
+                      onChangeText={value => updateOption(index, value)}
                     />
-                  </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => removeOption(index)}
+                      disabled={form.options.length <= 2}
+                      style={styles.optionRemoveBtn}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={24}
+                        color={form.options.length <= 2 ? '#CBD5E1' : '#EF4444'}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
 
@@ -826,45 +963,77 @@ export default function OpenBattleScreen() {
                 Choose Your Side
               </Text>
               <View style={styles.sideChoiceWrap}>
-                {form.options.map((option, index) => {
-                  const label = option.trim();
-                  const selected = form.creatorChoice === label;
+                {filledOptions.map((optionText, index) => {
+                  const selected = form.creatorChoice === optionText;
+                  const optionData = form.options.find(o => o.text === optionText);
                   return (
                     <TouchableOpacity
                       key={`creator-choice-${index}`}
                       style={[
-                        styles.sideChoiceCard,
+                        styles.sidePreviewCard,
                         {
                           borderColor: selected ? '#7C3AED' : BORDER,
-                          backgroundColor: selected
-                            ? '#F3E8FF'
-                            : inputBackground,
-                          opacity: label ? 1 : 0.6,
+                          backgroundColor: selected ? '#F3E8FF' : inputBackground,
                         },
                       ]}
                       activeOpacity={0.88}
-                      disabled={!label}
-                      onPress={() => updateField('creatorChoice', label)}
+                      onPress={() => updateField('creatorChoice', optionText)}
                     >
-                      <Text
-                        style={[
-                          styles.sideChoiceText,
-                          {
-                            color: !label
-                              ? '#9CA3AF'
-                              : selected
-                                ? '#6D28D9'
-                                : text,
-                          },
-                        ]}
-                      >
-                        {label || `Add side ${index + 1} above first`}
-                      </Text>
-                      {selected ? (
-                        <Text style={styles.sideChoiceMeta}>
-                          You take this side
-                        </Text>
-                      ) : null}
+                      <View style={styles.sideBadgeWrapper}>
+                        <View style={styles.sideImageWrapper}>
+                          {optionData?.image ? (
+                            <>
+                              <Image
+                                source={{ uri: optionData.image }}
+                                style={styles.sideImage}
+                              />
+                              <TouchableOpacity
+                                style={styles.sideImageCloseBtn}
+                                onPress={() => removeOptionImage(index)}
+                              >
+                                <Ionicons
+                                  name="close-circle"
+                                  size={20}
+                                  color="#EF4444"
+                                />
+                              </TouchableOpacity>
+                            </>
+                          ) : (
+                            <View style={styles.sideImagePlaceholder}>
+                              <Ionicons
+                                name="person"
+                                size={24}
+                                color={MUTED}
+                              />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.sideBadgeInfo}>
+                          <View style={styles.sideNameBadgeRow}>
+                            <Text
+                              style={[
+                                styles.sidePreviewName,
+                                {
+                                  color: selected ? '#6D28D9' : text,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {optionText}
+                            </Text>
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={14}
+                              color={selected ? '#7C3AED' : '#CBD5E1'}
+                            />
+                          </View>
+                          {selected && (
+                            <Text style={styles.sideChoiceMeta}>
+                              You take this side
+                            </Text>
+                          )}
+                        </View>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -993,6 +1162,73 @@ export default function OpenBattleScreen() {
             setDatePickerOpen(false);
           }}
         />
+
+        <RBSheet
+          ref={imagePickerSheetRef}
+          height={310}
+          draggable={true}
+          customStyles={{
+            container: [{
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingTop: 8,
+            }, { backgroundColor: card }],
+          }}
+          onClose={() => {}}
+        >
+          
+          <View style={styles.imagePickerHeader}>
+            <Text style={[styles.imagePickerTitle, { color: text }]}>
+              Add Image
+            </Text>
+          </View>
+
+          <View style={styles.imagePickerDivider} />
+
+          <TouchableOpacity
+            style={styles.imagePickerOptionBtn}
+            onPress={handlePickFromGallery}
+            activeOpacity={0.7}
+          >
+            <View style={styles.imagePickerOptionIcon}>
+              <Ionicons name="images-outline" size={28} color="#7C3AED" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
+                Choose from Gallery
+              </Text>
+              <Text style={styles.imagePickerOptionSubtitle}>
+                Select an existing image
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.imagePickerOptionBtn}
+            onPress={handlePickFromCamera}
+            activeOpacity={0.7}
+          >
+            <View style={styles.imagePickerOptionIcon}>
+              <Ionicons name="camera-outline" size={28} color="#7C3AED" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
+                Take a Photo
+              </Text>
+              <Text style={styles.imagePickerOptionSubtitle}>
+                Capture a new image
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.imagePickerCancelBtn}
+            onPress={() => imagePickerSheetRef.current?.close()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.imagePickerCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </RBSheet>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1123,46 +1359,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  sideChoiceWrap: {
-    marginTop: 8,
-    gap: 10,
-  },
-  sideChoiceCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  sideChoiceText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  sideChoiceMeta: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7C3AED',
-    marginTop: 4,
-  },
-  optionInput: {
-    flex: 1,
-  },
-  removeBtn: {
-    width: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   helperText: {
     color: MUTED,
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 17,
     marginTop: 6,
+  },
+  sideChoiceWrap: {
+    marginTop: 8,
+    gap: 10,
   },
   searchStateWrap: {
     paddingVertical: 12,
@@ -1277,5 +1483,264 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  optionSection: {
+    marginBottom: 16,
+  },
+  optionEditCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  optionImagePickerBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#FAFAFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  optionEditImage: {
+    width: '100%',
+    height: '100%',
+  },
+  optionImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
+  },
+  optionEditTextField: {
+    flex: 1,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  optionRemoveBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  optionPreviewCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  optionPreviewTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  optionBadgeWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  optionImageWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+  },
+  optionImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+  },
+  imageCloseBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionBadgeInfo: {
+    flex: 1,
+  },
+  optionNameBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  optionPreviewName: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  optionPreviewRight: {
+    alignItems: 'flex-end',
+  },
+  optionPercentage: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  optionVoteCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: MUTED,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  imagePickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  imagePickerHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  imagePickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  imagePickerDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  imagePickerOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  imagePickerOptionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePickerOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  imagePickerOptionSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: MUTED,
+  },
+  imagePickerCancelBtn: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  imagePickerCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  sideChoiceWrap: {
+    marginTop: 8,
+    gap: 10,
+  },
+  sidePreviewCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sideBadgeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sideImageWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+  },
+  sideImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+  },
+  sideImageCloseBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sideImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sideBadgeInfo: {
+    flex: 1,
+  },
+  sideNameBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  sidePreviewName: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  sideChoiceMeta: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7C3AED',
+    marginTop: 2,
   },
 });
