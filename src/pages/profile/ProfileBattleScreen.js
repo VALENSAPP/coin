@@ -24,10 +24,12 @@ export default function ProfileBattleScreen() {
   const title = route?.params?.title || 'Battle';
 
   const handleBack = () => {
-    if (returnTo === 'UserProfile') {
-      navigation.navigate('ProfileMain', { screen: 'UserProfile' });
-    } else if (returnTo) {
-      navigation.navigate(returnTo);
+    if (route?.params?.returnTo === 'UserProfile') {
+      navigation.goBack();
+    } else if (route?.params?.returnTo === 'Home') {
+      navigation.navigate('ProfileMain', { screen: 'Profile' });
+    } else if (route?.params?.returnTo) {
+      navigation.navigate(route.params.returnTo);
     } else {
       navigation.goBack();
     }

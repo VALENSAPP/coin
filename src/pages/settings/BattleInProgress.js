@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,6 +18,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -55,6 +57,39 @@ const withAlpha = (hex, alpha) => {
     return `${hex}${alpha}`;
   }
   return hex;
+};
+
+const HexagonImage = ({ uri, size = 110, borderColor = 'rgba(255,255,255,0.4)', fallback }) => {
+  const hexagonPoints = `${size / 2},0 ${size},${size / 4} ${size},${(size * 3) / 4} ${size / 2},${size} 0,${(size * 3) / 4} 0,${size / 4}`;
+
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Defs>
+        <ClipPath id="hexagon">
+          <Polygon points={hexagonPoints} />
+        </ClipPath>
+      </Defs>
+      {uri ? (
+        <SvgImage
+          x="0"
+          y="0"
+          width={size}
+          height={size}
+          href={{ uri }}
+          clipPath="url(#hexagon)"
+          preserveAspectRatio="xMidYMid slice"
+        />
+      ) : fallback ? (
+        fallback
+      ) : null}
+      <Polygon
+        points={hexagonPoints}
+        fill="none"
+        stroke={borderColor}
+        strokeWidth="2"
+      />
+    </Svg>
+  );
 };
 
 const normalizeOption = (option, index) => {
@@ -314,7 +349,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
   );
   const invitedUserId = String(
     pickFirst(
-      raw?.invitedUserId,
+      raw?.id,
       raw?.invitedUser?.id,
       raw?.invitedUser?._id,
       '',
@@ -554,6 +589,7 @@ export default function BattleInProgress() {
   const [likingCommentId, setLikingCommentId] = useState('');
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
@@ -726,6 +762,20 @@ export default function BattleInProgress() {
       [commentId]: !prev[commentId],
     }));
   }, []);
+
+  const handleHeroCardPressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleHeroCardPressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const handleVote = async () => {
     console.log('🔥 Vote button clicked 1');
@@ -1329,100 +1379,143 @@ export default function BattleInProgress() {
               </TouchableOpacity>
             </View>
 
-            <LinearGradient
-              colors={[palette.secondary, palette.primary, palette.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroCard}
+            <Animated.View
+              style={{
+                transform: [{ scale: scaleAnim }],
+              }}
             >
-              <View style={styles.heroTopRow}>
-                <View
-                  style={[
-                    styles.statusPill,
-                    { backgroundColor: `${statusMeta.color}33` },
-                  ]}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPressIn={handleHeroCardPressIn}
+                onPressOut={handleHeroCardPressOut}
+              >
+                <LinearGradient
+                  colors={[palette.secondary, palette.primary, palette.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.heroCard}
                 >
-                  <Text style={[styles.statusPillText, { color: '#FFFFFF' }]}>
-                    {statusMeta.label}
-                  </Text>
-                </View>
-                <View style={styles.heroMetaRight}>
-                  <Text style={styles.heroMetaText}>
-                    {battle.format === 'HEAD_TO_HEAD'
-                      ? 'Head-to-Head'
-                      : 'Battle Poll'}
-                  </Text>
-                  <Text style={styles.heroMetaText}>
-                    {isPrediction ? 'Prediction' : 'Opinion'}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.heroTitle}>{battle.title}</Text>
-              {!!battle.description && (
-                <Text style={styles.heroDescription}>{battle.description}</Text>
-              )}
-
-              <View style={styles.heroInfoRow}>
-                <Text style={styles.heroInfoText}>
-                  {battle.primaryCount} {battle.primaryCountLabel}
-                </Text>
-                {/* <Text style={styles.heroInfoText}>{battle.stake} cred points</Text> */}
-                <Text style={styles.heroInfoText}>
-                  {formatBattleTime(battle.endTime)}
-                </Text>
-              </View>
-
-              {isHeadToHead && (
-                <View style={styles.duelRow}>
-                  <View style={styles.duelPlayerCard}>
-                    {battle.creator.avatar ? (
-                      <Image
-                        source={{ uri: battle.creator.avatar }}
-                        style={styles.playerAvatar}
-                      />
-                    ) : (
-                      <View
-                        style={[styles.playerAvatar, styles.playerAvatarFallback]}
-                      >
-                        <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-                      </View>
-                    )}
-                    <Text style={styles.playerName}>{battle.creator.name}</Text>
-                    {!!battle.creatorChoice && (
-                      <Text style={styles.playerChoice}>
-                        Picked: {battle.creatorChoice}
+                  <View style={styles.heroTopRow}>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: `${statusMeta.color}33` },
+                      ]}
+                    >
+                      <Text style={[styles.statusPillText, { color: '#FFFFFF' }]}>
+                        {statusMeta.label}
                       </Text>
-                    )}
-                  </View>
-
-                  <View style={styles.duelVsWrap}>
-                    <Text style={styles.duelVsText}>VS</Text>
-                  </View>
-
-                  <View style={styles.duelPlayerCard}>
-                    {battle.invitedUser.avatar ? (
-                      <Image
-                        source={{ uri: battle.invitedUser.avatar }}
-                        style={styles.playerAvatar}
-                      />
-                    ) : (
-                      <View
-                        style={[styles.playerAvatar, styles.playerAvatarFallback]}
-                      >
-                        <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-                      </View>
-                    )}
-                    <Text style={styles.playerName}>{battle.invitedUser.name}</Text>
-                    {!!enforcedOpponentOption && (
-                      <Text style={styles.playerChoice}>
-                        Only side: {enforcedOpponentOption}
+                    </View>
+                    <View style={styles.heroMetaRight}>
+                      <Text style={styles.heroMetaText}>
+                        {battle.format === 'HEAD_TO_HEAD'
+                          ? 'Head-to-Head'
+                          : 'Battle Poll'}
                       </Text>
-                    )}
+                      <Text style={styles.heroMetaText}>
+                        {isPrediction ? 'Prediction' : 'Opinion'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              )}
-            </LinearGradient>
+
+                  <Text style={styles.heroTitle}>{battle.title}</Text>
+                  {!!battle.description && (
+                    <Text style={styles.heroDescription}>{battle.description}</Text>
+                  )}
+
+                  <View style={styles.heroInfoRow}>
+                    <Text style={styles.heroInfoText}>
+                      {battle.primaryCount} {battle.primaryCountLabel}
+                    </Text>
+                    {/* <Text style={styles.heroInfoText}>{battle.stake} cred points</Text> */}
+                    <Text style={styles.heroInfoText}>
+                      {formatBattleTime(battle.endTime)}
+                    </Text>
+                  </View>
+
+                  {isHeadToHead && (
+                    <View style={styles.duelRow}>
+                      <TouchableOpacity
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          if (currentUserId === battle.creatorId) {
+                            navigation.navigate('ProfileMain', { screen: 'Profile' });
+                          } else {
+                            const currentRoute = route?.name || 'BattleInProgress';
+                            navigation.navigate('HomeMain', {
+                              screen: 'UsersProfile',
+                              params: {
+                                userId: battle.creatorId,
+                                returnTo: currentRoute,
+                              },
+                            });
+                          }
+                        }}
+                      >
+                        <View style={styles.duelPlayerCard}>
+                          <View style={styles.playerImageContainer}>
+                            <HexagonImage
+                              uri={battle.creator.avatar}
+                              size={80}
+                              borderColor="rgba(255,255,255,0.4)"
+                            />
+                          </View>
+                          <Text style={styles.playerNameBold}>{battle.creator.name}</Text>
+                          {!!battle.creatorChoice && (
+                            <Text style={styles.battlePointsText}>
+                              +1840 Battle Points
+                            </Text>
+                          )}
+                          <View style={styles.votesContainer}>
+                            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                            <Text style={styles.votesCountText}>0 Votes</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+
+                      <View style={styles.duelVsWrap}>
+                        <Text style={styles.duelVsText}>VS</Text>
+                      </View>
+
+                      <TouchableOpacity
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          console.log('Opponent profile press - userId:', battle.id, 'currentUserId:', currentUserId);
+                          // if (currentUserId === battle.id) {
+                          //   navigation.navigate('ProfileMain', { screen: 'Profile' });
+                          // } else {
+                          //   const currentRoute = route?.name || 'BattleInProgress';
+                          //   navigation.navigate('HomeMain', {
+                          //     screen: 'UsersProfile',
+                          //     params: {
+                          //       userId: battle.id,
+                          //       returnTo: currentRoute,
+                          //     },
+                          //   });
+                          // }
+                        }}
+                      >
+                        <View style={styles.duelPlayerCard}>
+                          <View style={styles.playerImageContainer}>
+                            <HexagonImage
+                              uri={battle.invitedUser.avatar}
+                              size={80}
+                              borderColor="rgba(255,255,255,0.4)"
+                            />
+                          </View>
+                          <Text style={styles.playerNameBold}>Opponent</Text>
+                          <Text style={styles.playerNameBold}>???</Text>
+                          <View style={styles.votesContainer}>
+                            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                            <Text style={styles.votesCountText}>0 Votes</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
 
             <View
               style={[
@@ -1770,8 +1863,8 @@ const styles = StyleSheet.create({
   heroInfoRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 14,
+    gap: 6,
+    marginLeft: 7,
     marginBottom: 8,
   },
   heroInfoText: {
@@ -1785,45 +1878,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 18,
+    marginBottom: 8,
+    marginHorizontal: 15,
   },
   duelPlayerCard: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 18,
-    padding: 12,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    paddingTop: 12,
+    paddingHorizontal: 15,
+    paddingBottom: 12,
     alignItems: 'center',
+    justifyContent: 'flex-start',
   },
-  duelVsWrap: {
-    paddingHorizontal: 10,
-  },
-  duelVsText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  playerAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    marginBottom: 8,
-  },
-  playerAvatarFallback: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  playerImageContainer: {
+    width: '100%',
+    height: 120,
+    marginBottom: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playerName: {
+  playerNameBold: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     textAlign: 'center',
+    marginHorizontal: 4,
+    marginBottom: 4,
   },
-  playerChoice: {
-    color: '#FDE68A',
+  battlePointsText: {
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 11,
     fontWeight: '700',
-    marginTop: 6,
-    textAlign: 'center',
+    marginBottom: 10,
+  },
+  votesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 10,
+  },
+  votesCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  duelVsWrap: {
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  duelVsText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 2,
   },
   infoCard: {
     borderRadius: 20,
