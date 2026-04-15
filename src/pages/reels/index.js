@@ -68,6 +68,7 @@ const FLIPS_PROGRESS_TOP_GAP = 0;
 const FLIPS_PROGRESS_STRIP_HEIGHT = 28;
 /** Space between progress strip and Flips header row */
 const FLIPS_HEADER_AFTER_PROGRESS = 8;
+const SPEED_STEPS = [0.5, 1, 1.5, 2];
 
 const musicTemplates = [
   { id: 't1', name: 'Trending Dance Challenge', music: 'Viral Dance Mix 2025', uses: '2.3M', thumbnail: 'https://randomuser.me/api/portraits/women/10.jpg', category: 'Dance' },
@@ -85,6 +86,7 @@ const mockComments = {
     },
   ],
 };
+
 
 export default function FlipsScreen() {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -161,6 +163,60 @@ export default function FlipsScreen() {
   const bottomContentBottom = bottomOverlayInset + 20;
   const sideActionsBottom = bottomOverlayInset + 8;
 
+
+  const progressHeight = useRef(new Animated.Value(3)).current;
+
+  const animateProgress = (toValue) => {
+    Animated.timing(progressHeight, {
+      toValue,
+      duration: 150,
+      useNativeDriver: false, // height can't use native driver
+    }).start();
+  };
+
+  // At the top of your component, define ONE animated value
+  const scrubAnim = useRef(new Animated.Value(0)).current; // 0 = idle, 1 = scrubbing
+
+  // Helper — call on grant
+  const onScrubStart = (activeId, locationX) => {
+    setIsScrubbing(true);
+    scrubbingReelIdRef.current = activeId;
+    Animated.spring(scrubAnim, {
+      toValue: 1,
+      useNativeDriver: false, // height can't use native driver
+      bounciness: 0,
+      speed: 40, // fast enough to feel instant
+    }).start();
+    seekReelToLocationX(activeId, locationX);
+  };
+
+  // Helper — call on release/terminate
+  const onScrubEnd = () => {
+    setIsScrubbing(false);
+    scrubbingReelIdRef.current = null;
+    Animated.spring(scrubAnim, {
+      toValue: 0,
+      useNativeDriver: false,
+      bounciness: 0,
+      speed: 20,
+    }).start();
+  };
+
+  // Derived animated values
+  const trackHeight = scrubAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [3, 8],
+  });
+  const trackOpacity = scrubAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 1],
+  });
+  const thumbOpacity = scrubAnim; // 0 → 1 directly
+  const thumbScale = scrubAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 1],
+  });
+
   const options = ["I don't like this post", "I've already seen this", "It's inappropriate", "Other"];
 
   // Reanimated animated style for the video container (pinch zoom)
@@ -196,7 +252,7 @@ export default function FlipsScreen() {
   useEffect(() => {
     pinchScale.value = 1;
     savedScale.value = 1;
-  }, [currentIndex]);
+  }, [currentIndex, pinchScale, savedScale]);
 
   const fetchAllReels = useCallback(async paramReel => {
     try {
@@ -542,12 +598,17 @@ export default function FlipsScreen() {
     },
     [getDurationSecForReel, windowWidth],
   );
+  const togglePlaybackSpeed = useCallback((id) => {
+    setPlaybackRate((prev) => {
+      const current = prev[id] ?? 1;
 
-  const togglePlaybackSpeed = useCallback(id => {
-    setPlaybackRate(prev => {
-      const cur = prev[id] ?? 1;
-      const next = cur >= 1 ? 0.5 : 1;
-      return { ...prev, [id]: next };
+      const currentIndex = SPEED_STEPS.indexOf(current);
+      const nextIndex = (currentIndex + 1) % SPEED_STEPS.length;
+
+      return {
+        ...prev,
+        [id]: SPEED_STEPS[nextIndex],
+      };
     });
   }, []);
 
@@ -766,7 +827,9 @@ export default function FlipsScreen() {
             onPress={() => togglePlaybackSpeed(item.id)}
             accessibilityLabel="Toggle playback speed"
           >
-            <Text style={styles.speedBadge}>{(playbackRate[item.id] ?? 1) >= 1 ? '1×' : '0.5×'}</Text>
+            <Text style={styles.speedBadge}>
+              {(playbackRate[item.id] ?? 1) + '×'}
+            </Text>
             <Text style={styles.actionLabel}>Speed</Text>
           </TouchableOpacity>
 
@@ -880,79 +943,95 @@ export default function FlipsScreen() {
         </View>
 
         {/* Single overlay for the active reel — always above video + header safe zone; avoids removeClippedSubviews clipping */}
-        {reels.length > 0 && reels[currentIndex]?.id ? (
-          (() => {
-            const activeId = reels[currentIndex].id;
-            const durSec = getDurationSecForReel(activeId);
-            const cur = videoProgress[activeId] ?? 0;
-            const fillRatio = Math.min(1, Math.max(0, cur / durSec));
-            return (
+        {reels.length > 0 && reels[currentIndex]?.id ? (() => {
+          const activeId = reels[currentIndex].id;
+          const durSec = getDurationSecForReel(activeId);
+          const cur = videoProgress[activeId] ?? 0;
+          const fillRatio = Math.min(1, Math.max(0, cur / durSec));
+          const scrubGesture = Gesture.Pan()
+            .minDistance(0)
+            .shouldCancelWhenOutside(false)
+            .onBegin(e => {
+              runOnJS(onScrubStart)(activeId, e.x);
+            })
+            .onUpdate(e => {
+              runOnJS(seekReelToLocationX)(activeId, e.x);
+            })
+            .onFinalize(() => {
+              runOnJS(onScrubEnd)();
+            });
+
+          return (
+            <GestureDetector gesture={scrubGesture}>
               <View
                 style={[
                   styles.progressHitArea,
                   styles.progressScreenOverlay,
                   {
                     top: insets.top + FLIPS_PROGRESS_TOP_GAP,
-                    /** Full window width — SafeAreaView only insets left/right */
                     left: -insets.left,
                     width: windowWidth,
+                    height: 40,
+                    justifyContent: 'center',
                   },
                 ]}
                 collapsable={false}
-                onLayout={e => {
-                  progressBarWidthRef.current = e.nativeEvent.layout.width;
-                }}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={e => {
-                  setIsScrubbing(true); // 👈 ADD THIS
-                  scrubbingReelIdRef.current = activeId;
-                  seekReelToLocationX(activeId, e.nativeEvent.locationX);
-                }}
-                onResponderMove={e => {
-                  if (scrubbingReelIdRef.current === activeId) {
-                    seekReelToLocationX(activeId, e.nativeEvent.locationX);
-                  }
-                }}
-                onResponderRelease={() => {
-                  setIsScrubbing(false); // 👈 ADD THIS
-                  scrubbingReelIdRef.current = null;
-                }}
-                onResponderTerminate={() => {
-                  setIsScrubbing(false);
-                  scrubbingReelIdRef.current = null;
-                }}
+                pointerEvents="box-only"
+                onLayout={e => { progressBarWidthRef.current = e.nativeEvent.layout.width; }}
               >
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${fillRatio * 100}%`,
-                        minWidth: fillRatio > 0.003 ? 6 : 0,
-                      },
-                    ]}
+                {/* Track */}
+                <Animated.View
+                  style={{
+                    height: trackHeight,
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    borderRadius: 4,
+                    overflow: 'visible',
+                  }}
+                >
+                  {/* Fill */}
+                  <Animated.View
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${fillRatio * 100}%`,
+                      minWidth: fillRatio > 0.003 ? 6 : 0,
+                      backgroundColor: '#fff',
+                      borderRadius: 4,
+                      opacity: trackOpacity,
+                    }}
                   />
 
-                  {isScrubbing && (
-                    <View
-                      style={{
-                        position: 'absolute',
-                        left: `${fillRatio * 100}%`,
-                        transform: [{ translateX: -6 }],
-                        top: -3,
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: '#fff',
-                      }}
-                    />
-                  )}
-                </View>
+                  {/* Thumb — animated, not conditional */}
+                  <Animated.View
+                    style={{
+                      position: 'absolute',
+                      left: `${fillRatio * 100}%`,
+                      top: '50%',
+                      width: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      backgroundColor: '#fff',
+                      opacity: thumbOpacity,
+                      transform: [
+                        { translateX: -8 },
+                        { translateY: -8 },
+                        { scale: thumbScale },
+                      ],
+                      // Subtle shadow for visibility on bright frames
+                      shadowColor: '#000',
+                      shadowOpacity: 0.3,
+                      shadowRadius: 4,
+                      shadowOffset: { width: 0, height: 1 },
+                      elevation: 3,
+                    }}
+                  />
+                </Animated.View>
               </View>
-            );
-          })()
-        ) : null}
+            </GestureDetector>
+          );
+        })() : null}
 
         <FlatList
           ref={flatListRef}
@@ -980,7 +1059,7 @@ export default function FlipsScreen() {
           getItemLayout={(_, index) => ({ length: viewportHeight, offset: viewportHeight * index, index })}
           overScrollMode="never"
           bounces={false}
-          scrollEnabled={reels.length > 0}
+          scrollEnabled={reels.length > 0 && !isScrubbing}
           removeClippedSubviews={false}
           extraData={{ viewportHeight, videoProgress, playbackRate, paused, currentIndex }}
         />
@@ -1105,7 +1184,7 @@ export default function FlipsScreen() {
         <SupportCreatorModal visible={modalVisible} creatorName={currentReel?.user || 'Creator'} onClose={() => setModalVisible(false)} onSupport={handleOpenSupportDisclaimer} />
         <SupportCreatorModal visible={supportDisclaimerVisible} creatorName={currentReel?.user || 'Creator'} variant="disclaimer" onClose={() => setSupportDisclaimerVisible(false)} onSupport={handleSupportNow} />
       </SafeAreaView>
-    </GestureHandlerRootView>
+    </GestureHandlerRootView >
   );
 }
 
