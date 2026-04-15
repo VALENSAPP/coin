@@ -74,7 +74,7 @@ const formatDisplayDate = value => {
 export default function OpenBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
- 
+
 
   const toast = useToast();
   const { bgStyle, text, card } = useAppTheme();
@@ -538,7 +538,7 @@ export default function OpenBattleScreen() {
       // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
-        .map(opt => ({ image: opt.image }));
+        .map(opt => (opt.image));
     }
 
     if (isHeadToHead) {
@@ -550,7 +550,7 @@ export default function OpenBattleScreen() {
       // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
-        .map(opt => ({ image: opt.image }));
+        .map(opt => (opt.image));
     }
 
     if (form.stake !== '' && !Number.isNaN(Number(form.stake))) {
@@ -558,10 +558,10 @@ export default function OpenBattleScreen() {
     }
 
     setSubmitting(true);
-
+    console.log('Submitting battle with payload:', payload);
     try {
       const response = await createBattle(payload);
-
+      console.log('Received response:', response);
       if (
         (response?.statusCode >= 200 && response?.statusCode < 300) ||
         response?.success ||
@@ -1174,9 +1174,9 @@ export default function OpenBattleScreen() {
               paddingTop: 8,
             }, { backgroundColor: card }],
           }}
-          onClose={() => {}}
+          onClose={() => { }}
         >
-          
+
           <View style={styles.imagePickerHeader}>
             <Text style={[styles.imagePickerTitle, { color: text }]}>
               Add Image

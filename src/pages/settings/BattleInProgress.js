@@ -519,6 +519,9 @@ const normalizeBattle = (raw, currentUserId = '') => {
       raw?.predictionCounts && typeof raw.predictionCounts === 'object'
         ? raw.predictionCounts
         : {},
+    optionImages: Array.isArray(raw?.optionImages)
+      ? raw.optionImages.filter(Boolean)
+      : [],
     comments,
   };
 };
@@ -1562,7 +1565,8 @@ export default function BattleInProgress() {
 
               <View style={styles.optionList}>
                 {(availableOptions.length ? availableOptions : battle.options).map(
-                  option => {
+                  (option, index) => {
+                    const optionImage = battle.optionImages?.[index];
                     const optionSide = String(
                       pickFirst(option?.side, option?.label, ''),
                     );
@@ -1585,17 +1589,44 @@ export default function BattleInProgress() {
                         ]}
                         onPress={() => setSelectedOption(option.label)}
                       >
-                        <View style={styles.optionTopRow}>
-                          <Text
-                            style={[
-                              styles.optionLabel,
-                              textStyle,
-                              isSelected && styles.optionLabelSelected,
-                              isSelected && { color: palette.primary },
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
+                        <View style={styles.optionBadgeWrapper}>
+                          {optionImage || option.image ? (
+                            <View style={styles.optionImageWrapper}>
+                              <Image
+                                source={{ uri: optionImage || option.image }}
+                                style={styles.optionImage}
+                              />
+                            </View>
+                          ) : (
+                            <View style={styles.addImagePlaceholder}>
+                              <Ionicons name="image-outline" size={20} color="#9CA3AF" />
+                            </View>
+                          )}
+                          <View style={styles.optionBadgeInfo}>
+                            <View style={styles.optionNameBadgeRow}>
+                              <Text
+                                style={[
+                                  styles.optionPreviewName,
+                                  textStyle,
+                                  isSelected && styles.optionLabelSelected,
+                                  isSelected && { color: palette.primary },
+                                ]}
+                                numberOfLines={2}
+                              >
+                                {option.label}
+                              </Text>
+                            </View>
+                            {/* <View style={styles.optionMetaRow}>
+                              <Text style={styles.optionMeta}>
+                                {option.votes} votes
+                              </Text>
+                              <Text style={styles.optionMeta}>
+                                {option.percentage ? `${option.percentage}%` : 'Open'}
+                              </Text>
+                            </View> */}
+                          </View>
+                        </View>
+                        <View style={styles.optionPreviewRight}>
                           <View
                             style={[
                               styles.radioDot,
@@ -1608,17 +1639,6 @@ export default function BattleInProgress() {
                             ]}
                           />
                         </View>
-                        {/* <View style={styles.optionMetaRow}>
-                        <Text style={styles.optionMeta}>
-                          {option.votes} votes
-                        </Text>
-                        <Text style={styles.optionMeta}>
-                          {option.likes} likes
-                        </Text>
-                        <Text style={styles.optionMeta}>
-                          {option.percentage ? `${option.percentage}%` : 'Open'}
-                        </Text>
-                      </View> */}
                       </TouchableOpacity>
                     );
                   },
@@ -1972,21 +1992,9 @@ const styles = StyleSheet.create({
   optionList: {
     gap: 10,
   },
-  optionCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-  },
   optionCardSelected: {
     borderColor: '#7C3AED',
     backgroundColor: '#F5F3FF',
-  },
-  optionTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   optionLabel: {
     flex: 1,
@@ -2019,6 +2027,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#6B7280',
+  },
+  optionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  optionBadgeWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  optionImageWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#FAFAFA',
+  },
+  optionImage: {
+    width: '100%',
+    height: '100%',
+  },
+  addImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  optionBadgeInfo: {
+    flex: 1,
+  },
+  optionNameBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  optionPreviewName: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  optionPreviewRight: {
+    alignItems: 'flex-end',
   },
   argumentInput: {
     minHeight: 90,
