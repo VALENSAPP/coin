@@ -26,8 +26,10 @@ import { createBattle } from '../../services/battle';
 import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0'];
+const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0']; // user
+const COMPANY_GRADIENT = ['#D3B683', '#D3B683'];   // company
 const BORDER = '#D1D5DB';
 const SOFT = '#EEF2FF';
 const MUTED = '#6B7280';
@@ -74,6 +76,7 @@ const formatDisplayDate = value => {
 export default function OpenBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const [profileType, setProfileType] = useState('user');
 
 
   const toast = useToast();
@@ -97,6 +100,24 @@ export default function OpenBattleScreen() {
     () => getFilledOptions(form.options),
     [form.options],
   );
+  useEffect(() => {
+  const loadProfile = async () => {
+    try {
+      const profile = await AsyncStorage.getItem('profile');
+      if (profile) {
+        setProfileType(profile);
+      }
+    } catch (e) {
+      console.log('Error loading profile', e);
+    }
+  };
+
+  loadProfile();
+}, []);
+const gradientColors =
+  profileType === 'company'
+    ? COMPANY_GRADIENT
+    : PRIMARY_GRADIENT;
   const lockedOpponentChoice = useMemo(() => {
     if (filledOptions.length < 2 || !form.creatorChoice) {
       return '';
@@ -682,7 +703,7 @@ export default function OpenBattleScreen() {
                 const Wrapper = isSelected ? LinearGradient : View;
                 const wrapperProps = isSelected
                   ? {
-                    colors: PRIMARY_GRADIENT,
+                    colors: gradientColors,
                     start: { x: 0, y: 0 },
                     end: { x: 1, y: 0 },
                   }
@@ -738,7 +759,7 @@ export default function OpenBattleScreen() {
                 const Wrapper = isSelected ? LinearGradient : View;
                 const wrapperProps = isSelected
                   ? {
-                    colors: PRIMARY_GRADIENT,
+                    colors: gradientColors,
                     start: { x: 0, y: 0 },
                     end: { x: 1, y: 0 },
                   }
@@ -1151,7 +1172,7 @@ export default function OpenBattleScreen() {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={PRIMARY_GRADIENT}
+              colors={gradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.createBtn}

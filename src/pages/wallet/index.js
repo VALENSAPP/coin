@@ -945,7 +945,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const cardContent = (
       <LinearGradient
         colors={walletScreenGradient}
-        start={{ x: 0, y: 0 }}
+        start={{ x: -2, y: -2 }}
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
@@ -956,11 +956,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
       >
         <View style={styles.kpiHeader}>
           <Ionicons name={item.icon} size={24} color={item.color} />
-          <Text style={[styles.kpiTitle, { color: kpiTitleColor }]} numberOfLines={2}>
+          <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
             {item.title}
           </Text>
         </View>
-        <Text style={[styles.kpiValue, { color: kpiValueColor }]} numberOfLines={2}>
+        <Text style={[styles.kpiValue, { color: text }]} numberOfLines={2}>
           {item.value}
         </Text>
         {isMetaMaskCard ? (
@@ -1084,7 +1084,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         <View style={styles.header}>
           <LinearGradient
             colors={walletScreenGradient}
-            start={{ x: 0, y: 0 }}
+            start={{ x: -1, y: -1}}
             end={{ x: 1, y: 1 }}
             style={styles.headerCard}
           >
@@ -1102,7 +1102,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 <Text
                   style={[
                     styles.headerName,
-                    isBusinessProfile ? { color: '#2a1b3d' } : { color: '#fef3c7' },
+                    { color: text },
                   ]}
                   numberOfLines={1}
                 >
@@ -1149,7 +1149,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </Text>
           <LinearGradient
             colors={walletScreenGradient}
-            start={{ x: 0, y: 0 }}
+            start={{ x: -2, y: -2 }}
             end={{ x: 1, y: 1 }}
             style={styles.pointsCard}
           >
@@ -1158,9 +1158,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.pointsLabel,
-                isBusinessProfile
-                  ? { color: 'rgba(42,27,61,0.75)' }
-                  : { color: 'rgba(255,255,255,0.92)' },
+                { color: text },
               ]}
             >
               Total Platform Points
@@ -1168,7 +1166,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.pointsValue,
-                isBusinessProfile ? { color: '#2a1b3d' } : { color: '#fff' },
+                {color: text },
               ]}
             >
               {formatPointValue(rewardSummary.totalPlatformPoints)}
@@ -1805,7 +1803,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 6,
     alignSelf: 'stretch',
-    minHeight: 132,
+    minHeight: 80,
     justifyContent: 'flex-start',
   },
   kpiCardNoOuterSpacing: {
@@ -1847,15 +1845,18 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 2,
-    padding: 16
+    paddingBottom: 16,
+    paddingLeft: 16,
+    paddingTop: 10
   },
   kpiMetaSingleLine: {
-    marginTop: 6,
+    marginTop: -10,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 14,
     opacity: 0.95,
-    padding: 16
+    paddingLeft: 8,
+    paddingBottom: 8,
   },
   kpiMetaConnected: {
     color: '#16a34a',
