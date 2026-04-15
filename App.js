@@ -13,38 +13,41 @@ import { WagmiProvider } from 'wagmi';
 import { AppKitProvider } from '@reown/appkit-react-native';
 import { appKit, wagmiAdapter } from './src/config/AppKitConfig';
 import { WalletConnectSupportProvider } from './src/context/WalletConnectSupportContext';
+import { ThemeProvider } from './src/theme/ThemeContext';
 
 const queryClient = new QueryClient();
 
 const App = () => {
   return (
-  <StripeProvider publishableKey="pk_live_51RinJmI6058y7xM226kIAHWD0PyowTEpFBfeQW4b0ndCGyf40mAa30h8QF2mNsjJVufEaCPXyqPO5bb0XsifW6y500MOhQvXoW">
-    <SafeAreaProvider style={styles.container}>
-      <ToastProvider
-        placement="top"
-        duration={3000}
-        animationType="slide-in"
-        offsetTop={10}
-        textStyle={{ fontSize: 16 }}
-        successColor="green"
-        dangerColor="red"
-        warningColor="orange"
-      >
-        <AppKitProvider instance={appKit}>
-          <WagmiProvider config={wagmiAdapter.wagmiConfig}>
-            <QueryClientProvider client={queryClient}>
-              <Provider store={store}>
-                <Loader>
-                  <WalletConnectSupportProvider>
-                    <Main />
-                  </WalletConnectSupportProvider>
-                </Loader>
-              </Provider>
-            </QueryClientProvider>
-          </WagmiProvider>
-        </AppKitProvider>
-      </ToastProvider>
-    </SafeAreaProvider>
+    <StripeProvider publishableKey="pk_live_51RinJmI6058y7xM226kIAHWD0PyowTEpFBfeQW4b0ndCGyf40mAa30h8QF2mNsjJVufEaCPXyqPO5bb0XsifW6y500MOhQvXoW">
+      <SafeAreaProvider style={styles.container}>
+        <ToastProvider
+          placement="top"
+          duration={3000}
+          animationType="slide-in"
+          offsetTop={10}
+          textStyle={{ fontSize: 16 }}
+          successColor="green"
+          dangerColor="red"
+          warningColor="orange"
+        >
+          <AppKitProvider instance={appKit}>
+            <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+              <QueryClientProvider client={queryClient}>
+                <Provider store={store}>
+                  <ThemeProvider>
+                    <Loader>
+                      <WalletConnectSupportProvider>
+                        <Main />
+                      </WalletConnectSupportProvider>
+                    </Loader>
+                  </ThemeProvider>
+                </Provider>
+              </QueryClientProvider>
+            </WagmiProvider>
+          </AppKitProvider>
+        </ToastProvider>
+      </SafeAreaProvider>
     </StripeProvider>
   );
 };

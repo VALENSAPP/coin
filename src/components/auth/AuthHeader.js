@@ -16,8 +16,9 @@ const AuthHeader = ({
   titleSize = 30,
   subtitleSize = 14,
   fromsetAccountType = false,
+  profileType,
 }) => {
-  const { bgStyle, textStyle, bg, text } = useAppTheme();
+  const { bgStyle, textStyle, bg, text } = useAppTheme(profileType);
   return (
     <View style={[styles.headerGradient, { height: headerHeight }, !fromsetAccountType && bgStyle]}>
       <View style={styles.headerContent}>

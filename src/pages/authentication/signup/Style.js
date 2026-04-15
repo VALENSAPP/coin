@@ -7,11 +7,9 @@ const useSignupStyles = () => {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: bg,
     },
     contentContainer: {
       flexGrow: 1,
-      backgroundColor: bg,
     },
 
     // Form wrapper styles
@@ -136,7 +134,6 @@ const useSignupStyles = () => {
       // shadowOpacity: 0.3,
       // shadowRadius: 8,
       // elevation: 6,
-      backgroundColor: '#5a2d82',
       marginBottom: 24,
     },
     signupButtonText: {
@@ -231,7 +228,6 @@ const useSignupStyles = () => {
     },
     loginLink: {
       fontWeight: '700',
-      color: '#5a2d82'
     },
     socialButtonsContainer: {
       flexDirection: 'row',
@@ -291,7 +287,6 @@ const useSignupStyles = () => {
       fontSize: 18,
       fontWeight: '600',
       textAlign: 'center',
-      color: text,
     },
     checkboxContainer: {
       flexDirection: 'row',
