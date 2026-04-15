@@ -879,7 +879,7 @@ const Settings = () => {
               onPress={confirmRemoveAccountFromDevice}
               disabled={switchInFlight}
             >
-              <Text style={switcherStyles.addBtnText}>From this device</Text>
+              <Text style={switcherStyles.addBtnText}>Logout</Text>
             </TouchableOpacity>
             {/* <TouchableOpacity
               style={[switcherStyles.dangerBtn, switcherStyles.choiceBtnSpacing]}

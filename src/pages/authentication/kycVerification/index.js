@@ -32,6 +32,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { EditProfile } from '../../../services/createProfile';
 import { loggedIn } from '../../../redux/actions/LoginAction';
+import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 import { setIsAddAccount } from '../../../redux/actions/AddAccountAction';
 
@@ -46,9 +47,15 @@ const DOCUMENT_TYPES = [
 export default function KYCVerification({ route }) {
     const profileData = route?.params?.profileData ?? null;
     const serverProfile = route?.params?.serverProfile ?? null;
+    const profileFromRoute = route?.params?.profile || profileData?.profile || serverProfile?.profile || 'user';
     const navigation = useNavigation();
-    const toast = useToast();
     const dispatch = useDispatch();
+
+    useEffect(() => {
+        // Update Redux with selected profile so theme context picks it up for loader
+        dispatch(setUserProfile(profileFromRoute));
+    }, [profileFromRoute, dispatch]);
+    const toast = useToast();
     const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
 
     const [firstName, setFirstName] = useState('');
@@ -76,7 +83,7 @@ export default function KYCVerification({ route }) {
     const percentUpdateInterval = useRef(null);
     const shouldReturnAfterStatusCheckRef = useRef(false);
 
-    const { bgStyle, textStyle } = useAppTheme();
+    const { bgStyle, textStyle } = useAppTheme(profileFromRoute);
 
     // Monitor app state
     // useEffect(() => {
