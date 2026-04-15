@@ -36,7 +36,7 @@ const createStyles = () => {
         },
         contentContainer: {
             flex: 1,
-            paddingTop: 30,
+            ppaddingTop: Platform.OS === 'ios' ? 0 : 30,
             zIndex: 1,
         },
         header: {

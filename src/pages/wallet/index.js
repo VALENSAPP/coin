@@ -1353,6 +1353,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingVertical: 14,
+    marginBottom: -12
   },
   headerCard: {
     borderRadius: 20,
@@ -1371,6 +1372,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingBottom: 40,
+    paddingTop: 10
   },
   headerAvatarWrap: {
     width: 76,
@@ -1410,7 +1413,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 20,
     marginBottom: 24,
-    marginTop: Platform.OS == "ios" ? 20 : 0
   },
   sectionTitle: {
     fontSize: 20,
@@ -1591,11 +1593,8 @@ const styles = StyleSheet.create({
   },
   pointsCard: {
     borderRadius: 24,
-    padding: 18,
+    padding: 2,
     overflow: 'hidden',
-    shadowColor: '#16091f',
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
     elevation: 6,
   },
   pointsGlow: {
@@ -1608,16 +1607,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
 
-  pointsHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-
-  pointsProfileText: {
-    flex: 1,
-  },
   pointsOverline: {
     fontSize: 12,
     color: '#ddd6fe',
@@ -1646,13 +1635,16 @@ const styles = StyleSheet.create({
   pointsLabel: {
     fontSize: 13,
     color: '#e9d5ff',
-    marginBottom: 8,
+    marginBottom: 4,
     fontWeight: '500',
+    paddingHorizontal: 16,
+    marginTop: 16
   },
   pointsValue: {
     fontSize: 40,
     fontWeight: '800',
     color: '#fff',
+    paddingHorizontal: 16,
   },
   pointsSubtext: {
     marginTop: 6,
@@ -1666,6 +1658,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     marginTop: 4,
+    paddingHorizontal: 16,
+    marginBottom: 16
   },
   pointsBreakdownCard: {
     flex: 1,
@@ -1708,7 +1702,7 @@ const styles = StyleSheet.create({
   // KPI Cards
   kpiCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: 2,
     marginBottom: 12,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
@@ -1745,7 +1739,8 @@ const styles = StyleSheet.create({
   kpiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingTop: 16,
+    paddingHorizontal: 16
   },
   kpiTitle: {
     fontSize: 13,
@@ -1758,6 +1753,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 2,
+    padding: 16
   },
   kpiMetaSingleLine: {
     marginTop: 6,
@@ -1765,6 +1761,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 14,
     opacity: 0.95,
+    padding: 16
   },
   kpiMetaConnected: {
     color: '#16a34a',
