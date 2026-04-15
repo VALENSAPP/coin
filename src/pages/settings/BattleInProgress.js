@@ -30,6 +30,7 @@ import {
   replyCommentBattle,
   voteBattle,
 } from '../../services/battle';
+import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 
@@ -591,6 +592,7 @@ export default function BattleInProgress() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
+  const [participantUserData, setParticipantUserData] = useState({});
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -771,6 +773,60 @@ export default function BattleInProgress() {
       setSelectedOption(routeSelectedOption);
     }
   }, [route?.params?.selectedOption]);
+
+  // Fetch user credentials for participants
+  useEffect(() => {
+    const fetchParticipantData = async () => {
+      if (!Array.isArray(battle.participants) || battle.participants.length < 2) {
+        return;
+      }
+
+      try {
+        const participant0 = battle.participants[0];
+        const participant1 = battle.participants[1];
+
+        const [res0, res1] = await Promise.all([
+          getUserCredentials(participant0?.userId),
+          getUserCredentials(participant1?.userId),
+        ]);
+
+        const userData0 = res0?.statusCode === 200 
+          ? (res0.data?.user || res0.data || {})
+          : {};
+        const userData1 = res1?.statusCode === 200 
+          ? (res1.data?.user || res1.data || {})
+          : {};
+
+        // Format image URLs
+        const formatImageUrl = (image) => {
+          if (!image) return '';
+          let url = String(image).trim();
+          if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+          } else if (url.startsWith('/')) {
+            return `http://35.174.167.92:3002${url}`;
+          } else {
+            return `http://35.174.167.92:3002/${url}`;
+          }
+        };
+
+        setParticipantUserData({
+          [participant0?.userId]: {
+            name: userData0?.displayName || userData0?.name || 'User',
+            image: formatImageUrl(userData0?.image),
+          },
+          [participant1?.userId]: {
+            name: userData1?.displayName || userData1?.name || 'User',
+            image: formatImageUrl(userData1?.image),
+          },
+        });
+      } catch (error) {
+        console.error('Error fetching participant credentials:', error);
+      }
+    };
+
+    fetchParticipantData();
+  }, [battle.participants]);
 
   useEffect(() => {
     if (userVotedSelection.optionId) {
@@ -1474,84 +1530,91 @@ export default function BattleInProgress() {
                     </Text>
                   </View>
 
-                  {isHeadToHead && (
+                  {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
                     <View style={styles.duelRow}>
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() => {
-                          if (currentUserId === battle.creatorId) {
-                            navigation.navigate('ProfileMain', { screen: 'Profile' });
-                          } else {
-                            const currentRoute = route?.name || 'BattleInProgress';
-                            navigation.navigate('HomeMain', {
-                              screen: 'UsersProfile',
-                              params: {
-                                userId: battle.creatorId,
-                                returnTo: currentRoute,
-                              },
-                            });
-                          }
-                        }}
-                      >
-                        <View style={styles.duelPlayerCard}>
-                          <View style={styles.playerImageContainer}>
-                            <HexagonImage
-                              uri={battle.creator.avatar}
-                              size={80}
-                              borderColor="rgba(255,255,255,0.4)"
-                            />
-                          </View>
-                          <Text style={styles.playerNameBold}>{battle.creator.name}</Text>
-                          {!!battle.creatorChoice && (
-                            <Text style={styles.battlePointsText}>
-                              +1840 Battle Points
-                            </Text>
-                          )}
-                          <View style={styles.votesContainer}>
-                            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
-                            <Text style={styles.votesCountText}>0 Votes</Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
+                      {(() => {
+                        const participant0 = battle.participants[0];
+                        const participant1 = battle.participants[1];
+                        
+                        const player0Data = participantUserData[participant0?.userId] || {};
+                        const player1Data = participantUserData[participant1?.userId] || {};
 
-                      <View style={styles.duelVsWrap}>
-                        <Text style={styles.duelVsText}>VS</Text>
-                      </View>
+                        return (
+                          <>
+                            <TouchableOpacity
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                if (currentUserId === participant0?.userId) {
+                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                } else {
+                                  const currentRoute = route?.name || 'BattleInProgress';
+                                  navigation.navigate('HomeMain', {
+                                    screen: 'UsersProfile',
+                                    params: {
+                                      userId: participant0?.userId,
+                                      returnTo: currentRoute,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              <View style={styles.duelPlayerCard}>
+                                <View style={styles.playerImageContainer}>
+                                  <HexagonImage
+                                    uri={player0Data?.image}
+                                    size={80}
+                                    borderColor="rgba(255,255,255,0.4)"
+                                  />
+                                </View>
+                                <Text style={styles.playerNameBold}>{player0Data?.name}</Text>
+                                <Text style={styles.playerNameBold}>({participant0?.side})</Text>
+                                <View style={styles.votesContainer}>
+                                  <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                                  <Text style={styles.votesCountText}>{participant0?.score || 0} Points</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
 
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() => {
-                          console.log('Opponent profile press - userId:', battle.id, 'currentUserId:', currentUserId);
-                          // if (currentUserId === battle.id) {
-                          //   navigation.navigate('ProfileMain', { screen: 'Profile' });
-                          // } else {
-                          //   const currentRoute = route?.name || 'BattleInProgress';
-                          //   navigation.navigate('HomeMain', {
-                          //     screen: 'UsersProfile',
-                          //     params: {
-                          //       userId: battle.id,
-                          //       returnTo: currentRoute,
-                          //     },
-                          //   });
-                          // }
-                        }}
-                      >
-                        <View style={styles.duelPlayerCard}>
-                          <View style={styles.playerImageContainer}>
-                            <HexagonImage
-                              uri={battle.invitedUser.avatar}
-                              size={80}
-                              borderColor="rgba(255,255,255,0.4)"
-                            />
-                          </View>
-                          <Text style={styles.playerNameBold}>Opponent</Text>
-                          <Text style={styles.playerNameBold}>???</Text>
-                          <View style={styles.votesContainer}>
-                            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
-                            <Text style={styles.votesCountText}>0 Votes</Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
+                            <View style={styles.duelVsWrap}>
+                              <Text style={styles.duelVsText}>VS</Text>
+                            </View>
+
+                            <TouchableOpacity
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                if (currentUserId === participant1?.userId) {
+                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                } else {
+                                  const currentRoute = route?.name || 'BattleInProgress';
+                                  navigation.navigate('HomeMain', {
+                                    screen: 'UsersProfile',
+                                    params: {
+                                      userId: participant1?.userId,
+                                      returnTo: currentRoute,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              <View style={styles.duelPlayerCard}>
+                                <View style={styles.playerImageContainer}>
+                                  <HexagonImage
+                                    uri={player1Data?.image}
+                                    size={80}
+                                    borderColor="rgba(255,255,255,0.4)"
+                                  />
+                                </View>
+                                <Text style={styles.playerNameBold}>{player1Data?.name}</Text>
+                                <Text style={styles.playerNameBold}>({participant1?.side})</Text>
+                                <View style={styles.votesContainer}>
+                                  <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                                  <Text style={styles.votesCountText}>{participant1?.score || 0} Points</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          </>
+                        );
+                      })()}
                     </View>
                   )}
                 </LinearGradient>
