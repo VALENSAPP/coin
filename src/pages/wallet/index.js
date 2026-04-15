@@ -25,7 +25,7 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -46,11 +46,68 @@ const DEFAULT_REWARD_POINTS = {
   used: 0,
 };
 
+/** UI label -> API `range` query (Swagger: daily | weekly). */
+const FOLLOWERS_RANGE_BY_PERIOD = {
+  Daily: 'daily',
+  Weekly: 'weekly',
+};
+
+/** Map `user/followers-graph` response into LineChart points `{ timestamp, value }`. */
+const mapFollowersGraphResponse = (response) => {
+  const root = response?.data?.data ?? response?.data ?? response;
+  const raw = Array.isArray(root?.points)
+    ? root.points
+    : Array.isArray(root)
+      ? root
+      : root?.graph ??
+        root?.history ??
+        root?.series ??
+        root?.items ??
+        (Array.isArray(root?.data) ? root.data : null);
+
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [];
+  }
+
+  return raw
+    .map((item, index) => {
+      const dateStr =
+        item?.date ??
+        item?.label ??
+        item?.day ??
+        item?.time ??
+        item?.createdAt;
+      const val = Number(
+        item?.followers ??
+          item?.followerCount ??
+          item?.count ??
+          item?.newFollowers ??
+          item?.total ??
+          item?.value ??
+          0,
+      );
+      let ts;
+      if (dateStr != null && String(dateStr).length > 0) {
+        ts = new Date(dateStr).getTime();
+      } else if (typeof item?.timestamp === 'number') {
+        ts = item.timestamp;
+      } else {
+        ts = Date.now() - (raw.length - 1 - index) * 86400000;
+      }
+      return {
+        timestamp: ts,
+        value: Number.isFinite(val) ? val : 0,
+      };
+    })
+    .filter((p) => !isNaN(p.timestamp) && Number.isFinite(p.value))
+    .sort((a, b) => a.timestamp - b.timestamp);
+};
+
 export const WalletDashboardScreen = ({ navigation }) => {
-  const [activityPeriod, setActivityPeriod] = useState('Weekly');
+  const [activityPeriod, setActivityPeriod] = useState('Weekly'); // Daily | Weekly (matches API range)
   const [walletTransactions, setWalletTransactions] = useState(0);
   const [selectedPrice, setSelectedPrice] = useState(0);
-  const [priceHistory, setPriceHistory] = useState(0);
+  const [priceHistory, setPriceHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [recentActivities, setRecentActivities] = useState(0);
   const [topCreators, setTopCreators] = useState([]);
@@ -356,6 +413,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         getUserDetail(),
         loadProfileType(),
         // fetchDashboardData(),
+        getGraph(),
         fetchCreditsLeft(),
         rewardPoints(),
         fetchFollowers(),
@@ -533,6 +591,36 @@ export const WalletDashboardScreen = ({ navigation }) => {
       console.error('Error in fetchCreditsLeft:', error);
     }
   };
+  const getGraph = useCallback(async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.log('User ID not found for followers graph');
+        setPriceHistory([]);
+        setSelectedPrice(0);
+        return;
+      }
+      const range =
+        FOLLOWERS_RANGE_BY_PERIOD[activityPeriod] ?? 'weekly';
+      const response = await getTotalFollowers({ userId, range });
+      const points = mapFollowersGraphResponse(response);
+      if (points.length > 0) {
+        setPriceHistory(points);
+        setSelectedPrice(points[points.length - 1].value);
+      } else {
+        setPriceHistory([]);
+        setSelectedPrice(0);
+      }
+    } catch (error) {
+      console.error('error in graph api', error);
+      setPriceHistory([]);
+      setSelectedPrice(0);
+    }
+  }, [activityPeriod]);
+
+  useEffect(() => {
+    getGraph();
+  }, [getGraph]);
 
   //   const fetchActivityOverview = async () => {
   //   const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
@@ -1146,7 +1234,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.periodSelector}>
-            {['Weekly', 'Monthly', 'Yearly'].map((period) => (
+            {['Daily', 'Weekly'].map((period) => (
               <TouchableOpacity
                 key={period}
                 style={[
@@ -1169,8 +1257,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
           {/* Chart with LineGraph */}
           <View style={[styles.chartContainer, { shadowColor: text }]}>
-            <Text style={[styles.chartPrice, textStyle]}>${selectedPrice.toFixed(2)}</Text>
-            <Text style={styles.chartLabel}>Portfolio Value</Text>
+            <Text style={[styles.chartPrice, textStyle]}>
+              {Number.isFinite(Number(selectedPrice))
+                ? Math.round(Number(selectedPrice)).toLocaleString()
+                : '0'}
+            </Text>
+            <Text style={styles.chartLabel}>Followers</Text>
 
             {priceHistory.length > 0 ? (
               <LineChart.Provider data={priceHistory}>
@@ -1188,7 +1280,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
                         return (
                           <View style={[styles.tooltipContainer, { backgroundColor: text }]}>
                             <Text style={styles.tooltipText}>
-                              ${value?.toFixed(2)}
+                              {Number.isFinite(Number(value))
+                                ? Math.round(Number(value)).toLocaleString()
+                                : '—'}
                             </Text>
                           </View>
                         );

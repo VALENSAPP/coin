@@ -91,3 +91,6 @@ export const metaMaskRecived = async (data) => {
 export const totalPoints = async (data) => {
   return axiosInstance.get('user/totalplatfrompoints', data);
 }
+export const getTotalFollowers = async (params) => {
+  return axiosInstance.get('user/followers-graph', { params });
+}
