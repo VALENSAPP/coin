@@ -1,5 +1,5 @@
 // src/navigations/MainStack.js
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { View, ActivityIndicator, Alert, StyleSheet, Animated, Dimensions, TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../components/displaytoastmessage';
-import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/native';
+import { findFocusedRoute, useNavigation, useNavigationState } from '@react-navigation/native';
 
 import LoginScreen from '../pages/authentication/login';
 import SignupScreen from '../pages/authentication/signup';
@@ -133,6 +133,33 @@ const SettingsStackNavigator = () => {
 // Dummy components that will never be rendered (just for drawer menu structure)
 const DummyComponent = () => null;
 
+// Screens where the global drawer should NOT open from a left-edge swipe.
+// Add route `name` values from your stack/tab navigators (e.g. "SelectedPost").
+const SWIPE_DISABLED_SCREENS = [
+  'SelectedPost',
+  'FlipsScreen',
+];
+
+/**
+ * Drawer swipe reads options from descriptors, which do not refresh when only nested
+ * navigators (tabs/stacks) change. Sync swipeEnabled from the actual focused leaf route.
+ */
+const MainAppWithDrawerSwipeSync = (props) => {
+  const navigation = useNavigation();
+  const focusedRouteName = useNavigationState((state) => findFocusedRoute(state)?.name);
+
+  useLayoutEffect(() => {
+    const isSwipeDisabled =
+      focusedRouteName != null && SWIPE_DISABLED_SCREENS.includes(focusedRouteName);
+    navigation.setOptions({
+      swipeEnabled: !isSwipeDisabled,
+      swipeEdgeWidth: isSwipeDisabled ? 0 : 50,
+    });
+  }, [navigation, focusedRouteName]);
+
+  return <MainTabNavigator {...props} />;
+};
+
 // Global Drawer Navigator (wraps everything)
 const GlobalDrawerNavigator = () => {
   const { bgStyle, textStyle, text } = useAppTheme();
@@ -158,14 +185,16 @@ const GlobalDrawerNavigator = () => {
         swipeEdgeWidth: 50,
       }}
     >
-      {/* Main App (Tab Navigator) */}
+      {/* Main App — swipe toggled by MainAppWithDrawerSwipeSync from nested focus */}
       <Drawer.Screen
         name="MainApp"
-        component={MainTabNavigator}
+        component={MainAppWithDrawerSwipeSync}
         options={{
           headerShown: false,
           drawerLabel: 'Home',
-          drawerItemStyle: { display: 'none' }
+          drawerItemStyle: { display: 'none' },
+          swipeEnabled: true,
+          swipeEdgeWidth: 50,
         }}
       />
 

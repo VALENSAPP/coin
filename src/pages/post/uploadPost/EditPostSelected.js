@@ -84,7 +84,7 @@ const colors = [
 ];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IMAGE_SIZE = SCREEN_WIDTH - 32;
+const IMAGE_SIZE = SCREEN_WIDTH ;
 const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 const FLIP_EMOJI_STICKERS = [
@@ -3531,7 +3531,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    // paddingHorizontal: 16,
     paddingBottom: 0,
     zIndex: 1,
     elevation: 1,
