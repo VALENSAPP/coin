@@ -590,6 +590,7 @@ export default function BattleInProgress() {
   const [submittingVote, setSubmittingVote] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
+  const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -632,9 +633,11 @@ export default function BattleInProgress() {
     currentUserId &&
     battle.creatorId &&
     currentUserId === String(battle.creatorId);
-  const hasUserVoted = useMemo(() => {
-    if (!currentUserId) return false;
-    console.log(currentUserId, 'cutren use id ')
+  const userVotedSelection = useMemo(() => {
+    if (!currentUserId) {
+      return { side: '', optionId: '' };
+    }
+
     const matchByUserId = entry =>
       String(
         pickFirst(
@@ -646,12 +649,35 @@ export default function BattleInProgress() {
           '',
         ),
       ) === String(currentUserId);
-    return (
-      (Array.isArray(battle?.participants) && battle.participants.some(matchByUserId)) ||
-      (Array.isArray(battle?.predictions) && battle.predictions.some(matchByUserId)) ||
-      (Array.isArray(battle?.votes) && battle.votes.some(matchByUserId))
-    );
+
+    const allEntries = [
+      ...(Array.isArray(battle?.participants) ? battle.participants : []),
+      ...(Array.isArray(battle?.predictions) ? battle.predictions : []),
+      ...(Array.isArray(battle?.votes) ? battle.votes : []),
+    ];
+
+    const matchedEntry = allEntries.find(matchByUserId);
+    if (!matchedEntry) {
+      return { side: '', optionId: '' };
+    }
+
+    return {
+      side: String(
+        pickFirst(
+          matchedEntry?.side,
+          matchedEntry?.label,
+          matchedEntry?.option,
+          '',
+        ),
+      ),
+      optionId: String(pickFirst(matchedEntry?.optionId, '')),
+    };
   }, [battle?.participants, battle?.predictions, battle?.votes, currentUserId]);
+
+  const hasUserVoted = useMemo(
+    () => Boolean(userVotedSelection.side || userVotedSelection.optionId),
+    [userVotedSelection.optionId, userVotedSelection.side],
+  );
 
   const enforcedOpponentOption = useMemo(() => {
     if (!isHeadToHead || !battle.creatorChoice || battle.options.length < 2) {
@@ -745,6 +771,17 @@ export default function BattleInProgress() {
       setSelectedOption(routeSelectedOption);
     }
   }, [route?.params?.selectedOption]);
+
+  useEffect(() => {
+    if (userVotedSelection.optionId) {
+      setSelectedOption(userVotedSelection.optionId);
+      return;
+    }
+
+    if (userVotedSelection.side) {
+      setSelectedOption(userVotedSelection.side);
+    }
+  }, [userVotedSelection.optionId, userVotedSelection.side]);
 
   const handleOpenReply = useCallback(comment => {
     setReplyingToComment({
@@ -849,6 +886,7 @@ export default function BattleInProgress() {
       }
 
       setArgumentText('');
+      setKeepActiveSelectedStyle(true);
       await fetchBattle(true);
       Alert.alert(
         isPrediction ? 'Prediction submitted' : 'Vote submitted',
@@ -1572,7 +1610,11 @@ export default function BattleInProgress() {
                     );
                     const isSelected =
                       selectedOption === optionSide ||
-                      selectedOption === option.id;
+                      selectedOption === option.id ||
+                      normalizeSideKey(userVotedSelection.side) ===
+                      normalizeSideKey(optionSide) ||
+                      userVotedSelection.optionId === String(option.id);
+                    const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
                     return (
                       <TouchableOpacity
                         key={`${battle.id}-${option.id}`}
@@ -1580,14 +1622,21 @@ export default function BattleInProgress() {
                         activeOpacity={0.88}
                         style={[
                           styles.optionCard,
-                          { borderColor: palette.border, backgroundColor: palette.surface },
+                          !isSelected && {
+                            borderColor: '#D1D5DB',
+                            backgroundColor: '#F9FAFB',
+                          },
                           isSelected && styles.optionCardSelected,
                           isSelected && {
-                            borderColor: palette.primary,
-                            backgroundColor: palette.soft,
+                            borderColor: useVotedGrayStyle ? '#D1D5DB' : palette.primary,
+                            backgroundColor: useVotedGrayStyle ? '#F3F4F6' : palette.soft,
                           },
                         ]}
-                        onPress={() => setSelectedOption(option.label)}
+                        onPress={() => {
+                          if (!hasUserVoted) {
+                            setSelectedOption(option.label);
+                          }
+                        }}
                       >
                         <View style={styles.optionBadgeWrapper}>
                           {optionImage || option.image ? (
@@ -1609,7 +1658,9 @@ export default function BattleInProgress() {
                                   styles.optionPreviewName,
                                   textStyle,
                                   isSelected && styles.optionLabelSelected,
-                                  isSelected && { color: palette.primary },
+                                  isSelected && {
+                                    color: useVotedGrayStyle ? '#9CA3AF' : palette.primary,
+                                  },
                                 ]}
                                 numberOfLines={2}
                               >
@@ -1630,11 +1681,14 @@ export default function BattleInProgress() {
                           <View
                             style={[
                               styles.radioDot,
-                              { borderColor: palette.border, backgroundColor: palette.surface },
+                              !isSelected && {
+                                borderColor: '#D1D5DB',
+                                backgroundColor: '#F3F4F6',
+                              },
                               isSelected && styles.radioDotSelected,
                               isSelected && {
-                                borderColor: palette.primary,
-                                backgroundColor: palette.primary,
+                                borderColor: useVotedGrayStyle ? '#D1D5DB' : palette.primary,
+                                backgroundColor: useVotedGrayStyle ? '#D1D5DB' : palette.primary,
                               },
                             ]}
                           />
@@ -1646,13 +1700,15 @@ export default function BattleInProgress() {
               </View>
 
               <TextInput
-                editable={!hasUserVoted}
-                value={argumentText}
-                onChangeText={setArgumentText}
+                editable
+                value={hasUserVoted ? commentText : argumentText}
+                onChangeText={hasUserVoted ? setCommentText : setArgumentText}
                 placeholder={
-                  isPrediction
-                    ? 'Add your prediction reasoning'
-                    : 'Add your argument'
+                  hasUserVoted
+                    ? 'Write a comment...'
+                    : isPrediction
+                      ? 'Add your prediction reasoning'
+                      : 'Add your argument'
                 }
                 placeholderTextColor="#9CA3AF"
                 multiline
@@ -1666,10 +1722,19 @@ export default function BattleInProgress() {
 
               <TouchableOpacity
                 activeOpacity={0.9}
-                onPress={handleVote}
-                disabled={submittingVote || !argumentText?.trim()}
+                onPress={hasUserVoted ? handlePostComment : handleVote}
+                disabled={
+                  submittingVote ||
+                  (!hasUserVoted && !argumentText?.trim()) ||
+                  (hasUserVoted && !commentText?.trim())
+                }
                 style={{
-                  opacity: submittingVote || !argumentText?.trim() ? 0.5 : 1,
+                  opacity:
+                    submittingVote ||
+                      (!hasUserVoted && !argumentText?.trim()) ||
+                      (hasUserVoted && !commentText?.trim())
+                      ? 0.5
+                      : 1,
                 }}
               >
                 <LinearGradient
@@ -1682,7 +1747,11 @@ export default function BattleInProgress() {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.primaryButtonText}>
-                      {isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
+                      {hasUserVoted
+                        ? 'Add Comment'
+                        : isPrediction
+                          ? 'Submit Prediction'
+                          : 'Vote in Battle'}
                     </Text>
                   )}
                 </LinearGradient>
@@ -1993,8 +2062,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   optionCardSelected: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#F5F3FF',
+    borderColor: '#D1D5DB',
+    backgroundColor: '#fffaf3',
   },
   optionLabel: {
     flex: 1,
@@ -2004,7 +2073,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   optionLabelSelected: {
-    color: '#6D28D9',
+    color: '#d7d3d3',
   },
   radioDot: {
     width: 20,
@@ -2015,8 +2084,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   radioDotSelected: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#7C3AED',
+    borderColor: '#d7d3d3',
+    backgroundColor: '#d7d3d3',
   },
   optionMetaRow: {
     flexDirection: 'row',
