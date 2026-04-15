@@ -62,7 +62,7 @@ const ProfileEditScreen = () => {
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle, text } = useAppTheme();
-  const { openWalletConnect } = useWalletConnectSupport();
+  const { openWalletConnect, isConnected, address } = useWalletConnectSupport();
 
   const genderOptions = [
     { label: 'Male', value: 'MALE', icon: '👨' },
@@ -127,6 +127,14 @@ const ProfileEditScreen = () => {
       }
     }
   }, [userdata]);
+
+  useEffect(() => {
+    if (isConnected && address) {
+      setWallet(address);
+      return;
+    }
+    setWallet('');
+  }, [isConnected, address]);
 
 
   const validateField = (field, value) => {
@@ -421,6 +429,8 @@ const ProfileEditScreen = () => {
     });
   };
 
+  const hasConnectedWallet = Boolean(wallet && String(wallet).trim().length > 0);
+
   const handleGenderSelect = value => {
     console.log(value, 'check value');
     setGender(value);
@@ -617,10 +627,10 @@ const ProfileEditScreen = () => {
           {/* Enhanced Display Name Input */}
           {renderDisplayNameInput()}
 
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer,bgStyle]}>
             <Text style={styles.label}>Username *</Text>
             <TextInput
-              style={[styles.input, errors.username && styles.inputError, styles.inputDisabled]}
+              style={[styles.input, errors.username && styles.inputError, styles.inputDisabled,bgStyle]}
               placeholder="Enter your username"
               value={username}
               onChangeText={handleUsernameChange}
@@ -687,16 +697,46 @@ const ProfileEditScreen = () => {
                 style={[
                   styles.connectWalletBtnInline,
                   { backgroundColor: text, shadowColor: text },
+                  hasConnectedWallet && { opacity: 0.75 },
                 ]}
-                onPress={() => openWalletConnect()}
+                onPress={() => {
+                  if (!hasConnectedWallet) {
+                    openWalletConnect();
+                  }
+                }}
+                disabled={hasConnectedWallet}
                 activeOpacity={0.88}
               >
-                <Text style={styles.connectWalletBtnText}>Connect</Text>
+                <Text style={styles.connectWalletBtnText}>
+                  {hasConnectedWallet ? 'Connected' : 'Connect'}
+                </Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.helperText}>
-              Tap Connect to open your wallet. Address updates after you connect.
-            </Text>
+            {!hasConnectedWallet && (
+              <Text style={styles.helperText}>
+                Tap Connect to open your wallet. Address updates after you connect.
+              </Text>
+            )}
+            <View style={{ marginTop: 12 }} />
+            {hasConnectedWallet && (
+
+              <TouchableOpacity
+                style={[
+                  styles.connectWalletBtnInline,
+                  { backgroundColor: text, shadowColor: text },
+                ]}
+                onPress={() => {
+
+                  openWalletConnect();
+
+                }}
+                activeOpacity={0.88}
+              >
+                <Text style={[styles.connectWalletBtnText, { textAlign: 'center' }]}>
+                  Add new wallet
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Website</Text>
@@ -1097,15 +1137,15 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
 
-linkIcon: {
-  marginRight: 8,
-},
+  linkIcon: {
+    marginRight: 8,
+  },
 
-socialInputField: {
-  flex: 1,
-  paddingVertical: 12,
-  fontSize: 16,
-  color: '#1F2937',
-},
+  socialInputField: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1F2937',
+  },
 
 });

@@ -136,7 +136,7 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="EditProfile"
           component={ProfileEditScreen}
-          options={{ headerShown: true, headerStyle: [bgStyle] }}
+          options={{ headerShown: true, headerStyle: ['#fff'],headerTitle: 'Edit Profile', }}
         />
         <Stack.Screen
           name="PostUpload"

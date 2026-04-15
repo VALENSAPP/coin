@@ -387,26 +387,32 @@ export default function OpenBattleScreen() {
     });
   };
 
-  const updateOption = (index, value) => {
-    setForm(prev => {
-      const options = [...prev.options];
-      options[index] = {
-        ...options[index],
-        text: value,
-      };
-      return {
-        ...prev,
-        options,
-      };
-    });
+ const updateOption = (index, value) => {
+  setForm(prev => {
+    const options = [...prev.options];
+    options[index] = {
+      ...options[index],
+      text: value,
+    };
 
-    setErrors(prev => {
-      const next = { ...prev };
-      delete next.options;
-      return next;
-    });
-  };
+    // ✅ Live duplicate check
+    const texts = options
+      .map(opt => opt.text?.trim().toLowerCase())
+      .filter(Boolean);
 
+    const hasDuplicates = new Set(texts).size !== texts.length;
+
+    setErrors(prevErrors => ({
+      ...prevErrors,
+      options: hasDuplicates ? 'Duplicate options are not allowed' : '',
+    }));
+
+    return {
+      ...prev,
+      options,
+    };
+  });
+};
   const addOption = () => {
     setForm(prev => ({
       ...prev,
@@ -478,46 +484,55 @@ export default function OpenBattleScreen() {
   };
 
   const validate = () => {
-    const nextErrors = {};
-    const question = form.question.trim();
-    const invitedUserId = form.invitedUserId.trim();
-    const options = getFilledOptions(form.options);
+  const nextErrors = {};
+  const question = form.question.trim();
+  const invitedUserId = form.invitedUserId.trim();
 
-    if (!question) {
-      nextErrors.question = 'Question is required';
-    }
+  const options = getFilledOptions(form.options);
 
-    if (isPoll && options.length < 2) {
-      nextErrors.options = 'Please add at least 2 options';
-    }
+  if (!question) {
+    nextErrors.question = 'Question is required';
+  }
 
-    if (!form.endTime) {
-      nextErrors.endTime = 'End time is required';
-    }
+  if (isPoll && options.length < 2) {
+    nextErrors.options = 'Please add at least 2 options';
+  }
 
-    if (form.endTime && new Date(form.endTime) <= new Date()) {
-      nextErrors.endTime = 'End time must be in the future';
-    }
+  // ✅ NEW: Duplicate check
+  const lowerOptions = options.map(opt => opt.toLowerCase());
+  const hasDuplicates = new Set(lowerOptions).size !== lowerOptions.length;
 
-    if (isHeadToHead && !invitedUserId) {
-      nextErrors.invitedUserId = 'Please add the user you want to invite';
-    }
+  if (hasDuplicates) {
+    nextErrors.options = 'Duplicate options are not allowed';
+  }
 
-    if (isHeadToHead && options.length < 2) {
-      nextErrors.options = 'Please add 2 battle sides for head-to-head';
-    }
+  if (!form.endTime) {
+    nextErrors.endTime = 'End time is required';
+  }
 
-    if (isHeadToHead && !form.creatorChoice) {
-      nextErrors.creatorChoice = 'Choose your side first';
-    }
+  if (form.endTime && new Date(form.endTime) <= new Date()) {
+    nextErrors.endTime = 'End time must be in the future';
+  }
 
-    if (form.stake && Number.isNaN(Number(form.stake))) {
-      nextErrors.stake = 'Stake must be a valid number';
-    }
+  if (isHeadToHead && !invitedUserId) {
+    nextErrors.invitedUserId = 'Please add the user you want to invite';
+  }
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
+  if (isHeadToHead && options.length < 2) {
+    nextErrors.options = 'Please add 2 battle sides for head-to-head';
+  }
+
+  if (isHeadToHead && !form.creatorChoice) {
+    nextErrors.creatorChoice = 'Choose your side first';
+  }
+
+  if (form.stake && Number.isNaN(Number(form.stake))) {
+    nextErrors.stake = 'Stake must be a valid number';
+  }
+
+  setErrors(nextErrors);
+  return Object.keys(nextErrors).length === 0;
+};
 
   const handleSubmit = async () => {
     if (!validate()) {
@@ -1467,7 +1482,9 @@ const styles = StyleSheet.create({
     color: ERROR,
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: -2,
+    paddingHorizontal: 8,
+    marginBottom: 6,
   },
   bottomBar: {
     paddingHorizontal: 14,
