@@ -68,6 +68,7 @@ const FLIPS_PROGRESS_TOP_GAP = 0;
 const FLIPS_PROGRESS_STRIP_HEIGHT = 28;
 /** Space between progress strip and Flips header row */
 const FLIPS_HEADER_AFTER_PROGRESS = 8;
+const SPEED_STEPS = [0.5, 1, 1.5, 2];
 
 const musicTemplates = [
   { id: 't1', name: 'Trending Dance Challenge', music: 'Viral Dance Mix 2025', uses: '2.3M', thumbnail: 'https://randomuser.me/api/portraits/women/10.jpg', category: 'Dance' },
@@ -251,7 +252,7 @@ export default function FlipsScreen() {
   useEffect(() => {
     pinchScale.value = 1;
     savedScale.value = 1;
-  }, [currentIndex]);
+  }, [currentIndex, pinchScale, savedScale]);
 
   const fetchAllReels = useCallback(async paramReel => {
     try {
@@ -597,8 +598,6 @@ export default function FlipsScreen() {
     },
     [getDurationSecForReel, windowWidth],
   );
-  const SPEED_STEPS = [0.5, 1, 1.5, 2];
-
   const togglePlaybackSpeed = useCallback((id) => {
     setPlaybackRate((prev) => {
       const current = prev[id] ?? 1;
@@ -949,79 +948,88 @@ export default function FlipsScreen() {
           const durSec = getDurationSecForReel(activeId);
           const cur = videoProgress[activeId] ?? 0;
           const fillRatio = Math.min(1, Math.max(0, cur / durSec));
+          const scrubGesture = Gesture.Pan()
+            .minDistance(0)
+            .shouldCancelWhenOutside(false)
+            .onBegin(e => {
+              runOnJS(onScrubStart)(activeId, e.x);
+            })
+            .onUpdate(e => {
+              runOnJS(seekReelToLocationX)(activeId, e.x);
+            })
+            .onFinalize(() => {
+              runOnJS(onScrubEnd)();
+            });
 
           return (
-            <View
-              style={[
-                styles.progressHitArea,
-                styles.progressScreenOverlay,
-                {
-                  top: insets.top + FLIPS_PROGRESS_TOP_GAP,
-                  left: -insets.left,
-                  width: windowWidth,
-                  height: 40,
-                  justifyContent: 'center',
-                },
-              ]}
-              collapsable={false}
-              onLayout={e => { progressBarWidthRef.current = e.nativeEvent.layout.width; }}
-              onStartShouldSetResponder={() => true}
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={e => onScrubStart(activeId, e.nativeEvent.locationX)}
-              onResponderMove={e => seekReelToLocationX(activeId, e.nativeEvent.locationX)}
-              onResponderRelease={onScrubEnd}
-              onResponderTerminate={onScrubEnd}
-            >
-              {/* Track */}
-              <Animated.View
-                style={{
-                  height: trackHeight,
-                  backgroundColor: 'rgba(255,255,255,0.3)',
-                  borderRadius: 4,
-                  overflow: 'visible',
-                }}
+            <GestureDetector gesture={scrubGesture}>
+              <View
+                style={[
+                  styles.progressHitArea,
+                  styles.progressScreenOverlay,
+                  {
+                    top: insets.top + FLIPS_PROGRESS_TOP_GAP,
+                    left: -insets.left,
+                    width: windowWidth,
+                    height: 40,
+                    justifyContent: 'center',
+                  },
+                ]}
+                collapsable={false}
+                pointerEvents="box-only"
+                onLayout={e => { progressBarWidthRef.current = e.nativeEvent.layout.width; }}
               >
-                {/* Fill */}
+                {/* Track */}
                 <Animated.View
                   style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: `${fillRatio * 100}%`,
-                    minWidth: fillRatio > 0.003 ? 6 : 0,
-                    backgroundColor: '#fff',
+                    height: trackHeight,
+                    backgroundColor: 'rgba(255,255,255,0.3)',
                     borderRadius: 4,
-                    opacity: trackOpacity,
+                    overflow: 'visible',
                   }}
-                />
+                >
+                  {/* Fill */}
+                  <Animated.View
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${fillRatio * 100}%`,
+                      minWidth: fillRatio > 0.003 ? 6 : 0,
+                      backgroundColor: '#fff',
+                      borderRadius: 4,
+                      opacity: trackOpacity,
+                    }}
+                  />
 
-                {/* Thumb — animated, not conditional */}
-                <Animated.View
-                  style={{
-                    position: 'absolute',
-                    left: `${fillRatio * 100}%`,
-                    top: '50%',
-                    width: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    backgroundColor: '#fff',
-                    opacity: thumbOpacity,
-                    transform: [
-                      { translateX: -8 },
-                      { translateY: -8 },
-                      { scale: thumbScale },
-                    ],
-                    // Subtle shadow for visibility on bright frames
-                    shadowColor: '#000',
-                    shadowOpacity: 0.3,
-                    shadowRadius: 4,
-                    shadowOffset: { width: 0, height: 1 },
-                    elevation: 3,
-                  }}
-                />
-              </Animated.View>
-            </View>
+                  {/* Thumb — animated, not conditional */}
+                  <Animated.View
+                    style={{
+                      position: 'absolute',
+                      left: `${fillRatio * 100}%`,
+                      top: '50%',
+                      width: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      backgroundColor: '#fff',
+                      opacity: thumbOpacity,
+                      transform: [
+                        { translateX: -8 },
+                        { translateY: -8 },
+                        { scale: thumbScale },
+                      ],
+                      // Subtle shadow for visibility on bright frames
+                      shadowColor: '#000',
+                      shadowOpacity: 0.3,
+                      shadowRadius: 4,
+                      shadowOffset: { width: 0, height: 1 },
+                      elevation: 3,
+                    }}
+                  />
+                </Animated.View>
+              </View>
+            </GestureDetector>
           );
         })() : null}
 
@@ -1051,7 +1059,7 @@ export default function FlipsScreen() {
           getItemLayout={(_, index) => ({ length: viewportHeight, offset: viewportHeight * index, index })}
           overScrollMode="never"
           bounces={false}
-          scrollEnabled={reels.length > 0}
+          scrollEnabled={reels.length > 0 && !isScrubbing}
           removeClippedSubviews={false}
           extraData={{ viewportHeight, videoProgress, playbackRate, paused, currentIndex }}
         />
