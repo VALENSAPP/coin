@@ -1583,7 +1583,11 @@ export default function BattleInProgress() {
                             backgroundColor: palette.soft,
                           },
                         ]}
-                        onPress={() => setSelectedOption(option.label)}
+                        onPress={() => {
+                          if (!hasUserVoted) {
+                            setSelectedOption(option.label);
+                          }
+                        }}
                       >
                         <View style={styles.optionTopRow}>
                           <Text
@@ -1626,13 +1630,15 @@ export default function BattleInProgress() {
               </View>
 
               <TextInput
-                editable={!hasUserVoted}
-                value={argumentText}
-                onChangeText={setArgumentText}
+                editable
+                value={hasUserVoted ? commentText : argumentText}
+                onChangeText={hasUserVoted ? setCommentText : setArgumentText}
                 placeholder={
-                  isPrediction
-                    ? 'Add your prediction reasoning'
-                    : 'Add your argument'
+                  hasUserVoted
+                    ? 'Write a comment...'
+                    : isPrediction
+                      ? 'Add your prediction reasoning'
+                      : 'Add your argument'
                 }
                 placeholderTextColor="#9CA3AF"
                 multiline
@@ -1646,10 +1652,19 @@ export default function BattleInProgress() {
 
               <TouchableOpacity
                 activeOpacity={0.9}
-                onPress={handleVote}
-                disabled={submittingVote || !argumentText?.trim()}
+                onPress={hasUserVoted ? handlePostComment : handleVote}
+                disabled={
+                  submittingVote ||
+                  (!hasUserVoted && !argumentText?.trim()) ||
+                  (hasUserVoted && !commentText?.trim())
+                }
                 style={{
-                  opacity: submittingVote || !argumentText?.trim() ? 0.5 : 1,
+                  opacity:
+                    submittingVote ||
+                      (!hasUserVoted && !argumentText?.trim()) ||
+                      (hasUserVoted && !commentText?.trim())
+                      ? 0.5
+                      : 1,
                 }}
               >
                 <LinearGradient
@@ -1662,7 +1677,11 @@ export default function BattleInProgress() {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.primaryButtonText}>
-                      {isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
+                      {hasUserVoted
+                        ? 'Add Comment'
+                        : isPrediction
+                          ? 'Submit Prediction'
+                          : 'Vote in Battle'}
                     </Text>
                   )}
                 </LinearGradient>
