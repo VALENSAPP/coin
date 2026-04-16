@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   PermissionsAndroid,
@@ -19,6 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import DatePicker from 'react-native-date-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -86,9 +88,11 @@ export default function OpenBattleScreen() {
   const [inviteSearchLoading, setInviteSearchLoading] = useState(false);
   const [selectedInviteUser, setSelectedInviteUser] = useState(null);
   const [imagePickerIndex, setImagePickerIndex] = useState(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inviteSearchTimeoutRef = useRef(null);
   const imagePickerSheetRef = useRef(null);
   const imagePickerLaunchTimeoutRef = useRef(null);
+  const tabBarHeight = useBottomTabBarHeight();
   const routeParams = useMemo(
     () => route?.params?.params || route?.params || {},
     [route?.params],
@@ -107,6 +111,7 @@ export default function OpenBattleScreen() {
   const gradientColors = isCompanyProfile
     ? COMPANY_GRADIENT
     : PRIMARY_GRADIENT;
+  const bottomBarPaddingBottom = isKeyboardVisible ? 10 : Math.max(tabBarHeight + 8, 14);
   const lockedOpponentChoice = useMemo(() => {
     if (filledOptions.length < 2 || !form.creatorChoice) {
       return '';
@@ -202,6 +207,22 @@ export default function OpenBattleScreen() {
         prev.invitedUserId,
     }));
   }, [routeParams]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -684,7 +705,7 @@ export default function OpenBattleScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 80}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <View style={styles.header}>
           <TouchableOpacity
@@ -1205,7 +1226,7 @@ export default function OpenBattleScreen() {
           </View>
         </ScrollView>
 
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { paddingBottom: bottomBarPaddingBottom }]}>
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={submitting}
@@ -1318,7 +1339,7 @@ export default function OpenBattleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 40
+    paddingBottom: 0,
   },
   header: {
     flexDirection: 'row',
