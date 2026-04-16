@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert } from 'react-native';
-import { PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
+import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert, Platform } from 'react-native';
+import { GestureHandlerRootView, PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
@@ -155,10 +155,8 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   }, [uri, imageSource]);
 
   return (
-    <View style={styles.mediaContainer}>
-
+    <GestureHandlerRootView style={styles.mediaContainer}>
       {/* INLINE IMAGE */}
-
       <PinchGestureHandler
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
@@ -174,7 +172,6 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
             { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
           ]}
         />
-
       </PinchGestureHandler>
 
       {/* FULLSCREEN MODAL */}
@@ -184,49 +181,239 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
         transparent
         animationType="none"
         statusBarTranslucent
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       >
-        <View style={styles.modalBackground}>
-          <PinchGestureHandler
-            onGestureEvent={onPinchEvent}
-            onHandlerStateChange={onPinchStateChange}
-          >
-            <AnimatedFastImage
-              source={imageSource}
-              resizeMode="contain"
-              fadeDuration={0}
-              onLoadStart={() => setModalImageLoaded(false)}
-              onLoadEnd={() => setModalImageLoaded(true)}
-              style={[
-                styles.fullScreenImage,
-                {
-                  width: width,
-                  height: imageHeight,
-                  transform: [
-                    { translateX: Animated.subtract(translateX, halfWidth) },
-                    { translateY: Animated.subtract(translateY, halfHeight) },
-                    { scale },
-                    {
-                      translateX: Animated.multiply(
-                        Animated.subtract(translateX, halfWidth),
-                        -1
-                      ),
-                    },
-                    {
-                      translateY: Animated.multiply(
-                        Animated.subtract(translateY, halfHeight),
-                        -1
-                      ),
-                    },
-                  ],
-                },
-              ]}
-              renderToHardwareTextureAndroid
-              shouldRasterizeIOS
-            />
-          </PinchGestureHandler>
-        </View>
+        <GestureHandlerRootView style={styles.gestureModalRoot}>
+          <View style={styles.modalBackground}>
+            <PinchGestureHandler
+              onGestureEvent={onPinchEvent}
+              onHandlerStateChange={onPinchStateChange}
+            >
+              <AnimatedFastImage
+                source={imageSource}
+                resizeMode="contain"
+                fadeDuration={0}
+                onLoadStart={() => setModalImageLoaded(false)}
+                onLoadEnd={() => setModalImageLoaded(true)}
+                style={[
+                  styles.fullScreenImage,
+                  {
+                    width: width,
+                    height: imageHeight,
+                    transform: [
+                      { translateX: Animated.subtract(translateX, halfWidth) },
+                      { translateY: Animated.subtract(translateY, halfHeight) },
+                      { scale },
+                      {
+                        translateX: Animated.multiply(
+                          Animated.subtract(translateX, halfWidth),
+                          -1
+                        ),
+                      },
+                      {
+                        translateY: Animated.multiply(
+                          Animated.subtract(translateY, halfHeight),
+                          -1
+                        ),
+                      },
+                    ],
+                  },
+                ]}
+                renderToHardwareTextureAndroid
+                shouldRasterizeIOS
+              />
+            </PinchGestureHandler>
+          </View>
+        </GestureHandlerRootView>
       </Modal>
-    </View>
+    </GestureHandlerRootView>
+  );
+}
+
+/** Pinch-to-zoom for feed video — same gesture + modal pattern as `InstagramZoomableImage`. */
+function InstagramZoomableVideo({
+  uri,
+  videoHeight,
+  paused,
+  muted,
+  repeat,
+  onZoomChange,
+  onVideoRef,
+  onLoadStart,
+  onLoad,
+  onError,
+  bufferConfig,
+  maxBitRate,
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [modalVideoReady, setModalVideoReady] = useState(false);
+
+  const screenW = Dimensions.get('window').width;
+  const halfWidth = screenW / 2;
+  const halfHeight = videoHeight / 2;
+
+  const onPinchEvent = Animated.event(
+    [
+      {
+        nativeEvent: {
+          scale,
+          focalX: translateX,
+          focalY: translateY,
+        },
+      },
+    ],
+    { useNativeDriver: true },
+  );
+
+  const resetScale = () => {
+    setIsModalVisible(false);
+    setModalVideoReady(false);
+    onZoomChange?.(false);
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 18,
+        bounciness: 0,
+      }),
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const onPinchStateChange = ({ nativeEvent }) => {
+    const { state, oldState } = nativeEvent;
+
+    if (state === State.BEGAN) {
+      setIsModalVisible(true);
+      onZoomChange?.(true);
+    }
+
+    if (
+      oldState === State.ACTIVE &&
+      (state === State.END ||
+        state === State.CANCELLED ||
+        state === State.FAILED)
+    ) {
+      resetScale();
+    }
+  };
+
+  const modalTransformStyle = {
+    width: screenW,
+    height: videoHeight,
+    transform: [
+      { translateX: Animated.subtract(translateX, halfWidth) },
+      { translateY: Animated.subtract(translateY, halfHeight) },
+      { scale },
+      {
+        translateX: Animated.multiply(
+          Animated.subtract(translateX, halfWidth),
+          -1,
+        ),
+      },
+      {
+        translateY: Animated.multiply(
+          Animated.subtract(translateY, halfHeight),
+          -1,
+        ),
+      },
+    ],
+  };
+
+  return (
+    <GestureHandlerRootView style={styles.mediaContainer}>
+      <PinchGestureHandler
+        onGestureEvent={onPinchEvent}
+        onHandlerStateChange={onPinchStateChange}
+      >
+        <Animated.View
+          style={[
+            { width: '100%', height: videoHeight },
+            { opacity: isModalVisible && modalVideoReady ? 0 : 1 },
+          ]}
+          collapsable={false}
+        >
+          {/* iOS: let touches reach PinchGestureHandler child (Animated.View); Video must not be hit target */}
+          <Video
+            ref={onVideoRef}
+            source={{ uri }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+            repeat={repeat}
+            paused={paused}
+            muted={muted}
+            controls={false}
+            pointerEvents="none"
+            onLoadStart={onLoadStart}
+            onLoad={onLoad}
+            onError={onError}
+            playWhenInactive={false}
+            progressUpdateInterval={1000}
+            bufferConfig={bufferConfig}
+            maxBitRate={maxBitRate}
+          />
+        </Animated.View>
+      </PinchGestureHandler>
+
+      <Modal
+        visible={isModalVisible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      >
+        <GestureHandlerRootView style={styles.gestureModalRoot}>
+          <View style={styles.modalBackground}>
+            <PinchGestureHandler
+              onGestureEvent={onPinchEvent}
+              onHandlerStateChange={onPinchStateChange}
+            >
+              <Animated.View
+                collapsable={false}
+                style={[
+                  {
+                    width: screenW,
+                    height: videoHeight,
+                    backgroundColor: '#000',
+                  },
+                  modalTransformStyle,
+                ]}
+              >
+                <Video
+                  source={{ uri }}
+                  style={StyleSheet.absoluteFillObject}
+                  resizeMode="contain"
+                  repeat={repeat}
+                  paused={paused}
+                  muted={muted}
+                  controls={false}
+                  pointerEvents="none"
+                  onLoadStart={() => setModalVideoReady(false)}
+                  onLoad={() => setModalVideoReady(true)}
+                  onReadyForDisplay={() => setModalVideoReady(true)}
+                  onError={onError}
+                  playWhenInactive={false}
+                  progressUpdateInterval={1000}
+                  bufferConfig={bufferConfig}
+                  maxBitRate={maxBitRate}
+                />
+              </Animated.View>
+            </PinchGestureHandler>
+          </View>
+        </GestureHandlerRootView>
+      </Modal>
+    </GestureHandlerRootView>
   );
 }
 
@@ -893,17 +1080,15 @@ function PostItem({
                 resizeMode="cover"
               />
             )}
-            <Video
-              ref={(ref) => {
+            <InstagramZoomableVideo
+              uri={mediaItem.url}
+              videoHeight={videoHeight}
+              paused={!shouldPlay}
+              muted={isMuted}
+              repeat
+              onVideoRef={(ref) => {
                 if (ref) videoRefsMap.current[index] = ref;
               }}
-              source={{ uri: mediaItem.url }}
-              style={{ width, height: videoHeight }}
-              resizeMode="cover"
-              repeat
-              paused={!shouldPlay}
-              muted={isMuted}        // <-- now respects state
-              controls={false}
               onLoadStart={() => {
                 setVideoLoaded(prev => ({ ...prev, [index]: false }));
               }}
@@ -913,8 +1098,6 @@ function PostItem({
               onError={(error) => {
                 console.log('Video error:', error);
               }}
-              playWhenInactive={false}
-              progressUpdateInterval={1000}
               bufferConfig={{
                 minBufferMs: 2000,
                 maxBufferMs: 10000,
@@ -922,8 +1105,13 @@ function PostItem({
                 bufferForPlaybackAfterRebufferMs: 2000,
               }}
               maxBitRate={1200000}
+              onZoomChange={(zoomed) => {
+                setIsZooming(zoomed);
+                setScrollEnabled(!zoomed);
+              }}
             />
             <TouchableOpacity
+              pointerEvents={isPaused ? 'auto' : 'none'}
               style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
               activeOpacity={1}
               onPress={() => handleOpenReel(mediaItem)}
@@ -934,7 +1122,6 @@ function PostItem({
                 </View>
               )}
             </TouchableOpacity>
-            {/* Removed speaker button to keep videos always muted */}
             <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
@@ -1830,6 +2017,9 @@ const styles = StyleSheet.create({
   linkText: {
     fontWeight: '600',
     // textDecorationLine: 'underline',
+  },
+  gestureModalRoot: {
+    flex: 1,
   },
   modalBackground: {
     flex: 1,
