@@ -974,8 +974,23 @@ const ProfilePersonData = ({
   const handleBackPress = useCallback(() => {
     console.log('ProfilePersonalData handleBackPress, returnByTo:', returnByTo);
 
-    // Always use goBack() to preserve the previous screen state
-    // This ensures the post or content is still there as before
+    const profileBattleReturnRoutes = new Set([
+      'BattleInProgress',
+      'BattleResults',
+      'BattleReward',
+      'ProfileBattleScreen',
+      'OpenBattle',
+    ]);
+
+    // When this profile is opened from battle screens, we switch navigators.
+    // Use explicit return route so back goes to the exact originating battle screen.
+    if (profileBattleReturnRoutes.has(returnByTo)) {
+      navigation.navigate('ProfileMain', {
+        screen: returnByTo,
+      });
+      return;
+    }
+
     navigation.goBack();
   }, [navigation, returnByTo]);
 
