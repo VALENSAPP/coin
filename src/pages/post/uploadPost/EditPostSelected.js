@@ -475,6 +475,14 @@ const InstagramPostCreator = () => {
     setPostStorySoundTrimVisible(true);
   };
 
+  const openTextModal = () => {
+    const centerX = IMAGE_SIZE / 2 - 80;           // rough half-width of "Type text..." preview
+    const centerY = (editorCanvasHeight || IMAGE_SIZE) / 2 - 20;
+    pan.setValue({ x: centerX, y: centerY });
+    pan.setOffset({ x: 0, y: 0 });
+    setModalVisible2(true);
+  };
+
   const handleSelectTagUser = user => {
     const username = String(user?._username || user?.userName || user?.username || '')
       .trim()
@@ -2681,6 +2689,7 @@ const InstagramPostCreator = () => {
     switch (key) {
       case 'Text':
         setModalVisible2(true);
+        openTextModal();
         break;
       case 'Sticker':
         setFlipStickerModal(true);
@@ -2863,6 +2872,7 @@ const InstagramPostCreator = () => {
                 }
                 else if (tab.title === 'Text') {
                   setModalVisible2(true);
+                  openTextModal();
                   if (isDrawing) {
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
