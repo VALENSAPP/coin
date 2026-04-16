@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Text,
   TextInput,
@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 // Removed expo LinearGradient - using pure React Native styling
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import CustomButton from '../../../components/customButton/customButton';
 import { AppleLogo, Google, Twitter } from '../../../assets/icons';
@@ -67,9 +67,11 @@ export default function LoginScreen() {
         ? StatusBar.currentHeight ?? 0
         : 0;
 
-  // useEffect(() => {
-  //   getProfileData();
-  // }, []);
+    useFocusEffect(
+      useCallback(() => {
+         dispatch(setUserProfile('user'));
+      }, [dispatch])
+    );
 
   const getProfileData = async (type, userid) => {
     try {
@@ -332,7 +334,7 @@ export default function LoginScreen() {
         />
 
 
-       {/* Enhanced Form Card */}
+        {/* Enhanced Form Card */}
         <View style={styles.formWrapper}>
           <View style={styles.card}>
             <View style={styles.welcomeSection}>

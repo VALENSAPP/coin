@@ -664,6 +664,24 @@ mediaDurationRef.current = null;
     }
   }, [visible]);
 
+  // Keyboard listener to pause/resume story
+  useEffect(() => {
+    if (!visible) return;
+
+    const keyboardShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      handlePause();
+    });
+
+    const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      handleResume();
+    });
+
+    return () => {
+      keyboardShowListener?.remove();
+      keyboardHideListener?.remove();
+    };
+  }, [visible]);
+
   // Keep retrying YouTube play commands when story is active
   useEffect(() => {
     if (!isYoutubeAudio || !visible || paused) return;

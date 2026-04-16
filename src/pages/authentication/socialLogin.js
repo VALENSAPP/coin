@@ -64,13 +64,13 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) 
       const idTokenFromUser = await user.getIdToken();
       AsyncStorage.setItem('firebaseToken', idTokenFromUser);
       const username =
-                user?._user?.displayName ??
-                user?.providerData?.[0]?.displayName ??
-                'Unknown';
+        user?._user?.displayName ??
+        user?.providerData?.[0]?.displayName ??
+        'Unknown';
       // await signInWithFirebase(idTokenFromUser);
       console.log("idTokenFromUser--------------", idTokenFromUser)
       if (idToken) {
-        signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation, profile)
+        signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation, profile, username)
       }
     }
   } catch (error) {
@@ -107,10 +107,10 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
 
     const user = userCredential.user;
     const username =
-                user?.displayName ??
-                user?.providerData?.[0]?.displayName ??
-                user?.providerData?.[0]?.providerUserInfo?.[1]?.displayName ??
-                'Unknown';
+      user?.displayName ??
+      user?.providerData?.[0]?.displayName ??
+      user?.providerData?.[0]?.providerUserInfo?.[1]?.displayName ??
+      'Unknown';
 
     if (user) {
       auth().onAuthStateChanged((user) => {
@@ -141,9 +141,9 @@ export const signInWithFirebase = async idToken => {
     console.log('-----lookupResponse-------', lookupResponse);
 
     const username =
-        lookupResponse?.users?.[0]?.displayName ??
-        lookupResponse?.users?.[0]?.providerUserInfo?.[1]?.displayName ??
-        'Unknown';
+      lookupResponse?.users?.[0]?.displayName ??
+      lookupResponse?.users?.[0]?.providerUserInfo?.[1]?.displayName ??
+      'Unknown';
 
     AsyncStorage.setItem('userId', lookupResponse.users[0].localId);
     AsyncStorage.setItem('username', username);
