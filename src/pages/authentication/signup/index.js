@@ -27,6 +27,7 @@ import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcon
 import { AuthHeader } from '../../../components/auth';
 import DeviceInfo from "react-native-device-info";
 import { useAppTheme } from '../../../theme/useApptheme';
+import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
@@ -45,7 +46,12 @@ export default function SignupScreen() {
   const styles = useSignupStyles();
   const dispatch = useDispatch();
   const profile = profileFromRoute;
-  const { text } = useAppTheme();
+  const { bgStyle, text } = useAppTheme(profile);
+
+  useEffect(() => {
+    // Update Redux with selected profile so theme context picks it up for loader
+    dispatch(setUserProfile(profile));
+  }, [profile, dispatch]);
 
   useEffect(() => {
     const loadDeviceId = async () => {
@@ -119,6 +125,7 @@ export default function SignupScreen() {
           email: normalizedEmail,
           password,
           type: 'signup',
+          profile,
         });
         setPassword('');
         setEmail('');
@@ -185,6 +192,7 @@ export default function SignupScreen() {
         {/* Enhanced Header */}
         <AuthHeader
           subtitle="Create Account"
+          profileType={profile}
           onBackPress={() => navigation.goBack()}
         />
 
@@ -326,7 +334,7 @@ export default function SignupScreen() {
 
               {/* Sign Up Button */}
               <TouchableOpacity
-                style={styles.signupButton}
+                style={[styles.signupButton, {backgroundColor: text}]}
                 onPress={handleSignUp}
               >
                 <Text style={styles.signupButtonText}>Create Account</Text>
@@ -341,7 +349,7 @@ export default function SignupScreen() {
 
               {/* Social Section Header */}
               <View style={styles.socialSectionHeader}>
-                <Text style={styles.socialSectionTitle}>Social</Text>
+                <Text style={[styles.socialSectionTitle, {color: text}]}>Social</Text>
               </View>
 
               {/* Social Login Buttons */}
@@ -395,7 +403,7 @@ export default function SignupScreen() {
               <Text style={styles.loginText}>
                 Already have an account?{' '}
                 <Text
-                  style={styles.loginLink}
+                  style={[styles.loginLink, {color: text}]}
                   onPress={() => navigation.navigate('Login')}
                 >
                   Log in

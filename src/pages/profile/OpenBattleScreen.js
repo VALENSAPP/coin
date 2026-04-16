@@ -4,8 +4,8 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
+  PermissionsAndroid,
   ScrollView,
   StyleSheet,
   Switch,
@@ -27,7 +27,8 @@ import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 
-const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0'];
+const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0']; // user
+const COMPANY_GRADIENT = ['#D3B683', '#D3B683'];   // company
 const BORDER = '#D1D5DB';
 const SOFT = '#EEF2FF';
 const MUTED = '#6B7280';
@@ -74,8 +75,6 @@ const formatDisplayDate = value => {
 export default function OpenBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
- 
-
   const toast = useToast();
   const { bgStyle, text, card } = useAppTheme();
   const [form, setForm] = useState(createInitialForm);
@@ -89,6 +88,14 @@ export default function OpenBattleScreen() {
   const [imagePickerIndex, setImagePickerIndex] = useState(null);
   const inviteSearchTimeoutRef = useRef(null);
   const imagePickerSheetRef = useRef(null);
+  const imagePickerLaunchTimeoutRef = useRef(null);
+  const routeParams = useMemo(
+    () => route?.params?.params || route?.params || {},
+    [route?.params],
+  );
+  const isCompanyProfile =
+    routeParams?.isCompanyProfile === true ||
+    String(routeParams?.isCompanyProfile).toLowerCase() === 'true';
 
   const inputBackground = card || '#FFFFFF';
   const isPoll = form.format === 'POLL';
@@ -97,6 +104,9 @@ export default function OpenBattleScreen() {
     () => getFilledOptions(form.options),
     [form.options],
   );
+  const gradientColors = isCompanyProfile
+    ? COMPANY_GRADIENT
+    : PRIMARY_GRADIENT;
   const lockedOpponentChoice = useMemo(() => {
     if (filledOptions.length < 2 || !form.creatorChoice) {
       return '';
@@ -137,11 +147,11 @@ export default function OpenBattleScreen() {
   );
 
   useEffect(() => {
-    if (!route?.params) {
+    if (!Object.keys(routeParams).length) {
       return;
     }
 
-    const routeInviteUser = route.params.invitedUser;
+    const routeInviteUser = routeParams.invitedUser;
     if (routeInviteUser) {
       const normalizedInviteUser = {
         id: String(
@@ -149,7 +159,7 @@ export default function OpenBattleScreen() {
             routeInviteUser?.id,
             routeInviteUser?._id,
             routeInviteUser?.userId,
-            route.params.invitedUserId,
+            routeParams.invitedUserId,
             '',
           ),
         ),
@@ -185,18 +195,22 @@ export default function OpenBattleScreen() {
 
     setForm(prev => ({
       ...prev,
-      format: route.params.presetFormat || prev.format,
+      format: routeParams.presetFormat || prev.format,
       invitedUserId:
-        route.params.invitedUserId ||
-        route.params.invitedUser?.id ||
+        routeParams.invitedUserId ||
+        routeParams.invitedUser?.id ||
         prev.invitedUserId,
     }));
-  }, [route?.params]);
+  }, [routeParams]);
 
   useEffect(() => {
     return () => {
       if (inviteSearchTimeoutRef.current) {
         clearTimeout(inviteSearchTimeoutRef.current);
+      }
+      if (imagePickerLaunchTimeoutRef.current) {
+        clearTimeout(imagePickerLaunchTimeoutRef.current);
+        imagePickerLaunchTimeoutRef.current = null;
       }
     };
   }, []);
@@ -272,56 +286,103 @@ export default function OpenBattleScreen() {
     imagePickerSheetRef.current?.open();
   };
 
-  const handlePickFromGallery = async () => {
-    imagePickerSheetRef.current?.close();
-    launchImageLibrary(
-      {
-        mediaType: 'photo',
-        maxWidth: 800,
-        maxHeight: 800,
-      },
-      response => {
-        if (response.didCancel) {
-          return;
-        }
-        if (response.errorCode) {
-          showToastMessage(toast, 'danger', 'Failed to pick image');
-          return;
-        }
+  const requestCameraPermission = async () => {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
 
-        const asset = response.assets?.[0];
-        if (asset && imagePickerIndex !== null) {
-          updateOptionImage(imagePickerIndex, asset.uri);
-          setImagePickerIndex(null);
-        }
-      },
-    );
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'This app needs access to your camera to take photos.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (error) {
+      console.warn('Camera permission error:', error);
+      return false;
+    }
+  };
+
+  const closeSheetBeforeOpeningPicker = callback => {
+    imagePickerSheetRef.current?.close();
+    if (imagePickerLaunchTimeoutRef.current) {
+      clearTimeout(imagePickerLaunchTimeoutRef.current);
+    }
+
+    imagePickerLaunchTimeoutRef.current = setTimeout(() => {
+      imagePickerLaunchTimeoutRef.current = null;
+      callback?.();
+    }, 250);
+  };
+
+  const handlePickFromGallery = async () => {
+    closeSheetBeforeOpeningPicker(() => {
+      launchImageLibrary(
+        {
+          mediaType: 'photo',
+          maxWidth: 800,
+          maxHeight: 800,
+        },
+        response => {
+          if (response?.didCancel) {
+            return;
+          }
+          if (response?.errorCode || response?.errorMessage) {
+            showToastMessage(toast, 'danger', 'Failed to pick image');
+            return;
+          }
+
+          const asset = response?.assets?.[0];
+          if (asset?.uri && imagePickerIndex !== null) {
+            updateOptionImage(imagePickerIndex, asset.uri);
+            setImagePickerIndex(null);
+          }
+        },
+      );
+    });
   };
 
   const handlePickFromCamera = async () => {
-    imagePickerSheetRef.current?.close();
-    launchCamera(
-      {
-        mediaType: 'photo',
-        maxWidth: 800,
-        maxHeight: 800,
-      },
-      response => {
-        if (response.didCancel) {
-          return;
-        }
-        if (response.errorCode) {
-          showToastMessage(toast, 'danger', 'Failed to capture image');
-          return;
-        }
+    const hasCameraPermission = await requestCameraPermission();
+    if (!hasCameraPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Camera permission is required to take photos.',
+      );
+      return;
+    }
 
-        const asset = response.assets?.[0];
-        if (asset && imagePickerIndex !== null) {
-          updateOptionImage(imagePickerIndex, asset.uri);
-          setImagePickerIndex(null);
-        }
-      },
-    );
+    closeSheetBeforeOpeningPicker(() => {
+      launchCamera(
+        {
+          mediaType: 'photo',
+          maxWidth: 800,
+          maxHeight: 800,
+        },
+        response => {
+          if (response?.didCancel) {
+            return;
+          }
+          if (response?.errorCode || response?.errorMessage) {
+            showToastMessage(toast, 'danger', 'Failed to capture image');
+            return;
+          }
+
+          const asset = response?.assets?.[0];
+          if (asset?.uri && imagePickerIndex !== null) {
+            updateOptionImage(imagePickerIndex, asset.uri);
+            setImagePickerIndex(null);
+          }
+        },
+      );
+    });
   };
 
   const updateOptionImage = (index, imageUri) => {
@@ -553,7 +614,7 @@ export default function OpenBattleScreen() {
       // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
-        .map(opt => ({ image: opt.image }));
+        .map(opt => (opt.image));
     }
 
     if (isHeadToHead) {
@@ -565,7 +626,7 @@ export default function OpenBattleScreen() {
       // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
-        .map(opt => ({ image: opt.image }));
+        .map(opt => (opt.image));
     }
 
     if (form.stake !== '' && !Number.isNaN(Number(form.stake))) {
@@ -573,10 +634,10 @@ export default function OpenBattleScreen() {
     }
 
     setSubmitting(true);
-
+    console.log('Submitting battle with payload:', payload);
     try {
       const response = await createBattle(payload);
-
+      console.log('Received response:', response);
       if (
         (response?.statusCode >= 200 && response?.statusCode < 300) ||
         response?.success ||
@@ -661,8 +722,8 @@ export default function OpenBattleScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <View style={styles.illustration}>
-              <Ionicons name="trophy-outline" size={30} color="#7C3AED" />
+            <View style={[styles.illustration, bgStyle]}>
+              <Ionicons name="trophy-outline" size={30} color={text} />
             </View>
             <Text style={[styles.heroTitle, { color: text }]}>
               Set up your battle
@@ -682,7 +743,7 @@ export default function OpenBattleScreen() {
                 const Wrapper = isSelected ? LinearGradient : View;
                 const wrapperProps = isSelected
                   ? {
-                    colors: PRIMARY_GRADIENT,
+                    colors: gradientColors,
                     start: { x: 0, y: 0 },
                     end: { x: 1, y: 0 },
                   }
@@ -738,7 +799,7 @@ export default function OpenBattleScreen() {
                 const Wrapper = isSelected ? LinearGradient : View;
                 const wrapperProps = isSelected
                   ? {
-                    colors: PRIMARY_GRADIENT,
+                    colors: gradientColors,
                     start: { x: 0, y: 0 },
                     end: { x: 1, y: 0 },
                   }
@@ -803,7 +864,7 @@ export default function OpenBattleScreen() {
               onChangeText={value => updateField('question', value)}
             />
             {!!errors.question && (
-              <Text style={styles.errorText}>{errors.question}</Text>
+              <Text style={[styles.errorText, {marginTop: 8}]}>{errors.question}</Text>
             )}
           </View>
 
@@ -814,7 +875,7 @@ export default function OpenBattleScreen() {
                   {isHeadToHead ? 'Battle Sides' : 'Options'}
                 </Text>
                 <TouchableOpacity onPress={addOption}>
-                  <Text style={styles.addOptionText}>+ Add Option</Text>
+                  <Text style={[styles.addOptionText, { color: text}]}>+ Add Option</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1091,7 +1152,7 @@ export default function OpenBattleScreen() {
               <Ionicons name="calendar-outline" size={20} color={MUTED} />
             </TouchableOpacity>
             {!!errors.endTime && (
-              <Text style={styles.errorText}>{errors.endTime}</Text>
+              <Text style={[styles.errorText, {marginTop: 8}]}>{errors.endTime}</Text>
             )}
           </View>
 
@@ -1137,8 +1198,8 @@ export default function OpenBattleScreen() {
               <Switch
                 value={form.isPublic}
                 onValueChange={value => updateField('isPublic', value)}
-                trackColor={{ false: '#CBD5E1', true: '#C4B5FD' }}
-                thumbColor={form.isPublic ? '#7C3AED' : '#F8FAFC'}
+                trackColor={{ false: '#CBD5E1', true: '#CBD5E1' }}
+                thumbColor={form.isPublic ? text : '#F8FAFC'}
               />
             </View>
           </View>
@@ -1151,7 +1212,7 @@ export default function OpenBattleScreen() {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={PRIMARY_GRADIENT}
+              colors={gradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.createBtn}
@@ -1182,16 +1243,21 @@ export default function OpenBattleScreen() {
           ref={imagePickerSheetRef}
           height={310}
           draggable={true}
+          customModalProps={{
+            statusBarTranslucent: true,
+            presentationStyle: 'overFullScreen',
+          }}
           customStyles={{
-            container: [{
+            container: {
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               paddingTop: 8,
-            }, { backgroundColor: card }],
+              backgroundColor: card,
+            },
           }}
-          onClose={() => {}}
+          onClose={() => { }}
         >
-          
+
           <View style={styles.imagePickerHeader}>
             <Text style={[styles.imagePickerTitle, { color: text }]}>
               Add Image
@@ -1205,8 +1271,8 @@ export default function OpenBattleScreen() {
             onPress={handlePickFromGallery}
             activeOpacity={0.7}
           >
-            <View style={styles.imagePickerOptionIcon}>
-              <Ionicons name="images-outline" size={28} color="#7C3AED" />
+            <View style={[styles.imagePickerOptionIcon, bgStyle]}>
+              <Ionicons name="images-outline" size={28} color={text} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
@@ -1223,8 +1289,8 @@ export default function OpenBattleScreen() {
             onPress={handlePickFromCamera}
             activeOpacity={0.7}
           >
-            <View style={styles.imagePickerOptionIcon}>
-              <Ionicons name="camera-outline" size={28} color="#7C3AED" />
+            <View style={[styles.imagePickerOptionIcon, bgStyle]}>
+              <Ionicons name="camera-outline" size={28} color={text} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
@@ -1284,7 +1350,6 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -1370,7 +1435,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addOptionText: {
-    color: '#7C3AED',
     fontWeight: '800',
     fontSize: 13,
   },
@@ -1483,7 +1547,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: -2,
-    paddingHorizontal: 8,
+    // paddingHorizontal: 8,
     marginBottom: 6,
   },
   bottomBar: {
@@ -1668,7 +1732,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1695,10 +1758,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-  },
-  sideChoiceWrap: {
-    marginTop: 8,
-    gap: 10,
   },
   sidePreviewCard: {
     borderWidth: 1,

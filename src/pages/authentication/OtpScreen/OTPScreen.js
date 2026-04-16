@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Keyboard,
   Dimensions,
@@ -20,8 +19,6 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { login, sendEmailotp, verifyEmailOtp, verifyOtp } from '../../../services/authentication';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
-import CustomButton from '../../../components/customButton/customButton';
-import { LogoIcon } from '../../../assets/icons';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthHeader } from '../../../components/auth';
 import OTPTextInput from 'react-native-otp-textinput';
@@ -32,7 +29,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import { ensureCurrentAccountSaved } from '../../../utils/accountSession';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 export default function OTPScreen() {
   const [otp, setOtp] = useState('');
@@ -43,8 +40,8 @@ export default function OTPScreen() {
   const route = useRoute();
   const toast = useToast();
   const dispatch = useDispatch();
-  const { email, password, type } = route.params || {};
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { email, password, type, profile } = route.params || {};
+  const { bgStyle, textStyle, text } = useAppTheme(profile);
 
   useEffect(() => {
     if (type === 'signup') {
@@ -70,7 +67,7 @@ export default function OTPScreen() {
         const response = await verifyEmailOtp({ email, otp });
         if (response && response.statusCode == 200) {
           showToastMessage(toast, 'success', response.data.message);
-          handleLogin();
+          handleLogin(profile);
         } else {
           showToastMessage(toast, 'danger', response.message);
           setOtp('');
@@ -122,7 +119,7 @@ export default function OTPScreen() {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (profileType = profile) => {
     Keyboard.dismiss();
 
     try {
@@ -168,7 +165,7 @@ export default function OTPScreen() {
             response.data.user.walletMnemonic,
           );
         }
-        await getProfileData('fromlogin', response?.data?.user?.id);
+        await getProfileData('fromlogin', response?.data?.user?.id, profileType);
       } else {
         showToastMessage(toast, 'danger', response.message);
       }
@@ -179,7 +176,7 @@ export default function OTPScreen() {
     }
   };
 
-  const getProfileData = async (type, userid) => {
+  const getProfileData = async (type, userid, profileType = profile) => {
     try {
       dispatch(showLoader());
       const storedId = await AsyncStorage.getItem('userId');
@@ -193,13 +190,13 @@ export default function OTPScreen() {
         }
         else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
-          navigation.navigate('CreateProfile');
+          navigation.navigate('CreateProfile', { profile });
         }
         else if (response.statusCode === 200 && response.data.kyc == false) {
-          navigation.navigate('CreateProfile');
+          navigation.navigate('CreateProfile', { profile });
         }
         else if (response.statusCode === 200 && response.data.bio == null) {
-          navigation.navigate('CreateProfile');
+          navigation.navigate('CreateProfile', { profile });
         }
         else {
           await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
@@ -239,7 +236,7 @@ export default function OTPScreen() {
           {/* Header */}
           <AuthHeader
             subtitle="Verification Code"
-
+            profileType={profile}
             onBackPress={() => navigation.goBack()}
           />
 

@@ -102,10 +102,42 @@ const ProfilePersonData = ({
   const navigation = useNavigation();
   const [profileImage, setProfileImage] = useState(null);
 
+  const fetchAllData = useCallback(async () => {
+    try {
+      dispatch(showLoader());
+
+      // Run both API calls in parallel
+      const [profileResponse] = await Promise.all([
+        getUserCredentials(userData?.id),
+      ]);
+
+      // Handle profile response
+      if (profileResponse?.statusCode === 200) {
+        let userDataToSet;
+        if (profileResponse.data && profileResponse.data.user) {
+          userDataToSet = profileResponse.data.user;
+        } else if (profileResponse.data) {
+          userDataToSet = profileResponse.data;
+        } else {
+          userDataToSet = profileResponse;
+        }
+        setUserProfile(userDataToSet.profile || '');
+        await AsyncStorage.setItem('profile', userDataToSet.profile);
+        // console.log('User profile:', userDataToSet.profile);
+      } else {
+        // showToastMessage(toast, 'danger', profileResponse.data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      dispatch(hideLoader());
+    }
+  }, [dispatch, userData?.id]);
+
   useEffect(() => {
     setProfileImage(profilepic || null);
     fetchAllData();
-  }, [profilepic]);
+  }, [profilepic, fetchAllData]);
 
   const PLACEHOLDER_AVATAR =
     'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -158,38 +190,6 @@ const ProfilePersonData = ({
     Followers: dashboard?.totalFollowers ?? 'NA',
     Followings: dashboard?.totalFollowing ?? 'NA',
     userId: userId,
-  };
-
-  const fetchAllData = async () => {
-    try {
-      dispatch(showLoader());
-
-      // Run both API calls in parallel
-      const [profileResponse] = await Promise.all([
-        getUserCredentials(userData?.id),
-      ]);
-
-      // Handle profile response
-      if (profileResponse?.statusCode === 200) {
-        let userDataToSet;
-        if (profileResponse.data && profileResponse.data.user) {
-          userDataToSet = profileResponse.data.user;
-        } else if (profileResponse.data) {
-          userDataToSet = profileResponse.data;
-        } else {
-          userDataToSet = profileResponse;
-        }
-        setUserProfile(userDataToSet.profile || '');
-        await AsyncStorage.setItem('profile', userDataToSet.profile);
-        // console.log('User profile:', userDataToSet.profile);
-      } else {
-        // showToastMessage(toast, 'danger', profileResponse.data.message);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      dispatch(hideLoader());
-    }
   };
 
   const requestCameraPermission = async () => {
@@ -688,15 +688,19 @@ const ProfilePersonData = ({
     if (fromUsersProfile) {
       navigation.navigate('ProfileMain', {
         screen: 'OpenBattle',
-        params: { returnTo: 'UserProfile' }
+        params: {
+          returnTo: 'UserProfile',
+          isCompanyProfile,
+        },
       });
       return;
     }
 
     navigation.navigate('OpenBattle', {
       returnTo: 'Home',
+      isCompanyProfile,
     });
-  }, [fromUsersProfile, navigation]);
+  }, [fromUsersProfile, navigation, isCompanyProfile]);
 
   const handleInviteBattlePress = useCallback(() => {
     const invitedUser = {
@@ -727,15 +731,22 @@ const ProfilePersonData = ({
     if (fromUsersProfile) {
       navigation.navigate('ProfileMain', {
         screen: 'OpenBattle',
-        params,
+        params: {
+          ...params,
+          isCompanyProfile,
+        },
       });
       return;
     }
 
-    navigation.navigate('OpenBattle', params);
+    navigation.navigate('OpenBattle', {
+      ...params,
+      isCompanyProfile,
+    });
   }, [
     displayName,
     fromUsersProfile,
+    isCompanyProfile,
     navigation,
     profileImage,
     targetUserId,
@@ -966,7 +977,7 @@ const ProfilePersonData = ({
     // Always use goBack() to preserve the previous screen state
     // This ensures the post or content is still there as before
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, returnByTo]);
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>

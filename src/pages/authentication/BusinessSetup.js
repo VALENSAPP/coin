@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import {
 } from '../../services/companyProfile';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { setUserProfile } from '../../redux/actions/UserProfileAction';
 import { pick } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
@@ -41,9 +42,15 @@ const BusinessProfileForm = () => {
   const route = useRoute();
   const profileData = route?.params?.profileData ?? null;
   const serverProfile = route?.params?.serverProfile ?? null;
+  const profileFromRoute = route?.params?.profile || profileData?.profile || 'user';
   const dispatch = useDispatch();
   const toast = useToast();
-  const { bgStyle, text } = useAppTheme();
+  const { bgStyle, text } = useAppTheme(profileFromRoute);
+
+  useEffect(() => {
+    // Update Redux with selected profile so theme context picks it up for loader
+    dispatch(setUserProfile(profileFromRoute));
+  }, [profileFromRoute, dispatch]);
 
   const [form, setForm] = useState({
     businessName: '',
@@ -142,6 +149,7 @@ const BusinessProfileForm = () => {
       profileData,
       serverProfile,
       businessProfile: form,
+      profile: profileFromRoute,
     });
   };
 
@@ -662,7 +670,7 @@ const BusinessProfileForm = () => {
           extraHeight={Platform.OS === 'ios' ? 120 : 150}
           resetScrollToCoords={{ x: 0, y: 0 }}
         >
-          <AuthHeader subtitle="Business Setup" onBackPress={() => navigation.goBack()} />
+          <AuthHeader subtitle="Business Setup" profileType={profileFromRoute} onBackPress={() => navigation.goBack()} />
 
           <View style={styles.formWrapper}>
             <View style={styles.card}>
@@ -765,7 +773,7 @@ const BusinessProfileForm = () => {
                 disabled={isLaunchingSumsub}
               >
                 <Text style={styles.submitButtonText}>
-                  {isLaunchingSumsub ? 'Opening...' : 'Verfiy your Busines Profile'}
+                  {isLaunchingSumsub ? 'Opening...' : 'Verify your Busines Profile'}
                 </Text>
               </TouchableOpacity>
               <View />
@@ -901,7 +909,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    marginBottom: 24,
+    marginBottom: 5,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.22,
     shadowRadius: 8,

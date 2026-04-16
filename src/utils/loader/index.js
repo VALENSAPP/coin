@@ -1,15 +1,18 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
+import { useAppTheme } from '../../theme/useApptheme';
 
 const Loader = ({ children }) => {
     const isLoading = useSelector(state => state.loader?.isLoading ?? false);
+    const { text } = useAppTheme();
+    
     return (
         <View style={styles.container}>
             {children}
             {isLoading && (
                 <View style={styles.loaderContainer}>
-                    <ActivityIndicator size="large" color="#783eb9a9" />
+                    <ActivityIndicator size="large" color={text} />
                 </View>
             )}
         </View>

@@ -1825,6 +1825,8 @@ const InstagramPostCreator = () => {
   const renderImageCarousel = () => {
     const currentEdits = getCurrentImageEdits();
     const currentCanvasHeight = editorCanvasHeight;
+    // iOS clips the sketch layer more aggressively at rounded edges, so draw mode uses a square surface.
+    const isSquareDrawingSurface = isDrawing && Platform.OS === 'ios';
     const FilterComponent =
       filterOptions.find(f => f.value === selectedFilter)?.component ||
       React.Fragment;
@@ -1887,6 +1889,7 @@ const InstagramPostCreator = () => {
                 { height: currentCanvasHeight },
                 /** Let strokes reach true edges; default overflow:hidden + radius was clipping corners/sides */
                 isDrawing && styles.mainImageContainerWhileDrawing,
+                isSquareDrawingSurface && styles.mainImageContainerSquareDrawing,
               ]}
             >
               <ScrollView
@@ -2043,6 +2046,7 @@ const InstagramPostCreator = () => {
                               style={[
                                 styles.staticImageCanvas,
                                 { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
                               ]}
                             >
                               {(() => {
@@ -2056,6 +2060,7 @@ const InstagramPostCreator = () => {
                                     style={[
                                       styles.mainImage,
                                       { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                      isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
                                     resizeMode='cover'
                                   />
@@ -2068,6 +2073,7 @@ const InstagramPostCreator = () => {
                                   style={[
                                     StyleSheet.absoluteFillObject,
                                     styles.filterOverlay,
+                                    isSquareDrawingSurface && styles.filterOverlaySquareDrawing,
                                     {
                                       backgroundColor:
                                         selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
@@ -2130,6 +2136,7 @@ const InstagramPostCreator = () => {
                               style={[
                                 styles.staticImageCanvas,
                                 { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
                               ]}
                             >
                               {/* Use processedImageUri if drawing was saved, otherwise original */}
@@ -2144,6 +2151,7 @@ const InstagramPostCreator = () => {
                                     style={[
                                       styles.mainImage,
                                       { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                      isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
                                     resizeMode='cover'
                                   />
@@ -2157,6 +2165,7 @@ const InstagramPostCreator = () => {
                                   style={[
                                     StyleSheet.absoluteFillObject,
                                     styles.filterOverlay,
+                                    isSquareDrawingSurface && styles.filterOverlaySquareDrawing,
                                     {
                                       backgroundColor:
                                         selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
@@ -3567,6 +3576,9 @@ const styles = StyleSheet.create({
   mainImageContainerWhileDrawing: {
     overflow: 'visible',
   },
+  mainImageContainerSquareDrawing: {
+    overflow: 'visible',
+  },
   mainScrollView: {
     width: IMAGE_SIZE,
     flex: 1,
@@ -3583,6 +3595,9 @@ const styles = StyleSheet.create({
     // height: IMAGE_SIZE,
     height: "100%",
     borderRadius: 8,
+  },
+  mainImageSquareDrawing: {
+    borderRadius: 0,
   },
   videoContainer: {
     width: IMAGE_SIZE,
@@ -3652,6 +3667,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     // backgroundColor: '#000',
   },
+  staticImageCanvasSquareDrawing: {
+    overflow: 'visible',
+    borderRadius: 0,
+  },
   drawingSurface: {
     width: IMAGE_SIZE,
     height: '100%',
@@ -3663,6 +3682,9 @@ const styles = StyleSheet.create({
   },
   filterOverlay: {
     borderRadius: 8,
+  },
+  filterOverlaySquareDrawing: {
+    borderRadius: 0,
   },
   activeDrawCanvas: {
     zIndex: 3000,

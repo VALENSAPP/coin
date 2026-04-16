@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import StepHeader from './headerSection';
 import { checkDisplayName, getProfile } from '../../../services/createProfile';
@@ -26,14 +27,17 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
+import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 
 const { width } = Dimensions.get('window');
 const AVATAR_SIZE = 128;
 
 export default function CreateProfile() {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
   const toast = useToast();
   const route = useRoute();
+  const profileFromRoute = route?.params?.profile || 'user';
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -48,7 +52,12 @@ export default function CreateProfile() {
   const [isCheckingDisplayName, setIsCheckingDisplayName] = useState(false);
   const refRBSheet = useRef();
   const [imageMeta, setImageMeta] = useState(null);
-  const { bgStyle, textStyle, bg } = useAppTheme();
+  const { bgStyle, textStyle, bg } = useAppTheme(profileFromRoute);
+
+  useEffect(() => {
+    // Update Redux with selected profile so theme context picks it up for loader
+    dispatch(setUserProfile(profileFromRoute));
+  }, [profileFromRoute, dispatch]);
 
   const validateUsername = v => {
     if (!v) return 'Username is required';
@@ -487,15 +496,15 @@ export default function CreateProfile() {
 
     const storedProfileType = await AsyncStorage.getItem('profile');
     const profileType = String(
-      serverProfile?.data?.profile || storedProfileType || '',
+      serverProfile?.data?.profile || storedProfileType || profileFromRoute || '',
     ).toLowerCase();
     if (profileType === 'company') {
-      navigation.navigate('BusinessSetup', { profileData, serverProfile });
+      navigation.navigate('BusinessSetup', { profileData, serverProfile, profile: profileFromRoute });
       return;
     }
 
     // Navigate to KYC verification for non-company users
-    navigation.navigate('kycverify', { profileData, serverProfile });
+    navigation.navigate('kycverify', { profileData, serverProfile, profile: profileFromRoute });
     //  navigation.navigate('Wallet', { profileData, serverProfile });
   };
 

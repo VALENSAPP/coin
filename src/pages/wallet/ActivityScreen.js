@@ -20,7 +20,7 @@ export const ActivityScreen = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [activities, setActivities] = useState([]);
   const { bgStyle, textStyle, text } = useAppTheme();
-  const filters = ['All', 'Vallow'];
+  const filters = ['All', 'Following'];
   // const filters = ['All', 'Supporters', '
 
 

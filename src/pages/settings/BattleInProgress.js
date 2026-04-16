@@ -30,6 +30,7 @@ import {
   replyCommentBattle,
   voteBattle,
 } from '../../services/battle';
+import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 
@@ -519,6 +520,9 @@ const normalizeBattle = (raw, currentUserId = '') => {
       raw?.predictionCounts && typeof raw.predictionCounts === 'object'
         ? raw.predictionCounts
         : {},
+    optionImages: Array.isArray(raw?.optionImages)
+      ? raw.optionImages.filter(Boolean)
+      : [],
     comments,
   };
 };
@@ -588,6 +592,7 @@ export default function BattleInProgress() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
+  const [participantUserData, setParticipantUserData] = useState({});
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -768,6 +773,60 @@ export default function BattleInProgress() {
       setSelectedOption(routeSelectedOption);
     }
   }, [route?.params?.selectedOption]);
+
+  // Fetch user credentials for participants
+  useEffect(() => {
+    const fetchParticipantData = async () => {
+      if (!Array.isArray(battle.participants) || battle.participants.length < 2) {
+        return;
+      }
+
+      try {
+        const participant0 = battle.participants[0];
+        const participant1 = battle.participants[1];
+
+        const [res0, res1] = await Promise.all([
+          getUserCredentials(participant0?.userId),
+          getUserCredentials(participant1?.userId),
+        ]);
+
+        const userData0 = res0?.statusCode === 200 
+          ? (res0.data?.user || res0.data || {})
+          : {};
+        const userData1 = res1?.statusCode === 200 
+          ? (res1.data?.user || res1.data || {})
+          : {};
+
+        // Format image URLs
+        const formatImageUrl = (image) => {
+          if (!image) return '';
+          let url = String(image).trim();
+          if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+          } else if (url.startsWith('/')) {
+            return `http://35.174.167.92:3002${url}`;
+          } else {
+            return `http://35.174.167.92:3002/${url}`;
+          }
+        };
+
+        setParticipantUserData({
+          [participant0?.userId]: {
+            name: userData0?.displayName || userData0?.name || 'User',
+            image: formatImageUrl(userData0?.image),
+          },
+          [participant1?.userId]: {
+            name: userData1?.displayName || userData1?.name || 'User',
+            image: formatImageUrl(userData1?.image),
+          },
+        });
+      } catch (error) {
+        console.error('Error fetching participant credentials:', error);
+      }
+    };
+
+    fetchParticipantData();
+  }, [battle.participants]);
 
   useEffect(() => {
     if (userVotedSelection.optionId) {
@@ -1471,84 +1530,91 @@ export default function BattleInProgress() {
                     </Text>
                   </View>
 
-                  {isHeadToHead && (
+                  {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
                     <View style={styles.duelRow}>
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() => {
-                          if (currentUserId === battle.creatorId) {
-                            navigation.navigate('ProfileMain', { screen: 'Profile' });
-                          } else {
-                            const currentRoute = route?.name || 'BattleInProgress';
-                            navigation.navigate('HomeMain', {
-                              screen: 'UsersProfile',
-                              params: {
-                                userId: battle.creatorId,
-                                returnTo: currentRoute,
-                              },
-                            });
-                          }
-                        }}
-                      >
-                        <View style={styles.duelPlayerCard}>
-                          <View style={styles.playerImageContainer}>
-                            <HexagonImage
-                              uri={battle.creator.avatar}
-                              size={80}
-                              borderColor="rgba(255,255,255,0.4)"
-                            />
-                          </View>
-                          <Text style={styles.playerNameBold}>{battle.creator.name}</Text>
-                          {!!battle.creatorChoice && (
-                            <Text style={styles.battlePointsText}>
-                              +1840 Battle Points
-                            </Text>
-                          )}
-                          <View style={styles.votesContainer}>
-                            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
-                            <Text style={styles.votesCountText}>0 Votes</Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
+                      {(() => {
+                        const participant0 = battle.participants[0];
+                        const participant1 = battle.participants[1];
+                        
+                        const player0Data = participantUserData[participant0?.userId] || {};
+                        const player1Data = participantUserData[participant1?.userId] || {};
 
-                      <View style={styles.duelVsWrap}>
-                        <Text style={styles.duelVsText}>VS</Text>
-                      </View>
+                        return (
+                          <>
+                            <TouchableOpacity
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                if (currentUserId === participant0?.userId) {
+                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                } else {
+                                  const currentRoute = route?.name || 'BattleInProgress';
+                                  navigation.navigate('HomeMain', {
+                                    screen: 'UsersProfile',
+                                    params: {
+                                      userId: participant0?.userId,
+                                      returnTo: currentRoute,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              <View style={styles.duelPlayerCard}>
+                                <View style={styles.playerImageContainer}>
+                                  <HexagonImage
+                                    uri={player0Data?.image}
+                                    size={80}
+                                    borderColor="rgba(255,255,255,0.4)"
+                                  />
+                                </View>
+                                <Text style={styles.playerNameBold}>{player0Data?.name}</Text>
+                                <Text style={styles.playerNameBold}>({participant0?.side})</Text>
+                                <View style={styles.votesContainer}>
+                                  <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                                  <Text style={styles.votesCountText}>{participant0?.score || 0} Points</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
 
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() => {
-                          console.log('Opponent profile press - userId:', battle.id, 'currentUserId:', currentUserId);
-                          // if (currentUserId === battle.id) {
-                          //   navigation.navigate('ProfileMain', { screen: 'Profile' });
-                          // } else {
-                          //   const currentRoute = route?.name || 'BattleInProgress';
-                          //   navigation.navigate('HomeMain', {
-                          //     screen: 'UsersProfile',
-                          //     params: {
-                          //       userId: battle.id,
-                          //       returnTo: currentRoute,
-                          //     },
-                          //   });
-                          // }
-                        }}
-                      >
-                        <View style={styles.duelPlayerCard}>
-                          <View style={styles.playerImageContainer}>
-                            <HexagonImage
-                              uri={battle.invitedUser.avatar}
-                              size={80}
-                              borderColor="rgba(255,255,255,0.4)"
-                            />
-                          </View>
-                          <Text style={styles.playerNameBold}>Opponent</Text>
-                          <Text style={styles.playerNameBold}>???</Text>
-                          <View style={styles.votesContainer}>
-                            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
-                            <Text style={styles.votesCountText}>0 Votes</Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
+                            <View style={styles.duelVsWrap}>
+                              <Text style={styles.duelVsText}>VS</Text>
+                            </View>
+
+                            <TouchableOpacity
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                if (currentUserId === participant1?.userId) {
+                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                } else {
+                                  const currentRoute = route?.name || 'BattleInProgress';
+                                  navigation.navigate('HomeMain', {
+                                    screen: 'UsersProfile',
+                                    params: {
+                                      userId: participant1?.userId,
+                                      returnTo: currentRoute,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              <View style={styles.duelPlayerCard}>
+                                <View style={styles.playerImageContainer}>
+                                  <HexagonImage
+                                    uri={player1Data?.image}
+                                    size={80}
+                                    borderColor="rgba(255,255,255,0.4)"
+                                  />
+                                </View>
+                                <Text style={styles.playerNameBold}>{player1Data?.name}</Text>
+                                <Text style={styles.playerNameBold}>({participant1?.side})</Text>
+                                <View style={styles.votesContainer}>
+                                  <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                                  <Text style={styles.votesCountText}>{participant1?.score || 0} Points</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          </>
+                        );
+                      })()}
                     </View>
                   )}
                 </LinearGradient>
@@ -1600,7 +1666,8 @@ export default function BattleInProgress() {
 
               <View style={styles.optionList}>
                 {(availableOptions.length ? availableOptions : battle.options).map(
-                  option => {
+                  (option, index) => {
+                    const optionImage = battle.optionImages?.[index];
                     const optionSide = String(
                       pickFirst(option?.side, option?.label, ''),
                     );
@@ -1608,7 +1675,7 @@ export default function BattleInProgress() {
                       selectedOption === optionSide ||
                       selectedOption === option.id ||
                       normalizeSideKey(userVotedSelection.side) ===
-                        normalizeSideKey(optionSide) ||
+                      normalizeSideKey(optionSide) ||
                       userVotedSelection.optionId === String(option.id);
                     const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
                     return (
@@ -1634,19 +1701,46 @@ export default function BattleInProgress() {
                           }
                         }}
                       >
-                        <View style={styles.optionTopRow}>
-                          <Text
-                            style={[
-                              styles.optionLabel,
-                              textStyle,
-                              isSelected && styles.optionLabelSelected,
-                              isSelected && {
-                                color: useVotedGrayStyle ? '#9CA3AF' : palette.primary,
-                              },
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
+                        <View style={styles.optionBadgeWrapper}>
+                          {optionImage || option.image ? (
+                            <View style={styles.optionImageWrapper}>
+                              <Image
+                                source={{ uri: optionImage || option.image }}
+                                style={styles.optionImage}
+                              />
+                            </View>
+                          ) : (
+                            <View style={styles.addImagePlaceholder}>
+                              <Ionicons name="image-outline" size={20} color="#9CA3AF" />
+                            </View>
+                          )}
+                          <View style={styles.optionBadgeInfo}>
+                            <View style={styles.optionNameBadgeRow}>
+                              <Text
+                                style={[
+                                  styles.optionPreviewName,
+                                  textStyle,
+                                  isSelected && styles.optionLabelSelected,
+                                  isSelected && {
+                                    color: useVotedGrayStyle ? '#9CA3AF' : palette.primary,
+                                  },
+                                ]}
+                                numberOfLines={2}
+                              >
+                                {option.label}
+                              </Text>
+                            </View>
+                            {/* <View style={styles.optionMetaRow}>
+                              <Text style={styles.optionMeta}>
+                                {option.votes} votes
+                              </Text>
+                              <Text style={styles.optionMeta}>
+                                {option.percentage ? `${option.percentage}%` : 'Open'}
+                              </Text>
+                            </View> */}
+                          </View>
+                        </View>
+                        <View style={styles.optionPreviewRight}>
                           <View
                             style={[
                               styles.radioDot,
@@ -1662,17 +1756,6 @@ export default function BattleInProgress() {
                             ]}
                           />
                         </View>
-                        {/* <View style={styles.optionMetaRow}>
-                        <Text style={styles.optionMeta}>
-                          {option.votes} votes
-                        </Text>
-                        <Text style={styles.optionMeta}>
-                          {option.likes} likes
-                        </Text>
-                        <Text style={styles.optionMeta}>
-                          {option.percentage ? `${option.percentage}%` : 'Open'}
-                        </Text>
-                      </View> */}
                       </TouchableOpacity>
                     );
                   },
@@ -2041,21 +2124,9 @@ const styles = StyleSheet.create({
   optionList: {
     gap: 10,
   },
-  optionCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-  },
   optionCardSelected: {
     borderColor: '#D1D5DB',
     backgroundColor: '#fffaf3',
-  },
-  optionTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   optionLabel: {
     flex: 1,
@@ -2088,6 +2159,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#6B7280',
+  },
+  optionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  optionBadgeWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  optionImageWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#FAFAFA',
+  },
+  optionImage: {
+    width: '100%',
+    height: '100%',
+  },
+  addImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  optionBadgeInfo: {
+    flex: 1,
+  },
+  optionNameBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  optionPreviewName: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  optionPreviewRight: {
+    alignItems: 'flex-end',
   },
   argumentInput: {
     minHeight: 90,

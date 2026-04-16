@@ -606,7 +606,7 @@ export default function PostView({ postData = [] }) {
           showToastMessage(
             toast,
             'success',
-            shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
+            shouldFollow ? 'Successfully Followed!' : 'Unfollowed',
           );
           return true;
         }

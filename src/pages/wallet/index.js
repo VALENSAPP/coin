@@ -60,10 +60,10 @@ const mapFollowersGraphResponse = (response) => {
     : Array.isArray(root)
       ? root
       : root?.graph ??
-        root?.history ??
-        root?.series ??
-        root?.items ??
-        (Array.isArray(root?.data) ? root.data : null);
+      root?.history ??
+      root?.series ??
+      root?.items ??
+      (Array.isArray(root?.data) ? root.data : null);
 
   if (!Array.isArray(raw) || raw.length === 0) {
     return [];
@@ -79,12 +79,12 @@ const mapFollowersGraphResponse = (response) => {
         item?.createdAt;
       const val = Number(
         item?.followers ??
-          item?.followerCount ??
-          item?.count ??
-          item?.newFollowers ??
-          item?.total ??
-          item?.value ??
-          0,
+        item?.followerCount ??
+        item?.count ??
+        item?.newFollowers ??
+        item?.total ??
+        item?.value ??
+        0,
       );
       let ts;
       if (dateStr != null && String(dateStr).length > 0) {
@@ -288,7 +288,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
       console.log('Error fetching user details:', error);
     }
   };
-
+  useEffect(() => {
+    getUserDetail();
+  }, []);
   const stripeAccountId = 'Not connected';
   const walletAddress = 'Not available';
   const visibleKpiData = useMemo(() => {
@@ -945,7 +947,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const cardContent = (
       <LinearGradient
         colors={walletScreenGradient}
-        start={{ x: 0, y: 0 }}
+        start={{ x: -2, y: -2 }}
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
@@ -956,11 +958,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
       >
         <View style={styles.kpiHeader}>
           <Ionicons name={item.icon} size={24} color={item.color} />
-          <Text style={[styles.kpiTitle, { color: kpiTitleColor }]} numberOfLines={2}>
+          <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
             {item.title}
           </Text>
         </View>
-        <Text style={[styles.kpiValue, { color: kpiValueColor }]} numberOfLines={2}>
+        <Text style={[styles.kpiValue, { color: text }]} numberOfLines={2}>
           {item.value}
         </Text>
         {isMetaMaskCard ? (
@@ -1084,7 +1086,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         <View style={styles.header}>
           <LinearGradient
             colors={walletScreenGradient}
-            start={{ x: 0, y: 0 }}
+            start={{ x: -1, y: -1 }}
             end={{ x: 1, y: 1 }}
             style={styles.headerCard}
           >
@@ -1095,37 +1097,37 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   uri={userProfile.image || FALLBACK_AVATAR}
                   size={72}
                   borderWidth={3}
-                  borderColor="rgba(255,255,255,0.45)"
+                  borderColor={text}
                 />
               </View>
               <View style={styles.headerText}>
                 <Text
                   style={[
                     styles.headerName,
-                    isBusinessProfile ? { color: '#2a1b3d' } : { color: '#fef3c7' },
+                    { color: text },
                   ]}
                   numberOfLines={1}
                 >
                   @{userProfile.name || 'User'}
                 </Text>
                 {kyc === 'verified' && (
-                <View style={styles.headerStatus}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color={isBusinessProfile ? '#5a2d82' : '#fef3c7'}
-                  />
-                  <Text
-                    style={[
-                      styles.headerStatusText,
-                      isBusinessProfile
-                        ? { color: 'rgba(42,27,61,0.85)' }
-                        : { color: '#f9fafb' },
-                    ]}
-                  >
-                    Verified
-                  </Text>
-                </View>
+                  <View style={styles.headerStatus}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={isBusinessProfile ? '#5a2d82' : '#fef3c7'}
+                    />
+                    <Text
+                      style={[
+                        styles.headerStatusText,
+                        isBusinessProfile
+                          ? { color: 'rgba(42,27,61,0.85)' }
+                          : { color: '#f9fafb' },
+                      ]}
+                    >
+                      Verified
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -1149,7 +1151,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </Text>
           <LinearGradient
             colors={walletScreenGradient}
-            start={{ x: 0, y: 0 }}
+            start={{ x: -2, y: -2 }}
             end={{ x: 1, y: 1 }}
             style={styles.pointsCard}
           >
@@ -1158,9 +1160,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.pointsLabel,
-                isBusinessProfile
-                  ? { color: 'rgba(42,27,61,0.75)' }
-                  : { color: 'rgba(255,255,255,0.92)' },
+                { color: text },
               ]}
             >
               Total Platform Points
@@ -1168,7 +1168,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.pointsValue,
-                isBusinessProfile ? { color: '#2a1b3d' } : { color: '#fff' },
+                { color: text },
               ]}
             >
               {formatPointValue(rewardSummary.totalPlatformPoints)}
@@ -1447,6 +1447,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingVertical: 14,
+    marginBottom: -12
   },
   headerCard: {
     borderRadius: 20,
@@ -1465,6 +1466,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingBottom: 40,
+    paddingTop: 10
   },
   headerAvatarWrap: {
     width: 76,
@@ -1504,7 +1507,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 20,
     marginBottom: 24,
-    marginTop: Platform.OS == "ios" ? 20 : 0
   },
   sectionTitle: {
     fontSize: 20,
@@ -1685,11 +1687,8 @@ const styles = StyleSheet.create({
   },
   pointsCard: {
     borderRadius: 24,
-    padding: 18,
+    padding: 2,
     overflow: 'hidden',
-    shadowColor: '#16091f',
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
     elevation: 6,
   },
   pointsGlow: {
@@ -1702,16 +1701,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
 
-  pointsHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-
-  pointsProfileText: {
-    flex: 1,
-  },
   pointsOverline: {
     fontSize: 12,
     color: '#ddd6fe',
@@ -1740,13 +1729,16 @@ const styles = StyleSheet.create({
   pointsLabel: {
     fontSize: 13,
     color: '#e9d5ff',
-    marginBottom: 8,
+    marginBottom: 4,
     fontWeight: '500',
+    paddingHorizontal: 16,
+    marginTop: 16
   },
   pointsValue: {
     fontSize: 40,
     fontWeight: '800',
     color: '#fff',
+    paddingHorizontal: 16,
   },
   pointsSubtext: {
     marginTop: 6,
@@ -1760,6 +1752,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     marginTop: 4,
+    paddingHorizontal: 16,
+    marginBottom: 16
   },
   pointsBreakdownCard: {
     flex: 1,
@@ -1802,7 +1796,7 @@ const styles = StyleSheet.create({
   // KPI Cards
   kpiCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: 2,
     marginBottom: 12,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
@@ -1811,7 +1805,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 6,
     alignSelf: 'stretch',
-    minHeight: 132,
+    minHeight: 80,
     justifyContent: 'flex-start',
   },
   kpiCardNoOuterSpacing: {
@@ -1839,7 +1833,8 @@ const styles = StyleSheet.create({
   kpiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingTop: 16,
+    paddingHorizontal: 16
   },
   kpiTitle: {
     fontSize: 13,
@@ -1852,13 +1847,18 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 2,
+    paddingBottom: 16,
+    paddingLeft: 16,
+    paddingTop: 10
   },
   kpiMetaSingleLine: {
-    marginTop: 6,
+    marginTop: -10,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 14,
     opacity: 0.95,
+    paddingLeft: 8,
+    paddingBottom: 8,
   },
   kpiMetaConnected: {
     color: '#16a34a',

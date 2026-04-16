@@ -7,6 +7,9 @@ const normalizeBattlePayload = (data = {}) => ({
     options: Array.isArray(data?.options)
         ? data.options.map(option => `${option ?? ''}`.trim()).filter(Boolean)
         : [],
+    optionImages: Array.isArray(data?.optionImages)
+        ? data.optionImages.filter(Boolean)
+        : [],
     startTime: data?.startTime ?? '',
     endTime: data?.endTime ?? '',
     stake: Number(data?.stake ?? 0),
