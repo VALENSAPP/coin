@@ -18,6 +18,7 @@ import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { battleWinner } from '../../services/battle';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const withAlpha = (hex, alpha) => {
   if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
@@ -220,6 +221,7 @@ export default function BattleResults({ navigation }) {
 
     try {
       const response = await battleWinner(battleId);
+      console.log(response, 'battle winner response');
       setWinnerData(response?.data || response);
     } catch (err) {
       console.log(err, 'erro here in this api ')
@@ -282,14 +284,20 @@ export default function BattleResults({ navigation }) {
                     <ActivityIndicator size="small" color={palette.primary} />
                   </View>
                 ) : (
-                  <Image
-                    source={
-                      winnerProfile?.image
-                        ? { uri: winnerProfile.image }
-                        : require('../../assets/icons/pngicons/user.png')
-                    }
-                    defaultSource={require('../../assets/icons/pngicons/user.png')}
-                    style={styles.winnerAvatar}
+                  // <Image
+                  //   source={
+                  //     winnerProfile?.image
+                  //       ? { uri: winnerProfile.image }
+                  //       : require('../../assets/icons/pngicons/user.png')
+                  //   }
+                  //   defaultSource={require('../../assets/icons/pngicons/user.png')}
+                  //   style={styles.winnerAvatar}
+                  // />
+                  <HexAvatar
+                    uri={ winnerProfile.image || require('../../assets/icons/pngicons/user.png')}
+                    size={60}
+                    borderWidth={1.5}
+                    borderColor={text}
                   />
                 )}
 
@@ -589,7 +597,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     flexWrap: 'wrap',
-    marginBottom:'10%'
+    marginBottom: '10%'
   },
   statChip: {
     width: '31%',

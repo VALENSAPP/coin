@@ -32,6 +32,7 @@ import { getCreditsLeft } from "../../services/wallet";
 import TokenSellModal from "../../components/modals/TokenSellModal";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
 import { useAppTheme } from "../../theme/useApptheme";
+import HexAvatar from "../../components/home/story.js/HexAvatar";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -84,7 +85,7 @@ export default function WalletComponent() {
         setProfile(type);
     }, []);
 
-    
+
     const fetchUserCreds = useCallback(async () => {
         const id = await AsyncStorage.getItem('userId');
         try {
@@ -225,7 +226,7 @@ export default function WalletComponent() {
             }, 300);
         };
 
-       
+
         const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
 
         return () => {
@@ -270,10 +271,10 @@ export default function WalletComponent() {
     }, [fetchCreditsLeft, fetchDashboardData, fetchTopCreators, fetchUserCreds, toast]);
 
     const CreatorDashboard = ({ creator }) => (
-        <View style={[styles.creatorDashboard, {shadowColor: text}]}>
+        <View style={[styles.creatorDashboard, { shadowColor: text }]}>
             <View style={styles.creatorHeader}>
                 <View style={styles.creatorInfo}>
-                    <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
+                    <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
                         <Text style={styles.avatarText}>
                             {creator.vendorName ? creator.vendorName.charAt(0) : 'U'}
                         </Text>
@@ -314,13 +315,13 @@ export default function WalletComponent() {
 
             <View style={styles.tradeButtons}>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, {backgroundColor: text}]}
+                    style={[styles.tradeBtn, { backgroundColor: text }]}
                     onPress={() => handleFollowUnfollow(creator, false)}
                 >
                     <Text style={styles.tradeBtnText}>Buy (Follow)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.tradeBtn, styles.sellBtn, {backgroundColor: text}]}
+                    style={[styles.tradeBtn, styles.sellBtn, { backgroundColor: text }]}
                     onPress={() => handleFollowUnfollow(creator, true)}
                 >
                     <Text style={[styles.tradeBtnText, styles.sellBtnText]}>Sell (Unfollow)</Text>
@@ -337,7 +338,7 @@ export default function WalletComponent() {
 
         return (
             <View style={[{ flex: 1 }]}>
-                <Text style={[styles.subHeader, {shadowColor: text}]}>{filteredList.length} Top creators</Text>
+                <Text style={[styles.subHeader, { shadowColor: text }]}>{filteredList.length} Top creators</Text>
                 {/* <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text> */}
 
                 <FlatList
@@ -345,12 +346,12 @@ export default function WalletComponent() {
                     keyExtractor={(item, index) => item.vendorId || index.toString()}
                     renderItem={({ item }) => (
                         <TouchableOpacity
-                            style={[styles.coinItem, {shadowColor: text}]}
+                            style={[styles.coinItem, { shadowColor: text }]}
                             onPress={() => {
                                 setSelectedCreator(item);
                             }}
                         >
-                            <View style={[styles.coinAvatar, {backgroundColor: text}]}>
+                            <View style={[styles.coinAvatar, { backgroundColor: text }]}>
                                 <Text style={styles.avatarText}>
                                     {item.username ? item.username.charAt(0) : 'U'}
                                 </Text>
@@ -399,7 +400,7 @@ export default function WalletComponent() {
     const MyHoldings = () => {
         return (
             <View style={[{ flex: 1 }, bgStyle]}>
-                <Text style={[styles.subHeader, {shadowColor: text}]}>{holdingsData.length} holdings</Text>
+                <Text style={[styles.subHeader, { shadowColor: text }]}>{holdingsData.length} holdings</Text>
                 <Text style={styles.note}>Your current creator investments</Text>
 
                 <FlatList
@@ -448,16 +449,16 @@ export default function WalletComponent() {
     //         }
     //     }
     // };
-const handleBuyCredits = () => {
-    const safeCredits = Number(creditsLeft) || 0;
+    const handleBuyCredits = () => {
+        const safeCredits = Number(creditsLeft) || 0;
 
-    if (safeCredits >= MAX_CREDITS) {
-        showToastMessage(toast, 'danger', 'You already have maximum credits.');
-        return;
-    }
+        if (safeCredits >= MAX_CREDITS) {
+            showToastMessage(toast, 'danger', 'You already have maximum credits.');
+            return;
+        }
 
-    setShowCreditModal(true);
-};
+        setShowCreditModal(true);
+    };
     const Tab = createMaterialTopTabNavigator();
 
     return (
@@ -482,22 +483,28 @@ const handleBuyCredits = () => {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                        <Image
+                        {/* <Image
                             source={{
                                 uri: profileImage ? profileImage : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
                             }}
                             style={styles.profileImage}
+                        /> */}
+                        <HexAvatar
+                            uri={profileImage || require('../../assets/icons/pngicons/user.png')}
+                            size={60}
+                            borderWidth={3}
+                            borderColor={text}
                         />
                     </View>
 
                     {/* Holdings Box */}
-                    <View style={[styles.holdingsBox, {shadowColor: text}]}>
+                    <View style={[styles.holdingsBox, { shadowColor: text }]}>
                         <Text style={styles.holdingsText}>Total value of holdings</Text>
                         <Text style={[styles.holdingsAmount, textStyle]}>{portfolioValue || '$ 0.00'}</Text>
                     </View>
 
                     {/* Credits Section */}
-                    <View style={[styles.creditsBox, {shadowColor: text}]}>
+                    <View style={[styles.creditsBox, { shadowColor: text }]}>
                         <View style={styles.creditsInfo}>
                             <MaterialCommunityIcons name="credit-card-outline" size={24} color={text} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
@@ -508,9 +515,9 @@ const handleBuyCredits = () => {
                             </View>
                         </View>
                         {/* {String(profile || '').toLowerCase() !== 'company' && ( */}
-                            <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}  disabled={creditsLeft >= 5}>
-                                <Text style={styles.buyCreditsText}>Buy Credits</Text>
-                            </TouchableOpacity>
+                        <TouchableOpacity style={[styles.buyCreditsBtn, { backgroundColor: text }]} onPress={handleBuyCredits} disabled={creditsLeft >= 5}>
+                            <Text style={styles.buyCreditsText}>Buy Credits</Text>
+                        </TouchableOpacity>
                         {/* )} */}
                         <View
                             style={[
@@ -608,7 +615,7 @@ const handleBuyCredits = () => {
                     setSelectedCreator(null);
                 }}
                 customStyles={{
-                    container:[ {
+                    container: [{
                         borderTopLeftRadius: 30,
                         borderTopRightRadius: 30,
                         bottom: -30,
@@ -633,7 +640,7 @@ const handleBuyCredits = () => {
                     setShowCreditModal(false);
                 }}
                 currentCredits={creditsLeft}
-                 maxPurchasable={MAX_CREDITS - creditsLeft} 
+                maxPurchasable={MAX_CREDITS - creditsLeft}
             />
         </SafeAreaView>
     );
