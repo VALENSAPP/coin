@@ -416,6 +416,7 @@ const Settings = () => {
       try {
         const apiRes = await fetchDeviceAccounts();
         const accounts = apiRes?.data?.accounts || [];
+        console.log('Fetched accounts from device:', accounts);
         setSwitchableAccounts(accounts);
         setAccountSwitcherVisible(true);
       } catch (e) {
@@ -440,6 +441,21 @@ const Settings = () => {
         onPress: () => {
           (async () => {
             dispatch(setUserProfile('normal'));
+            dispatch(showLoader());
+            
+            const currentUserId = await AsyncStorage.getItem('userId');
+            
+            // Fetch other accounts BEFORE logout (while token is still valid)
+            let otherAccounts = [];
+            try {
+              const apiRes = await fetchDeviceAccounts();
+              otherAccounts = extractAccountsFromDeviceAccountsResponse(apiRes);
+              console.log('otherAccounts fetched BEFORE logout:', otherAccounts);
+            } catch (e) {
+              console.warn('fetchDeviceAccounts before logout failed:', e?.message);
+            }
+            
+            // Now logout
             try {
               const token = await AsyncStorage.getItem('token');
               const refreshToken = await AsyncStorage.getItem('refreshToken');
@@ -447,10 +463,63 @@ const Settings = () => {
             } catch (e) {
               // Ignore logout API failure; proceed with local logout.
             }
-            const currentUserId = await AsyncStorage.getItem('userId');
-            if (currentUserId) {
-              await removeSavedAccount(currentUserId);
+            
+            // Try to switch to another account if available (BEFORE removing current account)
+            let switchSuccess = false;
+            try {
+              if (otherAccounts && otherAccounts.length > 1) {
+                // Switch to the second account (first is current user)
+                const topAccount = otherAccounts[1];
+                const targetUserId = resolveAccountUserId(topAccount);
+                console.log('Switching to account:', targetUserId, topAccount);
+                
+                if (targetUserId) {
+                  const switchRes = await switchAccountRequest({ targetUserId });
+                  console.log('switchRes from logout:', switchRes);
+                  const ok = switchRes?.statusCode === 200 || switchRes?.statusCode === 201;
+                  
+                  if (ok) {
+                    // Auto-switch to account
+                    const resData = switchRes.data || switchRes;
+                    console.log('resData to persist:', resData);
+                    
+                    await persistSwitchedUser(resData, topAccount, dispatch, String(targetUserId));
+                    const profile = await AsyncStorage.getItem('profile');
+                    console.log('Profile after switch:', profile);
+                    dispatch(setUserProfile(profile || 'normal'));
+                    
+                    dispatch(hideLoader());
+                    dispatch(loggedOut());
+                    setTimeout(() => {
+                      console.log('Dispatching loggedIn');
+                      dispatch(loggedIn());
+                    }, 100);
+                    
+                    showToastMessage(toast, 'success', `Switched to ${topAccount.displayName || 'another account'}`, 2000);
+                    switchSuccess = true;
+                  } else {
+                    console.warn('Switch failed with status:', switchRes?.statusCode, switchRes?.message);
+                  }
+                }
+              } else {
+                console.log('Not enough accounts to switch:', otherAccounts?.length);
+              }
+            } catch (e) {
+              console.warn('Error during account switch:', e?.message, e);
             }
+            
+            // Remove current account AFTER switch attempt
+            if (switchSuccess && currentUserId) {
+              try {
+                await removeDeviceAccountRequest({ userId: currentUserId });
+                console.log('Removed old account from device after successful switch');
+              } catch (e) {
+                console.warn('removeDeviceAccountRequest failed (non-fatal after switch):', e?.message);
+              }
+              return;
+            }
+            
+            // If switch failed, proceed with full logout
             await AsyncStorage.setItem('isLoggedIn', 'false');
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('refreshToken');
@@ -466,7 +535,10 @@ const Settings = () => {
             await AsyncStorage.removeItem('profile');
             await AsyncStorage.removeItem('stripeCustomerId');
             await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
+            
+            dispatch(hideLoader());
             dispatch(loggedOut());
+            showToastMessage(toast, 'success', 'Logged out', 1500);
           })();
         },
       },

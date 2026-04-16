@@ -315,15 +315,20 @@ export const persistSwitchedUser = async (res, user, dispatch, id) => {
         await AsyncStorage.setItem('profile', String(user.profile));
     }
 
-    await saveOrUpdateAccount({
-        userId: String(id),
-        token: access,
-        refreshToken: refresh,
-        username: un || (await AsyncStorage.getItem('username')),
-        email: user.email || (await AsyncStorage.getItem('email')),
-        profile: user.profile || (await AsyncStorage.getItem('profile')),
-        displayName: un || user.email || `Account ${id}`,
-    });
+    // Try to also save to account session, but don't fail if it errors
+    try {
+        await saveOrUpdateAccount({
+            userId: String(id),
+            token: access,
+            refreshToken: refresh,
+            username: un || (await AsyncStorage.getItem('username')),
+            email: user.email || (await AsyncStorage.getItem('email')),
+            profile: user.profile || (await AsyncStorage.getItem('profile')),
+            displayName: un || user.email || `Account ${id}`,
+        });
+    } catch (e) {
+        console.warn('[persistSwitchedUser] saveOrUpdateAccount failed (non-fatal):', e?.message);
+    }
 
     await AsyncStorage.setItem('isLoggedIn', 'true');
 };
