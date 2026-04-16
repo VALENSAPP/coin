@@ -81,6 +81,7 @@ import HighlightsScreen from '../pages/settings/highlights';
 import BattleInProgress from '../pages/settings/BattleInProgress';
 import BattleResults from '../pages/settings/BattleResults';
 import BattleReward from '../pages/settings/BattleReward';
+import HexAvatar from '../components/home/story.js/HexAvatar';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -136,7 +137,7 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="EditProfile"
           component={ProfileEditScreen}
-          options={{ headerShown: true, headerStyle: ['#fff'],headerTitle: 'Edit Profile', }}
+          options={{ headerShown: true, headerStyle: ['#fff'], headerTitle: 'Edit Profile', }}
         />
         <Stack.Screen
           name="PostUpload"
@@ -537,15 +538,21 @@ export default function MainTabNavigator() {
             case 'ProfileMain':
               if (profileImage) {
                 return (
-                  <Image
-                    source={{ uri: profileImage }}
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 13,
-                      borderWidth: focused ? 2 : 0,
-                      borderColor: focused ? iconColor : 'transparent',
-                    }}
+                  // <Image
+                  //   source={{ uri: profileImage }}
+                  //   style={{
+                  //     width: 26,
+                  //     height: 26,
+                  //     borderRadius: 13,
+                  //     borderWidth: focused ? 2 : 0,
+                  //     borderColor: focused ? iconColor : 'transparent',
+                  //   }}
+                  // />
+                  <HexAvatar
+                    uri={profileImage}
+                    size={30}
+                    borderWidth={1.5}
+                    borderColor={text}
                   />
                 );
               } else {

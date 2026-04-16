@@ -28,6 +28,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import HexAvatar from '../../../components/home/story.js/HexAvatar';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -605,16 +606,20 @@ const ProfileEditScreen = () => {
             style={styles.avatarTouchable}
           >
             <View style={styles.imageWrapper}>
-              {
-                profileImage ? (
-                  <Image
-                    source={{ uri: profileImage }}
-                    style={[styles.profileImage, { borderColor: text }]}
+              <HexAvatar
+                uri={profileImage || PLACEHOLDER_AVATAR}
+                size={75}
+                borderWidth={3}
+                borderColor={text}
+            />
+                {/* {!profileImage && (
+                  <MaterialCommunityIcons
+                    name="account-circle-outline"
+                    size={40}
+                    color="#999"
                   />
-                ) : (
-                  <MaterialCommunityIcon name="account-circle-outline" size={110} color="#..." />
-                )
-              }
+                )}
+              </HexAvatar> */}
               <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]} >
                 <Text style={styles.cameraText}>📷</Text>
               </View>
@@ -627,10 +632,10 @@ const ProfileEditScreen = () => {
           {/* Enhanced Display Name Input */}
           {renderDisplayNameInput()}
 
-          <View style={[styles.inputContainer,bgStyle]}>
+          <View style={[styles.inputContainer, bgStyle]}>
             <Text style={styles.label}>Username *</Text>
             <TextInput
-              style={[styles.input, errors.username && styles.inputError, styles.inputDisabled,bgStyle]}
+              style={[styles.input, errors.username && styles.inputError, styles.inputDisabled, bgStyle]}
               placeholder="Enter your username"
               value={username}
               onChangeText={handleUsernameChange}
