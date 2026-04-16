@@ -110,6 +110,7 @@ export default function PostStoryMusicTrimModal({
   lyricsBundle = null,
   onCancel,
   onDone,
+  onDelete,
 }) {
   const [audioTrimStartDraft, setAudioTrimStartDraft] = useState('0');
   const [audioTrimEndDraft, setAudioTrimEndDraft] = useState('');
@@ -293,6 +294,11 @@ export default function PostStoryMusicTrimModal({
     setMusicEditorPaused(false);
   };
 
+  const handleDelete = () => {
+    setMusicEditorPaused(false);
+    onDelete?.();
+  };
+
   const igSegStart = Number(audioTrimStartDraft) || 0;
   const igSegEnd =
     audioTrimEndDraft.trim() === ''
@@ -354,9 +360,11 @@ export default function PostStoryMusicTrimModal({
       <SafeAreaView style={styles.igMusicEditorRoot} edges={['top', 'bottom']}>
         <View style={styles.igMusicEditorInner}>
           <View style={styles.igMusicHeader}>
-            <TouchableOpacity onPress={handleCancel} hitSlop={12} style={styles.igHeaderSideLeft}>
-              <Text style={styles.igHeaderBtn}>Cancel</Text>
-            </TouchableOpacity>
+            <View style={styles.igHeaderSideLeft}>
+              <TouchableOpacity onPress={handleCancel} hitSlop={12}>
+                <Text style={styles.igHeaderBtn}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.igMusicHeaderCenter}>
               {trackArtworkUri ? (
                 <Image source={{ uri: trackArtworkUri }} style={styles.igArtwork} />
@@ -374,9 +382,16 @@ export default function PostStoryMusicTrimModal({
                 />
               </View>
             </View>
-            <TouchableOpacity onPress={handleDone} hitSlop={12} style={styles.igHeaderSideRight}>
-              <Text style={styles.igHeaderBtnDone}>Done</Text>
-            </TouchableOpacity>
+            <View style={styles.igHeaderSideRight}>
+              {onDelete && (
+                <TouchableOpacity onPress={handleDelete} hitSlop={12} style={styles.igHeaderDeleteBtn}>
+                  <Icon name="trash" size={18} color="#ff4d6a" />
+                </TouchableOpacity>
+              )}
+            </View>
+              <TouchableOpacity onPress={handleDone} hitSlop={12}>
+                <Text style={styles.igHeaderBtnDone}>Done</Text>
+              </TouchableOpacity>
           </View>
 
           <View style={styles.igTrimPreviewArea}>
@@ -778,9 +793,24 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   igHeaderSideLeft: { width: 78, justifyContent: 'center' },
-  igHeaderSideRight: { width: 78, alignItems: 'flex-end', justifyContent: 'center' },
+  igHeaderSideRight: { 
+    width: 78, 
+    alignItems: 'flex-end', 
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
   igHeaderBtn: { color: '#fff', fontSize: 17, fontWeight: '400' },
   igHeaderBtnDone: { color: '#4da3ff', fontSize: 17, fontWeight: '600' },
+  igHeaderDeleteBtn: {
+    marginLeft: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,77,106,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   igMusicHeaderCenter: {
     flex: 1,
     flexDirection: 'row',

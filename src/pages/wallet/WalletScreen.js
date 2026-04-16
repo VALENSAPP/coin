@@ -507,11 +507,11 @@ const handleBuyCredits = () => {
                                 </Text>
                             </View>
                         </View>
-                        {String(profile || '').toLowerCase() !== 'company' && (
+                        {/* {String(profile || '').toLowerCase() !== 'company' && ( */}
                             <TouchableOpacity style={[styles.buyCreditsBtn, {backgroundColor: text}]} onPress={handleBuyCredits}  disabled={creditsLeft >= 5}>
                                 <Text style={styles.buyCreditsText}>Buy Credits</Text>
                             </TouchableOpacity>
-                        )}
+                        {/* )} */}
                         <View
                             style={[
                                 styles.creditsInfo,

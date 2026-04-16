@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -279,6 +279,11 @@ const InstagramPostCreator = () => {
   const animatedPositionRefs = useRef({});
   const textOverlayLayoutRefs = useRef({});
   const recentDragTimestamps = useRef({});
+  
+  // Trash zone refs for drag-to-delete
+  const trashZoneRef = useRef(null);
+  const [trashRect, setTrashRect] = useState(null);
+  const [showTrashZone, setShowTrashZone] = useState(false);
 
   useEffect(() => {
     if (userSearchTimeoutRef.current) {
@@ -1155,6 +1160,13 @@ const InstagramPostCreator = () => {
         const touches = evt.nativeEvent.touches;
         const session = overlayGestureState.current[id];
         if (!session) return;
+        
+        // Check if over trash zone
+        if (session.moved && touches.length === 1) {
+          const { pageX, pageY } = touches[0];
+          setShowTrashZone(isOverTrashZone(pageX, pageY));
+        }
+        
         const overlayBounds = getOverlayBounds(target.baseSize || 100);
 
         if (touches.length >= 2) {
@@ -1232,8 +1244,24 @@ const InstagramPostCreator = () => {
         }
         session.pendingPosition = nextPosition;
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (evt) => {
         const session = overlayGestureState.current[id];
+        
+        // Check if released over trash zone - delete immediately without jumping
+        if (session?.moved && evt.nativeEvent?.changedTouches?.length > 0) {
+          const { pageX, pageY } = evt.nativeEvent.changedTouches[0];
+          if (isOverTrashZone(pageX, pageY)) {
+            // Delete immediately - don't reset position, just remove from state
+            removeOverlay(id);
+            delete overlayGestureState.current[id];
+            setShowTrashZone(false);
+            setIsOverlayTransforming(false);
+            setIsScrollEnabled(true);
+            return;
+          }
+        }
+        
+        // Not over trash - save final position
         const finalPosition = session?.pendingPosition || getAnimatedPositionValue(
           animatedPosition,
           fallbackPosition,
@@ -1248,6 +1276,7 @@ const InstagramPostCreator = () => {
         delete overlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
+        setShowTrashZone(false);
       },
       onPanResponderTerminate: () => {
         const session = overlayGestureState.current[id];
@@ -1314,6 +1343,12 @@ const InstagramPostCreator = () => {
         const touches = evt.nativeEvent.touches;
         const session = textOverlayGestureState.current[id];
         if (!session) return;
+
+        // Check if over trash zone
+        if (session.moved && touches.length === 1) {
+          const { pageX, pageY } = touches[0];
+          setShowTrashZone(isOverTrashZone(pageX, pageY));
+        }
 
         const currentOverlay =
           (imageEdits[imageIndex] || getCurrentImageEdits()).textOverlays.find(
@@ -1392,8 +1427,24 @@ const InstagramPostCreator = () => {
           session.moved = true;
         }
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (evt) => {
         const session = textOverlayGestureState.current[id];
+        
+        // Check if released over trash zone - delete immediately without jumping
+        if (session?.moved && evt.nativeEvent?.changedTouches?.length > 0) {
+          const { pageX, pageY } = evt.nativeEvent.changedTouches[0];
+          if (isOverTrashZone(pageX, pageY)) {
+            // Delete immediately - don't reset position, just remove from state
+            removeTextOverlay(id);
+            delete textOverlayGestureState.current[id];
+            setShowTrashZone(false);
+            setIsOverlayTransforming(false);
+            setIsScrollEnabled(true);
+            return;
+          }
+        }
+        
+        // Not over trash - save final position
         const finalPosition =
           session?.pendingPosition ||
           getAnimatedPositionValue(animatedPosition, fallbackPosition);
@@ -1408,6 +1459,7 @@ const InstagramPostCreator = () => {
         delete textOverlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
+        setShowTrashZone(false);
       },
       onPanResponderTerminate: () => {
         const session = textOverlayGestureState.current[id];
@@ -1656,6 +1708,20 @@ const InstagramPostCreator = () => {
     updateCurrentImageEdits({
       textOverlays: currentEdits.textOverlays.filter(overlay => overlay.id !== id)
     });
+  };
+
+  const measureTrashZone = useCallback(() => {
+    if (trashZoneRef.current) {
+      trashZoneRef.current.measure((x, y, width, height, pageX, pageY) => {
+        setTrashRect({ x: pageX, y: pageY, width, height });
+      });
+    }
+  }, []);
+
+  const isOverTrashZone = (x, y) => {
+    if (!trashRect) return false;
+    return x >= trashRect.x && x <= trashRect.x + trashRect.width &&
+           y >= trashRect.y && y <= trashRect.y + trashRect.height;
   };
 
   const handleNext = async () => {
@@ -2634,6 +2700,38 @@ const InstagramPostCreator = () => {
                 </View>
               );
             })()}
+
+            {/* Drag-to-Delete Trash Zone - Visible Only While Dragging */}
+            {isOverlayTransforming && (
+              <View
+                ref={trashZoneRef}
+                onLayout={measureTrashZone}
+                style={[
+                  styles.storyTrashZone,
+                  { backgroundColor: showTrashZone ? 'rgba(255,76,106,0.25)' : 'transparent' }
+                ]}
+                pointerEvents="none"
+              >
+                <View
+                  style={[
+                    styles.storyTrashIcon,
+                    { opacity: showTrashZone ? 1 : 0.5 }
+                  ]}
+                >
+                  <Icon
+                    name="trash"
+                    size={25}
+                    color={showTrashZone ? '#ff4d6a' : '#999'}
+                  />
+                </View>
+                <Text style={[
+                  styles.storyTrashHint,
+                  showTrashZone && styles.storyTrashHintActive
+                ]}>
+                  Drop to delete
+                </Text>
+              </View>
+            )}
           </>
         ) : (
           <TouchableOpacity style={styles.addImageButton} onPress={pickImages}>
@@ -3394,6 +3492,23 @@ const InstagramPostCreator = () => {
           });
           setPostStorySoundTrimVisible(false);
           showToastMessage(toast, 'success', 'Music trim saved', 1500);
+        }}
+        onDelete={() => {
+          updateCurrentImageEdits({
+            musicSource: 'none',
+            musicId: 'none',
+            musicTitle: null,
+            musicArtist: null,
+            musicYoutubeVideoId: null,
+            musicYoutubeThumbUrl: null,
+            musicYoutubeDurationSec: null,
+            musicTrimStart: 0,
+            musicTrimEnd: null,
+            musicLyrics: null,
+            musicBadge: null,
+          });
+          setPostStorySoundTrimVisible(false);
+          showToastMessage(toast, 'success', 'Music removed', 1500);
         }}
       />
 
@@ -4392,6 +4507,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  storyTrashZone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    zIndex: 100,
+    paddingBottom: 20,
+    paddingTop: 10,
+    minHeight: 120,
+  },
+  storyTrashIcon: {
+    marginBottom: 8,
+  },
+  storyTrashHint: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.42)',
+    letterSpacing: 0.3,
+  },
+  storyTrashHintActive: {
+    color: '#ff4d6a',
   },
 });
 
