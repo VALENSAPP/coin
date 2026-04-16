@@ -294,7 +294,7 @@ export default function BattleResults({ navigation }) {
                   //   style={styles.winnerAvatar}
                   // />
                   <HexAvatar
-                    uri={ winnerProfile.image || require('../../assets/icons/pngicons/user.png')}
+                    uri={ winnerProfile?.image || require('../../assets/icons/pngicons/user.png')}
                     size={60}
                     borderWidth={1.5}
                     borderColor={text}

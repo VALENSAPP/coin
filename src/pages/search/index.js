@@ -41,6 +41,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { exploretBattle } from '../../services/battle';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR =
@@ -300,9 +301,9 @@ const mapBattleCard = battle => {
     options: buildBattleOptions(battle),
     isLive: Boolean(
       battle?.isLive ||
-        battle?.live ||
-        battle?.status === 'LIVE' ||
-        battle?.status === 'live',
+      battle?.live ||
+      battle?.status === 'LIVE' ||
+      battle?.status === 'live',
     ),
     status: battle?.status || '',
     stakeAmount: battle?.stakeAmount ?? battle?.stake ?? 0,
@@ -443,12 +444,13 @@ const SearchScreen = () => {
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
 
+
   const searchTimeoutRef = useRef(null);
   const autoplayTimeoutRef = useRef(null);
   const scrollOffsetRef = useRef(0);
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
-  const { bgStyle, textStyle } = useAppTheme();
+ const { bgStyle, text, card } = useAppTheme();
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
 
@@ -475,6 +477,7 @@ const SearchScreen = () => {
         // dispatch(showLoader());
 
         const res = await getAllUser({ userName: searchQuery });
+        console.log(res, 'data in secrj iteeejbdddjgsdh')
         if (activeSearchRequestIdRef.current !== requestId) return;
 
         if (res.statusCode === 200 || res.status === 200) {
@@ -619,7 +622,7 @@ const SearchScreen = () => {
     try {
       setLoadingLiveBattles(true);
       const response = await exploretBattle();
-      console.log(response,'respoens ein sercshs s ')
+      console.log(response, 'respoens ein sercshs s ')
 
       if (response?.statusCode === 200 || response?.status === 200) {
         const rawBattles =
@@ -903,8 +906,8 @@ const SearchScreen = () => {
     if (!previewPost) return null;
     return normalizeImageUrl(
       previewPost?.mediaUrl ||
-        previewPost?.image ||
-        (Array.isArray(previewPost?.images) ? previewPost.images[0] : null),
+      previewPost?.image ||
+      (Array.isArray(previewPost?.images) ? previewPost.images[0] : null),
     );
   }, [previewPost]);
 
@@ -1068,23 +1071,23 @@ const SearchScreen = () => {
           onPress={() => handleUserProfile(item)}
           activeOpacity={0.7}
         >
-          <Image
-            source={{
-              uri: normalizeImageUrl(
-                item?.image ? (
-                  item?.image
-                ) : (
-                  <Text style={{ color: 'red', fontSize: 20 }}>
-                    No data found
-                  </Text>
-                ),
-              ),
-            }}
+          {/* <Image
+            source={
+              item?.image
+                ? { uri: normalizeImageUrl(item.image) }
+                : require('../../assets/icons/pngicons/user.png')
+            }
             style={styles.userAvatar}
+          /> */}
+          <HexAvatar
+            uri={normalizeImageUrl(item.image) || require('../../assets/icons/pngicons/user.png')}
+            size={60}
+            borderWidth={1.5}
+            borderColor={text}
           />
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {item?.name || item?.userName}
+              {item?.displayName || item?.userName}
             </Text>
             <Text style={styles.userHandle} numberOfLines={1}>
               @{item?.userName}
@@ -1302,7 +1305,7 @@ const SearchScreen = () => {
                   Browse live, open, trending, and finished battles like a
                   discover feed.
                 </Text> */}
-{/* 
+                {/* 
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1420,7 +1423,7 @@ const SearchScreen = () => {
                                       style={[
                                         styles.pollOptionChip,
                                         isSelected &&
-                                          styles.pollOptionChipSelected,
+                                        styles.pollOptionChipSelected,
                                       ]}
                                       onPress={() =>
                                         updateSelectedBattleOption(
@@ -1433,7 +1436,7 @@ const SearchScreen = () => {
                                         style={[
                                           styles.pollOptionText,
                                           isSelected &&
-                                            styles.pollOptionTextSelected,
+                                          styles.pollOptionTextSelected,
                                         ]}
                                       >
                                         {optionLabel}
@@ -1516,7 +1519,7 @@ const SearchScreen = () => {
                                       style={[
                                         styles.headToHeadOptionButton,
                                         isSelected &&
-                                          styles.headToHeadOptionButtonSelected,
+                                        styles.headToHeadOptionButtonSelected,
                                       ]}
                                       onPress={() =>
                                         updateSelectedBattleOption(
@@ -1529,7 +1532,7 @@ const SearchScreen = () => {
                                         style={[
                                           styles.headToHeadOptionText,
                                           isSelected &&
-                                            styles.headToHeadOptionTextSelected,
+                                          styles.headToHeadOptionTextSelected,
                                         ]}
                                       >
                                         {optionLabel}
