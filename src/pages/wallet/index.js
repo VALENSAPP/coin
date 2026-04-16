@@ -60,10 +60,10 @@ const mapFollowersGraphResponse = (response) => {
     : Array.isArray(root)
       ? root
       : root?.graph ??
-        root?.history ??
-        root?.series ??
-        root?.items ??
-        (Array.isArray(root?.data) ? root.data : null);
+      root?.history ??
+      root?.series ??
+      root?.items ??
+      (Array.isArray(root?.data) ? root.data : null);
 
   if (!Array.isArray(raw) || raw.length === 0) {
     return [];
@@ -79,12 +79,12 @@ const mapFollowersGraphResponse = (response) => {
         item?.createdAt;
       const val = Number(
         item?.followers ??
-          item?.followerCount ??
-          item?.count ??
-          item?.newFollowers ??
-          item?.total ??
-          item?.value ??
-          0,
+        item?.followerCount ??
+        item?.count ??
+        item?.newFollowers ??
+        item?.total ??
+        item?.value ??
+        0,
       );
       let ts;
       if (dateStr != null && String(dateStr).length > 0) {
@@ -288,7 +288,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
       console.log('Error fetching user details:', error);
     }
   };
-
+  useEffect(() => {
+    getUserDetail();
+  }, []);
   const stripeAccountId = 'Not connected';
   const walletAddress = 'Not available';
   const visibleKpiData = useMemo(() => {
@@ -1084,7 +1086,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         <View style={styles.header}>
           <LinearGradient
             colors={walletScreenGradient}
-            start={{ x: -1, y: -1}}
+            start={{ x: -1, y: -1 }}
             end={{ x: 1, y: 1 }}
             style={styles.headerCard}
           >
@@ -1095,7 +1097,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   uri={userProfile.image || FALLBACK_AVATAR}
                   size={72}
                   borderWidth={3}
-                  borderColor="rgba(255,255,255,0.45)"
+                  borderColor={text}
                 />
               </View>
               <View style={styles.headerText}>
@@ -1109,23 +1111,23 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   @{userProfile.name || 'User'}
                 </Text>
                 {kyc === 'verified' && (
-                <View style={styles.headerStatus}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color={isBusinessProfile ? '#5a2d82' : '#fef3c7'}
-                  />
-                  <Text
-                    style={[
-                      styles.headerStatusText,
-                      isBusinessProfile
-                        ? { color: 'rgba(42,27,61,0.85)' }
-                        : { color: '#f9fafb' },
-                    ]}
-                  >
-                    Verified
-                  </Text>
-                </View>
+                  <View style={styles.headerStatus}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={isBusinessProfile ? '#5a2d82' : '#fef3c7'}
+                    />
+                    <Text
+                      style={[
+                        styles.headerStatusText,
+                        isBusinessProfile
+                          ? { color: 'rgba(42,27,61,0.85)' }
+                          : { color: '#f9fafb' },
+                      ]}
+                    >
+                      Verified
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -1166,7 +1168,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <Text
               style={[
                 styles.pointsValue,
-                {color: text },
+                { color: text },
               ]}
             >
               {formatPointValue(rewardSummary.totalPlatformPoints)}

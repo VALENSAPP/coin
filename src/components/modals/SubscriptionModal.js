@@ -323,11 +323,11 @@ const SubscribeFlowModal = ({
             {/* STEP 1 */}
             <RBSheet
                 ref={step1Ref}
-                height={400}
+                height={420}
                 closeOnPressMask={false}
                 customStyles={{ container: [styles.sheetContainer, bgStyle] }}
             >
-                <View style={styles.container}>
+                <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
                         <Text style={[styles.header, textStyle]}>{displayName} </Text>
                         <DragonflyIcon width={22} height={22} />
@@ -363,7 +363,7 @@ const SubscribeFlowModal = ({
                             Not Now
                         </Text>
                     </TouchableOpacity>
-                </View>
+                </ScrollView>
             </RBSheet>
 
             {/* STEP 2 */}
