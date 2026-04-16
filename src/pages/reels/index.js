@@ -537,29 +537,6 @@ export default function FlipsScreen() {
     ]).start(() => setHeartAnimatingId(null));
   }, [scaleAnim]);
 
-  const animateForward = useCallback(id => {
-    setForwardAnimatingId(id);
-    forwardScaleAnim.setValue(0);
-    Animated.sequence([
-      Animated.spring(forwardScaleAnim, { toValue: 1.2, useNativeDriver: true, tension: 100, friction: 3 }),
-      Animated.delay(300),
-      Animated.timing(forwardScaleAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(() => setForwardAnimatingId(null));
-  }, [forwardScaleAnim]);
-
-  // ── JS handlers called via runOnJS from the worklet gesture callbacks ────
-  const handleSeekForward = useCallback(id => {
-    const videoRef = videoRefs.current[id];
-    if (!videoRef) return;
-    try {
-      const currentTime = videoProgressRef.current[id] || 0;
-      videoRef.seek(currentTime + 10);
-      animateForward(id);
-    } catch (error) {
-      console.log('Error seeking video:', error);
-    }
-  }, [animateForward]);
-
   const handleDoubleTapLeft = useCallback(id => {
     if (!likedRef.current[id]) handleLike(id);
     animateHeart(id);
@@ -722,8 +699,7 @@ export default function FlipsScreen() {
       .maxDistance(14)
       .onEnd(e => {
         const isRightSide = e.x > SCREEN_WIDTH / 2;
-        if (isRightSide) runOnJS(handleSeekForward)(itemId);
-        else runOnJS(handleDoubleTapLeft)(itemId);
+       runOnJS(handleDoubleTapLeft)(itemId);
       });
 
     const singleTap = Gesture.Tap()
@@ -746,7 +722,7 @@ export default function FlipsScreen() {
 
     // Pinch runs simultaneously with taps; single/double are mutually exclusive
     return Gesture.Simultaneous(pinch, Gesture.Exclusive(doubleTap, singleTap));
-  }, [handleDoubleTapLeft, handleSeekForward, handleSingleTapToggle, pinchScale, savedScale]);
+  }, [handleDoubleTapLeft, handleSingleTapToggle, pinchScale, savedScale]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleUserNavigate = async () => {
@@ -805,15 +781,6 @@ export default function FlipsScreen() {
             {heartAnimatingId === item.id && (
               <Animated.View style={[styles.heartAnimation, { transform: [{ scale: scaleAnim }] }]}>
                 <Icon name="heart" size={100} color="#ff3040" />
-              </Animated.View>
-            )}
-
-            {forwardAnimatingId === item.id && (
-              <Animated.View style={[styles.forwardAnimation, { transform: [{ scale: forwardScaleAnim }] }]}>
-                <View style={styles.forwardIconContainer}>
-                  <Icon name="play-forward" size={80} color="#fff" />
-                  <Text style={styles.forwardText}>+10s</Text>
-                </View>
               </Animated.View>
             )}
           </Reanimated.View>
