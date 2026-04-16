@@ -240,6 +240,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const getUserDetail = async () => {
     try {
+      dispatch(showLoader());
       const id = await AsyncStorage.getItem('userId');
 
       if (!id) {
@@ -286,6 +287,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
     } catch (error) {
       console.log('Error fetching user details:', error);
+    } finally {
+      dispatch(hideLoader()); // Add this
     }
   };
   useEffect(() => {

@@ -1449,6 +1449,7 @@ function PostItem({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        canSupport={canSupport}
       />
     </View>
   );

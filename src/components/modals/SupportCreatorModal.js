@@ -7,6 +7,7 @@ const SupportCreatorModal = ({
   onSupport,
   creatorName = 'Creator',
   variant = 'intro',
+  canSupport
 }) => {
   if (variant === 'disclaimer') {
     return (
@@ -27,6 +28,9 @@ const SupportCreatorModal = ({
         secondaryLabel="Maybe Later"
         onPrimary={onSupport}
         onSecondary={onClose}
+        canSupport={canSupport}
+        variant={variant}
+        creatorName={creatorName}
       />
     );
   }

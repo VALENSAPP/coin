@@ -239,6 +239,7 @@ export default function FollowCard({
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
+        canSupport={canSupport}
       />
     </View>
   );

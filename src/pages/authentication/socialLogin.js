@@ -63,6 +63,10 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) 
     if (user) {
       const idTokenFromUser = await user.getIdToken();
       AsyncStorage.setItem('firebaseToken', idTokenFromUser);
+      const username =
+                user?._user?.displayName ??
+                user?.providerData?.[0]?.displayName ??
+                'Unknown';
       // await signInWithFirebase(idTokenFromUser);
       console.log("idTokenFromUser--------------", idTokenFromUser)
       if (idToken) {
@@ -102,6 +106,11 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
     console.log('appleCredential------>>>>>>>>>', userCredential);
 
     const user = userCredential.user;
+    const username =
+                user?.displayName ??
+                user?.providerData?.[0]?.displayName ??
+                user?.providerData?.[0]?.providerUserInfo?.[1]?.displayName ??
+                'Unknown';
 
     if (user) {
       auth().onAuthStateChanged((user) => {
@@ -115,7 +124,7 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
       const idToken = await user.getIdToken();
       console.log('idtokennnnnnnn', idToken);
 
-      signupReference('APPLE', idToken, toast, dispatch, navigation, profile)
+      signupReference('APPLE', idToken, toast, dispatch, navigation, profile, username)
     }
   } catch (error) {
     console.error('Apple login error:', error);
@@ -252,11 +261,12 @@ const getProfileData = async (dispatch, navigation, toast) => {
   }
 }
 
-export const signupReference = async (type, idtoken, toast, dispatch, navigation, profile) => {
+export const signupReference = async (type, idtoken, toast, dispatch, navigation, profile, userName) => {
   try {
     const payload = {
       registrationType: type,
       profile,
+      userName: userName,
     };
 
     if (type === "GOOGLE") {

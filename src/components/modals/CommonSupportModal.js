@@ -13,6 +13,9 @@ const CommonSupportModal = ({
   secondaryLabel = 'Maybe Later',
   onPrimary,
   onSecondary,
+  canSupport,
+  variant,
+  creatorName
 }) => {
   const { text, card } = useAppTheme();
 
@@ -49,9 +52,17 @@ const CommonSupportModal = ({
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: text }]}
               onPress={onPrimary}
+              disabled={variant === 'disclaimer' && !canSupport}
             >
               <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
             </TouchableOpacity>
+            {variant === 'disclaimer' && !canSupport &&
+              <Text style={styles.texterror}>
+                Wallet is not connected for{' '}
+                <Text style={{ fontWeight: 'bold' }}>{creatorName}</Text>.
+                {' '}Once connected, you can support.
+              </Text>
+            }
 
             <TouchableOpacity
               style={styles.secondaryButton}
@@ -143,4 +154,9 @@ const styles = StyleSheet.create({
     color: '#5A5A67',
     fontWeight: '600',
   },
+  texterror: {
+    fontSize: 14,
+    color: 'red',
+    fontWeight: '600',
+  }
 });

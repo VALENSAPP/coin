@@ -1149,7 +1149,7 @@ export default function FlipsScreen() {
         <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
         <ReportFlowScreen ref={reportSheetRef} postId={selectedReelId || reels[currentIndex]?.id} />
         <SupportCreatorModal visible={modalVisible} creatorName={currentReel?.user || 'Creator'} onClose={() => setModalVisible(false)} onSupport={handleOpenSupportDisclaimer} />
-        <SupportCreatorModal visible={supportDisclaimerVisible} creatorName={currentReel?.user || 'Creator'} variant="disclaimer" onClose={() => setSupportDisclaimerVisible(false)} onSupport={handleSupportNow} />
+        <SupportCreatorModal visible={supportDisclaimerVisible} creatorName={currentReel?.user || 'Creator'} variant="disclaimer" onClose={() => setSupportDisclaimerVisible(false)} onSupport={handleSupportNow} canSupport={recipientWalletAddress}/>
       </SafeAreaView>
     </GestureHandlerRootView >
   );
