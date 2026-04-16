@@ -557,10 +557,11 @@ export default function MainTabNavigator() {
                 );
               } else {
                 return (
-                  <Ionicons
-                    name={focused ? 'person-circle' : 'person-circle-outline'}
-                    size={26}
-                    color={iconColor}
+                   <HexAvatar
+                    uri={require('../assets/icons/pngicons/user.png')}
+                    size={30}
+                    borderWidth={1.5}
+                    borderColor={text}
                   />
                 );
               }
