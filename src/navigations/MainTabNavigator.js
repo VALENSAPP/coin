@@ -116,7 +116,9 @@ export default function MainTabNavigator() {
           component={ProfileBattleScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="EditPost" component={EditPostScreen} />
+        <Stack.Screen name="EditPost" component={EditPostScreen} options={{
+          gestureEnabled: false,
+        }} />
         {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
       </Stack.Navigator>
     );
@@ -557,7 +559,7 @@ export default function MainTabNavigator() {
                 );
               } else {
                 return (
-                   <HexAvatar
+                  <HexAvatar
                     uri={require('../assets/icons/pngicons/user.png')}
                     size={30}
                     borderWidth={1.5}
