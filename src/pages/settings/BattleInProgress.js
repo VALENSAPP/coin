@@ -568,7 +568,10 @@ export default function BattleInProgress() {
   const { profile, } = route.params || {};
   const resolvedProfileType = normalizeProfileType(profile);
   const { bgStyle, textStyle, cardStyle, text, card } = useAppTheme(resolvedProfileType);
-  const routeBattle = route?.params?.battle || {};
+  const routeBattle = useMemo(
+    () => route?.params?.battle || {},
+    [route?.params?.battle],
+  );
   const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
   const battleId =
     route?.params?.battleId ||
@@ -619,7 +622,7 @@ export default function BattleInProgress() {
     () => getStatusTone(battle.status),
     [battle.status],
   );
-  const isPrediction = battle.format === "POLL";
+  const isPrediction = battle.format === 'POLL';
   const isHeadToHead = battle.format === 'HEAD_TO_HEAD';
   const resolvedBattleId = String(
     pickFirst(
@@ -631,10 +634,6 @@ export default function BattleInProgress() {
       '',
     ),
   );
-  const isCreator =
-    currentUserId &&
-    battle.creatorId &&
-    currentUserId === String(battle.creatorId);
   const userVotedSelection = useMemo(() => {
     if (!currentUserId) {
       return { side: '', optionId: '' };
@@ -652,13 +651,11 @@ export default function BattleInProgress() {
         ),
       ) === String(currentUserId);
 
-    const allEntries = [
-      ...(Array.isArray(battle?.participants) ? battle.participants : []),
-      ...(Array.isArray(battle?.predictions) ? battle.predictions : []),
-      ...(Array.isArray(battle?.votes) ? battle.votes : []),
-    ];
+    const submittedEntries = isPrediction
+      ? (Array.isArray(battle?.predictions) ? battle.predictions : [])
+      : (Array.isArray(battle?.votes) ? battle.votes : []);
 
-    const matchedEntry = allEntries.find(matchByUserId);
+    const matchedEntry = submittedEntries.find(matchByUserId);
     if (!matchedEntry) {
       return { side: '', optionId: '' };
     }
@@ -674,36 +671,12 @@ export default function BattleInProgress() {
       ),
       optionId: String(pickFirst(matchedEntry?.optionId, '')),
     };
-  }, [battle?.participants, battle?.predictions, battle?.votes, currentUserId]);
+  }, [battle?.predictions, battle?.votes, currentUserId, isPrediction]);
 
   const hasUserVoted = useMemo(
     () => Boolean(userVotedSelection.side || userVotedSelection.optionId),
     [userVotedSelection.optionId, userVotedSelection.side],
   );
-
-  const enforcedOpponentOption = useMemo(() => {
-    if (!isHeadToHead || !battle.creatorChoice || battle.options.length < 2) {
-      return '';
-    }
-
-    if (isCreator) {
-      return '';
-    }
-
-    const opposite = battle.options.find(
-      option => option.label !== battle.creatorChoice,
-    );
-    return opposite?.label || '';
-  }, [battle.creatorChoice, battle.options, isCreator, isHeadToHead]);
-
-  const availableOptions = useMemo(() => {
-    if (!enforcedOpponentOption) {
-      return battle.options;
-    }
-    return battle.options.filter(
-      option => option.label === enforcedOpponentOption,
-    );
-  }, [battle.options, enforcedOpponentOption]);
 
   const fetchBattle = useCallback(
     async (isSilent = false) => {
@@ -760,12 +733,6 @@ export default function BattleInProgress() {
   useEffect(() => {
     fetchBattle();
   }, [fetchBattle]);
-
-  useEffect(() => {
-    if (enforcedOpponentOption) {
-      setSelectedOption(enforcedOpponentOption);
-    }
-  }, [enforcedOpponentOption]);
 
   useEffect(() => {
     const routeSelectedOption = String(route?.params?.selectedOption || '');
@@ -876,7 +843,7 @@ export default function BattleInProgress() {
   const handleVote = async () => {
     console.log('🔥 Vote button clicked 1');
     const finalBattleId = resolvedBattleId || battleId;
-    const finalSelectedOption = String(selectedOption || enforcedOpponentOption);
+    const finalSelectedOption = String(selectedOption || '');
     const trimmedArgument = argumentText.trim();
 
     if (!finalBattleId) {
@@ -906,8 +873,8 @@ export default function BattleInProgress() {
     console.log('🔥 Vote button clicked2');
     if (isPrediction) {
       payload = {
-        battleId: resolvedBattleId,
-        side: selectedOption, // "Yes" or "No"
+        battleId: finalBattleId,
+        side: finalSelectedOption,
         justification: trimmedArgument || 'No justification provided',
         sourceUrl: ''// optional (add input later if needed)
       };
@@ -1657,15 +1624,9 @@ export default function BattleInProgress() {
               <Text style={[styles.sectionTitle, { color: text }]}>
                 {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
               </Text>
-              {isHeadToHead && !!enforcedOpponentOption && (
-                <Text style={[styles.sideRuleText, textStyle]}>
-                  The creator already locked {battle.creatorChoice}. You can only
-                  join on {enforcedOpponentOption}.
-                </Text>
-              )}
 
               <View style={styles.optionList}>
-                {(availableOptions.length ? availableOptions : battle.options).map(
+                {battle.options.map(
                   (option, index) => {
                     const optionImage = battle.optionImages?.[index];
                     const optionSide = String(

@@ -1,25 +1,45 @@
 import axiosInstance from "..";
 
-const normalizeBattlePayload = (data = {}) => ({
-    format: data?.format ?? 'POLL',
-    battleType: data?.battleType ?? 'OPINION',
-    question: data?.question?.trim?.() ?? '',
-    options: Array.isArray(data?.options)
-        ? data.options.map(option => `${option ?? ''}`.trim()).filter(Boolean)
-        : [],
-    optionImages: Array.isArray(data?.optionImages)
-        ? data.optionImages.filter(Boolean)
-        : [],
-    startTime: data?.startTime ?? '',
-    endTime: data?.endTime ?? '',
-    stake: Number(data?.stake ?? 0),
-    isPublic: Boolean(data?.isPublic),
-    invitedUserId: data?.invitedUserId?.trim?.() ?? '',
-    creatorChoice: data?.creatorChoice?.trim?.() ?? '',
-    creatorLockedOption: data?.creatorLockedOption?.trim?.() ?? '',
-    invitedUserChoice: data?.invitedUserChoice?.trim?.() ?? '',
-    resolutionMethod: data?.resolutionMethod?.trim?.() ?? '',
-});
+const normalizeBattlePayload = (data = {}) => {
+    const payload = {
+        format: data?.format ?? 'POLL',
+        battleType: data?.battleType ?? 'OPINION',
+        question: data?.question?.trim?.() ?? '',
+        options: Array.isArray(data?.options)
+            ? data.options.map(option => `${option ?? ''}`.trim()).filter(Boolean)
+            : [],
+        optionImages: Array.isArray(data?.optionImages)
+            ? data.optionImages.filter(Boolean)
+            : [],
+        startTime: data?.startTime ?? '',
+        endTime: data?.endTime ?? '',
+        stake: Number(data?.stake ?? 0),
+        isPublic: Boolean(data?.isPublic),
+        resolutionMethod: data?.resolutionMethod?.trim?.() ?? '',
+    };
+
+    const invitedUserId = data?.invitedUserId?.trim?.() ?? '';
+    if (invitedUserId) {
+        payload.invitedUserId = invitedUserId;
+    }
+
+    const creatorChoice = data?.creatorChoice?.trim?.() ?? '';
+    if (creatorChoice) {
+        payload.creatorChoice = creatorChoice;
+    }
+
+    const creatorLockedOption = data?.creatorLockedOption?.trim?.() ?? '';
+    if (creatorLockedOption) {
+        payload.creatorLockedOption = creatorLockedOption;
+    }
+
+    const invitedUserChoice = data?.invitedUserChoice?.trim?.() ?? '';
+    if (invitedUserChoice) {
+        payload.invitedUserChoice = invitedUserChoice;
+    }
+
+    return payload;
+};
 
 export const createBattle = async (data = {}) => {
     return axiosInstance.post('battle/create', normalizeBattlePayload(data));
