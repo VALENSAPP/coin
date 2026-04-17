@@ -1,5 +1,5 @@
 import { useFocusEffect, useRoute } from '@react-navigation/native';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform } from 'react-native';
 import ImagePicker from 'react-native-image-crop-picker';
 import Video from 'react-native-video';
@@ -29,6 +29,9 @@ export default function PostScreen({ navigation }) {
   
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
+  
+  // Track if we're coming back from EditPostSelected
+  const fromEditPostSelectedRef = useRef(false);
 
 
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
@@ -349,9 +352,18 @@ export default function PostScreen({ navigation }) {
       });
   };
 
+  // Show modal on screen focus if not coming back from EditPostSelected
   useFocusEffect(
     useCallback(() => {
+      // If returning from EditPostSelected, preserve selection and skip modal
+      if (fromEditPostSelectedRef.current) {
+        fromEditPostSelectedRef.current = false;
+        return;
+      }
+
+      // Coming from any other screen - reset everything and show modal
       setSelectedMedia([]);
+      setGalleryImages([]);
 
       if (isPrivateEntry) {
         setPostType('private');
@@ -370,6 +382,7 @@ export default function PostScreen({ navigation }) {
     }, [isPrivateEntry, isFlipEntry])
   );
 
+  // Sync gallery selection when selectedMedia changes
   useFocusEffect(
     useCallback(() => {
       if (galleryImages.length > 0) {
@@ -380,7 +393,7 @@ export default function PostScreen({ navigation }) {
         }));
         setGalleryImages(updatedGalleryImages);
       }
-    }, [selectedMedia])
+    }, [selectedMedia, galleryImages])
   );
 
   const handleImageSelect = (asset) => {
@@ -411,6 +424,8 @@ export default function PostScreen({ navigation }) {
       Alert.alert('No media selected', 'Please select at least one photo or video to share.');
       return;
     }
+    // Set flag to indicate we're navigating to EditPostSelected
+    fromEditPostSelectedRef.current = true;
     navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: mediaType });
   };
 

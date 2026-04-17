@@ -46,6 +46,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(true);
 
   
   if (!mediaUrl) {
@@ -74,8 +75,8 @@ const PostImage = memo(({ item, themeTextStyle }) => {
         />
 
         {(isVideoLoading || videoError) && (
-          <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
-            <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
+          <View style={[StyleSheet.absoluteFill, styles.videoPlaceholderOverlay]}>
+            <ActivityIndicator size="large" color="#5A2D82" />
           </View>
         )}
 
@@ -97,12 +98,23 @@ const PostImage = memo(({ item, themeTextStyle }) => {
   }
 
   return (
-    <Image
-      source={{ uri: mediaUrl }}
-      style={styles.image}
-      resizeMode="cover"
-      onError={() => setImageError(true)}
-    />
+    <View style={styles.image}>
+      {isImageLoading && (
+        <View style={[StyleSheet.absoluteFill, styles.imageLoadingOverlay]}>
+          <ActivityIndicator size="large" color="#5A2D82" />
+        </View>
+      )}
+      <Image
+        source={{ uri: mediaUrl }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        onError={() => {
+          setImageError(true);
+          setIsImageLoading(false);
+        }}
+        onLoad={() => setIsImageLoading(false)}
+      />
+    </View>
   );
 });
 
@@ -394,6 +406,16 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 22,
     opacity: 0.6,
+  },
+  videoPlaceholderOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3e9fb',
+  },
+  imageLoadingOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3e9fb',
   },
   videoBadge: {
     position: 'absolute',

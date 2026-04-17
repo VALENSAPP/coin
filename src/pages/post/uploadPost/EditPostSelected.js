@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import ImagePicker from 'react-native-image-crop-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -204,6 +204,23 @@ const InstagramPostCreator = () => {
         : [];
     },
     [route.params?.selectedMedia, route.params?.images],
+  );
+
+  // Disable back swipe gesture on focus
+  useFocusEffect(
+    useCallback(() => {
+      navigation.setOptions({
+        gestureEnabled: false,
+        animationEnabled: true,
+      });
+      
+      // Cleanup: restore gesture when leaving (optional)
+      return () => {
+        navigation.setOptions({
+          gestureEnabled: true,
+        });
+      };
+    }, [navigation])
   );
   const postType = route.params?.postType || 'regular';
   const fromIcon = route.params?.fromIcon;
@@ -2884,7 +2901,8 @@ const InstagramPostCreator = () => {
       //   break;
       case 'Overlay':
         setActiveTab('Overlay');
-        bottomSheetRef.current?.open();
+        addOverlayImage();
+        // bottomSheetRef.current?.open();
         break;
       case 'Effects':
         setShowFilters(prev => !prev);
@@ -3060,7 +3078,8 @@ const InstagramPostCreator = () => {
 
                 else if (tab.title === 'Overlay') {
                   setActiveTab('Overlay');
-                  bottomSheetRef.current?.open();
+                  // bottomSheetRef.current?.open();
+                  addOverlayImage();
                   if (isDrawing) {
                     setIsDrawing(false);
                     setIsScrollEnabled(true);
