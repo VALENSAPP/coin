@@ -390,6 +390,26 @@ const Settings = () => {
     if (!userId) return;
     closeRemoveAccountConfirm();
     try {
+      // Fetch current device accounts to check count
+      let accountCount = 0;
+      try {
+        const apiRes = await fetchDeviceAccounts();
+        const accounts = apiRes?.data?.accounts || [];
+        accountCount = accounts.length;
+      } catch (e) {
+        console.warn('fetchDeviceAccounts in remove check failed:', e?.message);
+      }
+
+      if (accountCount <= 1) {
+        showToastMessage(
+          toast,
+          'danger',
+          'Cannot remove the only account on this device. Please log out instead.',
+          3000,
+        );
+        return;
+      }
+
       const res = await removeDeviceAccountRequest({ userId });
       const ok = res?.statusCode === 200 || res?.statusCode === 201;
       if (ok) {
@@ -442,9 +462,9 @@ const Settings = () => {
           (async () => {
             dispatch(setUserProfile('normal'));
             dispatch(showLoader());
-            
+
             const currentUserId = await AsyncStorage.getItem('userId');
-            
+
             // Fetch other accounts BEFORE logout (while token is still valid)
             let otherAccounts = [];
             try {
@@ -454,7 +474,7 @@ const Settings = () => {
             } catch (e) {
               console.warn('fetchDeviceAccounts before logout failed:', e?.message);
             }
-            
+
             // Now logout
             try {
               const token = await AsyncStorage.getItem('token');
@@ -463,7 +483,7 @@ const Settings = () => {
             } catch (e) {
               // Ignore logout API failure; proceed with local logout.
             }
-            
+
             // Try to switch to another account if available (BEFORE removing current account)
             let switchSuccess = false;
             try {
@@ -472,29 +492,29 @@ const Settings = () => {
                 const topAccount = otherAccounts[1];
                 const targetUserId = resolveAccountUserId(topAccount);
                 console.log('Switching to account:', targetUserId, topAccount);
-                
+
                 if (targetUserId) {
                   const switchRes = await switchAccountRequest({ targetUserId });
                   console.log('switchRes from logout:', switchRes);
                   const ok = switchRes?.statusCode === 200 || switchRes?.statusCode === 201;
-                  
+
                   if (ok) {
                     // Auto-switch to account
                     const resData = switchRes.data || switchRes;
                     console.log('resData to persist:', resData);
-                    
+
                     await persistSwitchedUser(resData, topAccount, dispatch, String(targetUserId));
                     const profile = await AsyncStorage.getItem('profile');
                     console.log('Profile after switch:', profile);
                     dispatch(setUserProfile(profile || 'normal'));
-                    
+
                     dispatch(hideLoader());
                     dispatch(loggedOut());
                     setTimeout(() => {
                       console.log('Dispatching loggedIn');
                       dispatch(loggedIn());
                     }, 100);
-                    
+
                     showToastMessage(toast, 'success', `Switched to ${topAccount.displayName || 'another account'}`, 2000);
                     switchSuccess = true;
                   } else {
@@ -507,7 +527,8 @@ const Settings = () => {
             } catch (e) {
               console.warn('Error during account switch:', e?.message, e);
             }
-            
+
+            // Remove current account AFTER switch attempt
             // Remove current account AFTER switch attempt
             if (switchSuccess && currentUserId) {
               try {
@@ -518,8 +539,17 @@ const Settings = () => {
               }
               return;
             }
-            
-            // If switch failed, proceed with full logout
+
+            // If switch failed OR only one account — always remove from device before full logout
+            if (currentUserId) {
+              try {
+                await removeDeviceAccountRequest({ userId: currentUserId });
+                console.log('Removed current account from device on full logout');
+              } catch (e) {
+                console.warn('removeDeviceAccountRequest on full logout failed (non-fatal):', e?.message);
+              }
+            }
+
             await AsyncStorage.setItem('isLoggedIn', 'false');
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('refreshToken');
@@ -535,7 +565,7 @@ const Settings = () => {
             await AsyncStorage.removeItem('profile');
             await AsyncStorage.removeItem('stripeCustomerId');
             await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
-            
+
             dispatch(hideLoader());
             dispatch(loggedOut());
             showToastMessage(toast, 'success', 'Logged out', 1500);

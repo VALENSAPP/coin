@@ -50,7 +50,7 @@ const CommonSupportModal = ({
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: text }]}
+              style={[styles.primaryButton, { backgroundColor: (variant === 'disclaimer' && !canSupport)? '#9d9b9b' : text }]}
               onPress={onPrimary}
               disabled={variant === 'disclaimer' && !canSupport}
             >
