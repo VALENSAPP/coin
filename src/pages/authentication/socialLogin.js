@@ -266,7 +266,7 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
     const payload = {
       registrationType: type,
       profile,
-      userName: userName,
+      ...(userName !== "Unknown" && { userName }),
     };
 
     if (type === "GOOGLE") {
@@ -278,7 +278,7 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
     } else {
       payload.twitterId = idtoken
     }
-    console.log("payload-----------------",payload)
+    console.log("payload-----------------", payload)
     const response = await signup(payload);
     console.log('google signup', response)
     if (
