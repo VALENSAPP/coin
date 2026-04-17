@@ -39,6 +39,11 @@ const pickFirstString = (...values) => {
   return null;
 };
 
+const formatDisplayString = (text) => {
+  if (!text) return '';
+  return String(text).replace(/_/g, ' ');
+};
+
 const extractPostIdFromNotification = item => {
   const data = item?.data || {};
   return pickFirstString(
@@ -771,7 +776,7 @@ export default function Notifications() {
 
                 <View style={styles.battleMetaRow}>
                   {!!item.format && (
-                    <Text style={styles.battleMetaChip}>{item.format}</Text>
+                    <Text style={styles.battleMetaChip}>{formatDisplayString(item.format)}</Text>
                   )}
                   {!!stakeText && (
                     <Text style={styles.battleMetaChip}>{stakeText}</Text>

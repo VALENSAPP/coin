@@ -1,11 +1,12 @@
 import { useNavigation } from "@react-navigation/native";
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { useAppTheme } from "../../theme/useApptheme";
 
@@ -15,12 +16,22 @@ const SubscriptionActivationPopup = ({
   onConfirm
 
 }) => {
+  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, card, text } = useAppTheme();
 
+  const handleAccept = async () => {
+    setIsLoading(true);
+    try {
+      await onConfirm?.();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} pointerEvents="auto">
+      <View style={styles.overlay} pointerEvents="auto">
         <View style={[styles.box, bgStyle, { backgroundColor: card }]}>
 
           <Text style={[styles.title, textStyle]}>Become a Private Subscriber</Text>
@@ -51,18 +62,30 @@ const SubscriptionActivationPopup = ({
           </Text>
 
           <View style={styles.row}>
-            <TouchableOpacity style={[styles.cancelBtn, { borderColor: text }]} onPress={() => {
-              onClose();
-              navigation.navigate('MainApp', {
-                screen: 'wallet',
-                params: { screen: 'Dashboard' }
-              });
-            }}>
+            <TouchableOpacity 
+              style={[styles.cancelBtn, { borderColor: text }, isLoading && styles.cancelBtnDisabled]} 
+              onPress={() => {
+                onClose();
+                navigation.navigate('MainApp', {
+                  screen: 'wallet',
+                  params: { screen: 'Dashboard' }
+                });
+              }}
+              disabled={isLoading}
+            >
               <Text style={[styles.cancelTxt, { color: text }]}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.acceptBtn, { backgroundColor: text }]} onPress={() => onConfirm?.()}>
-              <Text style={[styles.acceptTxt, { color: card || "#fff" }]}>Accept</Text>
+            <TouchableOpacity 
+              style={[styles.acceptBtn, { backgroundColor: text }, isLoading && styles.acceptBtnDisabled]} 
+              onPress={handleAccept}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={card || "#fff"} size="small" />
+              ) : (
+                <Text style={[styles.acceptTxt, { color: card || "#fff" }]}>Accept</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -124,6 +147,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
     alignItems: "center",
   },
+  cancelBtnDisabled: {
+    opacity: 0.5,
+  },
   acceptBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -138,5 +164,8 @@ const styles = StyleSheet.create({
   acceptTxt: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  acceptBtnDisabled: {
+    opacity: 0.7,
   },
 });

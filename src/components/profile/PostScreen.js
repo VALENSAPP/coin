@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import Video from 'react-native-video';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
@@ -241,10 +242,15 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ postCheck, userData }) => {  
+const PostScreen = memo(({ postCheck, userData: propUserData }) => {  
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
   const navigation = useNavigation();
+  const route = useRoute();
+  
+  // Merge userData from props and route params (route params take precedence)
+  const userData = route?.params?.userData || propUserData;
+  
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
@@ -301,10 +307,11 @@ const PostScreen = memo(({ postCheck, userData }) => {
       params: {
         postData: posts,
         startIndex: index,
-        hideTabBar: true,      // <<< ADD THIS
+        hideTabBar: true, 
+        userData: userData     // <<< ADD THIS
       },
     });
-  }, [navigation, posts]);
+  }, [navigation, posts, userData]);
 
 
   const renderItem = useCallback(({ item, index }) => {

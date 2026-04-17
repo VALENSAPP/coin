@@ -202,8 +202,6 @@ const SubventionSetupScreen = () => {
 
     const handleActivationConfirm = async () => {
         try {
-            dispatch(showLoader());
-
             const onboardingStatus = await GetInbordingstatus();
             if (isOnboardingReady(onboardingStatus)) {
                 const paymentResult = await getUserSubscription();
@@ -250,7 +248,6 @@ const SubventionSetupScreen = () => {
             console.log('Activation flow error:', error);
             showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
         } finally {
-            dispatch(hideLoader());
         }
     };
 

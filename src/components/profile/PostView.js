@@ -35,16 +35,16 @@ import { getTotalDonationAmount } from '../../services/tokens';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 
-export default function PostView({ postData = [] }) {
+export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
   const route = useRoute();
   const navigation = useNavigation();
- 
-  
+
+
 
   // Extract params including the source screen info
   const routeParams = route.params || {};
-  const { startIndex, userChat } = routeParams;
+  const { startIndex, userChat, userData: routeUserData } = routeParams;
   const navPostData = routeParams.postData;
   const returnTo = route?.params?.returnTo;
 
@@ -120,7 +120,7 @@ export default function PostView({ postData = [] }) {
       // Check if we're coming from UserChat and have a postId
       if (userChat && chatPostId) {
         const postId = chatPostId;
-        
+
         try {
           const response = await getPostById(postId);
           if (response?.statusCode === 200 ) {
@@ -203,7 +203,6 @@ export default function PostView({ postData = [] }) {
 
   // ─── Handle Back Button Press ────────────────────────────────
   const handleBackPress = useCallback(() => {
-
     const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
@@ -216,10 +215,20 @@ export default function PostView({ postData = [] }) {
         // Simple navigation
         navigation.navigate(backTarget, returnParams);
       }
-    } else {
+    }
+    if (routeUserData) {
+      console.log('Going back to PostScreen with userData:', routeUserData);
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: routeUserData.id,
+        },
+      });
+    }
+    else {
       navigation.goBack();
     }
-  }, [navigation, route.params]);
+  }, [navigation, routeUserData]);
 
   const getMediaType = url => {
     if (!url || typeof url !== 'string') return 'image';
@@ -890,7 +899,7 @@ export default function PostView({ postData = [] }) {
             onToggleFollow={handleToggleFollow}
             followingBusy={followingBusy.has(String(mapped.UserId))}
             onComment={() => handleComment(item.id, mapped.UserId)}
-            onOptions={() => openOptions(item.id)} 
+            onOptions={() => openOptions(item.id)}
             onSuggest={[]}
             returnTo={returnTo}
             shareCount={item.shareCount}
