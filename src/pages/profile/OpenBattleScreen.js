@@ -48,7 +48,6 @@ const createInitialForm = () => ({
   isPublic: true,
   invitedUserId: '',
   stake: '',
-  creatorChoice: '',
 });
 
 const pickFirst = (...values) =>
@@ -112,13 +111,6 @@ export default function OpenBattleScreen() {
     ? COMPANY_GRADIENT
     : PRIMARY_GRADIENT;
   const bottomBarPaddingBottom = isKeyboardVisible ? 10 : Math.max(tabBarHeight + 8, 14);
-  const lockedOpponentChoice = useMemo(() => {
-    if (filledOptions.length < 2 || !form.creatorChoice) {
-      return '';
-    }
-
-    return filledOptions.find(option => option !== form.creatorChoice) || '';
-  }, [filledOptions, form.creatorChoice]);
   const formatOptions = useMemo(
     () => [
       {
@@ -420,20 +412,6 @@ export default function OpenBattleScreen() {
     });
   };
 
-  const removeOptionImage = index => {
-    setForm(prev => {
-      const options = [...prev.options];
-      options[index] = {
-        ...options[index],
-        image: null,
-      };
-      return {
-        ...prev,
-        options,
-      };
-    });
-  };
-
   const updateField = (field, value) => {
     setForm(prev => {
       if (field === 'format') {
@@ -445,7 +423,6 @@ export default function OpenBattleScreen() {
             { text: '', image: null },
             { text: '', image: null },
           ],
-          creatorChoice: value === 'HEAD_TO_HEAD' ? prev.creatorChoice : '',
         };
       }
 
@@ -604,10 +581,6 @@ export default function OpenBattleScreen() {
     nextErrors.options = 'Please add 2 battle sides for head-to-head';
   }
 
-  if (isHeadToHead && !form.creatorChoice) {
-    nextErrors.creatorChoice = 'Choose your side first';
-  }
-
   if (form.stake && Number.isNaN(Number(form.stake))) {
     nextErrors.stake = 'Stake must be a valid number';
   }
@@ -641,9 +614,6 @@ export default function OpenBattleScreen() {
     if (isHeadToHead) {
       payload.invitedUserId = form.invitedUserId.trim();
       payload.options = filledOptions;
-      payload.creatorChoice = form.creatorChoice;
-      payload.creatorLockedOption = form.creatorChoice;
-      payload.invitedUserChoice = lockedOpponentChoice;
       // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
@@ -729,7 +699,7 @@ export default function OpenBattleScreen() {
             onPress={() =>
               Alert.alert(
                 'Battle Format',
-                'Poll needs question and options. Head to head needs question and the invited user id.',
+                'Poll needs a question and options. Head to head needs a question, two sides, and the invited user.',
               )
             }
             style={styles.headerIconBtn}
@@ -963,8 +933,8 @@ export default function OpenBattleScreen() {
               )}
               {isHeadToHead ? (
                 <Text style={styles.helperText}>
-                  Add the two sides for this duel, then choose which side you
-                  are taking.
+                  Add the two sides for this duel. Users will choose a side from
+                  battle in progress.
                 </Text>
               ) : null}
             </View>
@@ -1055,95 +1025,6 @@ export default function OpenBattleScreen() {
                   {inviteSearchResults.slice(0, 6).map(renderInviteUserRow)}
                 </View>
               ) : null}
-
-              <Text style={[styles.label, { color: text, marginTop: 14 }]}>
-                Choose Your Side
-              </Text>
-              <View style={styles.sideChoiceWrap}>
-                {filledOptions.map((optionText, index) => {
-                  const selected = form.creatorChoice === optionText;
-                  const optionData = form.options.find(o => o.text === optionText);
-                  return (
-                    <TouchableOpacity
-                      key={`creator-choice-${index}`}
-                      style={[
-                        styles.sidePreviewCard,
-                        {
-                          borderColor: selected ? '#7C3AED' : BORDER,
-                          backgroundColor: selected ? '#F3E8FF' : inputBackground,
-                        },
-                      ]}
-                      activeOpacity={0.88}
-                      onPress={() => updateField('creatorChoice', optionText)}
-                    >
-                      <View style={styles.sideBadgeWrapper}>
-                        <View style={styles.sideImageWrapper}>
-                          {optionData?.image ? (
-                            <>
-                              <Image
-                                source={{ uri: optionData.image }}
-                                style={styles.sideImage}
-                              />
-                              <TouchableOpacity
-                                style={styles.sideImageCloseBtn}
-                                onPress={() => removeOptionImage(index)}
-                              >
-                                <Ionicons
-                                  name="close-circle"
-                                  size={20}
-                                  color="#EF4444"
-                                />
-                              </TouchableOpacity>
-                            </>
-                          ) : (
-                            <View style={styles.sideImagePlaceholder}>
-                              <Ionicons
-                                name="person"
-                                size={24}
-                                color={MUTED}
-                              />
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.sideBadgeInfo}>
-                          <View style={styles.sideNameBadgeRow}>
-                            <Text
-                              style={[
-                                styles.sidePreviewName,
-                                {
-                                  color: selected ? '#6D28D9' : text,
-                                },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {optionText}
-                            </Text>
-                            <Ionicons
-                              name="checkmark-circle"
-                              size={14}
-                              color={selected ? '#7C3AED' : '#CBD5E1'}
-                            />
-                          </View>
-                          {selected && (
-                            <Text style={styles.sideChoiceMeta}>
-                              You take this side
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {!!errors.creatorChoice && (
-                <Text style={styles.errorText}>{errors.creatorChoice}</Text>
-              )}
-              {!!form.creatorChoice && (
-                <Text style={styles.helperText}>
-                  Your opponent will be locked to{' '}
-                  {lockedOpponentChoice || 'the opposite side'}.
-                </Text>
-              )}
             </View>
           )}
 
