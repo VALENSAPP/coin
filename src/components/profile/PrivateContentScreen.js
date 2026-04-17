@@ -301,7 +301,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   if (loading || statusLoading) {
     return (
       <View style={[styles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#5A2D82" />
       </View>
     );
   }
