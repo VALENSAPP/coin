@@ -59,6 +59,7 @@ export default function BattleResults({ navigation }) {
   const [winnerData, setWinnerData] = useState(null);
   const predictionCounts =
     route?.params?.predictionCounts || battle?.predictionCounts || {};
+
   const winnerUserId =
     route?.params?.winnerUserId || battle?.winnerUserId || '';
   const winningSide =
@@ -71,12 +72,15 @@ export default function BattleResults({ navigation }) {
   const description = battle.question || '';
   const endedAt = battle.endTime || '';
   const totalVotes = battle.totalVotes || 0;
+
   const totalComments = battle.totalComments || 0;
   const stake = battle.stake || 0;
   const options = battle.options || [];
   const comments = battle.comments || [];
   const status = battle.status || 'LIVE';
   const normalizedStatus = String(status || '').trim().toUpperCase();
+  const battleFormat = String(battle.format || '').toUpperCase().trim();
+  const isPollFormat = battleFormat === 'POLL';
   const participants = battle.primaryCount || 0;
   const normalizedPredictionCounts = useMemo(() => {
     return Object.entries(predictionCounts || {}).reduce((acc, [key, value]) => {
@@ -230,6 +234,63 @@ export default function BattleResults({ navigation }) {
   useEffect(() => {
     getWinner();
   }, [battleId]);
+  useEffect(() => {
+  let active = true;
+
+  const fetchData = async () => {
+    if (!battleId && !winnerUserId) return;
+
+    setWinnerLoading(true);
+
+    try {
+      // Call both APIs together
+      const [winnerRes, profileRes] = await Promise.all([
+        battleId ? battleWinner(battleId) : null,
+        winnerUserId ? getUserCredentials(winnerUserId) : null,
+      ]);
+
+      // Handle winner API
+      if (active && winnerRes) {
+        setWinnerData(winnerRes?.data || winnerRes);
+      }
+
+      // Handle profile API
+      if (active && profileRes) {
+        const user =
+          profileRes?.data?.user ||
+          profileRes?.data?.data ||
+          profileRes?.data ||
+          {};
+
+        setWinnerProfile({
+          name:
+            user?.name ||
+            user?.fullName ||
+            user?.displayName ||
+            user?.userName ||
+            user?.username ||
+            'Winning User',
+          image:
+            user?.image ||
+            user?.avatar ||
+            user?.profilePic ||
+            user?.profilePicture ||
+            '',
+        });
+      }
+    } catch (err) {
+      console.log('Error fetching battle data:', err);
+    } finally {
+      if (active) setWinnerLoading(false);
+    }
+  };
+
+  fetchData();
+
+  return () => {
+    active = false;
+  };
+}, [battleId, winnerUserId]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -391,76 +452,78 @@ export default function BattleResults({ navigation }) {
           </View>
         </LinearGradient>
 
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: palette.surface,
-              borderColor: palette.softBorder,
-              shadowColor: palette.primary,
-            },
-          ]}
-        >
-          <Text style={[styles.section, { color: text }]}>Battle Options</Text>
+        {isPollFormat && (
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.softBorder,
+                shadowColor: palette.primary,
+              },
+            ]}
+          >
+            <Text style={[styles.section, { color: text }]}>Battle Options</Text>
 
-          {options.length === 0 && (
-            <Text style={[styles.metaText, { color: palette.muted }]}>
-              No options available
-            </Text>
-          )}
+            {options.length === 0 && (
+              <Text style={[styles.metaText, { color: palette.muted }]}>
+                No options available
+              </Text>
+            )}
 
-          {options.map(item => (
-            <View
-              key={item.id}
-              style={[
-                styles.option,
-                {
-                  backgroundColor: palette.soft,
-                  borderColor: palette.softBorder,
-                },
-              ]}
-            >
-              {(() => {
-                const voteTotal = getOptionVotes(item);
-                const percent = getPercent(voteTotal);
+            {options.map(item => (
+              <View
+                key={item.id}
+                style={[
+                  styles.option,
+                  {
+                    backgroundColor: palette.soft,
+                    borderColor: palette.softBorder,
+                  },
+                ]}
+              >
+                {(() => {
+                  const voteTotal = getOptionVotes(item);
+                  const percent = getPercent(voteTotal);
 
-                return (
-                  <>
-                    <View style={styles.optionRow}>
-                      <Text style={[styles.optionTitle, { color: text }]}>
-                        {item.label}
+                  return (
+                    <>
+                      <View style={styles.optionRow}>
+                        <Text style={[styles.optionTitle, { color: text }]}>
+                          {item.label}
+                        </Text>
+                        <Text style={[styles.optionPercent, { color: text }]}>
+                          {percent}%
+                        </Text>
+                      </View>
+
+                      <Text style={[styles.metaText, { color: palette.muted }]}>
+                        {voteTotal} votes
                       </Text>
-                      <Text style={[styles.optionPercent, { color: text }]}>
-                        {percent}%
-                      </Text>
-                    </View>
 
-                    <Text style={[styles.metaText, { color: palette.muted }]}>
-                      {voteTotal} votes
-                    </Text>
-
-                    <View
-                      style={[styles.progressBg, { backgroundColor: palette.track }]}
-                    >
                       <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: palette.primary,
-                            width: `${Math.min(
-                              Math.max(percent, voteTotal > 0 ? 8 : 0),
-                              100,
-                            )}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </>
-                );
-              })()}
-            </View>
-          ))}
-        </View>
+                        style={[styles.progressBg, { backgroundColor: palette.track }]}
+                      >
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              backgroundColor: palette.primary,
+                              width: `${Math.min(
+                                Math.max(percent, voteTotal > 0 ? 8 : 0),
+                                100,
+                              )}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </>
+                  );
+                })()}
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

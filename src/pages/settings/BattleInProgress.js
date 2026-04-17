@@ -33,11 +33,13 @@ import {
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) {
     return false;
   }
+
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -50,7 +52,8 @@ const isMeaningfulValue = value => {
 
   return true;
 };
-
+const FALLBACK_AVATAR =
+  'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const pickFirst = (...values) => values.find(isMeaningfulValue);
 
 const withAlpha = (hex, alpha) => {
@@ -757,10 +760,10 @@ export default function BattleInProgress() {
           getUserCredentials(participant1?.userId),
         ]);
 
-        const userData0 = res0?.statusCode === 200 
+        const userData0 = res0?.statusCode === 200
           ? (res0.data?.user || res0.data || {})
           : {};
-        const userData1 = res1?.statusCode === 200 
+        const userData1 = res1?.statusCode === 200
           ? (res1.data?.user || res1.data || {})
           : {};
 
@@ -779,12 +782,14 @@ export default function BattleInProgress() {
 
         setParticipantUserData({
           [participant0?.userId]: {
-            name: userData0?.displayName || userData0?.name || 'User',
+            name: userData0?.displayName || userData0?.name || null,
             image: formatImageUrl(userData0?.image),
+            userId: participant0?.userId,
           },
           [participant1?.userId]: {
-            name: userData1?.displayName || userData1?.name || 'User',
+            name: userData1?.displayName || userData1?.name || null,
             image: formatImageUrl(userData1?.image),
+            userId: participant1?.userId,
           },
         });
       } catch (error) {
@@ -876,6 +881,7 @@ export default function BattleInProgress() {
         battleId: finalBattleId,
         side: finalSelectedOption,
         justification: trimmedArgument || 'No justification provided',
+        comment: trimmedArgument,
         sourceUrl: ''// optional (add input later if needed)
       };
       console.log('🔥 Vote button clicked4');
@@ -884,7 +890,7 @@ export default function BattleInProgress() {
         battleId: finalBattleId,
         optionId: String(selectedBattleOption?.id || ''),
         side: finalSelectedOption,
-        argument: trimmedArgument,
+        comment: trimmedArgument,
       };
     }
 
@@ -1502,7 +1508,7 @@ export default function BattleInProgress() {
                       {(() => {
                         const participant0 = battle.participants[0];
                         const participant1 = battle.participants[1];
-                        
+
                         const player0Data = participantUserData[participant0?.userId] || {};
                         const player1Data = participantUserData[participant1?.userId] || {};
 
@@ -1527,18 +1533,19 @@ export default function BattleInProgress() {
                             >
                               <View style={styles.duelPlayerCard}>
                                 <View style={styles.playerImageContainer}>
-                                  <HexagonImage
-                                    uri={player0Data?.image}
-                                    size={80}
-                                    borderColor="rgba(255,255,255,0.4)"
+                                  <HexAvatar
+                                    uri={player0Data?.image || FALLBACK_AVATAR}
+                                    size={72}
+                                    borderWidth={3}
+                                    borderColor={text}
                                   />
                                 </View>
-                                <Text style={styles.playerNameBold}>{player0Data?.name}</Text>
+                                <Text style={styles.playerNameBold}>{player0Data?.name || player0Data?.userId || 'User'}</Text>
                                 <Text style={styles.playerNameBold}>({participant0?.side})</Text>
-                                <View style={styles.votesContainer}>
+                                {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant0?.score || 0} Points</Text>
-                                </View>
+                                </View> */}
                               </View>
                             </TouchableOpacity>
 
@@ -1565,18 +1572,19 @@ export default function BattleInProgress() {
                             >
                               <View style={styles.duelPlayerCard}>
                                 <View style={styles.playerImageContainer}>
-                                  <HexagonImage
-                                    uri={player1Data?.image}
-                                    size={80}
-                                    borderColor="rgba(255,255,255,0.4)"
+                                  <HexAvatar
+                                    uri={player1Data?.image || FALLBACK_AVATAR}
+                                    size={72}
+                                    borderWidth={3}
+                                    borderColor={text}
                                   />
                                 </View>
-                                <Text style={styles.playerNameBold}>{player1Data?.name}</Text>
+                                <Text style={styles.playerNameBold}>{player1Data?.name || player1Data?.userId || 'User'}</Text>
                                 <Text style={styles.playerNameBold}>({participant1?.side})</Text>
-                                <View style={styles.votesContainer}>
+                                {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant1?.score || 0} Points</Text>
-                                </View>
+                                </View> */}
                               </View>
                             </TouchableOpacity>
                           </>
