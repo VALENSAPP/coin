@@ -238,6 +238,10 @@ export default function Notifications() {
   const [popupVisible, setPopupVisible] = useState(false);
   const [SelectedNotification, setSelectedNotification] = useState(null);
   const [processingBattleId, setProcessingBattleId] = useState(null);
+  const [processingBattle, setProcessingBattle] = useState({
+    id: null,
+    action: null,
+  });
 
   const navigation = useNavigation();
 
@@ -334,7 +338,7 @@ export default function Notifications() {
     try {
       setBattleLoading(true);
       const response = await battleNotification();
-      console.log(response,'battle notificartiopmm')
+      console.log(response, 'battle notificartiopmm')
       const rawPayload =
         response?.notifications ??
         response?.data?.notifications ??
@@ -474,7 +478,7 @@ export default function Notifications() {
 
       const postPayload =
         notification?.raw?.data?.post &&
-        typeof notification?.raw?.data?.post === 'object'
+          typeof notification?.raw?.data?.post === 'object'
           ? notification.raw.data.post
           : { id: postId };
 
@@ -529,6 +533,7 @@ export default function Notifications() {
     }
 
     try {
+      setProcessingBattle({ id: item.id, action });
       setProcessingBattleId(item.id);
       const response =
         action === 'accept'
@@ -554,7 +559,15 @@ export default function Notifications() {
       }
 
       setBattleNotifications(prev =>
-        prev.filter(notification => notification.id !== item.id),
+        prev.map(notification =>
+          notification.id === item.id
+            ? {
+              ...notification,
+              status: action === 'accept' ? 'LIVE' : 'DECLINED',
+              isBattleActionable: false,
+            }
+            : notification,
+        ),
       );
       await Promise.all([getBattleNotifications(), getNotification()]);
       if (action === 'accept') {
@@ -572,6 +585,7 @@ export default function Notifications() {
       );
     } finally {
       setProcessingBattleId(null);
+      setProcessingBattle({ id: null, action: null });
     }
   };
 
@@ -741,7 +755,18 @@ export default function Notifications() {
   const renderTabContent = (tabData, tabKey) => {
     const renderBattleItem = ({ item, index }) => {
       const isProcessing = processingBattleId === item.id;
-      const isActionable = !!item?.isBattleActionable;
+      const isActionable =
+        item?.isBattleActionable &&
+        ![
+          'RESOLVED',
+          'CLOSED',
+          'DECLINED',
+          'CANCELED',
+          'CANCELLED',
+          'COMPLETED',
+          'ACCEPTED',
+          'LIVE',
+        ].includes(item?.status);
       const stakeText =
         item?.stake !== undefined && item?.stake !== null && item?.stake !== ''
           ? `Stake: ${item.stake}`
@@ -795,8 +820,8 @@ export default function Notifications() {
                     typeof option === 'string'
                       ? option
                       : option?.label ||
-                        option?.text ||
-                        `Option ${optionIndex + 1}`;
+                      option?.text ||
+                      `Option ${optionIndex + 1}`;
 
                   return (
                     <View
@@ -816,9 +841,9 @@ export default function Notifications() {
                   style={[styles.battleActionButton, styles.battleDeclineButton]}
                   onPress={() => handleBattleAction(item, 'decline')}
                   activeOpacity={0.85}
-                  disabled={isProcessing}
+                  disabled={processingBattle.id === item.id && processingBattle.action === 'decline'}
                 >
-                  {isProcessing ? (
+                  {processingBattle.id === item.id && processingBattle.action === 'decline' ? (
                     <ActivityIndicator size="small" color="#B91C1C" />
                   ) : (
                     <Text style={styles.battleDeclineText}>Decline</Text>
@@ -833,9 +858,9 @@ export default function Notifications() {
                   ]}
                   onPress={() => handleBattleAction(item, 'accept')}
                   activeOpacity={0.85}
-                  disabled={isProcessing}
+                  disabled={processingBattle.id === item.id && processingBattle.action === 'accept'}
                 >
-                  {isProcessing ? (
+                  {processingBattle.id === item.id && processingBattle.action === 'accept' ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.battleAcceptText}>Accept</Text>
@@ -926,7 +951,7 @@ export default function Notifications() {
     return (
       <View style={styles.tabContentContainer}>
         {!(tabKey === 'Battle' ? battleLoading : isLoading) &&
-        tabData.length === 0 ? (
+          tabData.length === 0 ? (
           renderEmptyState(tabKey)
         ) : (tabKey === 'Battle' ? battleLoading : isLoading) ? (
           <View style={styles.loadingContainer}>
