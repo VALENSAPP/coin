@@ -727,9 +727,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const fetchTotalEarning = async () => {
     try {
       const response = await totalamount();
+      console.log(response,'data in total earning totalamounttotalamounttotalamounttotalamounttotalamount')
       const rawValue =
         response?.data?.totalAmount ??
         response?.data?.data?.totalAmount ??
+        response?.data?.totalReceived ??
+        response?.data?.data?.totalReceived ??
         response?.data?.amount ??
         response?.data?.data?.amount ??
         0;
