@@ -798,6 +798,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
     try {
       const response = await totalMission();
       const totalAmount = Number(response?.data?.totalAmount || 0);
+      
+      const activePostCount =
+        response?.data?.activePostCount ??
+        response?.data?.data?.activePostCount ??
+        0;
+      const postCount = Number(activePostCount) || 0;
 
       // ✅ Update local state (optional)
       setMissionDonationTotal(totalAmount);
@@ -806,7 +812,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'Mission Post'
-            ? { ...item, value: `$ ${totalAmount.toFixed(2)}` }
+            ? { ...item, value: `$ ${totalAmount.toFixed(2)} \nPosts: ${postCount || 0}` }
             : item
         )
       );
