@@ -1153,6 +1153,14 @@ function PostItem({
 
   useEffect(() => {
     if (postMusic?.kind !== 'youtube') return;
+    // Only unmute the player if it exists (rendered) and user has unmuted
+    if (!isMuted && postFeedYoutubeRef.current?.unMute) {
+      postFeedYoutubeRef.current?.unMute?.();
+    }
+  }, [isMuted, postMusic?.kind]);
+
+  useEffect(() => {
+    if (postMusic?.kind !== 'youtube') return;
     if (shouldPlayAudio) return;
     (async () => {
       try {
@@ -1272,7 +1280,7 @@ function PostItem({
               }}
             />
           ) : null}
-          {postMusic?.kind === 'youtube' ? (
+          {postMusic?.kind === 'youtube' && !isMuted ? (
             <View style={styles.hiddenPostYoutube} pointerEvents="none" collapsable={false}>
               <YoutubePlayer
                 ref={postFeedYoutubeRef}
@@ -1280,10 +1288,9 @@ function PostItem({
                 height={200}
                 width={200}
                 videoId={postMusic.videoId}
-                play={shouldPlayAudio}
-                mute={!shouldPlayAudio}
-                volume={shouldPlayAudio ? 100 : 0}
-                forceAndroidAutoplay
+                play={!isMuted}
+                mute={false}
+                volume={!isMuted ? 100 : 0}
                 initialPlayerParams={{
                   controls: false,
                   modestbranding: true,
@@ -1291,6 +1298,11 @@ function PostItem({
                 }}
                 onReady={async () => {
                   try {
+                    // Ensure player is muted on load
+                    if (isMuted) {
+                      await postFeedYoutubeRef.current?.mute?.();
+                    }
+                    
                     const d = await postFeedYoutubeRef.current?.getDuration?.();
                     if (typeof d === 'number' && d > 0) {
                       postFeedMusicDurRef.current = d;
@@ -1310,15 +1322,16 @@ function PostItem({
                   } catch (_) {}
                 }}
                 onChangeState={state => {
-                  if (state === 'ended' && shouldPlayAudioRef.current) {
-                    const dur = postFeedMusicDurRef.current || 180;
-                    const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(
-                      postMusic.trim,
-                      dur,
-                    );
-                    postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
-                    postFeedYoutubeRef.current?.playVideo?.();
-                  }
+                  // Don't auto-loop YouTube music - let it play once and stop
+                  // if (state === 'ended' && shouldPlayAudioRef.current) {
+                  //   const dur = postFeedMusicDurRef.current || 180;
+                  //   const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(
+                  //     postMusic.trim,
+                  //     dur,
+                  //   );
+                  //   postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
+                  //   postFeedYoutubeRef.current?.playVideo?.();
+                  // }
                 }}
               />
             </View>

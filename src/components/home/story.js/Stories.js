@@ -18,7 +18,9 @@ import {
   Dimensions,
   StyleSheet,
   Keyboard,
+  AppState,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import Video from 'react-native-video';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -883,8 +885,8 @@ mediaDurationRef.current = null;
 
   const handleDeleteStory = () => {
     Alert.alert(
-      'Delete Story',
-      'Are you sure you want to delete this story?',
+      'Delete Drop',
+      'Are you sure you want to delete this drop?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1574,6 +1576,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const [composerMedia, setComposerMedia] = useState(null);
   const [composerList, setComposerList] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isUploadingStory, setIsUploadingStory] = useState(false);
+  const [uploadProgress] = useState(new Animated.Value(0));
+  const uploadAnimationRef = useRef(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const toast = useToast();
   const dispatch = useDispatch();
@@ -1771,10 +1776,49 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   );
 
   useEffect(() => {
+    if (isUploadingStory) {
+      // Reset and start progress animation
+      uploadProgress.setValue(0);
+      const timing = Animated.timing(uploadProgress, {
+        toValue: 0.95,
+        duration: 8000, // Reach 95% over 8 seconds
+        useNativeDriver: false,
+      });
+      timing.start();
+      uploadAnimationRef.current = timing;
+    } else {
+      // Stop any running animation and immediately reset
+      if (uploadAnimationRef.current) {
+        uploadAnimationRef.current.stop();
+        uploadAnimationRef.current = null;
+      }
+      uploadProgress.setValue(0);
+    }
+  }, [isUploadingStory, uploadProgress]);
+
+  useEffect(() => {
     if (typeof refreshTick === 'number') {
       fetchStories();
     }
   }, [refreshTick]);
+
+  // Restore upload state when returning to this screen
+  useFocusEffect(
+    useCallback(() => {
+      const restoreUploadState = async () => {
+        try {
+          const isUploading = await AsyncStorage.getItem('storyUploadInProgress');
+          if (isUploading === 'true') {
+            console.log('Restoring upload state - upload still in progress');
+            setIsUploadingStory(true);
+          }
+        } catch (error) {
+          console.error('Error restoring upload state:', error);
+        }
+      };
+      restoreUploadState();
+    }, [])
+  );
 
   const requestCameraPermission = async () => {
     if (Platform.OS !== 'android') return true;
@@ -1805,7 +1849,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   };
 
   const handleAddNewStory = () => {
-    Alert.alert('Add New Story', 'Choose how to add your new story', [
+    Alert.alert('Add New Drop', 'Choose how to add your new drop', [
       { text: 'Camera', onPress: () => openCamera() },
       { text: 'Gallery', onPress: () => openGallery() },
       { text: 'Cancel', style: 'cancel' },
@@ -1908,84 +1952,333 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     setComposerVisible(true);
   };
 
+  // Check network connectivity and wait if offline
+  const waitForNetworkConnectivity = async () => {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      console.log('No network connection, waiting for network to be restored...');
+      return new Promise((resolve) => {
+        const unsubscribe = NetInfo.addEventListener(networkState => {
+          console.log('Network state changed:', networkState.isConnected);
+          if (networkState.isConnected) {
+            console.log('Network restored! Resuming upload immediately...');
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
+    }
+  };
+
+  // Retry logic with exponential backoff - ensures upload continues in background
+  const retryWithBackoff = async (
+    uploadFn,
+    maxRetries = 15,
+    baseDelayMs = 1000,
+  ) => {
+    let lastError;
+    let isNetworkOffline = false;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Check network before attempting upload
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected) {
+          console.log(`Attempt ${attempt + 1}: No network, waiting for connection...`);
+          isNetworkOffline = true;
+          await waitForNetworkConnectivity();
+          console.log(`Network restored after attempt ${attempt + 1}, retrying immediately...`);
+          // After network is restored, retry without delay
+          attempt--; // Don't count this as an attempt
+          continue;
+        }
+        
+        isNetworkOffline = false;
+        console.log(`Upload attempt ${attempt + 1}/${maxRetries}...`);
+        const result = await uploadFn();
+        
+        // Check if API returned an error status
+        if (result?.error === true || result?.statusCode === 0) {
+          console.warn(`API error on attempt ${attempt + 1}:`, result?.message || result);
+          throw new Error(`API Error: ${result?.message || 'Network Error'}`);
+        }
+        
+        return result;
+      } catch (error) {
+        lastError = error;
+        const isLastAttempt = attempt === maxRetries - 1;
+        const errorMsg = error?.message || String(error);
+        
+        console.log(
+          `Upload attempt ${attempt + 1} failed: ${errorMsg}`,
+        );
+        
+        if (isLastAttempt) {
+          throw error;
+        }
+
+        // For network errors, use longer backoff
+        const isNetworkError = 
+          errorMsg.includes('Network') || 
+          errorMsg.includes('timeout') || 
+          errorMsg.includes('ECONNREFUSED') ||
+          errorMsg.includes('ETIMEDOUT');
+        
+        // Faster retries: 1s, 2s, 4s, 8s, 16s, 32s, 64s...
+        // If network was offline, don't add extra delay (already waited in waitForNetworkConnectivity)
+        const delayMs = isNetworkOffline ? 0 : baseDelayMs * Math.pow(2, attempt);
+        
+        if (delayMs > 0) {
+          console.log(
+            `Waiting ${delayMs}ms before retry attempt ${attempt + 2}/${maxRetries}... (${isNetworkError ? 'Network' : 'Other'} error)`,
+          );
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        } else {
+          console.log(`Network was offline, retrying immediately...`);
+        }
+      }
+    }
+    throw lastError;
+  };
+
+  // Store upload state for tracking and resumption
+  const saveUploadState = async (clips) => {
+    try {
+      const uploadState = {
+        clips: clips.map(clip => ({
+          original: {
+            uri: clip.original?.uri,
+            duration: clip.original?.duration,
+          },
+          processedUri: clip.processedUri,
+          isVideo: clip.isVideo,
+          audio: clip.audio,
+          audioTrim: clip.audioTrim,
+          trim: clip.trim,
+          volume: clip.volume,
+          filterKey: clip.filterKey,
+          stickers: clip.stickers,
+          texts: clip.texts,
+        })),
+        timestamp: Date.now(),
+        attempts: 0,
+      };
+      await AsyncStorage.setItem(
+        'pendingStoryUpload',
+        JSON.stringify(uploadState),
+      );
+      console.log('Upload state saved for resumption');
+    } catch (error) {
+      console.error('Failed to save upload state:', error);
+    }
+  };
+
+  const clearUploadState = async () => {
+    try {
+      await AsyncStorage.removeItem('pendingStoryUpload');
+      console.log('Upload state cleared');
+    } catch (error) {
+      console.error('Failed to clear upload state:', error);
+    }
+  };
+
+  const getPendingUpload = async () => {
+    try {
+      const savedData = await AsyncStorage.getItem('pendingStoryUpload');
+      if (savedData) {
+        return JSON.parse(savedData);
+      }
+    } catch (error) {
+      console.error('Failed to retrieve pending upload:', error);
+    }
+    return null;
+  };
+
+  // Resume pending upload when app comes to foreground
+  const resumePendingUpload = useCallback(async () => {
+    try {
+      const pendingUpload = await getPendingUpload();
+      if (pendingUpload && pendingUpload.clips && pendingUpload.clips.length > 0) {
+        console.log('Resuming pending story upload from AsyncStorage...');
+        setIsUploadingStory(true);
+        await AsyncStorage.setItem('storyUploadInProgress', 'true');
+        showToastMessage(toast, 'info', 'Resuming drop upload...');
+        await performStoryUpload(pendingUpload.clips);
+        setIsUploadingStory(false);
+        await AsyncStorage.removeItem('storyUploadInProgress');
+      }
+    } catch (error) {
+      console.error('Error resuming upload:', error);
+      setIsUploadingStory(false);
+      await AsyncStorage.removeItem('storyUploadInProgress');
+    }
+  }, [toast]);
+
+  // Handle app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [resumePendingUpload]);
+
+  const handleAppStateChange = (nextAppState) => {
+    console.log('App state changed to:', nextAppState);
+    if (nextAppState === 'active') {
+      // App came to foreground, resume any pending uploads
+      resumePendingUpload();
+    }
+  };
+
+  const performStoryUpload = async (clips) => {
+    // Clear upload state at the start to prevent duplicate uploads on resume
+    await clearUploadState();
+    
+    const formData = new FormData();
+    formData.append('caption', '');
+
+    // New upload with clips data
+    clips.forEach((item, index) => {
+      const fileUri = item.processedUri || item.original.uri;
+      const fileName = `story_${Date.now()}_${index}.${
+        item.isVideo ? 'mp4' : 'jpg'
+      }`;
+      const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
+
+      formData.append('media', {
+        uri: fileUri,
+        type: fileType,
+        name: fileName,
+      });
+    });
+
+    formData.append(
+      'storyMeta',
+      JSON.stringify(buildStoryMetaPayload(clips)),
+    );
+
+    await appendStoryAudioFiles(formData, clips);
+
+    // Perform upload with retry logic and timeout handling
+    const response = await retryWithBackoff(
+      () => {
+        // Add timeout to individual requests (120 seconds for background uploads)
+        return Promise.race([
+          PostStory(formData),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Request timeout - network may be unstable')),
+              120000,
+            ),
+          ),
+        ]);
+      },
+      15,
+      1000,
+    );
+
+    // Check for successful response - both success flag and no error flag
+    const isSuccess = response?.success && !response?.error;
+    const apiError = response?.message || response?.error;
+
+    if (isSuccess) {
+      setStories(prev =>
+        prev.map(user =>
+          user.isUser
+            ? {
+              ...user,
+              hasUnseenStory: true,
+              stories: [
+                ...user.stories,
+                ...clips.map(item => ({
+                  id: `story_${Date.now()}_${Math.random()}`,
+                  type: item.isVideo ? 'video' : 'image',
+                  uri: item.processedUri || item.original.uri,
+                  audio: item.audio || { mode: 'original' },
+                  audioTrim: item.audioTrim || { start: 0, end: null },
+                  trim: item.trim || { start: 0, end: null },
+                  volume: item.volume ?? 1,
+                  duration: resolveStoryDurationMs({
+                    type: item.isVideo ? 'video' : 'image',
+                    isVideo: item.isVideo,
+                    duration: item.original?.duration,
+                    trim: item.trim,
+                    audioTrim: item.audioTrim,
+                  }),
+                  timestamp: Date.now(),
+                  seen: false,
+                  views: [],
+                  likes: [],
+                  comments: [],
+                  edits: {
+                    filterKey: item.filterKey,
+                    stickers: item.stickers,
+                    texts: item.texts,
+                  },
+                })),
+              ],
+            }
+            : user,
+        ),
+      );
+
+      // Show success toast and hide progress bar after toast is displayed
+      showToastMessage(toast, 'success', 'Drop Uploaded Successfully');
+      setTimeout(() => {
+        setIsUploadingStory(false);
+      }, 200); // Hide progress bar quickly after success toast
+      fetchStories();
+    } else {
+      const errorMessage = typeof apiError === 'string' ? apiError : 'Unknown error';
+      console.error('API returned error:', response);
+      throw new Error(`Upload failed: ${errorMessage}`);
+    }
+  };
+
   const handleComposerDone = async (processedArray) => {
     try {
       const clips = await prepareStoryClipsAudioForUpload(processedArray);
+      // Don't close composer here - keep it open to show upload progress
+      // It will close after upload completes in performStoryUpload
 
+      // Save upload state for resumption if needed
+      await saveUploadState(clips);
+
+      // Fire off upload in background without blocking UI
+      uploadStoryInBackground(clips);
       setComposerVisible(false);
-
-      const formData = new FormData();
-      formData.append('caption', '');
-
-      clips.forEach((item, index) => {
-        const fileUri = item.processedUri || item.original.uri;
-        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
-        const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
-
-        formData.append('media', {
-          uri: fileUri,
-          type: fileType,
-          name: fileName,
-        });
-      });
-
-      formData.append(
-        'storyMeta',
-        JSON.stringify(buildStoryMetaPayload(clips)),
-      );
-      await appendStoryAudioFiles(formData, clips);
-
-      const response = await PostStory(formData);
-
-      if (response?.success) {
-        setStories(prev =>
-          prev.map(user =>
-            user.isUser
-              ? {
-                ...user,
-                hasUnseenStory: true,
-                stories: [
-                  ...user.stories,
-                  ...clips.map(item => ({
-                    id: `story_${Date.now()}_${Math.random()}`,
-                    type: item.isVideo ? 'video' : 'image',
-                    uri: item.processedUri || item.original.uri,
-                    audio: item.audio || { mode: 'original' },
-                    audioTrim: item.audioTrim || { start: 0, end: null },
-                    trim: item.trim || { start: 0, end: null },
-                    volume: item.volume ?? 1,
-                    duration: resolveStoryDurationMs({
-                      type: item.isVideo ? 'video' : 'image',
-                      isVideo: item.isVideo,
-                      duration: item.original?.duration,
-                      trim: item.trim,
-                      audioTrim: item.audioTrim,
-                    }),
-                    timestamp: Date.now(),
-                    seen: false,
-                    views: [],
-                    likes: [],
-                    comments: [],
-                    edits: {
-                      filterKey: item.filterKey,
-                      stickers: item.stickers,
-                      texts: item.texts,
-                    },
-                  })),
-                ],
-              }
-              : user,
-          ),
-        );
-
-        showToastMessage(toast, 'success', 'Story Uploaded Successfully');
-        fetchStories();
-      } else {
-        showToastMessage(toast, 'danger', 'Failed to upload story please try again');
-      }
+      // showToastMessage(
+      //   toast,
+      //   'info',
+      //   'Drops uploading...',
+      // );
     } catch (error) {
-      console.error('Error uploading story:', error);
-      showToastMessage(toast, 'danger', 'Something Went Wrong ! please try again');
+      console.error('Error preparing story:', error);
+      showToastMessage(
+        toast,
+        'danger',
+        'Failed to prepare drop. Please try again.',
+      );
+    }
+  };
+
+  // Background upload handler - continues even when app is backgrounded
+  const uploadStoryInBackground = async (clips) => {
+    try {
+      setIsUploadingStory(true);
+      await AsyncStorage.setItem('storyUploadInProgress', 'true');
+      await performStoryUpload(clips);
+      // Note: setIsUploadingStory(false) is called in performStoryUpload after toast is shown
+      await AsyncStorage.removeItem('storyUploadInProgress');
+    } catch (error) {
+      console.error('Story upload failed after all retries:', error?.message || error);
+      setIsUploadingStory(false);
+      await AsyncStorage.removeItem('storyUploadInProgress');
+      showToastMessage(
+        toast,
+        'danger',
+        'Drops upload failed - will retry automatically when connection improves.',
+      );
     }
   };
 
@@ -2203,7 +2496,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           )
         );
 
-        showToastMessage(toast, 'success', 'Story deleted successfully!');
+        showToastMessage(toast, 'success', 'Drop deleted successfully!');
 
         const currentUser = stories[currentUserIndex];
         if (!currentUser || currentUser.stories.length <= 1) {
@@ -2214,10 +2507,10 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
         fetchStories();
       } else {
-        showToastMessage(toast, 'danger', 'Failed to delete story. Please try again.');
+        showToastMessage(toast, 'danger', 'Failed to delete drop. Please try again.');
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Failed to delete story. Please try again.');
+      showToastMessage(toast, 'danger', 'Failed to delete drop. Please try again.');
     }
   };
 
@@ -2236,8 +2529,8 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           return { ...prev, [key]: { liked: nextLiked, count } };
         });
       } else {
-        console.error('Failed to like story:', response);
-        showToastMessage(toast, 'danger', 'Failed to like story. Please try again.');
+        console.error('Failed to like drop:', response);
+        showToastMessage(toast, 'danger', 'Failed to like drop. Please try again.');
       }
     } catch (error) {
       console.error('Error liking story:', error);
@@ -2427,6 +2720,45 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         }}
         onDone={handleComposerDone}
       />
+
+      {isUploadingStory && (
+        <View
+          style={{
+            backgroundColor: '#f5f5f5',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderTopWidth: 1,
+            borderTopColor: '#e0e0e0',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <ActivityIndicator size={16} color="#4da3ff" style={{ marginRight: 10 }} />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a1a' }}>
+              Uploading Drops...
+            </Text>
+          </View>
+          <View
+            style={{
+              height: 4,
+              backgroundColor: '#e0e0e0',
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}
+          >
+            <Animated.View
+              style={{
+                height: '100%',
+                backgroundColor: '#4da3ff',
+                borderRadius: 2,
+                width: uploadProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+              }}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
