@@ -26,6 +26,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import createStyles from '../../../pages/home/Style';
 import HexAvatar from './HexAvatar';
@@ -438,6 +439,7 @@ const StoryViewer = ({
   onDrawerClose,
   onOpenUserProfile,
 }) => {
+  const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const [paused, setPaused] = useState(false);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
@@ -1450,10 +1452,6 @@ const onMediaError = () => {
         {/* Show interaction controls only for other users' stories */}
         {!isViewingOwnStory && (
           <>
-            <View style={likeStyles.bottomBar}>
-              <View style={likeStyles.leftActions} />
-            </View>
-
             <View pointerEvents="none" style={burstStyles.layer}>
               {emojiBursts.map(b => (
                 <Animated.Text
@@ -1474,8 +1472,11 @@ const onMediaError = () => {
 
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-              style={inputStyles.wrap}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+              style={[
+                inputStyles.wrap,
+                { paddingBottom: insets.bottom + 20 },
+              ]}
             >
               <View style={inputStyles.quickRow}>
                 {['👍', '👏', '🔥', '😍', '😂', '😮'].map(emo => (
