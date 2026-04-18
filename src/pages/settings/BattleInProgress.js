@@ -811,6 +811,15 @@ export default function BattleInProgress() {
     }
   }, [userVotedSelection.optionId, userVotedSelection.side]);
 
+  useEffect(() => {
+    if (hasUserVoted && keepActiveSelectedStyle) {
+      const timer = setTimeout(() => {
+        setKeepActiveSelectedStyle(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasUserVoted]);
+
   const handleOpenReply = useCallback(comment => {
     setReplyingToComment({
       id: comment?.id || '',
@@ -1540,8 +1549,8 @@ export default function BattleInProgress() {
                                     borderColor={text}
                                   />
                                 </View>
-                                <Text style={styles.playerNameBold}>{player0Data?.name || player0Data?.userId || 'User'}</Text>
-                                <Text style={styles.playerNameBold}>({participant0?.side})</Text>
+                                <Text style={[styles.playerNameBold]} numberOfLines={2}>{player0Data?.name || player0Data?.userId || 'User'}</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
                                 {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant0?.score || 0} Points</Text>
@@ -1579,8 +1588,8 @@ export default function BattleInProgress() {
                                     borderColor={text}
                                   />
                                 </View>
-                                <Text style={styles.playerNameBold}>{player1Data?.name || player1Data?.userId || 'User'}</Text>
-                                <Text style={styles.playerNameBold}>({participant1?.side})</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={2}>{player1Data?.name || player1Data?.userId || 'User'}</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
                                 {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant1?.score || 0} Points</Text>
@@ -1647,11 +1656,12 @@ export default function BattleInProgress() {
                       normalizeSideKey(optionSide) ||
                       userVotedSelection.optionId === String(option.id);
                     const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
+                    const shouldDisable = hasUserVoted;
                     return (
                       <TouchableOpacity
                         key={`${battle.id}-${option.id}`}
-                        disabled={hasUserVoted}
-                        activeOpacity={0.88}
+                        disabled={shouldDisable}
+                        activeOpacity={shouldDisable ? 1 : 0.88}
                         style={[
                           styles.optionCard,
                           !isSelected && {
@@ -1665,8 +1675,8 @@ export default function BattleInProgress() {
                           },
                         ]}
                         onPress={() => {
-                          if (!hasUserVoted) {
-                            setSelectedOption(option.label);
+                          if (!shouldDisable) {
+                            setSelectedOption(optionSide || String(option.id || ''));
                           }
                         }}
                       >

@@ -48,7 +48,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
   const [videoError, setVideoError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
 
-  
+
   if (!mediaUrl) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
@@ -190,13 +190,16 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     } catch (error) {
       // console.log('Fetch posts error:', error?.message);
       console.log(error);
-      
+
       setPosts([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  useEffect(() => {
+    fetchPosts(); // 👈 API call here
+  }, []);
   const refreshStatusAndPosts = useCallback(async () => {
     if (!userData?.id) {
       setResolvedIsSubscribed(false);
@@ -309,45 +312,45 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   return (
     <View style={[styles.screen, bgStyle]}>
       {!canViewPrivateContent ?
-      <>
-      <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={onSubscribePress}
-          style={styles.lockedCard}
-        >
-          <Text style={styles.lockedIcon}>🔒</Text>
-          <Text style={[styles.lockedTitle, textStyle]}>
-            Subscribe to unlock private content
-          </Text>
-          <Text style={styles.lockedSubtitle}>
-            Exclusive posts are available only for active subscribers.
-          </Text>
-        </TouchableOpacity>
-      </View>
-      </>
-      :
-      <FlatList
-        data={posts}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        numColumns={numColumns}
-        ListEmptyComponent={renderEmptyComponent}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          posts.length === 0 && styles.emptyListContent,
-        ]}
-        ItemSeparatorComponent={ItemSeparator}
-        removeClippedSubviews
-        initialNumToRender={12}
-        maxToRenderPerBatch={12}
-        windowSize={5}
-        getItemLayout={getItemLayout}
-        updateCellsBatchingPeriod={50}
-        disableVirtualization={false}
-      />
-}
+        <>
+          <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onSubscribePress}
+              style={styles.lockedCard}
+            >
+              <Text style={styles.lockedIcon}>🔒</Text>
+              <Text style={[styles.lockedTitle, textStyle]}>
+                Subscribe to unlock private content
+              </Text>
+              <Text style={styles.lockedSubtitle}>
+                Exclusive posts are available only for active subscribers.
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+        :
+        <FlatList
+          data={posts}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          numColumns={numColumns}
+          ListEmptyComponent={renderEmptyComponent}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.listContent,
+            posts.length === 0 && styles.emptyListContent,
+          ]}
+          ItemSeparatorComponent={ItemSeparator}
+          removeClippedSubviews
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          getItemLayout={getItemLayout}
+          updateCellsBatchingPeriod={50}
+          disableVirtualization={false}
+        />
+      }
     </View>
   );
 };
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: SPACING,
     paddingBottom: 100,
-   
+
   },
   emptyListContent: {
     flexGrow: 1,
@@ -390,7 +393,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: IMAGE_SIZE,
-    height: IMAGE_SIZE*1.5,
+    height: IMAGE_SIZE * 1.5,
     backgroundColor: '#f0f0f0',
   },
   overlay: {
