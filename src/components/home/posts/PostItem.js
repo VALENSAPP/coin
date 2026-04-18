@@ -1871,13 +1871,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   buyerAvatarWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    overflow: 'hidden',
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   buyerAvatar: {
     width: 24,
