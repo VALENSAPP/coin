@@ -1549,7 +1549,7 @@ export default function BattleInProgress() {
                                     borderColor={text}
                                   />
                                 </View>
-                                <Text style={[styles.playerNameBold]} numberOfLines={2}>{player0Data?.name || player0Data?.userId || 'User'}</Text>
+                                <Text style={[styles.playerNameBold]} numberOfLines={2}  ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
                                 <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
                                 {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -1588,7 +1588,7 @@ export default function BattleInProgress() {
                                     borderColor={text}
                                   />
                                 </View>
-                                <Text style={styles.playerNameBold} numberOfLines={2}>{player1Data?.name || player1Data?.userId || 'User'}</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={2}  ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
                                 <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
                                 {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 18,
     marginBottom: 8,
-    marginHorizontal: 15,
+    marginHorizontal: 8,
   },
   duelPlayerCard: {
     flex: 1,
@@ -2022,6 +2022,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
     justifyContent: 'flex-start',
+    maxWidth:130,
   },
   playerImageContainer: {
     width: '100%',
@@ -2037,6 +2038,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 4,
     marginBottom: 4,
+     width: '100%',
   },
   battlePointsText: {
     color: 'rgba(255,255,255,0.85)',
