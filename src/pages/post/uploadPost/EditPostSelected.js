@@ -99,6 +99,8 @@ const createEmptyImageEdits = () => ({
   overlayImages: [],
   filter: 'none',
   drawings: null,
+  /** Snapshot of image URI before any draw merge this session — used to remove drawings on the post screen. */
+  uriBeforeAnyDrawing: null,
   processedImageUri: null,
   musicSource: 'none',
   musicId: 'none',
@@ -2001,11 +2003,22 @@ const InstagramPostCreator = () => {
       : clamp(startPosition.y + deltaY, bounds.minY, bounds.maxY),
   });
 
+  const exitDrawModeDiscardStrokes = () => {
+    if (canvasRef.current) {
+      canvasRef.current.clear();
+    }
+    setIsDrawing(false);
+    setIsScrollEnabled(true);
+    setActiveTab('null');
+    setCanvasKey(prev => prev + 1);
+  };
+
   const handleNext = async () => {
     setVideoMuted(true);
     setVideoPaused(true);
+    // Unsaved sketch strokes are not merged; only the green ✓ commits a drawing layer.
     if (isDrawing) {
-      await captureAndMergeDrawing(false);
+      exitDrawModeDiscardStrokes();
     }
     try {
       const processedImages = await Promise.all(
@@ -2061,6 +2074,7 @@ const InstagramPostCreator = () => {
               position: overlay.position || { x: 0, y: 0 }
             })),
             drawings: edits.drawings,
+            uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing,
             imageIndex: index
           };
         })
@@ -2118,6 +2132,7 @@ const InstagramPostCreator = () => {
                     position: overlay.position || { x: 0, y: 0 }
                   })),
                   drawings: edits.drawings,
+                  uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing,
                   imageIndex: index
                 };
               });
@@ -2799,16 +2814,10 @@ const InstagramPostCreator = () => {
                     <Text style={styles.controlButtonText}>↩</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={async () => {
-                      // Always save/merge drawing first (even on cancel)
+                    onPress={() => {
                       if (canvasRef.current) {
-                        await captureAndMergeDrawing(false); // false = don't exit yet
+                        canvasRef.current.clear();
                       }
-                      // Then exit draw mode
-                      setIsDrawing(false);
-                      setIsScrollEnabled(true);
-                      // setActiveTab('null');
-                      // setCanvasKey(prev => prev + 1);
                     }}
                     style={[
                       styles.controlButton,
@@ -3139,6 +3148,8 @@ const InstagramPostCreator = () => {
                 [currentImageIndex]: {
                   ...ed,
                   processedImageUri: null,
+                  uriBeforeAnyDrawing: null,
+                  drawings: null,
                 },
               };
             });
@@ -3235,7 +3246,13 @@ const InstagramPostCreator = () => {
                     // Exiting draw mode → always save drawing first
                     await captureAndMergeDrawing(true);
                   } else {
-                    // Entering draw mode
+                    // Entering draw mode — snapshot base image for "remove drawing" on the next screen
+                    const ce = getCurrentImageEdits();
+                    const img = selectedImages[currentImageIndex];
+                    const snap = ce.processedImageUri || getMediaDisplayUri(img);
+                    if (!ce.uriBeforeAnyDrawing) {
+                      updateCurrentImageEdits({ uriBeforeAnyDrawing: snap });
+                    }
                     setIsDrawing(true);
                     setIsScrollEnabled(false);
                     setCanvasKey(prev => prev + 1);
