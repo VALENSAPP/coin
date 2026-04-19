@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -42,13 +42,14 @@ const PostEditorScreen = () => {
     fromIcon,
     taggedPeople = [],
   } = route.params || {};
+  const [editorImages, setEditorImages] = useState(images);
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
   const [profile, setProfile] = useState(null);
   const { bgStyle, textStyle, text } = useAppTheme();
 
   const toast = useToast();
-  console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType, });
+  console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType });
 
   const getMediaUri = (media) =>
     media?.processedUri ||
@@ -90,6 +91,10 @@ const PostEditorScreen = () => {
     };
     loadProfileType();
   }, []);
+
+  useEffect(() => {
+    setEditorImages(images);
+  }, [images]);
   const handlePost = async () => {
     if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
@@ -98,7 +103,7 @@ const PostEditorScreen = () => {
       }
 
       navigation.navigate('CreateMission', {
-        images,
+        images: editorImages,
         caption,
         link,
         taggedPeople,
@@ -110,7 +115,7 @@ const PostEditorScreen = () => {
     const payload = {
       caption: caption.trim(),
       taggedPeople: Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
-      media: images.map(img => ({
+      media: editorImages.map(img => ({
         uri: getMediaUri(img),
         type: img.type,
         name: getMediaUri(img).split('/').pop()
@@ -125,8 +130,8 @@ const PostEditorScreen = () => {
           : 'normal',
     };
 
-    const postMeta = buildPostMetaFromImages(images);
-    const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(images);
+    const postMeta = buildPostMetaFromImages(editorImages);
+    const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(editorImages);
 
     try {
       const response = await createPost({
@@ -157,6 +162,21 @@ const PostEditorScreen = () => {
     return urlPattern.test(text);
   };
 
+  const removeDrawingFromImage = useCallback((index) => {
+    setEditorImages(prev =>
+      prev.map((img, i) => {
+        if (i !== index) return img;
+        const revert = img.uriBeforeAnyDrawing;
+        if (!revert) return img;
+        return {
+          ...img,
+          processedUri: revert,
+          drawings: null,
+        };
+      }),
+    );
+  }, []);
+
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
@@ -170,14 +190,14 @@ const PostEditorScreen = () => {
 
       <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
         {/* Images Card with horizontal scroll */}
-        {images.length > 0 && (
+        {editorImages.length > 0 && (
           <View style={[styles.imagesCard, bgStyle]}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.imagesContainer}
             >
-              {images.map((img, idx) => (
+              {editorImages.map((img, idx) => (
                 <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
                   {isMediaVideo(img) ? (
                     <View style={styles.videoThumbContainer}>
@@ -200,6 +220,15 @@ const PostEditorScreen = () => {
                       style={styles.imageThumb}
                       resizeMode="cover"
                     />
+                  )}
+                  {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
+                    <TouchableOpacity
+                      style={styles.removeDrawingBtn}
+                      onPress={() => removeDrawingFromImage(idx)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
+                    </TouchableOpacity>
                   )}
                   {img.appliedFilter && img.appliedFilter !== 'none' && (
                     <View style={styles.filterBadge}>
@@ -314,7 +343,17 @@ const styles = StyleSheet.create({
   },
   imageThumbWrapper: {
     marginRight: 12,
-    position: 'relative'
+    position: 'relative',
+    alignItems: 'center',
+  },
+  removeDrawingBtn: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  removeDrawingText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   imageThumb: {
     width: screenWidth * 0.3,

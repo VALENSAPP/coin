@@ -21,7 +21,7 @@ import {
   AppState,
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import Video from 'react-native-video';
+import Video, { ViewType } from 'react-native-video';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -72,6 +72,84 @@ function parseStoryMeta(raw) {
     }
   }
   return typeof raw === 'object' ? raw : null;
+}
+
+/**
+ * When `clips[idx].isVideo` is missing, infer from URL. CDN/signed URLs often have no
+ * trailing extension, so we match known video substrings in the path (before `?`).
+ */
+function inferStoryMediaTypeFromUrl(url) {
+  if (typeof url !== 'string') return 'image';
+  const lower = url.toLowerCase().trim();
+  const pathPart = lower.split('?')[0];
+  const videoMarkers = [
+    '.mp4',
+    '.mov',
+    '.m4v',
+    '.avi',
+    '.webm',
+    '.mkv',
+    '.flv',
+    '.wmv',
+    '.3gp',
+    '.m3u8',
+    '.mpg',
+    '.mpeg',
+  ];
+  if (videoMarkers.some(m => pathPart.includes(m))) {
+    return 'video';
+  }
+  if (pathPart.endsWith('/video') || lower.includes('/video/')) {
+    return 'video';
+  }
+  if (
+    lower.includes('type=video') ||
+    lower.includes('content_type=video') ||
+    lower.includes('format=mp4')
+  ) {
+    return 'video';
+  }
+  return 'image';
+}
+
+function looksLikeImageUrl(url) {
+  if (typeof url !== 'string') return false;
+  const pathPart = url.split('?')[0].toLowerCase();
+  return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(pathPart);
+}
+
+/** Story upload meta stores duration in seconds; some APIs may send ms. */
+function clipDurationSuggestsVideo(clipMeta) {
+  let d = Number(clipMeta?.duration);
+  if (!Number.isFinite(d) || d <= 0) return false;
+  if (d > 500) d = d / 1000;
+  return d > 0.35 && d < 7200;
+}
+
+/**
+ * Resolve image vs video: URL hints, `clips[].isVideo`, and duration from `storyMeta`
+ * (needed when CDN URLs have no file extension — otherwise videos render as `<Image>`).
+ */
+function resolveStoryClipType(url, clipMeta) {
+  const inferred = inferStoryMediaTypeFromUrl(url);
+  const strUrl = typeof url === 'string' ? url : '';
+
+  if (looksLikeImageUrl(strUrl)) {
+    if (clipMeta?.isVideo === true) return 'video';
+    return 'image';
+  }
+
+  if (clipMeta?.isVideo === true) return 'video';
+  if (inferred === 'video') return 'video';
+
+  if (clipMeta && typeof clipMeta.isVideo === 'boolean' && clipMeta.isVideo === false) {
+    if (clipDurationSuggestsVideo(clipMeta)) return 'video';
+    return 'image';
+  }
+
+  if (clipDurationSuggestsVideo(clipMeta)) return 'video';
+
+  return inferred;
 }
 
 const storyYoutubeAudioStyle = {
@@ -463,6 +541,8 @@ const StoryViewer = ({
   const [isMediaReady, setIsMediaReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const mediaDurationRef = useRef(null);
+  /** Video duration in seconds (from onLoad) — drives progress bar via onProgress, not a wall-clock timer. */
+  const videoDurationSecRef = useRef(0);
   const [videoOverlayVisible, setVideoOverlayVisible] = useState(false);
   const overlayOpacity = useRef(new Animated.Value(1)).current;
 
@@ -472,6 +552,14 @@ const StoryViewer = ({
   const progressStartedRef = useRef(false);
   const mediaFullyLoadedRef = useRef(false);
   const videoReadyDurationRef = useRef(null);
+
+  const kickPlayback = () => {
+    try {
+      videoRef.current?.resume?.();
+    } catch (_e) {
+      /* noop */
+    }
+  };
 
   // --- keep latest callbacks for PanResponder (fix slide stale-closure) ---
   const nextUserCb = useRef(onNextUser);
@@ -586,7 +674,8 @@ const StoryViewer = ({
     // Reset all state for the incoming story
     progressStartedRef.current = false;
 mediaFullyLoadedRef.current = false;   // ← add this line
-mediaDurationRef.current = null;
+    mediaDurationRef.current = null;
+    videoDurationSecRef.current = 0;
 
     // Stop any running animation and reset to 0
     progressAnimation.stopAnimation();
@@ -607,31 +696,39 @@ mediaDurationRef.current = null;
     setIsBuffering(false);
     dispatch(hideLoader());
 
-    // Seek video to beginning when switching stories
+    // Seek video to beginning when switching stories (seek can leave player paused on some devices)
     if (currentStory.type === 'video' && videoRef.current?.seek) {
-      try { videoRef.current.seek(0); } catch (_e) { }
+      try {
+        videoRef.current.seek(0);
+        setTimeout(() => {
+          try {
+            videoRef.current?.resume?.();
+          } catch (_e) { }
+        }, 50);
+      } catch (_e) { }
     }
     if (isDirectAudio && directAudioRef.current?.seek) {
       try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) { }
     }
 
-    // FALLBACK: if onLoad never fires (network error, bad URL, codec issue)
-    // force-start the progress bar so the story doesn't hang forever.
+    // FALLBACK: if image never loads, start timer-based progress. Video progress is tied to
+    // actual playback (onProgress); if video never loads, user taps to skip — no auto-skip.
     const isVideo = currentStory.type === 'video';
-    const fallbackDelay = isVideo ? 8000 : 5000;
+    const fallbackDelay = isVideo ? 60000 : 5000;
     const fallbackTimer = setTimeout(() => {
-  // Only fire if media NEVER loaded (onLoad/onImageLoaded never called)
-  if (
-    !pausedRef.current &&
-    visibleRef.current &&
-    !progressStartedRef.current &&
-    !mediaFullyLoadedRef.current   // ← guard: don't fire if media already loaded
-  ) {
-    progressStartedRef.current = true;
-    const duration = resolveStoryDurationMs(currentStory);
-    startProgress(duration);
-  }
-}, fallbackDelay);
+      if (
+        isVideo ||
+        pausedRef.current ||
+        !visibleRef.current ||
+        progressStartedRef.current ||
+        mediaFullyLoadedRef.current
+      ) {
+        return;
+      }
+      progressStartedRef.current = true;
+      const duration = resolveStoryDurationMs(currentStory);
+      startProgress(duration);
+    }, fallbackDelay);
 
     return () => {
       clearTimeout(fallbackTimer);
@@ -738,6 +835,11 @@ mediaDurationRef.current = null;
   const handleResume = () => {
     if (!currentStory) return;
     setPaused(false);
+    // Video: progress bar follows real playback (onProgress); only resume the player.
+    if (currentStory.type === 'video') {
+      kickPlayback();
+      return;
+    }
     const remaining = Math.max(0, 1 - currentProgress);
     const totalDuration = resolveStoryDurationMs(currentStory);
     const remainingDuration = totalDuration * remaining;
@@ -1041,6 +1143,23 @@ mediaDurationRef.current = null;
     },
   };
 
+  /** Kick playback only — video stories use onProgress for the bar; images use startProgress timers. */
+  const maybeStartVideoProgress = () => {
+    if (!visibleRef.current || pausedRef.current) return;
+    kickPlayback();
+  };
+
+  const onMainVideoProgress = ({ currentTime }) => {
+    if (!visibleRef.current || pausedRef.current) return;
+    const durSec =
+      videoDurationSecRef.current > 0
+        ? videoDurationSecRef.current
+        : (mediaDurationRef.current ? mediaDurationRef.current / 1000 : 0);
+    if (!durSec || durSec <= 0) return;
+    const p = Math.min(1, Math.max(0, currentTime / durSec));
+    progressAnimation.setValue(p);
+  };
+
 const onImageLoaded = () => {
   dispatch(hideLoader());
   mediaFullyLoadedRef.current = true;
@@ -1065,18 +1184,29 @@ const onVideoLoaded = (meta) => {
     currentStory?.duration ||
     15000;
   mediaDurationRef.current = duration;
-  videoReadyDurationRef.current = duration;   // store for onReadyForDisplay
+  videoReadyDurationRef.current = duration;
+  const durSec =
+    meta?.duration != null && Number(meta.duration) > 0
+      ? Number(meta.duration)
+      : duration / 1000;
+  videoDurationSecRef.current = durSec;
   mediaFullyLoadedRef.current = true;
   setIsMediaReady(true);
   setIsBuffering(false);
-  // Do NOT call startProgress here
+  progressAnimation.setValue(0);
+  maybeStartVideoProgress();
+  kickPlayback();
+  requestAnimationFrame(kickPlayback);
+  setTimeout(kickPlayback, 120);
+  setTimeout(kickPlayback, 500);
 };
 
 const onMediaError = () => {
   dispatch(hideLoader());
-  // On error we still mark loaded so the fallback timer doesn't also fire
   mediaFullyLoadedRef.current = true;
   setIsMediaReady(true);
+  // Video: do not auto-advance on error — bar stays put; user taps to skip.
+  if (currentStory?.type === 'video') return;
   if (visibleRef.current && !pausedRef.current && !progressStartedRef.current) {
     progressStartedRef.current = true;
     const duration = resolveStoryDurationMs(currentStory);
@@ -1198,55 +1328,58 @@ const onMediaError = () => {
               pointerEvents="none"
             />
           ) : (
-            <Video
-              ref={videoRef}
-              source={{ uri: currentStory.uri }}
-              style={modalStyles.storyMedia}
-              resizeMode="cover"
-              // FIX: removed `|| isBuffering` — pausing on buffer events causes
-              // the native media engine to fully stop/restart, which is the
-              // primary source of visible stuttering. Let the player buffer silently.
-              paused={paused}
-              onLoadStart={() => {
-                setIsMediaReady(false);
-                setIsBuffering(true);
-              }}
-              onLoad={onVideoLoaded}
-              onReadyForDisplay={() => {
-  if (!progressStartedRef.current && visibleRef.current && !pausedRef.current) {
-    progressStartedRef.current = true;
-    const duration = videoReadyDurationRef.current || resolveStoryDurationMs(currentStory);
-    requestAnimationFrame(() => {
-      if (visibleRef.current && !pausedRef.current) {
-        startProgress(duration);
-      }
-    });
-  }
-}}
-              // FIX: removed onProgress entirely — calling progressAnimation.setValue()
-              // inside onProgress interrupts the running Animated.timing() and causes
-              // the progress bar to jump and restart on every progress tick.
-              onBuffer={onVideoBuffer}
-              onError={onMediaError}
-              onEnd={() => {
-                stopAndResetProgress(true);
-                setTimeout(() => onNext(), 120);
-              }}
-              repeat={false}
-              muted={false}
-              controls={false}
-              playInBackground={false}
-              playWhenInactive={false}
-              // FIX: explicit buffer config so the player starts playback sooner
-              // (after 1s buffered) and recovers from rebuffer faster.
-              bufferConfig={{
-                minBufferMs: 2500,
-                maxBufferMs: 10000,
-                bufferForPlaybackMs: 1000,
-                bufferForPlaybackAfterRebufferMs: 2000,
-              }}
-              pointerEvents="none"
-            />
+            <View style={modalStyles.storyVideoWrap} pointerEvents="box-none">
+              {/*
+                Do not use renderLoader: it sets an internal full-screen layer that only
+                clears on onReadyForDisplay — on some devices that never fires, so the video
+                never appears to play. Loading UI is our overlay below instead.
+              */}
+              <Video
+                key={storyKey}
+                ref={videoRef}
+                source={{ uri: currentStory.uri }}
+                style={modalStyles.storyMedia}
+                resizeMode="cover"
+                paused={paused}
+                rate={1}
+                volume={1}
+                muted={false}
+                ignoreSilentSwitch="ignore"
+                mixWithOthers="mix"
+                {...(Platform.OS === 'android' ? { viewType: ViewType.TEXTURE } : {})}
+                onLoadStart={() => {
+                  setIsMediaReady(false);
+                  setIsBuffering(true);
+                }}
+                onLoad={onVideoLoaded}
+                onReadyForDisplay={maybeStartVideoProgress}
+                onProgress={onMainVideoProgress}
+                progressUpdateInterval={200}
+                onBuffer={onVideoBuffer}
+                onError={onMediaError}
+                onEnd={() => {
+                  progressAnimation.setValue(1);
+                  stopAndResetProgress(true);
+                  setTimeout(() => onNext(), 120);
+                }}
+                repeat={false}
+                controls={false}
+                playInBackground={false}
+                playWhenInactive={false}
+                bufferConfig={{
+                  minBufferMs: 2000,
+                  maxBufferMs: 50000,
+                  bufferForPlaybackMs: 1200,
+                  bufferForPlaybackAfterRebufferMs: 2000,
+                }}
+                pointerEvents="none"
+              />
+              {!isMediaReady && (
+                <View style={modalStyles.storyVideoLoadingOverlay} pointerEvents="none">
+                  <ActivityIndicator size="large" color="#fff" />
+                </View>
+              )}
+            </View>
           )}
 
           {isYoutubeAudio ? (
@@ -1671,9 +1804,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         stories: userStoriesRaw.flatMap((story) => {
           const ts = new Date(story.createdAt || story.updatedAt || Date.now()).getTime();
           const meta = parseStoryMeta(story.storyMeta);
-          return (story.media || []).map((url, idx) => ({
+          return (story.media || []).map((url, idx) => {
+            const clipMeta = meta?.clips?.[idx] || {};
+            const mediaType = resolveStoryClipType(String(url), clipMeta);
+            return {
             ...(() => {
-              const clipMeta = meta?.clips?.[idx] || {};
               const fallbackAudio =
                 clipMeta.audio ??
                 meta?.audio ??
@@ -1686,19 +1821,20 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
                 audio: fallbackAudio,
                 duration: resolveStoryDurationMs({
                   ...clipMeta,
-                  type: (String(url).toLowerCase().includes('.mp4') || String(url).toLowerCase().includes('video')) ? 'video' : 'image',
+                  type: mediaType,
                 }),
               };
             })(),
             id: `${story.id}_${idx}`,
-            type: (String(url).toLowerCase().includes('.mp4') || String(url).toLowerCase().includes('video')) ? 'video' : 'image',
+            type: mediaType,
             uri: String(url).trim(),
             timestamp: ts,
             seen: false,
             views: [],
             likes: [],
             comments: [],
-          }));
+          };
+          });
         }),
       };
 
@@ -1711,22 +1847,12 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
         const ts = new Date(userStory.createdAt || userStory.updatedAt || Date.now()).getTime();
         const followingMeta = parseStoryMeta(userStory.storyMeta);
-        const getMediaType = (url) => {
-          if (typeof url !== 'string') return 'image';
-          const lower = url.toLowerCase().trim();
-          const videoExts = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v'];
-          if (videoExts.some(ext => lower.endsWith(ext))) {
-            return 'video';
-          }
-          if (lower.includes('/video/') || lower.includes('video')) {
-            return 'video';
-          }
-          return 'image';
-        };
 
-        const storyObjects = (userStory.media || []).map((url, idx) => ({
+        const storyObjects = (userStory.media || []).map((url, idx) => {
+          const clipMeta = followingMeta?.clips?.[idx] || {};
+          const mediaType = resolveStoryClipType(String(url), clipMeta);
+          return {
           ...(() => {
-            const clipMeta = followingMeta?.clips?.[idx] || {};
             const fallbackAudio =
               clipMeta.audio ??
               followingMeta?.audio ??
@@ -1739,19 +1865,20 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
               audio: fallbackAudio,
               duration: resolveStoryDurationMs({
                 ...clipMeta,
-                type: getMediaType(url),
+                type: mediaType,
               }),
             };
           })(),
           id: `${userStory.id}_${idx}`,
-          type: getMediaType(url),
+          type: mediaType,
           uri: String(url).trim(),
           timestamp: ts,
           seen: false,
           views: [],
           likes: [],
           comments: [],
-        }));
+        };
+        });
 
         if (userStoriesMap.has(userId)) {
           const existingUser = userStoriesMap.get(userId);

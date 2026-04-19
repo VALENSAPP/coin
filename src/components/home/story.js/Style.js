@@ -1,6 +1,6 @@
 import { StyleSheet, Platform, Dimensions } from 'react-native';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const modalStyles = StyleSheet.create({
   modalBg: { flex: 1, backgroundColor: '#000' },
@@ -34,15 +34,34 @@ export const modalStyles = StyleSheet.create({
   closeBtn: { padding: 8 },
   storyContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
     paddingBottom: 0,
   },
   // Reserve space for own-story bottom action bar (Delete/Share).
   storyContentOwn: {
     paddingBottom: Platform.OS === 'ios' ? 108 : 92,
   },
-  storyMedia: { width: SCREEN_WIDTH, height: '100%' },
+  // `height: '100%'` often resolves to 0 here; flex + minHeight keeps Video/Image visible.
+  storyMedia: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    minHeight: Math.max(240, Math.round(SCREEN_HEIGHT * 0.55)),
+    backgroundColor: '#000',
+  },
+  storyVideoWrap: {
+    flex: 1,
+    width: SCREEN_WIDTH,
+    alignSelf: 'stretch',
+    position: 'relative',
+  },
+  storyVideoLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 2,
+  },
   loadingContainer: {
     position: 'absolute',
     top: '50%',
