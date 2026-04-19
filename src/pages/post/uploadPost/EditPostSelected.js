@@ -91,6 +91,9 @@ const FLIP_EMOJI_STICKERS = [
   '👏', '🔥', '❤️', '😂', '😍', '✨', '💯', '🎉', '👍', '🙌', '💪', '🎵', '⭐', '🙏', '😎', '🥳', '💬', '🎬',
 ];
 
+/** Visual-only: overlay shrinks while over delete so drop-to-delete is obvious. */
+const OVERLAY_TRASH_PREVIEW_SCALE = 0.42;
+
 const createEmptyImageEdits = () => ({
   textOverlays: [],
   overlayImages: [],
@@ -249,6 +252,12 @@ const InstagramPostCreator = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState('red');
   const [imageEdits, setImageEdits] = useState({});
+  /** Always-latest edits for cached PanResponders (they close over stale state otherwise). */
+  const imageEditsRef = useRef(imageEdits);
+  const currentImageIndexRef = useRef(currentImageIndex);
+  imageEditsRef.current = imageEdits;
+  currentImageIndexRef.current = currentImageIndex;
+
   const canvasRef = useRef(null);
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
@@ -294,6 +303,8 @@ const InstagramPostCreator = () => {
   const imageViewRefs = useRef({});
   const drawingSurfaceRefs = useRef({});
   const animatedPositionRefs = useRef({});
+  const overlayImageScaleRefs = useRef({});
+  const overlayImageRotationRefs = useRef({});
   const textOverlayLayoutRefs = useRef({});
   const recentDragTimestamps = useRef({});
   const overlayPanResponderRefs = useRef({});
@@ -690,6 +701,30 @@ const InstagramPostCreator = () => {
     return animatedPositionRefs.current[key];
   };
 
+  /** Live pinch/rotate for overlay images (state commits on gesture end). */
+  const getAnimatedOverlayImageScale = (imageIndex, overlayId, initialScale = 1) => {
+    const key = `${imageIndex}:imgscale:${overlayId}`;
+    if (!overlayImageScaleRefs.current[key]) {
+      overlayImageScaleRefs.current[key] = new Animated.Value(initialScale);
+    }
+    return overlayImageScaleRefs.current[key];
+  };
+
+  const getAnimatedOverlayImageRotation = (imageIndex, overlayId, initialRad = 0) => {
+    const key = `${imageIndex}:imgrot:${overlayId}`;
+    if (!overlayImageRotationRefs.current[key]) {
+      const v = new Animated.Value(initialRad);
+      overlayImageRotationRefs.current[key] = {
+        value: v,
+        rotate: v.interpolate({
+          inputRange: [-62.83, 62.83],
+          outputRange: ['-62.83rad', '62.83rad'],
+        }),
+      };
+    }
+    return overlayImageRotationRefs.current[key];
+  };
+
   const getTouchDistance = (touches) => {
     if (!touches || touches.length < 2) return 0;
     const [a, b] = touches;
@@ -912,11 +947,45 @@ const InstagramPostCreator = () => {
       ) {
         animatedPosition.setValue(nextPosition);
       }
+
+      const nextScale = overlay.scale ?? 1;
+      const nextRot = overlay.rotation ?? 0;
+      const scaleAnim = getAnimatedOverlayImageScale(
+        currentImageIndex,
+        overlay.id,
+        nextScale,
+      );
+      const rotAnim = getAnimatedOverlayImageRotation(
+        currentImageIndex,
+        overlay.id,
+        nextRot,
+      );
+      const curScale = getAnimatedNumericValue(scaleAnim, nextScale);
+      const curRot = getAnimatedNumericValue(rotAnim.value, nextRot);
+      if (Math.abs(curScale - nextScale) > 0.001) {
+        scaleAnim.setValue(nextScale);
+      }
+      if (Math.abs(curRot - nextRot) > 0.002) {
+        rotAnim.value.setValue(nextRot);
+      }
     });
   }, [currentImageIndex, imageEdits, isOverlayTransforming]);
 
   const getCurrentImageEdits = () => {
     return imageEdits[currentImageIndex] || createEmptyImageEdits();
+  };
+
+  const getLatestImageEditsForIndex = idx =>
+    imageEditsRef.current[idx] || createEmptyImageEdits();
+
+  const getLatestOverlayImageById = overlayId => {
+    const edits = getLatestImageEditsForIndex(currentImageIndexRef.current);
+    return edits.overlayImages?.find(o => o.id === overlayId) ?? null;
+  };
+
+  const getLatestTextOverlayById = overlayId => {
+    const edits = getLatestImageEditsForIndex(currentImageIndexRef.current);
+    return edits.textOverlays?.find(o => o.id === overlayId) ?? null;
   };
 
   const updateCurrentImageEdits = (updates) => {
@@ -1159,6 +1228,16 @@ const InstagramPostCreator = () => {
       target.position?.x || 50,
       target.position?.y || 50,
     );
+    const animatedScale = getAnimatedOverlayImageScale(
+      imageIndex,
+      id,
+      target.scale ?? 1,
+    );
+    const animatedRotation = getAnimatedOverlayImageRotation(
+      imageIndex,
+      id,
+      target.rotation ?? 0,
+    );
     const fallbackPosition = target.position || { x: 50, y: 50 };
 
     return PanResponder.create({
@@ -1168,9 +1247,10 @@ const InstagramPostCreator = () => {
       onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
-        const currentOverlay = (imageEdits[imageIndex] || getCurrentImageEdits())
-          .overlayImages
-          .find(o => o.id === id) || target;
+        const currentOverlay = getLatestOverlayImageById(id) || target;
+        if (!currentOverlay) {
+          return;
+        }
 
         // ✅ Use setOffset so accumulated position is preserved correctly
         const safePosition = getAnimatedPositionValue(
@@ -1180,34 +1260,101 @@ const InstagramPostCreator = () => {
         animatedPosition.setOffset(safePosition);
         animatedPosition.setValue({ x: 0, y: 0 });  // delta from here
 
+        const startDist = getTouchDistance(touches);
+        const startCenter = getTouchCenter(touches);
         overlayGestureState.current[id] = {
           mode: touches.length >= 2 ? 'transform' : 'drag',
           startPosition: safePosition,
           startScale: currentOverlay.scale || 1,
           startRotation: currentOverlay.rotation || 0,
-          startDistance: getTouchDistance(touches),
+          /** Valid two-finger baseline (grant can be one-finger: distance 0, center 0,0). */
+          startDistance: startDist,
           startAngle: getTouchAngle(touches),
-          startCenter: getTouchCenter(touches),
+          startCenter,
+          pinchBaselineReady: touches.length >= 2 && startDist > 1e-4,
+          didPinchGesture: false,
           moved: false,
           enteredTrashZone: false,
+          deleteLongPressTimer: null,
+          overlayTransformRaf: null,
         };
-        setIsOverlayTransforming(true);
-        setIsScrollEnabled(false);
+        const nextS = currentOverlay.scale ?? 1;
+        const nextR = currentOverlay.rotation ?? 0;
+        if (Math.abs(getAnimatedNumericValue(animatedScale, nextS) - nextS) > 1e-4) {
+          animatedScale.setValue(nextS);
+        }
+        if (Math.abs(getAnimatedNumericValue(animatedRotation.value, nextR) - nextR) > 1e-4) {
+          animatedRotation.value.setValue(nextR);
+        }
+        // Defer React state so layout runs after Animated applies offset (avoids first-touch flicker).
+        const rafId = requestAnimationFrame(() => {
+          setIsOverlayTransforming(true);
+          setIsScrollEnabled(false);
+          const s = overlayGestureState.current[id];
+          if (s) {
+            s.overlayTransformRaf = null;
+          }
+        });
+        overlayGestureState.current[id].overlayTransformRaf = rafId;
+        overlayGestureState.current[id].deleteLongPressTimer = setTimeout(() => {
+          if (Date.now() - (recentDragTimestamps.current[`image-${id}`] || 0) < 800) {
+            return;
+          }
+          const sess = overlayGestureState.current[id];
+          if (sess?.overlayTransformRaf != null) {
+            cancelAnimationFrame(sess.overlayTransformRaf);
+          }
+          removeOverlay(id);
+          delete overlayGestureState.current[id];
+          setShowTrashZone(false);
+          setIsOverlayTransforming(false);
+          setIsScrollEnabled(true);
+        }, 900);
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
         const session = overlayGestureState.current[id];
         if (!session) return;
 
+        if (session.deleteLongPressTimer) {
+          if (
+            touches.length >= 2 ||
+            Math.abs(gestureState.dx) > 1.5 ||
+            Math.abs(gestureState.dy) > 1.5
+          ) {
+            clearTimeout(session.deleteLongPressTimer);
+            session.deleteLongPressTimer = null;
+          }
+        }
+
         if (touches.length >= 2) {
-          // transform mode — recalculate from pinch center delta
+          session.didPinchGesture = true;
+          if (session.deleteLongPressTimer) {
+            clearTimeout(session.deleteLongPressTimer);
+            session.deleteLongPressTimer = null;
+          }
+          // First frame with two fingers after a one-finger grant: establish real pinch center/distance.
+          if (!session.pinchBaselineReady) {
+            session.pinchBaselineReady = true;
+            const co = getLatestOverlayImageById(id);
+            session.startDistance = Math.max(getTouchDistance(touches), 1e-4);
+            session.startCenter = getTouchCenter(touches);
+            session.startScale = co?.scale ?? 1;
+            session.startRotation = co?.rotation ?? 0;
+            session.startAngle = getTouchAngle(touches);
+            session.startPosition = getAnimatedPositionValue(
+              animatedPosition,
+              co?.position || fallbackPosition,
+            );
+          }
+
           const distance = getTouchDistance(touches);
           const angle = getTouchAngle(touches);
           const center = getTouchCenter(touches);
-          const scaleRatio = session.startDistance > 0 ? distance / session.startDistance : 1;
+          const scaleRatio =
+            session.startDistance > 0 ? distance / session.startDistance : 1;
           const nextScale = clamp(session.startScale * scaleRatio, 0.35, 4);
 
-          // ✅ Animate value (offset already set on grant), delta from 0,0
           const dx = center.x - session.startCenter.x;
           const dy = center.y - session.startCenter.y;
           animatedPosition.setValue({ x: dx, y: dy });
@@ -1217,13 +1364,23 @@ const InstagramPostCreator = () => {
             y: session.startPosition.y + dy,
           };
 
+          const pendingRotation = session.startRotation + (angle - session.startAngle);
+          session.pendingRotation = pendingRotation;
+
           const dragPoint = center;
           const isTouchOverTrash = isPointInTrashZone(dragPoint);
+          const displayScale = isTouchOverTrash
+            ? nextScale * OVERLAY_TRASH_PREVIEW_SCALE
+            : nextScale;
+          animatedScale.setValue(displayScale);
+          animatedRotation.value.setValue(pendingRotation);
+
           session.enteredTrashZone = session.enteredTrashZone || isTouchOverTrash;
-          setShowTrashZone(isTouchOverTrash);
+          setShowTrashZone(prev =>
+            prev === isTouchOverTrash ? prev : isTouchOverTrash,
+          );
           session.pendingPosition = nextPosition;
           session.pendingScale = nextScale;
-          session.pendingRotation = session.startRotation + (angle - session.startAngle);
           session.pendingTrashPoint = dragPoint;
           session.moved = true;
           return;
@@ -1246,12 +1403,25 @@ const InstagramPostCreator = () => {
           session.moved = true;
         }
         session.enteredTrashZone = session.enteredTrashZone || isTouchOverTrash;
-        setShowTrashZone(isTouchOverTrash);
+        setShowTrashZone(prev =>
+          prev === isTouchOverTrash ? prev : isTouchOverTrash,
+        );
         session.pendingPosition = nextPosition;
         session.pendingTrashPoint = dragPoint;
+
+        const dragBaseScale = session.startScale ?? 1;
+        animatedScale.setValue(
+          isTouchOverTrash ? dragBaseScale * OVERLAY_TRASH_PREVIEW_SCALE : dragBaseScale,
+        );
       },
       onPanResponderRelease: () => {
         const session = overlayGestureState.current[id];
+        if (session?.overlayTransformRaf != null) {
+          cancelAnimationFrame(session.overlayTransformRaf);
+        }
+        if (session?.deleteLongPressTimer) {
+          clearTimeout(session.deleteLongPressTimer);
+        }
 
         // Check if released over trash zone - delete immediately without snapping back
         if (shouldDeleteOnDrop(session)) {
@@ -1266,13 +1436,23 @@ const InstagramPostCreator = () => {
         // Not over trash - save final position
         const finalRawPosition =
           session?.pendingPosition ||
-          getAnimatedPositionValue(animatedPosition, fallbackPosition);
-        updateOverlayImageById(imageIndex, id, overlay => ({
+          getAnimatedPositionValue(
+            animatedPosition,
+            getLatestOverlayImageById(id)?.position || fallbackPosition,
+          );
+        updateOverlayImageById(currentImageIndexRef.current, id, overlay => ({
           ...overlay,
           position: finalRawPosition,
           scale: session?.pendingScale ?? overlay.scale,
           rotation: session?.pendingRotation ?? overlay.rotation,
         }));
+        const restoredScale =
+          session?.pendingScale != null
+            ? session.pendingScale
+            : session?.startScale ??
+              getLatestOverlayImageById(id)?.scale ??
+              1;
+        animatedScale.setValue(restoredScale);
         if (session?.moved) {
           recentDragTimestamps.current[`image-${id}`] = Date.now();
         }
@@ -1283,6 +1463,12 @@ const InstagramPostCreator = () => {
       },
       onPanResponderTerminate: () => {
         const session = overlayGestureState.current[id];
+        if (session?.overlayTransformRaf != null) {
+          cancelAnimationFrame(session.overlayTransformRaf);
+        }
+        if (session?.deleteLongPressTimer) {
+          clearTimeout(session.deleteLongPressTimer);
+        }
         if (shouldDeleteOnDrop(session)) {
           removeOverlay(id);
           delete overlayGestureState.current[id];
@@ -1294,16 +1480,27 @@ const InstagramPostCreator = () => {
         animatedPosition.flattenOffset();
         const finalRawPosition =
           session?.pendingPosition ||
-          getAnimatedPositionValue(animatedPosition, fallbackPosition);
-        updateOverlayImageById(imageIndex, id, overlay => ({
+          getAnimatedPositionValue(
+            animatedPosition,
+            getLatestOverlayImageById(id)?.position || fallbackPosition,
+          );
+        updateOverlayImageById(currentImageIndexRef.current, id, overlay => ({
           ...overlay,
           position: finalRawPosition,
           scale: session?.pendingScale ?? overlay.scale,
           rotation: session?.pendingRotation ?? overlay.rotation,
         }));
+        const restoredScaleTerm =
+          session?.pendingScale != null
+            ? session.pendingScale
+            : session?.startScale ??
+              getLatestOverlayImageById(id)?.scale ??
+              1;
+        animatedScale.setValue(restoredScaleTerm);
         delete overlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
+        setShowTrashZone(false);
       },
     });
   };
@@ -1330,10 +1527,7 @@ const InstagramPostCreator = () => {
       onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: evt => {
         const touches = evt.nativeEvent.touches;
-        const currentOverlay =
-          (imageEdits[imageIndex] || getCurrentImageEdits()).textOverlays.find(
-            o => o.id === id,
-          ) || target;
+        const currentOverlay = getLatestTextOverlayById(id) || target;
         const safePosition = getAnimatedPositionValue(
           animatedPosition,
           currentOverlay.position || fallbackPosition,
@@ -1358,17 +1552,11 @@ const InstagramPostCreator = () => {
         const session = textOverlayGestureState.current[id];
         if (!session) return;
 
-        const currentOverlay =
-          (imageEdits[imageIndex] || getCurrentImageEdits()).textOverlays.find(
-            o => o.id === id,
-          ) || target;
+        const currentOverlay = getLatestTextOverlayById(id) || target;
 
         if (touches.length >= 2) {
           if (session.mode !== 'transform') {
-            const co =
-              (imageEdits[imageIndex] || getCurrentImageEdits()).textOverlays.find(
-                o => o.id === id,
-              ) || target;
+            const co = getLatestTextOverlayById(id) || target;
             session.mode = 'transform';
             session.startPosition = getAnimatedPositionValue(
               animatedPosition,
@@ -1384,11 +1572,11 @@ const InstagramPostCreator = () => {
           const scaleRatio =
             session.startDistance > 0 ? distance / session.startDistance : 1;
           const nextScale = clamp(session.startScale * scaleRatio, 0.3, 4.5);
-          const overlayBounds = getTextOverlayBounds(imageIndex, {
+          const overlayBounds = getTextOverlayBounds(currentImageIndexRef.current, {
             ...currentOverlay,
             scale: nextScale,
           });
-          const footprint = getTextOverlayFootprint(imageIndex, {
+          const footprint = getTextOverlayFootprint(currentImageIndexRef.current, {
             ...currentOverlay,
             scale: nextScale,
           });
@@ -1407,7 +1595,9 @@ const InstagramPostCreator = () => {
           session.pendingFootprint = footprint;
           session.pendingTrashPoint = dragPoint;
           session.enteredTrashZone = session.enteredTrashZone || isTouchOverTrash;
-          setShowTrashZone(isTouchOverTrash);
+          setShowTrashZone(prev =>
+            prev === isTouchOverTrash ? prev : isTouchOverTrash,
+          );
           session.pendingPosition = nextPosition;
           session.pendingScale = nextScale;
           session.moved = true;
@@ -1415,18 +1605,15 @@ const InstagramPostCreator = () => {
         }
 
         if (session.mode !== 'drag') {
-          const co =
-            (imageEdits[imageIndex] || getCurrentImageEdits()).textOverlays.find(
-              o => o.id === id,
-            ) || target;
+          const co = getLatestTextOverlayById(id) || target;
           session.mode = 'drag';
           session.startPosition = getAnimatedPositionValue(
             animatedPosition,
             co.position || fallbackPosition,
           );
         }
-        const overlayBounds = getTextOverlayBounds(imageIndex, currentOverlay);
-        const footprint = getTextOverlayFootprint(imageIndex, {
+        const overlayBounds = getTextOverlayBounds(currentImageIndexRef.current, currentOverlay);
+        const footprint = getTextOverlayFootprint(currentImageIndexRef.current, {
           ...currentOverlay,
           scale: session.startScale ?? currentOverlay.scale ?? 1,
         });
@@ -1456,7 +1643,9 @@ const InstagramPostCreator = () => {
           session.moved = true;
         }
         session.enteredTrashZone = session.enteredTrashZone || isTouchOverTrash;
-        setShowTrashZone(isTouchOverTrash);
+        setShowTrashZone(prev =>
+          prev === isTouchOverTrash ? prev : isTouchOverTrash,
+        );
       },
       onPanResponderRelease: () => {
         const session = textOverlayGestureState.current[id];
@@ -1474,8 +1663,11 @@ const InstagramPostCreator = () => {
         // Not over trash - save final position
         const finalPosition =
           session?.pendingPosition ||
-          getAnimatedPositionValue(animatedPosition, fallbackPosition);
-        updateTextOverlayById(imageIndex, id, overlay => ({
+          getAnimatedPositionValue(
+            animatedPosition,
+            getLatestTextOverlayById(id)?.position || fallbackPosition,
+          );
+        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({
           ...overlay,
           position: finalPosition,
           scale: session?.pendingScale ?? overlay.scale,
@@ -1500,8 +1692,11 @@ const InstagramPostCreator = () => {
         }
         const finalPosition =
           session?.pendingPosition ||
-          getAnimatedPositionValue(animatedPosition, fallbackPosition);
-        updateTextOverlayById(imageIndex, id, overlay => ({
+          getAnimatedPositionValue(
+            animatedPosition,
+            getLatestTextOverlayById(id)?.position || fallbackPosition,
+          );
+        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({
           ...overlay,
           position: finalPosition,
           scale: session?.pendingScale ?? overlay.scale,
@@ -1733,9 +1928,18 @@ const InstagramPostCreator = () => {
 
   const removeOverlay = (id) => {
     delete overlayPanResponderRefs.current[id];
-    const currentEdits = getCurrentImageEdits();
-    updateCurrentImageEdits({
-      overlayImages: currentEdits.overlayImages.filter(img => img.id !== id)
+    const idx = currentImageIndexRef.current;
+    delete overlayImageScaleRefs.current[`${idx}:imgscale:${id}`];
+    delete overlayImageRotationRefs.current[`${idx}:imgrot:${id}`];
+    setImageEdits(prev => {
+      const base = prev[idx] || createEmptyImageEdits();
+      return {
+        ...prev,
+        [idx]: {
+          ...base,
+          overlayImages: base.overlayImages.filter(img => img.id !== id),
+        },
+      };
     });
   };
 
@@ -1784,6 +1988,7 @@ const InstagramPostCreator = () => {
   const shouldDeleteOnDrop = session =>
     !!(
       session?.moved &&
+      !session?.didPinchGesture &&
       isPointInTrashZone(session?.pendingTrashPoint)
     );
 
@@ -2252,7 +2457,7 @@ const InstagramPostCreator = () => {
                             cropHeight={currentCanvasHeight}
                             imageWidth={IMAGE_SIZE}
                             imageHeight={currentCanvasHeight}
-                            enableImageZoom={!isDrawing && !isOverlayTransforming}
+                            panToMove={!isDrawing && !isOverlayTransforming}
                             minScale={0.5}
                             maxScale={4}
                             pinchToZoom={!isDrawing && !isOverlayTransforming}
@@ -2338,6 +2543,16 @@ const InstagramPostCreator = () => {
                                 img.position?.x || 50,
                                 img.position?.y || 50,
                               );
+                              const overlayScaleAnim = getAnimatedOverlayImageScale(
+                                currentImageIndex,
+                                img.id,
+                                img.scale ?? 1,
+                              );
+                              const overlayRotationAnim = getAnimatedOverlayImageRotation(
+                                currentImageIndex,
+                                img.id,
+                                img.rotation ?? 0,
+                              );
                               return (
                                 <Animated.View
                                   key={img.id}
@@ -2350,33 +2565,18 @@ const InstagramPostCreator = () => {
                                       height: img.baseSize || 100,
                                       transform: [
                                         ...animatedPosition.getTranslateTransform(),
-                                        { scale: img.scale || 1 },
-                                        { rotate: `${img.rotation || 0}rad` },
+                                        { scale: overlayScaleAnim },
+                                        { rotate: overlayRotationAnim.rotate },
                                       ],
                                     },
                                   ]}
-                                  renderToHardwareTextureAndroid
-                                  shouldRasterizeIOS
                                 >
-                                  <TouchableOpacity
-                                    onLongPress={() => {
-                                      if (
-                                        Date.now() - (recentDragTimestamps.current[`image-${img.id}`] || 0) <
-                                        250
-                                      ) {
-                                        return;
-                                      }
-                                      removeOverlay(img.id);
-                                    }}
-                                    delayLongPress={250}
-                                    activeOpacity={1}
-                                    style={styles.overlayTouchTarget}
-                                  >
+                                  <View style={styles.overlayTouchTarget}>
                                     <Image
                                       source={{ uri: img.uri }}
                                       style={styles.overlayImage}
                                     />
-                                  </TouchableOpacity>
+                                  </View>
                                 </Animated.View>
                               );
                             })}
@@ -2786,26 +2986,28 @@ const InstagramPostCreator = () => {
                 onLayout={measureTrashZone}
                 style={[
                   styles.storyTrashZone,
-                  { backgroundColor: showTrashZone ? 'rgba(255,76,106,0.25)' : 'transparent' }
+                  showTrashZone ? styles.storyTrashZoneHot : styles.storyTrashZoneIdle,
                 ]}
                 pointerEvents="none"
               >
                 <View
                   style={[
-                    styles.storyTrashIcon,
-                    { opacity: showTrashZone ? 1 : 0.5 }
+                    styles.storyTrashIconWrap,
+                    showTrashZone && styles.storyTrashIconWrapHot,
                   ]}
                 >
                   <Icon
                     name="trash"
-                    size={25}
-                    color={showTrashZone ? '#ff4d6a' : '#999'}
+                    size={24}
+                    color={showTrashZone ? '#ffffff' : '#999999'}
                   />
                 </View>
-                <Text style={[
-                  styles.storyTrashHint,
-                  showTrashZone && styles.storyTrashHintActive
-                ]}>
+                <Text
+                  style={[
+                    styles.storyTrashHint,
+                    showTrashZone && styles.storyTrashHintActive,
+                  ]}
+                >
                   Drop to delete
                 </Text>
               </View>
@@ -4595,23 +4797,39 @@ const styles = StyleSheet.create({
     left: '30%',
     justifyContent: 'center',
     zIndex: 100,
-    paddingBottom: 10,
-    paddingTop: 10,
+    paddingBottom: 12,
+    paddingTop: 12,
     minHeight: 80,
-    width: '40%'
+    width: '40%',
   },
-  storyTrashIcon: {
-    marginBottom: 8,
+  storyTrashZoneIdle: {
+    backgroundColor: 'transparent',
+  },
+  storyTrashZoneHot: {
+    backgroundColor: 'rgba(220, 38, 38, 0.28)',
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#dc2626',
+  },
+  storyTrashIconWrap: {
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  storyTrashIconWrapHot: {
+    backgroundColor: '#dc2626',
   },
   storyTrashHint: {
-    marginTop: 6,
+    marginTop: 4,
     fontSize: 12,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.42)',
     letterSpacing: 0.3,
   },
   storyTrashHintActive: {
-    color: '#ff4d6a',
+    color: '#fecaca',
   },
 });
 

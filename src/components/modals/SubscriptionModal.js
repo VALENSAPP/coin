@@ -45,7 +45,7 @@ const SubscribeFlowModal = ({
     const step2Ref = useRef(null);
 
     const [acceptedTerms, setAcceptedTerms] = useState(false);
-    const [subscriptionAmount, setSubscriptionAmount] = useState(null);
+    const [subscriptionAmount, setSubscriptionAmount] = useState(9);
     const [userProfile, setUserProfile] = useState('');
     const [comment, setComment] = useState('');
 
@@ -274,7 +274,7 @@ const SubscribeFlowModal = ({
                 const subscriptions = response?.data?.subscriptions;
 
                 if (subscriptions?.length > 0) {
-                    setSubscriptionAmount(subscriptions[0].subscriptionAmount);
+                    setSubscriptionAmount(subscriptions[0].subscriptionAmount || 9);
                     setComment(subscriptions[0].comment);
                 }
             }

@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
   FlatList,
   Image,
   Modal,
@@ -26,6 +26,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import createStyles from '../../../pages/home/Style';
 import HexAvatar from './HexAvatar';
@@ -438,12 +439,17 @@ const StoryViewer = ({
   onDrawerClose,
   onOpenUserProfile,
 }) => {
+  const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const [paused, setPaused] = useState(false);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const commentInputRef = useRef(null);
+  /** Skip prev/next when tap was only meant to dismiss keyboard or blur message field. */
+  const suppressOverlayNavRef = useRef(false);
+  const keyboardVisibleRef = useRef(false);
   const lastTapRef = useRef(0);
   const tapTimerRef = useRef(null);
   const timerRef = useRef(null);
@@ -662,6 +668,8 @@ mediaDurationRef.current = null;
       setCommentText('');
       setEmojiBursts([]);
       lastTapRef.current = 0;
+      suppressOverlayNavRef.current = false;
+      keyboardVisibleRef.current = false;
       dispatch(hideLoader());
     }
   }, [visible]);
@@ -671,10 +679,12 @@ mediaDurationRef.current = null;
     if (!visible) return;
 
     const keyboardShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardVisibleRef.current = true;
       handlePause();
     });
 
     const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardVisibleRef.current = false;
       handleResume();
     });
 
@@ -819,7 +829,47 @@ mediaDurationRef.current = null;
   const storyKey = `${ownerId}:${storyId}`;
   const liked = !!likes[storyKey]?.liked;
 
+  const dismissStoryKeyboard = () => {
+    try {
+      commentInputRef.current?.blur();
+    } catch (_e) {
+      /* noop */
+    }
+    Keyboard.dismiss();
+  };
+
+  const handleOverlayPressIn = () => {
+    const inputFocused = commentInputRef.current?.isFocused?.() === true;
+    if (inputFocused || keyboardVisibleRef.current) {
+      suppressOverlayNavRef.current = true;
+      dismissStoryKeyboard();
+    }
+  };
+
   const handleTap = (event) => {
+    if (suppressOverlayNavRef.current) {
+      suppressOverlayNavRef.current = false;
+      if (tapTimerRef.current) {
+        clearTimeout(tapTimerRef.current);
+        tapTimerRef.current = null;
+      }
+      lastTapRef.current = 0;
+      return;
+    }
+    // Fallback if Pressable had no hit area before fix, or platform skipped onPressIn
+    if (
+      keyboardVisibleRef.current ||
+      commentInputRef.current?.isFocused?.() === true
+    ) {
+      dismissStoryKeyboard();
+      if (tapTimerRef.current) {
+        clearTimeout(tapTimerRef.current);
+        tapTimerRef.current = null;
+      }
+      lastTapRef.current = 0;
+      return;
+    }
+
     const now = Date.now();
     const timeDiff = now - lastTapRef.current;
 
@@ -1295,14 +1345,14 @@ const onMediaError = () => {
             />
           ) : null}
 
-          <TouchableWithoutFeedback
+          <Pressable
+            style={modalStyles.overlay}
+            onPressIn={handleOverlayPressIn}
             onPress={handleTap}
             onLongPress={handlePause}
             onPressOut={handleResume}
             delayLongPress={150}
-          >
-            <View style={modalStyles.overlay} />
-          </TouchableWithoutFeedback>
+          />
 
           {/* Heart animation for likes */}
           {!isViewingOwnStory && (
@@ -1402,10 +1452,6 @@ const onMediaError = () => {
         {/* Show interaction controls only for other users' stories */}
         {!isViewingOwnStory && (
           <>
-            <View style={likeStyles.bottomBar}>
-              <View style={likeStyles.leftActions} />
-            </View>
-
             <View pointerEvents="none" style={burstStyles.layer}>
               {emojiBursts.map(b => (
                 <Animated.Text
@@ -1426,8 +1472,11 @@ const onMediaError = () => {
 
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-              style={inputStyles.wrap}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+              style={[
+                inputStyles.wrap,
+                { paddingBottom: insets.bottom + 20 },
+              ]}
             >
               <View style={inputStyles.quickRow}>
                 {['👍', '👏', '🔥', '😍', '😂', '😮'].map(emo => (
@@ -1459,6 +1508,7 @@ const onMediaError = () => {
                 </TouchableOpacity>
 
                 <TextInput
+                  ref={commentInputRef}
                   placeholder="Send message"
                   placeholderTextColor="#aaa"
                   style={inputStyles.input}

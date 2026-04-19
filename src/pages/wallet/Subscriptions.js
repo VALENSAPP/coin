@@ -42,7 +42,7 @@ import { getUserCredentials } from '../../services/post';
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 
 const SubventionSetupScreen = () => {
-    const [price, setPrice] = useState('');
+    const [price, setPrice] = useState('9');
     const [subscriptionId, setSubscriptionId] = useState(null);
     const [selectedTab, setSelectedTab] = useState('posts');
     const [showPrintWarning, setShowPrintWarning] = useState(false);
@@ -58,14 +58,14 @@ const SubventionSetupScreen = () => {
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
     const [composerList, setComposerList] = useState([]);
-    const [subscriptionAmount, setSubscriptionAmount] = useState(null);
+    const [subscriptionAmount, setSubscriptionAmount] = useState(9);
     const [showModal, setShowModal] = useState(false);
     const [showActivationPopup, setShowActivationPopup] = useState(false);
     const [showBusinessReminderPopup, setShowBusinessReminderPopup] = useState(false);
     const [showBusinessSuccessPopup, setShowBusinessSuccessPopup] = useState(false);
     const [isBusinessProfile, setIsBusinessProfile] = useState(false);
     const [showStripeSetupModal, setShowStripeSetupModal] = useState(false);
-    const [rawAmount, setRawAmount] = useState('');
+    const [rawAmount, setRawAmount] = useState('9');
     const [comment, setComment] = useState('');
 
     const { openOnboarding } = useStripeOnboarding({ fetchOnMount: true });

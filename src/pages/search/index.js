@@ -83,6 +83,25 @@ const formatBattleDate = value => {
   return `${day}/${month}`;
 };
 
+const formatBattleCountdown = value => {
+  if (!value) return 'Ended';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Ended';
+  
+  const now = new Date();
+  const diffMs = parsed.getTime() - now.getTime();
+  
+  if (diffMs <= 0) return 'Ended';
+  
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays > 0) return `Ends in ${diffDays}d`;
+  if (diffHours > 0) return `Ends in ${diffHours}h`;
+  return `Ends in ${diffMins}m`;
+};
+
 const formatBattleCount = value => {
   const count = Number(value || 0);
   if (!Number.isFinite(count) || count <= 0) return '0';
@@ -352,9 +371,10 @@ const MasonryItem = memo(
 // ─── OPTIMIZATION 3: BattleCard as standalone React.memo component ───────────
 const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) => {
   const renderAvatar = (avatarUrl, imageStyle) => (
-    <Image
+    <HexAvatar
       source={{ uri: normalizeImageUrl(avatarUrl) || DEFAULT_PROFILE_AVATAR }}
-      style={imageStyle}
+      // style={imageStyle}
+      size={70}
       fadeDuration={0}
     />
   );
@@ -364,6 +384,9 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
       {item.format === 'POLL' ? (
         <>
           <View style={styles.pollHeader}>
+            <View>
+              <Text  style={{ fontSize: 12, color: '#666', marginBottom: 8,textAlign:'right' }}>{formatBattleCountdown(item.endTime)}</Text>
+            </View>
             <View style={styles.pollCreatorRow}>
               {renderAvatar(item.creator.avatar, styles.pollAvatar)}
               <View style={styles.pollCreatorText}>
@@ -399,6 +422,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         </>
       ) : (
         <>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 8,textAlign:'right' }}>{formatBattleCountdown(item.endTime)}</Text>
           <View style={styles.topRow}>
             <View style={styles.userBox}>
               {renderAvatar(item.user1.avatar, styles.avatar)}
@@ -529,7 +553,8 @@ const SearchScreen = () => {
 
   // ─── User search ────────────────────────────────────────────────────────────
   const searchUsers = useCallback(async searchQuery => {
-    if (!searchQuery.trim()) {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
       setFilteredUsers([]);
       setIsSearching(false);
       setHasSearched(false);
@@ -540,10 +565,26 @@ const SearchScreen = () => {
     setIsSearching(true);
     setHasSearched(false);
     try {
-      const res = await getAllUser({ userName: searchQuery });
+      const res = await getAllUser({
+        userName: searchQuery,
+        displayName: searchQuery,
+        name: searchQuery,
+      });
+      console.log(res,'dta in searacha ')
       if (activeSearchRequestIdRef.current !== requestId) return;
       if (res.statusCode === 200 || res.status === 200) {
-        setFilteredUsers(res?.data?.users ?? []);
+        const users = Array.isArray(res?.data?.users) ? res.data.users : [];
+        const filtered = users.filter(user => {
+          const userName = String(user?.userName || user?.username || '').toLowerCase();
+          const displayName = String(user?.displayName || '').toLowerCase();
+          const name = String(user?.name || '').toLowerCase();
+          return (
+            userName.includes(normalizedQuery) ||
+            displayName.includes(normalizedQuery) ||
+            name.includes(normalizedQuery)
+          );
+        });
+        setFilteredUsers(filtered);
       } else {
         setFilteredUsers([]);
       }

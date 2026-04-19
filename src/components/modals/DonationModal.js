@@ -39,6 +39,9 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const [note, setNote] = useState('');
     const [isButtonLoading, setIsButtonLoading] = useState(false);
     const paymentCompletedRef = useRef(false);
+    const finalAmount = Number(selectedAmount || customAmount);
+    const isAmountValid = finalAmount > 0;
+
 
 
     const amounts = [5, 10, 25, 50];
@@ -282,12 +285,12 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
     return (
         <>
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-        >
+            <Modal
+                visible={visible}
+                transparent
+                animationType="fade"
+                onRequestClose={onClose}
+            >
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={{ flex: 1 }}
@@ -353,10 +356,15 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
 
                                 <View style={styles.bottomButtons}>
                                     <TouchableOpacity
-                                        style={[styles.confirmBtn, bg, isButtonLoading && styles.confirmBtnDisabled]}
+                                        style={[
+                                            styles.confirmBtn,
+                                            bg,
+                                            (isButtonLoading || !isAmountValid) && styles.confirmBtnDisabled
+                                        ]}
                                         onPress={handleConfirm}
-                                        disabled={isButtonLoading}
+                                        disabled={isButtonLoading || !isAmountValid}
                                     >
+
                                         {isButtonLoading ? (
                                             <View style={styles.loadingContainer}>
                                                 <ActivityIndicator size="small" color="#fff" />
