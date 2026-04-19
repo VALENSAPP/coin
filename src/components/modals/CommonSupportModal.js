@@ -31,9 +31,25 @@ const CommonSupportModal = ({
           {!!title && <Text style={[styles.title, { color: text }]}>{title}</Text>}
 
           {!!description && (
-            <Text style={styles.description}>
-              {description}
-            </Text>
+            <View>
+              {description.includes('\n') ? (
+                description.split('\n').map((line, idx) => (
+                  <Text
+                    key={`desc-${idx}`}
+                    style={[
+                      styles.description,
+                      { textAlign: idx === 0 ? 'center' : 'left' }
+                    ]}
+                  >
+                    {line}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.description}>
+                  {description}
+                </Text>
+              )}
+            </View>
           )}
 
           {bullets.length > 0 && (
@@ -107,7 +123,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 15,
     color: '#5E5E6A',
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 21,
   },
   bulletsContainer: {

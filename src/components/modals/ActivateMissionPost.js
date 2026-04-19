@@ -26,42 +26,31 @@ export default function ActivateMissionPost({
             
                         <Text style={[styles.modalTitle, textStyle]}>No Credits Available</Text>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={[styles.body,]}>Activate a Business Mission Post 5 posts monthly</Text>
+            <Text style={[styles.body,]}>You’re about to create a Mission Post.</Text>
             {/* <Text style={styles.subtitle}>5 posts monthly</Text> */}
 
             <Text style={styles.body}>
-              You're about to launch a Business Mission Post.
+              Mission Posts let you share  something important with your community — whether it’s a goal, idea, or moment that matters — and invite others to support or participate.
             </Text>
 
             <Text style={styles.body}>
-              Mission Posts allow brands and organizations to create a focused campaign, inviting followers and non-followers to engage, support, crowdfunding, or participate around a specific initiative.
+              This credit unlocks one Mission Post, which you can use to:
             </Text>
+
+            <Text style={styles.bullet}>• Launch a personal project</Text>
+            <Text style={styles.bullet}>• Share a meaningful cause</Text>
+            <Text style={styles.bullet}>• Ask for support from your network</Text>
+            <Text style={styles.bullet}>• Create a moment around something you care about</Text>
 
             <Text style={styles.body}>
-              This credit enables one campaign post designed for:
+              Your followers can engage and support your mission directly in a simple and transparent way.
             </Text>
 
-            <Text style={styles.bullet}>• Product launches</Text>
-            <Text style={styles.bullet}>• Brand awareness campaigns</Text>
-            <Text style={styles.bullet}>• Social impact initiatives</Text>
-            <Text style={styles.bullet}>• Community activations</Text>
-            <Text style={styles.bullet}>• Limited-time marketing actions</Text>
-
-            <Text style={styles.body}>
-              Your audience can voluntarily participate or support the mission directly through the post.
-            </Text>
-
-            <Text style={[styles.highlight, textStyle]}>Built for engagement. Designed for purpose.</Text>
-
-            <Text style={styles.note}>
-              Note: This is a campaign tool, not a financial product or investment feature.
-            </Text>
-
-            <Text style={styles.body}>Ready to activate your mission?</Text>
+            <Text style={styles.body}>Unlock Mission Post to continue</Text>
           </ScrollView>
 
           <TouchableOpacity style={[styles.launchButton, { backgroundColor: text }]} onPress={onLaunch}>
-            <Text style={styles.launchButtonText}>Launch Business Mission</Text>
+            <Text style={styles.launchButtonText}>Launch Mission</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.notNowButton, { borderColor: text, backgroundColor: card }]} onPress={onClose}>

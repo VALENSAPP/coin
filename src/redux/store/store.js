@@ -6,6 +6,7 @@ import drawerReducer from '../reducers/GlobalDrawerReducer';
 import userProfileReducer from '../reducers/UserProfileReducer';
 import userReducer from '../reducers/UserReducer';
 import addAccountReducer from '../reducers/AddAccountReducer';
+import signupFormReducer from '../reducers/SignupFormReducer';
 
 const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ const store = configureStore({
     userProfile: userProfileReducer,
     user: userReducer,
     addAccount: addAccountReducer,
+    signupForm: signupFormReducer,
   },
 });
 

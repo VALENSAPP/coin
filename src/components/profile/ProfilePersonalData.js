@@ -1089,39 +1089,35 @@ const ProfilePersonData = ({
         {/* Profile Info */}
         <View style={styles.profile}>
           <View style={styles.profileView}>
-            <View style={styles.profileWraper}>
-              <TouchableOpacity
-                onPress={!fromUsersProfile ? handleProfileImagePress : null}
-                activeOpacity={0.8}
-                style={{ marginBottom: 5 }}
-              >
-                <HexAvatar
-                  uri={avatarUri}
-                  size={90}
-                  borderWidth={2}
-                  borderColor={text}
-                />
-                {!fromUsersProfile && (
-                  <TouchableOpacity
-                    style={[
-                      styles.addbutton,
-                      { backgroundColor: text, shadowColor: text },
-                    ]}
-                    onPress={handleProfileImagePress}
-                  >
-                    <Ionicons name="add" size={15} color="white" />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-              <View>
-                <Text style={styles.displaynamee}>{Userdata.Displayname}</Text>
+            {/* Top row: avatar left, buttons right */}
+            <View style={styles.profileTopRow}>
+              <View style={styles.profileWraper}>
+                <TouchableOpacity
+                  onPress={!fromUsersProfile ? handleProfileImagePress : null}
+                  activeOpacity={0.8}
+                  style={{ marginBottom: 5 }}
+                >
+                  <HexAvatar
+                    uri={avatarUri}
+                    size={90}
+                    borderWidth={2}
+                    borderColor={text}
+                  />
+                  {!fromUsersProfile && (
+                    <TouchableOpacity
+                      style={[styles.addbutton, { backgroundColor: text, shadowColor: text }]}
+                      onPress={handleProfileImagePress}
+                    >
+                      <Ionicons name="add" size={15} color="white" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
               </View>
-            </View>
 
-            <View style={styles.edit}>
-              {fromUsersProfile ? (
-                <>
-                  {/* <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
+              <View style={styles.edit}>
+                {fromUsersProfile ? (
+                  <>
+                    {/* <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
                     {
                       !isBusinessProfile && (
                         userData?.profile !== 'company' && (
@@ -1139,108 +1135,112 @@ const ProfilePersonData = ({
                       )
                     }
                   </TouchableOpacity> */}
-                  <TouchableOpacity
-                    onPress={handleFollowButtonPress}
-                    disabled={followBusy || isFollowing === null}
-                  >
-                    <LinearGradient
-                      colors={profileActionGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
+                    <TouchableOpacity
+                      onPress={handleFollowButtonPress}
+                      disabled={followBusy || isFollowing === null}
                     >
-                      <Text style={styles.buttonText}>
-                        {isFollowing ? 'Following' : 'Follow'}
-                        {followBusy ? '...' : ''}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => UserMessageNavigation()}>
-                    <LinearGradient
-                      colors={profileActionGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
-                    >
-                      <Text style={styles.buttonText}>Message</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  {normalizedProfileThemeType !== 'company' && (
-                    <TouchableOpacity>
                       <LinearGradient
                         colors={profileActionGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
-                        <View style={styles.buttonContent}>
-                          <Ionicons
-                            name="trending-up-outline"
-                            size={28}
-                            color="#f2f8f2"
-                          />
-                          <Text style={styles.buttonText}>Total Support</Text>
-                        </View>
+                        <Text style={styles.buttonText}>
+                          {isFollowing ? 'Following' : 'Follow'}
+                          {followBusy ? '...' : ''}
+                        </Text>
                       </LinearGradient>
                     </TouchableOpacity>
-                  )}
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity onPress={() => handleNavigate()}>
-                    <LinearGradient
-                      colors={profileActionGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
-                    >
-                      <Text style={styles.buttonText}>Edit Profile</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() =>
-                      navigation.navigate('Invite', {
-                        referralCode: userData?.referCode || 'Valense123',
-                        avatar: Userdata.profilePic,
-                      })
-                    }
-                  >
-                    <LinearGradient
-                      colors={profileActionGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.editbuttons, { shadowColor: text }]}
-                    >
-                      <Ionicons
-                        name="person-add-sharp"
-                        size={15}
-                        color="white"
-                      />
-                      <Text style={styles.buttonText}> Invite</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  {!isBusinessProfile && (
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={() => UserMessageNavigation()}>
                       <LinearGradient
                         colors={profileActionGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
-                        <View style={styles.buttonContent}>
-                          <Ionicons
-                            name="trending-up-outline"
-                            size={28}
-                            color="#f2f8f2"
-                          />
-                          <Text style={styles.buttonText}>Total Support</Text>
-                        </View>
+                        <Text style={styles.buttonText}>Message</Text>
                       </LinearGradient>
                     </TouchableOpacity>
-                  )}
-                </>
-              )}
+                    {normalizedProfileThemeType !== 'company' && (
+                      <TouchableOpacity>
+                        <LinearGradient
+                          colors={profileActionGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[styles.editbuttons, { shadowColor: text }]}
+                        >
+                          <View style={styles.buttonContent}>
+                            <Ionicons
+                              name="trending-up-outline"
+                              size={28}
+                              color="#f2f8f2"
+                            />
+                            <Text style={styles.buttonText}>Total Support</Text>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity onPress={() => handleNavigate()}>
+                      <LinearGradient
+                        colors={profileActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.editbuttons, { shadowColor: text }]}
+                      >
+                        <Text style={styles.buttonText}>Edit Profile</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        navigation.navigate('Invite', {
+                          referralCode: userData?.referCode || 'Valense123',
+                          avatar: Userdata.profilePic,
+                        })
+                      }
+                    >
+                      <LinearGradient
+                        colors={profileActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.editbuttons, { shadowColor: text }]}
+                      >
+                        <Ionicons
+                          name="person-add-sharp"
+                          size={15}
+                          color="white"
+                        />
+                        <Text style={styles.buttonText}> Invite</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    {!isBusinessProfile && (
+                      <TouchableOpacity>
+                        <LinearGradient
+                          colors={profileActionGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[styles.editbuttons, { shadowColor: text }]}
+                        >
+                          <View style={styles.buttonContent}>
+                            <Ionicons
+                              name="trending-up-outline"
+                              size={28}
+                              color="#f2f8f2"
+                            />
+                            <Text style={styles.buttonText}>Total Support</Text>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </View>
             </View>
+            <Text style={styles.displaynamee} numberOfLines={2}>
+              {Userdata.Displayname}
+            </Text>
           </View>
 
           <View style={styles.biobox}>
@@ -1291,29 +1291,29 @@ const ProfilePersonData = ({
             </LinearGradient>
           </TouchableOpacity>
           {!fromUsersProfile && (
-          <TouchableOpacity
-            style={[
-              styles.battleBtnWrapper,
-              {
-                backgroundColor: text,
-                borderColor: text,
-              },
-            ]}
-            onPress={handleOpenBattlePress}
-          >
-            <LinearGradient
-              colors={profileActionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.battleBtn}
+            <TouchableOpacity
+              style={[
+                styles.battleBtnWrapper,
+                {
+                  backgroundColor: text,
+                  borderColor: text,
+                },
+              ]}
+              onPress={handleOpenBattlePress}
             >
-              <Text style={styles.battleBtnText}>Open Battle</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          )} 
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Open Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={[styles.tabContainer,{height: 50}]}>
+        <View style={[styles.tabContainer, { height: 50 }]}>
           <TouchableOpacity
             style={[
               styles.tab,
@@ -1505,14 +1505,26 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   profileView: {
+    flexDirection: 'column',   // ← changed from 'row' to 'column'
+    width: '100%',
+  },
+  profileTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
   },
   profileWraper: {
-    position: 'relative',
-    alignItems: 'center',
+    alignItems: 'flex-start',  // ← avatar stays left
+    flexShrink: 1,
+  },
+  displaynamee: {
+    fontSize: 16,
+    color: '#1F2937',
+    fontWeight: '700',
+    marginTop: 6,
+    // textAlign: 'center',       // ← name centered across full width
+    width: '100%',
   },
   image: {
     width: 90,
@@ -1535,13 +1547,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
-  },
-  displaynamee: {
-    fontSize: 18,
-    color: '#1F2937',
-    fontWeight: '700',
-    marginTop: 2,
-    textAlign: 'center',
   },
 
   // --- Buttons ---

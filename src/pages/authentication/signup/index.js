@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { useDispatch } from 'react-redux';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { AppleLogo, Google, Twitter } from '../../../assets/icons';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../../components/displaytoastmessage';
@@ -28,11 +28,18 @@ import { AuthHeader } from '../../../components/auth';
 import DeviceInfo from "react-native-device-info";
 import { useAppTheme } from '../../../theme/useApptheme';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
+import { setSignupFormData, clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const toast = useToast();
+  const dispatch = useDispatch();
+  
+  // Get saved form data from Redux
+  const savedFormData = useSelector(state => state.signupForm);
+  
+  // Initialize state as empty - will be populated by useFocusEffect
   const [email, setEmail] = useState('');
   const [userName, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -44,9 +51,18 @@ export default function SignupScreen() {
   const profileFromRoute = route?.params?.profile || 'user';
   
   const styles = useSignupStyles();
-  const dispatch = useDispatch();
   const profile = profileFromRoute;
   const { bgStyle, text } = useAppTheme(profile);
+
+  // Load saved form data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      setEmail(savedFormData?.email || '');
+      setUsername(savedFormData?.userName || '');
+      setPassword(savedFormData?.password || '');
+      setReferralCode(savedFormData?.referralCode || '');
+    }, [savedFormData])
+  );
 
   useEffect(() => {
     // Update Redux with selected profile so theme context picks it up for loader
@@ -120,6 +136,13 @@ export default function SignupScreen() {
         (signupResponse.statusCode === 200 || signupResponse.statusCode === 201)
       ) {
         dispatch(hideLoader());
+        // Save form data to Redux before navigating so it can be restored if user goes back
+        dispatch(setSignupFormData({
+          email: normalizedEmail,
+          userName: normalizedUserName,
+          password,
+          referralCode: normalizedReferralCode,
+        }));
         // showToastMessage(toast, 'success', 'OTP sent to your email.');
         navigation.navigate('OTPScreen', {
           email: normalizedEmail,
@@ -127,10 +150,6 @@ export default function SignupScreen() {
           type: 'signup',
           profile,
         });
-        setPassword('');
-        setEmail('');
-        setUsername('');
-        setReferralCode('');
       } else {
         dispatch(hideLoader());
         showToastMessage(

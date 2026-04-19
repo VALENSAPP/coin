@@ -2947,7 +2947,7 @@ const sidebarStyles = StyleSheet.create({
   },
   verticalStoryItem: {
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: -8,
     width: '100%',
   },
   verticalUserBorder: {
