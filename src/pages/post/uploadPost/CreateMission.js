@@ -193,6 +193,8 @@ const CreateMission = () => {
       const fieldName = pickerMode === 'start' ? 'startTime' : 'endTime';
       activeField.setFieldValue(fieldName, date);
       activeField.setFieldTouched(fieldName, true);
+    } else {
+      console.log('activeField is null!');
     }
   };
 
@@ -203,6 +205,15 @@ const CreateMission = () => {
   const formatDateTime = (date) => {
     if (!date) return null;
     return new Date(date).toISOString();
+  };
+
+  const formatEndDateTime = (date) => {
+    if (!date) return null;
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 0);
+    console.log('formatEndDateTime input:', date);
+    console.log('formatEndDateTime output:', endDate.toISOString());
+    return endDate.toISOString();
   };
 
   const formatDateDisplay = (dateString) => {
@@ -306,8 +317,9 @@ const CreateMission = () => {
       type: profileType === 'company' ? 'support' : 'crowdfunding',
       raiseAmount: numericValue,
       start_time: formatDateTime(values.startTime),
-      end_time: formatDateTime(values.endTime)
+      end_time: formatEndDateTime(values.endTime)
     };
+    console.log('Payload for post creation:', payload);
 
     try {
       const response = await createPost(payload);

@@ -57,6 +57,7 @@ export default function BattleResults({ navigation }) {
   const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
   const { battle = {} } = route.params || {};
   const [winnerData, setWinnerData] = useState(null);
+  console.log(battle, 'data in battle from prevois screenen')
   const predictionCounts =
     route?.params?.predictionCounts || battle?.predictionCounts || {};
 
@@ -235,62 +236,62 @@ export default function BattleResults({ navigation }) {
     getWinner();
   }, [battleId]);
   useEffect(() => {
-  let active = true;
+    let active = true;
 
-  const fetchData = async () => {
-    if (!battleId && !winnerUserId) return;
+    const fetchData = async () => {
+      if (!battleId && !winnerUserId) return;
 
-    setWinnerLoading(true);
+      setWinnerLoading(true);
 
-    try {
-      // Call both APIs together
-      const [winnerRes, profileRes] = await Promise.all([
-        battleId ? battleWinner(battleId) : null,
-        winnerUserId ? getUserCredentials(winnerUserId) : null,
-      ]);
+      try {
+        // Call both APIs together
+        const [winnerRes, profileRes] = await Promise.all([
+          battleId ? battleWinner(battleId) : null,
+          winnerUserId ? getUserCredentials(winnerUserId) : null,
+        ]);
 
-      // Handle winner API
-      if (active && winnerRes) {
-        setWinnerData(winnerRes?.data || winnerRes);
+        // Handle winner API
+        if (active && winnerRes) {
+          setWinnerData(winnerRes?.data || winnerRes);
+        }
+
+        // Handle profile API
+        if (active && profileRes) {
+          const user =
+            profileRes?.data?.user ||
+            profileRes?.data?.data ||
+            profileRes?.data ||
+            {};
+
+          setWinnerProfile({
+            name:
+              user?.name ||
+              user?.fullName ||
+              user?.displayName ||
+              user?.userName ||
+              user?.username ||
+              'Winning User',
+            image:
+              user?.image ||
+              user?.avatar ||
+              user?.profilePic ||
+              user?.profilePicture ||
+              '',
+          });
+        }
+      } catch (err) {
+        console.log('Error fetching battle data:', err);
+      } finally {
+        if (active) setWinnerLoading(false);
       }
+    };
 
-      // Handle profile API
-      if (active && profileRes) {
-        const user =
-          profileRes?.data?.user ||
-          profileRes?.data?.data ||
-          profileRes?.data ||
-          {};
+    fetchData();
 
-        setWinnerProfile({
-          name:
-            user?.name ||
-            user?.fullName ||
-            user?.displayName ||
-            user?.userName ||
-            user?.username ||
-            'Winning User',
-          image:
-            user?.image ||
-            user?.avatar ||
-            user?.profilePic ||
-            user?.profilePicture ||
-            '',
-        });
-      }
-    } catch (err) {
-      console.log('Error fetching battle data:', err);
-    } finally {
-      if (active) setWinnerLoading(false);
-    }
-  };
-
-  fetchData();
-
-  return () => {
-    active = false;
-  };
-}, [battleId, winnerUserId]);
+    return () => {
+      active = false;
+    };
+  }, [battleId, winnerUserId]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
@@ -355,7 +356,7 @@ export default function BattleResults({ navigation }) {
                   //   style={styles.winnerAvatar}
                   // />
                   <HexAvatar
-                    uri={ winnerProfile?.image || require('../../assets/icons/pngicons/user.png')}
+                    uri={winnerProfile?.image || require('../../assets/icons/pngicons/user.png')}
                     size={60}
                     borderWidth={1.5}
                     borderColor={text}
@@ -452,78 +453,78 @@ export default function BattleResults({ navigation }) {
           </View>
         </LinearGradient>
 
-        {isPollFormat && (
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: palette.surface,
-                borderColor: palette.softBorder,
-                shadowColor: palette.primary,
-              },
-            ]}
-          >
-            <Text style={[styles.section, { color: text }]}>Battle Options</Text>
+        {/* {isPollFormat && ( */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: palette.surface,
+              borderColor: palette.softBorder,
+              shadowColor: palette.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.section, { color: text }]}>Battle Options</Text>
 
-            {options.length === 0 && (
-              <Text style={[styles.metaText, { color: palette.muted }]}>
-                No options available
-              </Text>
-            )}
+          {options.length === 0 && (
+            <Text style={[styles.metaText, { color: palette.muted }]}>
+              No options available
+            </Text>
+          )}
 
-            {options.map(item => (
-              <View
-                key={item.id}
-                style={[
-                  styles.option,
-                  {
-                    backgroundColor: palette.soft,
-                    borderColor: palette.softBorder,
-                  },
-                ]}
-              >
-                {(() => {
-                  const voteTotal = getOptionVotes(item);
-                  const percent = getPercent(voteTotal);
+          {options.map(item => (
+            <View
+              key={item.id}
+              style={[
+                styles.option,
+                {
+                  backgroundColor: palette.soft,
+                  borderColor: palette.softBorder,
+                },
+              ]}
+            >
+              {(() => {
+                const voteTotal = getOptionVotes(item);
+                const percent = getPercent(voteTotal);
 
-                  return (
-                    <>
-                      <View style={styles.optionRow}>
-                        <Text style={[styles.optionTitle, { color: text }]}>
-                          {item.label}
-                        </Text>
-                        <Text style={[styles.optionPercent, { color: text }]}>
-                          {percent}%
-                        </Text>
-                      </View>
-
-                      <Text style={[styles.metaText, { color: palette.muted }]}>
-                        {voteTotal} votes
+                return (
+                  <>
+                    <View style={styles.optionRow}>
+                      <Text style={[styles.optionTitle, { color: text }]}>
+                        {item.label}
                       </Text>
+                      <Text style={[styles.optionPercent, { color: text }]}>
+                        {percent}%
+                      </Text>
+                    </View>
 
+                    <Text style={[styles.metaText, { color: palette.muted }]}>
+                      {voteTotal} votes
+                    </Text>
+
+                    <View
+                      style={[styles.progressBg, { backgroundColor: palette.track }]}
+                    >
                       <View
-                        style={[styles.progressBg, { backgroundColor: palette.track }]}
-                      >
-                        <View
-                          style={[
-                            styles.progressFill,
-                            {
-                              backgroundColor: palette.primary,
-                              width: `${Math.min(
-                                Math.max(percent, voteTotal > 0 ? 8 : 0),
-                                100,
-                              )}%`,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </>
-                  );
-                })()}
-              </View>
-            ))}
-          </View>
-        )}
+                        style={[
+                          styles.progressFill,
+                          {
+                            backgroundColor: palette.primary,
+                            width: `${Math.min(
+                              Math.max(percent, voteTotal > 0 ? 8 : 0),
+                              100,
+                            )}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+          ))}
+        </View>
+        {/* )} */}
       </ScrollView>
     </SafeAreaView>
   );

@@ -17,6 +17,7 @@ import {
   postComment,
   deleteComment,
   editComment,
+  postCommentReaction,
 } from '../../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../displaytoastmessage';
@@ -38,6 +39,9 @@ const mapCommentItem = comment => ({
   }),
   parentId: comment.parentId || null,
   replies: [],
+  likeCount: comment.likeCount || 0,
+  dislikeCount: comment.dislikeCount || 0,
+  userReaction: comment.userReaction || null,
 });
 
 const flattenCommentEntries = entries =>
@@ -91,12 +95,17 @@ const CommentItem = memo(({
   isPosting,
   expandedReplies,
   onToggleReplies,
+  onThumbsUpPress,
+  onThumbsDownPress,
+  commentVotes,
 }) => {
   const normalizeId = id => (id != null ? String(id).trim() : '');
 
   const viewerId = normalizeId(currentUserId);
   const itemUserId = normalizeId(item.userId);
   const ownerId = normalizeId(postOwnerId);
+  
+  const votes = commentVotes?.[item.id] || { thumbsUp: 0, thumbsDown: 0, userVote: null };
 
   const isCommentAuthor = viewerId && itemUserId === viewerId;
   const isPostOwner = viewerId && ownerId === viewerId;
@@ -118,6 +127,47 @@ const CommentItem = memo(({
             <TouchableOpacity onPress={() => onReplyPress?.(item)}>
               <Text style={styles.replyButtonText}>Reply</Text>
             </TouchableOpacity>
+            
+            <View style={styles.votingContainer}>
+              <TouchableOpacity
+                style={styles.voteButton}
+                onPress={() => onThumbsUpPress?.(item.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[
+                  styles.voteIcon,
+                  votes.userVote === 'up' && styles.voteIconActive
+                ]}>👍</Text>
+                {votes.thumbsUp > 0 && (
+                  <Text style={[
+                    styles.voteCount,
+                    votes.userVote === 'up' && styles.voteCountActive
+                  ]}>
+                    {votes.thumbsUp}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.voteButton}
+                onPress={() => onThumbsDownPress?.(item.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[
+                  styles.voteIcon,
+                  votes.userVote === 'down' && styles.voteIconActive
+                ]}>👎</Text>
+                {votes.thumbsDown > 0 && (
+                  <Text style={[
+                    styles.voteCount,
+                    votes.userVote === 'down' && styles.voteCountActive
+                  ]}>
+                    {votes.thumbsDown}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
             {hasReplies ? (
               <TouchableOpacity onPress={() => onToggleReplies?.(item.id)}>
                 <Text style={styles.replyButtonText}>
@@ -217,6 +267,7 @@ export default function CommentSheet({
   const [replyingToComment, setReplyingToComment] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [expandedReplies, setExpandedReplies] = useState({});
+  const [commentVotes, setCommentVotes] = useState({});
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -233,6 +284,26 @@ export default function CommentSheet({
         const mappedComments = buildCommentTree(response.data.comments);
         setComments(mappedComments);
         onCommentCountUpdate?.(postId, mappedComments.length);
+
+        // Initialize vote counts from API data
+        const votesMap = {};
+        const flatComments = (Array.isArray(response.data.comments) ? response.data.comments : []).reduce((acc, comment) => {
+          acc.push(comment);
+          if (Array.isArray(comment?.replies)) {
+            acc.push(...comment.replies);
+          }
+          return acc;
+        }, []);
+
+        flatComments.forEach(comment => {
+          const userVote = comment.userReaction === 'LIKE' ? 'up' : comment.userReaction === 'DISLIKE' ? 'down' : null;
+          votesMap[String(comment.id)] = {
+            thumbsUp: comment.likeCount || 0,
+            thumbsDown: comment.dislikeCount || 0,
+            userVote,
+          };
+        });
+        setCommentVotes(votesMap);
       } else {
         showToastMessage(toast, 'danger', 'Failed to load comments');
       }
@@ -431,6 +502,76 @@ export default function CommentSheet({
     }));
   };
 
+  const handleThumbsUpPress = async commentId => {
+    // Calculate the reaction value BEFORE state update
+    const current = commentVotes?.[commentId] || { thumbsUp: 0, thumbsDown: 0, userVote: null };
+    const isAlreadyVoted = current.userVote === 'up';
+    const reaction = isAlreadyVoted ? 'NONE' : 'LIKE';
+    
+    // Update UI optimistically
+    setCommentVotes(prev => {
+      return {
+        ...prev,
+        [commentId]: {
+          thumbsUp: isAlreadyVoted ? current.thumbsUp - 1 : current.thumbsUp + 1,
+          thumbsDown: current.userVote === 'down' ? current.thumbsDown - 1 : current.thumbsDown,
+          userVote: isAlreadyVoted ? null : 'up',
+        },
+      };
+    });
+    console.log("handleThumbsUpPress", { commentId, reaction });
+    // Call API with the calculated reaction
+    try {
+      const response = await postCommentReaction({
+        commentId,
+        reaction,
+      });
+      console.log('postCommentReaction response:', response);
+      if (!response.success) {
+        console.log('Failed to post comment reaction:', response);
+        showToastMessage(toast, 'danger', 'Failed to save reaction');
+      }
+    } catch (error) {
+      console.log('Error posting comment reaction:', error);
+      showToastMessage(toast, 'danger', 'Error saving reaction');
+    }
+  };
+
+  const handleThumbsDownPress = async commentId => {
+    // Calculate the reaction value BEFORE state update
+    const current = commentVotes?.[commentId] || { thumbsUp: 0, thumbsDown: 0, userVote: null };
+    const isAlreadyVoted = current.userVote === 'down';
+    const reaction = isAlreadyVoted ? 'NONE' : 'DISLIKE';
+    
+    // Update UI optimistically
+    setCommentVotes(prev => {
+      return {
+        ...prev,
+        [commentId]: {
+          thumbsUp: current.userVote === 'up' ? current.thumbsUp - 1 : current.thumbsUp,
+          thumbsDown: isAlreadyVoted ? current.thumbsDown - 1 : current.thumbsDown + 1,
+          userVote: isAlreadyVoted ? null : 'down',
+        },
+      };
+    });
+
+    // Call API with the calculated reaction
+    try {
+      const response = await postCommentReaction({
+        commentId,
+        reaction,
+      });
+      
+      if (!response.success) {
+        console.log('Failed to post comment reaction:', response);
+        showToastMessage(toast, 'danger', 'Failed to save reaction');
+      }
+    } catch (error) {
+      console.log('Error posting comment reaction:', error);
+      showToastMessage(toast, 'danger', 'Error saving reaction');
+    }
+  };
+
   const handleDeleteComment = async () => {
     if (!selectedComment?.id) {
       showToastMessage(toast, 'danger', 'Invalid comment');
@@ -520,6 +661,9 @@ export default function CommentSheet({
         isPosting={isPosting}
         expandedReplies={expandedReplies}
         onToggleReplies={handleToggleReplies}
+        onThumbsUpPress={handleThumbsUpPress}
+        onThumbsDownPress={handleThumbsDownPress}
+        commentVotes={commentVotes}
       />
     ),
     [
@@ -532,6 +676,7 @@ export default function CommentSheet({
       replyText,
       isPosting,
       expandedReplies,
+      commentVotes,
     ]
   );
 
@@ -710,11 +855,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginTop: 8,
+    alignItems: 'center',
   },
   replyButtonText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#007AFF',
+  },
+  votingContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  voteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  voteIcon: {
+    fontSize: 16,
+    opacity: 0.6,
+  },
+  voteIconActive: {
+    opacity: 1,
+  },
+  voteCount: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+    opacity: 0.6,
+  },
+  voteCountActive: {
+    color: '#007AFF',
+    fontWeight: '600',
+    opacity: 1,
   },
   starIcon: {
     marginLeft: 8,
