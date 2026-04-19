@@ -1,5 +1,13 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -16,6 +24,7 @@ export default function ActivateMissionPost({
       visible={visible}
       transparent
       animationType="fade"
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>

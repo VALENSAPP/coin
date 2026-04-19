@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  InteractionManager,
+  Platform,
+} from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -8,7 +16,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import ActivateMissionPost from './ActivateMissionPost';
 
@@ -18,9 +26,11 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
   const [showActivateMissionModal, setShowActivateMissionModal] = useState(false);
   const sheetRef = useRef(null);
+  const pendingActivateMissionAfterSheetCloseRef = useRef(false);
   const dispatch = useDispatch();
   const toast = useToast();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const { bgStyle, textStyle, text, card } = useAppTheme();
 
   const resetNestedModals = useCallback(() => {
@@ -29,16 +39,18 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   }, []);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && isFocused) {
       fetchCreditsLeft();
       loadProfileType();
       resetNestedModals();
-      sheetRef.current?.open();
-    } else {
-      resetNestedModals();
-      sheetRef.current?.close();
+      const openId = requestAnimationFrame(() => {
+        sheetRef.current?.open();
+      });
+      return () => cancelAnimationFrame(openId);
     }
-  }, [visible, resetNestedModals]);
+    resetNestedModals();
+    sheetRef.current?.close();
+  }, [visible, isFocused, resetNestedModals]);
 
 
 
@@ -85,10 +97,12 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
       return;
     }
 
-    // No credits: show the activation flow modal.
+    // No credits: RBSheet uses its own RN Modal. On iOS a second Modal often
+    // does not present on top while the sheet is open — close sheet first.
     setShowBuyCreditsModal(false);
     setShowActivateMissionModal(false);
-    requestAnimationFrame(() => setShowActivateMissionModal(true));
+    pendingActivateMissionAfterSheetCloseRef.current = true;
+    sheetRef.current?.close();
   };
 
   const handleLaunchBusinessMission = () => {
@@ -96,7 +110,19 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     requestAnimationFrame(() => setShowBuyCreditsModal(true));
   };
 
+  const reopenMintTypeSheet = useCallback(() => {
+    if (!visible) return;
+    requestAnimationFrame(() => sheetRef.current?.open());
+  }, [visible]);
+
   const handlePostTypeSheetClose = () => {
+    if (pendingActivateMissionAfterSheetCloseRef.current) {
+      pendingActivateMissionAfterSheetCloseRef.current = false;
+      InteractionManager.runAfterInteractions(() => {
+        setShowActivateMissionModal(true);
+      });
+      return;
+    }
     resetNestedModals();
     setShowTypeModal(false);
   };
@@ -179,6 +205,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         visible={showBuyCreditsModal}
         transparent={true}
         animationType="fade"
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
         onRequestClose={() => { }}
       >
         <TouchableOpacity
@@ -208,7 +235,10 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
               <TouchableOpacity
                 style={[styles.cancelButton, bgStyle]}
-                onPress={() => setShowBuyCreditsModal(false)}
+                onPress={() => {
+                  setShowBuyCreditsModal(false);
+                  reopenMintTypeSheet();
+                }}
               >
                 <Text style={[styles.cancelButtonText, textStyle]}>Cancel</Text>
               </TouchableOpacity>
@@ -219,7 +249,10 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
       <ActivateMissionPost
         visible={showActivateMissionModal}
-        onClose={() => setShowActivateMissionModal(false)}
+        onClose={() => {
+          setShowActivateMissionModal(false);
+          reopenMintTypeSheet();
+        }}
         onLaunch={handleLaunchBusinessMission}
       />
     </>

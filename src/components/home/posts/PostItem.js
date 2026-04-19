@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert, Platform } from 'react-native';
-import { GestureHandlerRootView, PanGestureHandler, PinchGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
+import { View, Text, Image, TouchableOpacity, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert, Platform } from 'react-native';
+import { GestureHandlerRootView, PanGestureHandler, PinchGestureHandler, TapGestureHandler, State, FlatList } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
@@ -244,6 +244,8 @@ function InstagramZoomableVideo({
   onError,
   bufferConfig,
   maxBitRate,
+  /** Ref to parent RNGH FlatList so pinch can run simultaneously with horizontal scroll (iOS). */
+  simultaneousHandlers,
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
@@ -295,6 +297,7 @@ function InstagramZoomableVideo({
     const { state, oldState } = nativeEvent;
 
     if (state === State.BEGAN) {
+      setModalVideoReady(false);
       setIsModalVisible(true);
       onZoomChange?.(true);
     }
@@ -331,11 +334,17 @@ function InstagramZoomableVideo({
     ],
   };
 
+  // Parent sets paused=true while zooming (isZooming disables shouldPlay). The modal must
+  // still play; only the inline copy should pause while the overlay is open.
+  const inlinePaused = isModalVisible || paused;
+
   return (
     <GestureHandlerRootView style={styles.mediaContainer}>
       <PinchGestureHandler
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
+        simultaneousHandlers={simultaneousHandlers}
+        minPointers={2}
       >
         <Animated.View
           style={[
@@ -351,7 +360,7 @@ function InstagramZoomableVideo({
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
             repeat={repeat}
-            paused={paused}
+            paused={inlinePaused}
             muted={muted}
             controls={false}
             pointerEvents="none"
@@ -378,6 +387,7 @@ function InstagramZoomableVideo({
             <PinchGestureHandler
               onGestureEvent={onPinchEvent}
               onHandlerStateChange={onPinchStateChange}
+              minPointers={2}
             >
               <Animated.View
                 collapsable={false}
@@ -395,11 +405,10 @@ function InstagramZoomableVideo({
                   style={StyleSheet.absoluteFillObject}
                   resizeMode="contain"
                   repeat={repeat}
-                  paused={paused}
+                  paused={false}
                   muted={muted}
                   controls={false}
                   pointerEvents="none"
-                  onLoadStart={() => setModalVideoReady(false)}
                   onLoad={() => setModalVideoReady(true)}
                   onReadyForDisplay={() => setModalVideoReady(true)}
                   onError={onError}
@@ -1109,19 +1118,25 @@ function PostItem({
                 setIsZooming(zoomed);
                 setScrollEnabled(!zoomed);
               }}
+              simultaneousHandlers={listRef}
             />
-            <TouchableOpacity
-              pointerEvents={isPaused ? 'auto' : 'none'}
-              style={[styles.videoOverlay, isPaused ? {} : styles.videoOverlayTransparent]}
-              activeOpacity={1}
-              onPress={() => handleOpenReel(mediaItem)}
-            >
-              {isPaused && (
+            {isPaused ? (
+              <TouchableOpacity
+                style={styles.videoOverlay}
+                activeOpacity={1}
+                onPress={() => handleOpenReel(mediaItem)}
+              >
                 <View style={styles.playButtonContainer}>
                   <Icon name="play" size={32} color="#fff" />
                 </View>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ) : (
+              <View
+                pointerEvents="none"
+                style={[styles.videoOverlay, styles.videoOverlayTransparent]}
+                collapsable={false}
+              />
+            )}
             <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted((prev) => !prev)}
@@ -1364,7 +1379,7 @@ function PostItem({
               index
             })}
             renderItem={renderMedia}
-            removeClippedSubviews={true}
+            removeClippedSubviews={Platform.OS === 'android'}
             maxToRenderPerBatch={2}
             windowSize={3}
             initialNumToRender={1}
