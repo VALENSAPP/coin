@@ -805,8 +805,7 @@ export default function BattleInProgress() {
       setSelectedOption(userVotedSelection.optionId);
       return;
     }
-
-    if (userVotedSelection.side) {
+    if (userVotedSelection.side) {  // ← was already correct, just ensure side is non-empty
       setSelectedOption(userVotedSelection.side);
     }
   }, [userVotedSelection.optionId, userVotedSelection.side]);
@@ -1549,7 +1548,7 @@ export default function BattleInProgress() {
                                     borderColor={text}
                                   />
                                 </View>
-                                <Text style={[styles.playerNameBold]} numberOfLines={2}  ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
+                                <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
                                 <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
                                 {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -1588,7 +1587,7 @@ export default function BattleInProgress() {
                                     borderColor={text}
                                   />
                                 </View>
-                                <Text style={styles.playerNameBold} numberOfLines={2}  ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
                                 <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
                                 {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -1649,12 +1648,15 @@ export default function BattleInProgress() {
                     const optionSide = String(
                       pickFirst(option?.side, option?.label, ''),
                     );
+                    const normalizedSelected = normalizeSideKey(selectedOption);
+                    const normalizedOptionSide = normalizeSideKey(optionSide);
+
                     const isSelected =
-                      selectedOption === optionSide ||
-                      selectedOption === option.id ||
-                      normalizeSideKey(userVotedSelection.side) ===
-                      normalizeSideKey(optionSide) ||
-                      userVotedSelection.optionId === String(option.id);
+                      (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
+                      (option.id && selectedOption === String(option.id)) ||
+                      (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
+                      (userVotedSelection.side && normalizedOptionSide &&
+                        normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
                     const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
                     const shouldDisable = hasUserVoted;
                     return (
@@ -2022,7 +2024,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    maxWidth:130,
+    maxWidth: 130,
   },
   playerImageContainer: {
     width: '100%',
@@ -2038,7 +2040,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 4,
     marginBottom: 4,
-     width: '100%',
+    width: '100%',
   },
   battlePointsText: {
     color: 'rgba(255,255,255,0.85)',

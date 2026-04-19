@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  Modal,
   Platform,
   Keyboard,
   Image,
@@ -35,6 +36,16 @@ import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { appKit } from '../../config/AppKitConfig';
+import { getDragonflyIcon } from '../../components/profile/ProfilePersonalData';
+import {
+  WhiteDragonfly,
+  BlueDragonfly,
+  SoftGrayDragonfly,
+  LilacDragonfly,
+  GoldDragonfly,
+  GoldLavenderDragonfly,
+  LavenderDragonfly,
+} from '../../assets/icons';
 
 const { width } = Dimensions.get('window');
 const FALLBACK_AVATAR =
@@ -45,6 +56,49 @@ const DEFAULT_REWARD_POINTS = {
   referPoints: 0,
   used: 0,
 };
+
+const DRAGONFLY_TIERS = [
+  {
+    id: 'white',
+    Icon: WhiteDragonfly,
+    title: 'White Dragonfly',
+    range: '0 - 1K',
+    note: 'New user with few followers.',
+    color: '#ffffff',
+  },
+  {
+    id: 'black',
+    Icon: BlueDragonfly,
+    title: 'Black Dragonfly',
+    range: '1K - 10K',
+    note: 'Up to 10,000 followers.',
+    color: '#000000',
+  },
+  {
+    id: 'silver',
+    Icon: SoftGrayDragonfly,
+    title: 'Silver Dragonfly',
+    range: '10K - 100K',
+    note: 'Up to 100,000 followers.',
+    color: '#c0c0c0',
+  },
+  {
+    id: 'gold',
+    Icon: GoldDragonfly,
+    title: 'Gold Dragonfly',
+    range: '100K - 1M',
+    note: '100,000 to 1 million followers.',
+    color: '#ffd700',
+  },
+  {
+    id: 'purple',
+    Icon: LavenderDragonfly,
+    title: 'Purple Dragonfly',
+    range: '1M - 10M',
+    note: '1 million to 10 million followers.',
+    color: '#800080',
+  },
+];
 
 /** UI label -> API `range` query (Swagger: daily | weekly). */
 const FOLLOWERS_RANGE_BY_PERIOD = {
@@ -146,6 +200,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
     name: 'User',
     image: FALLBACK_AVATAR,
   });
+  const [followersCount, setFollowersCount] = useState(0);
+  const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
+
+  const openDragonflyModal = () => setDragonflyModalVisible(true);
+  const closeDragonflyModal = () => setDragonflyModalVisible(false);
 
   const loadProfileType = useCallback(async () => {
     try {
@@ -328,6 +387,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
     [connectedWalletAddress, userWalletData?.walletAddress],
   );
   const isMetaMaskConnected = isWalletConnected || !!connectedWallet;
+  const DragonflyIcon = useMemo(
+    () => getDragonflyIcon(followersCount, isBusinessProfile),
+    [followersCount, isBusinessProfile],
+  );
 
   useEffect(() => {
     let timeout;
@@ -680,12 +743,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
     try {
       const response = await getUserDashboard(id);
       if (response?.statusCode === 200) {
+        const totalFollowers = Number(response.data.dashboardData.totalFollowers) || 0;
+        setFollowersCount(totalFollowers);
         setKpiData(prevKpiData => {
           return prevKpiData.map(item => {
             if (item.id === 'followers') {
               return {
                 ...item,
-                value: response.data.dashboardData.totalFollowers.toString() || '0',
+                value: totalFollowers.toString() || '0',
               };
             }
             return item;
@@ -727,7 +792,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const fetchTotalEarning = async () => {
     try {
       const response = await totalamount();
-      console.log(response,'data in total earning totalamounttotalamounttotalamounttotalamounttotalamount')
+      console.log(response, 'data in total earning totalamounttotalamounttotalamounttotalamounttotalamount')
       const rawValue =
         response?.data?.totalAmount ??
         response?.data?.data?.totalAmount ??
@@ -801,7 +866,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     try {
       const response = await totalMission();
       const totalAmount = Number(response?.data?.totalAmount || 0);
-      
+
       const activePostCount =
         response?.data?.activePostCount ??
         response?.data?.data?.activePostCount ??
@@ -968,11 +1033,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
           { shadowColor: text },
         ]}
       >
-        <View style={styles.kpiHeader}>
-          <Ionicons name={item.icon} size={24} color={item.color} />
-          <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
-            {item.title}
-          </Text>
+        <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
+          <View style={styles.kpiHeaderLeft}>
+            <Ionicons name={item.icon} size={24} color={item.color} />
+            <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
+              {item.title}
+            </Text>
+          </View>
+          {item.id === 'followers' && (
+            <TouchableOpacity
+              style={styles.dragonflyInfoButton}
+              onPress={openDragonflyModal}
+              activeOpacity={0.75}
+            >
+              <DragonflyIcon width={18} height={18} />
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={[styles.kpiValue, { color: text }]} numberOfLines={2}>
           {item.value}
@@ -1124,20 +1200,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </Text>
                 {kyc === 'verified' && (
                   <View style={styles.headerStatus}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={16}
-                      color={isBusinessProfile ? '#5a2d82' : '#fef3c7'}
-                    />
+                    <DragonflyIcon width={22} height={22} style={styles.headerStatusIcon} />
                     <Text
                       style={[
                         styles.headerStatusText,
-                        isBusinessProfile
-                          ? { color: 'rgba(42,27,61,0.85)' }
-                          : { color: '#f9fafb' },
+                        { color: text },
                       ]}
                     >
                       Verified
+                      {/* · {followersCount.toLocaleString()} followers */}
                     </Text>
                   </View>
                 )}
@@ -1376,6 +1447,111 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </View>
         </View> */}
 
+        <Modal
+          visible={dragonflyModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeDragonflyModal}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={closeDragonflyModal}
+            />
+            <View style={[styles.modalContent, bgStyle]}>
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalHeaderRow}>
+                  <View style={styles.modalTitleBlock}>
+                    {/* <View style={styles.modalBadge}>
+                      <Ionicons name="leaf" size={16} color="#fbbf24" />
+                    </View> */}
+                    <Text style={[styles.modalTitle, textStyle]}>What This Means</Text>
+                  </View>
+                  <View style={styles.modalIconWrap}>
+                    <BlueDragonfly width={60} height={60} />
+                  </View>
+                </View>
+                <View style={{ padding: 20 }}>
+                  <Text style={[styles.modalParagraph, textStyle]}>
+                    The dragonfly represents your community strength on Valens.
+                  </Text>
+                  <Text style={[styles.modalParagraph, textStyle]}>
+                    Your follower count isn't just a number — it reflects real people choosing to be connected to you.
+                  </Text>
+
+                  <Text style={[styles.modalSectionHeading, textStyle]}>On Valens:</Text>
+                  <View style={styles.modalBulletList}>
+                    {[
+                      'Following is intentional',
+                      'Connections are transparent',
+                      'Your audience reflects trust, interest, and participation',
+                    ].map((item) => (
+                      <View key={item} style={styles.modalBulletItem}>
+                        <View style={styles.modalBulletPoint} />
+                        <Text style={[styles.modalBulletText, textStyle]}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.modalParagraph, textStyle]}>
+                    The more followers you have, the stronger your presence and credibility within the community.
+                  </Text>
+                  <Text style={[styles.modalParagraph, textStyle]}>
+                    This is not about reach — it&apos;s about real connection.
+                  </Text>
+
+                  <View style={styles.modalGrid}>
+                    {DRAGONFLY_TIERS.map(({ id, Icon, title, range, note, color }, index) => {
+                      const isLastRow =
+                        DRAGONFLY_TIERS.length % 3 !== 0 &&
+                        index >= DRAGONFLY_TIERS.length - (DRAGONFLY_TIERS.length % 3);
+
+                      return (
+                        <View
+                          key={id}
+                          style={[
+                            styles.modalCard,
+                            isLastRow && styles.lastRowCard, // 👈 center fix
+                          ]}
+                        >
+                          <Icon width={42} height={42} />
+                          <Text style={[styles.modalCardTitle, textStyle]}>{title}</Text>
+                          <Text
+                            style={[
+                              styles.modalCardRange,
+                              textStyle,
+                              {
+                                backgroundColor: color,
+                                color: color === '#ffffff' ? '#000000' : '#ffffff',
+                              },
+                            ]}
+                          >
+                            {range}
+                          </Text>
+                          <Text style={[styles.modalCardNote, textStyle]}>{note}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+
+
+                  <TouchableOpacity
+                    style={[styles.modalCloseButton, { backgroundColor: text }]}
+                    onPress={closeDragonflyModal}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.modalCloseButtonText}>Got it</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* Token Purchase Modal */}
         <RBSheet
           ref={purchaseSheetRef}
@@ -1502,9 +1678,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
   },
+  headerStatusIcon: {
+    marginRight: 6,
+  },
   headerStatusText: {
     color: '#f9fafb',
-    marginLeft: 6,
+    marginLeft: 0,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1846,7 +2025,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 16,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
+  },
+  kpiHeaderWithAction: {
+    justifyContent: 'space-between',
+  },
+  kpiHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dragonflyInfoButton: {
+    padding: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   kpiTitle: {
     fontSize: 13,
@@ -1881,6 +2075,149 @@ const styles = StyleSheet.create({
   kpiChange: {
     fontSize: 12,
     color: '#10b981',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+
+  },
+  modalContent: {
+    borderRadius: 24,
+    padding: 0,
+    overflow: 'hidden',
+    maxHeight: '90%',
+    zIndex: 1,
+    backgroundColor: '#d1e5f5'
+  },
+  modalScrollContent: {
+    // padding: 10,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    backgroundColor: '#d1e5f5'
+  },
+  modalTitleBlock: {
+    flex: 1,
+    marginRight: 12,
+  },
+  modalBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 14,
+    backgroundColor: '#fde68a',
+    alignItems: 'center',
+    // justifyContent: 'center',
+    marginBottom: 10,
+  },
+  modalIconWrap: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    // justifyContent: 'center',
+    paddingRight: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+    paddingLeft: 20,
+    marginTop: '6%',
+  },
+  modalSectionHeading: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  modalParagraph: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#4b5563',
+    marginBottom: 10,
+  },
+  modalBulletList: {
+    marginBottom: 14,
+  },
+  modalBulletItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  modalBulletPoint: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#7c3aed',
+    marginTop: 8,
+    marginRight: 10,
+  },
+  modalBulletText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#4b5563',
+    flex: 1,
+  },
+  modalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  modalCard: {
+    width: '30%',
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  modalCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  modalCardRange: {
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    // paddingVertical: 4,
+    marginHorizontal: 1,
+    fontWeight: '600',
+  },
+  modalCardNote: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  modalCloseButton: {
+    marginTop: 16,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    width: '40%',
+    alignSelf: 'center',
+  },
+  modalCloseButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  lastRowCard: {
+    flexGrow: 1,
+    maxWidth: '45%',  // 👈 makes 2 items centered nicely
   },
   // Activities
   activitiesContainer: {
