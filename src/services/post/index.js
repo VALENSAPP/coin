@@ -222,3 +222,7 @@ export async function chatStatusUpdate(chatId) {
 export async function reportPost(data) {
   return axiosInstance.post('/post/report', data);
 }
+
+export async function postCommentReaction(data) {
+  return axiosInstance.post('/post/comment/reaction', data);
+}

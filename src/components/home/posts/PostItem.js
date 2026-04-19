@@ -1584,26 +1584,39 @@ function PostItem({
                   <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
                 </View>
               </View>
-              {!hideDonationButton && !isGoalAmountRaised && (item.UserId !== userId) && (daysLeft > 0) && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setDonation(true);
-                  }}
-                  style={[{
-                    backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683',
-                    width: '25%',
-                    left: '74%',
-                    marginBottom: 5,
-                    marginTop: -10,
-                    paddingVertical: 8,
-                    borderRadius: 8,
-                    alignItems: 'center'
-                  }]}
-                >
-                  <Text style={styles.followButtonText}>
-                    Donate
-                  </Text>
-                </TouchableOpacity>
+              {!hideDonationButton && !isGoalAmountRaised && (item.UserId !== userId) && (daysLeft > 0) && item?.end_time && (
+                <>
+                  {console.log('=== DONATE BUTTON DEBUG ===', {
+                    hideDonationButton,
+                    isGoalAmountRaised,
+                    itemUserId: item?.UserId,
+                    currentUserId: userId,
+                    daysLeft,
+                    end_time: item?.end_time,
+                    goalAmount,
+                    currentRaised,
+                    raiseAmount: item?.raiseAmount,
+                  })}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setDonation(true);
+                    }}
+                    style={[{
+                      backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683',
+                      width: '25%',
+                      left: '74%',
+                      marginBottom: 5,
+                      marginTop: -10,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      alignItems: 'center'
+                    }]}
+                  >
+                    <Text style={styles.followButtonText}>
+                      Donate
+                    </Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           </View>

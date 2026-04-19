@@ -298,6 +298,7 @@ const PostEditorScreen = () => {
                 keyboardType="url"
                 autoCapitalize="none"
                 autoCorrect={false}
+                placeholderTextColor={'#e0e0e0'}
               />
             </View>
           )}
