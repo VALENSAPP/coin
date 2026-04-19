@@ -28,6 +28,7 @@ import { persistStripeCustomerId } from '../../../hooks/useStripeCustomer';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import { ensureCurrentAccountSaved } from '../../../utils/accountSession';
+import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 
 const { height } = Dimensions.get('window');
 
@@ -207,6 +208,8 @@ export default function OTPScreen() {
           });
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
+          // Clear signup form data after successful login
+          dispatch(clearSignupFormData());
         }
       }
     } catch (err) {
