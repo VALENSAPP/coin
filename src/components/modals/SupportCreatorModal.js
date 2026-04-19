@@ -14,17 +14,18 @@ const SupportCreatorModal = ({
       <CommonSupportModal
         visible={visible}
         onClose={onClose}
-        title={`Support ${creatorName}`}
-        description={"You're about to send voluntary support. Just so you know:"}
+        title={`Support "${creatorName}" ?`}
+        description={"You’re about to send voluntary support to this profile.\nJust so you know:"}
         bullets={[
-          'This is not an investment.',
-          'No profit, rewards, or financial benefits are promised.',
-          'The support crypto nft is non- transferable and automatic donated to the user, you can donate many  you want.',
-          'Funds move directly from your wallet to the creator\u2019s wallet.',
-          'Valens does not hold or manage your funds.',
+          'This is a non-financial action and not an investment.',
+          'No profit, rewards, or financial benefits are expected or offered.',
+          'Your support is a voluntary contribution.',
+          'Any associated digital item (if applicable) is non-transferable and has no resale value.',
+          'Funds are sent directly from your wallet to the creator’s wallet.',
+          'Valens does not custody, hold, or manage user funds.'
         ]}
-        note="Proceed only if you understand this is a donation."
-        primaryLabel="Support Now"
+        note="By continuing, you confirm that you understand this is a voluntary contribution with no financial expectation."
+        primaryLabel="Connect Wallet to Continue"
         secondaryLabel="Maybe Later"
         onPrimary={onSupport}
         onSecondary={onClose}

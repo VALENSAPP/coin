@@ -53,20 +53,18 @@ export const modalStyles = StyleSheet.create({
 
 export const likeStyles = StyleSheet.create({
   bigHeart: { position: 'absolute', alignSelf: 'center', top: '40%' },
-  bottomBar: {},
-  leftActions: {},
   actionBtn: { padding: 6 },
 });
 
 export const inputStyles = StyleSheet.create({
+  /** Story viewer message bar (flex child at bottom — do not use position:absolute or story tap layer covers it). */
   wrap: {
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-    paddingTop: 6,
+    width: '100%',
+    zIndex: 50,
+    elevation: 24,
+    paddingTop: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   quickRow: {
     flexDirection: 'row',
@@ -86,13 +84,23 @@ export const inputStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(20,20,20,0.8)',
+    backgroundColor: 'rgba(20,20,20,0.92)',
     borderRadius: 22,
     paddingHorizontal: 10,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+    paddingVertical: Platform.OS === 'ios' ? 8 : 6,
+    minHeight: 48,
+    bottom: 5
   },
-  input: { flex: 1, color: '#fff', paddingRight: 12, marginLeft: 6 },
-  sendBtn: { padding: 6 },
+  input: {
+    flex: 1,
+    color: '#fff',
+    paddingRight: 12,
+    marginLeft: 6,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+    minHeight: 44,
+    fontSize: 16,
+  },
+  sendBtn: { padding: 10, minWidth: 40, alignItems: 'center', justifyContent: 'center' },
 });
 
 export const optStyles = StyleSheet.create({

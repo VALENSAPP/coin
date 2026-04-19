@@ -34,6 +34,7 @@ import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { Vsbanner } from '../../assets/icons';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) {
@@ -1512,97 +1513,135 @@ export default function BattleInProgress() {
                   </View>
 
                   {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
-                    <View style={styles.duelRow}>
-                      {(() => {
-                        const participant0 = battle.participants[0];
-                        const participant1 = battle.participants[1];
+                    <View style={{ position: 'relative', marginBottom: 20 }}>
+                      <View style={styles.duelRow}>
+                        {(() => {
+                          const participant0 = battle.participants[0];
+                          const participant1 = battle.participants[1];
 
-                        const player0Data = participantUserData[participant0?.userId] || {};
-                        const player1Data = participantUserData[participant1?.userId] || {};
+                          const player0Data = participantUserData[participant0?.userId] || {};
+                          const player1Data = participantUserData[participant1?.userId] || {};
 
-                        return (
-                          <>
-                            <TouchableOpacity
-                              activeOpacity={0.75}
-                              onPress={() => {
-                                if (currentUserId === participant0?.userId) {
-                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
-                                } else {
-                                  const currentRoute = route?.name || 'BattleInProgress';
-                                  navigation.navigate('HomeMain', {
-                                    screen: 'UsersProfile',
-                                    params: {
-                                      userId: participant0?.userId,
-                                      returnTo: currentRoute,
-                                    },
-                                  });
-                                }
-                              }}
-                            >
-                              <View style={styles.duelPlayerCard}>
-                                <View style={styles.playerImageContainer}>
-                                  <HexAvatar
-                                    uri={player0Data?.image || FALLBACK_AVATAR}
-                                    size={72}
-                                    borderWidth={3}
-                                    borderColor={text}
-                                  />
-                                </View>
-                                <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
-                                <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
-                                {/* <View style={styles.votesContainer}>
+                          return (
+                            <>
+                              <TouchableOpacity
+                                activeOpacity={0.75}
+                                onPress={() => {
+                                  if (currentUserId === participant0?.userId) {
+                                    navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                  } else {
+                                    const currentRoute = route?.name || 'BattleInProgress';
+                                    navigation.navigate('HomeMain', {
+                                      screen: 'UsersProfile',
+                                      params: {
+                                        userId: participant0?.userId,
+                                        returnTo: currentRoute,
+                                      },
+                                    });
+                                  }
+                                }}
+                              >
+                                <View style={styles.duelPlayerCard}>
+                                  <View style={styles.playerImageContainer}>
+                                    <HexAvatar
+                                      uri={player0Data?.image || FALLBACK_AVATAR}
+                                      size={72}
+                                      borderWidth={3}
+                                      borderColor={text}
+                                    />
+                                  </View>
+                                  <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
+                                  <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
+                                  {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant0?.score || 0} Points</Text>
                                 </View> */}
-                              </View>
-                            </TouchableOpacity>
-
-                            <View style={styles.duelVsWrap}>
-                              <Text style={styles.duelVsText}>VS</Text>
-                            </View>
-
-                            <TouchableOpacity
-                              activeOpacity={0.75}
-                              onPress={() => {
-                                if (currentUserId === participant1?.userId) {
-                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
-                                } else {
-                                  const currentRoute = route?.name || 'BattleInProgress';
-                                  navigation.navigate('HomeMain', {
-                                    screen: 'UsersProfile',
-                                    params: {
-                                      userId: participant1?.userId,
-                                      returnTo: currentRoute,
-                                    },
-                                  });
-                                }
-                              }}
-                            >
-                              <View style={styles.duelPlayerCard}>
-                                <View style={styles.playerImageContainer}>
-                                  <HexAvatar
-                                    uri={player1Data?.image || FALLBACK_AVATAR}
-                                    size={72}
-                                    borderWidth={3}
-                                    borderColor={text}
-                                  />
                                 </View>
-                                <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
-                                <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
-                                {/* <View style={styles.votesContainer}>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                activeOpacity={0.75}
+                                onPress={() => {
+                                  if (currentUserId === participant1?.userId) {
+                                    navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                  } else {
+                                    const currentRoute = route?.name || 'BattleInProgress';
+                                    navigation.navigate('HomeMain', {
+                                      screen: 'UsersProfile',
+                                      params: {
+                                        userId: participant1?.userId,
+                                        returnTo: currentRoute,
+                                      },
+                                    });
+                                  }
+                                }}
+                              >
+                                <View style={styles.duelPlayerCard}>
+                                  <View style={styles.playerImageContainer}>
+                                    <HexAvatar
+                                      uri={player1Data?.image || FALLBACK_AVATAR}
+                                      size={72}
+                                      borderWidth={3}
+                                      borderColor={text}
+                                    />
+                                  </View>
+                                  <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
+                                  <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
+                                  {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant1?.score || 0} Points</Text>
                                 </View> */}
-                              </View>
-                            </TouchableOpacity>
-                          </>
-                        );
-                      })()}
+                                </View>
+                              </TouchableOpacity>
+                            </>
+                          );
+                        })()}
+                      </View>
+
+                      <View style={styles.duelVsWrapOverlay}>
+                        <Vsbanner height={120} width={120} />
+                        <Text style={[styles.duelVsText, { position: 'absolute' }]}>VS</Text>
+                      </View>
                     </View>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
+
+            {/* ── HOW TO WIN CARD ── */}
+            <View
+              style={[
+                styles.howToWinCard,
+                cardStyle,
+                { shadowColor: palette.primary },
+              ]}
+            >
+              <Text style={[styles.howToWinTitle, { color: text }]}>
+                How to Win
+              </Text>
+              <Text style={[styles.howToWinSubtitle, { color: palette.textMuted }]}>
+                {isPrediction
+                  ? 'Tap to submit your prediction:'
+                  : 'Tap to vote on who\'s right:'}
+              </Text>
+
+              {[
+                { icon: 'checkmark-circle', color: '#7C3AED', label: 'Get votes' },
+                { icon: 'chatbubble-ellipses', color: '#7C3AED', label: 'Comment your opinion' },
+                { icon: 'heart', color: '#E11D48', label: 'Earn likes on your comments' },
+              ].map((item, idx) => (
+                <View key={idx} style={styles.howToWinRow}>
+                  <View style={[styles.howToWinIconWrap, { backgroundColor: `${item.color}22` }]}>
+                    <Ionicons name={item.icon} size={16} color={item.color} />
+                  </View>
+                  <Text style={[styles.howToWinItemText, textStyle]}>{item.label}</Text>
+                </View>
+              ))}
+
+              <Text style={[styles.howToWinFooter, { color: palette.textMuted }]}>
+                The side with the most votes & liked comments wins!
+              </Text>
+            </View>
 
             <View
               style={[
@@ -1641,7 +1680,7 @@ export default function BattleInProgress() {
                 {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
               </Text>
 
-              <View style={styles.optionList}>
+              <View style={styles.optionGrid}>
                 {battle.options.map(
                   (option, index) => {
                     const optionImage = battle.optionImages?.[index];
@@ -1662,85 +1701,88 @@ export default function BattleInProgress() {
                     return (
                       <TouchableOpacity
                         key={`${battle.id}-${option.id}`}
-                        disabled={shouldDisable}
-                        activeOpacity={shouldDisable ? 1 : 0.88}
+                        disabled={hasUserVoted}
+                        activeOpacity={0.88}
                         style={[
-                          styles.optionCard,
-                          !isSelected && {
-                            borderColor: '#D1D5DB',
-                            backgroundColor: '#F9FAFB',
-                          },
-                          isSelected && styles.optionCardSelected,
-                          isSelected && {
-                            borderColor: useVotedGrayStyle ? '#D1D5DB' : palette.primary,
-                            backgroundColor: useVotedGrayStyle ? '#F3F4F6' : palette.soft,
+                          styles.optionPillCard,
+                          {
+                            borderColor: isSelected
+                              ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                              : '#E5E7EB',
+                            backgroundColor: isSelected
+                              ? useVotedGrayStyle ? '#F3F4F6' : palette.soft
+                              : '#F9FAFB',
                           },
                         ]}
+                        onPress={() => {
+                          if (!hasUserVoted) {
+                            setSelectedOption(option.label);
+                          }
+                        }}
+                      >
+                        {/* Hexagon avatar */}
+                        <View style={styles.optionPillAvatarWrap}>
+                          <HexAvatar
+                            uri={optionImage || option.image}
+                            size={36}
+                            borderWidth={2}
+                            borderColor={isSelected ? palette.primary : '#D1D5DB'}
+                            fallback={
+                              <View
+                                style={[
+                                  styles.optionPillAvatarFallback,
+                                  {
+                                    borderColor: isSelected
+                                      ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                      : '#D1D5DB',
+                                    backgroundColor: isSelected
+                                      ? useVotedGrayStyle ? '#E5E7EB' : palette.soft
+                                      : '#EDE9F6',
+                                  },
+                                ]}
+                              >
+                                <Ionicons name="person" size={18} color={isSelected ? palette.primary : '#7C3AED'} />
+                              </View>
+                            }
+                          />
+                        </View>
+
+                        {/* Label */}
+                        <Text
+                          style={[
+                            styles.optionPillLabel,
+                            {
+                              color: isSelected
+                                ? useVotedGrayStyle ? '#9CA3AF' : palette.primary
+                                : '#374151',
+                            },
+                          ]}
                         onPress={() => {
                           if (!shouldDisable) {
                             setSelectedOption(optionSide || String(option.id || ''));
                           }
                         }}
-                      >
-                        <View style={styles.optionBadgeWrapper}>
-                          {optionImage || option.image ? (
-                            <View style={styles.optionImageWrapper}>
-                              <Image
-                                source={{ uri: optionImage || option.image }}
-                                style={styles.optionImage}
-                              />
-                            </View>
-                          ) : (
-                            <View style={styles.addImagePlaceholder}>
-                              <Ionicons name="image-outline" size={20} color="#9CA3AF" />
-                            </View>
-                          )}
-                          <View style={styles.optionBadgeInfo}>
-                            <View style={styles.optionNameBadgeRow}>
-                              <Text
-                                style={[
-                                  styles.optionPreviewName,
-                                  textStyle,
-                                  isSelected && styles.optionLabelSelected,
-                                  isSelected && {
-                                    color: useVotedGrayStyle ? '#9CA3AF' : palette.primary,
-                                  },
-                                ]}
-                                numberOfLines={2}
-                              >
-                                {option.label}
-                              </Text>
-                            </View>
-                            {/* <View style={styles.optionMetaRow}>
-                              <Text style={styles.optionMeta}>
-                                {option.votes} votes
-                              </Text>
-                              <Text style={styles.optionMeta}>
-                                {option.percentage ? `${option.percentage}%` : 'Open'}
-                              </Text>
-                            </View> */}
-                          </View>
-                        </View>
-                        <View style={styles.optionPreviewRight}>
-                          <View
-                            style={[
-                              styles.radioDot,
-                              !isSelected && {
-                                borderColor: '#D1D5DB',
-                                backgroundColor: '#F3F4F6',
-                              },
-                              isSelected && styles.radioDotSelected,
-                              isSelected && {
-                                borderColor: useVotedGrayStyle ? '#D1D5DB' : palette.primary,
-                                backgroundColor: useVotedGrayStyle ? '#D1D5DB' : palette.primary,
-                              },
-                            ]}
-                          />
-                        </View>
+                        >
+                          {option.label}
+                        </Text>
+
+                        {/* Radio dot */}
+                        <View
+                          style={[
+                            styles.optionPillRadio,
+                            {
+                              borderColor: isSelected
+                                ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                : '#D1D5DB',
+                              backgroundColor: isSelected
+                                ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                : '#FFFFFF',
+                            },
+                          ]}
+                        />
                       </TouchableOpacity>
                     );
-                  },
-                )}
+                  })}
               </View>
 
               <TextInput
@@ -2067,11 +2109,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  duelVsWrapOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -60,
+    marginTop: -60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
   duelVsText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 35,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   infoCard: {
     borderRadius: 20,
@@ -2421,5 +2473,85 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: '800',
+  },
+  howToWinCard: {
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
+  howToWinTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  howToWinSubtitle: {
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  howToWinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  howToWinIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  howToWinItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  howToWinFooter: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
+  },
+  optionPillCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: '45%',
+    borderRadius: 15,
+    borderWidth: 1.5,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+  optionPillAvatarWrap: {
+    flexShrink: 0,
+  },
+  optionPillAvatarFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionPillLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  optionPillRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    flexShrink: 0,
   },
 });
