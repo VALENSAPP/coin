@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Modal,
   Platform,
   PermissionsAndroid,
   Linking,
@@ -53,6 +54,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
+import { metaMaskRecived } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
@@ -160,6 +162,10 @@ const ProfilePersonData = ({
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
     useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [totalSupportModalVisible, setTotalSupportModalVisible] =
+    useState(false);
+  const [totalSupportAmount, setTotalSupportAmount] = useState(0);
+  const [totalSupportLoading, setTotalSupportLoading] = useState(false);
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -603,6 +609,36 @@ const ProfilePersonData = ({
     userProfile,
     userData?.profile,
   ]);
+
+  const fetchReceivedSupportAmount = useCallback(async () => {
+    try {
+      setTotalSupportLoading(true);
+      const response = await metaMaskRecived();
+      const rawValue =
+        response?.data?.totalAmount ??
+        response?.data?.data?.totalAmount ??
+        response?.data?.amount ??
+        response?.data?.data?.amount ??
+        response?.data?.totalSupportReceived ??
+        response?.data?.data?.totalSupportReceived ??
+        0;
+      setTotalSupportAmount(Number(rawValue) || 0);
+    } catch (error) {
+      console.error('Error fetching total support amount:', error);
+      setTotalSupportAmount(0);
+    } finally {
+      setTotalSupportLoading(false);
+    }
+  }, []);
+
+  const handleOpenTotalSupportModal = useCallback(() => {
+    setTotalSupportModalVisible(true);
+    fetchReceivedSupportAmount();
+  }, [fetchReceivedSupportAmount]);
+
+  const handleCloseTotalSupportModal = useCallback(() => {
+    setTotalSupportModalVisible(false);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -1162,7 +1198,7 @@ const ProfilePersonData = ({
                       </LinearGradient>
                     </TouchableOpacity>
                     {normalizedProfileThemeType !== 'company' && (
-                      <TouchableOpacity>
+                      <TouchableOpacity onPress={handleOpenTotalSupportModal}>
                         <LinearGradient
                           colors={profileActionGradient}
                           start={{ x: 0, y: 0 }}
@@ -1216,7 +1252,7 @@ const ProfilePersonData = ({
                       </LinearGradient>
                     </TouchableOpacity>
                     {!isBusinessProfile && (
-                      <TouchableOpacity>
+                      <TouchableOpacity onPress={handleOpenTotalSupportModal}>
                         <LinearGradient
                           colors={profileActionGradient}
                           start={{ x: 0, y: 0 }}
@@ -1450,6 +1486,35 @@ const ProfilePersonData = ({
           ]);
         }}
       />
+      <Modal
+        visible={totalSupportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseTotalSupportModal}
+      >
+        <View style={styles.totalSupportModalOverlay}>
+          <View style={styles.totalSupportModalCard}>
+            <Text style={styles.totalSupportModalTitle}>Total Support</Text>
+            {/* <Text style={styles.totalSupportModalLabel}>
+              Amount received From Support
+            </Text> */}
+            {totalSupportLoading ? (
+              <ActivityIndicator size="large" color="#513189" />
+            ) : (
+              <Text style={styles.totalSupportModalAmount}>
+                $ {totalSupportAmount.toFixed(2)}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={styles.totalSupportModalButton}
+              activeOpacity={0.8}
+              onPress={handleCloseTotalSupportModal}
+            >
+              <Text style={styles.totalSupportModalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1701,6 +1766,51 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  totalSupportModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  totalSupportModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: 'center',
+  },
+  totalSupportModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+  },
+  totalSupportModalLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  totalSupportModalAmount: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#513189',
+    marginBottom: 20,
+  },
+  totalSupportModalButton: {
+    backgroundColor: '#513189',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  totalSupportModalButtonText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '600',
   },
 });

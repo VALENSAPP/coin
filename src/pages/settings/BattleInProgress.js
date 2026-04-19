@@ -280,6 +280,15 @@ const normalizeComment = (comment, index = 0, currentUserId = '') => ({
   message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
   likes: normalizeLikeCount(comment),
   isLiked: normalizeCommentLikedState(comment, currentUserId),
+  userId: String(pickFirst(
+    comment?.userId,
+    comment?.user?.id,
+    comment?.user?._id,
+    comment?.author?.id,
+    comment?.author?._id,
+    comment?.authorId,
+    '',
+  )),
   authorName: pickFirst(
     comment?.user?.name,
     comment?.user?.displayName,
@@ -304,6 +313,7 @@ const normalizeComment = (comment, index = 0, currentUserId = '') => ({
   ),
   createdAt: pickFirst(comment?.createdAt, comment?.updatedAt, ''),
   replies: flattenReplies(getCommentReplyEntries(comment), currentUserId),
+  side: '', // Will be populated by normalizeBattle
 });
 
 const updateCommentTree = (comments, targetId, updater) =>
@@ -335,6 +345,28 @@ const findCommentInTree = (comments, targetId) => {
   }
 
   return null;
+};
+
+const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = []) => {
+  // Create a map of userId to their vote/prediction side
+  const userVoteMap = {};
+  (Array.isArray(votesOrPredictions) ? votesOrPredictions : []).forEach(entry => {
+    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, ''));
+    if (userId) {
+      userVoteMap[userId] = String(pickFirst(entry?.side, ''));
+    }
+  });
+
+  // Recursively enrich comments and their replies with the side info
+  const enrichComment = (comment) => ({
+    ...comment,
+    side: userVoteMap[comment.userId] || '',
+    replies: Array.isArray(comment.replies)
+      ? comment.replies.map(reply => enrichComment(reply))
+      : [],
+  });
+
+  return (Array.isArray(comments) ? comments : []).map(comment => enrichComment(comment));
 };
 
 const normalizeBattle = (raw, currentUserId = '') => {
@@ -392,9 +424,15 @@ const normalizeBattle = (raw, currentUserId = '') => {
   const baseOptions = rawOptions.length > 0 ? rawOptions : fallbackSides;
   const optionsSource =
     baseOptions.length > 0 ? baseOptions : derivedSides.length > 0 ? derivedSides : [];
-  const comments = (Array.isArray(raw?.comments) ? raw.comments : []).map(
+  const normalizedComments = (Array.isArray(raw?.comments) ? raw.comments : []).map(
     (comment, index) => normalizeComment(comment, index, currentUserId),
   );
+  // Enrich comments with the participant's vote/prediction side
+  // For POLL format use predictions, for HEAD_TO_HEAD use votes
+  const votesOrPredictionsForComments = format === 'POLL'
+    ? predictionEntries.length > 0 ? predictionEntries : participantEntries
+    : voteEntries.length > 0 ? voteEntries : participantEntries;
+  const comments = enrichCommentsWithVoteSide(normalizedComments, votesOrPredictionsForComments);
   const options = optionsSource.map((option, index) => {
     const normalizedOption = normalizeOption(option, index);
     const sideKey = normalizeSideKey(
@@ -1118,9 +1156,32 @@ export default function BattleInProgress() {
             </View>
           )}
           <View style={styles.commentAuthorTextWrap}>
-            <Text style={[styles.commentAuthorName, textStyle]}>
-              {reply.authorName}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+              <Text style={[styles.commentAuthorName, textStyle]}>
+                {reply.authorName}
+              </Text>
+              {reply.side && (
+                <View
+                  style={{
+                    backgroundColor: palette.primary,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    marginLeft: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 11,
+                      fontWeight: '600',
+                    }}
+                  >
+                    {reply.side}
+                  </Text>
+                </View>
+              )}
+            </View>
             {!!reply.authorHandle && (
               <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
                 @{reply.authorHandle}
@@ -1273,9 +1334,32 @@ export default function BattleInProgress() {
               </View>
             )}
             <View style={styles.commentAuthorTextWrap}>
-              <Text style={[styles.commentAuthorName, textStyle]}>
-                {comment.authorName}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <Text style={[styles.commentAuthorName, textStyle]}>
+                  {comment.authorName}
+                </Text>
+                {comment.side && (
+                  <View
+                    style={{
+                      backgroundColor: palette.primary,
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      marginLeft: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 11,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {comment.side}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {!!comment.authorHandle && (
                 <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
                   @{comment.authorHandle}
