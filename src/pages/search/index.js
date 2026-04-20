@@ -209,6 +209,13 @@ const mapBattleCard = battle => {
     creator,
     user1: getBattleParticipant(battle, 0),
     user2: getBattleParticipant(battle, 1),
+    opponent: battle?.opponent ? {
+      id: battle.opponent.id || '',
+      userName: battle.opponent.userName || battle.opponent.username || '',
+      name: battle.opponent.displayName || battle.opponent.name || battle.opponent.userName || '',
+      avatar: battle.opponent.image || battle.opponent.avatar || battle.opponent.profilePicture || '',
+      profile: battle.opponent.profile || 'user',
+    } : null,
     title: battle?.title || battle?.question || battle?.headline || 'Untitled battle',
     options: buildBattleOptions(battle),
     isLive: Boolean(battle?.isLive || battle?.live || battle?.status === 'LIVE' || battle?.status === 'live'),
