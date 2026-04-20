@@ -880,7 +880,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'Mission Post'
-            ? { ...item, value: `$ ${totalAmount.toFixed(2)} \nPosts: ${postCount || 0}` }
+            ? { ...item, value: `$ ${totalAmount.toFixed(2)} \nActive: ${postCount || 0}` }
             : item
         )
       );

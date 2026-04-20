@@ -973,6 +973,16 @@ function PostItem({
 
   const buyerList = useMemo(() => Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [], [item.boughtBy, item.buyers]);
 
+  // Filter out the current logged-in user from buyer list for display
+  const displayBuyerList = useMemo(() => {
+    if (!buyerList || buyerList.length === 0 || !userId) return buyerList;
+    const currentUserIdStr = String(userId);
+    return buyerList.filter(buyer => {
+      const buyerIdStr = buyer?.id ? String(buyer.id) : buyer?.userId ? String(buyer.userId) : null;
+      return buyerIdStr !== currentUserIdStr;
+    });
+  }, [buyerList, userId]);
+
   const animateHeart = useCallback(() => {
     Animated.sequence([
       Animated.timing(heartScale, { toValue: 1.2, duration: 80, useNativeDriver: true }),
@@ -1483,15 +1493,25 @@ function PostItem({
           return itemUserId && itemUserId !== currentUserId;
         })() && (
             <>
-              {buyerList.length > 0 && (
+              {displayBuyerList.length > 0 && (
                 <TouchableOpacity
                   style={styles.buyersSection}
                   activeOpacity={0.8}
                   onPress={() => setShowBuyersModal(true)}
                 >
                   <View style={styles.avatarsContainer}>
-                    {buyerList.slice(0, 3).map((buyer, idx) => (
-                      <View key={idx} style={[styles.buyerAvatarWrapper, { marginLeft: idx > 0 ? -8 : 0 }]}>
+                    {displayBuyerList.slice(0, 3).map((buyer, idx) => (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.buyerAvatarWrapper,
+                          {
+                            marginLeft: idx > 0 ? -10 : 0,
+                            zIndex: 3 - idx,      // idx=0 → zIndex:3, idx=1 → zIndex:2, idx=2 → zIndex:1
+                            elevation: 3 - idx,   // Android fix
+                          }
+                        ]}
+                      >
                         <HexAvatar
                           uri={buyer.avatar}
                           size={28}
@@ -1502,8 +1522,8 @@ function PostItem({
                     ))}
                   </View>
                   <Text style={styles.buyersText} numberOfLines={1}>
-                    Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{buyerList[0]?.username || '—'}</Text>
-                    {buyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(buyerList.length - 1)} others</Text>}
+                    Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{displayBuyerList[0]?.username || '—'}</Text>
+                    {displayBuyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(displayBuyerList.length - 1)} others</Text>}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1656,7 +1676,7 @@ function PostItem({
       <BuyersListModal
         visible={showBuyersModal}
         onClose={() => setShowBuyersModal(false)}
-        buyers={buyerList}
+        buyers={displayBuyerList}
         profileType={modalProfileType}
         onUserPress={(id) => {
           setShowBuyersModal(false);
@@ -1905,13 +1925,14 @@ const styles = StyleSheet.create({
   avatarsContainer: {
     flexDirection: 'row',
     marginRight: 8,
+    overflow: 'visible',
   },
   buyerAvatarWrapper: {
     width: 32,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    // backgroundColor: '#FFFFFF',
   },
   buyerAvatar: {
     width: 24,
