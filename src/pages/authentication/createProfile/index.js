@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -16,12 +16,11 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import StepHeader from './headerSection';
 import { checkDisplayName, getProfile } from '../../../services/createProfile';
-import { logout } from '../../../services/authentication';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -29,7 +28,6 @@ import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
-import { showLoader, hideLoader } from '../../../redux/actions/LoaderAction';
 
 const { width } = Dimensions.get('window');
 const AVATAR_SIZE = 128;
@@ -40,7 +38,6 @@ export default function CreateProfile() {
   const toast = useToast();
   const route = useRoute();
   const profileFromRoute = route?.params?.profile || 'user';
-  const { accessToken, refreshToken } = route?.params || {};
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -61,40 +58,6 @@ export default function CreateProfile() {
     // Update Redux with selected profile so theme context picks it up for loader
     dispatch(setUserProfile(profileFromRoute));
   }, [profileFromRoute, dispatch]);
-
-  // Handle back navigation - call logout when user goes back from social signup
-  useFocusEffect(
-    useCallback(() => {
-      const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
-        // Only handle back navigation if we have tokens from social signup
-        if (!accessToken && !refreshToken) {
-          return;
-        }
-
-        // Prevent default navigation
-        e.preventDefault();
-
-        // Call logout with tokens from social signup
-        try {
-          dispatch(showLoader());
-
-          if (accessToken || refreshToken) {
-            await logout({ token: accessToken, refreshToken });
-            console.log('Logout called on social signup CreateProfile back navigation');
-          }
-        } catch (error) {
-          console.warn('Logout failed on back navigation:', error?.message);
-          // Continue with navigation even if logout fails
-        } finally {
-          dispatch(hideLoader());
-          // Navigate to Signup screen
-          navigation.navigate('Signup', { profile: profileFromRoute });
-        }
-      });
-
-      return unsubscribe;
-    }, [navigation, accessToken, refreshToken, dispatch])
-  );
 
   const validateUsername = v => {
     if (!v) return 'Username is required';

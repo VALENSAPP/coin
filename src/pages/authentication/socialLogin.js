@@ -198,7 +198,7 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
   }
 }
 
-const getProfileData = async (dispatch, navigation, toast, accessToken, refreshToken) => {
+const getProfileData = async (dispatch, navigation, toast) => {
   console.log('profile status--------after toast---------')
   try {
     dispatch(showLoader());
@@ -221,7 +221,7 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
       }
       else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
         showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
-        navigation.navigate('CreateProfile', { profile: response.data.profile || 'user', accessToken, refreshToken });
+        navigation.navigate('CreateProfile', { profile: response.data.profile || 'user' });
       }
       else if (response.statusCode === 200 && response.data.kyc == false) {
 
@@ -230,7 +230,7 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
           await AsyncStorage.setItem('profile', profile);
           dispatch(setUserProfile(profile));
         }
-        navigation.navigate('CreateProfile', { profile: profile || 'user', accessToken, refreshToken });
+        navigation.navigate('CreateProfile', { profile: profile || 'user' });
       }
       else if (response.statusCode === 200 && response.data.bio == null) {
 
@@ -239,7 +239,7 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
           await AsyncStorage.setItem('profile', profile);
           dispatch(setUserProfile(profile));
         }
-        navigation.navigate('CreateProfile', { profile: profile || 'user', accessToken, refreshToken });
+        navigation.navigate('CreateProfile', { profile: profile || 'user' });
       }
       else {
         await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
@@ -301,9 +301,7 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
           dispatch,
           navigation,
           getProfileData,
-          toast,
-          response.data.access_token,
-          response.data.refresh_token
+          toast
         );
       }
     } else {
