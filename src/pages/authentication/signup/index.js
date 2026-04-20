@@ -127,9 +127,9 @@ export default function SignupScreen() {
       };
 
       if (normalizedReferralCode) {
-        signupPayload.referralCode = normalizedReferralCode;
+        signupPayload.referrerCode = normalizedReferralCode;
       }
-
+      console.log('Signup payload:', signupPayload);
       const signupResponse = await signup(signupPayload);
       if (
         signupResponse &&

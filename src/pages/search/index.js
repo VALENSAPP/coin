@@ -58,6 +58,7 @@ import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
 import { exploretBattle } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -87,16 +88,16 @@ const formatBattleCountdown = value => {
   if (!value) return 'Ended';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'Ended';
-  
+
   const now = new Date();
   const diffMs = parsed.getTime() - now.getTime();
-  
+
   if (diffMs <= 0) return 'Ended';
-  
+
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays > 0) return `Ends in ${diffDays}d`;
   if (diffHours > 0) return `Ends in ${diffHours}h`;
   return `Ends in ${diffMins}m`;
@@ -164,11 +165,23 @@ const getBattleParticipant = (battle, index) => {
 
 const buildBattleOptions = battle => {
   const rawOptions = Array.isArray(battle?.options) ? battle.options : [];
+  const optionImages = Array.isArray(battle?.optionImages) ? battle.optionImages : [];
   const normalizedOptions = rawOptions
     .map((option, index) => {
       const label = normalizeBattleOptionLabel(option, index);
       if (!label) return null;
-      return { id: String(option?.id || option?._id || label || index), label };
+      return {
+        id: String(option?.id || option?._id || label || index),
+        label,
+        image: pickBattleDisplayText(
+          optionImages[index],
+          option?.optionImage,
+          option?.image,
+          option?.icon,
+          option?.picture,
+          option?.photo,
+        ),
+      };
     })
     .filter(Boolean);
   if (normalizedOptions.length > 0) return normalizedOptions;
@@ -176,7 +189,7 @@ const buildBattleOptions = battle => {
     return [getBattleParticipant(battle, 0), getBattleParticipant(battle, 1)]
       .map((participant, index) => {
         const label = pickBattleDisplayText(participant?.name, participant?.userName, `Option ${index + 1}`);
-        return { id: `fallback-${index + 1}`, label };
+        return { id: `fallback-${index + 1}`, label, image: optionImages[index] || participant?.avatar };
       })
       .filter(item => item?.label);
   }
@@ -206,6 +219,7 @@ const mapBattleCard = battle => {
     totalLikes: battle?._count?.likes ?? battle?.likesCount ?? battle?.totalLikes ?? battle?._count?.votes ?? battle?.votesCount ?? 0,
     totalVotes: battle?._count?.votes ?? battle?.votesCount ?? 0,
     endTime: battle?.endTime || null,
+    optionImages: Array.isArray(battle?.optionImages) ? battle.optionImages : [],
   };
 };
 
@@ -236,7 +250,7 @@ const calculateMissionStats = (post, raisedAmountOverride = null) => {
 const normalizeImageUrl = url => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('file://')) return trimmed;
   if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
   return `http://35.174.167.92:3002/${trimmed}`;
 };
@@ -368,119 +382,6 @@ const MasonryItem = memo(
     prev.height === next.height,
 );
 
-// ─── OPTIMIZATION 3: BattleCard as standalone React.memo component ───────────
-const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) => {
-  const renderAvatar = (avatarUrl, imageStyle) => (
-    <HexAvatar
-      source={{ uri: normalizeImageUrl(avatarUrl) || DEFAULT_PROFILE_AVATAR }}
-      // style={imageStyle}
-      size={70}
-      fadeDuration={0}
-    />
-  );
-
-  return (
-    <TouchableOpacity activeOpacity={0.85} style={styles.card} onPress={() => onCardPress(item)}>
-      {item.format === 'POLL' ? (
-        <>
-          <View style={styles.pollHeader}>
-            <View>
-              <Text  style={{ fontSize: 12, color: '#666', marginBottom: 8,textAlign:'right' }}>{formatBattleCountdown(item.endTime)}</Text>
-            </View>
-            <View style={styles.pollCreatorRow}>
-              {renderAvatar(item.creator.avatar, styles.pollAvatar)}
-              <View style={styles.pollCreatorText}>
-                <Text numberOfLines={1} style={styles.pollCreatorName}>{item.creator.name}</Text>
-                <Text numberOfLines={1} style={styles.pollCreatorHandle}>@{item.creator.userName}</Text>
-              </View>
-            </View>
-            <View style={styles.pollFormatPill}>
-              <Text style={styles.pollFormatText}>{item.format}</Text>
-            </View>
-          </View>
-          <Text numberOfLines={3} style={styles.pollQuestion}>{item.title}</Text>
-          {item.options?.length > 0 && (
-            <View style={styles.pollOptionsWrap}>
-              {item.options.slice(0, 3).map(option => {
-                const optionLabel = option?.label || option;
-                const isSelected = selectedOption === optionLabel;
-                return (
-                  <TouchableOpacity
-                    key={`${item.id}-${option?.id || optionLabel}`}
-                    activeOpacity={0.9}
-                    style={[styles.pollOptionChip, isSelected && styles.pollOptionChipSelected]}
-                    onPress={() => onOptionSelect(item.id, optionLabel)}
-                  >
-                    <Text style={[styles.pollOptionText, isSelected && styles.pollOptionTextSelected]}>
-                      {optionLabel}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </>
-      ) : (
-        <>
-          <Text style={{ fontSize: 12, color: '#666', marginBottom: 8,textAlign:'right' }}>{formatBattleCountdown(item.endTime)}</Text>
-          <View style={styles.topRow}>
-            <View style={styles.userBox}>
-              {renderAvatar(item.user1.avatar, styles.avatar)}
-              <Text numberOfLines={1} style={styles.name}>{item.user1.name}</Text>
-              {!!item.user1.userName && <Text numberOfLines={1} style={styles.handleText}>@{item.user1.userName}</Text>}
-            </View>
-            <Text style={styles.vs}>⚔️</Text>
-            <View style={styles.userBox}>
-              {renderAvatar(item.user2.avatar, styles.avatar)}
-              <Text numberOfLines={1} style={styles.name}>{item.user2.name}</Text>
-              {!!item.user2.userName && <Text numberOfLines={1} style={styles.handleText}>@{item.user2.userName}</Text>}
-            </View>
-          </View>
-          <Text numberOfLines={2} style={styles.title}>{item.title}</Text>
-          {item.options?.length > 0 && (
-            <View style={styles.headToHeadOptionsWrap}>
-              {item.options.slice(0, 2).map(option => {
-                const optionLabel = option?.label || option;
-                const isSelected = selectedOption === optionLabel;
-                return (
-                  <TouchableOpacity
-                    key={`${item.id}-${option?.id || optionLabel}`}
-                    activeOpacity={0.9}
-                    style={[styles.headToHeadOptionButton, isSelected && styles.headToHeadOptionButtonSelected]}
-                    onPress={() => onOptionSelect(item.id, optionLabel)}
-                  >
-                    <Text style={[styles.headToHeadOptionText, isSelected && styles.headToHeadOptionTextSelected]}>
-                      {optionLabel}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </>
-      )}
-      <View style={styles.battleMetaRow}>
-        <Text style={styles.battleMetaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text>
-        {item.format === 'POLL' && (
-          <Text style={styles.battleMetaText}>Ends date: {formatBattleDate(item.endTime)}</Text>
-        )}
-      </View>
-      <View style={styles.battleFooterDivider} />
-      <View style={styles.battleStatsRow}>
-        <View style={styles.battleStatItem}>
-          <Icon name="people-outline" size={16} color="#6B7280" />
-          <Text style={styles.battleStatText}>{formatBattleCount(item.totalParticipants)}</Text>
-        </View>
-        <Text style={styles.battleStatDot}>•</Text>
-        <View style={styles.battleStatItem}>
-          <Icon name="chatbox-ellipses-outline" size={15} color="#6B7280" />
-          <Text style={styles.battleStatText}>{formatBattleCount(item.totalComments)}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-});
-
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 const SearchScreen = () => {
   const dispatch = useDispatch();
@@ -570,7 +471,7 @@ const SearchScreen = () => {
         displayName: searchQuery,
         name: searchQuery,
       });
-      console.log(res,'dta in searacha ')
+      console.log(res, 'dta in searacha ')
       if (activeSearchRequestIdRef.current !== requestId) return;
       if (res.statusCode === 200 || res.status === 200) {
         const users = Array.isArray(res?.data?.users) ? res.data.users : [];
@@ -685,6 +586,7 @@ const SearchScreen = () => {
         const normalizedBattles = Array.isArray(rawBattles)
           ? rawBattles.map(mapBattleCard).filter(item => item.id)
           : [];
+          console.log(rawBattles, 'battles in search')
         setLiveBattles(normalizedBattles);
       } else {
         setLiveBattles([]);
@@ -701,6 +603,13 @@ const SearchScreen = () => {
     // OPTIMIZATION 6: Fire both fetches in parallel instead of sequentially
     Promise.all([fetchPosts(), fetchExploreBattles()]);
   }, [fetchPosts, fetchExploreBattles]);
+
+  // Refetch data when screen comes back into focus
+  useEffect(() => {
+    if (isScreenFocused && !searchText.trim()) {
+      Promise.all([fetchPosts(), fetchExploreBattles()]);
+    }
+  }, [isScreenFocused, searchText, fetchPosts, fetchExploreBattles]);
 
   useEffect(() => {
     return () => {
@@ -871,7 +780,7 @@ const SearchScreen = () => {
   // OPTIMIZATION 9: Stable keyExtractor to prevent FlatList re-keying
   const masonryKeyExtractor = useCallback((item, idx) =>
     item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`,
-  [], []);
+    [], []);
 
   const userKeyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);
 
@@ -933,11 +842,7 @@ const SearchScreen = () => {
           {!isSearchActive && (
             <View>
               <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 4, gap: 10 }}
-              >
+              <AutoScrollBattleRow>
                 {loadingLiveBattles ? (
                   <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
                     <ActivityIndicator size="small" color="#999" />
@@ -957,7 +862,7 @@ const SearchScreen = () => {
                     <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>No battles found</Text>
                   </View>
                 )}
-              </ScrollView>
+              </AutoScrollBattleRow>
             </View>
           )}
 

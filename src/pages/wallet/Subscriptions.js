@@ -79,10 +79,12 @@ const SubventionSetupScreen = () => {
 
     useFocusEffect(
         useCallback(() => {
-            fetchSubscriptionByUserId();
-                     getCredential();
-
-        }, [fetchSubscriptionByUserId,getCredential])
+            const initializeScreen = async () => {
+                await fetchSubscriptionByUserId();
+                await getCredential();
+            };
+            initializeScreen();
+        }, [])
     );
 
     const formatPrice = (value) => {
