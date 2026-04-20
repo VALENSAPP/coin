@@ -11,6 +11,7 @@ import {
   Alert,
   PermissionsAndroid,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import React, { useRef, useEffect, useState } from 'react';
 import Feather from 'react-native-vector-icons/Feather';
@@ -222,14 +223,23 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   };
 
   const handleNavigation = (type) => {
+    const closeThenNavigate = (target, params) => {
+      // iOS can glitch/freeze if we navigate while this bottom-sheet Modal
+      // is still animating; close first, then navigate on next frame/idle.
+      hideModal();
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          navigation.navigate(target, params);
+        });
+      });
+    };
+
     switch (type) {
       case 'mint': // post
-        navigation.navigate('Add');
-        hideModal();
+        closeThenNavigate('Add');
         break;
       case 'Flips': // reels
-        setModalVisible(false);
-        navigation.navigate('Add', {
+        closeThenNavigate('Add', {
           screen: 'Add',
           params: { type: 'Flips' },
         });
