@@ -46,7 +46,7 @@ function getFeedMusicPlaybackWindow(trim, durationSec) {
   return { start: ovStart, end: ovEnd, hasOverlap: true };
 }
 
-/* ----------------------------------------- */ 
+/* ----------------------------------------- */
 function InstagramZoomableImage({ uri, onZoomChange }) {
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -244,7 +244,6 @@ function InstagramZoomableVideo({
   onError,
   bufferConfig,
   maxBitRate,
-  /** Ref to parent RNGH FlatList so pinch can run simultaneously with horizontal scroll (iOS). */
   simultaneousHandlers,
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -254,46 +253,40 @@ function InstagramZoomableVideo({
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalVideoReady, setModalVideoReady] = useState(false);
 
+  const currentTimeRef = useRef(0);
+  const modalVideoRef = useRef(null);
+  const inlineVideoRef = useRef(null);
+
   const screenW = Dimensions.get('window').width;
   const halfWidth = screenW / 2;
   const halfHeight = videoHeight / 2;
 
+  // KEY FIX 1: Only pause inline when modal video is actually ready and playing
+  // Before modalVideoReady=true, keep inline playing to avoid black screen
+  const inlinePaused = (isModalVisible && modalVideoReady) ? true : paused;
+
+  // KEY FIX 2: Stable callback — never recreated, never causes Video remount
+  const onProgressStable = useCallback(({ currentTime }) => {
+    currentTimeRef.current = currentTime;
+  }, []);
+
   const onPinchEvent = Animated.event(
-    [
-      {
-        nativeEvent: {
-          scale,
-          focalX: translateX,
-          focalY: translateY,
-        },
-      },
-    ],
+    [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
     { useNativeDriver: true },
   );
 
-  const resetScale = () => {
+  const resetScale = useCallback(() => {
     setIsModalVisible(false);
     setModalVideoReady(false);
     onZoomChange?.(false);
     Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 18,
-        bounciness: 0,
-      }),
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-      }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
     ]).start();
-  };
+  }, [scale, translateX, translateY, onZoomChange]);
 
-  const onPinchStateChange = ({ nativeEvent }) => {
+  const onPinchStateChange = useCallback(({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
 
     if (state === State.BEGAN) {
@@ -310,7 +303,7 @@ function InstagramZoomableVideo({
     ) {
       resetScale();
     }
-  };
+  }, [resetScale, onZoomChange]);
 
   const modalTransformStyle = {
     width: screenW,
@@ -319,27 +312,27 @@ function InstagramZoomableVideo({
       { translateX: Animated.subtract(translateX, halfWidth) },
       { translateY: Animated.subtract(translateY, halfHeight) },
       { scale },
-      {
-        translateX: Animated.multiply(
-          Animated.subtract(translateX, halfWidth),
-          -1,
-        ),
-      },
-      {
-        translateY: Animated.multiply(
-          Animated.subtract(translateY, halfHeight),
-          -1,
-        ),
-      },
+      { translateX: Animated.multiply(Animated.subtract(translateX, halfWidth), -1) },
+      { translateY: Animated.multiply(Animated.subtract(translateY, halfHeight), -1) },
     ],
   };
 
-  // Parent sets paused=true while zooming (isZooming disables shouldPlay). The modal must
-  // still play; only the inline copy should pause while the overlay is open.
-  const inlinePaused = isModalVisible || paused;
+  // KEY FIX 3: Stable modal load handler
+  const onModalLoad = useCallback(() => {
+    const seekTo = currentTimeRef.current || 0;
+    if (seekTo > 0.5 && modalVideoRef.current?.seek) {
+      modalVideoRef.current.seek(seekTo);
+    }
+  }, []);
+
+  const onModalReady = useCallback(() => {
+    setModalVideoReady(true);
+  }, []);
 
   return (
     <GestureHandlerRootView style={styles.mediaContainer}>
+
+      {/* ── INLINE VIDEO ── */}
       <PinchGestureHandler
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
@@ -347,15 +340,19 @@ function InstagramZoomableVideo({
         minPointers={2}
       >
         <Animated.View
-          style={[
-            { width: '100%', height: videoHeight },
-            { opacity: isModalVisible && modalVideoReady ? 0 : 1 },
-          ]}
+          style={{
+            width: '100%',
+            height: videoHeight,
+            // Hide inline only after modal video is confirmed ready
+            opacity: isModalVisible && modalVideoReady ? 0 : 1,
+          }}
           collapsable={false}
         >
-          {/* iOS: let touches reach PinchGestureHandler child (Animated.View); Video must not be hit target */}
           <Video
-            ref={onVideoRef}
+            ref={(ref) => {
+              inlineVideoRef.current = ref;
+              onVideoRef?.(ref);
+            }}
             source={{ uri }}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
@@ -369,18 +366,21 @@ function InstagramZoomableVideo({
             onError={onError}
             playWhenInactive={false}
             progressUpdateInterval={1000}
+            onProgress={onProgressStable}
             bufferConfig={bufferConfig}
             maxBitRate={maxBitRate}
           />
         </Animated.View>
       </PinchGestureHandler>
 
+      {/* ── ZOOM MODAL ── */}
       <Modal
         visible={isModalVisible}
         transparent
         animationType="none"
         statusBarTranslucent
         presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+        onRequestClose={resetScale}
       >
         <GestureHandlerRootView style={styles.gestureModalRoot}>
           <View style={styles.modalBackground}>
@@ -401,6 +401,7 @@ function InstagramZoomableVideo({
                 ]}
               >
                 <Video
+                  ref={modalVideoRef}
                   source={{ uri }}
                   style={StyleSheet.absoluteFillObject}
                   resizeMode="contain"
@@ -409,19 +410,26 @@ function InstagramZoomableVideo({
                   muted={muted}
                   controls={false}
                   pointerEvents="none"
-                  onLoad={() => setModalVideoReady(true)}
-                  onReadyForDisplay={() => setModalVideoReady(true)}
-                  onError={onError}
                   playWhenInactive={false}
                   progressUpdateInterval={1000}
-                  bufferConfig={bufferConfig}
+                  bufferConfig={{
+                    minBufferMs: 5000,
+                    maxBufferMs: 20000,
+                    bufferForPlaybackMs: 200,
+                    bufferForPlaybackAfterRebufferMs: 200,
+                  }}
                   maxBitRate={maxBitRate}
+                  onError={onError}
+                  onLoad={onModalLoad}
+                  onReadyForDisplay={onModalReady}
+                  renderToHardwareTextureAndroid
                 />
               </Animated.View>
             </PinchGestureHandler>
           </View>
         </GestureHandlerRootView>
       </Modal>
+
     </GestureHandlerRootView>
   );
 }
@@ -898,9 +906,9 @@ function PostItem({
       const currentRoute = route?.name || 'Home';
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: { 
-          userId: id, 
-          returnTo: currentRoute 
+        params: {
+          userId: id,
+          returnTo: currentRoute
         },
       });
       console.log(userId, 'can user id came heree')
@@ -1180,7 +1188,7 @@ function PostItem({
     (async () => {
       try {
         await postFeedYoutubeRef.current?.pauseVideo?.();
-      } catch (_) {}
+      } catch (_) { }
     })();
   }, [shouldPlayAudio, postMusic?.kind]);
 
@@ -1190,7 +1198,7 @@ function PostItem({
       try {
         postFeedYoutubeRef.current?.pauseVideo?.();
         postFeedMp3Ref.current?.pause?.();
-      } catch (_) {}
+      } catch (_) { }
     };
   }, [postMusic?.kind, postMusic?.videoId, postMusic?.audioUrl, item.id]);
 
@@ -1212,7 +1220,7 @@ function PostItem({
           if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
             await postFeedYoutubeRef.current?.seekTo?.(playStart, true);
           }
-        } catch (_) {}
+        } catch (_) { }
       })();
     }, 320);
     return () => clearInterval(tick);
@@ -1317,7 +1325,7 @@ function PostItem({
                     if (isMuted) {
                       await postFeedYoutubeRef.current?.mute?.();
                     }
-                    
+
                     const d = await postFeedYoutubeRef.current?.getDuration?.();
                     if (typeof d === 'number' && d > 0) {
                       postFeedMusicDurRef.current = d;
@@ -1334,7 +1342,7 @@ function PostItem({
                     );
                     const seekTo = hasOverlap ? ps : 0;
                     await postFeedYoutubeRef.current?.seekTo?.(seekTo, true);
-                  } catch (_) {}
+                  } catch (_) { }
                 }}
                 onChangeState={state => {
                   // Don't auto-loop YouTube music - let it play once and stop
