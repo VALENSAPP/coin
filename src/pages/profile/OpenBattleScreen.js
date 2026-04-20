@@ -880,7 +880,7 @@ export default function OpenBattleScreen() {
             </View>
           </View>
 
-          <View style={styles.section}>
+          {/* <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: text }]}>
               Winner Logic
             </Text>
@@ -934,7 +934,7 @@ export default function OpenBattleScreen() {
                 );
               })}
             </View>
-          </View>
+          </View> */}
 
           <View style={styles.section}>
             <Text style={[styles.label, { color: text }]}>Question</Text>

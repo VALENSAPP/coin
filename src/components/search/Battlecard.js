@@ -195,7 +195,9 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
         </View> */}
         {/* <View style={styles.statDot} /> */}
         <View style={styles.statItem}>
+            <View style={{marginTop: 2}}>
             <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
+            </View>
             <Text style={styles.statText}>{formatBattleCount(totalComments)}</Text>
         </View>
     </View>
@@ -206,7 +208,7 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) => {
     const ended = formatBattleCountdown(item.endTime) === 'Ended';
     const isPoll = item.format === 'POLL';
-    const soloOpponent = !isPoll && isEmptyOpponent(item.user2);
+    const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
     
     // Ensure optionImages is always an array
     const optionImages = Array.isArray(item?.optionImages) ? item.optionImages : [];
@@ -216,7 +218,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         [ended, item.id, onOptionSelect],
     );
     
-    console.log('Rendering BattleCard', { id: item, optionImages });
+    console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
     if (isPoll) {
         return (
             <TouchableOpacity
@@ -291,7 +293,11 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
             <View style={styles.versusRow}>
                 <ParticipantAvatar avatarUrl={item.user1.avatar} name={item.user1.name} handle={item.user1.userName} isEmpty={false} />
                 <Text style={styles.vsIcon}>⚔️</Text>
-                <ParticipantAvatar avatarUrl={item.user2?.avatar} name={item.user2?.name} handle={item.user2?.userName} isEmpty={soloOpponent} />
+                {item.opponent ? (
+                    <ParticipantAvatar avatarUrl={item.opponent.avatar} name={item.user2.name} handle={item.opponent.userName} isEmpty={false} />
+                ) : (
+                    <ParticipantAvatar avatarUrl={item.user2?.avatar} name={item.user2?.name} handle={item.user2?.userName} isEmpty={soloOpponent} />
+                )}
             </View>
 
             <Text style={styles.question} numberOfLines={2}>{item.title}</Text>
@@ -337,7 +343,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         prevProps.selectedOption === nextProps.selectedOption &&
         prevProps.item?.isLive === nextProps.item?.isLive &&
         prevProps.item?.status === nextProps.item?.status &&
-        JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages)
+        JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages) &&
+        JSON.stringify(prevProps.item?.opponent) === JSON.stringify(nextProps.item?.opponent)
     );
 });
 

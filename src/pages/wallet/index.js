@@ -174,7 +174,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet', color: '#5a2d82' },
-    { id: 'support', title: 'total support', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
+    { id: 'support', title: 'Subscription Earning', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
     { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
     // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
@@ -1475,7 +1475,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     <BlueDragonfly width={60} height={60} />
                   </View>
                 </View>
-                <View style={{ padding: 20 }}>
+                <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
                   <Text style={[styles.modalParagraph, textStyle]}>
                     The dragonfly represents your community strength on Valens.
                   </Text>
@@ -2101,8 +2101,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    backgroundColor: '#d1e5f5'
+    marginTop: 10,
   },
   modalTitleBlock: {
     flex: 1,
@@ -2217,7 +2216,8 @@ const styles = StyleSheet.create({
   },
   lastRowCard: {
     flexGrow: 1,
-    maxWidth: '45%',  // 👈 makes 2 items centered nicely
+    maxWidth: '45%', 
+    marginTop: -10
   },
   // Activities
   activitiesContainer: {
