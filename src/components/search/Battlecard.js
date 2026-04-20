@@ -195,7 +195,9 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
         </View> */}
         {/* <View style={styles.statDot} /> */}
         <View style={styles.statItem}>
+            <View style={{marginTop: 2}}>
             <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
+            </View>
             <Text style={styles.statText}>{formatBattleCount(totalComments)}</Text>
         </View>
     </View>
