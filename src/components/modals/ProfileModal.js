@@ -67,6 +67,15 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
     });
   };
 
+  /** Must unmount the RN Modal before pushing another screen on iOS; otherwise
+   *  `visible` stays true during the close animation and the transparent overlay
+   *  blocks all touches on the next screen (e.g. New Mint media picker). */
+  const hideModalImmediate = () => {
+    translateY.stopAnimation();
+    translateY.setValue(SCREEN_HEIGHT);
+    setModalVisible(false);
+  };
+
   const requestCameraPermission = async () => {
     if (Platform.OS !== 'android') return true;
     try {
@@ -224,9 +233,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
   const handleNavigation = (type) => {
     const closeThenNavigate = (target, params) => {
-      // iOS can glitch/freeze if we navigate while this bottom-sheet Modal
-      // is still animating; close first, then navigate on next frame/idle.
-      hideModal();
+      hideModalImmediate();
       InteractionManager.runAfterInteractions(() => {
         requestAnimationFrame(() => {
           navigation.navigate(target, params);
@@ -252,8 +259,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
         handleAddStory();
         break;
       case 'drops highlights': // storyHighlight
-        navigation.navigate('HighlightsScreen');
-        hideModal();
+        closeThenNavigate('HighlightsScreen');
         break;
       // case 'live':
       //   navigation.navigate('');
@@ -289,7 +295,12 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
   return (
     <>
-      <Modal transparent visible={modalVisible} animationType="none">
+      <Modal
+        transparent
+        visible={modalVisible}
+        animationType="none"
+        {...(Platform.OS === 'ios' ? { presentationStyle: 'overFullScreen' } : {})}
+      >
         <View style={styles.overlay}>
           <TouchableOpacity
             style={{ flex: 1 }}
