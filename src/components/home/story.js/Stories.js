@@ -565,6 +565,8 @@ const StoryViewer = ({
   const nextUserCb = useRef(onNextUser);
   const prevUserCb = useRef(onPrevUser);
   const closeCb = useRef(onClose);
+  /** PanResponder is created once — keep latest "viewing own" flag for swipe-up → message. */
+  const isViewingOwnStoryRef = useRef(false);
   useEffect(() => { nextUserCb.current = onNextUser; }, [onNextUser]);
   useEffect(() => { prevUserCb.current = onPrevUser; }, [onPrevUser]);
   useEffect(() => { closeCb.current = onClose; }, [onClose]);
@@ -628,6 +630,9 @@ const StoryViewer = ({
   const currentUser = stories[currentUserIndex];
   const currentStory = currentUser?.stories[currentStoryIndex];
   const isViewingOwnStory = currentUser?.isUser;
+  useEffect(() => {
+    isViewingOwnStoryRef.current = !!isViewingOwnStory;
+  }, [isViewingOwnStory]);
   const currentStoryAudio = currentStory?.audio || null;
   const resolvedAudio = resolveStoryAudioPayload(currentStory);
   const youtubeVideoId = resolvedAudio.youtubeVideoId;
@@ -889,6 +894,30 @@ mediaFullyLoadedRef.current = false;   // ← add this line
           }).start(() => {
             pan.setValue({ x: 0, y: 0 });
             closeCb.current && closeCb.current();
+          });
+          return;
+        }
+
+        // Swipe up (dominant vertical) → focus message field + keyboard (others' stories only)
+        const shouldOpenMessageComposer =
+          !isViewingOwnStoryRef.current &&
+          dy < -55 &&
+          absDy > absDx * 1.25 &&
+          (Math.abs(vy) > 0.35 ? vy < -0.15 : true);
+
+        if (shouldOpenMessageComposer) {
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+          }).start();
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              try {
+                commentInputRef.current?.focus();
+              } catch (_e) {
+                /* noop */
+              }
+            });
           });
           return;
         }
