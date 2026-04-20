@@ -24,6 +24,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBattle } from '../../services/battle';
 import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -52,6 +53,40 @@ const createInitialForm = () => ({
 
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
+
+const normalizeUserId = value =>
+  String(value != null ? value : '')
+    .trim();
+
+/** Axios interceptor returns API body (not full axios response). */
+const usersFromGetAllUserBody = body => {
+  if (!(body?.statusCode === 200 || body?.status === 200)) {
+    return [];
+  }
+  if (Array.isArray(body?.data?.users)) {
+    return body.data.users;
+  }
+  if (Array.isArray(body?.users)) {
+    return body.users;
+  }
+  return [];
+};
+
+const mergeUsersById = lists => {
+  const map = new Map();
+  for (const list of lists) {
+    if (!Array.isArray(list)) {
+      continue;
+    }
+    for (const user of list) {
+      const id = normalizeUserId(pickFirst(user?.id, user?._id, user?.userId, ''));
+      if (id && !map.has(id)) {
+        map.set(id, user);
+      }
+    }
+  }
+  return [...map.values()];
+};
 
 const getFilledOptions = options =>
   (Array.isArray(options) ? options : [])
@@ -90,6 +125,7 @@ export default function OpenBattleScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inviteSearchTimeoutRef = useRef(null);
   const imagePickerSheetRef = useRef(null);
+  const [viewerUserId, setViewerUserId] = useState('');
   const imagePickerLaunchTimeoutRef = useRef(null);
   const tabBarHeight = useBottomTabBarHeight();
   const routeParams = useMemo(
@@ -144,61 +180,101 @@ export default function OpenBattleScreen() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const me = normalizeUserId(await AsyncStorage.getItem('userId'));
+      if (!cancelled) {
+        setViewerUserId(me);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!Object.keys(routeParams).length) {
       return;
     }
 
-    const routeInviteUser = routeParams.invitedUser;
-    if (routeInviteUser) {
-      const normalizedInviteUser = {
-        id: String(
-          pickFirst(
-            routeInviteUser?.id,
-            routeInviteUser?._id,
-            routeInviteUser?.userId,
-            routeParams.invitedUserId,
+    let cancelled = false;
+    (async () => {
+      const me = normalizeUserId(
+        viewerUserId || (await AsyncStorage.getItem('userId')),
+      );
+
+      const routeInviteUser = routeParams.invitedUser;
+      const routeInviteId = normalizeUserId(
+        pickFirst(
+          routeInviteUser?.id,
+          routeInviteUser?._id,
+          routeInviteUser?.userId,
+          routeParams.invitedUserId,
+          routeParams.invitedUser?.id,
+        ),
+      );
+      const inviteIsSelf = Boolean(me && routeInviteId && routeInviteId === me);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (routeInviteUser && !inviteIsSelf) {
+        const normalizedInviteUser = {
+          id: routeInviteId,
+          name: pickFirst(
+            routeInviteUser?.name,
+            routeInviteUser?.displayName,
+            routeInviteUser?.fullName,
+            routeInviteUser?.userName,
+            'User',
+          ),
+          userName: pickFirst(
+            routeInviteUser?.userName,
+            routeInviteUser?.username,
             '',
           ),
-        ),
-        name: pickFirst(
-          routeInviteUser?.name,
-          routeInviteUser?.displayName,
-          routeInviteUser?.fullName,
-          routeInviteUser?.userName,
-          'User',
-        ),
-        userName: pickFirst(
-          routeInviteUser?.userName,
-          routeInviteUser?.username,
-          '',
-        ),
-        avatar: pickFirst(
-          routeInviteUser?.avatar,
-          routeInviteUser?.image,
-          routeInviteUser?.profilePicture,
-          '',
-        ),
-      };
+          avatar: pickFirst(
+            routeInviteUser?.avatar,
+            routeInviteUser?.image,
+            routeInviteUser?.profilePicture,
+            '',
+          ),
+        };
 
-      if (normalizedInviteUser.id) {
-        setSelectedInviteUser(normalizedInviteUser);
-        setInviteSearchText(
-          normalizedInviteUser.userName
-            ? `@${normalizedInviteUser.userName}`
-            : normalizedInviteUser.name,
-        );
+        if (normalizedInviteUser.id) {
+          setSelectedInviteUser(normalizedInviteUser);
+          setInviteSearchText(
+            normalizedInviteUser.userName
+              ? `@${normalizedInviteUser.userName}`
+              : normalizedInviteUser.name,
+          );
+        }
+      } else if (inviteIsSelf) {
+        setSelectedInviteUser(null);
+        setInviteSearchText('');
       }
-    }
 
-    setForm(prev => ({
-      ...prev,
-      format: routeParams.presetFormat || prev.format,
-      invitedUserId:
-        routeParams.invitedUserId ||
-        routeParams.invitedUser?.id ||
-        prev.invitedUserId,
-    }));
-  }, [routeParams]);
+      setForm(prev => ({
+        ...prev,
+        format: routeParams.presetFormat || prev.format,
+        invitedUserId: inviteIsSelf
+          ? ''
+          : String(
+              pickFirst(
+                routeParams.invitedUserId,
+                routeParams.invitedUser?.id,
+                routeParams.invitedUser?._id,
+                prev.invitedUserId,
+              ) ?? '',
+            ),
+      }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeParams, viewerUserId]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -229,7 +305,8 @@ export default function OpenBattleScreen() {
   }, []);
 
   const searchInviteUsers = async searchQuery => {
-    if (!searchQuery.trim()) {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
       setInviteSearchResults([]);
       setInviteSearchLoading(false);
       return;
@@ -237,14 +314,30 @@ export default function OpenBattleScreen() {
 
     setInviteSearchLoading(true);
     try {
-      const response = await getAllUser({ userName: searchQuery.trim() });
-      if (response?.statusCode === 200 || response?.status === 200) {
-        setInviteSearchResults(
-          Array.isArray(response?.data?.users) ? response.data.users : [],
+      const me = normalizeUserId(
+        viewerUserId || (await AsyncStorage.getItem('userId')) || '',
+      );
+      // One request with userName+displayName+name often ANDs on the server, so a
+      // display-name search never matches a handle like "mqk9cwjbf8". Query each field alone and merge.
+      const fetchInviteSlice = params =>
+        getAllUser(params).catch(() => ({ statusCode: 0 }));
+      const [byUserName, byDisplayName, byName] = await Promise.all([
+        fetchInviteSlice({ userName: trimmed }),
+        fetchInviteSlice({ displayName: trimmed }),
+        fetchInviteSlice({ name: trimmed }),
+      ]);
+      const raw = mergeUsersById([
+        usersFromGetAllUserBody(byUserName),
+        usersFromGetAllUserBody(byDisplayName),
+        usersFromGetAllUserBody(byName),
+      ]);
+      const filtered = raw.filter(user => {
+        const uid = normalizeUserId(
+          pickFirst(user?.id, user?._id, user?.userId, ''),
         );
-      } else {
-        setInviteSearchResults([]);
-      }
+        return !(me && uid && uid === me);
+      });
+      setInviteSearchResults(filtered);
     } catch (error) {
       setInviteSearchResults([]);
     } finally {
@@ -272,7 +365,10 @@ export default function OpenBattleScreen() {
     }, 400);
   };
 
-  const handleSelectInviteUser = user => {
+  const handleSelectInviteUser = async user => {
+    const me = normalizeUserId(
+      viewerUserId || (await AsyncStorage.getItem('userId')) || '',
+    );
     const nextUser = {
       id: String(pickFirst(user?.id, user?._id, user?.userId, '')),
       name: pickFirst(
@@ -285,6 +381,10 @@ export default function OpenBattleScreen() {
       userName: pickFirst(user?.userName, user?.username, ''),
       avatar: pickFirst(user?.image, user?.avatar, user?.profilePicture, ''),
     };
+
+    if (me && normalizeUserId(nextUser.id) === me) {
+      return;
+    }
 
     setSelectedInviteUser(nextUser);
     setInviteSearchText(
@@ -955,7 +1055,7 @@ export default function OpenBattleScreen() {
                 <Ionicons name="search" size={18} color={MUTED} />
                 <TextInput
                   style={[styles.searchInput, { color: text }]}
-                  placeholder="Search username"
+                  placeholder="Search User"
                   placeholderTextColor={MUTED}
                   value={inviteSearchText}
                   onChangeText={handleInviteSearchChange}

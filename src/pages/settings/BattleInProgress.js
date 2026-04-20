@@ -357,12 +357,12 @@ const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = []) => {
     }
   });
 
-  // Recursively enrich comments and their replies with the side info
-  const enrichComment = (comment) => ({
+  // Side badge is only shown on top-level comments, not nested replies
+  const enrichComment = (comment, isRoot = true) => ({
     ...comment,
-    side: userVoteMap[comment.userId] || '',
+    side: isRoot ? userVoteMap[comment.userId] || '' : '',
     replies: Array.isArray(comment.replies)
-      ? comment.replies.map(reply => enrichComment(reply))
+      ? comment.replies.map(reply => enrichComment(reply, false))
       : [],
   });
 
@@ -1156,31 +1156,14 @@ export default function BattleInProgress() {
             </View>
           )}
           <View style={styles.commentAuthorTextWrap}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-              <Text style={[styles.commentAuthorName, textStyle]}>
+            <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+              <Text
+                style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {reply.authorName}
               </Text>
-              {reply.side && (
-                <View
-                  style={{
-                    backgroundColor: palette.primary,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                    marginLeft: 8,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: '#FFFFFF',
-                      fontSize: 11,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {reply.side}
-                  </Text>
-                </View>
-              )}
             </View>
             {!!reply.authorHandle && (
               <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
@@ -1334,29 +1317,25 @@ export default function BattleInProgress() {
               </View>
             )}
             <View style={styles.commentAuthorTextWrap}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                <Text style={[styles.commentAuthorName, textStyle]}>
+              <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+                <Text
+                  style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {comment.authorName}
                 </Text>
-                {comment.side && (
+                {!!comment.side && (
                   <View
-                    style={{
-                      backgroundColor: palette.primary,
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                      marginLeft: 8,
-                    }}
+                    style={[
+                      styles.commentVoteSideBadge,
+                      {
+                        backgroundColor: palette.primary,
+                        marginRight: Platform.OS === 'ios' ? 14 : 10,
+                      },
+                    ]}
                   >
-                    <Text
-                      style={{
-                        color: '#FFFFFF',
-                        fontSize: 11,
-                        fontWeight: '600',
-                      }}
-                    >
-                      {comment.side}
-                    </Text>
+                    <Text style={styles.commentVoteSideBadgeText}>{comment.side}</Text>
                   </View>
                 )}
               </View>
@@ -2419,6 +2398,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
     marginRight: 10,
   },
   commentAvatar: {
@@ -2434,6 +2414,29 @@ const styles = StyleSheet.create({
   },
   commentAuthorTextWrap: {
     flex: 1,
+    minWidth: 0,
+  },
+  commentAuthorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  commentAuthorNameFlex: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  commentVoteSideBadge: {
+    padding: 6,
+    borderRadius: 6,
+    marginLeft: 8,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  commentVoteSideBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   commentAuthorName: {
     fontSize: 13,
