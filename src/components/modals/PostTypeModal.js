@@ -16,7 +16,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import ActivateMissionPost from './ActivateMissionPost';
 
@@ -30,7 +30,6 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigation = useNavigation();
-  const isFocused = useIsFocused();
   const { bgStyle, textStyle, text, card } = useAppTheme();
 
   const resetNestedModals = useCallback(() => {
@@ -38,8 +37,11 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     setShowBuyCreditsModal(false);
   }, []);
 
+  // Drive the sheet only from `visible`. Do not combine with useIsFocused: during tab
+  // transitions focus can be false for a frame while visible is true; calling close()
+  // then fires onClose → setShowTypeModal(false) and the sheet vanishes immediately.
   useEffect(() => {
-    if (visible && isFocused) {
+    if (visible) {
       fetchCreditsLeft();
       loadProfileType();
       resetNestedModals();
@@ -50,7 +52,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     }
     resetNestedModals();
     sheetRef.current?.close();
-  }, [visible, isFocused, resetNestedModals]);
+  }, [visible, resetNestedModals]);
 
 
 
