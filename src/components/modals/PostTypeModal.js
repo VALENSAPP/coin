@@ -41,17 +41,38 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   // transitions focus can be false for a frame while visible is true; calling close()
   // then fires onClose → setShowTypeModal(false) and the sheet vanishes immediately.
   useEffect(() => {
+    let cancelled = false;
+    let rafId;
+
     if (visible) {
       fetchCreditsLeft();
       loadProfileType();
       resetNestedModals();
-      const openId = requestAnimationFrame(() => {
-        sheetRef.current?.open();
+      // iOS: opening RBSheet in the same frame as navigation can leave the Modal
+      // mounted but not painted above the stack; wait for transition + layout.
+      const interactionHandle = InteractionManager.runAfterInteractions(() => {
+        if (cancelled) return;
+        rafId = requestAnimationFrame(() => {
+          if (!cancelled) {
+            sheetRef.current?.open();
+          }
+        });
       });
-      return () => cancelAnimationFrame(openId);
+
+      return () => {
+        cancelled = true;
+        if (rafId != null) {
+          cancelAnimationFrame(rafId);
+        }
+        if (interactionHandle && typeof interactionHandle.cancel === 'function') {
+          interactionHandle.cancel();
+        }
+      };
     }
+
     resetNestedModals();
     sheetRef.current?.close();
+    return undefined;
   }, [visible, resetNestedModals]);
 
 
@@ -114,7 +135,9 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
   const reopenMintTypeSheet = useCallback(() => {
     if (!visible) return;
-    requestAnimationFrame(() => sheetRef.current?.open());
+    InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => sheetRef.current?.open());
+    });
   }, [visible]);
 
   const handlePostTypeSheetClose = () => {
@@ -148,6 +171,11 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         height={260}
         draggable={false}
         onClose={handlePostTypeSheetClose}
+        customModalProps={
+          Platform.OS === 'ios'
+            ? { presentationStyle: 'overFullScreen' }
+            : { statusBarTranslucent: true }
+        }
         customStyles={{
           container: [{
             borderTopLeftRadius: 16,
