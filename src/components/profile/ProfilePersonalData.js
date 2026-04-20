@@ -738,9 +738,28 @@ const ProfilePersonData = ({
     });
   }, [fromUsersProfile, navigation, isCompanyProfile]);
 
-  const handleInviteBattlePress = useCallback(() => {
+  const handleInviteBattlePress = useCallback(async () => {
+    const storedMe = String((await AsyncStorage.getItem('userId')) || '').trim();
+    const profileUserId = String(
+      targetUserId || userData?.id || userData?._id || '',
+    ).trim();
+    const isOwnProfileInvite =
+      !fromUsersProfile &&
+      profileUserId &&
+      storedMe &&
+      profileUserId === storedMe;
+
+    if (isOwnProfileInvite) {
+      navigation.navigate('OpenBattle', {
+        presetFormat: 'HEAD_TO_HEAD',
+        returnTo: 'Home',
+        isCompanyProfile,
+      });
+      return;
+    }
+
     const invitedUser = {
-      id: String(targetUserId || userData?.id || ''),
+      id: profileUserId,
       name:
         userData?.displayName ||
         userData?.name ||
@@ -789,6 +808,7 @@ const ProfilePersonData = ({
     userData?.avatar,
     userData?.displayName,
     userData?.fullName,
+    userData?._id,
     userData?.id,
     userData?.image,
     userData?.name,
