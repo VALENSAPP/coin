@@ -127,7 +127,10 @@ export default function PostScreen({ navigation }) {
       cropping: false,
     })
       .then((response) => {
-        if (!response) return;
+        if (!response) {
+          dispatch(hideLoader());
+          return;
+        }
         dispatch(hideLoader());
         const assets = Array.isArray(response) ? response : [response];
 
@@ -160,7 +163,10 @@ export default function PostScreen({ navigation }) {
           return true;
         });
 
-        if (validAssets.length === 0) return;
+        if (validAssets.length === 0) {
+          dispatch(hideLoader());
+          return;
+        }
 
         // ✅ Create new asset objects
         const newAssets = validAssets.map((asset) => ({
@@ -213,11 +219,9 @@ export default function PostScreen({ navigation }) {
 
 
         if (error.code === 'E_PICKER_CANCELLED') {
-          if ((!selectedMedia || selectedMedia.length === 0) && navigation?.goBack) {
-            navigation.goBack();
-          } else if (selectedMedia.length === 0) {
-            Alert.alert('No media selected', 'You must select photos or videos to create a post.');
-          }
+          // Keep user on the composer when picker is cancelled; auto-goBack here
+          // can race with tab/profile navigation and feel like a freeze.
+          return;
         } else if (
           error.code === 'E_NO_LIBRARY_PERMISSION' ||
           error.message?.includes('permission')
@@ -279,7 +283,10 @@ export default function PostScreen({ navigation }) {
 
     ImagePicker.openCamera(options)
       .then((response) => {
-        if (!response) return;
+        if (!response) {
+          dispatch(hideLoader());
+          return;
+        }
         dispatch(hideLoader());
 
         // 🧠 Duration validation for captured videos (Flip 15-60s, regular max 10 min)
@@ -291,15 +298,18 @@ export default function PostScreen({ navigation }) {
 
           if (postType === 'flip') {
             if (durationSec < 15) {
+              dispatch(hideLoader());
               Alert.alert('Short Video', 'Please record at least 15 seconds.');
               return;
             }
 
             if (durationSec > 60) {
+              dispatch(hideLoader());
               Alert.alert('Long Video', 'Please record less than 60 seconds.');
               return;
             }
           } else if (durationSec > 600) {
+            dispatch(hideLoader());
             Alert.alert('Long Video', 'Please record less than 10 minutes.');
             return;
           }
@@ -324,6 +334,7 @@ export default function PostScreen({ navigation }) {
         const totalSelection = [...currentSelection, newAsset];
 
         if (totalSelection.length > 10) {
+          dispatch(hideLoader());
           Alert.alert('Selection Limit', 'Cannot add more items. Maximum limit is 10.');
           return;
         }
