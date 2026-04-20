@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
-import { login, sendEmailotp, verifyEmailOtp, verifyOtp, logout } from '../../../services/authentication';
+import { login, sendEmailotp, verifyEmailOtp, verifyOtp } from '../../../services/authentication';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthHeader } from '../../../components/auth';
@@ -41,7 +41,7 @@ export default function OTPScreen() {
   const route = useRoute();
   const toast = useToast();
   const dispatch = useDispatch();
-  const { email, password, type, profile, accessToken, refreshToken } = route.params || {};
+  const { email, password, type, profile } = route.params || {};
   const { bgStyle, textStyle, text } = useAppTheme(profile);
 
   useEffect(() => {
@@ -49,40 +49,6 @@ export default function OTPScreen() {
       handleResend();
     }
   }, []);
-
-  // Handle back navigation - call logout when user goes back from signup OTP
-  useFocusEffect(
-    useCallback(() => {
-      const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
-        // Only handle back navigation for signup flow
-        if (type !== 'signup') {
-          return;
-        }
-
-        // Prevent default navigation
-        e.preventDefault();
-
-        // Call logout with tokens from signup
-        try {
-          dispatch(showLoader());
-
-          if (accessToken || refreshToken) {
-            await logout({ token: accessToken, refreshToken });
-            console.log('Logout called on signup OTP back navigation');
-          }
-        } catch (error) {
-          console.warn('Logout failed on back navigation:', error?.message);
-          // Continue with navigation even if logout fails
-        } finally {
-          dispatch(hideLoader());
-          // Navigate to Signup screen
-          navigation.navigate('Signup', { profile });
-        }
-      });
-
-      return unsubscribe;
-    }, [navigation, type, dispatch, profile])
-  );
 
   const handleConfirm = async () => {
     // {
@@ -127,23 +93,6 @@ export default function OTPScreen() {
     } finally {
       setLoading(false);
       dispatch(hideLoader());
-    }
-  };
-
-  const handleBackPress = async () => {
-    try {
-      dispatch(showLoader());
-      
-      if (type === 'signup' && (accessToken || refreshToken)) {
-        await logout({ token: accessToken, refreshToken });
-        console.log('Logout called on back button press');
-      }
-    } catch (error) {
-      console.warn('Logout failed on back press:', error?.message);
-      // Continue with navigation even if logout fails
-    } finally {
-      dispatch(hideLoader());
-      navigation.navigate('Signup', { profile });
     }
   };
 
@@ -291,7 +240,7 @@ export default function OTPScreen() {
           <AuthHeader
             subtitle="Verification Code"
             profileType={profile}
-            onBackPress={handleBackPress}
+            onBackPress={() => navigation.goBack()}
           />
 
           {/* Card */}

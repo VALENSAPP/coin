@@ -5,10 +5,10 @@ import Geolocation from 'react-native-geolocation-service';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { saveOrUpdateAccount } from '../../utils/accountSession';
 
-export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast) => {
+export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast, accessToken, refreshToken) => {
     if (token) {
         await AsyncStorage.setItem('token', token);
-        getProfileData(dispatch, navigation, toast);
+        getProfileData(dispatch, navigation, toast, accessToken, refreshToken);
         // navigation.reset({ index: 0, routes: [{ name: 'MainTabNavigator' }] });
     } else {
         throw new Error('Login successful, but no token received.');
