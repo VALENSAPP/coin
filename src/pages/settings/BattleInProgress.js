@@ -135,6 +135,31 @@ const normalizeOption = (option, index) => {
 
 const normalizeSideKey = value => String(value || '').trim().toLowerCase();
 
+const getCountFromSideMap = (counts = {}, sideValue = '') => {
+  if (!counts || typeof counts !== 'object') {
+    return undefined;
+  }
+  const side = String(sideValue || '').trim();
+  if (!side) {
+    return undefined;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(counts, side)) {
+    const directValue = Number(counts[side]);
+    return Number.isFinite(directValue) ? directValue : undefined;
+  }
+
+  const normalizedTarget = normalizeSideKey(side);
+  const matchedKey = Object.keys(counts).find(
+    key => normalizeSideKey(key) === normalizedTarget,
+  );
+  if (!matchedKey) {
+    return undefined;
+  }
+  const normalizedValue = Number(counts[matchedKey]);
+  return Number.isFinite(normalizedValue) ? normalizedValue : undefined;
+};
+
 const buildSideMetrics = entries => {
   return (Array.isArray(entries) ? entries : []).reduce((acc, entry) => {
     const key = normalizeSideKey(
@@ -561,6 +586,10 @@ const normalizeBattle = (raw, currentUserId = '') => {
     predictionCounts:
       raw?.predictionCounts && typeof raw.predictionCounts === 'object'
         ? raw.predictionCounts
+        : {},
+    voteCounts:
+      raw?.voteCounts && typeof raw.voteCounts === 'object'
+        ? raw.voteCounts
         : {},
     optionImages: Array.isArray(raw?.optionImages)
       ? raw.optionImages.filter(Boolean)
@@ -1667,6 +1696,94 @@ export default function BattleInProgress() {
                       </View>
                     </View>
                   )}
+                  <View style={styles.duelProgressCard}>
+                {(() => {
+                  const options = Array.isArray(battle.options) ? battle.options : [];
+                  const leftOption = options[0] || {};
+                  const rightOption = options[1] || {};
+
+                  const leftLabel = String(
+                    pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
+                  );
+                  const rightLabel = String(
+                    pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
+                  );
+                  const leftSide = String(
+                    pickFirst(leftOption?.side, leftOption?.label, ''),
+                  );
+                  const rightSide = String(
+                    pickFirst(rightOption?.side, rightOption?.label, ''),
+                  );
+
+                  const leftVotes = Number(
+                    pickFirst(
+                      getCountFromSideMap(battle?.voteCounts, leftSide),
+                      getCountFromSideMap(battle?.predictionCounts, leftSide),
+                      getCountFromSideMap(battle?.voteCounts, leftLabel),
+                      getCountFromSideMap(battle?.predictionCounts, leftLabel),
+                      leftOption?.votes,
+                      0,
+                    ),
+                  );
+                  const rightVotes = Number(
+                    pickFirst(
+                      getCountFromSideMap(battle?.voteCounts, rightSide),
+                      getCountFromSideMap(battle?.predictionCounts, rightSide),
+                      getCountFromSideMap(battle?.voteCounts, rightLabel),
+                      getCountFromSideMap(battle?.predictionCounts, rightLabel),
+                      rightOption?.votes,
+                      0,
+                    ),
+                  );
+
+                  const total = leftVotes + rightVotes;
+                  const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
+                  const rightPercent = total > 0 ? 100 - leftPercent : 0;
+
+                  return (
+                    <>
+                      <View style={styles.duelProgressTopRow}>
+                        <View style={styles.duelProgressTopSide}>
+                          <Text style={[styles.duelProgressOptionName, ]} numberOfLines={1}>
+                            {leftLabel}
+                          </Text>
+                          <Text style={styles.duelProgressOptionVotes}>
+                            {leftVotes} votes
+                          </Text>
+                        </View>
+                        <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
+                          <Text style={[styles.duelProgressOptionName, ]} numberOfLines={1}>
+                            {rightLabel}
+                          </Text>
+                          <Text style={styles.duelProgressOptionVotes}>
+                            {rightVotes} votes
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.duelProgressBarTrack}>
+                        <View
+                          style={[
+                            styles.duelProgressBarFillLeft,
+                            { width: `${leftPercent}%` },
+                          ]}
+                        />
+                        <View
+                          style={[
+                            styles.duelProgressBarFillRight,
+                            { width: `${rightPercent}%` },
+                          ]}
+                        />
+                      </View>
+
+                      <View style={styles.duelProgressBottomRow}>
+                        <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
+                        <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
+                      </View>
+                    </>
+                  );
+                })()}
+              </View>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -2187,6 +2304,72 @@ const styles = StyleSheet.create({
     fontSize: 35,
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  duelProgressCard: {
+    // marginTop: 2,
+    // marginBottom: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    padding: 16,
+    paddingLeft: 10,
+    paddingRight: 10,
+  },
+  duelProgressTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    gap: 10,
+  },
+  duelProgressTopSide: {
+    flex: 1,
+  },
+  duelProgressTopSideRight: {
+    alignItems: 'flex-end',
+  },
+  duelProgressOptionName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  duelProgressOptionVotes: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+    color: '#E9D5FF',
+  },
+  duelProgressBarTrack: {
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  duelProgressBarFillLeft: {
+    height: '100%',
+    backgroundColor: '#4dc579',
+  },
+  duelProgressBarFillRight: {
+    height: '100%',
+    backgroundColor: '#d15959',
+  },
+  duelProgressBottomRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  duelProgressPercentLeft: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  duelProgressPercentRight: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
   },
   infoCard: {
     borderRadius: 20,
