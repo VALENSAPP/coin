@@ -1663,7 +1663,7 @@ export default function BattleInProgress() {
                                       borderColor={text}
                                     />
                                   </View>
-                                  <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
+                                  <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || 'User'}</Text>
                                   <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
                                   {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -1698,7 +1698,7 @@ export default function BattleInProgress() {
                                       borderColor={text}
                                     />
                                   </View>
-                                  <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
+                                  <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name ||  'User'}</Text>
                                   <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
                                   {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
