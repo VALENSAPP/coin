@@ -17,6 +17,7 @@ import {
     Animated,
     ScrollView,
     Dimensions,
+    Pressable
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
@@ -195,8 +196,8 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
         </View> */}
         {/* <View style={styles.statDot} /> */}
         <View style={styles.statItem}>
-            <View style={{marginTop: 2}}>
-            <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
+            <View style={{ marginTop: 2 }}>
+                <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
             </View>
             <Text style={styles.statText}>{formatBattleCount(totalComments)}</Text>
         </View>
@@ -209,7 +210,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
     const ended = formatBattleCountdown(item.endTime) === 'Ended';
     const isPoll = item.format === 'POLL';
     const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
-    
+
     // Ensure optionImages is always an array
     const optionImages = Array.isArray(item?.optionImages) ? item.optionImages : [];
 
@@ -217,11 +218,11 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         label => { if (!ended) onOptionSelect(item.id, label); },
         [ended, item.id, onOptionSelect],
     );
-    
+
     console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
     if (isPoll) {
         return (
-            <TouchableOpacity
+            <Pressable
                 activeOpacity={0.88}
                 style={[styles.card, ended && styles.cardEnded]}
                 onPress={() => onCardPress(item)}
@@ -273,17 +274,17 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
 
                 <View style={styles.divider} />
                 <StatRow totalParticipants={item.totalParticipants} totalLikes={item.totalLikes} totalComments={item.totalComments} />
-            </TouchableOpacity>
+            </Pressable>
         );
     }
 
     // HEAD_TO_HEAD
     return (
-        <TouchableOpacity
+        <Pressable
             activeOpacity={0.88}
             style={[styles.card, ended && styles.cardEnded]}
             onPress={() => onCardPress(item)}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} 
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
             <View style={styles.cardTopRow}>
                 <ModeBadge format={item.format} ended={ended} isLive={item.isLive} />
@@ -335,7 +336,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
 
             <View style={styles.divider} />
             <StatRow totalParticipants={item.totalParticipants} totalLikes={item.totalLikes} totalComments={item.totalComments} />
-        </TouchableOpacity>
+        </Pressable>
     );
 }, (prevProps, nextProps) => {
     // Return true if props are equal (don't re-render), false to re-render
@@ -344,6 +345,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         prevProps.selectedOption === nextProps.selectedOption &&
         prevProps.item?.isLive === nextProps.item?.isLive &&
         prevProps.item?.status === nextProps.item?.status &&
+        prevProps.onCardPress === nextProps.onCardPress &&       
+        prevProps.onOptionSelect === nextProps.onOptionSelect &&
         JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages) &&
         JSON.stringify(prevProps.item?.opponent) === JSON.stringify(nextProps.item?.opponent)
     );
@@ -357,89 +360,74 @@ const SCROLL_SPEED = 0.4;     // px per tick — lower = slower/smoother
 const SCROLL_INTERVAL = 16;        // ~60 fps
 
 export const AutoScrollBattleRow = ({ children, style }) => {
-    const translateX = useRef(new Animated.Value(0)).current;
-    const animationRef = useRef(null);
-    const contentWidthRef = useRef(0);
-    const singleWidthRef = useRef(0);
+    const scrollRef = useRef(null);
     const currentXRef = useRef(0);
+    const singleWidthRef = useRef(0);
     const isPausedRef = useRef(false);
+    const intervalRef = useRef(null);
+    const isDraggingRef = useRef(false);
 
-    const startAnimation = useCallback(() => {
-        if (isPausedRef.current || singleWidthRef.current === 0) return;
-        if (animationRef.current) animationRef.current.stop();
+    const startAutoScroll = useCallback(() => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
 
-        const remaining = singleWidthRef.current - currentXRef.current;
-        const duration = (remaining / SCROLL_SPEED) * SCROLL_INTERVAL;
+        intervalRef.current = setInterval(() => {
+            if (isPausedRef.current || isDraggingRef.current) return;
 
-        animationRef.current = Animated.timing(translateX, {
-            toValue: -singleWidthRef.current,
-            duration,
-            useNativeDriver: true,
-        });
+            currentXRef.current += SCROLL_SPEED;
 
-        animationRef.current.start(({ finished }) => {
-            if (finished && !isPausedRef.current) {
+            if (singleWidthRef.current > 0 && currentXRef.current >= singleWidthRef.current) {
                 currentXRef.current = 0;
-                translateX.setValue(0);
-                startAnimation();
+                scrollRef.current?.scrollTo({ x: 0, animated: false });
+                return;
             }
-        });
-    }, [translateX]);
 
-    const pauseAnimation = useCallback(() => {
-        isPausedRef.current = true;
-        if (animationRef.current) animationRef.current.stop();
-        // capture current position
-        translateX.stopAnimation(value => {
-            currentXRef.current = Math.abs(value);
-        });
-    }, [translateX]);
-
-    const resumeAnimation = useCallback(() => {
-        isPausedRef.current = false;
-        startAnimation();
-    }, [startAnimation]);
+            scrollRef.current?.scrollTo({ x: currentXRef.current, animated: false });
+        }, SCROLL_INTERVAL);
+    }, []);
 
     useEffect(() => {
-        // small delay to let layout measure first
-        const t = setTimeout(() => startAnimation(), 300);
+        const t = setTimeout(() => startAutoScroll(), 300);
         return () => {
             clearTimeout(t);
-            if (animationRef.current) animationRef.current.stop();
+            if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, [startAnimation]);
+    }, [startAutoScroll]);
 
-    // Duplicate children so seamless looping works
-    // Only duplicate if there are 2+ items, otherwise show single item once
     const allChildren = React.Children.toArray(children);
     const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
 
     return (
-        <View
-            style={{ overflow: 'hidden' }}
-            onTouchStart={pauseAnimation}
-            onTouchEnd={resumeAnimation}
-            onTouchCancel={resumeAnimation}
+        <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            keyboardShouldPersistTaps="handled"
+            delayContentTouches={false}
+            onScrollBeginDrag={() => {
+                isDraggingRef.current = true;
+                isPausedRef.current = true;
+            }}
+            onScrollEndDrag={e => {
+                currentXRef.current = e.nativeEvent.contentOffset.x;
+                isDraggingRef.current = false;
+                isPausedRef.current = false;
+            }}
+            onMomentumScrollEnd={e => {
+                currentXRef.current = e.nativeEvent.contentOffset.x;
+                isDraggingRef.current = false;
+            }}
+            contentContainerStyle={[
+                { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: 12 },
+                style,
+            ]}
+            onLayout={e => {
+                const childCount = allChildren.length;
+                singleWidthRef.current = childCount * (CARD_WIDTH + CARD_GAP);
+            }}
         >
-            <Animated.View
-                style={[
-                    {
-                        flexDirection: 'row',
-                        gap: CARD_GAP,
-                        paddingHorizontal: 12,
-                        transform: [{ translateX }],
-                    },
-                    style,
-                ]}
-                onLayout={e => {
-                    contentWidthRef.current = e.nativeEvent.layout.width;
-                    // single width = half of total (since content is doubled)
-                    singleWidthRef.current = contentWidthRef.current / 2;
-                }}
-            >
-                {doubled}
-            </Animated.View>
-        </View>
+            {doubled}
+        </ScrollView>
     );
 };
 
