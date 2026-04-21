@@ -27,7 +27,7 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const PostEditorScreen = () => {
   const navigation = useNavigation();
@@ -122,9 +122,9 @@ const PostEditorScreen = () => {
 
       })),
       type:
-      //  fromIcon === 'Flips'
-      //   ? 'reel'
-      //   : 
+        //  fromIcon === 'Flips'
+        //   ? 'reel'
+        //   : 
         postType === 'private'
           ? 'private'
           : 'normal',
@@ -204,8 +204,7 @@ const PostEditorScreen = () => {
                       <Video
                         source={{ uri: getMediaUri(img) }}
                         style={styles.imageThumb}
-                        resizeMode="cover"
-                        paused={true}
+                        resizeMode="contain" paused={true}
                         muted={true}
                         controls={false}
                         poster={getVideoPosterUri(img) || undefined}
@@ -218,8 +217,7 @@ const PostEditorScreen = () => {
                     <Image
                       source={{ uri: getMediaUri(img) }}
                       style={styles.imageThumb}
-                      resizeMode="cover"
-                    />
+                      resizeMode="contain" />
                   )}
                   {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
                     <TouchableOpacity
@@ -332,15 +330,16 @@ const styles = StyleSheet.create({
   imagesCard: {
     margin: 16,
     borderRadius: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+    // elevation: 3,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 4,
+    height: screenHeight * 0.6
   },
   imagesContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 8
+    paddingVertical: 20,
+    paddingHorizontal: 10
   },
   imageThumbWrapper: {
     marginRight: 12,
@@ -357,9 +356,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   imageThumb: {
-    width: screenWidth * 0.3,
-    height: screenWidth * 0.3,
-    borderRadius: 8
+    width: screenWidth * .85,
+    // height: screenHeight * 0.6,
+    borderRadius: 10,
+    aspectRatio: 0.6,
+    marginHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+    backgroundColor: '#fff', //
   },
   videoThumbContainer: {
     position: 'relative',

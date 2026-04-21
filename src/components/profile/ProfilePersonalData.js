@@ -1159,7 +1159,7 @@ const ProfilePersonData = ({
                 >
                   <HexAvatar
                     uri={avatarUri}
-                    size={90}
+                    size={110}
                     borderWidth={2}
                     borderColor={text}
                   />
@@ -1331,25 +1331,27 @@ const ProfilePersonData = ({
         </View>
 
         <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
-          <TouchableOpacity
-            style={[
-              styles.battleBtnWrapper,
-              {
-                backgroundColor: text,
-                borderColor: text,
-              },
-            ]}
-            onPress={handleInviteBattlePress}
-          >
-            <LinearGradient
-              colors={profileActionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.battleBtn}
+          {fromUsersProfile && (
+            <TouchableOpacity
+              style={[
+                styles.battleBtnWrapper,
+                {
+                  backgroundColor: text,
+                  borderColor: text,
+                },
+              ]}
+              onPress={handleInviteBattlePress}
             >
-              <Text style={styles.battleBtnText}>Invite to Battle</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={profileActionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.battleBtn}
+              >
+                <Text style={styles.battleBtnText}>Invite to Battle</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
           {!fromUsersProfile && (
             <TouchableOpacity
               style={[
@@ -1625,7 +1627,7 @@ const styles = StyleSheet.create({
   addbutton: {
     position: 'absolute',
     bottom: 0,
-    right: 0,
+    right: 10,
     borderRadius: 20,
     width: 26,
     height: 26,

@@ -106,8 +106,11 @@ const ProfileEditScreen = () => {
       const getLink = (platform) =>
         parsedSocialLinks.find(item => item?.platform === platform)?.url || '';
 
+      // ✅ Get generic/website link (not a specific social platform)
       const primarySocialLink =
-        parsedSocialLinks.find(item => item?.url)?.url || '';
+        parsedSocialLinks.find(item => 
+          item?.url && item?.platform === 'website'
+        )?.url || '';
 
       // ✅ Set states ONCE
       setName(displayName);
