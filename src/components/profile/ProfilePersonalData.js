@@ -10,8 +10,10 @@ import {
   PermissionsAndroid,
   Linking,
   ActivityIndicator,
+  Animated,
+  Easing
 } from 'react-native';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
@@ -162,10 +164,10 @@ const ProfilePersonData = ({
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
     useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
-  const [totalSupportModalVisible, setTotalSupportModalVisible] =
-    useState(false);
-  const [totalSupportAmount, setTotalSupportAmount] = useState(0);
+  const [totalSupportOpen, setTotalSupportOpen] = useState(false);
   const [totalSupportLoading, setTotalSupportLoading] = useState(false);
+  const [totalSupportAmount, setTotalSupportAmount] = useState(0);
+  const totalSupportAnim = useRef(new Animated.Value(0)).current;
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -632,14 +634,25 @@ const ProfilePersonData = ({
     }
   }, []);
 
-  const handleOpenTotalSupportModal = useCallback(() => {
-    setTotalSupportModalVisible(true);
-    fetchReceivedSupportAmount();
-  }, [fetchReceivedSupportAmount]);
-
-  const handleCloseTotalSupportModal = useCallback(() => {
-    setTotalSupportModalVisible(false);
-  }, []);
+  const handleToggleTotalSupport = useCallback(() => {
+    if (!totalSupportOpen) {
+      fetchReceivedSupportAmount();
+      setTotalSupportOpen(true);
+      Animated.timing(totalSupportAnim, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.out(Easing.back(1.2)),
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(totalSupportAnim, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: false,
+      }).start(() => setTotalSupportOpen(false));
+    }
+  }, [totalSupportOpen, totalSupportAnim, fetchReceivedSupportAmount]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1148,7 +1161,7 @@ const ProfilePersonData = ({
 
         {/* Profile Info */}
         <View style={styles.profile}>
-          <View style={styles.profileView}>
+          <View style={[styles.profileView, { position: 'relative' }]}>
             {/* Top row: avatar left, buttons right */}
             <View style={styles.profileTopRow}>
               <View style={styles.profileWraper}>
@@ -1222,7 +1235,7 @@ const ProfilePersonData = ({
                       </LinearGradient>
                     </TouchableOpacity>
                     {normalizedProfileThemeType !== 'company' && (
-                      <TouchableOpacity onPress={handleOpenTotalSupportModal}>
+                      <TouchableOpacity onPress={handleToggleTotalSupport}>
                         <LinearGradient
                           colors={profileActionGradient}
                           start={{ x: 0, y: 0 }}
@@ -1276,7 +1289,7 @@ const ProfilePersonData = ({
                       </LinearGradient>
                     </TouchableOpacity>
                     {!isBusinessProfile && (
-                      <TouchableOpacity onPress={handleOpenTotalSupportModal}>
+                      <TouchableOpacity onPress={handleToggleTotalSupport}>
                         <LinearGradient
                           colors={profileActionGradient}
                           start={{ x: 0, y: 0 }}
@@ -1298,6 +1311,43 @@ const ProfilePersonData = ({
                 )}
               </View>
             </View>
+            <Animated.View
+              pointerEvents={totalSupportOpen ? 'auto' : 'none'}
+              style={{
+                position: 'absolute',
+                top: 120,
+                right: 0,
+                width: '50%',          // same width as the edit column
+                zIndex: 999,
+                overflow: 'hidden',
+                height: totalSupportAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 72],
+                }),
+                opacity: totalSupportAnim,
+                borderRadius: 10,
+                backgroundColor: '#fff',
+                borderWidth: 1,
+                borderColor: '#e5e7eb',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#513189',
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+                elevation: 10,
+              }}
+            >
+              {totalSupportLoading ? (
+                <ActivityIndicator size="small" color="#513189" />
+              ) : (
+                <>
+                  <Text style={{ fontSize: 11, color: '#6B7280' }}>Total Support Received</Text>
+                  <Text style={{ fontSize: 22, fontWeight: '700', color: '#513189' }}>
+                    $ {totalSupportAmount.toFixed(2)}
+                  </Text>
+                </>
+              )}
+            </Animated.View>
             <Text style={styles.displaynamee} numberOfLines={2}>
               {Userdata.Displayname}
             </Text>
@@ -1510,35 +1560,6 @@ const ProfilePersonData = ({
           ]);
         }}
       />
-      <Modal
-        visible={totalSupportModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseTotalSupportModal}
-      >
-        <View style={styles.totalSupportModalOverlay}>
-          <View style={styles.totalSupportModalCard}>
-            <Text style={styles.totalSupportModalTitle}>Total Support</Text>
-            {/* <Text style={styles.totalSupportModalLabel}>
-              Amount received From Support
-            </Text> */}
-            {totalSupportLoading ? (
-              <ActivityIndicator size="large" color="#513189" />
-            ) : (
-              <Text style={styles.totalSupportModalAmount}>
-                $ {totalSupportAmount.toFixed(2)}
-              </Text>
-            )}
-            <TouchableOpacity
-              style={styles.totalSupportModalButton}
-              activeOpacity={0.8}
-              onPress={handleCloseTotalSupportModal}
-            >
-              <Text style={styles.totalSupportModalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
