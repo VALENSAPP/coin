@@ -1,6 +1,16 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert, Platform } from 'react-native';
-import { GestureHandlerRootView, PanGestureHandler, PinchGestureHandler, TapGestureHandler, State, FlatList } from 'react-native-gesture-handler';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  PinchGestureHandler,
+  TapGestureHandler,
+  State,
+  FlatList,
+  Gesture,
+  GestureDetector,
+} from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
@@ -517,6 +527,8 @@ function PostItem({
   hideDonationButton = false, // Add this prop with default false
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
+  const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
+  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
   const listRef = useRef(null);
   const videoRefsMap = useRef({});
   const [totalFollowers, setTotalFollowers] = useState(0);
@@ -1053,6 +1065,46 @@ function PostItem({
     animateHeart();
   }, [onToggleLike, item.id, animateHeart]);
 
+  const playDoubleTapHeartBurst = useCallback(() => {
+    setShowDoubleTapHeart(true);
+    doubleTapHeartScale.setValue(0);
+    Animated.sequence([
+      Animated.spring(doubleTapHeartScale, {
+        toValue: 1.2,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 3,
+      }),
+      Animated.delay(400),
+      Animated.timing(doubleTapHeartScale, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setShowDoubleTapHeart(false));
+  }, [doubleTapHeartScale]);
+
+  const handleMediaDoubleTapLike = useCallback(() => {
+    if (isZooming) return;
+    if (!liked) {
+      onToggleLike?.(item.id);
+      animateHeart();
+    }
+    playDoubleTapHeartBurst();
+  }, [isZooming, liked, onToggleLike, item.id, animateHeart, playDoubleTapHeartBurst]);
+
+  const doubleTapLikeGesture = useMemo(
+    () =>
+      Gesture.Tap()
+        .numberOfTaps(2)
+        .maxDuration(280)
+        .maxDistance(20)
+        .onEnd(() => {
+          runOnJS(handleMediaDoubleTapLike)();
+        }),
+    [handleMediaDoubleTapLike],
+  );
+
   // Use dynamic values for donation calculations
   const goalAmount = useMemo(() => {
     const parsedGoal = Number(item?.raiseAmount);
@@ -1436,30 +1488,44 @@ function PostItem({
               <Feather name="tag" size={18} color="#fff" />
             </TouchableOpacity>
           )}
-          <FlatList
-            ref={listRef}
-            data={safeMedia}
-            keyExtractor={(_, i) => `media-${i}`}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEnabled={scrollEnabled && safeMedia.length > 1}
-            onMomentumScrollEnd={onMomentumEnd}
-            decelerationRate="fast"
-            snapToInterval={width}
-            snapToAlignment="start"
-            disableIntervalMomentum={true}
-            getItemLayout={(_, index) => ({
-              length: width,
-              offset: width * index,
-              index
-            })}
-            renderItem={renderMedia}
-            removeClippedSubviews={Platform.OS === 'android'}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-            initialNumToRender={1}
-          />
+          <GestureDetector gesture={doubleTapLikeGesture}>
+            <FlatList
+              ref={listRef}
+              data={safeMedia}
+              keyExtractor={(_, i) => `media-${i}`}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEnabled={scrollEnabled && safeMedia.length > 1}
+              onMomentumScrollEnd={onMomentumEnd}
+              decelerationRate="fast"
+              snapToInterval={width}
+              snapToAlignment="start"
+              disableIntervalMomentum={true}
+              getItemLayout={(_, index) => ({
+                length: width,
+                offset: width * index,
+                index
+              })}
+              renderItem={renderMedia}
+              removeClippedSubviews={Platform.OS === 'android'}
+              maxToRenderPerBatch={2}
+              windowSize={3}
+              initialNumToRender={1}
+            />
+          </GestureDetector>
+
+          {showDoubleTapHeart && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.doubleTapHeartBurst,
+                { transform: [{ scale: doubleTapHeartScale }] },
+              ]}
+            >
+              <Icon name="heart" size={100} color="#ff3040" />
+            </Animated.View>
+          )}
 
           {item.media && item.media.length > 1 && (
             <>
@@ -1849,6 +1915,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     position: 'relative',
     overflow: 'visible',
+  },
+  doubleTapHeartBurst: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 6,
   },
   // mediaContainer: {
   //   width,
