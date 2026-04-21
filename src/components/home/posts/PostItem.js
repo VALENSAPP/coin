@@ -252,10 +252,46 @@ function InstagramZoomableVideo({
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalVideoReady, setModalVideoReady] = useState(false);
+  const [hasInlineLoaded, setHasInlineLoaded] = useState(false);
 
   const currentTimeRef = useRef(0);
   const modalVideoRef = useRef(null);
   const inlineVideoRef = useRef(null);
+
+  // Android: ExoPlayer SimpleCache is process-global — priming + inline decode populate cache
+  // so the modal’s second player can start from disk instead of re-fetching the whole asset.
+  const resolvedBufferConfig = useMemo(() => {
+    const base = { ...(bufferConfig || {}) };
+    if (Platform.OS === 'android' && base.cacheSizeMB == null) {
+      base.cacheSizeMB = 64;
+    }
+    return base;
+  }, [bufferConfig]);
+
+  const modalBufferConfig = useMemo(
+    () => ({
+      ...resolvedBufferConfig,
+      bufferForPlaybackMs: Math.min(Number(resolvedBufferConfig.bufferForPlaybackMs) || 800, 250),
+      bufferForPlaybackAfterRebufferMs: Math.min(
+        Number(resolvedBufferConfig.bufferForPlaybackAfterRebufferMs) || 800,
+        250,
+      ),
+    }),
+    [resolvedBufferConfig],
+  );
+
+  useEffect(() => {
+    setHasInlineLoaded(false);
+    setModalVideoReady(false);
+  }, [uri]);
+
+  const handleInlineLoad = useCallback(
+    (payload) => {
+      setHasInlineLoaded(true);
+      onLoad?.(payload);
+    },
+    [onLoad],
+  );
 
   const screenW = Dimensions.get('window').width;
   const halfWidth = screenW / 2;
@@ -362,16 +398,42 @@ function InstagramZoomableVideo({
             controls={false}
             pointerEvents="none"
             onLoadStart={onLoadStart}
-            onLoad={onLoad}
+            onLoad={handleInlineLoad}
             onError={onError}
             playWhenInactive={false}
             progressUpdateInterval={1000}
             onProgress={onProgressStable}
-            bufferConfig={bufferConfig}
+            bufferConfig={resolvedBufferConfig}
             maxBitRate={maxBitRate}
+            preferredForwardBufferDuration={Platform.OS === 'ios' ? 12 : undefined}
           />
         </Animated.View>
       </PinchGestureHandler>
+
+      {/*
+        Off-screen paused player: fills Android RNV cache / warms format while the feed clip plays,
+        so the modal instance can start much faster. Unmounted while the modal is open (2 decoders max).
+      */}
+      {uri && hasInlineLoaded && !isModalVisible && (
+        <View
+          pointerEvents="none"
+          collapsable={false}
+          style={styles.zoomVideoPrewarmHost}
+        >
+          <Video
+            source={{ uri }}
+            style={styles.zoomVideoPrewarmVideo}
+            resizeMode="cover"
+            repeat={repeat}
+            paused
+            muted
+            controls={false}
+            playWhenInactive={false}
+            bufferConfig={resolvedBufferConfig}
+            maxBitRate={maxBitRate}
+          />
+        </View>
+      )}
 
       {/* ── ZOOM MODAL ── */}
       <Modal
@@ -412,16 +474,12 @@ function InstagramZoomableVideo({
                   pointerEvents="none"
                   playWhenInactive={false}
                   progressUpdateInterval={1000}
-                  bufferConfig={{
-                    minBufferMs: 5000,
-                    maxBufferMs: 20000,
-                    bufferForPlaybackMs: 200,
-                    bufferForPlaybackAfterRebufferMs: 200,
-                  }}
+                  bufferConfig={modalBufferConfig}
                   maxBitRate={maxBitRate}
                   onError={onError}
                   onLoad={onModalLoad}
                   onReadyForDisplay={onModalReady}
+                  preferredForwardBufferDuration={Platform.OS === 'ios' ? 12 : undefined}
                   renderToHardwareTextureAndroid
                 />
               </Animated.View>
@@ -1801,6 +1859,20 @@ const styles = StyleSheet.create({
     width,
     justifyContent: "center",
     alignItems: "center",
+  },
+  zoomVideoPrewarmHost: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    opacity: 0,
+    overflow: 'hidden',
+    left: 0,
+    top: 0,
+    zIndex: -1,
+  },
+  zoomVideoPrewarmVideo: {
+    width: 2,
+    height: 2,
   },
   postMedia: {
     width: width,
