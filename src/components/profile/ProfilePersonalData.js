@@ -166,6 +166,7 @@ const ProfilePersonData = ({
     useState(false);
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
   const [totalSupportLoading, setTotalSupportLoading] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -220,10 +221,18 @@ const ProfilePersonData = ({
   };
 
   const handleProfileImagePress = () => {
+    if (fromUsersProfile) {
+      setImageViewerVisible(true);
+      return;
+    }
     Alert.alert(
       'Upload Image',
       'What would you like to upload?',
       [
+        {
+          text: 'View Profile',
+          onPress: () => setImageViewerVisible(true),
+        },
         {
           text: 'Add Drops',
           onPress: () => handleStoryUpload(),
@@ -1153,7 +1162,7 @@ const ProfilePersonData = ({
             <View style={styles.profileTopRow}>
               <View style={styles.profileWraper}>
                 <TouchableOpacity
-                  onPress={!fromUsersProfile ? handleProfileImagePress : null}
+                  onPress={handleProfileImagePress}
                   activeOpacity={0.8}
                   style={{ marginBottom: 5 }}
                 >
@@ -1540,6 +1549,48 @@ const ProfilePersonData = ({
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+      {/* Profile Image Viewer Modal */}
+      <Modal
+        visible={imageViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageViewerVisible(false)}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          activeOpacity={1}
+          onPress={() => setImageViewerVisible(false)}>
+          {/* <TouchableOpacity
+            onPress={() => setImageViewerVisible(false)}
+            style={{
+              marginTop: 20,
+            }}
+          >
+              <Ionicons
+                    name="arrow-back-outline"
+                    size={22}
+                    color="#fff"
+                    style={{ marginRight: 4 }}
+                  />
+            {/* <Text style={{ fontWeight: '600', fontSize: 15, color: '#111' }}>Close</Text> */}
+          {/* </TouchableOpacity>  */}
+
+          <TouchableOpacity activeOpacity={1}>
+            <HexAvatar
+              uri={avatarUri}
+              size={300}
+              borderWidth={2}
+              borderColor={text}
+            />
+          </TouchableOpacity>
+
+        </TouchableOpacity>
       </Modal>
     </View>
   );
