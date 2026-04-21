@@ -1511,7 +1511,7 @@ export default function BattleInProgress() {
   };
 
   const handleBackPress = () => {
-     const backTarget = route.params?.returnTo;
+    const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
     if (backTarget) {
@@ -1533,8 +1533,8 @@ export default function BattleInProgress() {
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}  // 'padding' on both platforms
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 30}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
@@ -1716,93 +1716,93 @@ export default function BattleInProgress() {
                     </View>
                   )}
                   <View style={styles.duelProgressCard}>
-                {(() => {
-                  const options = Array.isArray(battle.options) ? battle.options : [];
-                  const leftOption = options[0] || {};
-                  const rightOption = options[1] || {};
+                    {(() => {
+                      const options = Array.isArray(battle.options) ? battle.options : [];
+                      const leftOption = options[0] || {};
+                      const rightOption = options[1] || {};
 
-                  const leftLabel = String(
-                    pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
-                  );
-                  const rightLabel = String(
-                    pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
-                  );
-                  const leftSide = String(
-                    pickFirst(leftOption?.side, leftOption?.label, ''),
-                  );
-                  const rightSide = String(
-                    pickFirst(rightOption?.side, rightOption?.label, ''),
-                  );
+                      const leftLabel = String(
+                        pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
+                      );
+                      const rightLabel = String(
+                        pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
+                      );
+                      const leftSide = String(
+                        pickFirst(leftOption?.side, leftOption?.label, ''),
+                      );
+                      const rightSide = String(
+                        pickFirst(rightOption?.side, rightOption?.label, ''),
+                      );
 
-                  const leftVotes = Number(
-                    pickFirst(
-                      getCountFromSideMap(battle?.voteCounts, leftSide),
-                      getCountFromSideMap(battle?.predictionCounts, leftSide),
-                      getCountFromSideMap(battle?.voteCounts, leftLabel),
-                      getCountFromSideMap(battle?.predictionCounts, leftLabel),
-                      leftOption?.votes,
-                      0,
-                    ),
-                  );
-                  const rightVotes = Number(
-                    pickFirst(
-                      getCountFromSideMap(battle?.voteCounts, rightSide),
-                      getCountFromSideMap(battle?.predictionCounts, rightSide),
-                      getCountFromSideMap(battle?.voteCounts, rightLabel),
-                      getCountFromSideMap(battle?.predictionCounts, rightLabel),
-                      rightOption?.votes,
-                      0,
-                    ),
-                  );
+                      const leftVotes = Number(
+                        pickFirst(
+                          getCountFromSideMap(battle?.voteCounts, leftSide),
+                          getCountFromSideMap(battle?.predictionCounts, leftSide),
+                          getCountFromSideMap(battle?.voteCounts, leftLabel),
+                          getCountFromSideMap(battle?.predictionCounts, leftLabel),
+                          leftOption?.votes,
+                          0,
+                        ),
+                      );
+                      const rightVotes = Number(
+                        pickFirst(
+                          getCountFromSideMap(battle?.voteCounts, rightSide),
+                          getCountFromSideMap(battle?.predictionCounts, rightSide),
+                          getCountFromSideMap(battle?.voteCounts, rightLabel),
+                          getCountFromSideMap(battle?.predictionCounts, rightLabel),
+                          rightOption?.votes,
+                          0,
+                        ),
+                      );
 
-                  const total = leftVotes + rightVotes;
-                  const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
-                  const rightPercent = total > 0 ? 100 - leftPercent : 0;
+                      const total = leftVotes + rightVotes;
+                      const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
+                      const rightPercent = total > 0 ? 100 - leftPercent : 0;
 
-                  return (
-                    <>
-                      <View style={styles.duelProgressTopRow}>
-                        <View style={styles.duelProgressTopSide}>
-                          <Text style={[styles.duelProgressOptionName, ]} numberOfLines={1}>
-                            {leftLabel}
-                          </Text>
-                          <Text style={styles.duelProgressOptionVotes}>
-                            {leftVotes} votes
-                          </Text>
-                        </View>
-                        <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
-                          <Text style={[styles.duelProgressOptionName, ]} numberOfLines={1}>
-                            {rightLabel}
-                          </Text>
-                          <Text style={styles.duelProgressOptionVotes}>
-                            {rightVotes} votes
-                          </Text>
-                        </View>
-                      </View>
+                      return (
+                        <>
+                          <View style={styles.duelProgressTopRow}>
+                            <View style={styles.duelProgressTopSide}>
+                              <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
+                                {leftLabel}
+                              </Text>
+                              <Text style={styles.duelProgressOptionVotes}>
+                                {leftVotes} votes
+                              </Text>
+                            </View>
+                            <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
+                              <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
+                                {rightLabel}
+                              </Text>
+                              <Text style={styles.duelProgressOptionVotes}>
+                                {rightVotes} votes
+                              </Text>
+                            </View>
+                          </View>
 
-                      <View style={styles.duelProgressBarTrack}>
-                        <View
-                          style={[
-                            styles.duelProgressBarFillLeft,
-                            { width: `${leftPercent}%` },
-                          ]}
-                        />
-                        <View
-                          style={[
-                            styles.duelProgressBarFillRight,
-                            { width: `${rightPercent}%` },
-                          ]}
-                        />
-                      </View>
+                          <View style={styles.duelProgressBarTrack}>
+                            <View
+                              style={[
+                                styles.duelProgressBarFillLeft,
+                                { width: `${leftPercent}%` },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.duelProgressBarFillRight,
+                                { width: `${rightPercent}%` },
+                              ]}
+                            />
+                          </View>
 
-                      <View style={styles.duelProgressBottomRow}>
-                        <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
-                        <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
-                      </View>
-                    </>
-                  );
-                })()}
-              </View>
+                          <View style={styles.duelProgressBottomRow}>
+                            <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
+                            <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -1956,11 +1956,11 @@ export default function BattleInProgress() {
                                 : '#374151',
                             },
                           ]}
-                        onPress={() => {
-                          if (!shouldDisable) {
-                            setSelectedOption(optionSide || String(option.id || ''));
-                          }
-                        }}
+                          onPress={() => {
+                            if (!shouldDisable) {
+                              setSelectedOption(optionSide || String(option.id || ''));
+                            }
+                          }}
                         >
                           {option.label}
                         </Text>
