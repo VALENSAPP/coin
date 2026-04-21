@@ -1543,6 +1543,8 @@ export default function BattleInProgress() {
             showsVerticalScrollIndicator={false}
             refreshControl={null}
             ref={scrollRef}
+            keyboardShouldPersistTaps="handled"   // ← taps on Post/Cancel work while keyboard is up  
+            keyboardDismissMode="interactive"  
           >
             <View style={styles.header}>
               <TouchableOpacity
