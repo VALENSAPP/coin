@@ -737,17 +737,23 @@ const SearchScreen = () => {
     setSelectedBattleOptions(prev => ({ ...prev, [battleId]: optionLabel }));
   }, []);
 
-  const handleBattleCardPress = useCallback((battleItem) => {
-    navigation.navigate('ProfileMain', {
-      screen: 'BattleInProgress',
-      params: {
-        battleId: battleItem?.id,
-        battle: battleItem,
-        entryPoint: 'search',
-        selectedOption: selectedBattleOptions[battleItem?.id] || '',
-      },
-    });
-  }, [navigation, selectedBattleOptions]);
+const selectedBattleOptionsRef = useRef(selectedBattleOptions);
+useEffect(() => {
+  selectedBattleOptionsRef.current = selectedBattleOptions;
+}, [selectedBattleOptions]);
+
+const handleBattleCardPress = useCallback((battleItem) => {
+  navigation.navigate('ProfileMain', {
+    screen: 'BattleInProgress',
+    params: {
+      battleId: battleItem?.id,
+      battle: battleItem,
+      entryPoint: 'search',
+      selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
+      returnTo: route.name, returnParams: route.params
+    },
+  });
+}, [navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

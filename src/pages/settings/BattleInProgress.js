@@ -1510,6 +1510,25 @@ export default function BattleInProgress() {
     );
   };
 
+  const handleBackPress = () => {
+     const backTarget = route.params?.returnTo;
+    const returnParams = route.params?.returnParams;
+
+    if (backTarget) {
+      // Check if returnParams has nested screen navigation
+      if (returnParams?.screen) {
+        // Navigate to the main stack and then to the nested screen
+        navigation.navigate(backTarget, returnParams);
+      } else {
+        // Simple navigation
+        navigation.navigate(backTarget, returnParams);
+      }
+    }
+    else {
+      navigation.goBack()
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <KeyboardAvoidingView
@@ -1527,7 +1546,7 @@ export default function BattleInProgress() {
           >
             <View style={styles.header}>
               <TouchableOpacity
-                onPress={() => navigation.goBack()}
+                onPress={() => handleBackPress()}
                 style={styles.headerIconBtn}
               >
                 <Icon name="arrow-back-ios-new" size={20} color={text} />

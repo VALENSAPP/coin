@@ -112,7 +112,6 @@ export default function OpenBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const toast = useToast();
-  const { bgStyle, text, card } = useAppTheme();
   const [form, setForm] = useState(createInitialForm);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -132,9 +131,13 @@ export default function OpenBattleScreen() {
     () => route?.params?.params || route?.params || {},
     [route?.params],
   );
+  console.log("routeParamsrouteParamsrouteParamsrouteParamsrouteParamsrouteParams",routeParams)
+   const { bgStyle, text, card } = useAppTheme(routeParams.profile);
   const isCompanyProfile =
     routeParams?.isCompanyProfile === true ||
     String(routeParams?.isCompanyProfile).toLowerCase() === 'true';
+
+  const profile = routeParams.profile;
 
   const inputBackground = card || '#FFFFFF';
   const isPoll = form.format === 'POLL';
@@ -143,7 +146,7 @@ export default function OpenBattleScreen() {
     () => getFilledOptions(form.options),
     [form.options],
   );
-  const gradientColors = isCompanyProfile
+  const gradientColors = profile !== 'user'
     ? COMPANY_GRADIENT
     : PRIMARY_GRADIENT;
   const bottomBarPaddingBottom = isKeyboardVisible ? 10 : Math.max(tabBarHeight + 8, 14);

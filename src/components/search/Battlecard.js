@@ -283,6 +283,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
             activeOpacity={0.88}
             style={[styles.card, ended && styles.cardEnded]}
             onPress={() => onCardPress(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} 
         >
             <View style={styles.cardTopRow}>
                 <ModeBadge format={item.format} ended={ended} isLive={item.isLive} />
@@ -356,37 +357,57 @@ const SCROLL_SPEED = 0.4;     // px per tick — lower = slower/smoother
 const SCROLL_INTERVAL = 16;        // ~60 fps
 
 export const AutoScrollBattleRow = ({ children, style }) => {
-    const scrollRef = useRef(null);
-    const offsetRef = useRef(0);
+    const translateX = useRef(new Animated.Value(0)).current;
+    const animationRef = useRef(null);
     const contentWidthRef = useRef(0);
-    const timerRef = useRef(null);
-    const isDraggingRef = useRef(false);
+    const singleWidthRef = useRef(0);
+    const currentXRef = useRef(0);
+    const isPausedRef = useRef(false);
 
-    const startScroll = useCallback(() => {
-        if (timerRef.current) return;
-        timerRef.current = setInterval(() => {
-            if (isDraggingRef.current || !scrollRef.current) return;
-            offsetRef.current += SCROLL_SPEED;
-            // Loop back to start when we've scrolled past half the duplicated content
-            const halfWidth = contentWidthRef.current / 2;
-            if (halfWidth > 0 && offsetRef.current >= halfWidth) {
-                offsetRef.current = 0;
+    const startAnimation = useCallback(() => {
+        if (isPausedRef.current || singleWidthRef.current === 0) return;
+        if (animationRef.current) animationRef.current.stop();
+
+        const remaining = singleWidthRef.current - currentXRef.current;
+        const duration = (remaining / SCROLL_SPEED) * SCROLL_INTERVAL;
+
+        animationRef.current = Animated.timing(translateX, {
+            toValue: -singleWidthRef.current,
+            duration,
+            useNativeDriver: true,
+        });
+
+        animationRef.current.start(({ finished }) => {
+            if (finished && !isPausedRef.current) {
+                currentXRef.current = 0;
+                translateX.setValue(0);
+                startAnimation();
             }
-            scrollRef.current.scrollTo({ x: offsetRef.current, animated: false });
-        }, SCROLL_INTERVAL);
-    }, []);
+        });
+    }, [translateX]);
 
-    const stopScroll = useCallback(() => {
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-        }
-    }, []);
+    const pauseAnimation = useCallback(() => {
+        isPausedRef.current = true;
+        if (animationRef.current) animationRef.current.stop();
+        // capture current position
+        translateX.stopAnimation(value => {
+            currentXRef.current = Math.abs(value);
+        });
+    }, [translateX]);
+
+    const resumeAnimation = useCallback(() => {
+        isPausedRef.current = false;
+        startAnimation();
+    }, [startAnimation]);
 
     useEffect(() => {
-        startScroll();
-        return () => stopScroll();
-    }, [startScroll, stopScroll]);
+        // small delay to let layout measure first
+        const t = setTimeout(() => startAnimation(), 300);
+        return () => {
+            clearTimeout(t);
+            if (animationRef.current) animationRef.current.stop();
+        };
+    }, [startAnimation]);
 
     // Duplicate children so seamless looping works
     // Only duplicate if there are 2+ items, otherwise show single item once
@@ -394,22 +415,31 @@ export const AutoScrollBattleRow = ({ children, style }) => {
     const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
 
     return (
-        <ScrollView
-            ref={scrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            onContentSizeChange={w => { contentWidthRef.current = w; }}
-            onScrollBeginDrag={() => { isDraggingRef.current = true; stopScroll(); }}
-            onScrollEndDrag={e => {
-                isDraggingRef.current = false;
-                offsetRef.current = e.nativeEvent.contentOffset.x;
-                startScroll();
-            }}
-            contentContainerStyle={[{ paddingHorizontal: 12, gap: CARD_GAP }, style]}
+        <View
+            style={{ overflow: 'hidden' }}
+            onTouchStart={pauseAnimation}
+            onTouchEnd={resumeAnimation}
+            onTouchCancel={resumeAnimation}
         >
-            {doubled}
-        </ScrollView>
+            <Animated.View
+                style={[
+                    {
+                        flexDirection: 'row',
+                        gap: CARD_GAP,
+                        paddingHorizontal: 12,
+                        transform: [{ translateX }],
+                    },
+                    style,
+                ]}
+                onLayout={e => {
+                    contentWidthRef.current = e.nativeEvent.layout.width;
+                    // single width = half of total (since content is doubled)
+                    singleWidthRef.current = contentWidthRef.current / 2;
+                }}
+            >
+                {doubled}
+            </Animated.View>
+        </View>
     );
 };
 

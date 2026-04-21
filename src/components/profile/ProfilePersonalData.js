@@ -170,7 +170,8 @@ const ProfilePersonData = ({
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
-  const effectiveProfileType = profileType || userData?.profile;
+  console.log("profileTypeprofileTypeprofileTypeprofileType", profileType)
+  const effectiveProfileType = userData?.profile ? userData?.profile : profileType;
   const normalizedProfileThemeType =
     typeof effectiveProfileType === 'string'
       ? effectiveProfileType.toLowerCase()
@@ -735,6 +736,7 @@ const ProfilePersonData = ({
     navigation.navigate('OpenBattle', {
       returnTo: 'Home',
       isCompanyProfile,
+      profile: effectiveProfileType || userProfile || userData?.profile || 'user',
     });
   }, [fromUsersProfile, navigation, isCompanyProfile]);
 
@@ -754,6 +756,7 @@ const ProfilePersonData = ({
         presetFormat: 'HEAD_TO_HEAD',
         returnTo: 'Home',
         isCompanyProfile,
+        profile: effectiveProfileType || userProfile || userData?.profile || 'user',
       });
       return;
     }
@@ -827,6 +830,7 @@ const ProfilePersonData = ({
         ? `${displayName || 'User'} Battles`
         : 'My Battles',
       returnTo: fromUsersProfile ? 'UserProfile' : 'Home',
+      isCompanyProfile
     });
   }, [
     navigation,

@@ -194,6 +194,12 @@ export default function SignupScreen() {
     dispatch(hideLoader());
   };
 
+  const handleBackPress = () => {
+    // Clear signup form data from Redux when going back
+    dispatch(clearSignupFormData());
+    navigation.navigate('SelectAccountType');
+  };
+
   return (
     // <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -212,7 +218,7 @@ export default function SignupScreen() {
         <AuthHeader
           subtitle="Create Account"
           profileType={profile}
-          onBackPress={() => navigation.goBack()}
+          onBackPress={() => handleBackPress()}
         />
 
         {/* Enhanced Form Card */}
