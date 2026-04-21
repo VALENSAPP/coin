@@ -409,9 +409,10 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         };
     }, [startAnimation]);
 
+    // Duplicate children so seamless looping works
+    // Only duplicate if there are 2+ items, otherwise show single item once
     const allChildren = React.Children.toArray(children);
-    // duplicate for seamless loop
-    const doubled = [...allChildren, ...allChildren];
+    const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
 
     return (
         <View

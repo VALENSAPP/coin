@@ -476,12 +476,12 @@ export default function WalletComponent() {
                                 )}
                             </View>
                             <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text>
-                            <View style={styles.idRow}>
+                            {/* <View style={styles.idRow}>
                                 <Text style={[styles.walletAddress, textStyle]}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
                                 <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>
                                     <Ionicons name="copy-outline" size={15} color="#000" />
                                 </TouchableOpacity>
-                            </View>
+                            </View> */}
                         </View>
                         {/* <Image
                             source={{
@@ -491,17 +491,17 @@ export default function WalletComponent() {
                         /> */}
                         <HexAvatar
                             uri={profileImage || require('../../assets/icons/pngicons/user.png')}
-                            size={60}
+                            size={100}
                             borderWidth={3}
                             borderColor={text}
                         />
                     </View>
 
                     {/* Holdings Box */}
-                    <View style={[styles.holdingsBox, { shadowColor: text }]}>
+                    {/* <View style={[styles.holdingsBox, { shadowColor: text }]}>
                         <Text style={styles.holdingsText}>Total value of holdings</Text>
                         <Text style={[styles.holdingsAmount, textStyle]}>{portfolioValue || '$ 0.00'}</Text>
-                    </View>
+                    </View> */}
 
                     {/* Credits Section */}
                     <View style={[styles.creditsBox, { shadowColor: text }]}>
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        // paddingVertical: 12,
+        paddingVertical: 12,
         borderBottomColor: "#eee",
         marginTop: 0,
     },

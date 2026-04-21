@@ -1018,6 +1018,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const kpiValueColor = onDarkGradient ? '#ffffff' : '#2a1b3d';
 
     const isMetaMaskCard = item.id === 'metamask';
+    const isCreditsCard = item.id === 'credits';
     const metaStatusText = isMetaMaskConnected ? 'Connected' : 'Disconnected';
     const metaActionText = isMetaMaskConnected ? 'Tap to disconnect' : 'Tap to connect';
 
@@ -1030,12 +1031,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
           styles.kpiCard,
           isMetaMaskCard && styles.kpiCardNoOuterSpacing,
           isMetaMaskCard && styles.kpiCardFillTouchable,
+          isCreditsCard && styles.kpiCardNoOuterSpacing,
+          isCreditsCard && styles.kpiCardFillTouchable,
           { shadowColor: text },
         ]}
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
           <View style={styles.kpiHeaderLeft}>
-            <Ionicons name={item.icon} size={24} color={item.color} />
+            <Ionicons name={item.icon} size={20} color={item.color} />
             <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
               {item.title}
             </Text>
@@ -1046,7 +1049,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               onPress={openDragonflyModal}
               activeOpacity={0.75}
             >
-              <DragonflyIcon width={18} height={18} />
+              <DragonflyIcon width={25} height={25} />
             </TouchableOpacity>
           )}
         </View>
@@ -1064,6 +1067,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
             {metaStatusText} · {metaActionText}
           </Text>
         ) : null}
+        {isCreditsCard ? (
+          <Text
+            style={[
+              styles.kpiMetaSingleLine,
+              styles.kpiMetaBuyCredits,{color:text}
+            ]}
+            numberOfLines={2}
+          >
+            Tap to buy credits
+          </Text>
+        ) : null}
       </LinearGradient>
     );
 
@@ -1073,6 +1087,18 @@ export const WalletDashboardScreen = ({ navigation }) => {
           style={styles.kpiCardTouchable}
           activeOpacity={0.86}
           onPress={handleMetaMaskCardPress}
+        >
+          {cardContent}
+        </TouchableOpacity>
+      );
+    }
+
+    if (isCreditsCard) {
+      return (
+        <TouchableOpacity
+          style={styles.kpiCardTouchable}
+          activeOpacity={0.86}
+          onPress={() => navigation.navigate('WalletMain')}
         >
           {cardContent}
         </TouchableOpacity>
@@ -1183,7 +1209,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               <View style={styles.headerAvatarWrap}>
                 <HexAvatar
                   uri={userProfile.image || FALLBACK_AVATAR}
-                  size={72}
+                  size={100}
                   borderWidth={3}
                   borderColor={text}
                 />
@@ -1664,9 +1690,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    marginLeft:10,
   },
   headerText: {
     flex: 1,
+    marginLeft:5,
   },
   headerName: {
     color: '#fef3c7',
@@ -2072,6 +2100,9 @@ const styles = StyleSheet.create({
   kpiMetaDisconnected: {
     color: '#b45309',
   },
+  kpiMetaBuyCredits: {
+    color: '#3b82f6',
+  },
   kpiChange: {
     fontSize: 12,
     color: '#10b981',
@@ -2216,7 +2247,7 @@ const styles = StyleSheet.create({
   },
   lastRowCard: {
     flexGrow: 1,
-    maxWidth: '45%', 
+    maxWidth: '45%',
     marginTop: -10
   },
   // Activities
