@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   followButton: {
     paddingVertical: 7,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
     shadowOffset: { width: 0, height: 3 },
@@ -310,6 +310,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
     marginBottom: 5,
+    alignSelf: 'center',
+    minWidth: 90,
+    maxWidth: '80%',
   },
   unfollowButton: {
     backgroundColor: '#4c2a88b2',
@@ -319,5 +322,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
+    flexShrink: 1,
   },
 });

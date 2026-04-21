@@ -10,7 +10,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
-const { width } = Dimensions.get('window');
+const { width,height:screenHeight } = Dimensions.get('window');
 const gridItemSize = (width - 48) / 3;
 const selectedGridItemSize = (width - 64) / 2;
 
@@ -459,7 +459,7 @@ export default function PostScreen({ navigation }) {
       >
         {asset.type && asset.type.startsWith('video') ? (
           <View style={styles.videoGridItem}>
-            <Image source={{ uri: asset.uri }} style={styles.gridImage} resizeMode='cover'/>
+            <Image source={{ uri: asset.uri }} style={styles.gridImage} resizeMode='cover' />
             <View style={styles.videoDurationBadge}>
               <Icon name="videocam" size={12} color="#fff" />
               <Text style={styles.videoDurationText}>
@@ -582,13 +582,13 @@ export default function PostScreen({ navigation }) {
 
       {selectedMedia && selectedMedia.length < 10 && (
         <View style={styles.addMoreSection}>
-          <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text }]} onPress={openGallery}>
+          <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text, marginTop: 10 }]} onPress={openGallery}>
             <Icon name="images" size={24} color={text} />
             <Text style={[styles.addMoreText, textStyle]}>
               Add from Gallery
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[[styles.addMoreButton, { shadowColor: text }], { marginTop: 12 }]} onPress={openCamera}>
+          <TouchableOpacity style={[[styles.addMoreButton, { shadowColor: text }], { marginBottom: '20%', marginTop: 10 }]} onPress={openCamera}>
             <Icon name="camera" size={24} color={text} />
             <Text style={[styles.addMoreText, textStyle]}>
               Capture with Camera
@@ -809,8 +809,8 @@ const styles = StyleSheet.create({
   },
   addMoreSection: {
     marginHorizontal: 16,
-    marginBottom: 24,
-    marginTop: 20
+    // marginBottom: 24,
+    marginTop: 10
   },
   addMoreButton: {
     flexDirection: 'row',
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
-    textAlign:'center',
+    textAlign: 'center',
   },
   recentsSection: {
     paddingHorizontal: 16,
@@ -936,8 +936,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 4,
-    textAlign:'center',
-    
+    textAlign: 'center',
+
   },
   galleryButtonSubtext: {
     fontSize: 14,
@@ -952,11 +952,11 @@ const styles = StyleSheet.create({
     paddingRight: 32,
   },
   selectedMediaSection: {
-    marginTop: 16,
+    marginTop: 10,
   },
   selectedGridItemHorizontal: {
-    width: 170,
-    height: 170,
+    width: width*0.8,
+    height: screenHeight*0.5,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
   },
   selectedGridImageHorizontal: {
     width: '100%',
-    height: '100%',
+    height: screenHeight*0.5,
     resizeMode: 'cover',
   },
   selectedVideoPlay: {
