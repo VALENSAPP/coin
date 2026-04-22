@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   seeMoreText: {
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 18,
     letterSpacing: 0.5,
   },

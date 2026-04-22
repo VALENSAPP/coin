@@ -120,7 +120,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress }) => {
+const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress, isCompany }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -295,10 +295,19 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   }), []);
 
   const renderEmptyComponent = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <Text style={[styles.emptyTitle, textStyle]}>No private posts yet</Text>
-      <Text style={styles.emptySubtitle}>Private content will appear here</Text>
-    </View>
+    <>
+      {
+        isCompany ?
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyTitle, textStyle]}>Expanding Valens Format</Text>
+          </View>
+          :
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyTitle, textStyle]}>No private posts yet</Text>
+            <Text style={styles.emptySubtitle}>Private content will appear here</Text>
+          </View>
+      }
+    </>
   ), [textStyle]);
 
   if (loading || statusLoading) {
@@ -313,21 +322,28 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     <View style={[styles.screen, bgStyle]}>
       {!canViewPrivateContent ?
         <>
-          <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={onSubscribePress}
-              style={styles.lockedCard}
-            >
-              <Text style={styles.lockedIcon}>🔒</Text>
-              <Text style={[styles.lockedTitle, textStyle]}>
-                Subscribe to unlock private content
-              </Text>
-              <Text style={styles.lockedSubtitle}>
-                Exclusive posts are available only for active subscribers.
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {
+            isCompany ?
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyTitle, textStyle]}>Expanding Valens Format</Text>
+              </View>
+              :
+              <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={onSubscribePress}
+                  style={styles.lockedCard}
+                >
+                  <Text style={styles.lockedIcon}>🔒</Text>
+                  <Text style={[styles.lockedTitle, textStyle]}>
+                    Subscribe to unlock private content
+                  </Text>
+                  <Text style={styles.lockedSubtitle}>
+                    Exclusive posts are available only for active subscribers.
+                  </Text>
+                </TouchableOpacity>
+              </View>
+          }
         </>
         :
         <FlatList

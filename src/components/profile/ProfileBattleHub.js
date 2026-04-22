@@ -94,7 +94,7 @@ export default function ProfileBattleHub({
   isCompanyProfile
 }) {
   const navigation = useNavigation();
-  const { text, card } = useAppTheme(profile);
+  const { text, bgStyle } = useAppTheme(profile);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [battles, setBattles] = useState([]);
@@ -260,7 +260,7 @@ export default function ProfileBattleHub({
       }
       contentContainerStyle={styles.contentContainer}
     >
-      <View style={[styles.heroCard, { backgroundColor: card || '#fff' }]}>
+      <View style={[styles.heroCard, bgStyle]}>
         <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
           Battle Performance
         </Text>
@@ -279,7 +279,7 @@ export default function ProfileBattleHub({
 
         <View style={styles.statsGrid}>
           {stats.map(item => (
-            <View key={item.key} style={styles.statCard}>
+            <View key={item.key} style={[styles.statCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}>
               <Text style={styles.statValue}>{item.value}</Text>
               <Text style={styles.statLabel}>{item.label}</Text>
             </View>
@@ -328,7 +328,7 @@ export default function ProfileBattleHub({
             <TouchableOpacity
               key={battle.id}
               activeOpacity={0.86}
-              style={styles.battleCard}
+              style={[styles.battleCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}
               onPress={() => openBattle(battle)}
             >
               <View style={styles.cardHeader}>
@@ -366,7 +366,7 @@ export default function ProfileBattleHub({
           );
         })
       ) : (
-        <View style={styles.emptyCard}>
+        <View style={[styles.emptyCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}>
           <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
           <Text style={[styles.emptyTitle, { color: text }]}>No battles yet</Text>
           <Text style={styles.emptySubtitle}>
