@@ -742,7 +742,8 @@ useEffect(() => {
   selectedBattleOptionsRef.current = selectedBattleOptions;
 }, [selectedBattleOptions]);
 
-const handleBattleCardPress = useCallback((battleItem) => {
+const handleBattleCardPressRef = useRef(null);
+handleBattleCardPressRef.current = (battleItem) => {
   navigation.navigate('ProfileMain', {
     screen: 'BattleInProgress',
     params: {
@@ -750,10 +751,15 @@ const handleBattleCardPress = useCallback((battleItem) => {
       battle: battleItem,
       entryPoint: 'search',
       selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
-      returnTo: route.name, returnParams: route.params
+      returnTo: route.name,
+      returnParams: route.params,
     },
   });
-}, [navigation]);
+};
+
+const handleBattleCardPress = useCallback((battleItem) => {
+  handleBattleCardPressRef.current?.(battleItem);
+}, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

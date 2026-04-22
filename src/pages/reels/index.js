@@ -370,10 +370,24 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
-    if (navigation.canGoBack()) { navigation.goBack(); return; }
-    const returnTo = route.params?.returnTo;
+    
+    // if (navigation.canGoBack()) { navigation.goBack(); return; }
+    const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
-    if (returnTo) navigation.navigate(returnTo, returnParams);
+    console.log("backTarget----------------",backTarget)
+    console.log("returnParams----------------",returnParams)
+
+    if (backTarget) {
+      // Check if returnParams has nested screen navigation
+      if (returnParams?.screen) {
+        // Navigate to the main stack and then to the nested screen
+        navigation.navigate(backTarget, returnParams);
+      } else {
+        // Simple navigation
+        navigation.navigate(backTarget, returnParams);
+      }
+    }
+    else if (navigation.canGoBack()) { navigation.goBack(); return; }
     else navigation.navigate('HomeMain');
   }, [navigation, route.params]);
 
@@ -699,7 +713,7 @@ export default function FlipsScreen() {
       .maxDistance(14)
       .onEnd(e => {
         const isRightSide = e.x > SCREEN_WIDTH / 2;
-       runOnJS(handleDoubleTapLeft)(itemId);
+        runOnJS(handleDoubleTapLeft)(itemId);
       });
 
     const singleTap = Gesture.Tap()
@@ -1149,7 +1163,7 @@ export default function FlipsScreen() {
         <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
         <ReportFlowScreen ref={reportSheetRef} postId={selectedReelId || reels[currentIndex]?.id} />
         <SupportCreatorModal visible={modalVisible} creatorName={currentReel?.user || 'Creator'} onClose={() => setModalVisible(false)} onSupport={handleOpenSupportDisclaimer} />
-        <SupportCreatorModal visible={supportDisclaimerVisible} creatorName={currentReel?.user || 'Creator'} variant="disclaimer" onClose={() => setSupportDisclaimerVisible(false)} onSupport={handleSupportNow} canSupport={recipientWalletAddress}/>
+        <SupportCreatorModal visible={supportDisclaimerVisible} creatorName={currentReel?.user || 'Creator'} variant="disclaimer" onClose={() => setSupportDisclaimerVisible(false)} onSupport={handleSupportNow} canSupport={recipientWalletAddress} />
       </SafeAreaView>
     </GestureHandlerRootView >
   );

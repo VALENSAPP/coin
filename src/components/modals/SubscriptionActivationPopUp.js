@@ -66,7 +66,10 @@ const SubscriptionActivationPopup = ({
               style={[styles.cancelBtn, { borderColor: text }, isLoading && styles.cancelBtnDisabled]} 
               onPress={() => {
                 onClose();
-                navigation.goBack();
+                navigation.navigate('MainApp', {
+                  screen: 'wallet',
+                  params: { screen: 'Dashboard' }
+                });
               }}
               disabled={isLoading}
             >
