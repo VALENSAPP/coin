@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -886,6 +890,20 @@ export default function BattleInProgress() {
       return () => clearTimeout(timer);
     }
   }, [hasUserVoted]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setExpandedReplies({});
+
+      return () => {
+        setExpandedReplies({});
+      };
+    }, []),
+  );
+
+  useEffect(() => {
+    setExpandedReplies({});
+  }, [resolvedBattleId]);
 
   const handleOpenReply = useCallback(comment => {
     setReplyingToComment({

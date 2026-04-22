@@ -12,6 +12,7 @@ import {
   Modal,
   PermissionsAndroid,
   FlatList,
+  Platform,
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
@@ -56,6 +57,7 @@ const ProfileEditScreen = () => {
   const [instagram, setInstagram] = useState('');
   const [twitter, setTwitter] = useState('');
   const [linkedin, setLinkedin] = useState('');
+
 
 
   const refRBSheet = useRef();
@@ -108,7 +110,7 @@ const ProfileEditScreen = () => {
 
       // ✅ Get generic/website link (not a specific social platform)
       const primarySocialLink =
-        parsedSocialLinks.find(item => 
+        parsedSocialLinks.find(item =>
           item?.url && item?.platform === 'website'
         )?.url || '';
 
@@ -597,11 +599,12 @@ const ProfileEditScreen = () => {
 
   return (
     <>
-      <KeyboardAwareScrollView style={[styles.container, bgStyle]} contentContainerStyle={{ paddingBottom: 120 }}
+      <KeyboardAwareScrollView style={[styles.container, bgStyle]} contentContainerStyle={{ paddingBottom: 10 }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
         enableAutomaticScroll={true}
-        extraScrollHeight={120}
+        extraScrollHeight={Platform.OS === 'android' ? 200 : 100}
+        extraHeight={200}
         showsVerticalScrollIndicator={false}>
         <View style={[styles.avatarContainer, bgStyle]}>
           <TouchableOpacity
@@ -614,8 +617,8 @@ const ProfileEditScreen = () => {
                 size={75}
                 borderWidth={3}
                 borderColor={text}
-            />
-                {/* {!profileImage && (
+              />
+              {/* {!profileImage && (
                   <MaterialCommunityIcons
                     name="account-circle-outline"
                     size={40}
@@ -784,6 +787,7 @@ const ProfileEditScreen = () => {
                 value={instagram}
                 onChangeText={setInstagram}
                 autoCapitalize="none"
+                placeholderTextColor="#9CA3AF"
               />
             </View>
 
@@ -796,6 +800,7 @@ const ProfileEditScreen = () => {
                 value={twitter}
                 onChangeText={setTwitter}
                 autoCapitalize="none"
+                placeholderTextColor="#9CA3AF"
               />
             </View>
 
@@ -808,6 +813,7 @@ const ProfileEditScreen = () => {
                 value={linkedin}
                 onChangeText={setLinkedin}
                 autoCapitalize="none"
+                placeholderTextColor="#9CA3AF"
               />
             </View>
           </View>
