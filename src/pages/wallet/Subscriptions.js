@@ -71,7 +71,7 @@ const SubventionSetupScreen = () => {
     const { openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
 
     const contentTabs = [
-        { id: 'posts', label: 'New Mint', icon: '📝' },
+        { id: 'posts', label: 'Mint', icon: '📝' },
         { id: 'reels', label: 'Flips', icon: '🎬' },
         { id: 'stories', label: 'Drops', icon: '⭐' },
         { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
@@ -355,12 +355,11 @@ const SubventionSetupScreen = () => {
             setCredential(data); // store in state
             const status = data?.subscriptionStatus?.toUpperCase();
             const endDate = new Date(data?.currentPeriodEnd);
-            const storedProfileType = (await AsyncStorage.getItem('profile')) || '';
             const apiProfileType = data?.profile || data?.user?.profile || '';
-            const effectiveProfileType = String(apiProfileType || storedProfileType).toLowerCase();
+            const effectiveProfileType = String(apiProfileType).toLowerCase();
             setIsBusinessProfile(effectiveProfileType === 'company' || effectiveProfileType === 'business');
             const newDate = new Date();
-            console.log("dffeff",newDate,status,endDate )
+            console.log("dffeff", newDate, status, endDate)
             // ✅ Hide popup if already ACTIVE
             if (status === "ACTIVE" || (status === "CANCELED" && endDate >= newDate)) {
                 setShowActivationPopup(false);
@@ -476,7 +475,7 @@ const SubventionSetupScreen = () => {
                     toolbarColor: '#000',
                     enableUrlBarHiding: true,
                     enableDefaultShare: false,
-                }); 
+                });
                 return {
                     response,
                     cancelled: isBrowserCancelled(browserResult),
@@ -499,7 +498,7 @@ const SubventionSetupScreen = () => {
     };
 
     const formatSubscriptionDate = (dateValue) => {
-        if (!dateValue) return 'N/A';  
+        if (!dateValue) return 'N/A';
         const parsed = new Date(dateValue);
         if (Number.isNaN(parsed.getTime())) return 'N/A';
         return parsed.toLocaleDateString('en-US', {
@@ -833,9 +832,9 @@ const SubventionSetupScreen = () => {
                         <Text style={styles.sectionSubtitle}>Set your monthly rate per subscriber</Text>
 
                         <View style={styles.priceInputContainer}>
-                            <Text style={styles.currencySymbol}>$</Text>
+                            <Text style={[styles.currencySymbol, {color: text}]}>$</Text>
                             <TextInput
-                                style={styles.priceInput}
+                                style={[styles.priceInput, {borderBottomColor: text}]}
                                 value={price}
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
@@ -894,14 +893,17 @@ const SubventionSetupScreen = () => {
                                     key={tab.id}
                                     style={[
                                         styles.tab,
-                                        selectedTab === tab.id && styles.tabActive
+                                        selectedTab === tab.id && [
+                                            bgStyle,
+                                            { borderColor: text }
+                                        ]
                                     ]}
                                     onPress={() => setSelectedTab(tab.id)}
                                 >
                                     <Text style={styles.tabIcon}>{tab.icon}</Text>
                                     <Text style={[
                                         styles.tabLabel,
-                                        selectedTab === tab.id && styles.tabLabelActive
+                                        selectedTab === tab.id && [{color: text}]
                                     ]}>
                                         {tab.label}
                                     </Text>
@@ -915,7 +917,7 @@ const SubventionSetupScreen = () => {
                                 Create {contentTabs.find(t => t.id === selectedTab)?.label}
                             </Text>
                             <TouchableOpacity
-                                style={styles.createButton}
+                                style={[styles.createButton, {backgroundColor: text}]}
                                 onPress={() => handleCreateContent(selectedTab)}
                             >
                                 <Text style={styles.createButtonText}>
@@ -1085,7 +1087,7 @@ const SubventionSetupScreen = () => {
                         </TouchableOpacity>
                     </ScrollView>
 
-                    <TouchableOpacity style={[styles.saveButton, !isChecked && { opacity: 0.5 }]} onPress={handleSaveSubscription} disabled={!isChecked}>
+                    <TouchableOpacity style={[styles.saveButton, !isChecked && { opacity: 0.5, backgroundColor: text }]} onPress={handleSaveSubscription} disabled={!isChecked}>
                         <Text style={styles.saveButtonText}>
                             {hasExistingSubscription ? 'Update Subscription' : 'Save & Activate Program'}
                         </Text>

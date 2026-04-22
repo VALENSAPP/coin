@@ -222,7 +222,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
     console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
     if (isPoll) {
         return (
-            <Pressable
+            <TouchableOpacity
                 activeOpacity={0.88}
                 style={[styles.card, ended && styles.cardEnded]}
                 onPress={() => onCardPress(item)}
@@ -275,13 +275,13 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
 
                 <View style={styles.divider} />
                 <StatRow totalParticipants={item.totalParticipants} totalLikes={item.totalLikes} totalComments={item.totalComments} />
-            </Pressable>
+            </TouchableOpacity>
         );
     }
 
     // HEAD_TO_HEAD
     return (
-        <Pressable
+        <TouchableOpacity
             activeOpacity={0.88}
             style={[styles.card, ended && styles.cardEnded]}
             onPress={() => onCardPress(item)}
@@ -337,7 +337,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
 
             <View style={styles.divider} />
             <StatRow totalParticipants={item.totalParticipants} totalLikes={item.totalLikes} totalComments={item.totalComments} />
-        </Pressable>
+        </TouchableOpacity>
     );
 }, (prevProps, nextProps) => {
     // Return true if props are equal (don't re-render), false to re-render
@@ -361,77 +361,94 @@ const SCROLL_SPEED = 0.4;     // px per tick — lower = slower/smoother
 const SCROLL_INTERVAL = 16;        // ~60 fps
 
 export const AutoScrollBattleRow = ({ children, style }) => {
-    const scrollRef = useRef(null);
-    const currentXRef = useRef(0);
-    const singleWidthRef = useRef(0);
-    const isPausedRef = useRef(false);
-    const intervalRef = useRef(null);
-    const isDraggingRef = useRef(false);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const animRef = useRef(null);
+  const pausedRef = useRef(false);
+  const pauseOffsetRef = useRef(0);
 
-    const startAutoScroll = useCallback(() => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
+  const allChildren = React.Children.toArray(children);
+  const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
 
-        intervalRef.current = setInterval(() => {
-            if (isPausedRef.current || isDraggingRef.current) return;
+  const SINGLE_WIDTH = allChildren.length * (CARD_WIDTH + CARD_GAP);
+  const DURATION_PER_PX = 18; // ms per pixel — higher = slower
 
-            currentXRef.current += SCROLL_SPEED;
+  const startScroll = useCallback((fromValue = 0) => {
+    if (pausedRef.current) return;
+    const remaining = SINGLE_WIDTH - fromValue;
+    if (remaining <= 0) {
+      translateX.setValue(0);
+      startScroll(0);
+      return;
+    }
 
-            if (singleWidthRef.current > 0 && currentXRef.current >= singleWidthRef.current) {
-                currentXRef.current = 0;
-                scrollRef.current?.scrollTo({ x: 0, animated: false });
-                return;
-            }
+    animRef.current = Animated.timing(translateX, {
+      toValue: -SINGLE_WIDTH,
+      duration: remaining * DURATION_PER_PX,
+      useNativeDriver: true,  // ← runs on native thread, JS thread stays free
+      isInteraction: false,
+    });
 
-            scrollRef.current?.scrollTo({ x: currentXRef.current, animated: false });
-        }, SCROLL_INTERVAL);
-    }, []);
+    animRef.current.start(({ finished }) => {
+      if (finished && !pausedRef.current) {
+        translateX.setValue(0);
+        startScroll(0);
+      }
+    });
+  }, [translateX, SINGLE_WIDTH]);
 
-    useEffect(() => {
-        const t = setTimeout(() => startAutoScroll(), 300);
-        return () => {
-            clearTimeout(t);
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
-    }, [startAutoScroll]);
+  useEffect(() => {
+    const t = setTimeout(() => startScroll(0), 300);
+    return () => {
+      clearTimeout(t);
+      animRef.current?.stop();
+    };
+  }, [startScroll]);
 
-    const allChildren = React.Children.toArray(children);
-    const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
+  const handleTouchStart = useCallback(() => {
+    pausedRef.current = true;
+    animRef.current?.stop();
+    // Capture current animated value so we resume from here
+    translateX.stopAnimation(value => {
+      pauseOffsetRef.current = Math.abs(value);
+    });
+  }, [translateX]);
 
-    return (
-        <ScrollView
-            ref={scrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            keyboardShouldPersistTaps="handled"
-            delayContentTouches={false}
-            onScrollBeginDrag={() => {
-                isDraggingRef.current = true;
-                isPausedRef.current = true;
-            }}
-            onScrollEndDrag={e => {
-                currentXRef.current = e.nativeEvent.contentOffset.x;
-                isDraggingRef.current = false;
-                isPausedRef.current = false;
-            }}
-            onMomentumScrollEnd={e => {
-                currentXRef.current = e.nativeEvent.contentOffset.x;
-                isDraggingRef.current = false;
-            }}
-            contentContainerStyle={[
-                { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: 12 },
-                style,
-            ]}
-            onLayout={e => {
-                const childCount = allChildren.length;
-                singleWidthRef.current = childCount * (CARD_WIDTH + CARD_GAP);
-            }}
-        >
-            {doubled}
-        </ScrollView>
-    );
+  const handleTouchEnd = useCallback(() => {
+    pausedRef.current = false;
+    startScroll(pauseOffsetRef.current);
+  }, [startScroll]);
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      scrollEnabled={true}
+      keyboardShouldPersistTaps="handled"
+      delayContentTouches={false}
+      // ← These two are the critical fixes for tap-through
+      onScrollBeginDrag={handleTouchStart}
+      onScrollEndDrag={handleTouchEnd}
+      onMomentumScrollEnd={handleTouchEnd}
+      contentContainerStyle={[
+        { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: 12 },
+        style,
+      ]}
+    >
+      <Animated.View
+        style={{
+          flexDirection: 'row',
+          gap: CARD_GAP,
+          transform: [{ translateX }],
+        }}
+        // ← Pass touch events up so cards can capture them
+        onStartShouldSetResponder={() => false}
+        onMoveShouldSetResponder={() => false}
+      >
+        {doubled}
+      </Animated.View>
+    </ScrollView>
+  );
 };
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const PURPLE = '#7F77DD';

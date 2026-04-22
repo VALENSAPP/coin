@@ -82,6 +82,7 @@ import BattleInProgress from '../pages/settings/BattleInProgress';
 import BattleResults from '../pages/settings/BattleResults';
 import BattleReward from '../pages/settings/BattleReward';
 import HexAvatar from '../components/home/story.js/HexAvatar';
+import { getUserCredentials } from '../services/post';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -92,14 +93,29 @@ export default function MainTabNavigator() {
   const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text } = useAppTheme();
 
-  useEffect(() => {
-    loadProfileType();
-  }, [profile]);
+  const getUserDetail = async () => {
+    try {
+      dispatch(showLoader());
+      const id = await AsyncStorage.getItem('userId');
 
-  const loadProfileType = async () => {
-    const type = await AsyncStorage.getItem('profile');
-    setProfile(type);
+      if (!id) {
+        console.log('User ID not found');
+        return;
+      }
+
+      const response = await getUserCredentials(id);
+
+      console.log('API Response: data in thi apiaiaaiaiaai', response);
+      setProfile(response?.data?.profile);
+    } catch (error) {
+      console.log('Error fetching user details:', error);
+    } finally {
+      dispatch(hideLoader()); // Add this
+    }
   };
+  useEffect(() => {
+    getUserDetail();
+  }, []);
 
   const HomeStack = useMemo(() => {
     return () => (
@@ -283,8 +299,8 @@ export default function MainTabNavigator() {
               {
                 elevation: 0,
                 shadowOpacity: 0,
+                backgroundColor: profile !== 'user' ? '#fcfbfaff' : '#f8f2fd',
               },
-              bgStyle,
             ],
             headerTitleStyle: {
               fontWeight: 'bold',

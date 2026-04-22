@@ -227,21 +227,77 @@ const CommentItem = memo(({
 
       {hasReplies && isExpanded ? (
         <View style={styles.repliesSection}>
-          {item.replies.map(reply => (
-            <View key={reply.id} style={styles.replyCard}>
-              <Image source={{ uri: reply.avatar }} style={styles.avatar} />
-              <View style={styles.commentContent}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.username}>{reply.username}</Text>
-                  <Text style={styles.time}>{reply.time}</Text>
+          {item.replies.map(reply => {
+            // Voting and moderation logic for replies
+            const replyVotes = commentVotes?.[reply.id] || { thumbsUp: 0, thumbsDown: 0, userVote: null };
+            const replyUserId = reply.userId != null ? String(reply.userId).trim() : '';
+            const isReplyAuthor = viewerId && replyUserId === viewerId;
+            const canModerateReply = isReplyAuthor || isPostOwner;
+            return (
+              <View key={reply.id} style={styles.replyCard}>
+                <Image source={{ uri: reply.avatar }} style={styles.avatar} />
+                <View style={styles.commentContent}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.username}>{reply.username}</Text>
+                    <Text style={styles.time}>{reply.time}</Text>
+                  </View>
+                  <Text style={styles.commentText}>{reply.text}</Text>
+                  <View style={styles.commentActionsRow}>
+                    <TouchableOpacity onPress={() => onReplyPress?.(reply)}>
+                      <Text style={styles.replyButtonText}>Reply</Text>
+                    </TouchableOpacity>
+                    <View style={styles.votingContainer}>
+                      <TouchableOpacity
+                        style={styles.voteButton}
+                        onPress={() => onThumbsUpPress?.(reply.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={[
+                          styles.voteIcon,
+                          replyVotes.userVote === 'up' && styles.voteIconActive
+                        ]}>👍</Text>
+                        {replyVotes.thumbsUp > 0 && (
+                          <Text style={[
+                            styles.voteCount,
+                            replyVotes.userVote === 'up' && styles.voteCountActive
+                          ]}>
+                            {replyVotes.thumbsUp}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.voteButton}
+                        onPress={() => onThumbsDownPress?.(reply.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={[
+                          styles.voteIcon,
+                          replyVotes.userVote === 'down' && styles.voteIconActive
+                        ]}>👎</Text>
+                        {replyVotes.thumbsDown > 0 && (
+                          <Text style={[
+                            styles.voteCount,
+                            replyVotes.userVote === 'down' && styles.voteCountActive
+                          ]}>
+                            {replyVotes.thumbsDown}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                    {canModerateReply && (
+                      <TouchableOpacity
+                        style={styles.starIcon}
+                        onPress={() => onMorePress?.(reply)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Icon name="ellipsis-vertical" size={18} color="#000" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                <Text style={styles.commentText}>{reply.text}</Text>
-                <TouchableOpacity onPress={() => onReplyPress?.(reply)}>
-                  <Text style={styles.replyButtonText}>Reply</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       ) : null}
     </View>
