@@ -94,6 +94,12 @@ const FLIP_EMOJI_STICKERS = [
 /** Visual-only: overlay shrinks while over delete so drop-to-delete is obvious. */
 const OVERLAY_TRASH_PREVIEW_SCALE = 0.42;
 
+/** Tap vs drag / pinch for text: movement below this (px) still counts as a tap. */
+const TEXT_OVERLAY_TAP_MAX_MOVE = 14;
+/** Shorter than TEXT_OVERLAY_LONGPRESS_DELETE_MS so a deliberate hold is not a tap. */
+const TEXT_OVERLAY_TAP_MAX_MS = 300;
+const TEXT_OVERLAY_LONGPRESS_DELETE_MS = 500;
+
 const createEmptyImageEdits = () => ({
   textOverlays: [],
   overlayImages: [],
@@ -308,7 +314,10 @@ const InstagramPostCreator = () => {
   const overlayImageScaleRefs = useRef({});
   const overlayImageRotationRefs = useRef({});
   const textOverlayScaleRefs = useRef({});
+  const textOverlayRotationRefs = useRef({});
   const textOverlayLayoutRefs = useRef({});
+  /** True for entire text overlay gesture; blocks Effect sync from fighting Animated values. */
+  const textOverlayTransformActiveRef = useRef(false);
   const recentDragTimestamps = useRef({});
   const overlayPanResponderRefs = useRef({});
   const textPanResponderRefs = useRef({});
@@ -736,6 +745,21 @@ const InstagramPostCreator = () => {
     return textOverlayScaleRefs.current[key];
   };
 
+  const getAnimatedTextOverlayRotation = (imageIndex, overlayId, initialRad = 0) => {
+    const key = `${imageIndex}:textrot:${overlayId}`;
+    if (!textOverlayRotationRefs.current[key]) {
+      const v = new Animated.Value(initialRad);
+      textOverlayRotationRefs.current[key] = {
+        value: v,
+        rotate: v.interpolate({
+          inputRange: [-62.83, 62.83],
+          outputRange: ['-62.83rad', '62.83rad'],
+        }),
+      };
+    }
+    return textOverlayRotationRefs.current[key];
+  };
+
   const getTouchDistance = (touches) => {
     if (!touches || touches.length < 2) return 0;
     const [a, b] = touches;
@@ -924,34 +948,46 @@ const InstagramPostCreator = () => {
       return;
     }
 
-    currentEdits.textOverlays?.forEach(overlay => {
-      const nextPosition = overlay.position || { x: 0, y: 0 };
-      const animatedPosition = getAnimatedValue(
-        currentImageIndex,
-        overlay.id,
-        nextPosition.x,
-        nextPosition.y,
-      );
-      const currentPosition = getAnimatedPositionValue(animatedPosition, nextPosition);
+    if (!textOverlayTransformActiveRef.current) {
+      currentEdits.textOverlays?.forEach(overlay => {
+        const nextPosition = overlay.position || { x: 0, y: 0 };
+        const animatedPosition = getAnimatedValue(
+          currentImageIndex,
+          overlay.id,
+          nextPosition.x,
+          nextPosition.y,
+        );
+        const currentPosition = getAnimatedPositionValue(animatedPosition, nextPosition);
 
-      if (
-        Math.abs(currentPosition.x - nextPosition.x) > 1 ||
-        Math.abs(currentPosition.y - nextPosition.y) > 1
-      ) {
-        animatedPosition.setValue(nextPosition);
-      }
+        if (
+          Math.abs(currentPosition.x - nextPosition.x) > 1 ||
+          Math.abs(currentPosition.y - nextPosition.y) > 1
+        ) {
+          animatedPosition.setValue(nextPosition);
+        }
 
-      const nextScale = overlay.scale ?? 1;
-      const scaleAnim = getAnimatedTextOverlayScale(
-        currentImageIndex,
-        overlay.id,
-        nextScale,
-      );
-      const curScale = getAnimatedNumericValue(scaleAnim, nextScale);
-      if (Math.abs(curScale - nextScale) > 0.001) {
-        scaleAnim.setValue(nextScale);
-      }
-    });
+        const nextScale = overlay.scale ?? 1;
+        const nextRot = overlay.rotation ?? 0;
+        const scaleAnim = getAnimatedTextOverlayScale(
+          currentImageIndex,
+          overlay.id,
+          nextScale,
+        );
+        const rotAnim = getAnimatedTextOverlayRotation(
+          currentImageIndex,
+          overlay.id,
+          nextRot,
+        );
+        const curScale = getAnimatedNumericValue(scaleAnim, nextScale);
+        const curRot = getAnimatedNumericValue(rotAnim.value, nextRot);
+        if (Math.abs(curScale - nextScale) > 0.001) {
+          scaleAnim.setValue(nextScale);
+        }
+        if (Math.abs(curRot - nextRot) > 0.002) {
+          rotAnim.value.setValue(nextRot);
+        }
+      });
+    }
 
     currentEdits.overlayImages?.forEach(overlay => {
       const nextPosition = overlay.position || { x: 50, y: 50 };
@@ -1560,6 +1596,11 @@ const InstagramPostCreator = () => {
       id,
       target.scale ?? 1,
     );
+    const animatedRotation = getAnimatedTextOverlayRotation(
+      imageIndex,
+      id,
+      target.rotation ?? 0,
+    );
 
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -1567,6 +1608,10 @@ const InstagramPostCreator = () => {
       onMoveShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: evt => {
+        textOverlayTransformActiveRef.current = true;
+        setIsOverlayTransforming(true);
+        setIsScrollEnabled(false);
+
         const touches = evt.nativeEvent.touches;
         const currentOverlay = getLatestTextOverlayById(id) || target;
         const safePosition = getAnimatedPositionValue(
@@ -1578,42 +1623,62 @@ const InstagramPostCreator = () => {
 
         const startDist = getTouchDistance(touches);
         const startCenter = getTouchCenter(touches);
+        const touchT0 = Date.now();
         textOverlayGestureState.current[id] = {
           mode: touches.length >= 2 ? 'transform' : 'drag',
           startPosition: safePosition,
           startScale: currentOverlay.scale ?? 1,
+          startRotation: currentOverlay.rotation ?? 0,
           startDistance: startDist,
           startCenter,
+          startAngle: getTouchAngle(touches),
           pinchBaselineReady: touches.length >= 2 && startDist > 1e-4,
           didPinchGesture: false,
           moved: false,
+          maxPointerMove: 0,
+          touchStartTime: touchT0,
           enteredTrashZone: false,
-          overlayTransformRaf: null,
+          longPressDeleteTimer: null,
         };
 
         const nextS = currentOverlay.scale ?? 1;
         if (Math.abs(getAnimatedNumericValue(animatedScale, nextS) - nextS) > 1e-4) {
           animatedScale.setValue(nextS);
         }
+        const nextR = currentOverlay.rotation ?? 0;
+        if (Math.abs(getAnimatedNumericValue(animatedRotation.value, nextR) - nextR) > 1e-4) {
+          animatedRotation.value.setValue(nextR);
+        }
 
-        const rafId = requestAnimationFrame(() => {
-          setIsOverlayTransforming(true);
-          setIsScrollEnabled(false);
-          const s = textOverlayGestureState.current[id];
-          if (s) {
-            s.overlayTransformRaf = null;
+        textOverlayGestureState.current[id].longPressDeleteTimer = setTimeout(() => {
+          if (Date.now() - (recentDragTimestamps.current[`text-${id}`] || 0) < 800) {
+            return;
           }
-        });
-        textOverlayGestureState.current[id].overlayTransformRaf = rafId;
+          const s = textOverlayGestureState.current[id];
+          if (!s || s.didPinchGesture || s.moved) {
+            return;
+          }
+          if (s.maxPointerMove > TEXT_OVERLAY_TAP_MAX_MOVE) {
+            return;
+          }
+          textOverlayTransformActiveRef.current = false;
+          setIsOverlayTransforming(false);
+          setIsScrollEnabled(true);
+          setShowTrashZone(false);
+          removeTextOverlay(id);
+          delete textOverlayGestureState.current[id];
+        }, TEXT_OVERLAY_LONGPRESS_DELETE_MS);
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
         const session = textOverlayGestureState.current[id];
         if (!session) return;
 
-        const currentOverlay = getLatestTextOverlayById(id) || target;
-
         if (touches.length >= 2) {
+          if (session.longPressDeleteTimer) {
+            clearTimeout(session.longPressDeleteTimer);
+            session.longPressDeleteTimer = null;
+          }
           session.didPinchGesture = true;
           if (!session.pinchBaselineReady) {
             session.pinchBaselineReady = true;
@@ -1621,6 +1686,8 @@ const InstagramPostCreator = () => {
             session.startDistance = Math.max(getTouchDistance(touches), 1e-4);
             session.startCenter = getTouchCenter(touches);
             session.startScale = co?.scale ?? 1;
+            session.startRotation = co?.rotation ?? 0;
+            session.startAngle = getTouchAngle(touches);
             session.startPosition = getAnimatedPositionValue(
               animatedPosition,
               co?.position || fallbackPosition,
@@ -1629,9 +1696,12 @@ const InstagramPostCreator = () => {
 
           const distance = getTouchDistance(touches);
           const center = getTouchCenter(touches);
+          const angle = getTouchAngle(touches);
           const scaleRatio =
             session.startDistance > 0 ? distance / session.startDistance : 1;
           const nextScale = clamp(session.startScale * scaleRatio, 0.3, 4.5);
+          const pendingRotation = session.startRotation + (angle - session.startAngle);
+          session.pendingRotation = pendingRotation;
 
           const dx = center.x - session.startCenter.x;
           const dy = center.y - session.startCenter.y;
@@ -1648,6 +1718,7 @@ const InstagramPostCreator = () => {
             ? nextScale * OVERLAY_TRASH_PREVIEW_SCALE
             : nextScale;
           animatedScale.setValue(displayScale);
+          animatedRotation.value.setValue(pendingRotation);
 
           session.enteredTrashZone = session.enteredTrashZone || isTouchOverTrash;
           setShowTrashZone(prev =>
@@ -1658,6 +1729,15 @@ const InstagramPostCreator = () => {
           session.pendingTrashPoint = dragPoint;
           session.moved = true;
           return;
+        }
+
+        const m = Math.hypot(gestureState.dx, gestureState.dy);
+        session.maxPointerMove = Math.max(session.maxPointerMove || 0, m);
+        if (session.longPressDeleteTimer) {
+          if (Math.abs(gestureState.dx) > 1.5 || Math.abs(gestureState.dy) > 1.5) {
+            clearTimeout(session.longPressDeleteTimer);
+            session.longPressDeleteTimer = null;
+          }
         }
 
         const dx = gestureState.dx;
@@ -1688,11 +1768,17 @@ const InstagramPostCreator = () => {
       },
       onPanResponderRelease: () => {
         const session = textOverlayGestureState.current[id];
-        if (session?.overlayTransformRaf != null) {
-          cancelAnimationFrame(session.overlayTransformRaf);
+        if (session?.longPressDeleteTimer) {
+          clearTimeout(session.longPressDeleteTimer);
+        }
+
+        if (!session) {
+          textOverlayTransformActiveRef.current = false;
+          return;
         }
 
         if (shouldDeleteOnDrop(session)) {
+          textOverlayTransformActiveRef.current = false;
           removeTextOverlay(id);
           delete textOverlayGestureState.current[id];
           setShowTrashZone(false);
@@ -1712,6 +1798,7 @@ const InstagramPostCreator = () => {
           ...overlay,
           position: finalPosition,
           scale: session?.pendingScale ?? overlay.scale,
+          rotation: session?.pendingRotation ?? overlay.rotation,
         }));
         const restoredScale =
           session?.pendingScale != null
@@ -1720,9 +1807,36 @@ const InstagramPostCreator = () => {
               getLatestTextOverlayById(id)?.scale ??
               1;
         animatedScale.setValue(restoredScale);
+        const restoredRot =
+          session?.pendingRotation != null
+            ? session.pendingRotation
+            : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0;
+        animatedRotation.value.setValue(restoredRot);
         if (session?.moved) {
           recentDragTimestamps.current[`text-${id}`] = Date.now();
         }
+
+        const tapToEdit =
+          !session.didPinchGesture &&
+          (session.maxPointerMove || 0) < TEXT_OVERLAY_TAP_MAX_MOVE &&
+          Date.now() - (session.touchStartTime || 0) < TEXT_OVERLAY_TAP_MAX_MS;
+        if (
+          tapToEdit &&
+          Date.now() - (recentDragTimestamps.current[`text-${id}`] || 0) > 120
+        ) {
+          const o = getLatestTextOverlayById(id);
+          if (o) {
+            setEditingOverlayId(o.id);
+            setText(o.text);
+            setTextColor(o.color);
+            setHighlightColor(o.highlightColor);
+            setTextAlign(o.textAlign);
+            setSelectedFont({ fontFamily: o.fontFamily });
+            setModalVisible2(true);
+          }
+        }
+
+        textOverlayTransformActiveRef.current = false;
         delete textOverlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
@@ -1730,10 +1844,15 @@ const InstagramPostCreator = () => {
       },
       onPanResponderTerminate: () => {
         const session = textOverlayGestureState.current[id];
-        if (session?.overlayTransformRaf != null) {
-          cancelAnimationFrame(session.overlayTransformRaf);
+        if (session?.longPressDeleteTimer) {
+          clearTimeout(session.longPressDeleteTimer);
+        }
+        if (!session) {
+          textOverlayTransformActiveRef.current = false;
+          return;
         }
         if (shouldDeleteOnDrop(session)) {
+          textOverlayTransformActiveRef.current = false;
           removeTextOverlay(id);
           delete textOverlayGestureState.current[id];
           setShowTrashZone(false);
@@ -1752,6 +1871,7 @@ const InstagramPostCreator = () => {
           ...overlay,
           position: finalPosition,
           scale: session?.pendingScale ?? overlay.scale,
+          rotation: session?.pendingRotation ?? overlay.rotation,
         }));
         const restoredScaleTerm =
           session?.pendingScale != null
@@ -1760,6 +1880,15 @@ const InstagramPostCreator = () => {
               getLatestTextOverlayById(id)?.scale ??
               1;
         animatedScale.setValue(restoredScaleTerm);
+        const restoredRotTerm =
+          session?.pendingRotation != null
+            ? session.pendingRotation
+            : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0;
+        animatedRotation.value.setValue(restoredRotTerm);
+        if (session?.moved) {
+          recentDragTimestamps.current[`text-${id}`] = Date.now();
+        }
+        textOverlayTransformActiveRef.current = false;
         delete textOverlayGestureState.current[id];
         setIsOverlayTransforming(false);
         setIsScrollEnabled(true);
@@ -1879,6 +2008,7 @@ const InstagramPostCreator = () => {
         text,
         fontSize: 28,
         scale: 1,
+        rotation: 0,
         color: textColor,
         fontFamily: resolveOverlayFontFamily(
           text,
@@ -1969,6 +2099,7 @@ const InstagramPostCreator = () => {
       text: emoji,
       fontSize: 52,
       scale: 1,
+      rotation: 0,
       color: '#fff',
       fontFamily: 'System',
       textAlign: 'center',
@@ -2004,9 +2135,16 @@ const InstagramPostCreator = () => {
   };
 
   const removeTextOverlay = (id) => {
+    const s = textOverlayGestureState.current[id];
+    if (s?.longPressDeleteTimer) {
+      clearTimeout(s.longPressDeleteTimer);
+    }
+    delete textOverlayGestureState.current[id];
+    textOverlayTransformActiveRef.current = false;
     delete textPanResponderRefs.current[id];
     const idx = currentImageIndexRef.current;
     delete textOverlayScaleRefs.current[`${idx}:textscale:${id}`];
+    delete textOverlayRotationRefs.current[`${idx}:textrot:${id}`];
     const currentEdits = getCurrentImageEdits();
     updateCurrentImageEdits({
       textOverlays: currentEdits.textOverlays.filter(overlay => overlay.id !== id)
@@ -2675,6 +2813,11 @@ const InstagramPostCreator = () => {
                                 overlay.id,
                                 overlay.scale ?? 1,
                               );
+                              const textRotationAnim = getAnimatedTextOverlayRotation(
+                                currentImageIndex,
+                                overlay.id,
+                                overlay.rotation ?? 0,
+                              );
                               return (
                                 <Animated.View
                                   key={overlay.id}
@@ -2701,43 +2844,17 @@ const InstagramPostCreator = () => {
                                     transform: [
                                       ...animatedPosition.getTranslateTransform(),
                                       { scale: textScaleAnim },
+                                      { rotate: textRotationAnim.rotate },
                                     ],
                                   }}
-                                  renderToHardwareTextureAndroid
-                                  shouldRasterizeIOS
                                 >
-                                  <TouchableOpacity
-                                    onLongPress={() => {
-                                      if (
-                                        Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
-                                        250
-                                      ) {
-                                        return;
-                                      }
-                                      removeTextOverlay(overlay.id);
-                                    }}
-                                    delayLongPress={250}
-                                    activeOpacity={1}
-                                    onPress={() => {
-                                      if (
-                                        Date.now() - (recentDragTimestamps.current[`text-${overlay.id}`] || 0) <
-                                        250
-                                      ) {
-                                        return;
-                                      }
-                                      setEditingOverlayId(overlay.id);
-                                      setText(overlay.text);
-                                      setTextColor(overlay.color);
-                                      setHighlightColor(overlay.highlightColor);
-                                      setTextAlign(overlay.textAlign);
-                                      setSelectedFont({ fontFamily: overlay.fontFamily });
-                                      setModalVisible2(true);
-                                    }}
+                                  <View
                                     style={{
                                       padding: 4,
                                       borderRadius: 4,
                                       backgroundColor: overlay.highlightColor || 'transparent',
                                     }}
+                                    collapsable={false}
                                   >
                                     <Text
                                       style={[
@@ -2756,7 +2873,7 @@ const InstagramPostCreator = () => {
                                     >
                                       {overlay.text}
                                     </Text>
-                                  </TouchableOpacity>
+                                  </View>
                                 </Animated.View>
                               );
                             })}
@@ -2840,7 +2957,10 @@ const InstagramPostCreator = () => {
                                   padding: 4,
                                   borderRadius: 4,
                                   backgroundColor: overlay.highlightColor || 'transparent',
-                                  transform: [{ scale: overlay.scale ?? 1 }],
+                                  transform: [
+                                    { scale: overlay.scale ?? 1 },
+                                    { rotate: `${overlay.rotation || 0}rad` },
+                                  ],
                                 }}
                               >
                                 <Text
