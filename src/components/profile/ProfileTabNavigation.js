@@ -5,7 +5,7 @@ import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
 import TaggedScreen from '../profile/TaggedScreen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
 import { useFocusEffect } from '@react-navigation/native';
 import SubscribeModal from '../modals/SubscriptionModal';
@@ -108,7 +108,8 @@ const ProfileTabs = memo(({
         userData={userData}
         isSubscribed={isSubscribed}
         loggedInUserId={loggedInUserId}
-        onSubscribePress={() => setShowSubscribeModal(true)}
+        onSubscribePress={() => {userData?.profile !== 'company' && setShowSubscribeModal(true)}}
+        isCompany={userData?.profile === 'company'}   // 👈 add this
       />
     ),
     [post, userData, isSubscribed, loggedInUserId],
@@ -217,11 +218,19 @@ const ProfileTabs = memo(({
           // }
           options={{
             tabBarIcon: ({ focused }) => (
-              <LockKey
-                fill={focused ? (text) : '#6b7280'}
-                height={24}
-                width={24}
-              />
+              userData?.profile === 'company' ? (
+                <MaterialIcons
+                  name={focused ? 'shopping-bag' : 'shopping-bag'}
+                  size={24}
+                  color={focused ? text : '#6b7280'}
+                />
+              ) : (
+                <LockKey
+                  fill={focused ? text : '#6b7280'}
+                  height={24}
+                  width={24}
+                />
+              )
             ),
           }}
           listeners={{
@@ -244,13 +253,15 @@ const ProfileTabs = memo(({
                 setPrivatKey(prev => prev + 1);
                 setShowSubscribeModal(false);
                 setTimeout(() => {
-                  setShowSubscribeModal(true);
+                  if (userData?.profile !== 'company'){
+                    setShowSubscribeModal(true);
+                  }
                 }, 50);
               }
             },
           }}
-          >
-          {renderPrivateContentScreen}  
+        >
+          {renderPrivateContentScreen}
         </Tab.Screen>
 
         {/* <Tab.Screen

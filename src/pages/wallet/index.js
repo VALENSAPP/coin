@@ -206,16 +206,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const openDragonflyModal = () => setDragonflyModalVisible(true);
   const closeDragonflyModal = () => setDragonflyModalVisible(false);
 
-  const loadProfileType = useCallback(async () => {
-    try {
-      const profileType = await AsyncStorage.getItem('profile');
-      const normalized = String(profileType || '').toLowerCase();
-      setIsBusinessProfile(normalized === 'company' || normalized === 'business');
-    } catch (error) {
-      console.error('Error loading profile type:', error);
-      setIsBusinessProfile(false);
-    }
-  }, []);
   const formatPointValue = (value) => {
     const numericValue = Number(value) || 0;
     return numericValue.toLocaleString('en-US');
@@ -310,6 +300,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       const response = await getUserCredentials(id);
 
       console.log('API Response: data in thi apiaiaaiaiaai', response);
+      setIsBusinessProfile(response?.data?.profile !== 'user');
       setKyc(response?.data?.kycStatus || null);
       // 🔥 Adjust keys based on your API response
       const stripeCustomerId =
@@ -422,7 +413,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
             // fetchAllTransaction(),
             // fetchDashboardData(),
             getUserDetail(),
-            loadProfileType(),
             fetchCreditsLeft(),
             rewardPoints(),
             fetchFollowers(),
@@ -447,7 +437,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return () => {
         // Cleanup if needed
       };
-    }, [dispatch, loadProfileType]) // Add dispatch to dependency array
+    }, [dispatch]) // Add dispatch to dependency array
   );
 
   // Remove the separate useEffect for activityPeriod
@@ -479,7 +469,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
       await Promise.allSettled([
         // fetchAllTransaction(),
         getUserDetail(),
-        loadProfileType(),
         // fetchDashboardData(),
         getGraph(),
         fetchCreditsLeft(),
@@ -1071,7 +1060,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
           <Text
             style={[
               styles.kpiMetaSingleLine,
-              styles.kpiMetaBuyCredits,{color:text}
+              styles.kpiMetaBuyCredits, { color: text }
             ]}
             numberOfLines={2}
           >
@@ -1690,11 +1679,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    marginLeft:10,
+    marginLeft: 10,
   },
   headerText: {
     flex: 1,
-    marginLeft:5,
+    marginLeft: 5,
   },
   headerName: {
     color: '#fef3c7',

@@ -753,6 +753,7 @@ export default function OpenBattleScreen() {
             '',
           battle: response?.data?.battle || response?.data || payload,
           entryPoint: 'open_battle',
+          profile
         });
         return;
       }

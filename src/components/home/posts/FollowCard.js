@@ -151,12 +151,19 @@ export default function FollowCard({
           </ClipPath>
         </Defs>
 
-        {/* Background hexagon with shadow effect */}
+        {/* Simulated shadow for hexagon */}
+        <Polygon
+          points={points}
+          fill={text}
+          opacity={0.2}
+          transform={`translate(2,4)`}
+        />
+        {/* Main hexagon */}
         <Polygon
           points={points}
           fill="#fff"
           stroke={text}
-          strokeWidth={2}
+          strokeWidth={1}
           strokeLinejoin="round"
         />
       </Svg>
@@ -178,7 +185,7 @@ export default function FollowCard({
           <HexAvatar
             uri={avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             size={90}
-            borderWidth={3}
+            borderWidth={2}
             borderColor={type ==
               "company" ? '#D3B683' : '#5a2d82'}
           />
@@ -293,7 +300,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   username: {
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#1F2937',
     fontSize: 15,
     marginBottom: 8,
@@ -320,7 +327,7 @@ const styles = StyleSheet.create({
   followText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.5,
     flexShrink: 1,
   },

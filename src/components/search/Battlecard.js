@@ -17,6 +17,7 @@ import {
     Animated,
     ScrollView,
     Dimensions,
+    Pressable
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
@@ -195,8 +196,8 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
         </View> */}
         {/* <View style={styles.statDot} /> */}
         <View style={styles.statItem}>
-            <View style={{marginTop: 2}}>
-            <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
+            <View style={{ marginTop: 2 }}>
+                <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
             </View>
             <Text style={styles.statText}>{formatBattleCount(totalComments)}</Text>
         </View>
@@ -209,7 +210,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
     const ended = formatBattleCountdown(item.endTime) === 'Ended';
     const isPoll = item.format === 'POLL';
     const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
-    
+
     // Ensure optionImages is always an array
     const optionImages = Array.isArray(item?.optionImages) ? item.optionImages : [];
 
@@ -217,7 +218,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         label => { if (!ended) onOptionSelect(item.id, label); },
         [ended, item.id, onOptionSelect],
     );
-    
+
     console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
     if (isPoll) {
         return (
@@ -267,7 +268,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
                 )}
 
                 <View style={styles.metaRow}>
-                    <Text style={styles.metaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text>
+                    <StakePill amount={formatAmount(item.stakeAmount || 0)}/>
+                    {/* <Text style={styles.metaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text> */}
                     <Text style={styles.metaText}>Ends: {formatBattleDate(item.endTime)}</Text>
                 </View>
 
@@ -283,7 +285,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
             activeOpacity={0.88}
             style={[styles.card, ended && styles.cardEnded]}
             onPress={() => onCardPress(item)}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} 
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
             <View style={styles.cardTopRow}>
                 <ModeBadge format={item.format} ended={ended} isLive={item.isLive} />
@@ -344,6 +346,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         prevProps.selectedOption === nextProps.selectedOption &&
         prevProps.item?.isLive === nextProps.item?.isLive &&
         prevProps.item?.status === nextProps.item?.status &&
+        prevProps.onCardPress === nextProps.onCardPress &&       
+        prevProps.onOptionSelect === nextProps.onOptionSelect &&
         JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages) &&
         JSON.stringify(prevProps.item?.opponent) === JSON.stringify(nextProps.item?.opponent)
     );
@@ -357,92 +361,94 @@ const SCROLL_SPEED = 0.4;     // px per tick — lower = slower/smoother
 const SCROLL_INTERVAL = 16;        // ~60 fps
 
 export const AutoScrollBattleRow = ({ children, style }) => {
-    const translateX = useRef(new Animated.Value(0)).current;
-    const animationRef = useRef(null);
-    const contentWidthRef = useRef(0);
-    const singleWidthRef = useRef(0);
-    const currentXRef = useRef(0);
-    const isPausedRef = useRef(false);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const animRef = useRef(null);
+  const pausedRef = useRef(false);
+  const pauseOffsetRef = useRef(0);
 
-    const startAnimation = useCallback(() => {
-        if (isPausedRef.current || singleWidthRef.current === 0) return;
-        if (animationRef.current) animationRef.current.stop();
+  const allChildren = React.Children.toArray(children);
+  const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
 
-        const remaining = singleWidthRef.current - currentXRef.current;
-        const duration = (remaining / SCROLL_SPEED) * SCROLL_INTERVAL;
+  const SINGLE_WIDTH = allChildren.length * (CARD_WIDTH + CARD_GAP);
+  const DURATION_PER_PX = 18; // ms per pixel — higher = slower
 
-        animationRef.current = Animated.timing(translateX, {
-            toValue: -singleWidthRef.current,
-            duration,
-            useNativeDriver: true,
-        });
+  const startScroll = useCallback((fromValue = 0) => {
+    if (pausedRef.current) return;
+    const remaining = SINGLE_WIDTH - fromValue;
+    if (remaining <= 0) {
+      translateX.setValue(0);
+      startScroll(0);
+      return;
+    }
 
-        animationRef.current.start(({ finished }) => {
-            if (finished && !isPausedRef.current) {
-                currentXRef.current = 0;
-                translateX.setValue(0);
-                startAnimation();
-            }
-        });
-    }, [translateX]);
+    animRef.current = Animated.timing(translateX, {
+      toValue: -SINGLE_WIDTH,
+      duration: remaining * DURATION_PER_PX,
+      useNativeDriver: true,  // ← runs on native thread, JS thread stays free
+      isInteraction: false,
+    });
 
-    const pauseAnimation = useCallback(() => {
-        isPausedRef.current = true;
-        if (animationRef.current) animationRef.current.stop();
-        // capture current position
-        translateX.stopAnimation(value => {
-            currentXRef.current = Math.abs(value);
-        });
-    }, [translateX]);
+    animRef.current.start(({ finished }) => {
+      if (finished && !pausedRef.current) {
+        translateX.setValue(0);
+        startScroll(0);
+      }
+    });
+  }, [translateX, SINGLE_WIDTH]);
 
-    const resumeAnimation = useCallback(() => {
-        isPausedRef.current = false;
-        startAnimation();
-    }, [startAnimation]);
+  useEffect(() => {
+    const t = setTimeout(() => startScroll(0), 300);
+    return () => {
+      clearTimeout(t);
+      animRef.current?.stop();
+    };
+  }, [startScroll]);
 
-    useEffect(() => {
-        // small delay to let layout measure first
-        const t = setTimeout(() => startAnimation(), 300);
-        return () => {
-            clearTimeout(t);
-            if (animationRef.current) animationRef.current.stop();
-        };
-    }, [startAnimation]);
+  const handleTouchStart = useCallback(() => {
+    pausedRef.current = true;
+    animRef.current?.stop();
+    // Capture current animated value so we resume from here
+    translateX.stopAnimation(value => {
+      pauseOffsetRef.current = Math.abs(value);
+    });
+  }, [translateX]);
 
-    // Duplicate children so seamless looping works
-    // Only duplicate if there are 2+ items, otherwise show single item once
-    const allChildren = React.Children.toArray(children);
-    const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
+  const handleTouchEnd = useCallback(() => {
+    pausedRef.current = false;
+    startScroll(pauseOffsetRef.current);
+  }, [startScroll]);
 
-    return (
-        <View
-            style={{ overflow: 'hidden' }}
-            onTouchStart={pauseAnimation}
-            onTouchEnd={resumeAnimation}
-            onTouchCancel={resumeAnimation}
-        >
-            <Animated.View
-                style={[
-                    {
-                        flexDirection: 'row',
-                        gap: CARD_GAP,
-                        paddingHorizontal: 12,
-                        transform: [{ translateX }],
-                    },
-                    style,
-                ]}
-                onLayout={e => {
-                    contentWidthRef.current = e.nativeEvent.layout.width;
-                    // single width = half of total (since content is doubled)
-                    singleWidthRef.current = contentWidthRef.current / 2;
-                }}
-            >
-                {doubled}
-            </Animated.View>
-        </View>
-    );
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      scrollEnabled={true}
+      keyboardShouldPersistTaps="handled"
+      delayContentTouches={false}
+      // ← These two are the critical fixes for tap-through
+      onScrollBeginDrag={handleTouchStart}
+      onScrollEndDrag={handleTouchEnd}
+      onMomentumScrollEnd={handleTouchEnd}
+      contentContainerStyle={[
+        { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: 12 },
+        style,
+      ]}
+    >
+      <Animated.View
+        style={{
+          flexDirection: 'row',
+          gap: CARD_GAP,
+          transform: [{ translateX }],
+        }}
+        // ← Pass touch events up so cards can capture them
+        onStartShouldSetResponder={() => false}
+        onMoveShouldSetResponder={() => false}
+      >
+        {doubled}
+      </Animated.View>
+    </ScrollView>
+  );
 };
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const PURPLE = '#7F77DD';
@@ -583,7 +589,7 @@ const styles = StyleSheet.create({
     divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 10 },
 
     // Stats
-    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6,alignSelf:'center' },
     statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { fontSize: 12, color: GRAY_MID },
     statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: BORDER },

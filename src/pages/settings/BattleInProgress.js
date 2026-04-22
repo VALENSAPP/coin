@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -7,10 +11,8 @@ import {
   Animated,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +20,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -667,6 +670,7 @@ export default function BattleInProgress() {
   const [likingCommentId, setLikingCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
   const [participantUserData, setParticipantUserData] = useState({});
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -887,6 +891,37 @@ export default function BattleInProgress() {
     }
   }, [hasUserVoted]);
 
+  useFocusEffect(
+    useCallback(() => {
+      setExpandedReplies({});
+
+      return () => {
+        setExpandedReplies({});
+      };
+    }, []),
+  );
+
+  useEffect(() => {
+    setExpandedReplies({});
+  }, [resolvedBattleId]);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   const handleOpenReply = useCallback(comment => {
     setReplyingToComment({
       id: comment?.id || '',
@@ -896,7 +931,7 @@ export default function BattleInProgress() {
 
     setTimeout(() => {
       replyInputRef.current?.focus?.();
-      scrollRef.current?.scrollToEnd({ animated: true });
+      scrollRef.current?.update?.();
     }, 120);
   }, []);
 
@@ -1511,7 +1546,7 @@ export default function BattleInProgress() {
   };
 
   const handleBackPress = () => {
-     const backTarget = route.params?.returnTo;
+    const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
 
     if (backTarget) {
@@ -1531,19 +1566,24 @@ export default function BattleInProgress() {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            style={[styles.container, bgStyle]}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-            refreshControl={null}
-            ref={scrollRef}
-          >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAwareScrollView
+          style={[styles.container, bgStyle]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            styles.keyboardAwareContentContainer,
+            isKeyboardVisible && styles.keyboardOpenContentContainer,
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={null}
+          ref={scrollRef}
+          keyboardShouldPersistTaps="handled"   // ← taps on Post/Cancel work while keyboard is up
+          keyboardDismissMode="interactive"
+          enableOnAndroid
+          enableAutomaticScroll
+          extraScrollHeight={32}
+          keyboardOpeningTime={0}
+        >
             <View style={styles.header}>
               <TouchableOpacity
                 onPress={() => handleBackPress()}
@@ -1661,7 +1701,7 @@ export default function BattleInProgress() {
                                       borderColor={text}
                                     />
                                   </View>
-                                  <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || player0Data?.userId || 'User'}</Text>
+                                  <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || 'User'}</Text>
                                   <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
                                   {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -1696,7 +1736,7 @@ export default function BattleInProgress() {
                                       borderColor={text}
                                     />
                                   </View>
-                                  <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name || player1Data?.userId || 'User'}</Text>
+                                  <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name ||  'User'}</Text>
                                   <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
                                   {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
@@ -1716,93 +1756,93 @@ export default function BattleInProgress() {
                     </View>
                   )}
                   <View style={styles.duelProgressCard}>
-                {(() => {
-                  const options = Array.isArray(battle.options) ? battle.options : [];
-                  const leftOption = options[0] || {};
-                  const rightOption = options[1] || {};
+                    {(() => {
+                      const options = Array.isArray(battle.options) ? battle.options : [];
+                      const leftOption = options[0] || {};
+                      const rightOption = options[1] || {};
 
-                  const leftLabel = String(
-                    pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
-                  );
-                  const rightLabel = String(
-                    pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
-                  );
-                  const leftSide = String(
-                    pickFirst(leftOption?.side, leftOption?.label, ''),
-                  );
-                  const rightSide = String(
-                    pickFirst(rightOption?.side, rightOption?.label, ''),
-                  );
+                      const leftLabel = String(
+                        pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
+                      );
+                      const rightLabel = String(
+                        pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
+                      );
+                      const leftSide = String(
+                        pickFirst(leftOption?.side, leftOption?.label, ''),
+                      );
+                      const rightSide = String(
+                        pickFirst(rightOption?.side, rightOption?.label, ''),
+                      );
 
-                  const leftVotes = Number(
-                    pickFirst(
-                      getCountFromSideMap(battle?.voteCounts, leftSide),
-                      getCountFromSideMap(battle?.predictionCounts, leftSide),
-                      getCountFromSideMap(battle?.voteCounts, leftLabel),
-                      getCountFromSideMap(battle?.predictionCounts, leftLabel),
-                      leftOption?.votes,
-                      0,
-                    ),
-                  );
-                  const rightVotes = Number(
-                    pickFirst(
-                      getCountFromSideMap(battle?.voteCounts, rightSide),
-                      getCountFromSideMap(battle?.predictionCounts, rightSide),
-                      getCountFromSideMap(battle?.voteCounts, rightLabel),
-                      getCountFromSideMap(battle?.predictionCounts, rightLabel),
-                      rightOption?.votes,
-                      0,
-                    ),
-                  );
+                      const leftVotes = Number(
+                        pickFirst(
+                          getCountFromSideMap(battle?.voteCounts, leftSide),
+                          getCountFromSideMap(battle?.predictionCounts, leftSide),
+                          getCountFromSideMap(battle?.voteCounts, leftLabel),
+                          getCountFromSideMap(battle?.predictionCounts, leftLabel),
+                          leftOption?.votes,
+                          0,
+                        ),
+                      );
+                      const rightVotes = Number(
+                        pickFirst(
+                          getCountFromSideMap(battle?.voteCounts, rightSide),
+                          getCountFromSideMap(battle?.predictionCounts, rightSide),
+                          getCountFromSideMap(battle?.voteCounts, rightLabel),
+                          getCountFromSideMap(battle?.predictionCounts, rightLabel),
+                          rightOption?.votes,
+                          0,
+                        ),
+                      );
 
-                  const total = leftVotes + rightVotes;
-                  const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
-                  const rightPercent = total > 0 ? 100 - leftPercent : 0;
+                      const total = leftVotes + rightVotes;
+                      const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
+                      const rightPercent = total > 0 ? 100 - leftPercent : 0;
 
-                  return (
-                    <>
-                      <View style={styles.duelProgressTopRow}>
-                        <View style={styles.duelProgressTopSide}>
-                          <Text style={[styles.duelProgressOptionName, ]} numberOfLines={1}>
-                            {leftLabel}
-                          </Text>
-                          <Text style={styles.duelProgressOptionVotes}>
-                            {leftVotes} votes
-                          </Text>
-                        </View>
-                        <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
-                          <Text style={[styles.duelProgressOptionName, ]} numberOfLines={1}>
-                            {rightLabel}
-                          </Text>
-                          <Text style={styles.duelProgressOptionVotes}>
-                            {rightVotes} votes
-                          </Text>
-                        </View>
-                      </View>
+                      return (
+                        <>
+                          <View style={styles.duelProgressTopRow}>
+                            <View style={styles.duelProgressTopSide}>
+                              <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
+                                {leftLabel}
+                              </Text>
+                              <Text style={styles.duelProgressOptionVotes}>
+                                {leftVotes} votes
+                              </Text>
+                            </View>
+                            <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
+                              <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
+                                {rightLabel}
+                              </Text>
+                              <Text style={styles.duelProgressOptionVotes}>
+                                {rightVotes} votes
+                              </Text>
+                            </View>
+                          </View>
 
-                      <View style={styles.duelProgressBarTrack}>
-                        <View
-                          style={[
-                            styles.duelProgressBarFillLeft,
-                            { width: `${leftPercent}%` },
-                          ]}
-                        />
-                        <View
-                          style={[
-                            styles.duelProgressBarFillRight,
-                            { width: `${rightPercent}%` },
-                          ]}
-                        />
-                      </View>
+                          <View style={styles.duelProgressBarTrack}>
+                            <View
+                              style={[
+                                styles.duelProgressBarFillLeft,
+                                { width: `${leftPercent}%` },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.duelProgressBarFillRight,
+                                { width: `${rightPercent}%` },
+                              ]}
+                            />
+                          </View>
 
-                      <View style={styles.duelProgressBottomRow}>
-                        <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
-                        <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
-                      </View>
-                    </>
-                  );
-                })()}
-              </View>
+                          <View style={styles.duelProgressBottomRow}>
+                            <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
+                            <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -1910,7 +1950,7 @@ export default function BattleInProgress() {
                               : '#E5E7EB',
                             backgroundColor: isSelected
                               ? useVotedGrayStyle ? '#F3F4F6' : palette.soft
-                              : '#F9FAFB',
+                              : shouldDisable ?palette.soft : '#F9FAFB',
                           },
                         ]}
                         onPress={() => {
@@ -1952,15 +1992,16 @@ export default function BattleInProgress() {
                             styles.optionPillLabel,
                             {
                               color: isSelected
-                                ? useVotedGrayStyle ? '#9CA3AF' : palette.primary
+                                ? useVotedGrayStyle ? text : palette.primary
                                 : '#374151',
+                              // opacity: hasUserVoted && !isSelected ? 0.3 : 1,
                             },
                           ]}
-                        onPress={() => {
-                          if (!shouldDisable) {
-                            setSelectedOption(optionSide || String(option.id || ''));
-                          }
-                        }}
+                          onPress={() => {
+                            if (!shouldDisable) {
+                              setSelectedOption(optionSide || String(option.id || ''));
+                            }
+                          }}
                         >
                           {option.label}
                         </Text>
@@ -1971,11 +2012,12 @@ export default function BattleInProgress() {
                             styles.optionPillRadio,
                             {
                               borderColor: isSelected
-                                ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                ? useVotedGrayStyle ? text : palette.primary
                                 : '#D1D5DB',
                               backgroundColor: isSelected
-                                ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                ? useVotedGrayStyle ? text : palette.primary
                                 : '#FFFFFF',
+                              opacity: hasUserVoted && !isSelected ? 0.3 : 1,
                             },
                           ]}
                         />
@@ -1988,6 +2030,7 @@ export default function BattleInProgress() {
                 editable
                 value={hasUserVoted ? commentText : argumentText}
                 onChangeText={hasUserVoted ? setCommentText : setArgumentText}
+                onFocus={() => scrollRef.current?.update?.()}
                 placeholder={
                   hasUserVoted
                     ? 'Write a comment...'
@@ -2141,9 +2184,8 @@ export default function BattleInProgress() {
             </Text>
           </TouchableOpacity> */}
             </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -2165,6 +2207,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 34,
+  },
+  keyboardAwareContentContainer: {
+    flexGrow: 1,
+  },
+  keyboardOpenContentContainer: {
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -2334,6 +2382,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingLeft: 10,
     paddingRight: 10,
+    marginLeft: 10,
+    marginRight: 10,
+    marginBottom: 15,
   },
   duelProgressTopRow: {
     flexDirection: 'row',
