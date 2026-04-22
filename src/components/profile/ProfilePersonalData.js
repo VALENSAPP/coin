@@ -1571,35 +1571,7 @@ const ProfilePersonData = ({
           ]);
         }}
       />
-      <Modal
-        visible={totalSupportModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseTotalSupportModal}
-      >
-        <View style={styles.totalSupportModalOverlay}>
-          <View style={styles.totalSupportModalCard}>
-            <Text style={styles.totalSupportModalTitle}>Total Support</Text>
-            {/* <Text style={styles.totalSupportModalLabel}>
-              Amount received From Support
-            </Text> */}
-            {totalSupportLoading ? (
-              <ActivityIndicator size="large" color="#513189" />
-            ) : (
-              <Text style={styles.totalSupportModalAmount}>
-                $ {totalSupportAmount.toFixed(2)}
-              </Text>
-            )}
-            <TouchableOpacity
-              style={styles.totalSupportModalButton}
-              activeOpacity={0.8}
-              onPress={handleCloseTotalSupportModal}
-            >
-              <Text style={styles.totalSupportModalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+    
       {/* Profile Image Viewer Modal */}
       <Modal
         visible={imageViewerVisible}
