@@ -268,7 +268,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
                 )}
 
                 <View style={styles.metaRow}>
-                    <Text style={styles.metaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text>
+                    <StakePill amount={formatAmount(item.stakeAmount || 0)}/>
+                    {/* <Text style={styles.metaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text> */}
                     <Text style={styles.metaText}>Ends: {formatBattleDate(item.endTime)}</Text>
                 </View>
 
@@ -588,7 +589,7 @@ const styles = StyleSheet.create({
     divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 10 },
 
     // Stats
-    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6,alignSelf:'center' },
     statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { fontSize: 12, color: GRAY_MID },
     statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: BORDER },

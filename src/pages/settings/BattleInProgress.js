@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -887,6 +891,19 @@ export default function BattleInProgress() {
     }
   }, [hasUserVoted]);
 
+  useFocusEffect(
+    useCallback(() => {
+      setExpandedReplies({});
+
+      return () => {
+        setExpandedReplies({});
+      };
+    }, []),
+  );
+
+  useEffect(() => {
+    setExpandedReplies({});
+  }, [resolvedBattleId]);
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
