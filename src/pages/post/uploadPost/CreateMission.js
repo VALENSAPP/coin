@@ -257,7 +257,7 @@ const CreateMission = () => {
     setShowCountryPicker(false);
   };
 
-  const handlePost = async (values, { setFieldError, setFieldTouched, validateForm }) => {
+const handlePost = async (values, { setFieldError, setFieldTouched, validateForm, resetForm }) => {
     // Mark all fields as touched first
     setFieldTouched('raiseAmount', true, false);
     setFieldTouched('startTime', true, false);
@@ -327,6 +327,13 @@ const CreateMission = () => {
 
       if (response.statusCode == 200) {
         showToastMessage(toast, 'success', 'Post created successfully');
+        resetForm();
+        setShowPicker(false);
+        setPickerMode('start');
+        setActiveField(null);
+        setShowCountryPicker(false);
+        setSelectedCountry(null);
+        setInitialCurrency('USD');
         navigation.navigate('HomeMain');
       } else {
         showToastMessage(toast, 'danger', response.message || 'Please try again');
@@ -362,7 +369,7 @@ const CreateMission = () => {
         validateOnChange={true}
         validateOnBlur={true}
         onSubmit={handlePost}>
-        {({ handleBlur, handleSubmit, setFieldValue, setFieldTouched, values, errors, touched }) => (
+{({ handleBlur, handleSubmit, setFieldValue, setFieldTouched, resetForm, values, errors, touched }) => (
           <>
             <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
               {/* Currency Selection */}

@@ -243,7 +243,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
     switch (type) {
       case 'mint': // post
-        closeThenNavigate('Add');
+        closeThenNavigate('Add', { screen: 'Add' });
         break;
       case 'Flips': // reels
         closeThenNavigate('Add', {
