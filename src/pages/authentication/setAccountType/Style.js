@@ -128,7 +128,7 @@ const createStyles = () => {
         listItem: {
             flexDirection: "row",
             alignItems: "center",
-            marginVertical: 8,
+            marginVertical: 4,
             paddingVertical: 4,
         },
         listText: {
