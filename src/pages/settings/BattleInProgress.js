@@ -7,10 +7,8 @@ import {
   Animated,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +16,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -667,6 +666,7 @@ export default function BattleInProgress() {
   const [likingCommentId, setLikingCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
   const [participantUserData, setParticipantUserData] = useState({});
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -887,6 +887,24 @@ export default function BattleInProgress() {
     }
   }, [hasUserVoted]);
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   const handleOpenReply = useCallback(comment => {
     setReplyingToComment({
       id: comment?.id || '',
@@ -896,7 +914,7 @@ export default function BattleInProgress() {
 
     setTimeout(() => {
       replyInputRef.current?.focus?.();
-      scrollRef.current?.scrollToEnd({ animated: true });
+      scrollRef.current?.update?.();
     }, 120);
   }, []);
 
@@ -1531,21 +1549,24 @@ export default function BattleInProgress() {
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}  // 'padding' on both platforms
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 30}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            style={[styles.container, bgStyle]}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-            refreshControl={null}
-            ref={scrollRef}
-            keyboardShouldPersistTaps="handled"   // ← taps on Post/Cancel work while keyboard is up  
-            keyboardDismissMode="interactive"  
-          >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAwareScrollView
+          style={[styles.container, bgStyle]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            styles.keyboardAwareContentContainer,
+            isKeyboardVisible && styles.keyboardOpenContentContainer,
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={null}
+          ref={scrollRef}
+          keyboardShouldPersistTaps="handled"   // ← taps on Post/Cancel work while keyboard is up
+          keyboardDismissMode="interactive"
+          enableOnAndroid
+          enableAutomaticScroll
+          extraScrollHeight={32}
+          keyboardOpeningTime={0}
+        >
             <View style={styles.header}>
               <TouchableOpacity
                 onPress={() => handleBackPress()}
@@ -1912,7 +1933,7 @@ export default function BattleInProgress() {
                               : '#E5E7EB',
                             backgroundColor: isSelected
                               ? useVotedGrayStyle ? '#F3F4F6' : palette.soft
-                              : '#F9FAFB',
+                              : shouldDisable ?palette.soft : '#F9FAFB',
                           },
                         ]}
                         onPress={() => {
@@ -1954,8 +1975,9 @@ export default function BattleInProgress() {
                             styles.optionPillLabel,
                             {
                               color: isSelected
-                                ? useVotedGrayStyle ? '#9CA3AF' : palette.primary
+                                ? useVotedGrayStyle ? text : palette.primary
                                 : '#374151',
+                              // opacity: hasUserVoted && !isSelected ? 0.3 : 1,
                             },
                           ]}
                           onPress={() => {
@@ -1973,11 +1995,12 @@ export default function BattleInProgress() {
                             styles.optionPillRadio,
                             {
                               borderColor: isSelected
-                                ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                ? useVotedGrayStyle ? text : palette.primary
                                 : '#D1D5DB',
                               backgroundColor: isSelected
-                                ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                ? useVotedGrayStyle ? text : palette.primary
                                 : '#FFFFFF',
+                              opacity: hasUserVoted && !isSelected ? 0.3 : 1,
                             },
                           ]}
                         />
@@ -1990,6 +2013,7 @@ export default function BattleInProgress() {
                 editable
                 value={hasUserVoted ? commentText : argumentText}
                 onChangeText={hasUserVoted ? setCommentText : setArgumentText}
+                onFocus={() => scrollRef.current?.update?.()}
                 placeholder={
                   hasUserVoted
                     ? 'Write a comment...'
@@ -2143,9 +2167,8 @@ export default function BattleInProgress() {
             </Text>
           </TouchableOpacity> */}
             </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -2167,6 +2190,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 34,
+  },
+  keyboardAwareContentContainer: {
+    flexGrow: 1,
+  },
+  keyboardOpenContentContainer: {
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -2336,6 +2365,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingLeft: 10,
     paddingRight: 10,
+    marginLeft: 10,
+    marginRight: 10,
+    marginBottom: 15,
   },
   duelProgressTopRow: {
     flexDirection: 'row',
