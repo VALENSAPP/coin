@@ -44,6 +44,8 @@ import { ensureCurrentAccountSaved, ADDING_ACCOUNT_FLAG_KEY } from '../../../uti
 import { requestUserPermission } from '../../../services/NotificationService';
 import { setIsAddAccount } from '../../../redux/actions/AddAccountAction';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
@@ -59,6 +61,7 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const [showPassword, setShowPassword] = useState(false);
   const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
+  const { bgStyle, textStyle, bg, text } = useAppTheme();
 
   const safeTop =
     insets.top > 0
@@ -347,13 +350,16 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               {/* Email Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Email</Text>
+                <Text style={styles.inputLabel}>Email or Username</Text>
                 <View
                   style={[
                     styles.inputGroup,
                     errors.email && styles.inputError,
                   ]}
                 >
+                  <View style={[styles.inputIconContainer, bgStyle]}>
+                    <Ionicons name="mail-outline" size={22} color={text} />
+                  </View>
                   <TextInput
                     style={styles.textInput}
                     placeholder="Enter your email or username"
@@ -383,6 +389,9 @@ export default function LoginScreen() {
                     errors.password && styles.inputError,
                   ]}
                 >
+                  <View style={[styles.inputIconContainer, bgStyle]}>
+                    <Ionicons name="lock-closed-outline" size={22} color={text} />
+                  </View>
                   <TextInput
                     style={styles.textInput}
                     placeholder="Enter your password"

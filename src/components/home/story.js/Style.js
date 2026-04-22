@@ -55,12 +55,30 @@ export const modalStyles = StyleSheet.create({
     alignSelf: 'stretch',
     position: 'relative',
   },
+  /** Bottom layer: keep below poster so a black decoder frame does not cover the thumb. */
+  storyVideoPlayerLayer: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    minHeight: Math.max(240, Math.round(SCREEN_HEIGHT * 0.55)),
+    backgroundColor: '#000',
+    zIndex: 0,
+  },
+  /** Cover frame while video buffers; must be above `storyVideoPlayerLayer`. */
+  storyVideoPosterLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+    backgroundColor: '#0a0a0a',
+  },
   storyVideoLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
     zIndex: 2,
+  },
+  /** Thumbnail is visible underneath — lighter veil so the poster stays readable while loading. */
+  storyVideoLoadingOverlayWithPoster: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   loadingContainer: {
     position: 'absolute',

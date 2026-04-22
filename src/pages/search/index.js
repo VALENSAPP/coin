@@ -37,6 +37,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
@@ -590,10 +591,17 @@ const SearchScreen = () => {
       const response = await exploretBattle();
       if (response?.statusCode === 200 || response?.status === 200) {
         const rawBattles = response?.data?.battles || response?.data?.data || response?.data || [];
-        const normalizedBattles = Array.isArray(rawBattles)
-          ? rawBattles.map(mapBattleCard).filter(item => item.id)
-          : [];
-          console.log(rawBattles, 'battles in search')
+        const normalizedBattles = [];
+        const seenBattleIds = new Set();
+        if (Array.isArray(rawBattles)) {
+          rawBattles.forEach(battle => {
+            const mappedBattle = mapBattleCard(battle);
+            if (!mappedBattle.id || seenBattleIds.has(mappedBattle.id)) return;
+            seenBattleIds.add(mappedBattle.id);
+            normalizedBattles.push(mappedBattle);
+          });
+        }
+        console.log(rawBattles, 'battles in search')
         setLiveBattles(normalizedBattles);
       } else {
         setLiveBattles([]);
@@ -836,8 +844,18 @@ const handleBattleCardPress = useCallback((battleItem) => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={[styles.container, bgStyle]}>
+      <View style={[styles.container, bgStyle]}>
+        <Pressable
+          onPress={Keyboard.dismiss}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+          }}
+        />
+        <View style={{ flex: 1 }}>
           {/* Search bar */}
           <View style={styles.searchContainer}>
             <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
@@ -947,7 +965,7 @@ const handleBattleCardPress = useCallback((battleItem) => {
             )
           ) : null}
         </View>
-      </TouchableWithoutFeedback>
+      </View>
 
       {/* Preview modal */}
       {previewVisible && previewPost ? (

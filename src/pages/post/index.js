@@ -10,7 +10,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 
-const { width,height:screenHeight } = Dimensions.get('window');
+const { width, height: screenHeight } = Dimensions.get('window');
 const gridItemSize = (width - 48) / 3;
 const selectedGridItemSize = (width - 64) / 2;
 
@@ -26,10 +26,10 @@ export default function PostScreen({ navigation }) {
   const isPrivateEntry = String(rawPostTypeParam || '').toLowerCase() === 'private';
   const isFlipEntry = String(rawMediaTypeParam || '').toLowerCase() === 'flips';
   const mediaType = rawMediaTypeParam;
-  
+
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
-  
+
   // Track if we're coming back from EditPostSelected
   const fromEditPostSelectedRef = useRef(false);
 
@@ -393,19 +393,24 @@ export default function PostScreen({ navigation }) {
     }, [isPrivateEntry, isFlipEntry])
   );
 
-  // Sync gallery selection when selectedMedia changes
-  useFocusEffect(
-    useCallback(() => {
-      if (galleryImages.length > 0) {
-        const selectedUris = new Set((selectedMedia || []).map(item => item.uri));
-        const updatedGalleryImages = galleryImages.map(image => ({
-          ...image,
-          isSelected: selectedUris.has(image.uri)
-        }));
-        setGalleryImages(updatedGalleryImages);
-      }
-    }, [selectedMedia, galleryImages])
-  );
+  const galleryImagesRef = useRef([]);
+
+  // Keep the ref in sync whenever galleryImages changes
+  useEffect(() => {
+    galleryImagesRef.current = galleryImages;
+  }, [galleryImages]);
+
+  // Sync selection state without galleryImages in the dep array
+  useEffect(() => {
+    if (galleryImagesRef.current.length === 0) return;
+
+    const selectedUris = new Set((selectedMedia || []).map(item => item.uri));
+    const updatedGalleryImages = galleryImagesRef.current.map(image => ({
+      ...image,
+      isSelected: selectedUris.has(image.uri)
+    }));
+    setGalleryImages(updatedGalleryImages);
+  }, [selectedMedia]); // ✅ only reruns when selectedMedia changes
 
   const handleImageSelect = (asset) => {
     const currentSelection = selectedMedia || [];
@@ -609,6 +614,7 @@ export default function PostScreen({ navigation }) {
       <View style={[styles.headerRow, bgStyle, { shadowColor: text }]}>
         <TouchableOpacity
           onPress={() => {
+            setShowTypeModal(false)
             if (navigation && navigation.goBack) navigation.goBack();
           }}
           style={styles.headerIconBtn}
@@ -955,8 +961,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   selectedGridItemHorizontal: {
-    width: width*0.8,
-    height: screenHeight*0.5,
+    width: width * 0.8,
+    height: screenHeight * 0.5,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
@@ -970,7 +976,7 @@ const styles = StyleSheet.create({
   },
   selectedGridImageHorizontal: {
     width: '100%',
-    height: screenHeight*0.5,
+    height: screenHeight * 0.5,
     resizeMode: 'cover',
   },
   selectedVideoPlay: {

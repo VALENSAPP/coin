@@ -8,7 +8,7 @@
  *    SearchScreen in place of the plain <ScrollView> that wraps the battle cards.
  */
 
-import React, { memo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -16,8 +16,7 @@ import {
     StyleSheet,
     Animated,
     ScrollView,
-    Dimensions,
-    Pressable
+    Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
@@ -357,95 +356,174 @@ export default BattleCard;
 
 const CARD_WIDTH = 268;
 const CARD_GAP = 10;
-const SCROLL_SPEED = 0.4;     // px per tick — lower = slower/smoother
-const SCROLL_INTERVAL = 16;        // ~60 fps
+const RESUME_DELAY_MS = 1000;
+const AUTO_SCROLL_SPEED_PX_PER_MS = 0.055;
+const START_DELAY_MS = 300;
+const EDGE_SNAP_THRESHOLD = 8;
+const ROW_PADDING_LEFT = 12;
 
 export const AutoScrollBattleRow = ({ children, style }) => {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const animRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  const autoScrollFrameRef = useRef(null);
+  const resumeTimeoutRef = useRef(null);
   const pausedRef = useRef(false);
-  const pauseOffsetRef = useRef(0);
+  const offsetRef = useRef(0);
+  const lastFrameTsRef = useRef(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
 
   const allChildren = React.Children.toArray(children);
-  const doubled = allChildren.length >= 2 ? [...allChildren, ...allChildren] : allChildren;
+  const isCarouselEnabled = allChildren.length > 1;
+  const maxOffset = Math.max(0, contentWidth - viewportWidth);
+  const canAutoScroll = isCarouselEnabled && maxOffset > 0;
 
-  const SINGLE_WIDTH = allChildren.length * (CARD_WIDTH + CARD_GAP);
-  const DURATION_PER_PX = 18; // ms per pixel — higher = slower
+  const clearResumeTimer = useCallback(() => {
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current);
+      resumeTimeoutRef.current = null;
+    }
+  }, []);
 
-  const startScroll = useCallback((fromValue = 0) => {
-    if (pausedRef.current) return;
-    const remaining = SINGLE_WIDTH - fromValue;
-    if (remaining <= 0) {
-      translateX.setValue(0);
-      startScroll(0);
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollFrameRef.current) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+    lastFrameTsRef.current = 0;
+  }, []);
+
+  const syncScrollPosition = useCallback(nextOffset => {
+    const safeOffset = Math.max(0, Math.min(nextOffset, maxOffset));
+    offsetRef.current = safeOffset;
+    scrollViewRef.current?.scrollTo({ x: safeOffset, animated: false });
+  }, [maxOffset]);
+
+  const startAutoScroll = useCallback((fromOffset = offsetRef.current) => {
+    if (!canAutoScroll || pausedRef.current) return;
+
+    stopAutoScroll();
+    syncScrollPosition(fromOffset);
+
+    const tick = timestamp => {
+      if (pausedRef.current || !canAutoScroll) {
+        stopAutoScroll();
+        return;
+      }
+
+      if (!lastFrameTsRef.current) {
+        lastFrameTsRef.current = timestamp;
+      }
+
+      const deltaMs = timestamp - lastFrameTsRef.current;
+      lastFrameTsRef.current = timestamp;
+
+      let nextOffset = offsetRef.current + (deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS);
+      if (nextOffset >= maxOffset) {
+        nextOffset = 0;
+      }
+
+      syncScrollPosition(nextOffset);
+      autoScrollFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    autoScrollFrameRef.current = requestAnimationFrame(tick);
+  }, [canAutoScroll, maxOffset, stopAutoScroll, syncScrollPosition]);
+
+  useEffect(() => {
+    if (!canAutoScroll) {
+      clearResumeTimer();
+      stopAutoScroll();
+      pausedRef.current = false;
+      syncScrollPosition(0);
+      return undefined;
+    }
+
+    const t = setTimeout(() => startAutoScroll(offsetRef.current), START_DELAY_MS);
+    return () => {
+      clearTimeout(t);
+      clearResumeTimer();
+      stopAutoScroll();
+    };
+  }, [canAutoScroll, startAutoScroll, clearResumeTimer, stopAutoScroll, syncScrollPosition]);
+
+  useEffect(() => {
+    if (!canAutoScroll) return;
+    if (offsetRef.current > maxOffset) {
+      syncScrollPosition(maxOffset);
+    }
+  }, [canAutoScroll, maxOffset, syncScrollPosition]);
+
+  useEffect(() => {
+    return () => {
+      clearResumeTimer();
+      stopAutoScroll();
+    };
+  }, [clearResumeTimer, stopAutoScroll]);
+
+  const handleInteractionStart = useCallback(() => {
+    clearResumeTimer();
+    pausedRef.current = true;
+    stopAutoScroll();
+  }, [clearResumeTimer, stopAutoScroll]);
+
+  const handleInteractionEnd = useCallback(() => {
+    clearResumeTimer();
+    if (!canAutoScroll) {
+      pausedRef.current = false;
       return;
     }
 
-    animRef.current = Animated.timing(translateX, {
-      toValue: -SINGLE_WIDTH,
-      duration: remaining * DURATION_PER_PX,
-      useNativeDriver: true,  // ← runs on native thread, JS thread stays free
-      isInteraction: false,
-    });
-
-    animRef.current.start(({ finished }) => {
-      if (finished && !pausedRef.current) {
-        translateX.setValue(0);
-        startScroll(0);
+    resumeTimeoutRef.current = setTimeout(() => {
+      const currentOffset = offsetRef.current;
+      if (currentOffset >= maxOffset - EDGE_SNAP_THRESHOLD) {
+        syncScrollPosition(0);
       }
-    });
-  }, [translateX, SINGLE_WIDTH]);
+      pausedRef.current = false;
+      startAutoScroll(offsetRef.current);
+    }, RESUME_DELAY_MS);
+  }, [canAutoScroll, maxOffset, clearResumeTimer, startAutoScroll, syncScrollPosition]);
 
-  useEffect(() => {
-    const t = setTimeout(() => startScroll(0), 300);
-    return () => {
-      clearTimeout(t);
-      animRef.current?.stop();
-    };
-  }, [startScroll]);
-
-  const handleTouchStart = useCallback(() => {
-    pausedRef.current = true;
-    animRef.current?.stop();
-    // Capture current animated value so we resume from here
-    translateX.stopAnimation(value => {
-      pauseOffsetRef.current = Math.abs(value);
-    });
-  }, [translateX]);
-
-  const handleTouchEnd = useCallback(() => {
-    pausedRef.current = false;
-    startScroll(pauseOffsetRef.current);
-  }, [startScroll]);
+  if (!isCarouselEnabled) {
+    return (
+      <View
+        style={[
+          { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: ROW_PADDING_LEFT },
+          style,
+        ]}
+      >
+        {allChildren}
+      </View>
+    );
+  }
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       horizontal
       showsHorizontalScrollIndicator={false}
-      scrollEnabled={true}
+      scrollEnabled={canAutoScroll}
+      bounces={false}
+      alwaysBounceHorizontal={false}
+      overScrollMode="never"
       keyboardShouldPersistTaps="handled"
       delayContentTouches={false}
-      // ← These two are the critical fixes for tap-through
-      onScrollBeginDrag={handleTouchStart}
-      onScrollEndDrag={handleTouchEnd}
-      onMomentumScrollEnd={handleTouchEnd}
+      scrollEventThrottle={16}
+      onLayout={event => setViewportWidth(event.nativeEvent.layout.width)}
+      onContentSizeChange={width => setContentWidth(width)}
+      onScroll={event => {
+        offsetRef.current = event?.nativeEvent?.contentOffset?.x ?? 0;
+      }}
+      onTouchStart={handleInteractionStart}
+      onScrollBeginDrag={handleInteractionStart}
+      onScrollEndDrag={handleInteractionEnd}
+      onMomentumScrollEnd={handleInteractionEnd}
+      onTouchEnd={handleInteractionEnd}
       contentContainerStyle={[
-        { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: 12 },
+        { flexDirection: 'row', gap: CARD_GAP, paddingLeft: ROW_PADDING_LEFT },
         style,
       ]}
     >
-      <Animated.View
-        style={{
-          flexDirection: 'row',
-          gap: CARD_GAP,
-          transform: [{ translateX }],
-        }}
-        // ← Pass touch events up so cards can capture them
-        onStartShouldSetResponder={() => false}
-        onMoveShouldSetResponder={() => false}
-      >
-        {doubled}
-      </Animated.View>
+      {allChildren}
     </ScrollView>
   );
 };

@@ -23,7 +23,6 @@ import {
 } from '../socialLogin';
 import { signup } from '../../../services/authentication';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthHeader } from '../../../components/auth';
 import DeviceInfo from "react-native-device-info";
 import { useAppTheme } from '../../../theme/useApptheme';
@@ -241,6 +240,9 @@ export default function SignupScreen() {
                     errors.email && styles.inputError,
                   ]}
                 >
+                  <View style={[styles.inputIconContainer,bgStyle]}>
+                    <Icon name="mail-outline" size={22} color={text} />
+                  </View>
                   <TextInput
                     style={styles.textInput}
                     placeholder="Enter your email address"
@@ -272,6 +274,9 @@ export default function SignupScreen() {
                     errors.userName && styles.inputError,
                   ]}
                 >
+                  <View style={[styles.inputIconContainer,bgStyle]}>
+                    <Icon name="person-outline" size={22} color={text}/>
+                  </View>
                   <TextInput
                     style={styles.textInput}
                     placeholder="Choose a username"
@@ -302,6 +307,9 @@ export default function SignupScreen() {
                     errors.password && styles.inputError,
                   ]}
                 >
+                  <View style={[styles.inputIconContainer,bgStyle]}>
+                    <Icon name="lock-closed-outline" size={22} color={text}/>
+                  </View>
                   <TextInput
                     style={styles.textInput}
                     placeholder="Create a strong password"

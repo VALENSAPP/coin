@@ -99,7 +99,16 @@ const createStyles = () => {
       borderRadius: 16,
       borderWidth: 1.5,
       borderColor: '#E5E7EB',
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
+    },
+    inputIconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: '#EDE9FE',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
     },
     textInput: {
       flex: 1,

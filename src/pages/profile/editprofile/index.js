@@ -603,8 +603,10 @@ const ProfileEditScreen = () => {
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
         enableAutomaticScroll={true}
-        extraScrollHeight={Platform.OS === 'android' ? 200 : 100}
-        extraHeight={200}
+        extraScrollHeight={24}
+        extraHeight={Platform.OS === 'ios' ? 120 : 150}
+        keyboardOpeningTime={0}
+        resetScrollToCoords={{ x: 0, y: 0 }}
         showsVerticalScrollIndicator={false}>
         <View style={[styles.avatarContainer, bgStyle]}>
           <TouchableOpacity

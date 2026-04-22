@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   Keyboard,
   Platform,
 } from 'react-native';
+import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -57,10 +58,13 @@ import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   runOnJS,
+  withSpring,
 } from 'react-native-reanimated';
 // ──────────────────────────────────────────────────────────────────────────────────────
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAX_REEL_PINCH = 3.5;
+const REEL_ZOOM_SPRING = { damping: 20, stiffness: 260, mass: 0.4, overshootClamping: true };
 /** Must match `progressHitArea` horizontal padding so scrub math matches the visible track (0 = edge-to-edge) */
 const FLIPS_PROGRESS_H_PADDING = 0;
 /** Flush under status bar */
@@ -87,6 +91,194 @@ const mockComments = {
   ],
 };
 
+/**
+ * Per-reel: Simultaneous pinch (scale) + 2-finger pan; spring back to 1:1 and origin on release.
+ * GestureFlatList + pinchScrollLock avoids list scroll vs 2-finger conflicts.
+ */
+function ReelPinchVideoBlock({
+  item,
+  isCurrent,
+  isScreenFocused,
+  playbackRate,
+  paused,
+  muted,
+  isBuffering,
+  onPinchLockChange,
+  onVideoLoad,
+  onVideoProgress,
+  registerVideoRef,
+  handleDoubleTapLeft,
+  handleSingleTapToggle,
+  heartAnimatingId,
+  scaleAnim,
+}) {
+  const pinchScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const gestureStartScale = useSharedValue(1);
+  const panStartX = useSharedValue(0);
+  const panStartY = useSharedValue(0);
+  /** One-shot: pinch+pan onEnd can both fire; run spring reset once per lift. */
+  const zoomEndHandled = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isCurrent) {
+      pinchScale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+    }
+  }, [isCurrent, pinchScale, translateX, translateY]);
+
+  const transformStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: pinchScale.value },
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
+  const onLockScroll = useCallback(() => {
+    onPinchLockChange?.(true);
+  }, [onPinchLockChange]);
+
+  const onUnlockScroll = useCallback(() => {
+    onPinchLockChange?.(false);
+  }, [onPinchLockChange]);
+
+  const composedGesture = useMemo(() => {
+    const itemId = item.id;
+
+    const doubleTap = Gesture.Tap()
+      .numberOfTaps(2)
+      .maxDuration(280)
+      .maxDistance(20)
+      .onEnd(() => {
+        runOnJS(handleDoubleTapLeft)(itemId);
+      });
+
+    const singleTap = Gesture.Tap()
+      .numberOfTaps(1)
+      .maxDuration(450)
+      .maxDistance(22)
+      .requireExternalGestureToFail(doubleTap)
+      .onEnd(() => {
+        runOnJS(handleSingleTapToggle)(itemId);
+      });
+
+    const onZoomGestureComplete = () => {
+      'worklet';
+      if (zoomEndHandled.value === 1) {
+        return;
+      }
+      zoomEndHandled.value = 1;
+      pinchScale.value = withSpring(1, REEL_ZOOM_SPRING);
+      translateX.value = withSpring(0, REEL_ZOOM_SPRING);
+      translateY.value = withSpring(0, REEL_ZOOM_SPRING);
+      runOnJS(onUnlockScroll)();
+    };
+
+    const pinch = Gesture.Pinch()
+      .onBegin(() => {
+        zoomEndHandled.value = 0;
+        gestureStartScale.value = Math.max(1, pinchScale.value);
+        runOnJS(onLockScroll)();
+      })
+      .onUpdate((e) => {
+        const next = Math.min(
+          Math.max(gestureStartScale.value * e.scale, 1),
+          MAX_REEL_PINCH,
+        );
+        pinchScale.value = next;
+      })
+      .onEnd(() => {
+        onZoomGestureComplete();
+      });
+
+    const pan2WithEnd = Gesture.Pan()
+      .minPointers(2)
+      .maxPointers(2)
+      .enabled(true)
+      .onBegin(() => {
+        panStartX.value = translateX.value;
+        panStartY.value = translateY.value;
+      })
+      .onUpdate((e) => {
+        const s = Math.max(1, pinchScale.value);
+        const maxP = 180 * Math.sqrt(Math.min(s, MAX_REEL_PINCH));
+        const nx0 = panStartX.value + e.translationX;
+        const ny0 = panStartY.value + e.translationY;
+        const nx = Math.max(-maxP, Math.min(maxP, nx0));
+        const ny = Math.max(-maxP, Math.min(maxP, ny0));
+        if (s <= 1.01) {
+          translateX.value = 0;
+          translateY.value = 0;
+        } else {
+          translateX.value = nx;
+          translateY.value = ny;
+        }
+      })
+      .onEnd(() => {
+        onZoomGestureComplete();
+      });
+
+    const zoomAndPan = Gesture.Simultaneous(pinch, pan2WithEnd);
+
+    return Gesture.Exclusive(
+      zoomAndPan,
+      Gesture.Exclusive(doubleTap, singleTap),
+    );
+  }, [
+    item.id,
+    handleDoubleTapLeft,
+    handleSingleTapToggle,
+    onLockScroll,
+    onUnlockScroll,
+  ]);
+
+  return (
+    <View style={{ flex: 1, width: '100%' }} collapsable={false}>
+      <GestureDetector gesture={composedGesture}>
+        <Reanimated.View
+          style={[styles.videoContainer, { overflow: 'visible' }, transformStyle]}
+          collapsable={false}
+        >
+          <Video
+            ref={registerVideoRef}
+            source={{ uri: item.video }}
+            style={styles.video}
+            resizeMode="cover"
+            repeat
+            rate={playbackRate ?? 1}
+            paused={!isScreenFocused || !isCurrent || paused === true}
+            muted={!!muted}
+            onLoad={onVideoLoad}
+            onProgress={onVideoProgress}
+            playWhenInactive={false}
+            ignoreSilentSwitch="obey"
+          />
+
+          {isBuffering && (
+            <View style={styles.loadingContainer} pointerEvents="none">
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          )}
+
+          {paused === true && (
+            <View style={styles.playPauseOverlay} pointerEvents="none">
+              <Icon name="play" size={80} color="rgba(255,255,255,0.8)" />
+            </View>
+          )}
+
+          {heartAnimatingId === item.id && (
+            <Animated.View style={[styles.heartAnimation, { transform: [{ scale: scaleAnim }] }]} pointerEvents="none">
+              <Icon name="heart" size={100} color="#ff3040" />
+            </Animated.View>
+          )}
+        </Reanimated.View>
+      </GestureDetector>
+    </View>
+  );
+}
 
 export default function FlipsScreen() {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -115,10 +307,11 @@ export default function FlipsScreen() {
   /** 1 = normal, 0.5 = half speed (react-native-video `rate`) */
   const [playbackRate, setPlaybackRate] = useState({});
   const [isScrubbing, setIsScrubbing] = useState(false);
-
-  // Reanimated shared values for pinch-to-zoom (no native animated driver conflict)
-  const pinchScale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
+  /** While true, vertical scroll is off so 2-finger pinch is not captured as a scroll. */
+  const [pinchScrollLock, setPinchScrollLock] = useState(false);
+  const onPinchLockChange = useCallback((locked) => {
+    setPinchScrollLock(!!locked);
+  }, []);
 
   const flatListRef = useRef();
   const videoRefs = useRef({});
@@ -219,11 +412,6 @@ export default function FlipsScreen() {
 
   const options = ["I don't like this post", "I've already seen this", "It's inappropriate", "Other"];
 
-  // Reanimated animated style for the video container (pinch zoom)
-  const pinchAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pinchScale.value }],
-  }));
-
   const formatCount = count => {
     if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
     if (count >= 1000) return (count / 1000).toFixed(1) + 'K';
@@ -247,12 +435,6 @@ export default function FlipsScreen() {
       scrubbingReelIdRef.current = null;
     }
   }, [isFocused]);
-
-  // Reset pinch zoom when switching reels
-  useEffect(() => {
-    pinchScale.value = 1;
-    savedScale.value = 1;
-  }, [currentIndex, pinchScale, savedScale]);
 
   const fetchAllReels = useCallback(async paramReel => {
     try {
@@ -370,24 +552,10 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
-    
-    // if (navigation.canGoBack()) { navigation.goBack(); return; }
-    const backTarget = route.params?.returnTo;
+    if (navigation.canGoBack()) { navigation.goBack(); return; }
+    const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
-    console.log("backTarget----------------",backTarget)
-    console.log("returnParams----------------",returnParams)
-
-    if (backTarget) {
-      // Check if returnParams has nested screen navigation
-      if (returnParams?.screen) {
-        // Navigate to the main stack and then to the nested screen
-        navigation.navigate(backTarget, returnParams);
-      } else {
-        // Simple navigation
-        navigation.navigate(backTarget, returnParams);
-      }
-    }
-    else if (navigation.canGoBack()) { navigation.goBack(); return; }
+    if (returnTo) navigation.navigate(returnTo, returnParams);
     else navigation.navigate('HomeMain');
   }, [navigation, route.params]);
 
@@ -704,41 +872,6 @@ export default function FlipsScreen() {
     return () => { isMounted = false; };
   }, [isFocused]);
 
-  // ── Build a composed gesture per reel item ───────────────────────────────
-  // Using useCallback so the gesture object is stable unless handlers change.
-  const buildGesture = useCallback(itemId => {
-    const doubleTap = Gesture.Tap()
-      .numberOfTaps(2)
-      .maxDuration(280)
-      .maxDistance(14)
-      .onEnd(e => {
-        const isRightSide = e.x > SCREEN_WIDTH / 2;
-        runOnJS(handleDoubleTapLeft)(itemId);
-      });
-
-    const singleTap = Gesture.Tap()
-      .numberOfTaps(1)
-      .maxDuration(450)
-      .maxDistance(18)
-      .requireExternalGestureToFail(doubleTap)
-      .onEnd(() => {
-        runOnJS(handleSingleTapToggle)(itemId);
-      });
-
-    const pinch = Gesture.Pinch()
-      .onUpdate(e => {
-        pinchScale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 4);
-      })
-      .onEnd(e => {
-        savedScale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 4);
-        pinchScale.value = savedScale.value;
-      });
-
-    // Pinch runs simultaneously with taps; single/double are mutually exclusive
-    return Gesture.Simultaneous(pinch, Gesture.Exclusive(doubleTap, singleTap));
-  }, [handleDoubleTapLeft, handleSingleTapToggle, pinchScale, savedScale]);
-  // ─────────────────────────────────────────────────────────────────────────
-
   const handleUserNavigate = async () => {
     const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
     const currentReelItem = reels[currentIndex];
@@ -750,56 +883,35 @@ export default function FlipsScreen() {
 
   const renderItem = ({ item, index }) => {
     const isOwnReel = currentUserId != null && item?.userId != null && String(currentUserId) === String(item.userId);
-    const gesture = buildGesture(item.id);
+    const isCurrent = currentIndex === index;
 
     return (
       <View style={[styles.reelContainer, { width: windowWidth, height: viewportHeight }]}>
         <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
 
-        {/* Progress scrubber lives at screen root (see below) so it is not clipped by FlatList */}
-
-        {/* ── GestureDetector replaces all nested handlers — no warning ── */}
-        <GestureDetector gesture={gesture}>
-          <Reanimated.View style={[styles.videoContainer, pinchAnimatedStyle]}>
-            <Video
-              ref={ref => { videoRefs.current[item.id] = ref; }}
-              source={{ uri: item.video }}
-              style={styles.video}
-              resizeMode="cover"
-              repeat
-              rate={playbackRate[item.id] ?? 1}
-              paused={!isFocused || currentIndex !== index || paused[item.id] === true}
-              muted={muted[item.id] === true}
-              onLoad={data => {
-                setVideoDuration(prev => ({ ...prev, [item.id]: data.duration * 1000 }));
-              }}
-              onProgress={data => {
-                if (scrubbingReelIdRef.current === item.id) return;
-                videoProgressRef.current[item.id] = data.currentTime;
-                setVideoProgress(prev => ({ ...prev, [item.id]: data.currentTime }));
-              }}
-            />
-
-            {isBuffering[item.id] && (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading...</Text>
-              </View>
-            )}
-
-            {paused[item.id] === true && (
-              <View style={styles.playPauseOverlay}>
-                <Icon name="play" size={80} color="rgba(255,255,255,0.8)" />
-              </View>
-            )}
-
-            {heartAnimatingId === item.id && (
-              <Animated.View style={[styles.heartAnimation, { transform: [{ scale: scaleAnim }] }]}>
-                <Icon name="heart" size={100} color="#ff3040" />
-              </Animated.View>
-            )}
-          </Reanimated.View>
-        </GestureDetector>
-        {/* ─────────────────────────────────────────────────────────────── */}
+        <ReelPinchVideoBlock
+          item={item}
+          isCurrent={isCurrent}
+          isScreenFocused={isFocused}
+          playbackRate={playbackRate[item.id] ?? 1}
+          paused={paused[item.id] === true}
+          muted={muted[item.id] === true}
+          isBuffering={!!isBuffering[item.id]}
+          onPinchLockChange={onPinchLockChange}
+          onVideoLoad={data => {
+            setVideoDuration(prev => ({ ...prev, [item.id]: data.duration * 1000 }));
+          }}
+          onVideoProgress={data => {
+            if (scrubbingReelIdRef.current === item.id) return;
+            videoProgressRef.current[item.id] = data.currentTime;
+            setVideoProgress(prev => ({ ...prev, [item.id]: data.currentTime }));
+          }}
+          registerVideoRef={ref => { videoRefs.current[item.id] = ref; }}
+          handleDoubleTapLeft={handleDoubleTapLeft}
+          handleSingleTapToggle={handleSingleTapToggle}
+          heartAnimatingId={heartAnimatingId}
+          scaleAnim={scaleAnim}
+        />
 
         {/* Horizontal actions */}
         <View style={styles.horizontalActions}>
@@ -1014,7 +1126,7 @@ export default function FlipsScreen() {
           );
         })() : null}
 
-        <FlatList
+        <GestureFlatList
           ref={flatListRef}
           data={reels}
           keyExtractor={item => item.id}
@@ -1040,9 +1152,10 @@ export default function FlipsScreen() {
           getItemLayout={(_, index) => ({ length: viewportHeight, offset: viewportHeight * index, index })}
           overScrollMode="never"
           bounces={false}
-          scrollEnabled={reels.length > 0 && !isScrubbing}
+          scrollEnabled={reels.length > 0 && !isScrubbing && !pinchScrollLock}
           removeClippedSubviews={false}
-          extraData={{ viewportHeight, videoProgress, playbackRate, paused, currentIndex }}
+          nestedScrollEnabled
+          extraData={{ viewportHeight, videoProgress, playbackRate, paused, currentIndex, pinchScrollLock }}
         />
 
         {dropdownVisible && (
@@ -1171,7 +1284,14 @@ export default function FlipsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingBottom: SCREEN_HEIGHT > 800 && 25, backgroundColor: '#f8f2fc' },
-  reelContainer: { width: '100%', height: '100%', backgroundColor: '#000', position: 'relative', top: Platform.OS === 'android' && 40 },
+  reelContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+    position: 'relative',
+    top: Platform.OS === 'android' && 40,
+    overflow: 'visible',
+  },
   progressHitArea: {
     position: 'absolute',
     height: FLIPS_PROGRESS_STRIP_HEIGHT,
