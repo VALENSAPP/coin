@@ -8,7 +8,7 @@
  *    SearchScreen in place of the plain <ScrollView> that wraps the battle cards.
  */
 
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -74,6 +74,49 @@ const chunk = (arr, n) => {
     const out = [];
     for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
     return out;
+};
+
+const normalizeCountKey = value => String(value || '').trim().toLowerCase();
+
+const buildNormalizedCountMap = (counts = {}) => {
+    if (!counts || typeof counts !== 'object') return {};
+    return Object.entries(counts).reduce((acc, [key, value]) => {
+        const normalized = normalizeCountKey(key);
+        if (!normalized) return acc;
+        const numericValue = Number(value);
+        acc[normalized] = Number.isFinite(numericValue) ? numericValue : 0;
+        return acc;
+    }, {});
+};
+
+const computePercentages = (labels = [], rawCounts = {}) => {
+    const normalizedCounts = buildNormalizedCountMap(rawCounts);
+    const counts = labels.map(label => {
+        const key = normalizeCountKey(label);
+        const value = normalizedCounts[key];
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    });
+
+    const total = counts.reduce((sum, value) => sum + value, 0);
+    if (!total) {
+        return labels.map(() => 0);
+    }
+
+    const exact = counts.map(value => (value / total) * 100);
+    const floors = exact.map(value => Math.floor(value));
+    let remainder = 100 - floors.reduce((sum, value) => sum + value, 0);
+
+    const order = exact
+        .map((value, index) => ({ index, frac: value - floors[index] }))
+        .sort((a, b) => b.frac - a.frac);
+
+    const result = [...floors];
+    for (let i = 0; i < order.length && remainder > 0; i += 1) {
+        result[order[i].index] += 1;
+        remainder -= 1;
+    }
+
+    return result;
 };
 
 // Returns true when user2 has no real identity (battle waiting for opponent)
@@ -165,7 +208,7 @@ const StakePill = ({ amount }) => (
     </View>
 );
 
-const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl }) => (
+const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => (
     <TouchableOpacity
         activeOpacity={0.85}
         disabled={disabled}
@@ -173,9 +216,16 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl }) => (
         style={[styles.optionChip, isSelected && styles.optionChipSelected, disabled && styles.optionDisabled]}
     >
         <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={24} fadeDuration={0} />
-        <Text style={[styles.optionChipLabel, isSelected && styles.optionChipLabelSelected]} numberOfLines={1}>
-            {option?.label || option}
-        </Text>
+        <View style={styles.optionChipTextWrap}>
+            <Text style={[styles.optionChipLabel, isSelected && styles.optionChipLabelSelected]} numberOfLines={1}>
+                {option?.label || option}
+            </Text>
+            {Number.isFinite(percent) && (
+                <Text style={styles.optionChipPercent}>
+                    {Math.max(0, Math.min(100, Math.round(percent)))}%
+                </Text>
+            )}
+        </View>
         <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
             {isSelected && <View style={styles.radioInner} />}
         </View>
@@ -218,6 +268,17 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         [ended, item.id, onOptionSelect],
     );
 
+    const optionLabels = useMemo(
+        () => (Array.isArray(item?.options) ? item.options : []).map(opt => String(opt?.label || opt || '')),
+        [item?.options],
+    );
+
+    const optionPercents = useMemo(() => {
+        const hasPredictionCounts = item?.predictionCounts && Object.keys(item.predictionCounts).length > 0;
+        const countsSource = isPoll && hasPredictionCounts ? item.predictionCounts : item.voteCounts;
+        return computePercentages(optionLabels, countsSource || {});
+    }, [isPoll, item?.predictionCounts, item?.voteCounts, optionLabels]);
+
     console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
     if (isPoll) {
         return (
@@ -257,6 +318,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
                                             disabled={ended}
                                             avatarUrl={optionImageUrl || option?.image || DEFAULT_AVATAR}
                                             onPress={() => handleOption(label)}
+                                            percent={optionPercents[originalIndex]}
                                         />
                                     );
                                 })}
@@ -265,9 +327,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
                         ))}
                     </View>
                 )}
-
                 <View style={styles.metaRow}>
-                    <StakePill amount={formatAmount(item.stakeAmount || 0)}/>
+                    <StakePill amount={formatAmount(item.stakeAmount || 0)} />
                     {/* <Text style={styles.metaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text> */}
                     <Text style={styles.metaText}>Ends: {formatBattleDate(item.endTime)}</Text>
                 </View>
@@ -320,12 +381,12 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
                                 disabled={ended}
                                 avatarUrl={optionImageUrl || option?.image || DEFAULT_AVATAR}
                                 onPress={() => handleOption(label)}
+                                percent={optionPercents[idx]}
                             />
                         );
                     })}
                 </View>
             )}
-
             {/* Accept challenge CTA for solo battles */}
             {soloOpponent && (
                 <TouchableOpacity style={styles.acceptBtn} onPress={() => onCardPress(item)} activeOpacity={0.85}>
@@ -345,7 +406,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         prevProps.selectedOption === nextProps.selectedOption &&
         prevProps.item?.isLive === nextProps.item?.isLive &&
         prevProps.item?.status === nextProps.item?.status &&
-        prevProps.onCardPress === nextProps.onCardPress &&       
+        prevProps.onCardPress === nextProps.onCardPress &&
         prevProps.onOptionSelect === nextProps.onOptionSelect &&
         JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages) &&
         JSON.stringify(prevProps.item?.opponent) === JSON.stringify(nextProps.item?.opponent)
@@ -363,169 +424,169 @@ const EDGE_SNAP_THRESHOLD = 8;
 const ROW_PADDING_LEFT = 12;
 
 export const AutoScrollBattleRow = ({ children, style }) => {
-  const scrollViewRef = useRef(null);
-  const autoScrollFrameRef = useRef(null);
-  const resumeTimeoutRef = useRef(null);
-  const pausedRef = useRef(false);
-  const offsetRef = useRef(0);
-  const lastFrameTsRef = useRef(0);
-  const [viewportWidth, setViewportWidth] = useState(0);
-  const [contentWidth, setContentWidth] = useState(0);
+    const scrollViewRef = useRef(null);
+    const autoScrollFrameRef = useRef(null);
+    const resumeTimeoutRef = useRef(null);
+    const pausedRef = useRef(false);
+    const offsetRef = useRef(0);
+    const lastFrameTsRef = useRef(0);
+    const [viewportWidth, setViewportWidth] = useState(0);
+    const [contentWidth, setContentWidth] = useState(0);
 
-  const allChildren = React.Children.toArray(children);
-  const isCarouselEnabled = allChildren.length > 1;
-  const maxOffset = Math.max(0, contentWidth - viewportWidth);
-  const canAutoScroll = isCarouselEnabled && maxOffset > 0;
+    const allChildren = React.Children.toArray(children);
+    const isCarouselEnabled = allChildren.length > 1;
+    const maxOffset = Math.max(0, contentWidth - viewportWidth);
+    const canAutoScroll = isCarouselEnabled && maxOffset > 0;
 
-  const clearResumeTimer = useCallback(() => {
-    if (resumeTimeoutRef.current) {
-      clearTimeout(resumeTimeoutRef.current);
-      resumeTimeoutRef.current = null;
-    }
-  }, []);
+    const clearResumeTimer = useCallback(() => {
+        if (resumeTimeoutRef.current) {
+            clearTimeout(resumeTimeoutRef.current);
+            resumeTimeoutRef.current = null;
+        }
+    }, []);
 
-  const stopAutoScroll = useCallback(() => {
-    if (autoScrollFrameRef.current) {
-      cancelAnimationFrame(autoScrollFrameRef.current);
-      autoScrollFrameRef.current = null;
-    }
-    lastFrameTsRef.current = 0;
-  }, []);
+    const stopAutoScroll = useCallback(() => {
+        if (autoScrollFrameRef.current) {
+            cancelAnimationFrame(autoScrollFrameRef.current);
+            autoScrollFrameRef.current = null;
+        }
+        lastFrameTsRef.current = 0;
+    }, []);
 
-  const syncScrollPosition = useCallback(nextOffset => {
-    const safeOffset = Math.max(0, Math.min(nextOffset, maxOffset));
-    offsetRef.current = safeOffset;
-    scrollViewRef.current?.scrollTo({ x: safeOffset, animated: false });
-  }, [maxOffset]);
+    const syncScrollPosition = useCallback(nextOffset => {
+        const safeOffset = Math.max(0, Math.min(nextOffset, maxOffset));
+        offsetRef.current = safeOffset;
+        scrollViewRef.current?.scrollTo({ x: safeOffset, animated: false });
+    }, [maxOffset]);
 
-  const startAutoScroll = useCallback((fromOffset = offsetRef.current) => {
-    if (!canAutoScroll || pausedRef.current) return;
+    const startAutoScroll = useCallback((fromOffset = offsetRef.current) => {
+        if (!canAutoScroll || pausedRef.current) return;
 
-    stopAutoScroll();
-    syncScrollPosition(fromOffset);
-
-    const tick = timestamp => {
-      if (pausedRef.current || !canAutoScroll) {
         stopAutoScroll();
-        return;
-      }
+        syncScrollPosition(fromOffset);
 
-      if (!lastFrameTsRef.current) {
-        lastFrameTsRef.current = timestamp;
-      }
+        const tick = timestamp => {
+            if (pausedRef.current || !canAutoScroll) {
+                stopAutoScroll();
+                return;
+            }
 
-      const deltaMs = timestamp - lastFrameTsRef.current;
-      lastFrameTsRef.current = timestamp;
+            if (!lastFrameTsRef.current) {
+                lastFrameTsRef.current = timestamp;
+            }
 
-      let nextOffset = offsetRef.current + (deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS);
-      if (nextOffset >= maxOffset) {
-        nextOffset = 0;
-      }
+            const deltaMs = timestamp - lastFrameTsRef.current;
+            lastFrameTsRef.current = timestamp;
 
-      syncScrollPosition(nextOffset);
-      autoScrollFrameRef.current = requestAnimationFrame(tick);
-    };
+            let nextOffset = offsetRef.current + (deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS);
+            if (nextOffset >= maxOffset) {
+                nextOffset = 0;
+            }
 
-    autoScrollFrameRef.current = requestAnimationFrame(tick);
-  }, [canAutoScroll, maxOffset, stopAutoScroll, syncScrollPosition]);
+            syncScrollPosition(nextOffset);
+            autoScrollFrameRef.current = requestAnimationFrame(tick);
+        };
 
-  useEffect(() => {
-    if (!canAutoScroll) {
-      clearResumeTimer();
-      stopAutoScroll();
-      pausedRef.current = false;
-      syncScrollPosition(0);
-      return undefined;
+        autoScrollFrameRef.current = requestAnimationFrame(tick);
+    }, [canAutoScroll, maxOffset, stopAutoScroll, syncScrollPosition]);
+
+    useEffect(() => {
+        if (!canAutoScroll) {
+            clearResumeTimer();
+            stopAutoScroll();
+            pausedRef.current = false;
+            syncScrollPosition(0);
+            return undefined;
+        }
+
+        const t = setTimeout(() => startAutoScroll(offsetRef.current), START_DELAY_MS);
+        return () => {
+            clearTimeout(t);
+            clearResumeTimer();
+            stopAutoScroll();
+        };
+    }, [canAutoScroll, startAutoScroll, clearResumeTimer, stopAutoScroll, syncScrollPosition]);
+
+    useEffect(() => {
+        if (!canAutoScroll) return;
+        if (offsetRef.current > maxOffset) {
+            syncScrollPosition(maxOffset);
+        }
+    }, [canAutoScroll, maxOffset, syncScrollPosition]);
+
+    useEffect(() => {
+        return () => {
+            clearResumeTimer();
+            stopAutoScroll();
+        };
+    }, [clearResumeTimer, stopAutoScroll]);
+
+    const handleInteractionStart = useCallback(() => {
+        clearResumeTimer();
+        pausedRef.current = true;
+        stopAutoScroll();
+    }, [clearResumeTimer, stopAutoScroll]);
+
+    const handleInteractionEnd = useCallback(() => {
+        clearResumeTimer();
+        if (!canAutoScroll) {
+            pausedRef.current = false;
+            return;
+        }
+
+        resumeTimeoutRef.current = setTimeout(() => {
+            const currentOffset = offsetRef.current;
+            if (currentOffset >= maxOffset - EDGE_SNAP_THRESHOLD) {
+                syncScrollPosition(0);
+            }
+            pausedRef.current = false;
+            startAutoScroll(offsetRef.current);
+        }, RESUME_DELAY_MS);
+    }, [canAutoScroll, maxOffset, clearResumeTimer, startAutoScroll, syncScrollPosition]);
+
+    if (!isCarouselEnabled) {
+        return (
+            <View
+                style={[
+                    { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: ROW_PADDING_LEFT },
+                    style,
+                ]}
+            >
+                {allChildren}
+            </View>
+        );
     }
 
-    const t = setTimeout(() => startAutoScroll(offsetRef.current), START_DELAY_MS);
-    return () => {
-      clearTimeout(t);
-      clearResumeTimer();
-      stopAutoScroll();
-    };
-  }, [canAutoScroll, startAutoScroll, clearResumeTimer, stopAutoScroll, syncScrollPosition]);
-
-  useEffect(() => {
-    if (!canAutoScroll) return;
-    if (offsetRef.current > maxOffset) {
-      syncScrollPosition(maxOffset);
-    }
-  }, [canAutoScroll, maxOffset, syncScrollPosition]);
-
-  useEffect(() => {
-    return () => {
-      clearResumeTimer();
-      stopAutoScroll();
-    };
-  }, [clearResumeTimer, stopAutoScroll]);
-
-  const handleInteractionStart = useCallback(() => {
-    clearResumeTimer();
-    pausedRef.current = true;
-    stopAutoScroll();
-  }, [clearResumeTimer, stopAutoScroll]);
-
-  const handleInteractionEnd = useCallback(() => {
-    clearResumeTimer();
-    if (!canAutoScroll) {
-      pausedRef.current = false;
-      return;
-    }
-
-    resumeTimeoutRef.current = setTimeout(() => {
-      const currentOffset = offsetRef.current;
-      if (currentOffset >= maxOffset - EDGE_SNAP_THRESHOLD) {
-        syncScrollPosition(0);
-      }
-      pausedRef.current = false;
-      startAutoScroll(offsetRef.current);
-    }, RESUME_DELAY_MS);
-  }, [canAutoScroll, maxOffset, clearResumeTimer, startAutoScroll, syncScrollPosition]);
-
-  if (!isCarouselEnabled) {
     return (
-      <View
-        style={[
-          { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: ROW_PADDING_LEFT },
-          style,
-        ]}
-      >
-        {allChildren}
-      </View>
+        <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={canAutoScroll}
+            bounces={false}
+            alwaysBounceHorizontal={false}
+            overScrollMode="never"
+            keyboardShouldPersistTaps="handled"
+            delayContentTouches={false}
+            scrollEventThrottle={16}
+            onLayout={event => setViewportWidth(event.nativeEvent.layout.width)}
+            onContentSizeChange={width => setContentWidth(width)}
+            onScroll={event => {
+                offsetRef.current = event?.nativeEvent?.contentOffset?.x ?? 0;
+            }}
+            onTouchStart={handleInteractionStart}
+            onScrollBeginDrag={handleInteractionStart}
+            onScrollEndDrag={handleInteractionEnd}
+            onMomentumScrollEnd={handleInteractionEnd}
+            onTouchEnd={handleInteractionEnd}
+            contentContainerStyle={[
+                { flexDirection: 'row', gap: CARD_GAP, paddingLeft: ROW_PADDING_LEFT },
+                style,
+            ]}
+        >
+            {allChildren}
+        </ScrollView>
     );
-  }
-
-  return (
-    <ScrollView
-      ref={scrollViewRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      scrollEnabled={canAutoScroll}
-      bounces={false}
-      alwaysBounceHorizontal={false}
-      overScrollMode="never"
-      keyboardShouldPersistTaps="handled"
-      delayContentTouches={false}
-      scrollEventThrottle={16}
-      onLayout={event => setViewportWidth(event.nativeEvent.layout.width)}
-      onContentSizeChange={width => setContentWidth(width)}
-      onScroll={event => {
-        offsetRef.current = event?.nativeEvent?.contentOffset?.x ?? 0;
-      }}
-      onTouchStart={handleInteractionStart}
-      onScrollBeginDrag={handleInteractionStart}
-      onScrollEndDrag={handleInteractionEnd}
-      onMomentumScrollEnd={handleInteractionEnd}
-      onTouchEnd={handleInteractionEnd}
-      contentContainerStyle={[
-        { flexDirection: 'row', gap: CARD_GAP, paddingLeft: ROW_PADDING_LEFT },
-        style,
-      ]}
-    >
-      {allChildren}
-    </ScrollView>
-  );
 };
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -635,8 +696,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff', paddingVertical: 5, paddingHorizontal: 7, minWidth: 0,
     },
     optionChipSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
-    optionChipLabel: { flex: 1, fontSize: 11, fontWeight: '500', color: TEXT },
+    optionChipTextWrap: { flex: 1, minWidth: 0 },
+    optionChipLabel: { fontSize: 11, fontWeight: '500', color: TEXT },
     optionChipLabelSelected: { color: PURPLE_DARK },
+    optionChipPercent: { marginTop: 1, fontSize: 10, fontWeight: '700', color: GRAY_MID },
     radioCircle: {
         width: 15, height: 15, borderRadius: 7.5,
         borderWidth: 1.5, borderColor: BORDER,
@@ -667,7 +730,7 @@ const styles = StyleSheet.create({
     divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 10 },
 
     // Stats
-    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6,alignSelf:'center' },
+    statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center' },
     statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { fontSize: 12, color: GRAY_MID },
     statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: BORDER },

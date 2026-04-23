@@ -9,20 +9,24 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   Image,
   Keyboard,
+  Modal,
   Platform,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
+import ImageZoom from 'react-native-image-pan-zoom';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {
@@ -66,6 +70,9 @@ const withAlpha = (hex, alpha) => {
   }
   return hex;
 };
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const OPTION_IMAGE_PREVIEW_SIZE = Math.min(Math.round(SCREEN_WIDTH * 0.84), 360);
 
 const HexagonImage = ({ uri, size = 110, borderColor = 'rgba(255,255,255,0.4)', fallback }) => {
   const hexagonPoints = `${size / 2},0 ${size},${size / 4} ${size},${(size * 3) / 4} ${size / 2},${size} 0,${(size * 3) / 4} 0,${size / 4}`;
@@ -658,6 +665,8 @@ export default function BattleInProgress() {
   const [selectedOption, setSelectedOption] = useState(
     () => String(route?.params?.selectedOption || ''),
   );
+  const [optionImagePreviewVisible, setOptionImagePreviewVisible] = useState(false);
+  const [optionImagePreviewUri, setOptionImagePreviewUri] = useState('');
   const [argumentText, setArgumentText] = useState('');
   const [commentText, setCommentText] = useState('');
   const [replyText, setReplyText] = useState('');
@@ -751,6 +760,22 @@ export default function BattleInProgress() {
   const hasUserVoted = useMemo(
     () => Boolean(userVotedSelection.side || userVotedSelection.optionId),
     [userVotedSelection.optionId, userVotedSelection.side],
+  );
+
+  const closeOptionImagePreview = useCallback(() => {
+    console.log('closing modal');
+    setOptionImagePreviewVisible(false);
+    setOptionImagePreviewUri('');
+  }, []);
+
+  const openOptionImagePreview = useCallback(
+    (uri) => {
+      if (uri) {
+        setOptionImagePreviewUri(uri);
+        setOptionImagePreviewVisible(true);
+      }
+    },
+    [],
   );
 
   const fetchBattle = useCallback(
@@ -889,7 +914,7 @@ export default function BattleInProgress() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [hasUserVoted]);
+  }, [hasUserVoted, keepActiveSelectedStyle]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1584,517 +1609,524 @@ export default function BattleInProgress() {
           extraScrollHeight={32}
           keyboardOpeningTime={0}
         >
-            <View style={styles.header}>
-              <TouchableOpacity
-                onPress={() => handleBackPress()}
-                style={styles.headerIconBtn}
-              >
-                <Icon name="arrow-back-ios-new" size={20} color={text} />
-              </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: text }]}>
-                Battle In Progress
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setRefreshing(true);
-                  fetchBattle(true);
-                }}
-                style={styles.headerIconBtn}
-              >
-                {refreshing ? (
-                  <ActivityIndicator size="small" color={text} />
-                ) : (
-                  <Ionicons name="refresh-outline" size={20} color={text} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <Animated.View
-              style={{
-                transform: [{ scale: scaleAnim }],
-              }}
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => handleBackPress()}
+              style={styles.headerIconBtn}
             >
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPressIn={handleHeroCardPressIn}
-                onPressOut={handleHeroCardPressOut}
+              <Icon name="arrow-back-ios-new" size={20} color={text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: text }]}>
+              Battle In Progress
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setRefreshing(true);
+                fetchBattle(true);
+              }}
+              style={styles.headerIconBtn}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color={text} />
+              ) : (
+                <Ionicons name="refresh-outline" size={20} color={text} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Animated.View
+            style={{
+              transform: [{ scale: scaleAnim }],
+            }}
+          >
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPressIn={handleHeroCardPressIn}
+              onPressOut={handleHeroCardPressOut}
+            >
+              <LinearGradient
+                colors={[palette.secondary, palette.primary, palette.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCard}
               >
-                <LinearGradient
-                  colors={[palette.secondary, palette.primary, palette.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.heroCard}
-                >
-                  <View style={styles.heroTopRow}>
-                    <View
-                      style={[
-                        styles.statusPill,
-                        { backgroundColor: `${statusMeta.color}33` },
-                      ]}
-                    >
-                      <Text style={[styles.statusPillText, { color: '#FFFFFF' }]}>
-                        {statusMeta.label}
-                      </Text>
-                    </View>
-                    <View style={styles.heroMetaRight}>
-                      <Text style={styles.heroMetaText}>
-                        {battle.format === 'HEAD_TO_HEAD'
-                          ? 'Head-to-Head'
-                          : 'Battle Poll'}
-                      </Text>
-                      <Text style={styles.heroMetaText}>
-                        {isPrediction ? 'Prediction' : 'Opinion'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.heroTitle}>{battle.title}</Text>
-                  {!!battle.description && (
-                    <Text style={styles.heroDescription}>{battle.description}</Text>
-                  )}
-
-                  <View style={styles.heroInfoRow}>
-                    <Text style={styles.heroInfoText}>
-                      {battle.primaryCount} {battle.primaryCountLabel}
-                    </Text>
-                    {/* <Text style={styles.heroInfoText}>{battle.stake} cred points</Text> */}
-                    <Text style={styles.heroInfoText}>
-                      {formatBattleTime(battle.endTime)}
+                <View style={styles.heroTopRow}>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      { backgroundColor: `${statusMeta.color}33` },
+                    ]}
+                  >
+                    <Text style={[styles.statusPillText, { color: '#FFFFFF' }]}>
+                      {statusMeta.label}
                     </Text>
                   </View>
+                  <View style={styles.heroMetaRight}>
+                    <Text style={styles.heroMetaText}>
+                      {battle.format === 'HEAD_TO_HEAD'
+                        ? 'Head-to-Head'
+                        : 'Battle Poll'}
+                    </Text>
+                    <Text style={styles.heroMetaText}>
+                      {isPrediction ? 'Prediction' : 'Opinion'}
+                    </Text>
+                  </View>
+                </View>
 
-                  {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
-                    <View style={{ position: 'relative', marginBottom: 20 }}>
-                      <View style={styles.duelRow}>
-                        {(() => {
-                          const participant0 = battle.participants[0];
-                          const participant1 = battle.participants[1];
+                <Text style={styles.heroTitle}>{battle.title}</Text>
+                {!!battle.description && (
+                  <Text style={styles.heroDescription}>{battle.description}</Text>
+                )}
 
-                          const player0Data = participantUserData[participant0?.userId] || {};
-                          const player1Data = participantUserData[participant1?.userId] || {};
+                <View style={styles.heroInfoRow}>
+                  <Text style={styles.heroInfoText}>
+                    {battle.primaryCount} {battle.primaryCountLabel}
+                  </Text>
+                  {/* <Text style={styles.heroInfoText}>{battle.stake} cred points</Text> */}
+                  <Text style={styles.heroInfoText}>
+                    {formatBattleTime(battle.endTime)}
+                  </Text>
+                </View>
 
-                          return (
-                            <>
-                              <TouchableOpacity
-                                activeOpacity={0.75}
-                                onPress={() => {
-                                  if (currentUserId === participant0?.userId) {
-                                    navigation.navigate('ProfileMain', { screen: 'Profile' });
-                                  } else {
-                                    const currentRoute = route?.name || 'BattleInProgress';
-                                    navigation.navigate('HomeMain', {
-                                      screen: 'UsersProfile',
-                                      params: {
-                                        userId: participant0?.userId,
-                                        returnTo: currentRoute,
-                                      },
-                                    });
-                                  }
-                                }}
-                              >
-                                <View style={styles.duelPlayerCard}>
-                                  <View style={styles.playerImageContainer}>
-                                    <HexAvatar
-                                      uri={player0Data?.image || FALLBACK_AVATAR}
-                                      size={72}
-                                      borderWidth={3}
-                                      borderColor={text}
-                                    />
-                                  </View>
-                                  <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || 'User'}</Text>
-                                  <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
-                                  {/* <View style={styles.votesContainer}>
+                {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
+                  <View style={{ position: 'relative', marginBottom: 20 }}>
+                    <View style={styles.duelRow}>
+                      {(() => {
+                        const participant0 = battle.participants[0];
+                        const participant1 = battle.participants[1];
+
+                        const player0Data = participantUserData[participant0?.userId] || {};
+                        const player1Data = participantUserData[participant1?.userId] || {};
+
+                        return (
+                          <>
+                            <TouchableOpacity
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                if (currentUserId === participant0?.userId) {
+                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                } else {
+                                  const currentRoute = route?.name || 'BattleInProgress';
+                                  navigation.navigate('HomeMain', {
+                                    screen: 'UsersProfile',
+                                    params: {
+                                      userId: participant0?.userId,
+                                      returnTo: currentRoute,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              <View style={styles.duelPlayerCard}>
+                                <View style={styles.playerImageContainer}>
+                                  <HexAvatar
+                                    uri={player0Data?.image || FALLBACK_AVATAR}
+                                    size={72}
+                                    borderWidth={3}
+                                    borderColor={text}
+                                  />
+                                </View>
+                                <Text style={[styles.playerNameBold]} numberOfLines={2} ellipsizeMode="tail">{player0Data?.name || 'User'}</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={1}>({participant0?.side})</Text>
+                                {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant0?.score || 0} Points</Text>
                                 </View> */}
-                                </View>
-                              </TouchableOpacity>
+                              </View>
+                            </TouchableOpacity>
 
-                              <TouchableOpacity
-                                activeOpacity={0.75}
-                                onPress={() => {
-                                  if (currentUserId === participant1?.userId) {
-                                    navigation.navigate('ProfileMain', { screen: 'Profile' });
-                                  } else {
-                                    const currentRoute = route?.name || 'BattleInProgress';
-                                    navigation.navigate('HomeMain', {
-                                      screen: 'UsersProfile',
-                                      params: {
-                                        userId: participant1?.userId,
-                                        returnTo: currentRoute,
-                                      },
-                                    });
-                                  }
-                                }}
-                              >
-                                <View style={styles.duelPlayerCard}>
-                                  <View style={styles.playerImageContainer}>
-                                    <HexAvatar
-                                      uri={player1Data?.image || FALLBACK_AVATAR}
-                                      size={72}
-                                      borderWidth={3}
-                                      borderColor={text}
-                                    />
-                                  </View>
-                                  <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name ||  'User'}</Text>
-                                  <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
-                                  {/* <View style={styles.votesContainer}>
+                            <TouchableOpacity
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                if (currentUserId === participant1?.userId) {
+                                  navigation.navigate('ProfileMain', { screen: 'Profile' });
+                                } else {
+                                  const currentRoute = route?.name || 'BattleInProgress';
+                                  navigation.navigate('HomeMain', {
+                                    screen: 'UsersProfile',
+                                    params: {
+                                      userId: participant1?.userId,
+                                      returnTo: currentRoute,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              <View style={styles.duelPlayerCard}>
+                                <View style={styles.playerImageContainer}>
+                                  <HexAvatar
+                                    uri={player1Data?.image || FALLBACK_AVATAR}
+                                    size={72}
+                                    borderWidth={3}
+                                    borderColor={text}
+                                  />
+                                </View>
+                                <Text style={styles.playerNameBold} numberOfLines={2} ellipsizeMode="tail">{player1Data?.name || 'User'}</Text>
+                                <Text style={styles.playerNameBold} numberOfLines={1}>({participant1?.side})</Text>
+                                {/* <View style={styles.votesContainer}>
                                   <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
                                   <Text style={styles.votesCountText}>{participant1?.score || 0} Points</Text>
                                 </View> */}
-                                </View>
-                              </TouchableOpacity>
-                            </>
-                          );
-                        })()}
-                      </View>
-
-                      <View style={styles.duelVsWrapOverlay}>
-                        <Vsbanner height={120} width={120} />
-                        <Text style={[styles.duelVsText, { position: 'absolute' }]}>VS</Text>
-                      </View>
-                    </View>
-                  )}
-                  <View style={styles.duelProgressCard}>
-                    {(() => {
-                      const options = Array.isArray(battle.options) ? battle.options : [];
-                      const leftOption = options[0] || {};
-                      const rightOption = options[1] || {};
-
-                      const leftLabel = String(
-                        pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
-                      );
-                      const rightLabel = String(
-                        pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
-                      );
-                      const leftSide = String(
-                        pickFirst(leftOption?.side, leftOption?.label, ''),
-                      );
-                      const rightSide = String(
-                        pickFirst(rightOption?.side, rightOption?.label, ''),
-                      );
-
-                      const leftVotes = Number(
-                        pickFirst(
-                          getCountFromSideMap(battle?.voteCounts, leftSide),
-                          getCountFromSideMap(battle?.predictionCounts, leftSide),
-                          getCountFromSideMap(battle?.voteCounts, leftLabel),
-                          getCountFromSideMap(battle?.predictionCounts, leftLabel),
-                          leftOption?.votes,
-                          0,
-                        ),
-                      );
-                      const rightVotes = Number(
-                        pickFirst(
-                          getCountFromSideMap(battle?.voteCounts, rightSide),
-                          getCountFromSideMap(battle?.predictionCounts, rightSide),
-                          getCountFromSideMap(battle?.voteCounts, rightLabel),
-                          getCountFromSideMap(battle?.predictionCounts, rightLabel),
-                          rightOption?.votes,
-                          0,
-                        ),
-                      );
-
-                      const total = leftVotes + rightVotes;
-                      const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
-                      const rightPercent = total > 0 ? 100 - leftPercent : 0;
-
-                      return (
-                        <>
-                          <View style={styles.duelProgressTopRow}>
-                            <View style={styles.duelProgressTopSide}>
-                              <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
-                                {leftLabel}
-                              </Text>
-                              <Text style={styles.duelProgressOptionVotes}>
-                                {leftVotes} votes
-                              </Text>
-                            </View>
-                            <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
-                              <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
-                                {rightLabel}
-                              </Text>
-                              <Text style={styles.duelProgressOptionVotes}>
-                                {rightVotes} votes
-                              </Text>
-                            </View>
-                          </View>
-
-                          <View style={styles.duelProgressBarTrack}>
-                            <View
-                              style={[
-                                styles.duelProgressBarFillLeft,
-                                { width: `${leftPercent}%` },
-                              ]}
-                            />
-                            <View
-                              style={[
-                                styles.duelProgressBarFillRight,
-                                { width: `${rightPercent}%` },
-                              ]}
-                            />
-                          </View>
-
-                          <View style={styles.duelProgressBottomRow}>
-                            <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
-                            <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
-                          </View>
-                        </>
-                      );
-                    })()}
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* ── HOW TO WIN CARD ── */}
-            <View
-              style={[
-                styles.howToWinCard,
-                cardStyle,
-                { shadowColor: palette.primary },
-              ]}
-            >
-              <Text style={[styles.howToWinTitle, { color: text }]}>
-                How to Win
-              </Text>
-              <Text style={[styles.howToWinSubtitle, { color: palette.textMuted }]}>
-                {isPrediction
-                  ? 'Tap to submit your prediction:'
-                  : 'Tap to vote on who\'s right:'}
-              </Text>
-
-              {[
-                { icon: 'checkmark-circle', color: '#7C3AED', label: 'Get votes' },
-                { icon: 'chatbubble-ellipses', color: '#7C3AED', label: 'Comment your opinion' },
-                { icon: 'heart', color: '#E11D48', label: 'Earn likes on your comments' },
-              ].map((item, idx) => (
-                <View key={idx} style={styles.howToWinRow}>
-                  <View style={[styles.howToWinIconWrap, { backgroundColor: `${item.color}22` }]}>
-                    <Ionicons name={item.icon} size={16} color={item.color} />
-                  </View>
-                  <Text style={[styles.howToWinItemText, textStyle]}>{item.label}</Text>
-                </View>
-              ))}
-
-              <Text style={[styles.howToWinFooter, { color: palette.textMuted }]}>
-                The side with the most votes & liked comments wins!
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.infoCard,
-                cardStyle,
-                { shadowColor: palette.primary },
-              ]}
-            >
-              <Text style={[styles.sectionTitle, { color: text }]}>
-                Winner Logic
-              </Text>
-              <Text style={[styles.infoText, textStyle]}>
-                {isPrediction
-                  ? 'Prediction battles rank the correct result first, with engagement used as support.'
-                  : 'Opinion battles rank the winner by votes plus likes and argument engagement.'}
-              </Text>
-              {!!battle.resultValue && (
-                <Text style={[styles.resultText, textStyle]}>
-                  Current result signal: {battle.resultValue}
-                </Text>
-              )}
-              {!!battle.winnerName && (
-                <Text style={[styles.resultText, textStyle]}>Winner: {battle.winnerName}</Text>
-              )}
-            </View>
-
-
-            <View
-              style={[
-                styles.infoCard,
-                cardStyle,
-                { shadowColor: palette.primary },
-              ]}
-            >
-              <Text style={[styles.sectionTitle, { color: text }]}>
-                {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
-              </Text>
-
-              <View style={styles.optionGrid}>
-                {battle.options.map(
-                  (option, index) => {
-                    const optionImage = battle.optionImages?.[index];
-                    const optionSide = String(
-                      pickFirst(option?.side, option?.label, ''),
-                    );
-                    const normalizedSelected = normalizeSideKey(selectedOption);
-                    const normalizedOptionSide = normalizeSideKey(optionSide);
-
-                    const isSelected =
-                      (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
-                      (option.id && selectedOption === String(option.id)) ||
-                      (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
-                      (userVotedSelection.side && normalizedOptionSide &&
-                        normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
-                    const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
-                    const shouldDisable = hasUserVoted;
-                    return (
-                      <TouchableOpacity
-                        key={`${battle.id}-${option.id}`}
-                        disabled={hasUserVoted}
-                        activeOpacity={0.88}
-                        style={[
-                          styles.optionPillCard,
-                          {
-                            borderColor: isSelected
-                              ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
-                              : '#E5E7EB',
-                            backgroundColor: isSelected
-                              ? useVotedGrayStyle ? '#F3F4F6' : palette.soft
-                              : shouldDisable ?palette.soft : '#F9FAFB',
-                          },
-                        ]}
-                        onPress={() => {
-                          if (!hasUserVoted) {
-                            setSelectedOption(option.label);
-                          }
-                        }}
-                      >
-                        {/* Hexagon avatar */}
-                        <View style={styles.optionPillAvatarWrap}>
-                          <HexAvatar
-                            uri={optionImage || option.image}
-                            size={36}
-                            borderWidth={2}
-                            borderColor={isSelected ? palette.primary : '#D1D5DB'}
-                            fallback={
-                              <View
-                                style={[
-                                  styles.optionPillAvatarFallback,
-                                  {
-                                    borderColor: isSelected
-                                      ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
-                                      : '#D1D5DB',
-                                    backgroundColor: isSelected
-                                      ? useVotedGrayStyle ? '#E5E7EB' : palette.soft
-                                      : '#EDE9F6',
-                                  },
-                                ]}
-                              >
-                                <Ionicons name="person" size={18} color={isSelected ? palette.primary : '#7C3AED'} />
                               </View>
-                            }
+                            </TouchableOpacity>
+                          </>
+                        );
+                      })()}
+                    </View>
+
+                    <View style={styles.duelVsWrapOverlay}>
+                      <Vsbanner height={120} width={120} />
+                      <Text style={[styles.duelVsText, { position: 'absolute' }]}>VS</Text>
+                    </View>
+                  </View>
+                )}
+                <View style={styles.duelProgressCard}>
+                  {(() => {
+                    const options = Array.isArray(battle.options) ? battle.options : [];
+                    const leftOption = options[0] || {};
+                    const rightOption = options[1] || {};
+
+                    const leftLabel = String(
+                      pickFirst(leftOption?.label, leftOption?.side, 'Option 1'),
+                    );
+                    const rightLabel = String(
+                      pickFirst(rightOption?.label, rightOption?.side, 'Option 2'),
+                    );
+                    const leftSide = String(
+                      pickFirst(leftOption?.side, leftOption?.label, ''),
+                    );
+                    const rightSide = String(
+                      pickFirst(rightOption?.side, rightOption?.label, ''),
+                    );
+
+                    const leftVotes = Number(
+                      pickFirst(
+                        getCountFromSideMap(battle?.voteCounts, leftSide),
+                        getCountFromSideMap(battle?.predictionCounts, leftSide),
+                        getCountFromSideMap(battle?.voteCounts, leftLabel),
+                        getCountFromSideMap(battle?.predictionCounts, leftLabel),
+                        leftOption?.votes,
+                        0,
+                      ),
+                    );
+                    const rightVotes = Number(
+                      pickFirst(
+                        getCountFromSideMap(battle?.voteCounts, rightSide),
+                        getCountFromSideMap(battle?.predictionCounts, rightSide),
+                        getCountFromSideMap(battle?.voteCounts, rightLabel),
+                        getCountFromSideMap(battle?.predictionCounts, rightLabel),
+                        rightOption?.votes,
+                        0,
+                      ),
+                    );
+
+                    const total = leftVotes + rightVotes;
+                    const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
+                    const rightPercent = total > 0 ? 100 - leftPercent : 0;
+
+                    return (
+                      <>
+                        <View style={styles.duelProgressTopRow}>
+                          <View style={styles.duelProgressTopSide}>
+                            <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
+                              {leftLabel}
+                            </Text>
+                            <Text style={styles.duelProgressOptionVotes}>
+                              {leftVotes} votes
+                            </Text>
+                          </View>
+                          <View style={[styles.duelProgressTopSide, styles.duelProgressTopSideRight]}>
+                            <Text style={[styles.duelProgressOptionName,]} numberOfLines={1}>
+                              {rightLabel}
+                            </Text>
+                            <Text style={styles.duelProgressOptionVotes}>
+                              {rightVotes} votes
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.duelProgressBarTrack}>
+                          <View
+                            style={[
+                              styles.duelProgressBarFillLeft,
+                              { width: `${leftPercent}%` },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.duelProgressBarFillRight,
+                              { width: `${rightPercent}%` },
+                            ]}
                           />
                         </View>
 
-                        {/* Label */}
-                        <Text
-                          style={[
-                            styles.optionPillLabel,
-                            {
-                              color: isSelected
-                                ? useVotedGrayStyle ? text : palette.primary
-                                : '#374151',
-                              // opacity: hasUserVoted && !isSelected ? 0.3 : 1,
-                            },
-                          ]}
-                          onPress={() => {
-                            if (!shouldDisable) {
-                              setSelectedOption(optionSide || String(option.id || ''));
-                            }
-                          }}
-                        >
-                          {option.label}
-                        </Text>
+                        <View style={styles.duelProgressBottomRow}>
+                          <Text style={styles.duelProgressPercentLeft}>{leftPercent}%</Text>
+                          <Text style={styles.duelProgressPercentRight}>{rightPercent}%</Text>
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
 
-                        {/* Radio dot */}
-                        <View
-                          style={[
-                            styles.optionPillRadio,
-                            {
-                              borderColor: isSelected
-                                ? useVotedGrayStyle ? text : palette.primary
-                                : '#D1D5DB',
-                              backgroundColor: isSelected
-                                ? useVotedGrayStyle ? text : palette.primary
-                                : '#FFFFFF',
-                              opacity: hasUserVoted && !isSelected ? 0.3 : 1,
-                            },
-                          ]}
+          {/* ── HOW TO WIN CARD ── */}
+          <View
+            style={[
+              styles.howToWinCard,
+              cardStyle,
+              { shadowColor: palette.primary },
+            ]}
+          >
+            <Text style={[styles.howToWinTitle, { color: text }]}>
+              How to Win
+            </Text>
+            <Text style={[styles.howToWinSubtitle, { color: palette.textMuted }]}>
+              {isPrediction
+                ? 'Tap to submit your prediction:'
+                : 'Tap to vote on who\'s right:'}
+            </Text>
+
+            {[
+              { icon: 'checkmark-circle', color: '#7C3AED', label: 'Get votes' },
+              { icon: 'chatbubble-ellipses', color: '#7C3AED', label: 'Comment your opinion' },
+              { icon: 'heart', color: '#E11D48', label: 'Earn likes on your comments' },
+            ].map((item, idx) => (
+              <View key={idx} style={styles.howToWinRow}>
+                <View style={[styles.howToWinIconWrap, { backgroundColor: `${item.color}22` }]}>
+                  <Ionicons name={item.icon} size={16} color={item.color} />
+                </View>
+                <Text style={[styles.howToWinItemText, textStyle]}>{item.label}</Text>
+              </View>
+            ))}
+
+            <Text style={[styles.howToWinFooter, { color: palette.textMuted }]}>
+              The side with the most votes & liked comments wins!
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              cardStyle,
+              { shadowColor: palette.primary },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: text }]}>
+              Winner Logic
+            </Text>
+            <Text style={[styles.infoText, textStyle]}>
+              {isPrediction
+                ? 'Prediction battles rank the correct result first, with engagement used as support.'
+                : 'Opinion battles rank the winner by votes plus likes and argument engagement.'}
+            </Text>
+            {!!battle.resultValue && (
+              <Text style={[styles.resultText, textStyle]}>
+                Current result signal: {battle.resultValue}
+              </Text>
+            )}
+            {!!battle.winnerName && (
+              <Text style={[styles.resultText, textStyle]}>Winner: {battle.winnerName}</Text>
+            )}
+          </View>
+
+
+          <View
+            style={[
+              styles.infoCard,
+              cardStyle,
+              { shadowColor: palette.primary },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: text }]}>
+              {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
+            </Text>
+
+            <View style={styles.optionGrid}>
+              {battle.options.map(
+                (option, index) => {
+                  const optionImage = battle.optionImages?.[index];
+                  const optionSide = String(
+                    pickFirst(option?.side, option?.label, ''),
+                  );
+                  const normalizedSelected = normalizeSideKey(selectedOption);
+                  const normalizedOptionSide = normalizeSideKey(optionSide);
+
+                  const isSelected =
+                    (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
+                    (option.id && selectedOption === String(option.id)) ||
+                    (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
+                    (userVotedSelection.side && normalizedOptionSide &&
+                      normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
+                  const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
+                  const shouldDisable = hasUserVoted;
+                  return (
+                    <TouchableOpacity
+                      key={`${battle.id}-${option.id}`}
+                      disabled={hasUserVoted}
+                      activeOpacity={0.88}
+                      style={[
+                        styles.optionPillCard,
+                        {
+                          borderColor: isSelected
+                            ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                            : '#E5E7EB',
+                          backgroundColor: isSelected
+                            ? useVotedGrayStyle ? '#F3F4F6' : palette.soft
+                            : shouldDisable ? palette.soft : '#F9FAFB',
+                        },
+                      ]}
+                      onPress={() => {
+                        if (!hasUserVoted) {
+                          setSelectedOption(option.label);
+                        }
+                      }}
+                    >
+                      {/* Hexagon avatar */}
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.optionPillAvatarWrap}
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          openOptionImagePreview(optionImage || option.image);
+                        }}
+                      >
+                        <HexAvatar
+                          uri={optionImage || option.image}
+                          size={36}
+                          borderWidth={2}
+                          borderColor={isSelected ? palette.primary : '#D1D5DB'}
+                          fallback={
+                            <View
+                              style={[
+                                styles.optionPillAvatarFallback,
+                                {
+                                  borderColor: isSelected
+                                    ? useVotedGrayStyle ? '#D1D5DB' : palette.primary
+                                    : '#D1D5DB',
+                                  backgroundColor: isSelected
+                                    ? useVotedGrayStyle ? '#E5E7EB' : palette.soft
+                                    : '#EDE9F6',
+                                },
+                              ]}
+                            >
+                              <Ionicons name="person" size={18} color={isSelected ? palette.primary : '#7C3AED'} />
+                            </View>
+                          }
                         />
                       </TouchableOpacity>
-                    );
-                  })}
-              </View>
 
-              <TextInput
-                editable
-                value={hasUserVoted ? commentText : argumentText}
-                onChangeText={hasUserVoted ? setCommentText : setArgumentText}
-                onFocus={() => scrollRef.current?.update?.()}
-                placeholder={
-                  hasUserVoted
-                    ? 'Write a comment...'
-                    : isPrediction
-                      ? 'Add your prediction reasoning'
-                      : 'Add your argument'
-                }
-                placeholderTextColor="#9CA3AF"
-                multiline
-                style={[
-                  styles.argumentInput,
-                  textStyle,
-                  cardStyle,
-                  { borderColor: palette.border },
-                ]}
-              />
+                      {/* Label */}
+                      <Text
+                        style={[
+                          styles.optionPillLabel,
+                          {
+                            color: isSelected
+                              ? useVotedGrayStyle ? text : palette.primary
+                              : '#374151',
+                            // opacity: hasUserVoted && !isSelected ? 0.3 : 1,
+                          },
+                        ]}
+                        onPress={() => {
+                          if (!shouldDisable) {
+                            setSelectedOption(optionSide || String(option.id || ''));
+                          }
+                        }}
+                      >
+                        {option.label}
+                      </Text>
 
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={hasUserVoted ? handlePostComment : handleVote}
-                disabled={
-                  submittingVote ||
-                  (!hasUserVoted && !argumentText?.trim()) ||
-                  (hasUserVoted && !commentText?.trim())
-                }
-                style={{
-                  opacity:
-                    submittingVote ||
-                      (!hasUserVoted && !argumentText?.trim()) ||
-                      (hasUserVoted && !commentText?.trim())
-                      ? 0.5
-                      : 1,
-                }}
-              >
-                <LinearGradient
-                  colors={palette.buttonGradient}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.primaryButton}
-                >
-                  {submittingVote ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>
-                      {hasUserVoted
-                        ? 'Add Comment'
-                        : isPrediction
-                          ? 'Submit Prediction'
-                          : 'Vote in Battle'}
-                    </Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                      {/* Radio dot */}
+                      <View
+                        style={[
+                          styles.optionPillRadio,
+                          {
+                            borderColor: isSelected
+                              ? useVotedGrayStyle ? text : palette.primary
+                              : '#D1D5DB',
+                            backgroundColor: isSelected
+                              ? useVotedGrayStyle ? text : palette.primary
+                              : '#FFFFFF',
+                            opacity: hasUserVoted && !isSelected ? 0.3 : 1,
+                          },
+                        ]}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
             </View>
 
-
-            <View
+            <TextInput
+              editable
+              value={hasUserVoted ? commentText : argumentText}
+              onChangeText={hasUserVoted ? setCommentText : setArgumentText}
+              onFocus={() => scrollRef.current?.update?.()}
+              placeholder={
+                hasUserVoted
+                  ? 'Write a comment...'
+                  : isPrediction
+                    ? 'Add your prediction reasoning'
+                    : 'Add your argument'
+              }
+              placeholderTextColor="#9CA3AF"
+              multiline
               style={[
-                styles.infoCard,
+                styles.argumentInput,
+                textStyle,
                 cardStyle,
-                { shadowColor: palette.primary },
+                { borderColor: palette.border },
               ]}
+            />
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={hasUserVoted ? handlePostComment : handleVote}
+              disabled={
+                submittingVote ||
+                (!hasUserVoted && !argumentText?.trim()) ||
+                (hasUserVoted && !commentText?.trim())
+              }
+              style={{
+                opacity:
+                  submittingVote ||
+                    (!hasUserVoted && !argumentText?.trim()) ||
+                    (hasUserVoted && !commentText?.trim())
+                    ? 0.5
+                    : 1,
+              }}
             >
-              {/* <Text style={[styles.sectionTitle, { color: text }]}>
+              <LinearGradient
+                colors={palette.buttonGradient}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.primaryButton}
+              >
+                {submittingVote ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    {hasUserVoted
+                      ? 'Add Comment'
+                      : isPrediction
+                        ? 'Submit Prediction'
+                        : 'Vote in Battle'}
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+
+          <View
+            style={[
+              styles.infoCard,
+              cardStyle,
+              { shadowColor: palette.primary },
+            ]}
+          >
+            {/* <Text style={[styles.sectionTitle, { color: text }]}>
                 Battle Comments
               </Text>
               <View style={styles.commentComposer}>
@@ -2127,42 +2159,42 @@ export default function BattleInProgress() {
                 </TouchableOpacity>
               </View> */}
 
-              {battle.comments.length > 0 ? (
-                battle.comments.map(comment => renderCommentItem(comment))
-              ) : (
-                <Text style={[styles.emptyCommentText, textStyle]}>
-                  No comments yet. Start the conversation and strengthen your side.
-                </Text>
-              )}
-            </View>
+            {battle.comments.length > 0 ? (
+              battle.comments.map(comment => renderCommentItem(comment))
+            ) : (
+              <Text style={[styles.emptyCommentText, textStyle]}>
+                No comments yet. Start the conversation and strengthen your side.
+              </Text>
+            )}
+          </View>
 
-            <View style={styles.bottomActions}>
-              <TouchableOpacity
-                style={[
-                  styles.secondaryButton,
-                  cardStyle,
-                  { borderColor: palette.primary },
-                ]}
-                onPress={() =>
-                  navigation.navigate('BattleResults', {
-                    battleId: battle.id || battleId,
-                    battle,
-                    predictionCounts: battle?.predictionCounts || {},
-                    winnerUserId: battle?.winnerUserId || '',
-                    winningSide: battle?.winningSide || '',
-                    entryPoint: route?.params?.entryPoint || 'battle_progress',
-                    profile: profile
-                  })
-                }
+          <View style={styles.bottomActions}>
+            <TouchableOpacity
+              style={[
+                styles.secondaryButton,
+                cardStyle,
+                { borderColor: palette.primary },
+              ]}
+              onPress={() =>
+                navigation.navigate('BattleResults', {
+                  battleId: battle.id || battleId,
+                  battle,
+                  predictionCounts: battle?.predictionCounts || {},
+                  winnerUserId: battle?.winnerUserId || '',
+                  winningSide: battle?.winningSide || '',
+                  entryPoint: route?.params?.entryPoint || 'battle_progress',
+                  profile: profile
+                })
+              }
+            >
+              <Text
+                style={[styles.secondaryButtonText, { color: palette.primary }]}
               >
-                <Text
-                  style={[styles.secondaryButtonText, { color: palette.primary }]}
-                >
-                  View Results
-                </Text>
-              </TouchableOpacity>
+                View Results
+              </Text>
+            </TouchableOpacity>
 
-              {/* <TouchableOpacity
+            {/* <TouchableOpacity
             style={[
               styles.secondaryButton,
               cardStyle,
@@ -2183,9 +2215,54 @@ export default function BattleInProgress() {
               Cred Points
             </Text>
           </TouchableOpacity> */}
-            </View>
+          </View>
         </KeyboardAwareScrollView>
       </TouchableWithoutFeedback>
+
+      <Modal
+        visible={optionImagePreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeOptionImagePreview}
+      >
+        <Pressable
+          style={styles.optionImagePreviewBackdrop}
+          onPress={closeOptionImagePreview}
+        >
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={closeOptionImagePreview}
+            style={styles.optionImagePreviewCloseBtn}
+          >
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <Pressable
+            style={styles.optionImagePreviewZoomHost}
+            onPress={(e) => e?.stopPropagation?.()}
+          >
+            {!!optionImagePreviewUri && (
+              <ImageZoom
+                cropWidth={SCREEN_WIDTH}
+                cropHeight={SCREEN_HEIGHT}
+                imageWidth={OPTION_IMAGE_PREVIEW_SIZE}
+                imageHeight={OPTION_IMAGE_PREVIEW_SIZE}
+                enableCenterFocus
+              >
+                <View style={styles.optionImagePreviewHexWrap}>
+                  <HexAvatar
+                    uri={optionImagePreviewUri || FALLBACK_AVATAR}
+                    size={OPTION_IMAGE_PREVIEW_SIZE}
+                    borderWidth={2}
+                    borderColor="rgba(255,255,255,0.6)"
+                  />
+                </View>
+              </ImageZoom>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -2893,5 +2970,35 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: 2,
     flexShrink: 0,
+  },
+  optionImagePreviewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionImagePreviewCloseBtn: {
+    position: 'absolute',
+    top: 44,
+    right: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    zIndex: 10,
+  },
+  optionImagePreviewZoomHost: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionImagePreviewHexWrap: {
+    width: OPTION_IMAGE_PREVIEW_SIZE,
+    height: OPTION_IMAGE_PREVIEW_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
