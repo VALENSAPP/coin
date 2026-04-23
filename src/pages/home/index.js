@@ -4,8 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   AppState,
   Animated,
   Dimensions,
@@ -56,7 +54,7 @@ export default function HomeScreen() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
-  const scrollViewRef = useRef(null);
+  const postsRef = useRef(null);
 
   // Track if this is the first mount to prevent unnecessary refetches on navigation back
   const isInitialMountRef = useRef(true);
@@ -630,10 +628,7 @@ export default function HomeScreen() {
         console.log('🏠 Home tab pressed again');
 
         // ⬆️ Scroll to top
-        scrollViewRef.current?.scrollTo({
-          y: 0,
-          animated: true,
-        });
+        postsRef.current?.scrollToTop?.();
 
         // 🔄 Refresh posts + stories
         onRefresh();
@@ -735,19 +730,13 @@ export default function HomeScreen() {
 
       {/* Main Content with Pan Responder */}
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-        <ScrollView
-          ref={scrollViewRef}
-
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#783eb9a9']}
-            />
-          }
-        >
-          <Posts postData={posts} onRefresh={onRefresh} isBusinessProfile={isBusinessProfile} />
-        </ScrollView>
+        <Posts
+          ref={postsRef}
+          postData={posts}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          isBusinessProfile={isBusinessProfile}
+        />
       </View>
 
       {/* Modal-based Sidebar */}

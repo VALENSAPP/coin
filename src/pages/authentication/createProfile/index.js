@@ -11,11 +11,16 @@ import {
   Alert,
   PermissionsAndroid,
   FlatList,
-  Linking
+  Linking,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import {
+  pickProfileImageFromCamera,
+  pickProfileImageFromGallery,
+  uriFromCropPath,
+} from '../../../utils/profileImageCrop';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -132,31 +137,24 @@ export default function CreateProfile() {
     }
   }, [route.params?.agreementData]);
 
-  const pickImageFromGallery = () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
-      quality: 0.8,
-    };
-
-    launchImageLibrary(options, response => {
-      refRBSheet.current.close();
-
-      if (response.didCancel) {
-      } else if (response.error) {
-        Alert.alert('Error', 'Failed to pick image from gallery');
-      } else if (response.assets && response.assets.length > 0) {
-        const image = response.assets[0];
-        setImageUri(image.uri);
-        setImageMeta({
-          uri: image.uri,
-          type: image.type || 'image/jpeg',
-          name: image.fileName || 'profile.jpg',
-        });
+  const pickImageFromGallery = async () => {
+    try {
+      const image = await pickProfileImageFromGallery();
+      refRBSheet.current?.close();
+      const uri = uriFromCropPath(image.path);
+      if (!uri) return;
+      setImageUri(uri);
+      setImageMeta({
+        uri,
+        type: image.mime || 'image/jpeg',
+        name: image.filename || 'profile.jpg',
+      });
+    } catch (e) {
+      refRBSheet.current?.close();
+      if (e?.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', e?.message || 'Failed to pick image from gallery');
       }
-    });
+    }
   };
 
   const requestCameraPermission = async () => {
@@ -188,33 +186,23 @@ export default function CreateProfile() {
       Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
       return;
     }
-    const options = {
-      mediaType: 'photo',
-      includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
-      quality: 0.8,
-      saveToPhotos: true, // Save captured photo to gallery
-    };
-
-    launchCamera(options, response => {
-      refRBSheet.current.close();
-
-      if (response.didCancel) {
-      } else if (response.errorMessage) {
-        Alert.alert('Camera Error', response.errorMessage);
-      } else if (response.error) {
-        Alert.alert('Camera Error', 'Failed to capture image');
-      } else if (response.assets && response.assets.length > 0) {
-        const image = response.assets[0];
-        setImageUri(image.uri);
-        setImageMeta({
-          uri: image.uri,
-          type: image.type || 'image/jpeg',
-          name: image.fileName || 'profile.jpg',
-        });
+    try {
+      const image = await pickProfileImageFromCamera();
+      refRBSheet.current?.close();
+      const uri = uriFromCropPath(image.path);
+      if (!uri) return;
+      setImageUri(uri);
+      setImageMeta({
+        uri,
+        type: image.mime || 'image/jpeg',
+        name: image.filename || 'profile.jpg',
+      });
+    } catch (e) {
+      refRBSheet.current?.close();
+      if (e?.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Camera Error', e?.message || 'Failed to capture image');
       }
-    });
+    }
   };
 
   const checkDisplayNameAvailability = async (name) => {

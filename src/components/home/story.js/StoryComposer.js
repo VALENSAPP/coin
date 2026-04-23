@@ -18,6 +18,7 @@ import {
   Pressable,
   ActivityIndicator,
   AppState,
+  Animated,
 } from 'react-native';
 import { GestureHandlerRootView, Text as GestureText } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
@@ -362,6 +363,7 @@ export default function StoryComposer({
   const [trimPerIndex, setTrimPerIndex] = useState({});
   const [volumePerIndex, setVolumePerIndex] = useState({});
   const [draftText, setDraftText] = useState('');
+  const [editingTextId, setEditingTextId] = useState(null);
   const [textColor, setTextColor] = useState('#fff');
   const [textFont, setTextFont] = useState(DEFAULT_FONTS[0].style);
   const [activeTab, setActiveTab] = useState('filters');
@@ -389,11 +391,23 @@ export default function StoryComposer({
   const [trashRect, setTrashRect] = useState(null);
   const [, setShowTrashZone] = useState(false);
   const [isOverlayInteracting, setIsOverlayInteracting] = useState(false);
+  const [trashHot, setTrashHot] = useState(false);
+  const trashZoneScale = useRef(new Animated.Value(1)).current;
+
+  const onTrashHoverChange = useCallback(v => {
+    setTrashHot(v);
+  }, []);
 
   const measureTrashZone = useCallback(() => {
     trashZoneRef.current?.measureInWindow((x, y, width, height) => {
       if (width > 0 && height > 0) {
-        setTrashRect({ x, y, width, height });
+        let ny = y;
+        let nh = height;
+        if (nh > SCREEN_HEIGHT * 0.22) {
+          nh = Math.min(nh, 140);
+          ny = Math.max(ny, SCREEN_HEIGHT - nh - 2);
+        }
+        setTrashRect({ x, y: ny, width, height: nh });
       }
     });
   }, []);
@@ -438,6 +452,8 @@ export default function StoryComposer({
   useEffect(() => {
     if (!modalVisible) {
       storyModalWasOpenRef.current = false;
+      setEditingTextId(null);
+      setTrashHot(false);
       return;
     }
     const justOpened = !storyModalWasOpenRef.current;
@@ -482,6 +498,7 @@ export default function StoryComposer({
     setMusicBadgePosPerIndex(badgePos);
     setIsOverlayInteracting(false);
     setShowTrashZone(false);
+    setEditingTextId(null);
   }, [modalVisible, mediaList]);
 
   /** While Sound trim is open, playback must follow draft start/end (waveform), not saved trim. */
@@ -511,12 +528,28 @@ export default function StoryComposer({
   const hideOverlayDeleteUi = useCallback(() => {
     setIsOverlayInteracting(false);
     setShowTrashZone(false);
+    setTrashHot(false);
   }, []);
 
   const beginOverlayInteraction = useCallback(() => {
     setIsOverlayInteracting(true);
     setShowTrashZone(true);
   }, []);
+
+  useEffect(() => {
+    if (!isOverlayInteracting) {
+      trashZoneScale.setValue(1);
+      return;
+    }
+    Animated.spring(trashZoneScale, {
+      toValue: trashHot ? 1.12 : 1,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 48,
+      restDisplacementThreshold: 0.001,
+      restSpeedThreshold: 0.001,
+    }).start();
+  }, [isOverlayInteracting, trashHot, trashZoneScale]);
 
   useEffect(() => {
     if (!currentMedia || !isVideo(currentMedia)) return;
@@ -530,6 +563,8 @@ export default function StoryComposer({
   useEffect(() => {
     setIsOverlayInteracting(false);
     setShowTrashZone(false);
+    setEditingTextId(null);
+    setTrashHot(false);
   }, [index]);
 
   useEffect(() => {
@@ -751,22 +786,40 @@ export default function StoryComposer({
   const addText = () => {
     const t = draftText.trim();
     if (!t) return;
-    setTextsPerIndex(prev => {
-      const next = { ...prev };
-      next[index] = [
-        ...(next[index] || []),
-        {
-          id: `${Date.now()}_${Math.random()}`,
-          text: t,
-          color: textColor,
-          fontFamily: textFont.fontFamily,
-          x: 50,
-          y: 50,
-          scale: 1,
-        },
-      ];
-      return next;
-    });
+    if (editingTextId) {
+      setTextsPerIndex(prev => {
+        const next = { ...prev };
+        next[index] = (next[index] || []).map(item =>
+          item.id === editingTextId
+            ? {
+              ...item,
+              text: t,
+              color: textColor,
+              fontFamily: textFont.fontFamily,
+            }
+            : item,
+        );
+        return next;
+      });
+      setEditingTextId(null);
+    } else {
+      setTextsPerIndex(prev => {
+        const next = { ...prev };
+        next[index] = [
+          ...(next[index] || []),
+          {
+            id: `${Date.now()}_${Math.random()}`,
+            text: t,
+            color: textColor,
+            fontFamily: textFont.fontFamily,
+            x: 50,
+            y: 50,
+            scale: 1,
+          },
+        ];
+        return next;
+      });
+    }
     setDraftText('');
   };
 
@@ -825,6 +878,7 @@ export default function StoryComposer({
   };
 
   const removeTextById = id => {
+    setEditingTextId(cur => (cur === id ? null : cur));
     setTextsPerIndex(prev => ({
       ...prev,
       [index]: (prev[index] || []).filter(t => t.id !== id),
@@ -1651,6 +1705,7 @@ export default function StoryComposer({
                         }));
                       }}
                       onDelete={removeMusicOverlay}
+                      onTrashHoverChange={onTrashHoverChange}
                     >
                       <View style={styles.musicStickerCard}>
                         {trackArtworkUri ? (
@@ -1745,6 +1800,7 @@ export default function StoryComposer({
                         }));
                       }}
                       onDelete={removeMusicOverlay}
+                      onTrashHoverChange={onTrashHoverChange}
                     >
                       <View style={styles.musicStickerCard}>
                         {trackArtworkUri ? (
@@ -1809,6 +1865,7 @@ export default function StoryComposer({
                   onInteractionEnd={hideOverlayDeleteUi}
                   onCommit={(x, y, sc) => setStickerTransform(s.id, x, y, sc)}
                   onDelete={() => removeStickerOverlay(s.id)}
+                  onTrashHoverChange={onTrashHoverChange}
                 >
                   <View style={styles.stickerHitArea} collapsable={false}>
                     <GestureText style={styles.sticker}>{s.emoji}</GestureText>
@@ -1831,6 +1888,28 @@ export default function StoryComposer({
                   onInteractionEnd={hideOverlayDeleteUi}
                   onCommit={(x, y, sc) => setTextTransform(t.id, x, y, sc)}
                   onDelete={() => removeTextOverlay(t.id)}
+                  onSingleTap={
+                    t.kind === 'lyrics'
+                      ? undefined
+                      : () => {
+                        setEditingTextId(t.id);
+                        setDraftText(t.text);
+                        setTextColor(t.color || '#fff');
+                        const match = DEFAULT_FONTS.find(
+                          f2 => f2.style.fontFamily === t.fontFamily,
+                        );
+                        setTextFont(
+                          match
+                            ? match.style
+                            : t.fontFamily
+                              ? { fontFamily: t.fontFamily }
+                              : DEFAULT_FONTS[0].style,
+                        );
+                        setActiveTab('text');
+                      }
+                  }
+                  onTrashHoverChange={onTrashHoverChange}
+                  shrinkOnTrashHover
                 >
                   <View style={styles.textOverlayHitArea} collapsable={false}>
                     <GestureText
@@ -1860,19 +1939,30 @@ export default function StoryComposer({
                   },
                 ]}
               >
-                <Icon
-                  name="trash"
-                  size={32}
-                  color={deleteButtonVisible ? '#ff4d6a' : 'rgba(255,255,255,0.35)'}
-                />
-                <Text
-                  style={[
-                    styles.storyTrashHint,
-                    deleteButtonVisible && styles.storyTrashHintActive,
-                  ]}
+                <Animated.View
+                  style={{ transform: [{ scale: trashZoneScale }], alignItems: 'center' }}
                 >
-                  Drop here to delete
-                </Text>
+                  <Icon
+                    name="trash"
+                    size={32}
+                    color={
+                      !deleteButtonVisible
+                        ? 'rgba(255,255,255,0.35)'
+                        : trashHot
+                          ? '#ff4d6a'
+                          : 'rgba(150,150,155,0.9)'
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.storyTrashHint,
+                      deleteButtonVisible &&
+                        (trashHot ? styles.storyTrashHintActive : styles.storyTrashHintDrag),
+                    ]}
+                  >
+                    Drop here to delete
+                  </Text>
+                </Animated.View>
               </View>
             </View>
 
@@ -1994,7 +2084,9 @@ export default function StoryComposer({
                       onChangeText={setDraftText}
                     />
                     <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
-                      <Text style={styles.addBtnLabel}>Add</Text>
+                      <Text style={styles.addBtnLabel}>
+                        {editingTextId ? 'Save' : 'Add'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
 
@@ -3377,6 +3469,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    // Cap height so the trash strip cannot be measured as a full-canvas box (which
+    // would make the delete hit test cover the top corners).
+    maxHeight: 132,
     alignItems: 'center',
     justifyContent: 'flex-end',
     zIndex: 100,
@@ -3389,6 +3484,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(255,255,255,0.42)',
     letterSpacing: 0.3,
+  },
+  /** While dragging, before the finger is over the delete target (matches gray icon). */
+  storyTrashHintDrag: {
+    color: 'rgba(180,180,185,0.95)',
   },
   storyTrashHintActive: {
     color: '#ff4d6a',
