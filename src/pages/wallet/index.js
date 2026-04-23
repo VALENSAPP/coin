@@ -342,9 +342,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
       dispatch(hideLoader()); // Add this
     }
   };
-  useEffect(() => {
-    getUserDetail();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      getUserDetail();
+    }, [])
+  );
   const stripeAccountId = 'Not connected';
   const walletAddress = 'Not available';
   const visibleKpiData = useMemo(() => {

@@ -1145,7 +1145,7 @@ const ProfilePersonData = ({
             ) : (
               <TouchableOpacity
                 style={styles.iconButton}
-                onPress={() => navigation.navigate('Settings')}
+                onPress={() => {AsyncStorage.setItem('profile', userData?.profile); navigation.navigate('Settings')}}
               >
                 <Feather name="menu" size={25} color="#111100" />
               </TouchableOpacity>

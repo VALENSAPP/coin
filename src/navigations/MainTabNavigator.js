@@ -96,18 +96,19 @@ export default function MainTabNavigator() {
 
   const getUserDetail = async () => {
     try {
-      dispatch(showLoader());
-      const id = await AsyncStorage.getItem('userId');
+      // dispatch(showLoader());
+      // const id = await AsyncStorage.getItem('userId');
+      const profile = await AsyncStorage.getItem('profile');
 
-      if (!id) {
-        console.log('User ID not found');
-        return;
-      }
+      // if (!id) {
+      //   console.log('User ID not found');
+      //   return;
+      // }
 
-      const response = await getUserCredentials(id);
+      // const response = await getUserCredentials(id);
 
-      console.log('API Response: data in thi apiaiaaiaiaai', response);
-      setProfile(response?.data?.profile);
+      // console.log('API Response: data in thi apiaiaaiaiaai', response);
+      setProfile(profile);
     } catch (error) {
       console.log('Error fetching user details:', error);
     } finally {
@@ -576,7 +577,7 @@ export default function MainTabNavigator() {
                     uri={profileImage}
                     size={30}
                     borderWidth={1.5}
-                    borderColor={text}
+                    borderColor={profile !== 'user' ? '#D3B683' : '#5a2d82'}
                   />
                 );
               } else {
@@ -585,7 +586,7 @@ export default function MainTabNavigator() {
                     uri={require('../assets/icons/pngicons/user.png')}
                     size={30}
                     borderWidth={1.5}
-                    borderColor={text}
+                    borderColor={profile !== 'user' ? '#D3B683' : '#5a2d82'}
                   />
                 );
               }
