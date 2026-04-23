@@ -401,13 +401,8 @@ export default function StoryComposer({
   const measureTrashZone = useCallback(() => {
     trashZoneRef.current?.measureInWindow((x, y, width, height) => {
       if (width > 0 && height > 0) {
-        let ny = y;
-        let nh = height;
-        if (nh > SCREEN_HEIGHT * 0.22) {
-          nh = Math.min(nh, 140);
-          ny = Math.max(ny, SCREEN_HEIGHT - nh - 2);
-        }
-        setTrashRect({ x, y: ny, width, height: nh });
+        // ✅ Use exact measured rect — no inflation or height clamping
+        setTrashRect({ x, y, width, height });
       }
     });
   }, []);
@@ -1928,40 +1923,46 @@ export default function StoryComposer({
               <View
                 ref={trashZoneRef}
                 pointerEvents="none"
-                onLayout={() => {
-                  measureTrashZone();
-                }}
+                onLayout={() => { measureTrashZone(); }}
                 style={[
                   styles.storyTrashZone,
                   {
-                    paddingBottom: Math.max(10, insets.bottom + 6),
+                    paddingBottom: Math.max(6, insets.bottom + 2), // ✅ was insets.bottom + 6
                     opacity: deleteButtonVisible ? 1 : 0,
                   },
                 ]}
               >
                 <Animated.View
-                  style={{ transform: [{ scale: trashZoneScale }], alignItems: 'center' }}
+                  style={{
+                    transform: [{ scale: trashZoneScale }],
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
                 >
-                  <Icon
-                    name="trash"
-                    size={32}
-                    color={
-                      !deleteButtonVisible
-                        ? 'rgba(255,255,255,0.35)'
-                        : trashHot
-                          ? '#ff4d6a'
-                          : 'rgba(150,150,155,0.9)'
-                    }
-                  />
+                  {/* "Drag to delete" hint at top */}
                   <Text
                     style={[
                       styles.storyTrashHint,
                       deleteButtonVisible &&
-                        (trashHot ? styles.storyTrashHintActive : styles.storyTrashHintDrag),
+                      (trashHot ? styles.storyTrashHintActive : styles.storyTrashHintDrag),
                     ]}
                   >
-                    Drop here to delete
+                    Drag to delete
                   </Text>
+
+                  {/* Circular trash zone like Instagram */}
+                  <View
+                    style={[
+                      styles.trashCircle,
+                      trashHot && styles.trashCircleHot,
+                    ]}
+                  >
+                    <Icon
+                      name="trash"
+                      size={20}
+                      color={trashHot ? '#ff4d6a' : 'rgba(255,255,255,0.9)'}
+                    />
+                  </View>
                 </Animated.View>
               </View>
             </View>
@@ -3466,31 +3467,49 @@ const styles = StyleSheet.create({
   overlayItem: { position: 'absolute' },
   storyTrashZone: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    // Cap height so the trash strip cannot be measured as a full-canvas box (which
-    // would make the delete hit test cover the top corners).
-    maxHeight: 132,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    zIndex: 100,
-    paddingTop: 10,
+    paddingBottom: 12,          // ✅ reduced — was 16 + insets
+    paddingTop: 0,              // ✅ no top padding inflating the zone
     backgroundColor: 'transparent',
   },
+
   storyTrashHint: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.42)',
-    letterSpacing: 0.3,
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  /** While dragging, before the finger is over the delete target (matches gray icon). */
+
   storyTrashHintDrag: {
-    color: 'rgba(180,180,185,0.95)',
+    color: 'rgba(255,255,255,0.85)',
   },
+
   storyTrashHintActive: {
     color: '#ff4d6a',
+  },
+
+  // ✅ New: Instagram-style circle
+  trashCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // ✅ No overflow, no extra padding — tight hitbox
+  },
+
+  trashCircleHot: {
+    borderColor: '#ff4d6a',
+    backgroundColor: 'rgba(255, 77, 106, 0.18)',
   },
   /** Min touch target + padding so Pan/Pinch hit tests succeed (emoji glyphs alone are too small). */
   stickerHitArea: {
