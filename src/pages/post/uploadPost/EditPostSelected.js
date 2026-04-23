@@ -4095,7 +4095,7 @@ const InstagramPostCreator = () => {
           style={[
             styles.nextButton,
             isFlipPost && styles.nextButtonFlip,
-            { backgroundColor: profile === 'company' ? '#D3B683' : isFlipPost ? '#2d7ff9' : '#5a2d82' },
+            { backgroundColor: isFlipPost ? '#2d7ff9' : {themeText} },
           ]}
           onPress={handleNext}
         >

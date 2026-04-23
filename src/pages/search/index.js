@@ -228,6 +228,11 @@ const mapBattleCard = battle => {
     totalVotes: battle?._count?.votes ?? battle?.votesCount ?? 0,
     endTime: battle?.endTime || null,
     optionImages: Array.isArray(battle?.optionImages) ? battle.optionImages : [],
+    voteCounts: battle?.voteCounts && typeof battle.voteCounts === 'object' ? battle.voteCounts : {},
+    predictionCounts:
+      battle?.predictionCounts && typeof battle.predictionCounts === 'object'
+        ? battle.predictionCounts
+        : {},
   };
 };
 
@@ -421,6 +426,13 @@ const SearchScreen = () => {
   const { bgStyle, text } = useAppTheme();
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
+
+  // Clear search bar when screen focused (tab selected)
+  useEffect(() => {
+    if (isScreenFocused) {
+      setSearchText('');
+    }
+  }, [isScreenFocused]);
 
   useEffect(() => { toastRef.current = toast; }, [toast]);
 

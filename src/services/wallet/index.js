@@ -94,3 +94,7 @@ export const totalPoints = async (data) => {
 export const getTotalFollowers = async (params) => {
   return axiosInstance.get('user/followers-graph', { params });
 }
+
+export const getAllMissionPost = async (params) => {
+  return axiosInstance.get('post/getMissionpost', { params });
+}
