@@ -1099,7 +1099,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.kpiCardTouchable}
           activeOpacity={0.86}
-          onPress={() => navigation.navigate('ViewMissionPost')}
+          onPress={() => navigation.navigate('ViewMissionPost', {isBusinessProfile: isBusinessProfile})}
         >
           {cardContent}
         </TouchableOpacity>

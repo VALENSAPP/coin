@@ -7,23 +7,15 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useFocusEffect } from '@react-navigation/native';
 
-export default function ViewMissioPost({ navigation }) {
+export default function ViewMissioPost({ navigation, route }) {
+     const { isBusinessProfile } = route.params || {};
+    console.log("isBusinessProfile in view mission post", isBusinessProfile)
     const { bgStyle, text } = useAppTheme();
-    const [isBusinessProfile, setIsBusinessProfile] = useState(false);
     const [missions, setMissions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [error, setError] = useState(null);
-
-    const getUserDetail = async () => {
-        try {
-            const profile = await AsyncStorage.getItem('userProfile');
-            setIsBusinessProfile(profile !== null && profile !== 'user');
-        } catch (err) {
-            console.log('Error fetching user details:', err);
-        }
-    };
 
     const fetchMissions = useCallback(async (filter = 'all', isFilterChange = false) => {
         try {
@@ -75,10 +67,6 @@ export default function ViewMissioPost({ navigation }) {
         setStatusFilter(tab);
         fetchMissions(tab, true);
     };
-
-    useEffect(() => {
-        getUserDetail();
-    }, []);
 
     useFocusEffect(
         useCallback(() => {
