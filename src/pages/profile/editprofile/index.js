@@ -14,7 +14,11 @@ import {
   FlatList,
   Platform,
 } from 'react-native';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import {
+  pickProfileImageFromCamera,
+  pickProfileImageFromGallery,
+  uriFromCropPath,
+} from '../../../utils/profileImageCrop';
 import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import { EditProfile, checkDisplayName } from '../../../services/createProfile';
 import { useToast } from 'react-native-toast-notifications';
@@ -353,29 +357,18 @@ const ProfileEditScreen = () => {
   }, [navigation]);
 
 
-  const pickImageFromGallery = () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
-      quality: 0.8,
-    };
-
-    launchImageLibrary(options, response => {
-      refRBSheet1.current.close();
-
-      if (response.didCancel) {
-        console.log('User cancelled image selection');
-      } else if (response.error) {
-        console.log('ImagePicker Error: ', response.error);
-        Alert.alert('Error', 'Failed to pick image from gallery');
-      } else if (response.assets && response.assets.length > 0) {
-        console.log('response.assets[0].uri', response.assets);
-        const image = response.assets[0];
-        setProfileImage(image.uri);
+  const pickImageFromGallery = async () => {
+    try {
+      const image = await pickProfileImageFromGallery();
+      refRBSheet1.current?.close();
+      const uri = uriFromCropPath(image.path);
+      if (uri) setProfileImage(uri);
+    } catch (e) {
+      refRBSheet1.current?.close();
+      if (e?.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', e?.message || 'Failed to pick image');
       }
-    });
+    }
   };
 
   const requestCameraPermission = async () => {
@@ -407,32 +400,17 @@ const ProfileEditScreen = () => {
       Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
       return;
     }
-    const options = {
-      mediaType: 'photo',
-      includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
-      quality: 0.8,
-      saveToPhotos: true, // Save captured photo to gallery
-    };
-
-    launchCamera(options, response => {
-      refRBSheet1.current.close();
-
-      if (response.didCancel) {
-        console.log('User cancelled camera');
-      } else if (response.errorMessage) {
-        console.log('Camera Error: ', response.errorMessage);
-        Alert.alert('Camera Error', response.errorMessage);
-      } else if (response.error) {
-        console.log('Camera Error: ', response.error);
-        Alert.alert('Camera Error', 'Failed to capture image');
-      } else if (response.assets && response.assets.length > 0) {
-        console.log('Camera response.assets', response.assets);
-        const image = response.assets[0];
-        setProfileImage(image.uri);
+    try {
+      const image = await pickProfileImageFromCamera();
+      refRBSheet1.current?.close();
+      const uri = uriFromCropPath(image.path);
+      if (uri) setProfileImage(uri);
+    } catch (e) {
+      refRBSheet1.current?.close();
+      if (e?.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Camera Error', e?.message || 'Failed to capture image');
       }
-    });
+    }
   };
 
   const hasConnectedWallet = Boolean(wallet && String(wallet).trim().length > 0);
