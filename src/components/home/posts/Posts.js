@@ -78,9 +78,6 @@ const Posts = forwardRef(function Posts(
   const [currentlyVisiblePostId, setCurrentlyVisiblePostId] = useState(null);
   const [screenFocused, setScreenFocused] = useState(true);
   const [playingPostId, setPlayingPostId] = useState(null);
-  /** Last vertical offset + direction so we can hand off "focus" to the incoming post while scrolling. */
-  const lastScrollYRef = useRef(0);
-  const scrollDirRef = useRef('down');
 
   // -------- Token Purchase Modal States --------
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
@@ -905,13 +902,8 @@ const Posts = forwardRef(function Posts(
     setSuggestHasMore(totalVisible < suggestAllUsers.length);
   }, [suggestPage, suggestAllUsers]);
 
-  const onFeedScroll = useCallback((e) => {
-    const y = e?.nativeEvent?.contentOffset?.y ?? 0;
-    const prev = lastScrollYRef.current;
-    if (y > prev + 3) scrollDirRef.current = 'down';
-    else if (y < prev - 3) scrollDirRef.current = 'up';
-    lastScrollYRef.current = y;
-  }, []);
+  // Require most of the row to be on-screen; ignore tiny / jitter scrolls.
+  const MIN_VISIBLE_PERCENT_TO_FOCUS = 50;
 
   const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
     if (!viewableItems || viewableItems.length === 0) {
@@ -930,9 +922,9 @@ const Posts = forwardRef(function Posts(
           : typeof v.viewablePercent === 'number'
             ? v.viewablePercent
             : 100;
+      if (pct < MIN_VISIBLE_PERCENT_TO_FOCUS) continue;
       candidates.push({
         id: v.item.id,
-        index: typeof v.index === 'number' ? v.index : 0,
         pct,
       });
     }
@@ -943,20 +935,7 @@ const Posts = forwardRef(function Posts(
       return;
     }
 
-    let mostVisiblePost;
-    if (candidates.length === 1) {
-      mostVisiblePost = candidates[0].id;
-    } else {
-      // When two posts overlap, "highest percent" keeps the old one in focus for too long.
-      // Prefer the list index in the scroll direction so the row you're scrolling *into* becomes
-      // active (and the previous post's audio stops) without waiting for a 50/50 split.
-      const down = scrollDirRef.current === 'down';
-      if (down) {
-        mostVisiblePost = candidates.reduce((a, b) => (a.index > b.index ? a : b)).id;
-      } else {
-        mostVisiblePost = candidates.reduce((a, b) => (a.index < b.index ? a : b)).id;
-      }
-    }
+    const mostVisiblePost = candidates.reduce((a, b) => (a.pct >= b.pct ? a : b)).id;
 
     setCurrentlyVisiblePostId(mostVisiblePost);
     setPlayingPostId(mostVisiblePost);
@@ -1053,9 +1032,9 @@ const Posts = forwardRef(function Posts(
   );
  // REPLACE WITH:
 const viewabilityConfigRef = useRef({
-  // Fire as soon as a sliver of the next row is viewable; no minimum dwell.
-  viewAreaCoveragePercentThreshold: 8,
-  minimumViewTime: 0,
+  // Only treat a post as "on screen" for tracking when a majority of the row is visible.
+  itemVisiblePercentThreshold: 50,
+  minimumViewTime: 200,
   waitForInteraction: false,
 });
 
@@ -1119,8 +1098,7 @@ const viewabilityConfigCallbackPairs = useRef([
             maxToRenderPerBatch={3}
             windowSize={7}
             initialNumToRender={2}
-            updateCellsBatchingPeriod={16}
-            onScroll={onFeedScroll}
+            updateCellsBatchingPeriod={50}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             scrollEventThrottle={16}
           />
