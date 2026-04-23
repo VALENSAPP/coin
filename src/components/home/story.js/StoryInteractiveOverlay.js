@@ -10,7 +10,7 @@ import Animated, {
 import {
   OVERLAY_MAX_SCALE,
   OVERLAY_MIN_SCALE_STICKER,
-  pointInTrash,
+  // pointInTrash,
 } from './storyOverlayConstants';
 
 /** Eased shrink/expand when hand enters/leaves the trash — avoids abrupt pops. */
@@ -19,6 +19,22 @@ const TRASH_SIZE_MS = 340;
 const TRASH_SIZE_RESET_MS = 280;
 /** How much each pinch frame blends toward the gesture target (0–1; higher = snappier, lower = silkier). */
 const PINCH_SCALE_BLEND = 0.52;
+
+const TRASH_TRIGGER_RADIUS = 32;
+
+export function pointInTrash(ax, ay, rect) {
+  if (!rect) return false;
+
+  // Center of the trash circle
+  const trashCX = rect.x + rect.width / 2;
+  const trashCY = rect.y + rect.height / 2;
+
+  const dist = Math.sqrt(
+    Math.pow(ax - trashCX, 2) + Math.pow(ay - trashCY, 2)
+  );
+
+  return dist < TRASH_TRIGGER_RADIUS;
+}
 
 /**
  * Pan + pinch overlays (stickers, text, music badge) with drag-to-delete when released over trash.
@@ -103,7 +119,7 @@ export default function StoryInteractiveOverlay({
   const updateTrashHover = useCallback(
     (ax, ay) => {
       if (!onTrashHoverChange && !shrinkOnTrashHover) return;
-      const over = pointInTrash(ax, ay, trashRectRef.current);
+      const over = pointInTrash(ax, ay, trashRectRef.current); // ✅ same call, now radius-based
       if (over === lastTrashHoverRef.current) return;
       lastTrashHoverRef.current = over;
       onTrashHoverChange?.(over);
