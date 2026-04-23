@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert, Platform } from 'react-native';
 import {
   GestureHandlerRootView,
@@ -1040,6 +1040,17 @@ function PostItem({
         : true),
     [screenFocused, isVisible, playingPostId, item.id],
   );
+
+  // Stop sound in the same frame focus is lost (avoids a frame or two of lag after scroll handoff).
+  useLayoutEffect(() => {
+    if (playbackEligible) return;
+    setIsMuted(true);
+    safeVideoPause(currentIndex);
+    try {
+      postFeedMp3Ref.current?.pause?.();
+      void postFeedYoutubeRef.current?.pauseVideo?.();
+    } catch (_) { }
+  }, [playbackEligible, currentIndex, safeVideoPause]);
 
   const buyerList = useMemo(() => Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [], [item.boughtBy, item.buyers]);
 

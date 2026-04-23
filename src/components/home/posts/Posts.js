@@ -4,8 +4,10 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useImperativeHandle,
+  forwardRef,
 } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Keyboard } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Keyboard, RefreshControl } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 // Child components
 import OptionsModal from './OptionsModal';
@@ -44,7 +46,10 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
 import { extractPostMusicPayloadFromApi } from '../../../utils/postSoundtracks';
 
-export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
+const Posts = forwardRef(function Posts(
+  { postData = [], onRefresh, isBusinessProfile, refreshing = false },
+  ref,
+) {
   
 
   // All state hooks first - maintain consistent order
@@ -73,7 +78,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const [currentlyVisiblePostId, setCurrentlyVisiblePostId] = useState(null);
   const [screenFocused, setScreenFocused] = useState(true);
   const [playingPostId, setPlayingPostId] = useState(null);
-  const playingDebounceRef = useRef(null);
+  /** Last vertical offset + direction so we can hand off "focus" to the incoming post while scrolling. */
+  const lastScrollYRef = useRef(0);
+  const scrollDirRef = useRef('down');
 
   // -------- Token Purchase Modal States --------
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
@@ -90,6 +97,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const [suggestHasMore, setSuggestHasMore] = useState(true);
   const [suggestDismissed, setSuggestDismissed] = useState(new Set());
   const [userTokenBalance, setUserTokenBalance] = useState(0);
+  const feedListRef = useRef(null);
 
   const commentSheetRef = useRef();
   const purchaseSheetRef = useRef(null);
@@ -126,13 +134,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       };
     }, [])
   );
-
-  // Clear debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (playingDebounceRef.current) clearTimeout(playingDebounceRef.current);
-    };
-  }, []);
 
   // Fetch following status for each post user
   useEffect(() => {
@@ -904,45 +905,62 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     setSuggestHasMore(totalVisible < suggestAllUsers.length);
   }, [suggestPage, suggestAllUsers]);
 
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }) => {
-      if (!viewableItems || viewableItems.length === 0) {
-        setCurrentlyVisiblePostId(null);
-        return;
+  const onFeedScroll = useCallback((e) => {
+    const y = e?.nativeEvent?.contentOffset?.y ?? 0;
+    const prev = lastScrollYRef.current;
+    if (y > prev + 3) scrollDirRef.current = 'down';
+    else if (y < prev - 3) scrollDirRef.current = 'up';
+    lastScrollYRef.current = y;
+  }, []);
+
+  const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
+    if (!viewableItems || viewableItems.length === 0) {
+      setCurrentlyVisiblePostId(null);
+      setPlayingPostId(null);
+      return;
+    }
+
+    const candidates = [];
+    for (const v of viewableItems) {
+      if (v.item?.__type === 'suggestions') continue;
+      if (!v.isViewable || v.item?.id == null) continue;
+      const pct =
+        typeof v.percentVisible === 'number'
+          ? v.percentVisible
+          : typeof v.viewablePercent === 'number'
+            ? v.viewablePercent
+            : 100;
+      candidates.push({
+        id: v.item.id,
+        index: typeof v.index === 'number' ? v.index : 0,
+        pct,
+      });
+    }
+
+    if (candidates.length === 0) {
+      setCurrentlyVisiblePostId(null);
+      setPlayingPostId(null);
+      return;
+    }
+
+    let mostVisiblePost;
+    if (candidates.length === 1) {
+      mostVisiblePost = candidates[0].id;
+    } else {
+      // When two posts overlap, "highest percent" keeps the old one in focus for too long.
+      // Prefer the list index in the scroll direction so the row you're scrolling *into* becomes
+      // active (and the previous post's audio stops) without waiting for a 50/50 split.
+      const down = scrollDirRef.current === 'down';
+      if (down) {
+        mostVisiblePost = candidates.reduce((a, b) => (a.index > b.index ? a : b)).id;
+      } else {
+        mostVisiblePost = candidates.reduce((a, b) => (a.index < b.index ? a : b)).id;
       }
-      // Find the most visible post (excluding suggestions)
-      let mostVisiblePost = null;
-      let highestPercentage = -1;
-      for (const item of viewableItems) {
-        // Skip suggestions
-        if (item.item?.__type === 'suggestions') continue;
+    }
 
-        if (!item.isViewable || !item.item?.id) continue;
-
-        // Prefer explicit visibility percentages when provided.
-        const percentage =
-          typeof item.percentVisible === 'number' ? item.percentVisible :
-          typeof item.viewablePercent === 'number' ? item.viewablePercent :
-          100;
-
-        if (percentage > highestPercentage) {
-          highestPercentage = percentage;
-          mostVisiblePost = item.item.id;
-        }
-      }
-
-      // Only update if the most visible post changed
-      if (mostVisiblePost !== currentlyVisiblePostId) {
-        setCurrentlyVisiblePostId(mostVisiblePost);
-      }
-
-      // Always align playing post to the most visible one (no debounce).
-      if (mostVisiblePost !== playingPostId) {
-        setPlayingPostId(mostVisiblePost);
-      }
-    },
-    [currentlyVisiblePostId, playingPostId]
-  );
+    setCurrentlyVisiblePostId(mostVisiblePost);
+    setPlayingPostId(mostVisiblePost);
+  }, []);
 
   const feedItems = useMemo(() => {
     const posts = mappedPosts;
@@ -1035,8 +1053,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   );
  // REPLACE WITH:
 const viewabilityConfigRef = useRef({
-  viewAreaCoveragePercentThreshold: 50,
-  minimumViewTime: 50,
+  // Fire as soon as a sliver of the next row is viewable; no minimum dwell.
+  viewAreaCoveragePercentThreshold: 8,
+  minimumViewTime: 0,
   waitForInteraction: false,
 });
 
@@ -1054,6 +1073,16 @@ const viewabilityConfigCallbackPairs = useRef([
   },
 ]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToTop: () => {
+        feedListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+      },
+    }),
+    [],
+  );
+
   useEffect(() => {
     if (!mappedPosts.length) return;
     if (currentlyVisiblePostId != null) return;
@@ -1069,16 +1098,29 @@ const viewabilityConfigCallbackPairs = useRef([
         <View style={[styles.container, bgStyle]}>
           {/* Posts List */}
           <FlatList
+            ref={feedListRef}
             data={feedItems}
             keyExtractor={listKeyExtractor}
             showsVerticalScrollIndicator={false}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
+            refreshControl={
+              onRefresh
+                ? (
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={['#783eb9a9']}
+                  />
+                )
+                : undefined
+            }
             removeClippedSubviews={false}
             maxToRenderPerBatch={3}
             windowSize={7}
             initialNumToRender={2}
-            updateCellsBatchingPeriod={100}
+            updateCellsBatchingPeriod={16}
+            onScroll={onFeedScroll}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             scrollEventThrottle={16}
           />
@@ -1210,7 +1252,7 @@ const viewabilityConfigCallbackPairs = useRef([
   };
 
   return safeRender();
-}
+});
 
 // ---------------- STYLES ----------------
 const styles = StyleSheet.create({
@@ -1222,3 +1264,5 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
 });
+
+export default Posts;
