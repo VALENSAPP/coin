@@ -50,7 +50,6 @@ export default function ViewMissioPost({ navigation }) {
                     valensFee: item.raiseAmount ? (item.raiseAmount * 0.05).toFixed(2) : '0.00',
                     stripeFee: item.raiseAmount ? (item.raiseAmount * 0.05).toFixed(2) : '0.00',
                     total: item.tokenBalance ?? 0,
-                    postCount: item.shareCount ?? 0,
                     type: item.type,
                     userImage: item.userImage,
                     userName: item.userName,
@@ -166,7 +165,7 @@ export default function ViewMissioPost({ navigation }) {
     }
 
     return (
-        <SafeAreaView style={[{ flex: 1, paddingBottom: 40 }, bgStyle]}>
+        <SafeAreaView style={[{ flex: 1, paddingBottom: 50 }, bgStyle]}>
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
                 {/* Header */}
@@ -264,11 +263,6 @@ export default function ViewMissioPost({ navigation }) {
                                     {/* Stats Row */}
                                     <View style={styles.statsRow}>
                                         <View style={styles.statItem}>
-                                            <Text style={styles.statLabel}>Post</Text>
-                                            <Text style={[styles.statValue, { color: text }]}>{c.postCount}</Text>
-                                        </View>
-                                        <View style={styles.statDivider} />
-                                        <View style={styles.statItem}>
                                             <Text style={styles.statLabel}>Total Requests</Text>
                                             <Text style={[styles.statValue, { color: text }]}>{c.requests}</Text>
                                         </View>
@@ -288,12 +282,8 @@ export default function ViewMissioPost({ navigation }) {
                                                 <Text style={[styles.splitItemValue, { color: '#16a34a' }]}>${c.split}</Text>
                                             </View>
                                             <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>Valens Fee (5%)</Text>
+                                                <Text style={styles.splitItemLabel}>Platform Fee (5%)</Text>
                                                 <Text style={[styles.splitItemValue, { color: text }]}>${c.valensFee}</Text>
-                                            </View>
-                                            <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>Stripe Fee (5%)</Text>
-                                                <Text style={[styles.splitItemValue, { color: text }]}>${c.stripeFee}</Text>
                                             </View>
                                             <View style={styles.splitItem}>
                                                 <Text style={styles.splitItemLabel}>Total</Text>
