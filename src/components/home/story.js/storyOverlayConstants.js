@@ -42,7 +42,18 @@ export function defaultMusicBadgePosition(layout) {
 }
 
 export function pointInTrash(ax, ay, rect) {
-  if (!rect || typeof ax !== 'number' || typeof ay !== 'number') return false;
+  if (!rect || !Number.isFinite(ax) || !Number.isFinite(ay)) {
+    return false;
+  }
+  // Delete UI is bottom-anchored. Reject full-bleed or top-placed measurements.
+  if (rect.y < SCREEN_HEIGHT * 0.18) {
+    return false;
+  }
+  // Lifting the finger in the top half of the window must not count as a drop on trash
+  // (trash is always near the bottom; this blocks bogus coords + false positives).
+  if (ay < SCREEN_HEIGHT * 0.5) {
+    return false;
+  }
   return (
     ax >= rect.x &&
     ax <= rect.x + rect.width &&

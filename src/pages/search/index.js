@@ -228,6 +228,11 @@ const mapBattleCard = battle => {
     totalVotes: battle?._count?.votes ?? battle?.votesCount ?? 0,
     endTime: battle?.endTime || null,
     optionImages: Array.isArray(battle?.optionImages) ? battle.optionImages : [],
+    voteCounts: battle?.voteCounts && typeof battle.voteCounts === 'object' ? battle.voteCounts : {},
+    predictionCounts:
+      battle?.predictionCounts && typeof battle.predictionCounts === 'object'
+        ? battle.predictionCounts
+        : {},
   };
 };
 

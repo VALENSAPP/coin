@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   selectedGridItemHorizontal: {
-    width: width * 0.8,
+    width: width * .92,
     height: screenHeight * 0.5,
     marginRight: 12,
     borderRadius: 12,

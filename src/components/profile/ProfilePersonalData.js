@@ -23,6 +23,11 @@ import {
   useRoute,
 } from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import {
+  pickProfileImageFromCamera,
+  pickProfileImageFromGallery,
+  uriFromCropPath,
+} from '../../utils/profileImageCrop';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import ProfileModal from '../modals/ProfileModal';
 import UsernameModal from '../modals/UsernameModal';
@@ -426,69 +431,45 @@ const ProfilePersonData = ({
       return;
     }
     try {
-      launchCamera(
-        {
-          mediaType: 'photo',
-          quality: 0.8,
-          cameraType: 'back',
-        },
-        async response => {
-          await processImageResponse(response);
-        },
-      );
-    } catch (err) {
-      console.error('Camera error:', err);
-      showToastMessage(toast, 'danger', 'Failed to open camera');
+      const image = await pickProfileImageFromCamera();
+      await uploadCroppedProfileImage(image);
+    } catch (e) {
+      if (e?.code === 'E_PICKER_CANCELLED') return;
+      console.error('Camera error:', e);
+      showToastMessage(toast, 'danger', e?.message || 'Failed to open camera');
     }
   };
 
-  const openGallery = () => {
+  const openGallery = async () => {
     try {
-      launchImageLibrary(
-        {
-          mediaType: 'photo',
-          quality: 0.8,
-          selectionLimit: 1,
-        },
-        async response => {
-          await processImageResponse(response);
-        },
-      );
-    } catch (err) {
-      console.error('Gallery error:', err);
-      showToastMessage(toast, 'danger', 'Failed to open gallery');
+      const image = await pickProfileImageFromGallery();
+      await uploadCroppedProfileImage(image);
+    } catch (e) {
+      if (e?.code === 'E_PICKER_CANCELLED') return;
+      console.error('Gallery error:', e);
+      showToastMessage(toast, 'danger', e?.message || 'Failed to open gallery');
     }
   };
 
-  const processImageResponse = async response => {
-    if (response?.didCancel) return;
-
-    if (response?.errorCode) {
-      console.warn('Image Picker Error:', response.errorMessage);
-      showToastMessage(toast, 'danger', 'Failed to pick image');
+  const uploadCroppedProfileImage = async image => {
+    if (!image?.path) {
+      showToastMessage(toast, 'danger', 'No image to upload');
+      return;
+    }
+    const pickedUri = uriFromCropPath(image.path);
+    if (!pickedUri) {
+      showToastMessage(toast, 'danger', 'Invalid image path');
       return;
     }
 
-    const asset = response?.assets?.[0];
-    if (!asset?.uri) {
-      console.warn('No valid image URI found');
-      showToastMessage(toast, 'danger', 'No image selected');
-      return;
-    }
-
-    const pickedUri = asset.uri;
     setProfileImage(pickedUri);
 
-    // Always provide fallbacks
-    const fileName = asset.fileName || `profile_${Date.now()}.jpg`;
-    const mimeType = asset.type || 'image/jpeg';
-
-    // Special case: Android content:// URIs
-    const imageUri = pickedUri.startsWith('content://') ? pickedUri : pickedUri;
+    const fileName = image.filename || `profile_${Date.now()}.jpg`;
+    const mimeType = image.mime || 'image/jpeg';
 
     const formData = new FormData();
     formData.append('image', {
-      uri: imageUri,
+      uri: pickedUri,
       type: mimeType,
       name: fileName,
     });

@@ -4,8 +4,10 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useImperativeHandle,
+  forwardRef,
 } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Keyboard } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Keyboard, RefreshControl } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 // Child components
 import OptionsModal from './OptionsModal';
@@ -44,7 +46,10 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
 import { extractPostMusicPayloadFromApi } from '../../../utils/postSoundtracks';
 
-export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
+const Posts = forwardRef(function Posts(
+  { postData = [], onRefresh, isBusinessProfile, refreshing = false },
+  ref,
+) {
   
 
   // All state hooks first - maintain consistent order
@@ -73,7 +78,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const [currentlyVisiblePostId, setCurrentlyVisiblePostId] = useState(null);
   const [screenFocused, setScreenFocused] = useState(true);
   const [playingPostId, setPlayingPostId] = useState(null);
-  const playingDebounceRef = useRef(null);
 
   // -------- Token Purchase Modal States --------
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
@@ -90,6 +94,7 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   const [suggestHasMore, setSuggestHasMore] = useState(true);
   const [suggestDismissed, setSuggestDismissed] = useState(new Set());
   const [userTokenBalance, setUserTokenBalance] = useState(0);
+  const feedListRef = useRef(null);
 
   const commentSheetRef = useRef();
   const purchaseSheetRef = useRef(null);
@@ -126,13 +131,6 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
       };
     }, [])
   );
-
-  // Clear debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (playingDebounceRef.current) clearTimeout(playingDebounceRef.current);
-    };
-  }, []);
 
   // Fetch following status for each post user
   useEffect(() => {
@@ -904,45 +902,44 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
     setSuggestHasMore(totalVisible < suggestAllUsers.length);
   }, [suggestPage, suggestAllUsers]);
 
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }) => {
-      if (!viewableItems || viewableItems.length === 0) {
-        setCurrentlyVisiblePostId(null);
-        return;
-      }
-      // Find the most visible post (excluding suggestions)
-      let mostVisiblePost = null;
-      let highestPercentage = -1;
-      for (const item of viewableItems) {
-        // Skip suggestions
-        if (item.item?.__type === 'suggestions') continue;
+  // Require most of the row to be on-screen; ignore tiny / jitter scrolls.
+  const MIN_VISIBLE_PERCENT_TO_FOCUS = 50;
 
-        if (!item.isViewable || !item.item?.id) continue;
+  const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
+    if (!viewableItems || viewableItems.length === 0) {
+      setCurrentlyVisiblePostId(null);
+      setPlayingPostId(null);
+      return;
+    }
 
-        // Prefer explicit visibility percentages when provided.
-        const percentage =
-          typeof item.percentVisible === 'number' ? item.percentVisible :
-          typeof item.viewablePercent === 'number' ? item.viewablePercent :
-          100;
+    const candidates = [];
+    for (const v of viewableItems) {
+      if (v.item?.__type === 'suggestions') continue;
+      if (!v.isViewable || v.item?.id == null) continue;
+      const pct =
+        typeof v.percentVisible === 'number'
+          ? v.percentVisible
+          : typeof v.viewablePercent === 'number'
+            ? v.viewablePercent
+            : 100;
+      if (pct < MIN_VISIBLE_PERCENT_TO_FOCUS) continue;
+      candidates.push({
+        id: v.item.id,
+        pct,
+      });
+    }
 
-        if (percentage > highestPercentage) {
-          highestPercentage = percentage;
-          mostVisiblePost = item.item.id;
-        }
-      }
+    if (candidates.length === 0) {
+      setCurrentlyVisiblePostId(null);
+      setPlayingPostId(null);
+      return;
+    }
 
-      // Only update if the most visible post changed
-      if (mostVisiblePost !== currentlyVisiblePostId) {
-        setCurrentlyVisiblePostId(mostVisiblePost);
-      }
+    const mostVisiblePost = candidates.reduce((a, b) => (a.pct >= b.pct ? a : b)).id;
 
-      // Always align playing post to the most visible one (no debounce).
-      if (mostVisiblePost !== playingPostId) {
-        setPlayingPostId(mostVisiblePost);
-      }
-    },
-    [currentlyVisiblePostId, playingPostId]
-  );
+    setCurrentlyVisiblePostId(mostVisiblePost);
+    setPlayingPostId(mostVisiblePost);
+  }, []);
 
   const feedItems = useMemo(() => {
     const posts = mappedPosts;
@@ -1035,8 +1032,9 @@ export default function Posts({ postData = [], onRefresh, isBusinessProfile }) {
   );
  // REPLACE WITH:
 const viewabilityConfigRef = useRef({
-  viewAreaCoveragePercentThreshold: 50,
-  minimumViewTime: 50,
+  // Only treat a post as "on screen" for tracking when a majority of the row is visible.
+  itemVisiblePercentThreshold: 50,
+  minimumViewTime: 200,
   waitForInteraction: false,
 });
 
@@ -1054,6 +1052,16 @@ const viewabilityConfigCallbackPairs = useRef([
   },
 ]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToTop: () => {
+        feedListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+      },
+    }),
+    [],
+  );
+
   useEffect(() => {
     if (!mappedPosts.length) return;
     if (currentlyVisiblePostId != null) return;
@@ -1069,16 +1077,28 @@ const viewabilityConfigCallbackPairs = useRef([
         <View style={[styles.container, bgStyle]}>
           {/* Posts List */}
           <FlatList
+            ref={feedListRef}
             data={feedItems}
             keyExtractor={listKeyExtractor}
             showsVerticalScrollIndicator={false}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
+            refreshControl={
+              onRefresh
+                ? (
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={['#783eb9a9']}
+                  />
+                )
+                : undefined
+            }
             removeClippedSubviews={false}
             maxToRenderPerBatch={3}
             windowSize={7}
             initialNumToRender={2}
-            updateCellsBatchingPeriod={100}
+            updateCellsBatchingPeriod={50}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             scrollEventThrottle={16}
           />
@@ -1210,7 +1230,7 @@ const viewabilityConfigCallbackPairs = useRef([
   };
 
   return safeRender();
-}
+});
 
 // ---------------- STYLES ----------------
 const styles = StyleSheet.create({
@@ -1222,3 +1242,5 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
 });
+
+export default Posts;

@@ -19,6 +19,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { battleWinner } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import trophyPng from '../../assets/icons/pngicons/trophy.png';
 
 const withAlpha = (hex, alpha) => {
   if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
@@ -399,6 +400,13 @@ export default function BattleResults({ navigation }) {
                   </View>
                 </View>
               </View>
+              <View style={styles.trophyWrap}>
+                <Image
+                  source={trophyPng}
+                  style={styles.trophyPng}
+                  resizeMode="contain"
+                />
+              </View>
             </View>
           )}
 
@@ -773,5 +781,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 2,
   },
-
+trophyWrap: {
+  position:'absolute',
+  right:10,
+  marginLeft: 10,
+  top:20,
+  elevation:10,
+ 
+},
+  trophyPng: {
+    width: 110,
+    height: 110,
+  },
 });
