@@ -51,6 +51,7 @@ import subscription from '../pages/settings/Subscription';
 import TextGradient from '../assets/textgradient/TextGradient';
 import CreateMission from '../pages/post/uploadPost/CreateMission';
 import EditPostScreen from '../pages/post/uploadPost/EditPostScreen';
+import ViewMissioPost from '../pages/wallet/ViewMissioPost';
 
 // Import Wallet Drawer Screens
 import PortfolioScreen from '../pages/wallet/PortfolioScreen';
@@ -429,6 +430,11 @@ export default function MainTabNavigator() {
             name="SubscriptionSetup"
             component={SubventionSetupScreen}
             options={{ headerTitle: 'Subscription Program Setup' }}
+          />
+          <Stack.Screen
+            name="ViewMissionPost"
+            component={ViewMissioPost}
+            options={{ headerTitle: 'View Mission Post' }}
           />
         </Stack.Navigator>
       );

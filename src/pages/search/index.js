@@ -422,6 +422,13 @@ const SearchScreen = () => {
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
 
+  // Clear search bar when screen focused (tab selected)
+  useEffect(() => {
+    if (isScreenFocused) {
+      setSearchText('');
+    }
+  }, [isScreenFocused]);
+
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
   // ─── OPTIMIZATION 4: Masonry layout memoized with stable deps ──────────────

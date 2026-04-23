@@ -21,7 +21,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { LineChart } from 'react-native-wagmi-charts';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCreators, getTotalTokenPurchase } from '../../services/tokens';
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -202,6 +202,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   });
   const [followersCount, setFollowersCount] = useState(0);
   const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
+  const profileImage = useSelector(state => state.profileImage?.profileImg);
 
   const openDragonflyModal = () => setDragonflyModalVisible(true);
   const closeDragonflyModal = () => setDragonflyModalVisible(false);
@@ -1008,6 +1009,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
     const isMetaMaskCard = item.id === 'metamask';
     const isCreditsCard = item.id === 'credits';
+    const isMissionPostCard = item.id === 'Mission Post';
     const metaStatusText = isMetaMaskConnected ? 'Connected' : 'Disconnected';
     const metaActionText = isMetaMaskConnected ? 'Tap to disconnect' : 'Tap to connect';
 
@@ -1018,10 +1020,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
-          isMetaMaskCard && styles.kpiCardNoOuterSpacing,
-          isMetaMaskCard && styles.kpiCardFillTouchable,
-          isCreditsCard && styles.kpiCardNoOuterSpacing,
-          isCreditsCard && styles.kpiCardFillTouchable,
+          (isMetaMaskCard || isCreditsCard || isMissionPostCard) && styles.kpiCardNoOuterSpacing,
+          (isMetaMaskCard || isCreditsCard || isMissionPostCard) && styles.kpiCardFillTouchable,
           { shadowColor: text },
         ]}
       >
@@ -1088,6 +1088,18 @@ export const WalletDashboardScreen = ({ navigation }) => {
           style={styles.kpiCardTouchable}
           activeOpacity={0.86}
           onPress={() => navigation.navigate('WalletMain')}
+        >
+          {cardContent}
+        </TouchableOpacity>
+      );
+    }
+
+    if (isMissionPostCard) {
+      return (
+        <TouchableOpacity
+          style={styles.kpiCardTouchable}
+          activeOpacity={0.86}
+          onPress={() => navigation.navigate('ViewMissionPost')}
         >
           {cardContent}
         </TouchableOpacity>
@@ -1197,7 +1209,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.headerRow}>
               <View style={styles.headerAvatarWrap}>
                 <HexAvatar
-                  uri={userProfile.image || FALLBACK_AVATAR}
+                  uri={profileImage || userProfile.image || FALLBACK_AVATAR}
                   size={100}
                   borderWidth={3}
                   borderColor={text}

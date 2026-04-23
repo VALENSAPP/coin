@@ -95,6 +95,7 @@ const ProfilePersonData = ({
   userData,
   executeFollowAction,
   returnByTo,
+  screenParams
 }) => {
   // useEffect(() => {
   //   console.log(
@@ -173,7 +174,6 @@ const ProfilePersonData = ({
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
-  console.log("profileTypeprofileTypeprofileTypeprofileType", profileType)
   const effectiveProfileType = userData?.profile ? userData?.profile : profileType;
   const normalizedProfileThemeType =
     typeof effectiveProfileType === 'string'
@@ -1072,6 +1072,10 @@ const ProfilePersonData = ({
       });
       return;
     }
+    else if (returnByTo == 'Search') {
+      navigation.navigate(returnByTo);
+      return;
+    }
 
     navigation.goBack();
   }, [navigation, returnByTo]);
@@ -1472,6 +1476,8 @@ const ProfilePersonData = ({
                   params: {
                     userName: Userdata.Username,
                     userId: fromUsersProfile ? targetUserId : userId,
+                    returnTo: 'Home',
+                    screenParams: screenParams
                   },
                 });
               } else {
@@ -1480,6 +1486,7 @@ const ProfilePersonData = ({
                   params: {
                     userName: Userdata.Username,
                     userId: userId,
+                    returnTo: 'UserProfile',
                   },
                 });
               }
@@ -1501,6 +1508,8 @@ const ProfilePersonData = ({
                   params: {
                     userName: displayName,
                     userId: fromUsersProfile ? targetUserId : userId,
+                    returnTo: 'Home',
+                    screenParams: screenParams
                   },
                 });
               } else {
@@ -1509,6 +1518,7 @@ const ProfilePersonData = ({
                   params: {
                     userName: displayName,
                     userId: userId,
+                    returnTo: 'UserProfile',
                   },
                 });
               }

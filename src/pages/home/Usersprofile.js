@@ -321,6 +321,7 @@ const Usersprofile = () => {
           userData={userData}
           executeFollowAction={executeFollowAction}
           returnByTo={returnTo}
+          screenParams={screenParams}
          
         />
 
