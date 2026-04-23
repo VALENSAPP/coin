@@ -12,6 +12,7 @@ export default function ViewMissioPost({ navigation }) {
     const [isBusinessProfile, setIsBusinessProfile] = useState(false);
     const [missions, setMissions] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [filterLoading, setFilterLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [error, setError] = useState(null);
 
@@ -24,9 +25,10 @@ export default function ViewMissioPost({ navigation }) {
         }
     };
 
-    const fetchMissions = useCallback(async (filter = 'all') => {
+    const fetchMissions = useCallback(async (filter = 'all', isFilterChange = false) => {
         try {
-            setLoading(true);
+            if (isFilterChange) setFilterLoading(true);
+            else setLoading(true);
             setError(null);
             const params = filter !== 'all' ? { status: filter } : {};
             const response = await getAllMissionPost(params);
@@ -65,12 +67,13 @@ export default function ViewMissioPost({ navigation }) {
             setMissions([]);
         } finally {
             setLoading(false);
+            setFilterLoading(false);
         }
     }, []);
 
     const handleFilterChange = (tab) => {
         setStatusFilter(tab);
-        fetchMissions(tab);
+        fetchMissions(tab, true);
     };
 
     useEffect(() => {
@@ -143,7 +146,7 @@ export default function ViewMissioPost({ navigation }) {
         return (
             <SafeAreaView style={[{ flex: 1 }, bgStyle]}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#513189" />
+                    <ActivityIndicator size="large" color={text} />
                     <Text style={[styles.loadingText, { color: text }]}>Loading missions...</Text>
                 </View>
             </SafeAreaView>
@@ -200,7 +203,15 @@ export default function ViewMissioPost({ navigation }) {
                     ))}
                 </View>
 
-                {missions.length === 0 ? (
+                {/* Inline Filter Loader */}
+                {filterLoading && (
+                    <View style={styles.filterLoaderContainer}>
+                        <ActivityIndicator size="small" color={text} />
+                        <Text style={[styles.filterLoaderText, { color: text }]}>Updating...</Text>
+                    </View>
+                )}
+
+                {!filterLoading && missions.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <Ionicons name="ribbon-outline" size={48} color="#aaa" />
                         <Text style={[styles.emptyText, { color: text }]}>No missions found</Text>
@@ -208,7 +219,7 @@ export default function ViewMissioPost({ navigation }) {
                             {statusFilter !== 'all' ? `No ${statusFilter} missions at the moment` : 'No missions available yet'}
                         </Text>
                     </View>
-                ) : (
+                ) : !filterLoading ? (
                     <FlatList
                         data={missions}
                         scrollEnabled={false}
@@ -269,7 +280,7 @@ export default function ViewMissioPost({ navigation }) {
                                         <View style={styles.statDivider} />
                                         <View style={styles.statItem}>
                                             <Text style={styles.statLabel}>Total Earned</Text>
-                                            <Text style={styles.statValueAccent}>${c.earned}.00</Text>
+                                            <Text style={[styles.statValueAccent, { color: text }]}>${c.earned}.00</Text>
                                         </View>
                                     </View>
 
@@ -295,7 +306,7 @@ export default function ViewMissioPost({ navigation }) {
                             );
                         }}
                     />
-                )}
+                ) : null}
             </ScrollView>
         </SafeAreaView>
     );
@@ -319,6 +330,15 @@ const styles = StyleSheet.create({
     filterTab: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center' },
     filterTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
     filterTabText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+    filterLoaderContainer: {
+        alignItems: 'center',
+        paddingVertical: 20,
+        gap: 8,
+    },
+    filterLoaderText: {
+        fontSize: 13,
+        opacity: 0.6,
+    },
     campaignCard: {
         backgroundColor: '#fff',
         borderRadius: 16,
@@ -352,7 +372,7 @@ const styles = StyleSheet.create({
     statDivider: { width: 1, height: 32, backgroundColor: '#e2e8f0' },
     statLabel: { fontSize: 11, color: '#64748b', marginBottom: 2 },
     statValue: { fontSize: 15, fontWeight: 'bold' },
-    statValueAccent: { fontSize: 15, fontWeight: 'bold', color: '#7c3aed' },
+    statValueAccent: { fontSize: 15, fontWeight: 'bold' },
     splitContainer: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10 },
     splitLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 8 },
     splitRow: { flexDirection: 'row', justifyContent: 'space-between' },
