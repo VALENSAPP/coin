@@ -715,6 +715,15 @@ const SearchScreen = () => {
   const handleUserProfile = useCallback(user => {
     const targetId = user?.id || user?.userId || user?._id;
     if (!targetId) { showToastMessage(toastRef.current, 'danger', 'Unable to open profile'); return; }
+
+    // If user taps their own avatar/name, go to their Profile tab (not UsersProfile).
+    if (String(targetId) === String(userId || '')) {
+      navigation.navigate('ProfileMain', {
+        screen: 'Profile',
+        params: { returnTo: route?.name, returnParams: route?.params },
+      });
+      return;
+    }
     navigation.navigate('HomeMain', {
       screen: 'UsersProfile',
       params: {
@@ -757,29 +766,29 @@ const SearchScreen = () => {
     setSelectedBattleOptions(prev => ({ ...prev, [battleId]: optionLabel }));
   }, []);
 
-const selectedBattleOptionsRef = useRef(selectedBattleOptions);
-useEffect(() => {
-  selectedBattleOptionsRef.current = selectedBattleOptions;
-}, [selectedBattleOptions]);
+  const selectedBattleOptionsRef = useRef(selectedBattleOptions);
+  useEffect(() => {
+    selectedBattleOptionsRef.current = selectedBattleOptions;
+  }, [selectedBattleOptions]);
 
-const handleBattleCardPressRef = useRef(null);
-handleBattleCardPressRef.current = (battleItem) => {
-  navigation.navigate('ProfileMain', {
-    screen: 'BattleInProgress',
-    params: {
-      battleId: battleItem?.id,
-      battle: battleItem,
-      entryPoint: 'search',
-      selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
-      returnTo: route.name,
-      returnParams: route.params,
-    },
-  });
-};
+  const handleBattleCardPressRef = useRef(null);
+  handleBattleCardPressRef.current = (battleItem) => {
+    navigation.navigate('ProfileMain', {
+      screen: 'BattleInProgress',
+      params: {
+        battleId: battleItem?.id,
+        battle: battleItem,
+        entryPoint: 'search',
+        selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
+        returnTo: route.name,
+        returnParams: route.params,
+      },
+    });
+  };
 
-const handleBattleCardPress = useCallback((battleItem) => {
-  handleBattleCardPressRef.current?.(battleItem);
-}, []);
+  const handleBattleCardPress = useCallback((battleItem) => {
+    handleBattleCardPressRef.current?.(battleItem);
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -904,7 +913,9 @@ const handleBattleCardPress = useCallback((battleItem) => {
                       selectedOption={selectedBattleOptions[item.id]}
                       onCardPress={handleBattleCardPress}
                       onOptionSelect={updateSelectedBattleOption}
+                      onUserPress={handleUserProfile}
                     />
+
                   ))
                 ) : (
                   <View style={[styles.card, { justifyContent: 'center' }]}>
