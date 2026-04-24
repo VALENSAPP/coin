@@ -98,3 +98,7 @@ export const getTotalFollowers = async (params) => {
 export const getAllMissionPost = async (params) => {
   return axiosInstance.get('post/getMissionpost', { params });
 }
+
+export const subscriptionEarningGraph = async (params) => {
+  return axiosInstance.get('billing/subscription-earning/graph', { params });
+}

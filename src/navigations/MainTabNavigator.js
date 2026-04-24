@@ -84,6 +84,7 @@ import BattleResults from '../pages/settings/BattleResults';
 import BattleReward from '../pages/settings/BattleReward';
 import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
+import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -91,6 +92,7 @@ const Stack = createStackNavigator();
 export default function MainTabNavigator() {
   const [profile, setProfile] = React.useState(null);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
+  const userProfile = useSelector(state => state.userProfile.userProfile);
   const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text } = useAppTheme();
 
@@ -301,7 +303,7 @@ export default function MainTabNavigator() {
               {
                 elevation: 0,
                 shadowOpacity: 0,
-                backgroundColor: profile !== 'user' ? '#fcfbfaff' : '#f8f2fd',
+                backgroundColor: userProfile !== 'user' ? '#fcfbfaff' : '#f8f2fd',
               },
             ],
             headerTitleStyle: {
@@ -436,6 +438,11 @@ export default function MainTabNavigator() {
             name="ViewMissionPost"
             component={ViewMissioPost}
             options={{ headerTitle: 'View Mission Post' }}
+          />
+           <Stack.Screen
+            name="RevenueFromSubscriptions"
+            component={RevenueFromSubscriptions}
+            options={{ headerTitle: 'Revenue From Subscriptions' }}
           />
         </Stack.Navigator>
       );
@@ -577,7 +584,7 @@ export default function MainTabNavigator() {
                     uri={profileImage}
                     size={30}
                     borderWidth={1.5}
-                    borderColor={profile !== 'user' ? '#D3B683' : '#5a2d82'}
+                    borderColor={userProfile !== 'user' ? '#D3B683' : '#5a2d82'}
                   />
                 );
               } else {
@@ -586,7 +593,7 @@ export default function MainTabNavigator() {
                     uri={require('../assets/icons/pngicons/user.png')}
                     size={30}
                     borderWidth={1.5}
-                    borderColor={profile !== 'user' ? '#D3B683' : '#5a2d82'}
+                    borderColor={userProfile !== 'user' ? '#D3B683' : '#5a2d82'}
                   />
                 );
               }

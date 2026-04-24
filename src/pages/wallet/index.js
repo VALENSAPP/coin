@@ -1012,6 +1012,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const isMetaMaskCard = item.id === 'metamask';
     const isCreditsCard = item.id === 'credits';
     const isMissionPostCard = item.id === 'Mission Post';
+    const isSupportCard = item.id === 'support';
     const metaStatusText = isMetaMaskConnected ? 'Connected' : 'Disconnected';
     const metaActionText = isMetaMaskConnected ? 'Tap to disconnect' : 'Tap to connect';
 
@@ -1022,8 +1023,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
-          (isMetaMaskCard || isCreditsCard || isMissionPostCard) && styles.kpiCardNoOuterSpacing,
-          (isMetaMaskCard || isCreditsCard || isMissionPostCard) && styles.kpiCardFillTouchable,
+          (isMetaMaskCard || isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardNoOuterSpacing,
+          (isMetaMaskCard || isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardFillTouchable,
           { shadowColor: text },
         ]}
       >
@@ -1102,6 +1103,18 @@ export const WalletDashboardScreen = ({ navigation }) => {
           style={styles.kpiCardTouchable}
           activeOpacity={0.86}
           onPress={() => navigation.navigate('ViewMissionPost', {isBusinessProfile: isBusinessProfile})}
+        >
+          {cardContent}
+        </TouchableOpacity>
+      );
+    }
+
+    if (isSupportCard) {
+      return (
+        <TouchableOpacity
+          style={styles.kpiCardTouchable}
+          activeOpacity={0.86}
+          onPress={() => navigation.navigate('RevenueFromSubscriptions')}
         >
           {cardContent}
         </TouchableOpacity>

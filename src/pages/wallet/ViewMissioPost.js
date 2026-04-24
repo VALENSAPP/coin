@@ -8,8 +8,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function ViewMissioPost({ navigation, route }) {
-     const { isBusinessProfile } = route.params || {};
-    console.log("isBusinessProfile in view mission post", isBusinessProfile)
+    const { isBusinessProfile } = route.params || {};
     const { bgStyle, text } = useAppTheme();
     const [missions, setMissions] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -29,24 +28,47 @@ export default function ViewMissioPost({ navigation, route }) {
                 const raw = response.data?.data || response.data || [];
                 const data = Array.isArray(raw) ? raw.map(item => ({
                     id: item.id,
+
+                    // caption and text are both null in API; type = 'crowdfunding' — use type as fallback title
                     title: item.caption || item.text || item.type || 'Mission Post',
-                    status: item.status
-                        ? item.status
-                        : (item.end_time && new Date(item.end_time) < new Date() ? 'Completed' : 'Active'),
+
+                    // status is not returned directly — derive from end_time
+                    status: item.end_time && new Date(item.end_time) < new Date()
+                        ? 'Completed'
+                        : item.start_time && new Date(item.start_time) > new Date()
+                            ? 'Upcoming'
+                            : 'Active',
+
                     period: item.start_time && item.end_time
                         ? `${new Date(item.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(item.end_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
                         : 'No period set',
+
                     endTime: item.end_time,
                     startTime: item.start_time,
+
+                    // commentCount is the request count
                     requests: item.commentCount ?? 0,
-                    earned: item.tokenBalance ?? 0,
-                    split: item.raiseAmount ? (item.raiseAmount * 0.8).toFixed(2) : '0.00',
-                    valensFee: item.raiseAmount ? (item.raiseAmount * 0.05).toFixed(2) : '0.00',
-                    stripeFee: item.raiseAmount ? (item.raiseAmount * 0.05).toFixed(2) : '0.00',
+
+                    // earning.total is the total earned
+                    earned: item.earning?.total ?? 0,
+
+                    // You (80%) of raiseAmount
+                    split: item.earning?.total ? (item.earning.total * 0.8).toFixed(2) : '0.00',
+
+                    // Platform fee: earning.platformFees (already a value, not a ratio)
+                    valensFee: item.earning?.platformFees ?? '0.00',
+
+                    // Stripe fee: 5% of raiseAmount
+                    stripeFee: item.earning?.total ? (item.earning.total * 0.05).toFixed(2) : '0.00',
+
+                    // tokenBalance is the total
                     total: item.tokenBalance ?? 0,
-                    type: item.type,
+
+                    type: item.type,           // e.g. 'crowdfunding'
                     userImage: item.userImage,
                     userName: item.userName,
+
+                    // thumbnails[] preferred, fallback to images[]
                     thumbnail: item.thumbnails?.[0] || item.images?.[0] || null,
                 })) : [];
                 setMissions(data);
@@ -239,7 +261,9 @@ export default function ViewMissioPost({ navigation, route }) {
 
                                         <View style={{ flex: 1 }}>
                                             <View style={styles.titleRow}>
-                                                <Text style={styles.campaignTitle} numberOfLines={1}>{c.title}</Text>
+                                                <Text style={styles.campaignTitle} numberOfLines={1}>
+                                                    {c.title?.charAt(0).toUpperCase() + c.title?.slice(1)}
+                                                </Text>
                                                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
                                                     <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>{c.status}</Text>
                                                 </View>
