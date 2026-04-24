@@ -55,7 +55,7 @@ const Usersprofile = () => {
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme(userData?.profile);
 
-  console.log(route,"ProfileScreenroute===>>>>>>");
+ 
 
   const fetchLoggedInUserId = useCallback(async () => {
     try {
@@ -146,7 +146,7 @@ const Usersprofile = () => {
         getUserCredentials(targetUserId),
         getUserDashboard(targetUserId),
       ]);
-
+console.log(userRes,'data in ueser profile efrafaha')
       if (postsRes?.statusCode === 200) {
         setPosts(postsRes.data || []);
       } else {

@@ -37,6 +37,7 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { appKit } from '../../config/AppKitConfig';
 import { getDragonflyIcon } from '../../components/profile/ProfilePersonalData';
+import MIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   WhiteDragonfly,
   BlueDragonfly,
@@ -45,6 +46,7 @@ import {
   GoldDragonfly,
   GoldLavenderDragonfly,
   LavenderDragonfly,
+  Metamask,
 } from '../../assets/icons';
 
 const { width } = Dimensions.get('window');
@@ -173,14 +175,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [missionDonationTotal, setMissionDonationTotal] = useState(0);
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
-    { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet', color: '#5a2d82' },
-    { id: 'support', title: 'Subscription Earning', value: '-', icon: 'logo-bitcoin', color: '#10b981' },
-    { id: 'followers', title: 'Followers', value: '-', icon: 'people', color: '#f59e0b' },
-    { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', color: '#ef4444', currentCredits: 5 },
+    { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet' },
+    { id: 'support', title: 'Subscription Earning', value: '-', icon: 'pie-chart' },
+    { id: 'followers', title: 'Followers', value: '-', icon: 'people' },
+    { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', currentCredits: 5 },
     // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
-    { id: 'Mission Post', title: 'Mission Post', value: '-', icon: 'ribbon', color: '#8b5cf6' },
-    { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift', color: '#14b8a6' },
-    { id: 'metamask', title: 'MetaMask', value: '-', icon: 'logo-usd', color: '#f97316' },
+    { id: 'Mission Post', title: 'Mission Post', value: '-', icon:  'ribbon' },
+    { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift' },
+    { id: 'metamask', title: 'Metamask Wallet', value: '-', icon: 'logo-usd' },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
@@ -303,6 +305,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       console.log('API Response: data in thi apiaiaaiaiaai', response);
       setIsBusinessProfile(response?.data?.profile !== 'user');
       setKyc(response?.data?.kycStatus || null);
+      console.log(response,'data in this apiaia for resposne ')
       // 🔥 Adjust keys based on your API response
       const stripeCustomerId =
         response?.data?.stripeAccountId ||
@@ -358,7 +361,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const kpiGridData = useMemo(() => {
     const list = [...visibleKpiData];
-    if (list.length % 2 !== 0) {
+    const isMetaMaskLast = list[list.length - 1]?.id === 'metamask';
+
+    // Keep Metamask as the last, full-width row (design match).
+    if (isMetaMaskLast && list.length % 2 === 0) {
+      list.splice(list.length - 1, 0, { id: 'kpi-placeholder', isPlaceholder: true });
+    } else if (!isMetaMaskLast && list.length % 2 !== 0) {
       list.push({ id: 'kpi-placeholder', isPlaceholder: true });
     }
     return list;
@@ -368,7 +376,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const walletScreenGradient = useMemo(
     () =>
       isBusinessProfile
-        ? ['#D3B683', '#f8f2fd']
+        ? ['#D3B683', '#fdfcfa']
         : ['#513189', '#f8f2fd'],
     [isBusinessProfile],
   );
@@ -1003,33 +1011,81 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return <View style={[styles.kpiCard, styles.kpiCardPlaceholder]} />;
     }
 
-    const onDarkGradient = !isBusinessProfile;
-    const kpiTitleColor = onDarkGradient
-      ? 'rgba(255,255,255,0.92)'
-      : 'rgba(42,27,61,0.85)';
-    const kpiValueColor = onDarkGradient ? '#ffffff' : '#2a1b3d';
-
     const isMetaMaskCard = item.id === 'metamask';
     const isCreditsCard = item.id === 'credits';
     const isMissionPostCard = item.id === 'Mission Post';
     const metaStatusText = isMetaMaskConnected ? 'Connected' : 'Disconnected';
     const metaActionText = isMetaMaskConnected ? 'Tap to disconnect' : 'Tap to connect';
 
+    if (isMetaMaskCard) {
+      return (
+        <TouchableOpacity
+          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth]}
+          activeOpacity={0.86}
+          onPress={handleMetaMaskCardPress}
+        >
+          <LinearGradient
+            colors={walletScreenGradient}
+            start={{ x: -8, y: -8 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+          >
+            <View style={styles.kpiMetaMaskRow}>
+              <View style={styles.kpiMetaMaskLeft}>
+                <View style={[styles.kpiMetaMaskIconWrap, { backgroundColor: '#D3D3D3' }]}>
+                  <Metamask width={28} height={28} />
+                </View>
+                <View style={styles.kpiMetaMaskText}>
+                  <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
+                    {item.value}
+                  </Text>
+                  <View style={styles.kpiMetaMaskStatusRow}>
+                    <View
+                      style={[
+                        styles.kpiStatusDot,
+                        { backgroundColor: isMetaMaskConnected ? '#16a34a' : '#b45309' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.kpiMetaMaskStatusText,
+                        { color: isMetaMaskConnected ? '#16a34a' : '#b45309' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {metaStatusText}
+                    </Text>
+                    <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
+                      {metaActionText}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    }
+
     const cardContent = (
       <LinearGradient
         colors={walletScreenGradient}
-        start={{ x: -2, y: -2 }}
+        start={{ x: -8, y: -8 }}
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
-          (isMetaMaskCard || isCreditsCard || isMissionPostCard) && styles.kpiCardNoOuterSpacing,
-          (isMetaMaskCard || isCreditsCard || isMissionPostCard) && styles.kpiCardFillTouchable,
           { shadowColor: text },
         ]}
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
           <View style={styles.kpiHeaderLeft}>
-            <Ionicons name={item.icon} size={20} color={item.color} />
+            <View style={styles.kpiIconWrap}>
+              <Ionicons name={item.icon} size={18} color={text} />
+            </View>
             <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={2}>
               {item.title}
             </Text>
@@ -1069,20 +1125,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
             Tap to buy credits
           </Text>
         ) : null}
+        {(isCreditsCard || isMissionPostCard) ? (
+          <Ionicons name="chevron-forward" size={16} color={text} style={styles.kpiChevronInline} />
+        ) : null}
       </LinearGradient>
     );
-
-    if (isMetaMaskCard) {
-      return (
-        <TouchableOpacity
-          style={styles.kpiCardTouchable}
-          activeOpacity={0.86}
-          onPress={handleMetaMaskCardPress}
-        >
-          {cardContent}
-        </TouchableOpacity>
-      );
-    }
 
     if (isCreditsCard) {
       return (
@@ -1101,7 +1148,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.kpiCardTouchable}
           activeOpacity={0.86}
-          onPress={() => navigation.navigate('ViewMissionPost', {isBusinessProfile: isBusinessProfile})}
+          onPress={() => navigation.navigate('ViewMissionPost', { isBusinessProfile: isBusinessProfile })}
         >
           {cardContent}
         </TouchableOpacity>
@@ -1227,7 +1274,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 >
                   @{userProfile.name || 'User'}
                 </Text>
-                {kyc === 'verified' && (
+                {kyc === "APPROVED" || kyc=== true && (
                   <View style={styles.headerStatus}>
                     <DragonflyIcon width={22} height={22} style={styles.headerStatusIcon} />
                     <Text
@@ -1268,72 +1315,38 @@ export const WalletDashboardScreen = ({ navigation }) => {
             style={styles.pointsCard}
           >
             <View style={styles.pointsGlow} />
-
-            <Text
-              style={[
-                styles.pointsLabel,
-                { color: text },
-              ]}
-            >
-              Total Platform Points
-            </Text>
-            <Text
-              style={[
-                styles.pointsValue,
-                { color: text },
-              ]}
-            >
-              {formatPointValue(rewardSummary.totalPlatformPoints)}
-            </Text>
-            {/* <Text style={styles.pointsSubtext}>
-              Your battle, referral, and used points are synced here from the
-              wallet API.
-            </Text> */}
-
-            <View style={styles.pointsBreakdownRow}>
-              {rewardPointCards.map((item) => (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.pointsBreakdownCard,
-                    isBusinessProfile
-                      ? styles.pointsBreakdownCardBiz
-                      : styles.pointsBreakdownCardUser,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.pointsBreakdownIcon,
-                      { backgroundColor: item.iconBackground },
-                    ]}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={18}
-                      color={item.iconColor}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.pointsBreakdownValue,
-                      isBusinessProfile
-                        ? { color: '#2a1b3d' }
-                        : { color: '#5a2d82' },
-                    ]}
-                  >
-                    {formatPointValue(item.value)}
+            <View style={styles.pointsFourColRow}>
+              <View style={styles.pointsMainCol}>
+                <View style={styles.pointsMainIconWrap}>
+                  <Ionicons name="star" size={10} color="#ffffff" />
+                </View>
+                <View style={styles.pointsMainText}>
+                  <Text style={[styles.pointsMainLabel, { color: text }]} numberOfLines={2}>
+                    Total Platform Points
                   </Text>
-                  <Text
-                    style={[
-                      styles.pointsBreakdownLabel,
-                      isBusinessProfile
-                        ? { color: 'rgba(42,27,61,0.75)' }
-                        : { color: 'rgba(90,45,130,0.88)' },
-                    ]}
-                  >
-                    {item.title}
+                  <Text style={[styles.pointsMainValue, { color: text }]} numberOfLines={1}>
+                    {formatPointValue(rewardSummary.totalPlatformPoints)}
                   </Text>
                 </View>
+              </View>
+
+              <View style={styles.pointsDivider} />
+
+              {rewardPointCards.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  <View style={styles.pointsCol}>
+                    <Ionicons name={item.icon} size={18} color={item.iconColor} />
+                    <Text style={[styles.pointsColValue, { color: text }]} numberOfLines={1}>
+                      {formatPointValue(item.value)}
+                    </Text>
+                    <Text style={[styles.pointsColLabel, { color: text }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </View>
+                  {index !== rewardPointCards.length - 1 ? (
+                    <View style={styles.pointsDivider} />
+                  ) : null}
+                </React.Fragment>
               ))}
             </View>
           </LinearGradient>
@@ -1922,6 +1935,65 @@ const styles = StyleSheet.create({
     right: -40,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
+  pointsFourColRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 16,
+  },
+  pointsDivider: {
+    width: 1,
+    height: 46,
+    backgroundColor: 'rgba(90,45,130,0.16)',
+    marginHorizontal: 5,
+  },
+  pointsMainCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1.25,
+    minWidth: 0,
+  },
+  pointsMainIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#5a2d82',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+  },
+  pointsMainText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pointsMainLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    opacity: 0.82,
+  },
+  pointsMainValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  pointsCol: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pointsColValue: {
+    marginTop: 6,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  pointsColLabel: {
+    marginTop: 2,
+    fontSize: 8,
+    fontWeight: '500',
+    opacity: 0.75,
+    textAlign: 'center',
+  },
 
   pointsOverline: {
     fontSize: 12,
@@ -2030,6 +2102,11 @@ const styles = StyleSheet.create({
     minHeight: 80,
     justifyContent: 'flex-start',
   },
+  kpiCardMetaMask: {
+    borderRadius: 18,
+    padding: 16,
+    minHeight: 108,
+  },
   kpiCardNoOuterSpacing: {
     marginHorizontal: 0,
     marginBottom: 0,
@@ -2042,7 +2119,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
     marginBottom: 12,
     alignSelf: 'stretch',
-    minHeight: 132,
+    minHeight: 96,
+  },
+  kpiCardFullWidth: {
+    flexBasis: '100%',
   },
   kpiCardPlaceholder: {
     backgroundColor: 'transparent',
@@ -2066,6 +2146,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  kpiIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D3D3D3',
+    borderWidth: 1,
+    borderColor: '#D3D3D3',
+  },
   dragonflyInfoButton: {
     padding: 2,
     borderRadius: 999,
@@ -2074,8 +2164,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   kpiTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '800',
     marginLeft: 8,
     flex: 1,
     textTransform: 'capitalize',
@@ -2088,14 +2178,21 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     paddingTop: 10
   },
+  kpiValueMetaMask: {
+    fontSize: 24,
+    paddingLeft: 0,
+    paddingTop: 6,
+    paddingBottom: 0,
+    marginBottom: 0,
+  },
   kpiMetaSingleLine: {
-    marginTop: -10,
+    marginTop: -6,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 14,
     opacity: 0.95,
-    paddingLeft: 8,
-    paddingBottom: 8,
+    paddingLeft: 16,
+    paddingBottom: 10,
   },
   kpiMetaConnected: {
     color: '#16a34a',
@@ -2104,7 +2201,62 @@ const styles = StyleSheet.create({
     color: '#b45309',
   },
   kpiMetaBuyCredits: {
-    color: '#3b82f6',
+    opacity: 0.75,
+  },
+  kpiChevronInline: {
+    position: 'absolute',
+    top: 18,
+    right: 14,
+    opacity: 0.75,
+  },
+  kpiChevron: {
+    opacity: 0.8,
+  },
+  kpiMetaMaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  kpiMetaMaskLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  kpiMetaMaskIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  kpiMetaMaskText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  kpiMetaMaskStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  kpiStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  kpiMetaMaskStatusText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  kpiMetaMaskHint: {
+    fontSize: 12,
+    fontWeight: '700',
+    opacity: 0.75,
+    marginLeft: 2,
   },
   kpiChange: {
     fontSize: 12,

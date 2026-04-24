@@ -173,7 +173,7 @@ const ModeBadge = ({ format, ended, isLive }) => (
     </View>
 );
 
-const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty }) => {
+const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressIn }) => {
     if (isEmpty) {
         return (
             <View style={styles.participant}>
@@ -186,7 +186,13 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty }) => {
         );
     }
     return (
-        <View style={styles.participant}>
+        <TouchableOpacity
+            style={styles.participant}
+            activeOpacity={0.75}
+            onPress={onPress}
+            onPressIn={onPressIn}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
             <HexAvatar
                 uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR}
                 size={52}
@@ -195,7 +201,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty }) => {
             />
             <Text style={styles.participantName} numberOfLines={1}>{name}</Text>
             {!!handle && <Text style={styles.participantHandle} numberOfLines={1}>@{handle}</Text>}
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -255,10 +261,35 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 
 // ─── BattleCard ───────────────────────────────────────────────────────────────
 
-const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) => {
+const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress }) => {
     const ended = formatBattleCountdown(item.endTime) === 'Ended';
     const isPoll = item.format === 'POLL';
     const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
+
+    // Prevent nested profile presses from also triggering the card navigation.
+    const suppressCardPressRef = useRef({ active: false, timer: null });
+    const suppressNextCardPress = useCallback(() => {
+        suppressCardPressRef.current.active = true;
+        if (suppressCardPressRef.current.timer) clearTimeout(suppressCardPressRef.current.timer);
+        suppressCardPressRef.current.timer = setTimeout(() => {
+            suppressCardPressRef.current.active = false;
+            suppressCardPressRef.current.timer = null;
+        }, 350);
+    }, []);
+
+    const handleCardPress = useCallback(() => {
+        if (suppressCardPressRef.current.active) {
+            suppressCardPressRef.current.active = false;
+            if (suppressCardPressRef.current.timer) clearTimeout(suppressCardPressRef.current.timer);
+            suppressCardPressRef.current.timer = null;
+            return;
+        }
+        onCardPress(item);
+    }, [item, onCardPress]);
+
+    useEffect(() => () => {
+        if (suppressCardPressRef.current.timer) clearTimeout(suppressCardPressRef.current.timer);
+    }, []);
 
     // Ensure optionImages is always an array
     const optionImages = Array.isArray(item?.optionImages) ? item.optionImages : [];
@@ -285,16 +316,31 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
             <TouchableOpacity
                 activeOpacity={0.88}
                 style={[styles.card, ended && styles.cardEnded]}
-                onPress={() => onCardPress(item)}
+                onPress={handleCardPress}
             >
                 <View style={styles.cardTopRow}>
-                    <View style={styles.pollCreatorRow}>
-                        <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={36} borderWidth={2} borderColor="#7F77DD" />
-                        <View style={{ marginLeft: 8, flex: 1 }}>
-                            <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
-                            <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                    {onUserPress ? (
+                        <TouchableOpacity
+                            style={styles.pollCreatorRow}
+                            activeOpacity={0.75}
+                            onPressIn={suppressNextCardPress}
+                            onPress={() => onUserPress?.(item.creator)}
+                        >
+                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={36} borderWidth={2} borderColor="#7F77DD" />
+                            <View style={{ marginLeft: 8, flex: 1 }}>
+                                <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
+                                <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.pollCreatorRow}>
+                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={36} borderWidth={2} borderColor="#7F77DD" />
+                            <View style={{ marginLeft: 8, flex: 1 }}>
+                                <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
+                                <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
                     <ModeBadge format="POLL" ended={ended} isLive={item.isLive} />
                 </View>
 
@@ -344,7 +390,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         <TouchableOpacity
             activeOpacity={0.88}
             style={[styles.card, ended && styles.cardEnded]}
-            onPress={() => onCardPress(item)}
+            onPress={handleCardPress}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
             <View style={styles.cardTopRow}>
@@ -354,14 +400,36 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
 
             {/* Always render both slots — right is dashed if opponent missing */}
             <View style={styles.versusRow}>
-                <ParticipantAvatar avatarUrl={item.user1.avatar} name={item.user1.name} handle={item.user1.userName} isEmpty={false} />
+                <ParticipantAvatar
+                    avatarUrl={item.user1.avatar}
+                    name={item.user1.name}
+                    handle={item.user1.userName}
+                    isEmpty={false}
+                    onPressIn={suppressNextCardPress}
+                    onPress={() => onUserPress?.({ id: item.creator?.id, userName: item.user1.userName, image: item.user1.avatar, displayName: item.user1.name })}
+                />
                 <Text style={styles.vsIcon}>⚔️</Text>
                 {item.opponent ? (
-                    <ParticipantAvatar avatarUrl={item.opponent.avatar} name={item.user2.name} handle={item.opponent.userName} isEmpty={false} />
+                    <ParticipantAvatar
+                        avatarUrl={item.opponent.avatar}
+                        name={item.user2.name}
+                        handle={item.opponent.userName}
+                        isEmpty={false}
+                        onPressIn={suppressNextCardPress}
+                        onPress={() => onUserPress?.({ id: item.opponent?.id, userName: item.opponent.userName, image: item.opponent.avatar, displayName: item.user2.name })}
+                    />
                 ) : (
-                    <ParticipantAvatar avatarUrl={item.user2?.avatar} name={item.user2?.name} handle={item.user2?.userName} isEmpty={soloOpponent} />
+                    <ParticipantAvatar
+                        avatarUrl={item.user2?.avatar}
+                        name={item.user2?.name}
+                        handle={item.user2?.userName}
+                        isEmpty={soloOpponent}
+                        onPressIn={soloOpponent ? undefined : suppressNextCardPress}
+                        onPress={soloOpponent ? undefined : () => onUserPress?.({ id: item.user2?.id, userName: item.user2?.userName, image: item.user2?.avatar, displayName: item.user2?.name })}
+                    />
                 )}
             </View>
+
 
             <Text style={styles.question} numberOfLines={2}>{item.title}</Text>
             <StakePill amount={item.stakeAmount || 0} />
@@ -408,6 +476,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect }) 
         prevProps.item?.status === nextProps.item?.status &&
         prevProps.onCardPress === nextProps.onCardPress &&
         prevProps.onOptionSelect === nextProps.onOptionSelect &&
+        prevProps.onUserPress === nextProps.onUserPress &&
         JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages) &&
         JSON.stringify(prevProps.item?.opponent) === JSON.stringify(nextProps.item?.opponent)
     );
