@@ -143,6 +143,10 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         ? ['#D3B683', '#f8f2fd']
         : ['#513189', '#f8f2fd'];
 
+    const walletIllustrationGradient = isBusinessProfile
+        ? ['#8A6B2C', '#E0C06E']
+        : ['#5F348D', '#9A68D2'];
+
     // ── Fetch graph ────────────────────────────────────────────────────────────
     const fetchGraph = useCallback(async () => {
         setGraphLoading(true);
@@ -262,7 +266,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                         end={{ x: 1, y: 1 }}
                         style={styles.revenueCard}
                     >
-                        <View style={{ flex: 1 }}>
+                        <View style={styles.revenueContent}>
                             <Text style={[styles.revenueLabel, { color: text }]}>Total Revenue</Text>
                             <Text style={[styles.revenueAmount, { color: text }]}>
                                 {revenueLoading ? '…' : `$${Number(totalRevenue).toFixed(2)}`}
@@ -282,10 +286,20 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                             </View>
                         </View>
                         <View style={styles.walletIllustration}>
-                            <LinearGradient colors={walletScreenGradient} style={styles.walletGrad}>
-                                <Ionicons name="wallet" size={42} color="#fff" />
+                            <LinearGradient
+                                colors={walletIllustrationGradient}
+                                style={styles.walletGrad}
+                            >
+                                <Ionicons name="wallet-outline" size={42} color="#fff" />
                                 <View style={styles.coinBadge}>
-                                    <Ionicons name="logo-usd" size={18} color={text} />
+                                    <Text
+                                        style={[
+                                            styles.coinBadgeText,
+                                            { color: walletIllustrationGradient[0] },
+                                        ]}
+                                    >
+                                        $
+                                    </Text>
                                 </View>
                             </LinearGradient>
                         </View>
@@ -510,11 +524,18 @@ const styles = StyleSheet.create({
     // Revenue Card — gradient, no hardcoded bg
     revenueCardWrap: { marginBottom: 14 },
     revenueCard: {
-        borderRadius: 18,
-        padding: 18,
+        width: '100%',
+        borderRadius: 20,
+        padding: 20,
         flexDirection: 'row',
         alignItems: 'flex-start',
+        position: 'relative',
         overflow: 'hidden',
+        minHeight: 150,
+    },
+    revenueContent: {
+        flex: 1,
+        paddingRight: 108,
     },
     revenueLabel: { fontSize: 13, opacity: 0.85, marginBottom: 4 },
     revenueAmount: { fontSize: 34, fontWeight: '800', marginBottom: 6 },
@@ -532,26 +553,46 @@ const styles = StyleSheet.create({
     stripeRow: { flexDirection: 'row', alignItems: 'center' },
     poweredBy: { fontSize: 11, opacity: 0.7 },
     stripeBrand: { fontSize: 14, fontWeight: '800', fontStyle: 'italic' },
-    walletIllustration: { marginLeft: 12, alignItems: 'center' },
+    walletIllustration: {
+        position: 'absolute',
+        top: 20,
+        right: 60,
+        zIndex: 2,
+        elevation: 4,
+    },
     walletGrad: {
-        width: 80,
-        height: 80,
-        borderRadius: 20,
+        position: 'relative',
+        width: 78,
+        height: 78,
+        borderRadius: 60,
         justifyContent: 'center',
         alignItems: 'center',
+        // overflow: 'visible',
+        shadowColor: '#000',
+        shadowOpacity: 0.14,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
     },
     coinBadge: {
         position: 'absolute',
-        bottom: -8,
-        right: -8,
-        width: 28,
-        height: 28,
+        right: 12,
+        bottom: 5,
+        width: 20,
+        height: 20,
         borderRadius: 14,
         backgroundColor: '#fef3c7',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
         borderColor: '#fff',
+    },
+    coinBadgeText: {
+        fontSize: 18,
+        fontWeight: '900',
+        lineHeight: 18,
+        textAlign: 'center',
+        includeFontPadding: false,
     },
 
     // Sections — no hardcoded backgroundColor; bgStyle applied inline

@@ -1021,7 +1021,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     if (isMetaMaskCard) {
       return (
         <TouchableOpacity
-          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth]}
+          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth,{minWidth:350}]}
           activeOpacity={0.86}
           onPress={handleMetaMaskCardPress}
         >
@@ -1319,7 +1319,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             scrollEnabled={false}
           />
         </View>
-        <View style={[styles.section, { marginBottom: 10 }]}>
+        <View style={[styles.section, { marginBottom: 10, marginTop: -30 }]}>
           <Text style={[styles.sectionTitle, styles.pointsSectionTitle, textStyle]}>
             Battle Points
           </Text>
@@ -1368,7 +1368,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Activity Overview */}
-        <View style={styles.section}>
+        <View style={[styles.section, {marginTop: 17}]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, textStyle]}>Activity Overview</Text>
           </View>
@@ -2121,6 +2121,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     minHeight: 108,
+    width: 370,
+    left: -20
   },
   kpiCardNoOuterSpacing: {
     marginHorizontal: 0,
@@ -2131,13 +2133,15 @@ const styles = StyleSheet.create({
   },
   kpiCardTouchable: {
     flex: 1,
-    marginHorizontal: 6,
+    // marginHorizontal: 6,
     marginBottom: 12,
-    alignSelf: 'stretch',
-    minHeight: 96,
+    // alignSelf: 'stretch',
+    minHeight: 150,
+    alignItems:'center',
+    // marginRight:'10%'
   },
   kpiCardFullWidth: {
-    flexBasis: '100%',
+    // flexBasis: '100%',
   },
   kpiCardPlaceholder: {
     backgroundColor: 'transparent',
@@ -2220,7 +2224,7 @@ const styles = StyleSheet.create({
   },
   kpiChevronInline: {
     position: 'absolute',
-    top: 18,
+    top: 25,
     right: 14,
     opacity: 0.75,
   },
