@@ -292,7 +292,7 @@ export default function MainTabNavigator() {
   // Enhanced Wallet Stack Navigator with ALL drawer screens
   const WalletStack = useMemo(() => {
     return ({ route }) => {
-      const initialScreen = route?.params?.screen || 'Dashboard';
+      const initialScreen = 'Dashboard';
 
       return (
         <Stack.Navigator
@@ -784,16 +784,10 @@ export default function MainTabNavigator() {
           options={{
             tabBarStyle: defaultTabBarStyle,
           }}
-          listeners={({ navigation, route }) => ({
-            focus: () => {
-              // When wallet tab is focused, check if there's a screen param
-              const params = route.params;
-              if (params?.screen) {
-                // Navigate to the specific screen
-                setTimeout(() => {
-                  navigation.navigate('wallet', { screen: params.screen });
-                }, 0);
-              }
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault();
+              navigation.navigate('wallet', { screen: 'Dashboard' });
             },
           })}
         />
