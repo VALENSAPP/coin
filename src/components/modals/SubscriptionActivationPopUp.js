@@ -1,5 +1,5 @@
-import { useNavigation } from "@react-navigation/native";
-import React, { useState } from "react";
+import { DrawerActions, useNavigation } from "@react-navigation/native";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,23 @@ const SubscriptionActivationPopup = ({
     }
   };
 
+  const openGlobalDrawer = useCallback(() => {
+    let parentNav = navigation;
+    let attempts = 0;
+
+    while (parentNav && attempts < 6) {
+      const state = parentNav.getState?.();
+      if (state?.type === 'drawer') {
+        parentNav.dispatch(DrawerActions.openDrawer());
+        return;
+      }
+      parentNav = parentNav.getParent?.();
+      attempts += 1;
+    }
+
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} pointerEvents="auto">
       <View style={styles.overlay} pointerEvents="auto">
@@ -38,8 +55,8 @@ const SubscriptionActivationPopup = ({
 
           <Text style={[styles.text, textStyle]}>
             A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90 </Text>
-            
-           will be charged to activate your private subscriber account.
+
+            will be charged to activate your private subscriber account.
           </Text>
 
           <Text style={[styles.sectionTitle, textStyle]}>Platform Fees</Text>
@@ -62,22 +79,23 @@ const SubscriptionActivationPopup = ({
           </Text>
 
           <View style={styles.row}>
-            <TouchableOpacity 
-              style={[styles.cancelBtn, { borderColor: text }, isLoading && styles.cancelBtnDisabled]} 
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: text }, isLoading && styles.cancelBtnDisabled]}
               onPress={() => {
                 onClose();
                 navigation.navigate('MainApp', {
                   screen: 'wallet',
                   params: { screen: 'Dashboard' }
                 });
+                // openGlobalDrawer();
               }}
               disabled={isLoading}
             >
               <Text style={[styles.cancelTxt, { color: text }]}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.acceptBtn, { backgroundColor: text }, isLoading && styles.acceptBtnDisabled]} 
+            <TouchableOpacity
+              style={[styles.acceptBtn, { backgroundColor: text }, isLoading && styles.acceptBtnDisabled]}
               onPress={handleAccept}
               disabled={isLoading}
             >
