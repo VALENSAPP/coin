@@ -326,12 +326,12 @@ export default function ViewMissioPost({ navigation, route }) {
 
 const styles = StyleSheet.create({
     container: { padding: 16 },
-    headerBox: { marginBottom: 16 },
-    headerGradient: { borderRadius: 18, padding: 20, marginBottom: 10 },
-    headerTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-    headerAmount: { fontSize: 32, fontWeight: 'bold' },
-    headerActive: { fontSize: 14, marginTop: 2, opacity: 0.8 },
-    sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
+    headerBox: { marginBottom: 16,flex: 1 },
+    headerGradient: { borderRadius: 18, paddingTop: 20, marginBottom: 10,  minHeight: 150, },
+    headerTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 ,paddingLeft:15},
+    headerAmount: { fontSize: 32, fontWeight: 'bold' ,paddingLeft:15},
+    headerActive: { fontSize: 14, marginTop: 2, opacity: 0.8 ,paddingLeft:15},
+    sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 ,paddingLeft:15},
     filterTabs: {
         flexDirection: 'row',
         backgroundColor: '#f8fafc',
