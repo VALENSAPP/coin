@@ -131,7 +131,7 @@ const AccountCard = ({ isPurple, onPress }) => {
         { icon: "people-outline", label: "Support Community" },
         { icon: "rocket-outline", label: "Launch Missions" },
         { icon: "flash-outline", label: "Run Battles" },
-        { icon: "shield-checkmark-outline", label: "Get Verified — KYC" },
+        { icon: "shield-checkmark-outline", label: "Get Verified — KYB" },
         { icon: "lock-closed-outline", label: "VIP Private Posts" },
     ];
 
