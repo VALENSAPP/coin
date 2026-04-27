@@ -48,6 +48,7 @@ import {
   LavenderDragonfly,
   Metamask,
 } from '../../assets/icons';
+import Svg, { Polygon } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 const FALLBACK_AVATAR =
@@ -107,7 +108,25 @@ const FOLLOWERS_RANGE_BY_PERIOD = {
   Daily: 'daily',
   Weekly: 'weekly',
 };
+const HexStarIcon = ({ size = 36, starSize = 16, starColor = '#ffffff', bgColor = '#5a2d82' }) => {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2;
 
+  const points = Array.from({ length: 6 }, (_, i) => {
+    const angle = (Math.PI / 180) * (60 * i - 30);
+    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
+  }).join(' ');
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Polygon points={points} fill={bgColor} />
+      </Svg>
+      <Ionicons name="star" size={starSize} color={starColor} style={{ zIndex: 1 }} />
+    </View>
+  );
+};
 /** Map `user/followers-graph` response into LineChart points `{ timestamp, value }`. */
 const mapFollowersGraphResponse = (response) => {
   const root = response?.data?.data ?? response?.data ?? response;
@@ -1333,7 +1352,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.pointsFourColRow}>
               <View style={styles.pointsMainCol}>
                 <View style={styles.pointsMainIconWrap}>
-                  <Ionicons name="star" size={10} color="#ffffff" />
+                  {/* <Ionicons name="star" size={10} color="#ffffff" /> */}
+                  <HexStarIcon size={34} starSize={14} starColor="#ffffff" bgColor={text} />
                 </View>
                 <View style={styles.pointsMainText}>
                   <Text style={[styles.pointsMainLabel, { color: text }]} numberOfLines={2}>
@@ -1345,7 +1365,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <View style={styles.pointsDivider} />
+              {/* <View style={styles.pointsDivider} /> */}
 
               {rewardPointCards.map((item, index) => (
                 <React.Fragment key={item.id}>
@@ -1969,12 +1989,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   pointsMainIconWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#5a2d82',
-    alignItems: 'center',
-    justifyContent: 'center',
+    // width: 20,
+    // height: 20,
+    // borderRadius: 10,
+    // backgroundColor: '#5a2d82',
+    // alignItems: 'center',
+    // justifyContent: 'center',
     marginRight: 4,
   },
   pointsMainText: {
@@ -1987,8 +2007,8 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
   pointsMainValue: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '700',
     marginTop: 2,
   },
   pointsCol: {
@@ -1996,6 +2016,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft:4,
+    paddingLeft:4,
   },
   pointsColValue: {
     marginTop: 6,

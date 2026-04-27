@@ -241,7 +241,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
     <>
     <RBSheet
       ref={sheetRef}
-      height={340}
+      height={360}
       draggable
       closeOnPressMask={true}
       onClose={onClose}

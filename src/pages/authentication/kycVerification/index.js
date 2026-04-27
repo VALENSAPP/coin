@@ -78,6 +78,8 @@ export default function KYCVerification({ route }) {
 
     const isFirstMount = useRef(true);
     const isFocused = useIsFocused();
+    const firstNameInputRef = useRef(null);
+    const lastNameInputRef = useRef(null);
     const progressTimerRef = useRef(null);
     const progressAnimationRef = useRef(null);
     const percentUpdateInterval = useRef(null);
@@ -319,6 +321,29 @@ export default function KYCVerification({ route }) {
     };
 
     const handleSubmitKYC = async () => {
+        const firstNameError = validateFirstName(firstName);
+        const lastNameError = validateLastName(lastName);
+        const documentTypeError = validateDocumentType(documentType);
+
+        if (firstNameError || lastNameError || documentTypeError) {
+            setErrors({
+                firstName: firstNameError,
+                lastName: lastNameError,
+                documentType: documentTypeError,
+            });
+
+            showToastMessage(toast, 'warning', 'Please fill your details, then tap Submit & Continue.');
+
+            requestAnimationFrame(() => {
+                if (firstNameError) {
+                    firstNameInputRef.current?.focus?.();
+                } else if (lastNameError) {
+                    lastNameInputRef.current?.focus?.();
+                }
+            });
+            return;
+        }
+
         dispatch(showLoader());
         try {
             const getUserId = await AsyncStorage.getItem('userId');
@@ -370,6 +395,11 @@ export default function KYCVerification({ route }) {
         } finally {
             dispatch(hideLoader());
         }
+    };
+
+    const handleRejectedRetry = () => {
+        setShowDropdown(false);
+        handleSubmitKYC();
     };
 
     const handleKycWebhook = async () => {
@@ -469,7 +499,7 @@ export default function KYCVerification({ route }) {
                             {
                                 text: 'Retry',
                                 onPress: () => {
-                                    handleSubmitKYC();
+                                    handleRejectedRetry();
                                 }
                             }
                         ],
@@ -549,7 +579,7 @@ export default function KYCVerification({ route }) {
                             {
                                 text: 'Retry',
                                 onPress: () => {
-                                    handleSubmitKYC();
+                                    handleRejectedRetry();
                                 }
                             }
                         ],
@@ -705,6 +735,7 @@ export default function KYCVerification({ route }) {
                             <TextInput
                                 placeholder="Enter your first name"
                                 placeholderTextColor="#6B7280"
+                                ref={firstNameInputRef}
                                 style={[
                                     styles.inputFull,
                                     errors.firstName && styles.inputErrorWrapper,
@@ -730,6 +761,7 @@ export default function KYCVerification({ route }) {
                             <TextInput
                                 placeholder="Enter your last name"
                                 placeholderTextColor="#6B7280"
+                                ref={lastNameInputRef}
                                 style={[
                                     styles.inputFull,
                                     errors.lastName && styles.inputErrorWrapper,
