@@ -484,12 +484,24 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
 
 export default BattleCard;
 
+/**
+ * AutoScrollBattleRow — seamless infinite carousel
+ *
+ * Strategy: render children TWICE (original + clone).
+ * When scroll offset reaches the midpoint (end of first copy),
+ * silently snap back to 0. Because both halves are identical the
+ * user never sees a visual jump.
+ *
+ * Drop this export into BattleCard.js, replacing the existing
+ * AutoScrollBattleRow export at the bottom of that file.
+ * Everything else in BattleCard.js stays untouched.
+ */
+
 const CARD_WIDTH = 268;
 const CARD_GAP = 10;
 const RESUME_DELAY_MS = 1000;
 const AUTO_SCROLL_SPEED_PX_PER_MS = 0.055;
 const START_DELAY_MS = 300;
-const EDGE_SNAP_THRESHOLD = 8;
 const ROW_PADDING_LEFT = 12;
 
 export const AutoScrollBattleRow = ({ children, style }) => {
@@ -499,13 +511,20 @@ export const AutoScrollBattleRow = ({ children, style }) => {
     const pausedRef = useRef(false);
     const offsetRef = useRef(0);
     const lastFrameTsRef = useRef(0);
-    const [viewportWidth, setViewportWidth] = useState(0);
+    const halfWidthRef = useRef(0); // width of ONE copy of children
+
     const [contentWidth, setContentWidth] = useState(0);
 
     const allChildren = React.Children.toArray(children);
     const isCarouselEnabled = allChildren.length > 1;
-    const maxOffset = Math.max(0, contentWidth - viewportWidth);
-    const canAutoScroll = isCarouselEnabled && maxOffset > 0;
+
+    // The "loop point" is half of total content (= width of one copy).
+    // We update this whenever content size is measured.
+    useEffect(() => {
+        halfWidthRef.current = contentWidth / 2;
+    }, [contentWidth]);
+
+    // ── helpers ──────────────────────────────────────────────────────────────
 
     const clearResumeTimer = useCallback(() => {
         if (resumeTimeoutRef.current) {
@@ -522,73 +541,65 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         lastFrameTsRef.current = 0;
     }, []);
 
-    const syncScrollPosition = useCallback(nextOffset => {
-        const safeOffset = Math.max(0, Math.min(nextOffset, maxOffset));
-        offsetRef.current = safeOffset;
-        scrollViewRef.current?.scrollTo({ x: safeOffset, animated: false });
-    }, [maxOffset]);
+    const scrollTo = useCallback((x) => {
+        scrollViewRef.current?.scrollTo({ x, animated: false });
+        offsetRef.current = x;
+    }, []);
 
-    const startAutoScroll = useCallback((fromOffset = offsetRef.current) => {
-        if (!canAutoScroll || pausedRef.current) return;
+    // ── main scroll loop ──────────────────────────────────────────────────────
 
+    const startAutoScroll = useCallback(() => {
+        if (!isCarouselEnabled || pausedRef.current) return;
         stopAutoScroll();
-        syncScrollPosition(fromOffset);
 
-        const tick = timestamp => {
-            if (pausedRef.current || !canAutoScroll) {
+        const tick = (timestamp) => {
+            if (pausedRef.current || !isCarouselEnabled) {
                 stopAutoScroll();
                 return;
             }
 
-            if (!lastFrameTsRef.current) {
-                lastFrameTsRef.current = timestamp;
-            }
-
+            if (!lastFrameTsRef.current) lastFrameTsRef.current = timestamp;
             const deltaMs = timestamp - lastFrameTsRef.current;
             lastFrameTsRef.current = timestamp;
 
-            let nextOffset = offsetRef.current + (deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS);
-            if (nextOffset >= maxOffset) {
-                nextOffset = 0;
+            let next = offsetRef.current + deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS;
+
+            // When we've scrolled through the first copy, silently jump back
+            // to the same relative position in the first copy.
+            const half = halfWidthRef.current;
+            if (half > 0 && next >= half) {
+                next = next - half; // keep fractional remainder → no stutter
+                scrollViewRef.current?.scrollTo({ x: next, animated: false });
+                offsetRef.current = next;
+            } else {
+                scrollViewRef.current?.scrollTo({ x: next, animated: false });
+                offsetRef.current = next;
             }
 
-            syncScrollPosition(nextOffset);
             autoScrollFrameRef.current = requestAnimationFrame(tick);
         };
 
         autoScrollFrameRef.current = requestAnimationFrame(tick);
-    }, [canAutoScroll, maxOffset, stopAutoScroll, syncScrollPosition]);
+    }, [isCarouselEnabled, stopAutoScroll]);
+
+    // ── lifecycle ─────────────────────────────────────────────────────────────
 
     useEffect(() => {
-        if (!canAutoScroll) {
-            clearResumeTimer();
-            stopAutoScroll();
-            pausedRef.current = false;
-            syncScrollPosition(0);
-            return undefined;
-        }
-
-        const t = setTimeout(() => startAutoScroll(offsetRef.current), START_DELAY_MS);
+        if (!isCarouselEnabled) return undefined;
+        const t = setTimeout(() => startAutoScroll(), START_DELAY_MS);
         return () => {
             clearTimeout(t);
             clearResumeTimer();
             stopAutoScroll();
         };
-    }, [canAutoScroll, startAutoScroll, clearResumeTimer, stopAutoScroll, syncScrollPosition]);
+    }, [isCarouselEnabled, startAutoScroll, clearResumeTimer, stopAutoScroll]);
 
-    useEffect(() => {
-        if (!canAutoScroll) return;
-        if (offsetRef.current > maxOffset) {
-            syncScrollPosition(maxOffset);
-        }
-    }, [canAutoScroll, maxOffset, syncScrollPosition]);
-
-    useEffect(() => {
-        return () => {
-            clearResumeTimer();
-            stopAutoScroll();
-        };
+    useEffect(() => () => {
+        clearResumeTimer();
+        stopAutoScroll();
     }, [clearResumeTimer, stopAutoScroll]);
+
+    // ── interaction handlers ──────────────────────────────────────────────────
 
     const handleInteractionStart = useCallback(() => {
         clearResumeTimer();
@@ -598,20 +609,17 @@ export const AutoScrollBattleRow = ({ children, style }) => {
 
     const handleInteractionEnd = useCallback(() => {
         clearResumeTimer();
-        if (!canAutoScroll) {
+        if (!isCarouselEnabled) {
             pausedRef.current = false;
             return;
         }
-
         resumeTimeoutRef.current = setTimeout(() => {
-            const currentOffset = offsetRef.current;
-            if (currentOffset >= maxOffset - EDGE_SNAP_THRESHOLD) {
-                syncScrollPosition(0);
-            }
             pausedRef.current = false;
-            startAutoScroll(offsetRef.current);
+            startAutoScroll();
         }, RESUME_DELAY_MS);
-    }, [canAutoScroll, maxOffset, clearResumeTimer, startAutoScroll, syncScrollPosition]);
+    }, [isCarouselEnabled, clearResumeTimer, startAutoScroll]);
+
+    // ── single-item fallback ──────────────────────────────────────────────────
 
     if (!isCarouselEnabled) {
         return (
@@ -626,21 +634,22 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         );
     }
 
+    // ── render two copies for seamless looping ────────────────────────────────
+
     return (
         <ScrollView
             ref={scrollViewRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            scrollEnabled={canAutoScroll}
+            scrollEnabled={true}        // allow manual drag
             bounces={false}
             alwaysBounceHorizontal={false}
             overScrollMode="never"
             keyboardShouldPersistTaps="handled"
             delayContentTouches={false}
             scrollEventThrottle={16}
-            onLayout={event => setViewportWidth(event.nativeEvent.layout.width)}
-            onContentSizeChange={width => setContentWidth(width)}
-            onScroll={event => {
+            onContentSizeChange={(width) => setContentWidth(width)}
+            onScroll={(event) => {
                 offsetRef.current = event?.nativeEvent?.contentOffset?.x ?? 0;
             }}
             onTouchStart={handleInteractionStart}
@@ -653,10 +662,14 @@ export const AutoScrollBattleRow = ({ children, style }) => {
                 style,
             ]}
         >
+            {/* First copy */}
+            {allChildren}
+            {/* Second copy — makes the loop seamless */}
             {allChildren}
         </ScrollView>
     );
 };
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const PURPLE = '#7F77DD';

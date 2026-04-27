@@ -416,10 +416,9 @@ export default function Main() {
   };
 
   const getNotification = async () => {
-    // messaging().onMessage(async remoteMessage => {
-    //   setModalVisible(true);
-    //   setMessage(remoteMessage.notification.body);
-    // });
+    messaging().onMessage(async remoteMessage => {
+      console.log("onMessage data------------------------", remoteMessage)
+    });
 
     messaging().onNotificationOpenedApp(remoteMessage => {
       console.log("onNotificationOpenedApp data------------------------", remoteMessage)

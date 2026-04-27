@@ -348,6 +348,14 @@ const BusinessProfileForm = () => {
   };
 
   const launchSumsub = async () => {
+    const nextErrors = validateForm();
+
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      Alert.alert('Validation error', 'Please fix the highlighted fields.');
+      return;
+    }
+    
     if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
     sumsubLaunchLockRef.current = true;
     setIsLaunchingSumsub(true);
