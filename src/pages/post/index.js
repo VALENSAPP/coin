@@ -375,6 +375,7 @@ export default function PostScreen({ navigation }) {
       // Coming from any other screen - reset everything and show modal
       setSelectedMedia([]);
       setGalleryImages([]);
+       setShared(false)
 
       if (isPrivateEntry) {
         setPostType('private');
@@ -614,8 +615,10 @@ export default function PostScreen({ navigation }) {
       <View style={[styles.headerRow, bgStyle, { shadowColor: text }]}>
         <TouchableOpacity
           onPress={() => {
-            setShowTypeModal(false)
-            if (navigation && navigation.goBack) navigation.goBack();
+            setShowTypeModal(false);
+            // Always navigate to HomeMain instead of goBack() to avoid
+            // landing on a recently-posted screen still in the stack.
+            navigation.navigate('HomeMain');
           }}
           style={styles.headerIconBtn}
         >
@@ -634,10 +637,10 @@ export default function PostScreen({ navigation }) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {galleryImages.length === 0 ? renderInitialGalleryPrompt() : renderMainContent()}
       </ScrollView>
-      <PostTypeModal
+        <PostTypeModal
         visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
         setShowTypeModal={setShowTypeModal}
-        onClose={() => { setShowTypeModal(false); navigation.goBack(); }}
+        onClose={() => { setShowTypeModal(false); navigation.navigate('HomeMain'); }}
         onSelect={handleSelectType}
       />
     </SafeAreaView>
