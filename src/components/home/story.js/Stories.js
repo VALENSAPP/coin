@@ -43,6 +43,7 @@ import { getStoryByUser, PostStory, DeleteStory, getFollowingUserStories } from 
 import { buildStoryMetaPayload } from '../../../utils/buildStoryMeta';
 import {
   appendStoryAudioFiles,
+  getStoryBuiltinLibraryUrl,
   prepareStoryClipsAudioForUpload,
 } from '../../../utils/storyAudioUpload';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -265,21 +266,67 @@ function looksLikeUrl(v) {
 }
 
 function resolveStoryAudioPayload(storyLike) {
-  const src =
+  const rawSrc =
     storyLike?.audio ??
     storyLike?.song ??
     storyLike?.music ??
     storyLike?.track ??
     null;
+  let src = rawSrc;
+
+  // Some APIs return nested audio metadata as a JSON string.
+  if (typeof src === 'string') {
+    const trimmed = src.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          src = parsed;
+        }
+      } catch (_e) {
+        // keep string fallback handling below
+      }
+    }
+  }
 
   if (typeof src === 'string') {
-    if (looksLikeUrl(src)) {
-      return { directUrl: src.trim(), youtubeVideoId: null };
+    const normalized = src.trim();
+    if (!normalized || normalized.toLowerCase() === 'original') {
+      return { directUrl: null, youtubeVideoId: null };
     }
-    return { directUrl: null, youtubeVideoId: src.trim() || null };
+    if (looksLikeUrl(normalized)) {
+      return { directUrl: normalized, youtubeVideoId: null };
+    }
+    const builtinUrl = getStoryBuiltinLibraryUrl(normalized);
+    if (builtinUrl) {
+      return { directUrl: builtinUrl, youtubeVideoId: null };
+    }
+    return { directUrl: null, youtubeVideoId: normalized || null };
   }
 
   if (src && typeof src === 'object') {
+    const normalizedMode =
+      typeof src.mode === 'string' ? src.mode.trim().toLowerCase() : '';
+    const libraryTrackId =
+      typeof src.trackId === 'string'
+        ? src.trackId
+        : typeof src.libraryTrackId === 'string'
+          ? src.libraryTrackId
+          : typeof src.id === 'string'
+            ? src.id
+          : null;
+    const libraryTitle =
+      typeof src.title === 'string'
+        ? src.title
+        : typeof src.trackName === 'string'
+          ? src.trackName
+          : null;
+    if (normalizedMode === 'library' || libraryTrackId || libraryTitle) {
+      const builtinUrl = getStoryBuiltinLibraryUrl(libraryTrackId || libraryTitle);
+      if (builtinUrl) {
+        return { directUrl: builtinUrl, youtubeVideoId: null };
+      }
+    }
     const directUrl =
       src.audioUrl ||
       src.s3Url ||
@@ -287,6 +334,7 @@ function resolveStoryAudioPayload(storyLike) {
       src.url ||
       src.songUrl ||
       src.musicUrl ||
+      src.previewUrl ||
       null;
     const youtubeVideoId =
       src.videoId ||
@@ -746,12 +794,11 @@ const StoryViewer = ({
   const youtubeVideoId = resolvedAudio.youtubeVideoId;
   const directAudioUrl = resolvedAudio.directUrl;
   const hasDirectAudio = typeof directAudioUrl === 'string' && directAudioUrl.length > 0;
+  const hasOverlayAudio = hasDirectAudio || !!youtubeVideoId;
   const isYoutubeAudio =
-    currentStory?.type !== 'video' &&
     !hasDirectAudio &&
     !!youtubeVideoId;
   const isDirectAudio =
-    currentStory?.type !== 'video' &&
     hasDirectAudio;
   const audioTrimStartSec = Math.max(
     0,
@@ -1500,7 +1547,7 @@ const StoryViewer = ({
                 paused={paused}
                 rate={1}
                 volume={1}
-                muted={false}
+                muted={hasOverlayAudio}
                 defaultMuted={false}
                 ignoreSilentSwitch="ignore"
                 mixWithOthers="mix"

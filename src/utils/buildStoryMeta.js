@@ -1,3 +1,5 @@
+import { getStoryBuiltinLibraryTrack } from './storyAudioUpload';
+
 /**
  * Builds JSON for `storyMeta` multipart field on `story/upload`.
  * Matches StoryComposer `handleExport` clip shape (audio, trims, overlays).
@@ -39,6 +41,15 @@ export function serializeAudioForStoryMeta(audio) {
     return { mode: 'original' };
   }
   if (typeof audio === 'string') {
+    const builtin = getStoryBuiltinLibraryTrack(audio);
+    if (builtin) {
+      return {
+        mode: 'library',
+        trackId: builtin.id,
+        title: builtin.title,
+        previewUrl: builtin.url,
+      };
+    }
     return { mode: 'library', trackId: audio };
   }
   if (typeof audio === 'object' && !Array.isArray(audio)) {
