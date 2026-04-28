@@ -14,9 +14,11 @@ import { useDispatch } from 'react-redux';
 import { getRecentActivities } from '../../services/tokens';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useRoute } from '@react-navigation/native';
 
 export const ActivityScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const route = useRoute();
   const [activeFilter, setActiveFilter] = useState('All');
   const [activities, setActivities] = useState([]);
   const { bgStyle, textStyle, text } = useAppTheme();
@@ -47,6 +49,7 @@ export const ActivityScreen = ({ navigation }) => {
     try {
       dispatch(showLoader());
       const response = await getRecentActivities(type);
+      console.log(response, 'data in activity')
       if (response?.statusCode === 200) {
         const formattedActivities = [];
         let activityId = 1;
@@ -85,6 +88,7 @@ export const ActivityScreen = ({ navigation }) => {
             formattedActivities.push({
               id: activityId++,
               action: `${follow.followerName || 'Someone'} followed you`,
+              userId: follow.followerId,
               time: formatTime(follow.createdAt),
               type: 'follow',
               createdAt: new Date(follow.createdAt).getTime(),
@@ -151,7 +155,7 @@ export const ActivityScreen = ({ navigation }) => {
       // Other filters
       const typeMap = {
         All: null,
-        Follows: 'following',
+        Following: 'following',
       };
 
       await fetchActivities(typeMap[activeFilter]);
@@ -162,22 +166,38 @@ export const ActivityScreen = ({ navigation }) => {
 
 
 
+  const navigateToActivityUser = (activity) => {
+    if (activity?.type !== 'follow') return;
+    if (!activity?.userId) return;
+    navigation.navigate('HomeMain', {
+      screen: 'UsersProfile',
+      params: { userId: activity.userId,  returnTo: route?.name, },
+    });
+
+  };
+
   const renderActivity = ({ item }) => (
     <View style={[styles.activityDetailItem, { shadowColor: text }]}>
-      <View style={[styles.activityIcon, {
-        backgroundColor: item.type === 'buy' ? '#10b981' :
-          item.type === 'sell' ? '#ef4444' :
-            item.type === 'follow' ? '#3b82f6' : '#8b5cf6'
-      }]} >
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => navigateToActivityUser(item)}
+        style={[styles.activityIcon, {
+          backgroundColor: item.type === 'buy' ? '#10b981' :
+            item.type === 'sell' ? '#ef4444' :
+              item.type === 'follow' ? '#3b82f6' : '#8b5cf6'
+        }]}
+      >
         <Ionicons
           name={item.type === 'buy' ? 'add' :
             item.type === 'sell' ? 'remove' :
               item.type === 'follow' ? 'people' : 'flash'}
           size={20} color="#fff"
         />
-      </View>
+      </TouchableOpacity>
       <View style={styles.activityDetailContent}>
-        <Text style={styles.activityDetailAction}>{item.action}</Text>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => navigateToActivityUser(item)}>
+          <Text style={styles.activityDetailAction}>{item.action}</Text>
+        </TouchableOpacity>
         <Text style={styles.activityDetailTime}>{item.time}</Text>
       </View>
     </View>

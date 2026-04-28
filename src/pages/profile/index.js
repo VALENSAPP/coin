@@ -30,6 +30,7 @@ const ProfileScreen = () => {
   const [userData, setUserData] = useState();
   const [refreshing, setRefreshing] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -165,6 +166,7 @@ const ProfileScreen = () => {
   const onRefresh = async () => {
     setRefreshing(true); 
     await fetchAllData();
+     setRefreshKey(prev => prev + 1);
     setRefreshing(false);
   };
 
@@ -193,7 +195,7 @@ const ProfileScreen = () => {
         <View>
           <HighlightStories userData={userData}/>
         </View>
-        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} loggedInUserId={userId}/>
+        <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} loggedInUserId={userId}  refreshKey={refreshKey}/>
       </ScrollView>
       {/* <WelcomeValensModal
         visible={welcomeModalVisible}

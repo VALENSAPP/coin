@@ -120,7 +120,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress, isCompany }) => {
+const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress, isCompany, refreshKey }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -198,8 +198,10 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   }, []);
 
   useEffect(() => {
-    fetchPosts(); // 👈 API call here
-  }, []);
+    if (userData?.id) {
+      fetchPosts(userData.id); // 🔥 load posts instantly
+    }
+  }, [userData?.id]);
   const refreshStatusAndPosts = useCallback(async () => {
     if (!userData?.id) {
       setResolvedIsSubscribed(false);
@@ -232,8 +234,10 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
 
   // Initial load + refresh when switching profiles
   useEffect(() => {
-    refreshStatusAndPosts();
-  }, [refreshStatusAndPosts]);
+    if (refreshKey !== undefined) {
+      refreshStatusAndPosts(); // 🔥 main refresh function
+    }
+  }, [refreshKey]);
 
   // Refresh when user returns to this tab/screen (e.g. after completing payment)
   useFocusEffect(

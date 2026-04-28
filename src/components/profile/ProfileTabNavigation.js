@@ -28,7 +28,8 @@ const ProfileTabs = memo(({
   dashboard,
   targetUserId,
   isSubscribed: isSubscribedProp, // Receive from parent
-  loggedInUserId // Receive from parent
+  loggedInUserId, // Receive from parent
+  refreshKey,
 }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -108,8 +109,10 @@ const ProfileTabs = memo(({
         userData={userData}
         isSubscribed={isSubscribed}
         loggedInUserId={loggedInUserId}
-        onSubscribePress={() => {userData?.profile !== 'company' && setShowSubscribeModal(true)}}
+        onSubscribePress={() => { userData?.profile !== 'company' && setShowSubscribeModal(true) }}
         isCompany={userData?.profile === 'company'}   // 👈 add this
+        refreshKey={refreshKey}
+
       />
     ),
     [post, userData, isSubscribed, loggedInUserId],
@@ -253,7 +256,7 @@ const ProfileTabs = memo(({
                 setPrivatKey(prev => prev + 1);
                 setShowSubscribeModal(false);
                 setTimeout(() => {
-                  if (userData?.profile !== 'company'){
+                  if (userData?.profile !== 'company') {
                     setShowSubscribeModal(true);
                   }
                 }, 50);

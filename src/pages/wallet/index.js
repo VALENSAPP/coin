@@ -12,6 +12,7 @@ import {
   Linking,
   Alert,
   Modal,
+  Pressable,
   Platform,
   Keyboard,
   Image,
@@ -20,6 +21,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { LineChart } from 'react-native-wagmi-charts';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import ImageZoom from 'react-native-image-pan-zoom';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
 import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCreators, getTotalTokenPurchase } from '../../services/tokens';
@@ -50,7 +52,8 @@ import {
 } from '../../assets/icons';
 import Svg, { Polygon } from 'react-native-svg';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const AVATAR_PREVIEW_SIZE = Math.min(width * 0.9, 340);
 const FALLBACK_AVATAR =
   'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const DEFAULT_REWARD_POINTS = {
@@ -223,10 +226,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
   });
   const [followersCount, setFollowersCount] = useState(0);
   const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
+  const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
 
   const openDragonflyModal = () => setDragonflyModalVisible(true);
   const closeDragonflyModal = () => setDragonflyModalVisible(false);
+  const openAvatarPreview = () => setAvatarPreviewVisible(true);
+  const closeAvatarPreview = () => setAvatarPreviewVisible(false);
 
   const formatPointValue = (value) => {
     const numericValue = Number(value) || 0;
@@ -1288,20 +1294,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
             end={{ x: 1, y: 1 }}
             style={styles.headerCard}
           >
-            <View style={styles.headerGlow} />
-            <View style={styles.headerRow}>
-              <View style={styles.headerAvatarWrap}>
-                <HexAvatar
-                  uri={profileImage || userProfile.image || FALLBACK_AVATAR}
-                  size={100}
-                  borderWidth={3}
-                  borderColor={text}
-                />
-              </View>
-              <View style={styles.headerText}>
-                <Text
-                  style={[
-                    styles.headerName,
+              <View style={styles.headerGlow} />
+              <View style={styles.headerRow}>
+                <View style={styles.headerAvatarWrap}>
+                  <TouchableOpacity activeOpacity={0.85} onPress={openAvatarPreview}>
+                    <HexAvatar
+                      uri={profileImage || userProfile.image || FALLBACK_AVATAR}
+                      size={100}
+                      borderWidth={3}
+                      borderColor={text}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.headerText}>
+                  <Text
+                    style={[
+                      styles.headerName,
                     { color: text },
                   ]}
                   numberOfLines={1}
@@ -1522,12 +1530,51 @@ export const WalletDashboardScreen = ({ navigation }) => {
               </View>
             )}
           </View>
-        </View> */}
+          </View> */}
 
         <Modal
-          visible={dragonflyModalVisible}
+          visible={avatarPreviewVisible}
           transparent
           animationType="fade"
+          onRequestClose={closeAvatarPreview}
+        >
+          <Pressable style={styles.avatarPreviewOverlay} onPress={closeAvatarPreview}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={closeAvatarPreview}
+              style={styles.avatarPreviewCloseBtn}
+            >
+              <Ionicons name="close" size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Pressable
+              style={styles.avatarPreviewZoomHost}
+              onPress={(e) => e?.stopPropagation?.()}
+            >
+              <ImageZoom
+                cropWidth={width}
+                cropHeight={height}
+                imageWidth={AVATAR_PREVIEW_SIZE}
+                imageHeight={AVATAR_PREVIEW_SIZE}
+                enableCenterFocus
+              >
+                <View style={styles.avatarPreviewHexWrap}>
+                  <HexAvatar
+                    uri={profileImage || userProfile.image || FALLBACK_AVATAR}
+                    size={AVATAR_PREVIEW_SIZE}
+                    borderWidth={2}
+                    borderColor="rgba(255,255,255,0.6)"
+                  />
+                </View>
+              </ImageZoom>
+            </Pressable>
+          </Pressable>
+        </Modal>
+  
+         <Modal
+            visible={dragonflyModalVisible}
+            transparent
+            animationType="fade"
           onRequestClose={closeDragonflyModal}
         >
           <View style={styles.modalOverlay}>
@@ -1985,7 +2032,7 @@ const styles = StyleSheet.create({
   pointsMainCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1.25,
+     flex: 1.8,
     minWidth: 0,
   },
   pointsMainIconWrap: {
@@ -1998,12 +2045,12 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   pointsMainText: {
-    flex: 1,
+    // flex: 1,
     minWidth: 0,
   },
   pointsMainLabel: {
     fontSize: 8,
-    fontWeight: '700',
+    fontWeight: '500',
     opacity: 0.82,
   },
   pointsMainValue: {
@@ -2026,7 +2073,7 @@ const styles = StyleSheet.create({
   },
   pointsColLabel: {
     marginTop: 2,
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '500',
     opacity: 0.75,
     textAlign: 'center',
@@ -2681,7 +2728,35 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 18,
     color: '#000'
-  }
+  },
+  avatarPreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.86)',
+  },
+  avatarPreviewCloseBtn: {
+    position: 'absolute',
+    top: 44,
+    right: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    zIndex: 10,
+  },
+  avatarPreviewZoomHost: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPreviewHexWrap: {
+    width: AVATAR_PREVIEW_SIZE,
+    height: AVATAR_PREVIEW_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default WalletDashboardScreen;
