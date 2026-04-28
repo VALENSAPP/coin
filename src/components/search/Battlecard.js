@@ -6,6 +6,7 @@
  * 2. Solo battle (no opponent yet): creator on LEFT, dashed "Waiting" slot on RIGHT
  * 3. Auto-scroll handled by AutoScrollBattleRow (export at bottom) — drop it into
  *    SearchScreen in place of the plain <ScrollView> that wraps the battle cards.
+ * 4. Compact UI — card width 220px, reduced padding/font sizes throughout
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -157,7 +158,7 @@ const LiveDot = () => {
 
 const TimerBadge = ({ endTime, ended }) => (
     <View style={styles.timerBadge}>
-        <Icon name="time-outline" size={11} color={ended ? '#A32D2D' : '#888780'} style={{ marginRight: 3 }} />
+        <Icon name="time-outline" size={10} color={ended ? '#A32D2D' : '#888780'} style={{ marginRight: 3 }} />
         <Text style={[styles.timerText, ended && styles.timerTextEnded]}>
             {formatBattleCountdown(endTime)}
         </Text>
@@ -178,7 +179,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
         return (
             <View style={styles.participant}>
                 <View style={styles.emptySlot}>
-                    <Icon name="person-add-outline" size={18} color="#A78BFA" />
+                    <Icon name="person-add-outline" size={15} color="#A78BFA" />
                 </View>
                 <Text style={styles.waitingLabel}>Waiting...</Text>
                 <Text style={styles.waitingSub}>Open slot</Text>
@@ -195,7 +196,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
         >
             <HexAvatar
                 uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR}
-                size={52}
+                size={40}
                 borderWidth={2}
                 borderColor="#7F77DD"
             />
@@ -207,7 +208,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
 
 const StakePill = ({ amount }) => (
     <View style={styles.stakePill}>
-        <Icon name="flash" size={13} color="#7F77DD" />
+        <Icon name="flash" size={11} color="#7F77DD" />
         <Text style={styles.stakeText}>
             Stakes: <Text style={styles.stakeAmount}>{formatAmount(amount)}</Text>
         </Text>
@@ -221,7 +222,7 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
         onPress={onPress}
         style={[styles.optionChip, isSelected && styles.optionChipSelected, disabled && styles.optionDisabled]}
     >
-        <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={24} fadeDuration={0} />
+        <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={20} fadeDuration={0} />
         <View style={styles.optionChipTextWrap}>
             <Text style={[styles.optionChipLabel, isSelected && styles.optionChipLabelSelected]} numberOfLines={1}>
                 {option?.label || option}
@@ -241,18 +242,13 @@ const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent 
 const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
     <View style={styles.statsRow}>
         <View style={styles.statItem}>
-            <Icon name="people-outline" size={13} color="#888780" />
+            <Icon name="people-outline" size={12} color="#888780" />
             <Text style={styles.statText}>{formatBattleCount(totalParticipants)}</Text>
         </View>
         <View style={styles.statDot} />
-        {/* <View style={styles.statItem}>
-            <Icon name="thumbs-up-outline" size={13} color="#888780" />
-            <Text style={styles.statText}>{formatBattleCount(totalLikes)}</Text>
-        </View> */}
-        {/* <View style={styles.statDot} /> */}
         <View style={styles.statItem}>
             <View style={{ marginTop: 2 }}>
-                <Icon name="chatbox-ellipses-outline" size={13} color="#888780" />
+                <Icon name="chatbox-ellipses-outline" size={12} color="#888780" />
             </View>
             <Text style={styles.statText}>{formatBattleCount(totalComments)}</Text>
         </View>
@@ -261,12 +257,11 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 
 // ─── BattleCard ───────────────────────────────────────────────────────────────
 
-const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress }) => {
+const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress, fullWidth }) => {
     const ended = formatBattleCountdown(item.endTime) === 'Ended';
     const isPoll = item.format === 'POLL';
     const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
 
-    // Prevent nested profile presses from also triggering the card navigation.
     const suppressCardPressRef = useRef({ active: false, timer: null });
     const suppressNextCardPress = useCallback(() => {
         suppressCardPressRef.current.active = true;
@@ -291,7 +286,6 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         if (suppressCardPressRef.current.timer) clearTimeout(suppressCardPressRef.current.timer);
     }, []);
 
-    // Ensure optionImages is always an array
     const optionImages = Array.isArray(item?.optionImages) ? item.optionImages : [];
 
     const handleOption = useCallback(
@@ -311,11 +305,12 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
     }, [isPoll, item?.predictionCounts, item?.voteCounts, optionLabels]);
 
     console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
+
     if (isPoll) {
         return (
             <TouchableOpacity
                 activeOpacity={0.88}
-                style={[styles.card, ended && styles.cardEnded]}
+                style={[styles.card, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
                 onPress={handleCardPress}
             >
                 <View style={styles.cardTopRow}>
@@ -326,16 +321,16 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             onPressIn={suppressNextCardPress}
                             onPress={() => onUserPress?.(item.creator)}
                         >
-                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={36} borderWidth={2} borderColor="#7F77DD" />
-                            <View style={{ marginLeft: 8, flex: 1 }}>
+                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
+                            <View style={{ marginLeft: 6, flex: 1 }}>
                                 <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                 <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
                             </View>
                         </TouchableOpacity>
                     ) : (
                         <View style={styles.pollCreatorRow}>
-                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={36} borderWidth={2} borderColor="#7F77DD" />
-                            <View style={{ marginLeft: 8, flex: 1 }}>
+                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
+                            <View style={{ marginLeft: 6, flex: 1 }}>
                                 <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                 <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
                             </View>
@@ -345,7 +340,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 </View>
 
                 <TimerBadge endTime={item.endTime} ended={ended} />
-                <Text style={[styles.question, { marginTop: 6 }]} numberOfLines={3}>{item.title}</Text>
+                <Text style={[styles.question, { marginTop: 4 }]} numberOfLines={3}>{item.title}</Text>
 
                 {item.options?.length > 0 && (
                     <View style={styles.pollOptions}>
@@ -375,7 +370,6 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 )}
                 <View style={styles.metaRow}>
                     <StakePill amount={formatAmount(item.stakeAmount || 0)} />
-                    {/* <Text style={styles.metaText}>Stake: {formatAmount(item.stakeAmount || 0)}</Text> */}
                     <Text style={styles.metaText}>Ends: {formatBattleDate(item.endTime)}</Text>
                 </View>
 
@@ -389,7 +383,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
     return (
         <TouchableOpacity
             activeOpacity={0.88}
-            style={[styles.card, ended && styles.cardEnded]}
+            style={[styles.card, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
             onPress={handleCardPress}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
@@ -398,7 +392,6 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 <TimerBadge endTime={item.endTime} ended={ended} />
             </View>
 
-            {/* Always render both slots — right is dashed if opponent missing */}
             <View style={styles.versusRow}>
                 <ParticipantAvatar
                     avatarUrl={item.user1.avatar}
@@ -430,11 +423,9 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 )}
             </View>
 
-
             <Text style={styles.question} numberOfLines={2}>{item.title}</Text>
             <StakePill amount={item.stakeAmount || 0} />
 
-            {/* Option chips only when both participants exist */}
             {!soloOpponent && item.options?.length > 0 && (
                 <View style={styles.joinRow}>
                     {item.options.slice(0, 2).map((option, idx) => {
@@ -455,10 +446,9 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                     })}
                 </View>
             )}
-            {/* Accept challenge CTA for solo battles */}
             {soloOpponent && (
                 <TouchableOpacity style={styles.acceptBtn} onPress={() => onCardPress(item)} activeOpacity={0.85}>
-                    <Icon name="add-circle-outline" size={14} color="#fff" style={{ marginRight: 5 }} />
+                    <Icon name="add-circle-outline" size={13} color="#fff" style={{ marginRight: 4 }} />
                     <Text style={styles.acceptBtnText}>Accept Challenge</Text>
                 </TouchableOpacity>
             )}
@@ -468,7 +458,6 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         </TouchableOpacity>
     );
 }, (prevProps, nextProps) => {
-    // Return true if props are equal (don't re-render), false to re-render
     return (
         prevProps.item?.id === nextProps.item?.id &&
         prevProps.selectedOption === nextProps.selectedOption &&
@@ -484,25 +473,14 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
 
 export default BattleCard;
 
-/**
- * AutoScrollBattleRow — seamless infinite carousel
- *
- * Strategy: render children TWICE (original + clone).
- * When scroll offset reaches the midpoint (end of first copy),
- * silently snap back to 0. Because both halves are identical the
- * user never sees a visual jump.
- *
- * Drop this export into BattleCard.js, replacing the existing
- * AutoScrollBattleRow export at the bottom of that file.
- * Everything else in BattleCard.js stays untouched.
- */
+// ─── AutoScrollBattleRow ──────────────────────────────────────────────────────
 
-const CARD_WIDTH = 268;
-const CARD_GAP = 10;
+const CARD_WIDTH = 220;
+const CARD_GAP = 8;
 const RESUME_DELAY_MS = 1000;
 const AUTO_SCROLL_SPEED_PX_PER_MS = 0.055;
 const START_DELAY_MS = 300;
-const ROW_PADDING_LEFT = 12;
+const ROW_PADDING_LEFT = 10;
 
 export const AutoScrollBattleRow = ({ children, style }) => {
     const scrollViewRef = useRef(null);
@@ -511,20 +489,16 @@ export const AutoScrollBattleRow = ({ children, style }) => {
     const pausedRef = useRef(false);
     const offsetRef = useRef(0);
     const lastFrameTsRef = useRef(0);
-    const halfWidthRef = useRef(0); // width of ONE copy of children
+    const halfWidthRef = useRef(0);
 
     const [contentWidth, setContentWidth] = useState(0);
 
     const allChildren = React.Children.toArray(children);
     const isCarouselEnabled = allChildren.length > 1;
 
-    // The "loop point" is half of total content (= width of one copy).
-    // We update this whenever content size is measured.
     useEffect(() => {
         halfWidthRef.current = contentWidth / 2;
     }, [contentWidth]);
-
-    // ── helpers ──────────────────────────────────────────────────────────────
 
     const clearResumeTimer = useCallback(() => {
         if (resumeTimeoutRef.current) {
@@ -546,8 +520,6 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         offsetRef.current = x;
     }, []);
 
-    // ── main scroll loop ──────────────────────────────────────────────────────
-
     const startAutoScroll = useCallback(() => {
         if (!isCarouselEnabled || pausedRef.current) return;
         stopAutoScroll();
@@ -564,11 +536,9 @@ export const AutoScrollBattleRow = ({ children, style }) => {
 
             let next = offsetRef.current + deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS;
 
-            // When we've scrolled through the first copy, silently jump back
-            // to the same relative position in the first copy.
             const half = halfWidthRef.current;
             if (half > 0 && next >= half) {
-                next = next - half; // keep fractional remainder → no stutter
+                next = next - half;
                 scrollViewRef.current?.scrollTo({ x: next, animated: false });
                 offsetRef.current = next;
             } else {
@@ -581,8 +551,6 @@ export const AutoScrollBattleRow = ({ children, style }) => {
 
         autoScrollFrameRef.current = requestAnimationFrame(tick);
     }, [isCarouselEnabled, stopAutoScroll]);
-
-    // ── lifecycle ─────────────────────────────────────────────────────────────
 
     useEffect(() => {
         if (!isCarouselEnabled) return undefined;
@@ -598,8 +566,6 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         clearResumeTimer();
         stopAutoScroll();
     }, [clearResumeTimer, stopAutoScroll]);
-
-    // ── interaction handlers ──────────────────────────────────────────────────
 
     const handleInteractionStart = useCallback(() => {
         clearResumeTimer();
@@ -619,8 +585,6 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         }, RESUME_DELAY_MS);
     }, [isCarouselEnabled, clearResumeTimer, startAutoScroll]);
 
-    // ── single-item fallback ──────────────────────────────────────────────────
-
     if (!isCarouselEnabled) {
         return (
             <View
@@ -634,14 +598,12 @@ export const AutoScrollBattleRow = ({ children, style }) => {
         );
     }
 
-    // ── render two copies for seamless looping ────────────────────────────────
-
     return (
         <ScrollView
             ref={scrollViewRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            scrollEnabled={true}        // allow manual drag
+            scrollEnabled={true}
             bounces={false}
             alwaysBounceHorizontal={false}
             overScrollMode="never"
@@ -662,9 +624,7 @@ export const AutoScrollBattleRow = ({ children, style }) => {
                 style,
             ]}
         >
-            {/* First copy */}
             {allChildren}
-            {/* Second copy — makes the loop seamless */}
             {allChildren}
         </ScrollView>
     );
@@ -688,16 +648,17 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         borderWidth: 0.5,
         borderColor: BORDER,
-        padding: 14,
-        marginBottom: 10,
+        padding: 10,
+        marginBottom: 8,
     },
     cardEnded: { opacity: 0.7 },
+    cardFullWidth: { width: '100%', marginRight: 0 },
 
     cardTopRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 6,
     },
 
     // Mode badge
@@ -706,114 +667,114 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: PURPLE_LIGHT,
         borderRadius: 6,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        gap: 5,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        gap: 4,
     },
     modeBadgeEnded: { backgroundColor: GRAY_BG },
     modeBadgeDotOrange: {
-        width: 7, height: 7, borderRadius: 3.5,
+        width: 6, height: 6, borderRadius: 3,
         backgroundColor: '#F97316',
     },
     modeBadgeText: {
-        fontSize: 10, fontWeight: '700',
+        fontSize: 9, fontWeight: '700',
         color: PURPLE_DARK, letterSpacing: 0.4,
         textTransform: 'uppercase',
     },
     modeBadgeTextEnded: { color: GRAY_MID },
 
     // Live dot
-    liveDotWrapper: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' },
+    liveDotWrapper: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
     liveDotRing: {
         position: 'absolute',
-        width: 14, height: 14, borderRadius: 7,
+        width: 12, height: 12, borderRadius: 6,
         backgroundColor: GREEN, opacity: 0.3,
     },
-    liveDotCore: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: GREEN },
+    liveDotCore: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
 
     // Timer
     timerBadge: { flexDirection: 'row', alignItems: 'center' },
-    timerText: { fontSize: 11, color: GRAY_MID, fontWeight: '500' },
+    timerText: { fontSize: 10, color: GRAY_MID, fontWeight: '500' },
     timerTextEnded: { color: '#A32D2D' },
 
     // Versus row
     versusRow: {
         flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', marginBottom: 12, gap: 8,
+        justifyContent: 'space-between', marginBottom: 8, gap: 6,
     },
-    participant: { flex: 1, alignItems: 'center', gap: 4 },
-    participantName: { fontSize: 12, fontWeight: '500', color: TEXT, textAlign: 'center', maxWidth: 80 },
-    participantHandle: { fontSize: 11, color: GRAY_MID, textAlign: 'center' },
-    vsIcon: { fontSize: 20, flexShrink: 0 },
+    participant: { flex: 1, alignItems: 'center', gap: 2 },
+    participantName: { fontSize: 11, fontWeight: '500', color: TEXT, textAlign: 'center', maxWidth: 64 },
+    participantHandle: { fontSize: 10, color: GRAY_MID, textAlign: 'center' },
+    vsIcon: { fontSize: 16, flexShrink: 0 },
 
     // Empty opponent slot
     emptySlot: {
-        width: 52, height: 52,
-        borderRadius: 10,
+        width: 40, height: 40,
+        borderRadius: 8,
         borderWidth: 2, borderColor: '#C4B5FD', borderStyle: 'dashed',
         backgroundColor: PURPLE_LIGHT,
         alignItems: 'center', justifyContent: 'center',
     },
-    waitingLabel: { fontSize: 11, fontWeight: '600', color: PURPLE, textAlign: 'center' },
-    waitingSub: { fontSize: 10, color: GRAY_MID, textAlign: 'center' },
+    waitingLabel: { fontSize: 10, fontWeight: '600', color: PURPLE, textAlign: 'center' },
+    waitingSub: { fontSize: 9, color: GRAY_MID, textAlign: 'center' },
 
     // Question
-    question: { fontSize: 13, fontWeight: '700', color: TEXT, marginBottom: 10, lineHeight: 18 },
+    question: { fontSize: 12, fontWeight: '700', color: TEXT, marginBottom: 6, lineHeight: 16 },
 
     // Stakes
     stakePill: {
         flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
         backgroundColor: PURPLE_LIGHT, borderRadius: 20,
-        paddingVertical: 4, paddingHorizontal: 10, marginBottom: 10, gap: 5,
+        paddingVertical: 3, paddingHorizontal: 8, marginBottom: 6, gap: 4,
     },
-    stakeText: { fontSize: 12, color: PURPLE_DARK },
+    stakeText: { fontSize: 11, color: PURPLE_DARK },
     stakeAmount: { fontWeight: '700', color: PURPLE_DARK },
 
     // Option chips
-    joinRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-    pollOptions: { gap: 6, marginBottom: 10 },
+    joinRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
+    pollOptions: { gap: 5, marginBottom: 6 },
     optionChip: {
         flex: 1, flexDirection: 'row', alignItems: 'center',
-        gap: 5, borderRadius: 24, borderWidth: 1, borderColor: BORDER,
-        backgroundColor: '#fff', paddingVertical: 5, paddingHorizontal: 7, minWidth: 0,
+        gap: 4, borderRadius: 24, borderWidth: 1, borderColor: BORDER,
+        backgroundColor: '#fff', paddingVertical: 4, paddingHorizontal: 5, minWidth: 0,
     },
     optionChipSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
     optionChipTextWrap: { flex: 1, minWidth: 0 },
-    optionChipLabel: { fontSize: 11, fontWeight: '500', color: TEXT },
+    optionChipLabel: { fontSize: 10, fontWeight: '500', color: TEXT },
     optionChipLabelSelected: { color: PURPLE_DARK },
-    optionChipPercent: { marginTop: 1, fontSize: 10, fontWeight: '700', color: GRAY_MID },
+    optionChipPercent: { marginTop: 1, fontSize: 9, fontWeight: '700', color: GRAY_MID },
     radioCircle: {
-        width: 15, height: 15, borderRadius: 7.5,
+        width: 13, height: 13, borderRadius: 6.5,
         borderWidth: 1.5, borderColor: BORDER,
         alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
     },
     radioCircleSelected: { borderColor: PURPLE },
-    radioInner: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: PURPLE },
+    radioInner: { width: 6, height: 6, borderRadius: 3, backgroundColor: PURPLE },
     optionDisabled: { opacity: 0.45 },
 
     // Accept challenge
     acceptBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         backgroundColor: PURPLE, borderRadius: 20,
-        paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10,
+        paddingVertical: 6, paddingHorizontal: 12, marginBottom: 6,
     },
-    acceptBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+    acceptBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 
     // Poll creator
     pollCreatorRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    pollCreatorName: { fontSize: 13, fontWeight: '500', color: TEXT },
-    pollCreatorHandle: { fontSize: 11, color: GRAY_MID },
+    pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT },
+    pollCreatorHandle: { fontSize: 10, color: GRAY_MID },
 
     // Meta
-    metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    metaText: { fontSize: 11, color: GRAY_MID },
+    metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    metaText: { fontSize: 10, color: GRAY_MID },
 
     // Divider
-    divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 10 },
+    divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 6 },
 
     // Stats
     statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center' },
     statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    statText: { fontSize: 12, color: GRAY_MID },
+    statText: { fontSize: 11, color: GRAY_MID },
     statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: BORDER },
 });

@@ -26,6 +26,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 
 const ShareProfile = ({ navigation }) => {
   const toast = useToast();
@@ -288,15 +289,16 @@ const ShareProfile = ({ navigation }) => {
         >
           <View style={styles.shareCard}>
             <View style={styles.profileRow}>
-              <Image
-                source={{
-                  uri:
-                    profile?.image ||
-                    profile?.profileImage ||
-                    ownProfileImage ||
-                    'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-                }}
-                style={styles.avatar}
+              <HexAvatar
+                uri={
+                  profile?.image ||
+                  profile?.profileImage ||
+                  ownProfileImage ||
+                  'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                }
+                size={54}
+                borderWidth={2}
+                borderColor="rgba(255,255,255,0.35)"
               />
               <View style={styles.profileText}>
                 <Text style={styles.brandText}>Valens</Text>
@@ -412,13 +414,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 14,
-  },
-  avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
   },
   profileText: {
     flex: 1,

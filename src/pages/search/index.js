@@ -60,6 +60,7 @@ import { getTotalDonationAmount } from '../../services/tokens';
 import { exploretBattle } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
+import BattleExplore from './BattleExplore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -416,6 +417,7 @@ const SearchScreen = () => {
   const [liveBattles, setLiveBattles] = useState([]);
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
+  const [showBattleExplore, setShowBattleExplore] = useState(false);
 
   const searchTimeoutRef = useRef(null);
   const rafRef = useRef(null);           // replaces autoplayTimeoutRef
@@ -430,6 +432,7 @@ const SearchScreen = () => {
   // Clear search bar when screen focused (tab selected)
   useEffect(() => {
     if (isScreenFocused) {
+      // setShowBattleExplore(false)
       setSearchText('');
     }
   }, [isScreenFocused]);
@@ -865,6 +868,10 @@ const SearchScreen = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
+      {
+          (showBattleExplore) ? ( <BattleExplore onClose={() => setShowBattleExplore(false)} /> )
+          :
+
       <View style={[styles.container, bgStyle]}>
         <Pressable
           onPress={Keyboard.dismiss}
@@ -899,6 +906,27 @@ const SearchScreen = () => {
           {/* Battle cards row */}
           {!isSearchActive && (
             <View>
+              <TouchableOpacity
+                onPress={() => setShowBattleExplore(true)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 8,
+                  marginTop: 4,
+                  backgroundColor: text,
+                  borderRadius: 10,
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', marginRight: 6 }}>
+                  ⚔️
+                </Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: "#fff" }}>
+                  Battle Explore
+                </Text>
+                <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
               <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
               <AutoScrollBattleRow>
                 {loadingLiveBattles ? (
@@ -989,6 +1017,7 @@ const SearchScreen = () => {
           ) : null}
         </View>
       </View>
+           }
 
       {/* Preview modal */}
       {previewVisible && previewPost ? (
