@@ -43,6 +43,7 @@ export default function StoryInteractiveOverlay({
   initialX,
   initialY,
   initialScale = 1,
+  initialRotation = 0,
   minScale = OVERLAY_MIN_SCALE_STICKER,
   maxScale = OVERLAY_MAX_SCALE,
   zIndex = 12,
@@ -63,9 +64,11 @@ export default function StoryInteractiveOverlay({
   const translateX = useSharedValue(initialX);
   const translateY = useSharedValue(initialY);
   const scale = useSharedValue(initialScale);
+  const rotation = useSharedValue(initialRotation);
   const startX = useSharedValue(initialX);
   const startY = useSharedValue(initialY);
   const pinchStartScale = useSharedValue(initialScale);
+  const rotateStart = useSharedValue(initialRotation);
   const pinchStartX = useSharedValue(initialX);
   const pinchStartY = useSharedValue(initialY);
   const pinchLocalOffsetX = useSharedValue(0);
@@ -95,6 +98,11 @@ export default function StoryInteractiveOverlay({
     pinchStartScale.value = initialScale;
     deletePreviewScale.value = 1;
   }, [initialScale, pinchStartScale, scale, deletePreviewScale]);
+
+  useEffect(() => {
+    rotation.value = initialRotation;
+    rotateStart.value = initialRotation;
+  }, [initialRotation, rotateStart, rotation]);
 
   const setInteractionActive = useCallback(
     isActive => {
@@ -141,20 +149,20 @@ export default function StoryInteractiveOverlay({
   }, [clearTrashHover, onDragActive, onInteractionEnd]);
 
   const handlePanEnd = useCallback(
-    (ax, ay, x, y, s) => {
+    (ax, ay, x, y, s, r) => {
       const rect = trashRectRef.current;
       if (pointInTrash(ax, ay, rect)) {
         onDelete?.();
         return;
       }
-      onCommit?.(x, y, s);
+      onCommit?.(x, y, s, r);
     },
     [onCommit, onDelete],
   );
 
   const commitPinchOnly = useCallback(
-    (x, y, s) => {
-      onCommit?.(x, y, s);
+    (x, y, s, r) => {
+      onCommit?.(x, y, s, r);
     },
     [onCommit],
   );
@@ -191,6 +199,7 @@ export default function StoryInteractiveOverlay({
         translateX.value,
         translateY.value,
         scale.value,
+        rotation.value,
       );
     });
 
@@ -225,6 +234,27 @@ export default function StoryInteractiveOverlay({
         translateX.value,
         translateY.value,
         scale.value,
+        rotation.value,
+      );
+    });
+
+  const rotate = Gesture.Rotation()
+    .onBegin(() => {
+      runOnJS(clearTrashHover)();
+      runOnJS(setInteractionActive)(true);
+      rotateStart.value = rotation.value;
+    })
+    .onUpdate(e => {
+      'worklet';
+      rotation.value = rotateStart.value + e.rotation;
+    })
+    .onEnd(() => {
+      runOnJS(endInteraction)();
+      runOnJS(commitPinchOnly)(
+        translateX.value,
+        translateY.value,
+        scale.value,
+        rotation.value,
       );
     });
 
@@ -235,18 +265,21 @@ export default function StoryInteractiveOverlay({
       runOnJS(emitSingleTap)();
     });
 
-  const dragPinch = Gesture.Simultaneous(pinch, pan);
+  const dragPinchRotate = Gesture.Simultaneous(pinch, rotate, pan);
   // Tap is checked first: release without moving more than nudge = edit. Beyond that, drag/pinch.
   const composed = onSingleTap
-    ? Gesture.Exclusive(textTap, dragPinch)
-    : dragPinch;
+    ? Gesture.Exclusive(textTap, dragPinchRotate)
+    : dragPinchRotate;
 
   const animatedStyle = useAnimatedStyle(() => ({
     position: 'absolute',
     left: translateX.value,
     top: translateY.value,
     zIndex,
-    transform: [{ scale: scale.value * deletePreviewScale.value }],
+    transform: [
+      { rotateZ: `${rotation.value}rad` },
+      { scale: scale.value * deletePreviewScale.value },
+    ],
   }));
 
   return (

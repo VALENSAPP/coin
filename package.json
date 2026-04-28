@@ -13,6 +13,7 @@
     "postinstall": "node scripts/patch-metro-symbolicate.js && patch-package"
   },
   "dependencies": {
+    "@iftek/react-native-video-player": "^0.14.1",
     "@invertase/react-native-apple-authentication": "^2.4.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-camera-roll/camera-roll": "^7.10.1",

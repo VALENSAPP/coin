@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import Video, { ViewType } from 'react-native-video';
+import VideoPlayer from '@iftek/react-native-video-player';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -42,6 +43,7 @@ import { getStoryByUser, PostStory, DeleteStory, getFollowingUserStories } from 
 import { buildStoryMetaPayload } from '../../../utils/buildStoryMeta';
 import {
   appendStoryAudioFiles,
+  getStoryBuiltinLibraryUrl,
   prepareStoryClipsAudioForUpload,
 } from '../../../utils/storyAudioUpload';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -163,6 +165,69 @@ const storyYoutubeAudioStyle = {
   overflow: 'hidden',
 };
 
+const storyVideoPlayerCustomStyles = {
+  wrapper: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  videoWrapper: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  video: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  controls: {
+    opacity: 0,
+    height: 0,
+    overflow: 'hidden',
+  },
+  playControl: {
+    opacity: 0,
+  },
+  controlButton: {
+    opacity: 0,
+  },
+  controlIcon: {
+    opacity: 0,
+  },
+  playIcon: {
+    opacity: 0,
+  },
+  seekBar: {
+    opacity: 0,
+    height: 0,
+  },
+  seekBarFullWidth: {
+    opacity: 0,
+    height: 0,
+  },
+  seekBarProgress: {
+    opacity: 0,
+    height: 0,
+  },
+  seekBarKnob: {
+    opacity: 0,
+    width: 0,
+    height: 0,
+  },
+  seekBarBackground: {
+    opacity: 0,
+    height: 0,
+  },
+  thumbnail: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  playButton: {
+    opacity: 0,
+  },
+  playArrow: {
+    opacity: 0,
+  },
+};
+
 function toFiniteNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -201,21 +266,67 @@ function looksLikeUrl(v) {
 }
 
 function resolveStoryAudioPayload(storyLike) {
-  const src =
+  const rawSrc =
     storyLike?.audio ??
     storyLike?.song ??
     storyLike?.music ??
     storyLike?.track ??
     null;
+  let src = rawSrc;
+
+  // Some APIs return nested audio metadata as a JSON string.
+  if (typeof src === 'string') {
+    const trimmed = src.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          src = parsed;
+        }
+      } catch (_e) {
+        // keep string fallback handling below
+      }
+    }
+  }
 
   if (typeof src === 'string') {
-    if (looksLikeUrl(src)) {
-      return { directUrl: src.trim(), youtubeVideoId: null };
+    const normalized = src.trim();
+    if (!normalized || normalized.toLowerCase() === 'original') {
+      return { directUrl: null, youtubeVideoId: null };
     }
-    return { directUrl: null, youtubeVideoId: src.trim() || null };
+    if (looksLikeUrl(normalized)) {
+      return { directUrl: normalized, youtubeVideoId: null };
+    }
+    const builtinUrl = getStoryBuiltinLibraryUrl(normalized);
+    if (builtinUrl) {
+      return { directUrl: builtinUrl, youtubeVideoId: null };
+    }
+    return { directUrl: null, youtubeVideoId: normalized || null };
   }
 
   if (src && typeof src === 'object') {
+    const normalizedMode =
+      typeof src.mode === 'string' ? src.mode.trim().toLowerCase() : '';
+    const libraryTrackId =
+      typeof src.trackId === 'string'
+        ? src.trackId
+        : typeof src.libraryTrackId === 'string'
+          ? src.libraryTrackId
+          : typeof src.id === 'string'
+            ? src.id
+          : null;
+    const libraryTitle =
+      typeof src.title === 'string'
+        ? src.title
+        : typeof src.trackName === 'string'
+          ? src.trackName
+          : null;
+    if (normalizedMode === 'library' || libraryTrackId || libraryTitle) {
+      const builtinUrl = getStoryBuiltinLibraryUrl(libraryTrackId || libraryTitle);
+      if (builtinUrl) {
+        return { directUrl: builtinUrl, youtubeVideoId: null };
+      }
+    }
     const directUrl =
       src.audioUrl ||
       src.s3Url ||
@@ -223,6 +334,7 @@ function resolveStoryAudioPayload(storyLike) {
       src.url ||
       src.songUrl ||
       src.musicUrl ||
+      src.previewUrl ||
       null;
     const youtubeVideoId =
       src.videoId ||
@@ -251,6 +363,49 @@ function resolveStoryAudioPayload(storyLike) {
         ? storyLike.videoId.trim()
         : null,
   };
+}
+
+function resolveStoryClipThumbnailUrl(storyLike, idx, clipMeta) {
+  const candidate =
+    clipMeta?.thumbnail ||
+    clipMeta?.thumbnailUrl ||
+    clipMeta?.thumb ||
+    clipMeta?.thumbUrl ||
+    clipMeta?.poster ||
+    clipMeta?.posterUrl ||
+    clipMeta?.cover ||
+    clipMeta?.coverUrl ||
+    (Array.isArray(storyLike?.thumbnails) ? storyLike.thumbnails[idx] : null) ||
+    storyLike?.thumbnail ||
+    storyLike?.thumbnailUrl ||
+    storyLike?.thumb ||
+    storyLike?.thumbUrl ||
+    storyLike?.poster ||
+    storyLike?.posterUrl ||
+    storyLike?.cover ||
+    storyLike?.coverUrl ||
+    null;
+
+  if (!looksLikeUrl(candidate)) return null;
+  return String(candidate).trim();
+}
+
+function resolveStoryVideoThumbnailSource(storyLike) {
+  const candidate =
+    storyLike?.thumbnail ||
+    storyLike?.thumbnailUrl ||
+    storyLike?.thumb ||
+    storyLike?.thumbUrl ||
+    storyLike?.poster ||
+    storyLike?.posterUrl ||
+    storyLike?.cover ||
+    storyLike?.coverUrl ||
+    (Array.isArray(storyLike?.thumbnails) ? storyLike.thumbnails[0] : null) ||
+    storyLike?.videoThumbnail ||
+    storyLike?.videoThumb ||
+    null;
+  if (!looksLikeUrl(candidate)) return null;
+  return { uri: String(candidate).trim() };
 }
 
 
@@ -539,6 +694,7 @@ const StoryViewer = ({
   const shareRef = useRef(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [isMediaReady, setIsMediaReady] = useState(false);
+  const [isFirstFrameReady, setIsFirstFrameReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const mediaDurationRef = useRef(null);
   /** Video duration in seconds (from onLoad) — drives progress bar via onProgress, not a wall-clock timer. */
@@ -638,12 +794,11 @@ const StoryViewer = ({
   const youtubeVideoId = resolvedAudio.youtubeVideoId;
   const directAudioUrl = resolvedAudio.directUrl;
   const hasDirectAudio = typeof directAudioUrl === 'string' && directAudioUrl.length > 0;
+  const hasOverlayAudio = hasDirectAudio || !!youtubeVideoId;
   const isYoutubeAudio =
-    currentStory?.type !== 'video' &&
     !hasDirectAudio &&
     !!youtubeVideoId;
   const isDirectAudio =
-    currentStory?.type !== 'video' &&
     hasDirectAudio;
   const audioTrimStartSec = Math.max(
     0,
@@ -658,6 +813,9 @@ const StoryViewer = ({
     0,
     Math.min(100, Math.round((Number(currentStory?.volume) || 1) * 100)),
   );
+  const currentStoryThumbnail = resolveStoryVideoThumbnailSource(currentStory);
+
+  console.log(currentStoryThumbnail, "currentStoryThumbnailcurrentStoryThumbnail==>>>>>>>")
 
   // Helper: fully stop & clear timers/animation
   const stopAndResetProgress = (resetToZero = true) => {
@@ -678,7 +836,7 @@ const StoryViewer = ({
 
     // Reset all state for the incoming story
     progressStartedRef.current = false;
-mediaFullyLoadedRef.current = false;   // ← add this line
+    mediaFullyLoadedRef.current = false;   // ← add this line
     mediaDurationRef.current = null;
     videoDurationSecRef.current = 0;
 
@@ -699,6 +857,7 @@ mediaFullyLoadedRef.current = false;   // ← add this line
     setPaused(false);
     setIsMediaReady(false);
     setIsBuffering(false);
+    setIsFirstFrameReady(false);
     dispatch(hideLoader());
 
     // Seek video to beginning when switching stories (seek can leave player paused on some devices)
@@ -860,12 +1019,16 @@ mediaFullyLoadedRef.current = false;   // ← add this line
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, g) => {
         const { dx, dy } = g;
-        return Math.abs(dx) > 10 || Math.abs(dy) > 10;
+        // Require more movement and dominant direction before stealing gesture
+        return (Math.abs(dx) > 15 || Math.abs(dy) > 15);
       },
-      onStartShouldSetPanResponderCapture: () => false,
+      onStartShouldSetPanResponderCapture: () => false,   // ← never capture on start
       onMoveShouldSetPanResponderCapture: (_, g) => {
         const { dx, dy } = g;
-        return Math.abs(dx) > 10 || Math.abs(dy) > 10;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        // Only capture if clearly a swipe (not a tap on a button)
+        return (absDx > 15 || absDy > 15) && (absDx > 5 || absDy > 5);
       },
       onPanResponderGrant: () => {
         handlePause();
@@ -1175,6 +1338,7 @@ mediaFullyLoadedRef.current = false;   // ← add this line
   /** Kick playback only — video stories use onProgress for the bar; images use startProgress timers. */
   const maybeStartVideoProgress = () => {
     if (!visibleRef.current || pausedRef.current) return;
+    setIsFirstFrameReady(true); // ← first real frame is now on screen
     kickPlayback();
   };
 
@@ -1189,59 +1353,59 @@ mediaFullyLoadedRef.current = false;   // ← add this line
     progressAnimation.setValue(p);
   };
 
-const onImageLoaded = () => {
-  dispatch(hideLoader());
-  mediaFullyLoadedRef.current = true;
-  setIsMediaReady(true);
-  if (!progressStartedRef.current) {
-    progressStartedRef.current = true;
-    // rAF ensures the image has actually painted before bar moves
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {   // double rAF = after next paint
-        if (visibleRef.current && !pausedRef.current) {
-          startProgress(resolveStoryDurationMs(currentStory));
-        }
+  const onImageLoaded = () => {
+    dispatch(hideLoader());
+    mediaFullyLoadedRef.current = true;
+    setIsMediaReady(true);
+    if (!progressStartedRef.current) {
+      progressStartedRef.current = true;
+      // rAF ensures the image has actually painted before bar moves
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {   // double rAF = after next paint
+          if (visibleRef.current && !pausedRef.current) {
+            startProgress(resolveStoryDurationMs(currentStory));
+          }
+        });
       });
-    });
-  }
-};
+    }
+  };
 
-const onVideoLoaded = (meta) => {
-  dispatch(hideLoader());
-  const duration =
-    (meta?.duration ? meta.duration * 1000 : null) ||
-    currentStory?.duration ||
-    15000;
-  mediaDurationRef.current = duration;
-  videoReadyDurationRef.current = duration;
-  const durSec =
-    meta?.duration != null && Number(meta.duration) > 0
-      ? Number(meta.duration)
-      : duration / 1000;
-  videoDurationSecRef.current = durSec;
-  mediaFullyLoadedRef.current = true;
-  setIsMediaReady(true);
-  setIsBuffering(false);
-  progressAnimation.setValue(0);
-  maybeStartVideoProgress();
-  kickPlayback();
-  requestAnimationFrame(kickPlayback);
-  setTimeout(kickPlayback, 120);
-  setTimeout(kickPlayback, 500);
-};
+  const onVideoLoaded = (meta) => {
+    dispatch(hideLoader());
+    const duration =
+      (meta?.duration ? meta.duration * 1000 : null) ||
+      currentStory?.duration ||
+      15000;
+    mediaDurationRef.current = duration;
+    videoReadyDurationRef.current = duration;
+    const durSec =
+      meta?.duration != null && Number(meta.duration) > 0
+        ? Number(meta.duration)
+        : duration / 1000;
+    videoDurationSecRef.current = durSec;
+    mediaFullyLoadedRef.current = true;
+    setIsMediaReady(true);
+    setIsBuffering(false);
+    progressAnimation.setValue(0);
+    maybeStartVideoProgress();
+    kickPlayback();
+    requestAnimationFrame(kickPlayback);
+    setTimeout(kickPlayback, 120);
+    setTimeout(kickPlayback, 500);
+  };
 
-const onMediaError = () => {
-  dispatch(hideLoader());
-  mediaFullyLoadedRef.current = true;
-  setIsMediaReady(true);
-  // Video: do not auto-advance on error — bar stays put; user taps to skip.
-  if (currentStory?.type === 'video') return;
-  if (visibleRef.current && !pausedRef.current && !progressStartedRef.current) {
-    progressStartedRef.current = true;
-    const duration = resolveStoryDurationMs(currentStory);
-    startProgress(duration);
-  }
-};
+  const onMediaError = () => {
+    dispatch(hideLoader());
+    mediaFullyLoadedRef.current = true;
+    setIsMediaReady(true);
+    // Video: do not auto-advance on error — bar stays put; user taps to skip.
+    if (currentStory?.type === 'video') return;
+    if (visibleRef.current && !pausedRef.current && !progressStartedRef.current) {
+      progressStartedRef.current = true;
+      const duration = resolveStoryDurationMs(currentStory);
+      startProgress(duration);
+    }
+  };
 
   // FIX: removed all progress animation logic from onVideoBuffer.
   // Toggling `paused` on buffer events causes the visible stutter — the
@@ -1292,7 +1456,11 @@ const onMediaError = () => {
         </View>
 
         {/* Top bar */}
-        <View style={modalStyles.topBar}>
+        <View
+          style={[modalStyles.topBar, { zIndex: 100 }]}
+          onStartShouldSetResponder={() => true}        // ← consume touch here
+          onTouchStart={(e) => e.stopPropagation()}
+        >
           <View style={modalStyles.userInfo}>
             <TouchableOpacity
               activeOpacity={isViewingOwnStory ? 1 : 0.7}
@@ -1324,6 +1492,7 @@ const onMediaError = () => {
               <TouchableOpacity
                 onPress={openOptions}
                 style={modalStyles.closeBtn}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Icon name="ellipsis-horizontal" size={26} color="#fff" />
               </TouchableOpacity>
@@ -1334,6 +1503,10 @@ const onMediaError = () => {
                 onClose();
               }}
               style={modalStyles.closeBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              // ← These two stop the PanResponder from stealing the tap
+              onStartShouldSetResponder={() => true}
+              onTouchStart={(e) => e.stopPropagation()}
             >
               <Icon name="close" size={28} color="#fff" />
             </TouchableOpacity>
@@ -1363,21 +1536,30 @@ const onMediaError = () => {
                 clears on onReadyForDisplay — on some devices that never fires, so the video
                 never appears to play. Loading UI is our overlay below instead.
               */}
-              <Video
+              <VideoPlayer
                 key={storyKey}
                 ref={videoRef}
-                source={{ uri: currentStory.uri }}
-                style={modalStyles.storyMedia}
+                video={{ uri: currentStory.uri }}
+                videoWidth={SCREEN_WIDTH}
+                videoHeight={SCREEN_HEIGHT}
                 resizeMode="cover"
+                autoplay
                 paused={paused}
                 rate={1}
                 volume={1}
-                muted={false}
+                muted={hasOverlayAudio}
+                defaultMuted={false}
                 ignoreSilentSwitch="ignore"
                 mixWithOthers="mix"
+                hideControlsOnStart
+                disableSeek
+                disableFullscreen
+                pauseOnPress={false}
+                fullScreenOnLongPress={false}
                 {...(Platform.OS === 'android' ? { viewType: ViewType.TEXTURE } : {})}
                 onLoadStart={() => {
                   setIsMediaReady(false);
+                  setIsFirstFrameReady(false); // ← reset here too
                   setIsBuffering(true);
                 }}
                 onLoad={onVideoLoaded}
@@ -1401,10 +1583,28 @@ const onMediaError = () => {
                   bufferForPlaybackMs: 1200,
                   bufferForPlaybackAfterRebufferMs: 2000,
                 }}
+                customStyles={storyVideoPlayerCustomStyles}
                 pointerEvents="none"
               />
+              {!isFirstFrameReady && currentStoryThumbnail && (
+                <Image
+                  source={currentStoryThumbnail}
+                  style={StyleSheet.absoluteFillObject}
+                  resizeMode="cover"
+                  pointerEvents="none"
+                />
+              )}
               {!isMediaReady && (
-                <View style={modalStyles.storyVideoLoadingOverlay} pointerEvents="none">
+                <View
+                  style={[
+                    modalStyles.storyVideoLoadingOverlay,
+                    // currentStoryThumbnail ? modalStyles.storyVideoLoadingOverlayWithPoster : null,
+                    currentStoryThumbnail
+                      ? { backgroundColor: 'transparent' }
+                      : modalStyles.storyVideoLoadingOverlayWithPoster,
+                  ]}
+                  pointerEvents="none"
+                >
                   <ActivityIndicator size="large" color="#fff" />
                 </View>
               )}
@@ -1481,16 +1681,16 @@ const onMediaError = () => {
                 }
               }}
               onReadyForDisplay={() => {
-  if (!progressStartedRef.current && visibleRef.current && !pausedRef.current) {
-    progressStartedRef.current = true;
-    const duration = videoReadyDurationRef.current || resolveStoryDurationMs(currentStory);
-    requestAnimationFrame(() => {
-      if (visibleRef.current && !pausedRef.current) {
-        startProgress(duration);
-      }
-    });
-  }
-}}
+                if (!progressStartedRef.current && visibleRef.current && !pausedRef.current) {
+                  progressStartedRef.current = true;
+                  const duration = videoReadyDurationRef.current || resolveStoryDurationMs(currentStory);
+                  requestAnimationFrame(() => {
+                    if (visibleRef.current && !pausedRef.current) {
+                      startProgress(duration);
+                    }
+                  });
+                }
+              }}
               onProgress={({ currentTime }) => {
                 const fallbackEnd = directAudioDurationRef.current || 0;
                 const end = audioTrimEndSec != null ? audioTrimEndSec : fallbackEnd;
@@ -1836,33 +2036,35 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           return (story.media || []).map((url, idx) => {
             const clipMeta = meta?.clips?.[idx] || {};
             const mediaType = resolveStoryClipType(String(url), clipMeta);
+            const thumbnailUrl = resolveStoryClipThumbnailUrl(story, idx, clipMeta);
             return {
-            ...(() => {
-              const fallbackAudio =
-                clipMeta.audio ??
-                meta?.audio ??
-                story?.audio ??
-                story?.song ??
-                story?.music ??
-                null;
-              return {
-                ...clipMeta,
-                audio: fallbackAudio,
-                duration: resolveStoryDurationMs({
+              ...(() => {
+                const fallbackAudio =
+                  clipMeta.audio ??
+                  meta?.audio ??
+                  story?.audio ??
+                  story?.song ??
+                  story?.music ??
+                  null;
+                return {
                   ...clipMeta,
-                  type: mediaType,
-                }),
-              };
-            })(),
-            id: `${story.id}_${idx}`,
-            type: mediaType,
-            uri: String(url).trim(),
-            timestamp: ts,
-            seen: false,
-            views: [],
-            likes: [],
-            comments: [],
-          };
+                  audio: fallbackAudio,
+                  duration: resolveStoryDurationMs({
+                    ...clipMeta,
+                    type: mediaType,
+                  }),
+                };
+              })(),
+              thumbnail: thumbnailUrl,
+              id: `${story.id}_${idx}`,
+              type: mediaType,
+              uri: String(url).trim(),
+              timestamp: ts,
+              seen: false,
+              views: [],
+              likes: [],
+              comments: [],
+            };
           });
         }),
       };
@@ -1880,33 +2082,35 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         const storyObjects = (userStory.media || []).map((url, idx) => {
           const clipMeta = followingMeta?.clips?.[idx] || {};
           const mediaType = resolveStoryClipType(String(url), clipMeta);
+          const thumbnailUrl = resolveStoryClipThumbnailUrl(userStory, idx, clipMeta);
           return {
-          ...(() => {
-            const fallbackAudio =
-              clipMeta.audio ??
-              followingMeta?.audio ??
-              userStory?.audio ??
-              userStory?.song ??
-              userStory?.music ??
-              null;
-            return {
-              ...clipMeta,
-              audio: fallbackAudio,
-              duration: resolveStoryDurationMs({
+            ...(() => {
+              const fallbackAudio =
+                clipMeta.audio ??
+                followingMeta?.audio ??
+                userStory?.audio ??
+                userStory?.song ??
+                userStory?.music ??
+                null;
+              return {
                 ...clipMeta,
-                type: mediaType,
-              }),
-            };
-          })(),
-          id: `${userStory.id}_${idx}`,
-          type: mediaType,
-          uri: String(url).trim(),
-          timestamp: ts,
-          seen: false,
-          views: [],
-          likes: [],
-          comments: [],
-        };
+                audio: fallbackAudio,
+                duration: resolveStoryDurationMs({
+                  ...clipMeta,
+                  type: mediaType,
+                }),
+              };
+            })(),
+            thumbnail: thumbnailUrl,
+            id: `${userStory.id}_${idx}`,
+            type: mediaType,
+            uri: String(url).trim(),
+            timestamp: ts,
+            seen: false,
+            views: [],
+            likes: [],
+            comments: [],
+          };
         });
 
         if (userStoriesMap.has(userId)) {
@@ -2184,7 +2388,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   ) => {
     let lastError;
     let isNetworkOffline = false;
-    
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         // Check network before attempting upload
@@ -2198,42 +2402,42 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           attempt--; // Don't count this as an attempt
           continue;
         }
-        
+
         isNetworkOffline = false;
         console.log(`Upload attempt ${attempt + 1}/${maxRetries}...`);
         const result = await uploadFn();
-        
+
         // Check if API returned an error status
         if (result?.error === true || result?.statusCode === 0) {
           console.warn(`API error on attempt ${attempt + 1}:`, result?.message || result);
           throw new Error(`API Error: ${result?.message || 'Network Error'}`);
         }
-        
+
         return result;
       } catch (error) {
         lastError = error;
         const isLastAttempt = attempt === maxRetries - 1;
         const errorMsg = error?.message || String(error);
-        
+
         console.log(
           `Upload attempt ${attempt + 1} failed: ${errorMsg}`,
         );
-        
+
         if (isLastAttempt) {
           throw error;
         }
 
         // For network errors, use longer backoff
-        const isNetworkError = 
-          errorMsg.includes('Network') || 
-          errorMsg.includes('timeout') || 
+        const isNetworkError =
+          errorMsg.includes('Network') ||
+          errorMsg.includes('timeout') ||
           errorMsg.includes('ECONNREFUSED') ||
           errorMsg.includes('ETIMEDOUT');
-        
+
         // Faster retries: 1s, 2s, 4s, 8s, 16s, 32s, 64s...
         // If network was offline, don't add extra delay (already waited in waitForNetworkConnectivity)
         const delayMs = isNetworkOffline ? 0 : baseDelayMs * Math.pow(2, attempt);
-        
+
         if (delayMs > 0) {
           console.log(
             `Waiting ${delayMs}ms before retry attempt ${attempt + 2}/${maxRetries}... (${isNetworkError ? 'Network' : 'Other'} error)`,
@@ -2339,16 +2543,15 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const performStoryUpload = async (clips) => {
     // Clear upload state at the start to prevent duplicate uploads on resume
     await clearUploadState();
-    
+
     const formData = new FormData();
     formData.append('caption', '');
 
     // New upload with clips data
     clips.forEach((item, index) => {
       const fileUri = item.processedUri || item.original.uri;
-      const fileName = `story_${Date.now()}_${index}.${
-        item.isVideo ? 'mp4' : 'jpg'
-      }`;
+      const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'
+        }`;
       const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
 
       formData.append('media', {

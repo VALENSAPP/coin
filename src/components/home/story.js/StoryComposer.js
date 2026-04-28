@@ -84,24 +84,25 @@ const TOOLBAR_ITEMS = [
  */
 const AUDIO_LIBRARY = [
   { id: 'original', name: 'Original sound', previewUri: null },
-  {
-    id: 'vibe',
-    name: 'Vibe Beat',
-    previewUri:
-      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-  },
-  {
-    id: 'chill',
-    name: 'Chill Mood',
-    previewUri:
-      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-  },
-  {
-    id: 'energy',
-    name: 'Energy Pop',
-    previewUri:
-      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-  },
+  // Quick-pick tracks are temporarily disabled.
+  // {
+  //   id: 'vibe',
+  //   name: 'Vibe Beat',
+  //   previewUri:
+  //     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  // },
+  // {
+  //   id: 'chill',
+  //   name: 'Chill Mood',
+  //   previewUri:
+  //     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+  // },
+  // {
+  //   id: 'energy',
+  //   name: 'Energy Pop',
+  //   previewUri:
+  //     'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+  // },
 ];
 
 const isOriginalAudio = a => a == null || a === 'original';
@@ -385,6 +386,7 @@ export default function StoryComposer({
   const [musicPreviewDur, setMusicPreviewDur] = useState(30);
   const [waveformViewportW, setWaveformViewportW] = useState(SCREEN_WIDTH - 48);
   const [audioTrimPerIndex, setAudioTrimPerIndex] = useState({});
+  const [audioTrimConfirmedPerIndex, setAudioTrimConfirmedPerIndex] = useState({});
   const { bgStyle, textStyle, bg } = useAppTheme();
   const insets = useSafeAreaInsets();
   const trashZoneRef = useRef(null);
@@ -462,7 +464,8 @@ export default function StoryComposer({
       a = {},
       tr = {},
       v = {},
-      atr = {};
+      atr = {},
+      atc = {};
     setMediaItems(list);
     list.forEach((_, i) => {
       f[i] = 'none';
@@ -472,6 +475,7 @@ export default function StoryComposer({
       tr[i] = { start: 0, end: null };
       v[i] = 1;
       atr[i] = { start: 0, end: null };
+      atc[i] = false;
     });
     setFilterPerIndex(f);
     setStickersPerIndex(s);
@@ -480,6 +484,7 @@ export default function StoryComposer({
     setTrimPerIndex(tr);
     setVolumePerIndex(v);
     setAudioTrimPerIndex(atr);
+    setAudioTrimConfirmedPerIndex(atc);
     audioTrimPerIndexRef.current = atr;
     setLyricsPerIndex({});
     setLyricsError(null);
@@ -604,8 +609,15 @@ export default function StoryComposer({
   const selectBuiltinTrack = track => {
     if (track.id === 'original') {
       setAudioPerIndex(prev => ({ ...prev, [index]: 'original' }));
+      setAudioTrimPerIndex(prev => ({ ...prev, [index]: { start: 0, end: null } }));
+      setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
     } else {
       setAudioPerIndex(prev => ({ ...prev, [index]: track.id }));
+      setAudioTrimPerIndex(prev => ({
+        ...prev,
+        [index]: { start: 0, end: DEFAULT_STORY_CLIP_SEC },
+      }));
+      setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: false }));
     }
     setLyricsPerIndex(prev => ({ ...prev, [index]: null }));
     setShowAudioModal(false);
@@ -630,6 +642,17 @@ export default function StoryComposer({
         artist: item.channelTitle,
         thumbnailUrl: item.thumbnailUrl,
         fullDurationSec: d ?? undefined,
+      },
+    }));
+    setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: false }));
+    setAudioTrimPerIndex(prev => ({
+      ...prev,
+      [index]: {
+        start: 0,
+        end:
+          d != null && Number.isFinite(d) && d > 0
+            ? Math.min(d, DEFAULT_STORY_CLIP_SEC)
+            : DEFAULT_STORY_CLIP_SEC,
       },
     }));
     setLyricsPerIndex(prev => ({ ...prev, [index]: null }));
@@ -752,6 +775,7 @@ export default function StoryComposer({
           y: Math.round(SCREEN_HEIGHT * 0.28),
           kind: 'lyrics',
           scale: 1,
+          rotation: 0,
         },
       ];
       return next;
@@ -772,7 +796,14 @@ export default function StoryComposer({
       const next = { ...prev };
       next[index] = [
         ...(next[index] || []),
-        { id: `${Date.now()}_${Math.random()}`, emoji, x: 50, y: 50, scale: 1 },
+        {
+          id: `${Date.now()}_${Math.random()}`,
+          emoji,
+          x: 50,
+          y: 50,
+          scale: 1,
+          rotation: 0,
+        },
       ];
       return next;
     });
@@ -810,6 +841,7 @@ export default function StoryComposer({
             x: 50,
             y: 50,
             scale: 1,
+            rotation: 0,
           },
         ];
         return next;
@@ -818,11 +850,11 @@ export default function StoryComposer({
     setDraftText('');
   };
 
-  const setStickerTransform = (id, x, y, scaleVal) => {
+  const setStickerTransform = (id, x, y, scaleVal, rotationVal = 0) => {
     setStickersPerIndex(prev => {
       const next = { ...prev };
       next[index] = (next[index] || []).map(s =>
-        s.id === id ? { ...s, x, y, scale: scaleVal } : s,
+        s.id === id ? { ...s, x, y, scale: scaleVal, rotation: rotationVal } : s,
       );
       return next;
     });
@@ -853,11 +885,11 @@ export default function StoryComposer({
     }));
   };
 
-  const setTextTransform = (id, x, y, scaleVal) => {
+  const setTextTransform = (id, x, y, scaleVal, rotationVal = 0) => {
     setTextsPerIndex(prev => {
       const next = { ...prev };
       next[index] = (next[index] || []).map(t =>
-        t.id === id ? { ...t, x, y, scale: scaleVal } : t,
+        t.id === id ? { ...t, x, y, scale: scaleVal, rotation: rotationVal } : t,
       );
       return next;
     });
@@ -932,6 +964,23 @@ export default function StoryComposer({
 
   const handleExport = async () => {
     try {
+      for (let i = 0; i < mediaItems.length; i++) {
+        const clipAudio = audioPerIndex[i] || 'original';
+        if (!isOriginalAudio(clipAudio) && audioTrimConfirmedPerIndex[i] !== true) {
+          setIndex(i);
+          closeSheets();
+          const at = audioTrimPerIndex[i] || { start: 0, end: null };
+          setAudioTrimStartDraft(String(at.start ?? 0));
+          setAudioTrimEndDraft(at.end == null ? '' : String(at.end));
+          setShowAudioTrimModal(true);
+          Alert.alert(
+            'Trim song first',
+            'Please trim the song first or choose timing, then tap Done.',
+          );
+          return;
+        }
+      }
+
       const out = [];
       for (let i = 0; i < mediaItems.length; i++) {
         const m = mediaItems[i];
@@ -949,16 +998,44 @@ export default function StoryComposer({
           }
         }
 
+        const clipAudio = audioPerIndex[i] || 'original';
+        const rawAudioTrim = audioTrimPerIndex[i] || { start: 0, end: null };
+        const audioTrimStart = Math.max(0, Number(rawAudioTrim.start) || 0);
+        const parsedAudioTrimEnd =
+          rawAudioTrim.end == null || rawAudioTrim.end === ''
+            ? null
+            : Number(rawAudioTrim.end);
+        let normalizedAudioTrim = {
+          start: audioTrimStart,
+          end:
+            parsedAudioTrimEnd != null && Number.isFinite(parsedAudioTrimEnd)
+              ? parsedAudioTrimEnd
+              : null,
+        };
+
+        // If user picked music but skipped Sound trim, cap to default 30s segment.
+        if (!isOriginalAudio(clipAudio) && normalizedAudioTrim.end == null) {
+          const timelineDur = getMusicTimelineDurationSec(clipAudio, musicPreviewDur);
+          const boundedDefaultEnd =
+            Number.isFinite(timelineDur) && timelineDur > normalizedAudioTrim.start
+              ? Math.min(timelineDur, normalizedAudioTrim.start + DEFAULT_STORY_CLIP_SEC)
+              : normalizedAudioTrim.start + DEFAULT_STORY_CLIP_SEC;
+          normalizedAudioTrim = {
+            start: normalizedAudioTrim.start,
+            end: Math.max(normalizedAudioTrim.start + 1, boundedDefaultEnd),
+          };
+        }
+
         out.push({
           original: m,
           processedUri,
           filterKey: filterPerIndex[i] || 'none',
           stickers: stickersPerIndex[i] || [],
           texts: textsPerIndex[i] || [],
-          audio: audioPerIndex[i] || 'original',
+          audio: clipAudio,
           lyrics: lyricsPerIndex[i] || null,
           trim: trimPerIndex[i] || { start: 0, end: null },
-          audioTrim: audioTrimPerIndex[i] || { start: 0, end: null },
+          audioTrim: normalizedAudioTrim,
           volume: volumePerIndex[i] ?? 1,
           isVideo: isVid,
           duration: m.duration,
@@ -1031,6 +1108,13 @@ export default function StoryComposer({
           const u = { ...at };
           normalizedPicks.forEach((_, j) => {
             u[base + j] = { start: 0, end: null };
+          });
+          return u;
+        });
+        setAudioTrimConfirmedPerIndex(at => {
+          const u = { ...at };
+          normalizedPicks.forEach((_, j) => {
+            u[base + j] = false;
           });
           return u;
         });
@@ -1451,6 +1535,7 @@ export default function StoryComposer({
         end: audioTrimEndDraft.trim() ? Number(audioTrimEndDraft) || null : null,
       },
     }));
+    setAudioTrimConfirmedPerIndex(prev => ({ ...prev, [index]: true }));
     setShowAudioTrimModal(false);
     setMusicEditorPaused(false);
   };
@@ -1490,6 +1575,7 @@ export default function StoryComposer({
   const musicBadgeY =
     musicBadgeStored?.y ?? defaultMusicBadgePosition(canvasLayout).y;
   const musicBadgeScale = musicBadgeStored?.scale ?? 1;
+  const musicBadgeRotation = musicBadgeStored?.rotation ?? 0;
 
   return (
     <Modal
@@ -1686,17 +1772,18 @@ export default function StoryComposer({
                       initialX={musicBadgeX}
                       initialY={musicBadgeY}
                       initialScale={musicBadgeScale}
+                      initialRotation={musicBadgeRotation}
                       minScale={OVERLAY_MIN_SCALE_MUSIC}
                       zIndex={24}
                       trashRect={trashRect}
                       onDragActive={setShowTrashZone}
                       onInteractionStart={beginOverlayInteraction}
                       onInteractionEnd={hideOverlayDeleteUi}
-                      onCommit={(x, y, sc) => {
+                      onCommit={(x, y, sc, rot) => {
                         const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
                         setMusicBadgePosPerIndex(prev => ({
                           ...prev,
-                          [index]: { x: p.x, y: p.y, scale: sc },
+                          [index]: { x: p.x, y: p.y, scale: sc, rotation: rot },
                         }));
                       }}
                       onDelete={removeMusicOverlay}
@@ -1781,17 +1868,18 @@ export default function StoryComposer({
                       initialX={musicBadgeX}
                       initialY={musicBadgeY}
                       initialScale={musicBadgeScale}
+                      initialRotation={musicBadgeRotation}
                       minScale={OVERLAY_MIN_SCALE_MUSIC}
                       zIndex={24}
                       trashRect={trashRect}
                       onDragActive={setShowTrashZone}
                       onInteractionStart={beginOverlayInteraction}
                       onInteractionEnd={hideOverlayDeleteUi}
-                      onCommit={(x, y, sc) => {
+                      onCommit={(x, y, sc, rot) => {
                         const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
                         setMusicBadgePosPerIndex(prev => ({
                           ...prev,
-                          [index]: { x: p.x, y: p.y, scale: sc },
+                          [index]: { x: p.x, y: p.y, scale: sc, rotation: rot },
                         }));
                       }}
                       onDelete={removeMusicOverlay}
@@ -1852,13 +1940,14 @@ export default function StoryComposer({
                   initialX={s.x}
                   initialY={s.y}
                   initialScale={s.scale ?? 1}
+                  initialRotation={s.rotation ?? 0}
                   minScale={OVERLAY_MIN_SCALE_STICKER}
                   zIndex={14}
                   trashRect={trashRect}
                   onDragActive={setShowTrashZone}
                   onInteractionStart={beginOverlayInteraction}
                   onInteractionEnd={hideOverlayDeleteUi}
-                  onCommit={(x, y, sc) => setStickerTransform(s.id, x, y, sc)}
+                  onCommit={(x, y, sc, rot) => setStickerTransform(s.id, x, y, sc, rot)}
                   onDelete={() => removeStickerOverlay(s.id)}
                   onTrashHoverChange={onTrashHoverChange}
                 >
@@ -1875,13 +1964,14 @@ export default function StoryComposer({
                   initialX={t.x}
                   initialY={t.y}
                   initialScale={t.scale ?? 1}
+                  initialRotation={t.rotation ?? 0}
                   minScale={OVERLAY_MIN_SCALE_TEXT}
                   zIndex={16}
                   trashRect={trashRect}
                   onDragActive={setShowTrashZone}
                   onInteractionStart={beginOverlayInteraction}
                   onInteractionEnd={hideOverlayDeleteUi}
-                  onCommit={(x, y, sc) => setTextTransform(t.id, x, y, sc)}
+                  onCommit={(x, y, sc, rot) => setTextTransform(t.id, x, y, sc, rot)}
                   onDelete={() => removeTextOverlay(t.id)}
                   onSingleTap={
                     t.kind === 'lyrics'

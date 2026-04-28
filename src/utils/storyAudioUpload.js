@@ -19,10 +19,48 @@ const BUILTIN_AUDIO_URLS = {
   energy: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
 };
 
+const BUILTIN_AUDIO_META = {
+  vibe: { id: 'vibe', title: 'Vibe Beat', url: BUILTIN_AUDIO_URLS.vibe },
+  chill: { id: 'chill', title: 'Chill Mood', url: BUILTIN_AUDIO_URLS.chill },
+  energy: { id: 'energy', title: 'Energy Pop', url: BUILTIN_AUDIO_URLS.energy },
+};
+
+const BUILTIN_AUDIO_ALIASES = {
+  vibe: 'vibe',
+  vibebeat: 'vibe',
+  'vibe beat': 'vibe',
+  chill: 'chill',
+  chillmood: 'chill',
+  'chill mood': 'chill',
+  energy: 'energy',
+  energypop: 'energy',
+  'energy pop': 'energy',
+};
+
+function normalizeTrackKey(trackId) {
+  if (!trackId || typeof trackId !== 'string') return null;
+  const trimmed = trackId.trim().toLowerCase();
+  if (!trimmed) return null;
+  const collapsed = trimmed.replace(/[\s_-]+/g, ' ').trim();
+  const compact = collapsed.replace(/\s+/g, '');
+  return (
+    BUILTIN_AUDIO_ALIASES[trimmed] ||
+    BUILTIN_AUDIO_ALIASES[collapsed] ||
+    BUILTIN_AUDIO_ALIASES[compact] ||
+    null
+  );
+}
+
 /** Resolve URL for Story/Post library quick-pick ids (`chill`, `energy`, `vibe`). */
 export function getStoryBuiltinLibraryUrl(trackId) {
-  if (!trackId || typeof trackId !== 'string') return null;
-  return BUILTIN_AUDIO_URLS[trackId] || null;
+  const key = normalizeTrackKey(trackId);
+  return key ? BUILTIN_AUDIO_URLS[key] || null : null;
+}
+
+/** Resolve builtin track details for upload/viewer metadata. */
+export function getStoryBuiltinLibraryTrack(trackId) {
+  const key = normalizeTrackKey(trackId);
+  return key ? BUILTIN_AUDIO_META[key] || null : null;
 }
 
 function getExtFromPathLike(value) {
@@ -63,7 +101,7 @@ function resolveAudioSource(clip) {
     ) {
       return audio;
     }
-    return BUILTIN_AUDIO_URLS[audio] || null;
+    return getStoryBuiltinLibraryUrl(audio);
   }
 
   if (typeof audio === 'object') {

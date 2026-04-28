@@ -108,7 +108,25 @@ const FOLLOWERS_RANGE_BY_PERIOD = {
   Daily: 'daily',
   Weekly: 'weekly',
 };
+const HexStarIcon = ({ size = 36, starSize = 16, starColor = '#ffffff', bgColor = '#5a2d82' }) => {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2;
 
+  const points = Array.from({ length: 6 }, (_, i) => {
+    const angle = (Math.PI / 180) * (60 * i - 30);
+    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
+  }).join(' ');
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Polygon points={points} fill={bgColor} />
+      </Svg>
+      <Ionicons name="star" size={starSize} color={starColor} style={{ zIndex: 1 }} />
+    </View>
+  );
+};
 /** Map `user/followers-graph` response into LineChart points `{ timestamp, value }`. */
 const mapFollowersGraphResponse = (response) => {
   const root = response?.data?.data ?? response?.data ?? response;
@@ -1000,26 +1018,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     //   setPendingFollowUserId(null);
     // }
   }
-  const HexStarIcon = ({ size = 36, starSize = 16, starColor = '#ffffff', bgColor = {text} }) => {
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size / 2;
-
-  // Generate 6 hexagon points (flat-top orientation)
-  const points = Array.from({ length: 6 }, (_, i) => {
-    const angle = (Math.PI / 180) * (60 * i - 30);
-    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
-  }).join(' ');
-
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Polygon points={points} fill={bgColor} />
-      </Svg>
-      <Ionicons name="star" size={starSize} color={starColor} style={{ zIndex: 1 }} />
-    </View>
-  );
-};
 
   const handleTokenSell = useCallback(() => {
     // sellSheetRef.current?.close();
@@ -1354,8 +1352,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.pointsFourColRow}>
               <View style={styles.pointsMainCol}>
                 <View style={styles.pointsMainIconWrap}>
-                  {/* <Ionicons name="star" size={18} color="#ffffff" /> */}
-                <HexStarIcon size={34} starSize={16} starColor="#ffffff" bgColor={text} />
+                  {/* <Ionicons name="star" size={10} color="#ffffff" /> */}
+                  <HexStarIcon size={34} starSize={14} starColor="#ffffff" bgColor={text} />
                 </View>
                 <View style={styles.pointsMainText}>
                   <Text style={[styles.pointsMainLabel, { color: text }]} numberOfLines={2}>
@@ -1991,9 +1989,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   pointsMainIconWrap: {
-    // width: 25,
-    // height: 25,
-    // borderRadius: 12,
+    // width: 20,
+    // height: 20,
+    // borderRadius: 10,
     // backgroundColor: '#5a2d82',
     // alignItems: 'center',
     // justifyContent: 'center',
@@ -2010,14 +2008,16 @@ const styles = StyleSheet.create({
   },
   pointsMainValue: {
     fontSize: 18,
-    fontWeight: '900',
-    // marginTop: 2,
+    fontWeight: '700',
+    marginTop: 2,
   },
   pointsCol: {
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft:4,
+    paddingLeft:4,
   },
   pointsColValue: {
     marginTop: 6,

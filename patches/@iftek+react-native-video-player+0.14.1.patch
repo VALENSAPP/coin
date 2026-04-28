@@ -1,0 +1,118 @@
+diff --git a/node_modules/@iftek/react-native-video-player/index.js b/node_modules/@iftek/react-native-video-player/index.js
+index 0000000..0000000 100644
+--- a/node_modules/@iftek/react-native-video-player/index.js
++++ b/node_modules/@iftek/react-native-video-player/index.js
+@@ -135,6 +135,7 @@
+       isControlsVisible: false,
+       duration: 0,
+       isSeeking: false,
++      showPoster: !!props.thumbnail,
+     };
+
+     this.seekBarWidth = 200;
+@@ -156,6 +157,7 @@
+     this.onSeekRelease = this.onSeekRelease.bind(this);
+     this.onSeek = this.onSeek.bind(this);
+     this.onSeekEvent = this.onSeekEvent.bind(this);
++    this.onReadyForDisplay = this.onReadyForDisplay.bind(this);
+   }
+
+   componentDidMount() {
+@@ -248,6 +250,13 @@
+
+     const { duration } = event;
+     this.setState({ duration });
++  }
++
++  onReadyForDisplay(event) {
++    this.setState({ showPoster: false });
++    if (this.props.onReadyForDisplay) {
++      this.props.onReadyForDisplay(event);
++    }
+   }
+
+   onPlayPress() {
+@@ -432,10 +441,26 @@
+         source={thumbnail}
+       >
+         {this.renderStartButton()}
+-      </BackgroundImage>
++        </BackgroundImage>
+     );
+   }
+
++  renderPoster(thumbnail) {
++    const { style, customStyles, ...props } = this.props;
++    return (
++      <BackgroundImage
++        {...props}
++        style={[
++          styles.thumbnail,
++          this.getSizeStyles(),
++          style,
++          customStyles.thumbnail,
++        ]}
++        source={thumbnail}
++      />
++    );
++  }
++
+   renderSeekBar(fullWidth) {
+     const { customStyles, disableSeek } = this.props;
+     return (
+@@ -533,10 +558,12 @@
+       pauseOnPress,
+       fullScreenOnLongPress,
+       customStyles,
++      onReadyForDisplay,
+       ...props
+     } = this.props;
+     return (
+       <View style={customStyles.videoWrapper}>
++        {this.state.showPoster && this.props.thumbnail ? this.renderPoster(this.props.thumbnail) : null}
+         <Video
+           {...props}
+           style={[
+@@ -553,6 +580,7 @@
+           onProgress={this.onProgress}
+           onEnd={this.onEnd}
+           onLoad={this.onLoad}
++          onReadyForDisplay={this.onReadyForDisplay}
+           source={video}
+           resizeMode={resizeMode}
+           onSeek={this.onSeekEvent}
+@@ -611,7 +639,7 @@
+ }
+
+ VideoPlayer.propTypes = {
+-  video: Video.propTypes.source,
++  video: PropTypes.any,
+   thumbnail: ImagePropTypes.source,
+   endThumbnail: ImagePropTypes.source,
+   videoWidth: PropTypes.number,
+@@ -626,7 +654,7 @@
+   disableControlsAutoHide: PropTypes.bool,
+   disableFullscreen: PropTypes.bool,
+   loop: PropTypes.bool,
+-  resizeMode: Video.propTypes.resizeMode,
++  resizeMode: PropTypes.string,
+   hideControlsOnStart: PropTypes.bool,
+   endWithThumbnail: PropTypes.bool,
+   disableSeek: PropTypes.bool,
+@@ -634,7 +662,7 @@
+   fullScreenOnLongPress: PropTypes.bool,
+   customStyles: PropTypes.shape({
+     wrapper: ViewPropTypesVar.style,
+-    video: Video.propTypes.style,
++    video: ViewPropTypesVar.style,
+     videoWrapper: ViewPropTypesVar.style,
+     controls: ViewPropTypesVar.style,
+     playControl: ViewPropTypesVar.style,
+@@ -655,6 +683,7 @@
+   onEnd: PropTypes.func,
+   onProgress: PropTypes.func,
+   onLoad: PropTypes.func,
++  onReadyForDisplay: PropTypes.func,
+   onStart: PropTypes.func,
+   onPlayPress: PropTypes.func,
+   onHideControls: PropTypes.func,
