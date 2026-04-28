@@ -552,12 +552,21 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
-    if (navigation.canGoBack()) { navigation.goBack(); return; }
     const returnTo = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
-    if (returnTo) navigation.navigate(returnTo, returnParams);
-    else navigation.navigate('HomeMain');
+
+    if (returnTo) {
+      navigation.navigate(returnTo, returnParams);
+      return;
+    }
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('HomeMain');
+    }
   }, [navigation, route.params]);
+
 
   const onViewableItemsChanged = useRef(({ viewableItems }) => { }).current;
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 95 });

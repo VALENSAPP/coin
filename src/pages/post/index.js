@@ -185,9 +185,12 @@ export default function PostScreen({ navigation }) {
         const filteredNewAssets = newAssets.filter(
           (newAsset) => !currentSelection.some((existing) => existing.uri === newAsset.uri)
         );
-        const totalSelection = [...currentSelection, ...filteredNewAssets];
 
-        if (totalSelection.length > 10) {
+        // Flip: only one video allowed; picking again replaces old selection
+        const totalSelection =
+          postType === 'flip' ? filteredNewAssets.slice(0, 1) : [...currentSelection, ...filteredNewAssets];
+
+        if (postType !== 'flip' && totalSelection.length > 10) {
           setSelectedMedia(totalSelection.slice(0, 10));
           Alert.alert('Selection Limit', 'Only first 10 items were selected due to limit.');
         } else {
@@ -195,22 +198,23 @@ export default function PostScreen({ navigation }) {
         }
 
         // ✅ Update gallery
-        const sampleImages = [
-          ...newAssets,
-          ...Array.from({ length: 8 }, (_, i) => ({
-            ...newAssets[0],
-            uri: `${newAssets[0].uri}_sample_${i}`,
-            fileName: `sample_${i}.jpg`,
-          })),
-        ];
+        const updatedGalleryImages =
+          postType === 'flip'
+            ? mergeGalleryImages(newAssets, galleryImages, totalSelection)
+            : mergeGalleryImages(
+              [
+                ...newAssets,
+                ...Array.from({ length: 8 }, (_, i) => ({
+                  ...newAssets[0],
+                  uri: `${newAssets[0].uri}_sample_${i}`,
+                  fileName: `sample_${i}.jpg`,
+                })),
+              ],
+              galleryImages,
+              totalSelection.length <= 10 ? totalSelection : totalSelection.slice(0, 10)
+            );
 
-        const updatedGalleryImages = mergeGalleryImages(
-          sampleImages,
-          galleryImages,
-          totalSelection.length <= 10 ? totalSelection : totalSelection.slice(0, 10)
-        );
-
-        setGalleryImages(updatedGalleryImages);
+        setGalleryImages(updatedGalleryImages); 
         dispatch(hideLoader());
       })
       .catch((error) => {
@@ -331,9 +335,9 @@ export default function PostScreen({ navigation }) {
 
         // ✅ Handle selection logic
         const currentSelection = selectedMedia || [];
-        const totalSelection = [...currentSelection, newAsset];
+        const totalSelection = postType === 'flip' ? [newAsset] : [...currentSelection, newAsset];
 
-        if (totalSelection.length > 10) {
+        if (postType !== 'flip' && totalSelection.length > 10) {
           dispatch(hideLoader());
           Alert.alert('Selection Limit', 'Cannot add more items. Maximum limit is 10.');
           return;
@@ -341,8 +345,11 @@ export default function PostScreen({ navigation }) {
 
         setSelectedMedia(totalSelection);
 
-        // ✅ Sample images for preview UI (optional)
-        if (galleryImages.length === 0) {
+        // ✅ Gallery preview: do not add fake samples for Flip
+        if (postType === 'flip') {
+          const updatedGalleryImages = mergeGalleryImages([newAsset], galleryImages, totalSelection);
+          setGalleryImages(updatedGalleryImages);
+        } else if (galleryImages.length === 0) {
           const sampleRecentImages = [
             newAsset,
             ...Array.from({ length: 8 }, (_, i) => ({
@@ -375,7 +382,7 @@ export default function PostScreen({ navigation }) {
       // Coming from any other screen - reset everything and show modal
       setSelectedMedia([]);
       setGalleryImages([]);
-       setShared(false)
+      setShared(false)
 
       if (isPrivateEntry) {
         setPostType('private');
@@ -414,6 +421,21 @@ export default function PostScreen({ navigation }) {
   }, [selectedMedia]); // ✅ only reruns when selectedMedia changes
 
   const handleImageSelect = (asset) => {
+    const isFlip = postType === 'flip';
+
+    if (isFlip) {
+      // ✅ Only one item allowed
+      const newMedia = {
+        uri: asset.uri,
+        type: asset.type,
+        fileName: asset.fileName,
+        duration: asset.duration,
+        isCropped: false,
+      };
+
+      setSelectedMedia([newMedia]); // 🔥 replace previous
+      return;
+    }
     const currentSelection = selectedMedia || [];
     const isSelected = currentSelection.some(media => media.uri === asset.uri);
 
@@ -509,7 +531,7 @@ export default function PostScreen({ navigation }) {
                 <View style={styles.selectedVideoItem}>
                   <Video
                     source={{ uri: media.uri }}
-                    style={styles.selectedGridImageHorizontal}
+                    style={[styles.selectedGridImageHorizontal,{height:postType ==='flip'? screenHeight * 0.9:screenHeight * 0.5}]}
                     paused={true}
                     muted={true}
                     repeat={false}
@@ -575,7 +597,7 @@ export default function PostScreen({ navigation }) {
 
   const renderMainContent = () => (
     <>
-      {selectedMedia && selectedMedia.length > 0 && (
+      {selectedMedia && selectedMedia.length > 0 && postType !== 'flip' &&(
         <View style={[styles.selectionCounter, { shadowColor: text }]}>
           <Text style={[styles.selectionCounterText, textStyle]}>
             {selectedMedia.length} item{selectedMedia.length > 1 ? 's' : ''} selected
@@ -587,7 +609,7 @@ export default function PostScreen({ navigation }) {
       {renderSelectedMediaGrid()}
 
       {selectedMedia && selectedMedia.length < 10 && (
-        <View style={styles.addMoreSection}>
+        <View style={[styles.addMoreSection,{ marginTop: postType ==='flip'? '10%': 0 }]}>
           <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text, marginTop: 10 }]} onPress={openGallery}>
             <Icon name="images" size={24} color={text} />
             <Text style={[styles.addMoreText, textStyle]}>
@@ -637,7 +659,7 @@ export default function PostScreen({ navigation }) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {galleryImages.length === 0 ? renderInitialGalleryPrompt() : renderMainContent()}
       </ScrollView>
-        <PostTypeModal
+      <PostTypeModal
         visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
         setShowTypeModal={setShowTypeModal}
         onClose={() => { setShowTypeModal(false); navigation.navigate('HomeMain'); }}

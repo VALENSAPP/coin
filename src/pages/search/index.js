@@ -740,7 +740,7 @@ const SearchScreen = () => {
     if (isVideo) {
       navigation.navigate('ProfileMain', {
         screen: 'FlipsScreen',
-        params: { item, key: uniqueKey, returnTo: route.name, returnParams: route.params },
+        params: { item, key: uniqueKey, returnTo: route?.name, returnParams: route.params },
       });
     } else {
       navigation.navigate('ProfileMain', {
