@@ -2428,7 +2428,7 @@ const InstagramPostCreator = () => {
           }
         }}
       >
-        {isFlipPost && selectedImages.length > 0 && (
+        {/* {isFlipPost && selectedImages.length > 0 && (
           <View style={styles.flipHeaderOverlay} pointerEvents="box-none">
             <View style={styles.flipHeaderRow}>
               <HexAvatar
@@ -2449,7 +2449,7 @@ const InstagramPostCreator = () => {
               <Text style={styles.flipSwipeHintText}>Swipe up to edit</Text>
             </View>
           </View>
-        )}
+        )} */}
         {selectedImages.length > 0 ? (
           <>
             <View

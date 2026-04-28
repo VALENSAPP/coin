@@ -6,17 +6,20 @@ import {
   View,
   Alert,
   Modal,
+  Pressable,
   Platform,
   PermissionsAndroid,
   Linking,
   ActivityIndicator,
   Animated,
-  Easing
+  Easing,
+  Dimensions,
 } from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
+import ImageZoom from 'react-native-image-pan-zoom';
 import {
   useFocusEffect,
   useNavigation,
@@ -70,6 +73,8 @@ import HexAvatar from '../home/story.js/HexAvatar';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const PROFILE_IMAGE_PREVIEW_SIZE = Math.min(SCREEN_WIDTH * 0.9, 340);
 
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return GoldLavenderDragonfly;
@@ -1564,50 +1569,50 @@ const ProfilePersonData = ({
       />
     
       {/* Profile Image Viewer Modal */}
-      <Modal
-        visible={imageViewerVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setImageViewerVisible(false)}
-      >
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          activeOpacity={1}
-          onPress={() => setImageViewerVisible(false)}>
-          {/* <TouchableOpacity
+        <Modal
+          visible={imageViewerVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setImageViewerVisible(false)}
+        >
+          <Pressable
+            style={styles.profileImagePreviewOverlay}
             onPress={() => setImageViewerVisible(false)}
-            style={{
-              marginTop: 20,
-            }}
           >
-              <Ionicons
-                    name="arrow-back-outline"
-                    size={22}
-                    color="#fff"
-                    style={{ marginRight: 4 }}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setImageViewerVisible(false)}
+              style={styles.profileImagePreviewCloseBtn}
+            >
+              <Ionicons name="close" size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Pressable
+              style={styles.profileImagePreviewZoomHost}
+              onPress={(e) => e?.stopPropagation?.()}
+            >
+              <ImageZoom
+                cropWidth={SCREEN_WIDTH}
+                cropHeight={SCREEN_HEIGHT}
+                imageWidth={PROFILE_IMAGE_PREVIEW_SIZE}
+                imageHeight={PROFILE_IMAGE_PREVIEW_SIZE}
+                enableCenterFocus
+              >
+                <View style={styles.profileImagePreviewHexWrap}>
+                  <HexAvatar
+                    uri={avatarUri}
+                    size={PROFILE_IMAGE_PREVIEW_SIZE}
+                    borderWidth={2}
+                    borderColor={text}
                   />
-            {/* <Text style={{ fontWeight: '600', fontSize: 15, color: '#111' }}>Close</Text> */}
-          {/* </TouchableOpacity>  */}
-
-          <TouchableOpacity activeOpacity={1}>
-            <HexAvatar
-              uri={avatarUri}
-              size={300}
-              borderWidth={2}
-              borderColor={text}
-            />
-          </TouchableOpacity>
-
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-};
+                </View>
+              </ImageZoom>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </View>
+    );
+  };
 
 export default ProfilePersonData;
 
@@ -1902,5 +1907,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  profileImagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+  },
+  profileImagePreviewCloseBtn: {
+    position: 'absolute',
+    top: 44,
+    right: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    zIndex: 10,
+  },
+  profileImagePreviewZoomHost: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileImagePreviewHexWrap: {
+    width: PROFILE_IMAGE_PREVIEW_SIZE,
+    height: PROFILE_IMAGE_PREVIEW_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

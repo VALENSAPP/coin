@@ -1513,6 +1513,8 @@ function PostItem({
               snapToInterval={width}
               snapToAlignment="start"
               disableIntervalMomentum={true}
+              directionalLockEnabled
+              nestedScrollEnabled
               getItemLayout={(_, index) => ({
                 length: width,
                 offset: width * index,
