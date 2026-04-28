@@ -1432,7 +1432,19 @@ const StoryViewer = ({
         {...panResponder.panHandlers}
       >
         {/* Progress bars */}
-        <View style={modalStyles.progressContainer}>
+        <View
+          style={[
+            modalStyles.progressContainer,
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              paddingTop: Math.max(insets.top, 6) + 6,
+              zIndex: 100,
+            },
+          ]}
+        >
           {currentUser.stories.map((_, idx) => (
             <View key={idx} style={modalStyles.progressBarBg}>
               <Animated.View
@@ -1457,7 +1469,16 @@ const StoryViewer = ({
 
         {/* Top bar */}
         <View
-          style={[modalStyles.topBar, { zIndex: 100 }]}
+          style={[
+            modalStyles.topBar,
+            {
+              position: 'absolute',
+              top: Math.max(insets.top, 6) + 18,
+              left: 0,
+              right: 0,
+              zIndex: 100,
+            },
+          ]}
           onStartShouldSetResponder={() => true}        // ← consume touch here
           onTouchStart={(e) => e.stopPropagation()}
         >
@@ -1517,7 +1538,6 @@ const StoryViewer = ({
         <View
           style={[
             modalStyles.storyContent,
-            isViewingOwnStory && modalStyles.storyContentOwn,
           ]}
         >
           {currentStory.type === 'image' ? (

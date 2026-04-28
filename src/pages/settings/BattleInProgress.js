@@ -960,6 +960,30 @@ export default function BattleInProgress() {
     }, 120);
   }, []);
 
+  const handleOpenCommentAuthorProfile = useCallback(
+    userId => {
+      const targetUserId = String(userId || '').trim();
+      if (!targetUserId) {
+        return;
+      }
+
+      if (targetUserId === String(currentUserId || '')) {
+        navigation.navigate('ProfileMain', { screen: 'Profile' });
+        return;
+      }
+
+      const currentRoute = route?.name || 'BattleInProgress';
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: targetUserId,
+          returnTo: currentRoute,
+        },
+      });
+    },
+    [currentUserId, navigation, route?.name],
+  );
+
   const toggleReplies = useCallback(commentId => {
     setExpandedReplies(prev => ({
       ...prev,
@@ -1225,41 +1249,47 @@ export default function BattleInProgress() {
     >
       <View style={styles.commentHeader}>
         <View style={styles.commentAuthorRow}>
-          {reply.avatar ? (
-            <Image
-              source={{ uri: reply.avatar }}
-              style={styles.commentAvatar}
-            />
-          ) : (
-            <View
-              style={[
-                styles.commentAvatar,
-                styles.commentAvatarFallback,
-              ]}
-            >
-              <Ionicons
-                name="person-outline"
-                size={16}
-                color="#FFFFFF"
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.commentAuthorIdentity}
+            onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
+          >
+            {reply.avatar ? (
+              <Image
+                source={{ uri: reply.avatar }}
+                style={styles.commentAvatar}
               />
-            </View>
-          )}
-          <View style={styles.commentAuthorTextWrap}>
-            <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
-              <Text
-                style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
+            ) : (
+              <View
+                style={[
+                  styles.commentAvatar,
+                  styles.commentAvatarFallback,
+                ]}
               >
-                {reply.authorName}
-              </Text>
-            </View>
-            {!!reply.authorHandle && (
-              <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
-                @{reply.authorHandle}
-              </Text>
+                <Ionicons
+                  name="person-outline"
+                  size={16}
+                  color="#FFFFFF"
+                />
+              </View>
             )}
-          </View>
+            <View style={styles.commentAuthorTextWrap}>
+              <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+                <Text
+                  style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {reply.authorName}
+                </Text>
+              </View>
+              {!!reply.authorHandle && (
+                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
+                  @{reply.authorHandle}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.replyTrigger}
             onPress={() => handleOpenReply(reply)}
@@ -1386,6 +1416,11 @@ export default function BattleInProgress() {
       >
         <View style={styles.commentHeader}>
           <View style={styles.commentAuthorRow}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.commentAuthorIdentity}
+            onPress={() => handleOpenCommentAuthorProfile(comment.userId)}
+          >
             {comment.avatar ? (
               <Image
                 source={{ uri: comment.avatar }}
@@ -1434,6 +1469,7 @@ export default function BattleInProgress() {
                 </Text>
               )}
             </View>
+          </TouchableOpacity>
             <TouchableOpacity
               style={styles.replyTrigger}
               onPress={() => handleOpenReply(comment)}
@@ -2730,6 +2766,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     marginRight: 10,
+  },
+  commentAuthorIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   commentAvatar: {
     width: 34,

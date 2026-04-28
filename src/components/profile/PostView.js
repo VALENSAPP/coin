@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -83,10 +84,12 @@ export default function PostView({ postData = [], userData = {} }) {
 
   const toast = useToast();
   const dispatch = useDispatch();
+  const { height: windowHeight } = useWindowDimensions();
   const commentSheetRef = useRef();
   const flatListRef = useRef();
   const playingDebounceRef = useRef(null);
   const pendingInitialScrollRef = useRef(false);
+  const [listViewportHeight, setListViewportHeight] = useState(0);
   const { bgStyle } = useAppTheme();
 
   useEffect(() => {
@@ -123,7 +126,7 @@ export default function PostView({ postData = [], userData = {} }) {
 
         try {
           const response = await getPostById(postId);
-          if (response?.statusCode === 200 ) {
+          if (response?.statusCode === 200) {
             // Update the list with fresh data from API
             setList([response.data]);
 
@@ -540,7 +543,7 @@ export default function PostView({ postData = [], userData = {} }) {
           ? await apiUnhidePost(postId)
           : await apiHidePost(postId);
         const ok = resp?.statusCode === 200 && (resp?.success ?? true);
-        console.log(ok,resp,'ok respose in this ')
+        console.log(ok, resp, 'ok respose in this ')
         if (!ok) {
           setHiddenById(prev => ({ ...prev, [postId]: isHidden }));
           showToastMessage(
@@ -550,7 +553,7 @@ export default function PostView({ postData = [], userData = {} }) {
             resp?.message ||
             `Failed to ${isHidden ? 'unhide' : 'hide'} post`,
           );
-          console.log(ok,resp,'hide post here chcek the data ')
+          console.log(ok, resp, 'hide post here chcek the data ')
         } else {
           showToastMessage(
             toast,
@@ -887,7 +890,12 @@ export default function PostView({ postData = [], userData = {} }) {
       };
       const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
       return (
-        <View>
+        <View
+          style={[
+            styles.feedItemPage,
+            listViewportHeight > 0 && { minHeight: listViewportHeight },
+          ]}
+        >
           <PostItem
             item={mapped}
             liked={!!liked[item.id]}
@@ -928,6 +936,7 @@ export default function PostView({ postData = [], userData = {} }) {
       currentlyVisiblePostId,
       screenFocused,
       playingPostId,
+      listViewportHeight,
     ],
   );
 
@@ -992,7 +1001,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const viewabilityConfigRef = useRef({
     itemVisiblePercentThreshold: 60,
     minimumViewTime: 250,
-    waitForInteraction: true,
+    waitForInteraction: false,
   });
   const viewabilityConfig = viewabilityConfigRef.current;
 
@@ -1024,6 +1033,12 @@ export default function PostView({ postData = [], userData = {} }) {
           keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
           renderItem={renderFeedItem}
           contentContainerStyle={styles.feedContainer}
+          onLayout={event => {
+            const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
+            if (nextHeight > 0 && nextHeight !== listViewportHeight) {
+              setListViewportHeight(nextHeight);
+            }
+          }}
           showsVerticalScrollIndicator={false}
           initialScrollIndex={visiblePosts.length > 0 ? getInitialScrollIndex() : undefined}
           onContentSizeChange={handleContentSizeChange}
@@ -1034,6 +1049,12 @@ export default function PostView({ postData = [], userData = {} }) {
           removeClippedSubviews={true}
           maxToRenderPerBatch={3}
           windowSize={5}
+          pagingEnabled
+          snapToAlignment="start"
+          snapToInterval={listViewportHeight > 0 ? listViewportHeight : windowHeight}
+          decelerationRate="fast"
+          disableIntervalMomentum
+          nestedScrollEnabled
         />
       </SafeAreaView>
 
@@ -1093,6 +1114,9 @@ const styles = StyleSheet.create({
   },
   feedContainer: {
     paddingBottom: 20,
+  },
+  feedItemPage: {
+    justifyContent: 'flex-start',
   },
   headerSection: {
     height: 60,

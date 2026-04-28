@@ -68,7 +68,7 @@ const REEL_ZOOM_SPRING = { damping: 20, stiffness: 260, mass: 0.4, overshootClam
 /** Must match `progressHitArea` horizontal padding so scrub math matches the visible track (0 = edge-to-edge) */
 const FLIPS_PROGRESS_H_PADDING = 0;
 /** Flush under status bar */
-const FLIPS_PROGRESS_TOP_GAP = 0;
+const FLIPS_PROGRESS_TOP_GAP = 20;
 const FLIPS_PROGRESS_STRIP_HEIGHT = 28;
 /** Space between progress strip and Flips header row */
 const FLIPS_HEADER_AFTER_PROGRESS = 8;
@@ -1154,7 +1154,7 @@ export default function FlipsScreen() {
           bounces={false}
           scrollEnabled={reels.length > 0 && !isScrubbing && !pinchScrollLock}
           removeClippedSubviews={false}
-          nestedScrollEnabled
+          nestedScrollEnabled={false}
           extraData={{ viewportHeight, videoProgress, playbackRate, paused, currentIndex, pinchScrollLock }}
         />
 
@@ -1283,13 +1283,13 @@ export default function FlipsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingBottom: SCREEN_HEIGHT > 800 && 25, backgroundColor: '#f8f2fc' },
+  container: { flex: 1, bottom: SCREEN_HEIGHT > 800 && 25, backgroundColor: '#f8f2fc' },
   reelContainer: {
     width: '100%',
     height: '100%',
     backgroundColor: '#000',
     position: 'relative',
-    top: Platform.OS === 'android' && 40,
+    top: 0,
     overflow: 'visible',
   },
   progressHitArea: {
