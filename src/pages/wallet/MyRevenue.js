@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         position: 'relative',
         overflow: 'hidden',
-        minHeight: 150,
+        minHeight: 180,
     },
     revenueContent: {
         flex: 1,
