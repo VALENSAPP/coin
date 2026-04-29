@@ -177,32 +177,36 @@ const ModeBadge = ({ format, ended, isLive }) => (
 const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressIn }) => {
     if (isEmpty) {
         return (
-            <View style={styles.participant}>
-                <View style={styles.emptySlot}>
-                    <Icon name="person-add-outline" size={15} color="#A78BFA" />
+            <View style={styles.participantSlot}>
+                <View style={styles.participantContent}>
+                    <View style={styles.emptySlot}>
+                        <Icon name="person-add-outline" size={15} color="#A78BFA" />
+                    </View>
+                    <Text style={styles.waitingLabel}>Waiting...</Text>
+                    <Text style={styles.waitingSub}>Open slot</Text>
                 </View>
-                <Text style={styles.waitingLabel}>Waiting...</Text>
-                <Text style={styles.waitingSub}>Open slot</Text>
             </View>
         );
     }
     return (
-        <TouchableOpacity
-            style={styles.participant}
-            activeOpacity={0.75}
-            onPress={onPress}
-            onPressIn={onPressIn}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-            <HexAvatar
-                uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR}
-                size={40}
-                borderWidth={2}
-                borderColor="#7F77DD"
-            />
-            <Text style={styles.participantName} numberOfLines={1}>{name}</Text>
-            {!!handle && <Text style={styles.participantHandle} numberOfLines={1}>@{handle}</Text>}
-        </TouchableOpacity>
+        <View style={styles.participantSlot}>
+            <TouchableOpacity
+                style={styles.participantContent}
+                activeOpacity={0.75}
+                onPress={onPress}
+                onPressIn={onPressIn}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+                <HexAvatar
+                    uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR}
+                    size={40}
+                    borderWidth={2}
+                    borderColor="#7F77DD"
+                />
+                <Text style={styles.participantName} numberOfLines={1}>{name}</Text>
+                {!!handle && <Text style={styles.participantHandle} numberOfLines={1}>@{handle}</Text>}
+            </TouchableOpacity>
+        </View>
     );
 };
 
@@ -282,6 +286,12 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         onCardPress(item);
     }, [item, onCardPress]);
 
+    const handleUserPress = useCallback((user, event) => {
+        event?.stopPropagation?.();
+        suppressNextCardPress();
+        onUserPress?.(user);
+    }, [onUserPress, suppressNextCardPress]);
+
     useEffect(() => () => {
         if (suppressCardPressRef.current.timer) clearTimeout(suppressCardPressRef.current.timer);
     }, []);
@@ -319,10 +329,10 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             style={styles.pollCreatorRow}
                             activeOpacity={0.75}
                             onPressIn={suppressNextCardPress}
-                            onPress={() => onUserPress?.(item.creator)}
+                            onPress={event => handleUserPress(item.creator, event)}
                         >
                             <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
-                            <View style={{ marginLeft: 6, flex: 1 }}>
+                            <View style={styles.pollCreatorTextWrap}>
                                 <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                 <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
                             </View>
@@ -330,7 +340,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                     ) : (
                         <View style={styles.pollCreatorRow}>
                             <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
-                            <View style={{ marginLeft: 6, flex: 1 }}>
+                            <View style={styles.pollCreatorTextWrap}>
                                 <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                 <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
                             </View>
@@ -399,7 +409,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                     handle={item.user1.userName}
                     isEmpty={false}
                     onPressIn={suppressNextCardPress}
-                    onPress={() => onUserPress?.({ id: item.creator?.id, userName: item.user1.userName, image: item.user1.avatar, displayName: item.user1.name })}
+                    onPress={event => handleUserPress({ id: item.creator?.id, userName: item.user1.userName, image: item.user1.avatar, displayName: item.user1.name }, event)}
                 />
                 <Text style={styles.vsIcon}>⚔️</Text>
                 {item.opponent ? (
@@ -409,7 +419,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         handle={item.opponent.userName}
                         isEmpty={false}
                         onPressIn={suppressNextCardPress}
-                        onPress={() => onUserPress?.({ id: item.opponent?.id, userName: item.opponent.userName, image: item.opponent.avatar, displayName: item.user2.name })}
+                        onPress={event => handleUserPress({ id: item.opponent?.id, userName: item.opponent.userName, image: item.opponent.avatar, displayName: item.user2.name }, event)}
                     />
                 ) : (
                     <ParticipantAvatar
@@ -418,7 +428,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         handle={item.user2?.userName}
                         isEmpty={soloOpponent}
                         onPressIn={soloOpponent ? undefined : suppressNextCardPress}
-                        onPress={soloOpponent ? undefined : () => onUserPress?.({ id: item.user2?.id, userName: item.user2?.userName, image: item.user2?.avatar, displayName: item.user2?.name })}
+                        onPress={soloOpponent ? undefined : event => handleUserPress({ id: item.user2?.id, userName: item.user2?.userName, image: item.user2?.avatar, displayName: item.user2?.name }, event)}
                     />
                 )}
             </View>
@@ -702,7 +712,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between', marginBottom: 8, gap: 6,
     },
-    participant: { flex: 1, alignItems: 'center', gap: 2 },
+    participantSlot: { flex: 1, alignItems: 'center', minWidth: 0 },
+    participantContent: { alignItems: 'center', gap: 2, maxWidth: 72 },
     participantName: { fontSize: 11, fontWeight: '500', color: TEXT, textAlign: 'center', maxWidth: 64 },
     participantHandle: { fontSize: 10, color: GRAY_MID, textAlign: 'center' },
     vsIcon: { fontSize: 16, flexShrink: 0 },
@@ -761,7 +772,8 @@ const styles = StyleSheet.create({
     acceptBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 
     // Poll creator
-    pollCreatorRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    pollCreatorRow: { flexDirection: 'row', alignItems: 'center', maxWidth: '58%', marginRight: 8 },
+    pollCreatorTextWrap: { marginLeft: 6, flexShrink: 1, minWidth: 0 },
     pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT },
     pollCreatorHandle: { fontSize: 10, color: GRAY_MID },
 

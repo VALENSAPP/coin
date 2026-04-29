@@ -1,4 +1,4 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,7 +14,6 @@ import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
-import { notificationListener, requestUserPermission } from './services/NotificationService';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
 import { initializeSocket } from './services/socket';
@@ -62,7 +61,17 @@ export default function Main() {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigationRef = useRef(null);
+  const pendingNotificationNavigation = useRef(false);
+  const isNavigationReadyRef = useRef(false);
+  const isLoggedInRef = useRef(false);
+  const isLoadingRef = useRef(true);
   const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    isNavigationReadyRef.current = isNavigationReady;
+    isLoggedInRef.current = isLoggedIn;
+    isLoadingRef.current = isLoading;
+  }, [isLoading, isLoggedIn, isNavigationReady]);
 
   useEffect(() => {
     const setup = async () => {
@@ -77,10 +86,31 @@ export default function Main() {
     setup();
   }, []);
 
-  useEffect(() => {
-    // requestUserPermission();
-    notificationListener();
+  const navigateToHeartNotification = React.useCallback(() => {
+    if (
+      !navigationRef.current ||
+      !isNavigationReadyRef.current ||
+      !isLoggedInRef.current ||
+      isLoadingRef.current
+    ) {
+      pendingNotificationNavigation.current = true;
+      return;
+    }
+
+    pendingNotificationNavigation.current = false;
+    navigationRef.current.navigate('MainApp', {
+      screen: 'HomeMain',
+      params: {
+        screen: 'HeartNotification',
+      },
+    });
   }, []);
+
+  useEffect(() => {
+    if (pendingNotificationNavigation.current) {
+      navigateToHeartNotification();
+    }
+  }, [isLoading, isLoggedIn, isNavigationReady, navigateToHeartNotification]);
 
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
     try {
@@ -423,6 +453,8 @@ export default function Main() {
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
+    // Existing startup effect intentionally runs from this dependency set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
 
   const fetchRefreshToken = async () => {
@@ -452,8 +484,10 @@ export default function Main() {
 
     messaging().onNotificationOpenedApp(remoteMessage => {
       console.log("onNotificationOpenedApp data------------------------", remoteMessage)
-      setMessage(remoteMessage.notification.body);
-      setModalVisible(true);
+      setMessage(remoteMessage?.notification?.body || '');
+      navigateToHeartNotification();
+      // setModalVisible(true);
+
     });
 
     messaging()
@@ -461,14 +495,16 @@ export default function Main() {
       .then(remoteMessage => {
         if (remoteMessage) {
           console.log("getInitialNotification data------------------------", remoteMessage)
-          setMessage(remoteMessage.notification.body);
-          setModalVisible(true);
+          setMessage(remoteMessage?.notification?.body || '');
+          navigateToHeartNotification();
+          // setModalVisible(true);
         }
       });
   }
 
   const handleNavigationReady = () => {
     console.log('Navigation is ready');
+    isNavigationReadyRef.current = true;
     setIsNavigationReady(true);
   };
 

@@ -1343,7 +1343,7 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 11, fontWeight: '700', color: '#e84040', letterSpacing: 0.4 },
   timerPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(107,95,166,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
   timerPillText: { fontSize: 11, fontWeight: '600', color: "#fff" },
-  heroTitle: { color: "#fff", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4 },
+  heroTitle: { color: "#fff", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
   heroDescription: { color: "#fff", fontSize: 13, lineHeight: 19, marginBottom: 8 },
   heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   heroInfoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(107,95,166,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
