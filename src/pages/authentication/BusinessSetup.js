@@ -34,6 +34,9 @@ import { pick } from '@react-native-documents/picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 import CountryPicker, { getAllCountries } from 'react-native-country-picker-modal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loggedIn } from '../../redux/actions/LoginAction';
+import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 
 const { height } = Dimensions.get('window');
 
@@ -144,13 +147,14 @@ const BusinessProfileForm = () => {
     handleChange('phone', localDigits ? `+${nextDialCodeDigits}${localDigits}` : `+${nextDialCodeDigits}`);
   };
 
-  const proceedToKyc = () => {
-    navigation.navigate('kycverify', {
-      profileData,
-      serverProfile,
-      businessProfile: form,
-      profile: profileFromRoute,
-    });
+  const proceedToKyc = async() => {
+    await AsyncStorage.setItem('isLoggedIn', 'true');
+    dispatch(loggedIn());
+    dispatch(setIsAddAccount(false));
+    if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+    }
   };
 
   const isAlreadyCreatedResponse = response => {

@@ -1333,7 +1333,7 @@ const styles = StyleSheet.create({
   heroCard: {
     borderRadius: 16,
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 4,
     marginBottom: 12,
     overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
   },
@@ -1351,7 +1351,7 @@ const styles = StyleSheet.create({
   heroMetaRight: { alignItems: 'flex-end' },
 
   // Duel
-  duelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  duelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, paddingLeft: 5, paddingRight: 15 },
   duelVsWrapOverlay: {
   position: 'absolute',
   top: '60%',
@@ -1377,7 +1377,7 @@ duelVsText: {
   vsText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
 
   // Progress
-  progressCard: { borderRadius: 12, borderWidth: 1, borderColor: '#d3d1d1', padding: 12, marginBottom: 12 },
+  progressCard: { borderRadius: 12, borderWidth: 1, borderColor: '#d3d1d1', padding: 12, marginBottom: 22, marginRight: 15, marginLeft: 5 },
   progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   progressMidCol: { alignItems: 'center', flex: 1, paddingHorizontal: 6 },
   progressTiedLabel: { fontSize: 12, fontWeight: '700', color: '#fff' },

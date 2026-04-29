@@ -742,6 +742,11 @@ export default function MainTabNavigator() {
           options={{
             tabBarStyle: defaultTabBarStyle,
           }}
+          listeners={() => ({
+            tabPress: () => {
+              DeviceEventEmitter.emit('SEARCH_TAB_PRESS');
+            },
+          })}
         />
         <Tab.Screen
           name="Add"

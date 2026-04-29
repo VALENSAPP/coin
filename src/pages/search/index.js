@@ -38,6 +38,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Pressable,
+  DeviceEventEmitter,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
@@ -432,10 +433,19 @@ const SearchScreen = () => {
   // Clear search bar when screen focused (tab selected)
   useEffect(() => {
     if (isScreenFocused) {
-      // setShowBattleExplore(false)
       setSearchText('');
     }
   }, [isScreenFocused]);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('SEARCH_TAB_PRESS', () => {
+      setShowBattleExplore(false);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => { toastRef.current = toast; }, [toast]);
 

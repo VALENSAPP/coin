@@ -239,7 +239,7 @@ const GlobalDrawerNavigator = () => {
         name="DrawerWallet"
         component={DummyComponent}
         options={{
-          drawerLabel: 'Wallet',
+          drawerLabel: 'Buy Mission Credits',
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
