@@ -20,3 +20,6 @@ export const getKycToken = async () => {
 export const startKyc = async (userId) => {
     return axiosInstance.post(`sumsub-user_verification/token${userId}`);
 }
+export const updatLoginModal = async (userId) => {
+    return axiosInstance.patch(`first-log/after-kyc`);
+}

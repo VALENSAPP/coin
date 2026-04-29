@@ -24,7 +24,11 @@ import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
+import { updatLoginModal } from './services/kycverification';
 // import { getUserCountry } from './hooks/countryLocation';
+
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const linking = {
   prefixes: [
@@ -85,21 +89,37 @@ export default function Main() {
         return;
       }
 
-
       const id = await AsyncStorage.getItem('userId');
       if (!id) {
         return;
       }
 
+      const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+      const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
+      if (hasShownWelcome || hasShownLegacy) {
+        setWelcomeModalVisible(false);
+        return;
+      }
+
       const response = await getUserCredentials(id);
+      console.log(response, 'fdATA')
       if (response?.statusCode !== 200) {
         return;
       }
       const userData = response?.data?.user || response?.data || response;
-      const canAccessPlatform = userData?.canAccessPlatform;
-      const isKycApproved =
-        canAccessPlatform === true ||
-        String(canAccessPlatform || '').toLowerCase() === 'true';
+      const kycApproved = userData?.kyc === true || String(userData?.kyc || '').toLowerCase() === 'true';
+      const firstLogRaw =
+        userData?.first_log ??
+        userData?.firstLog ??
+        userData?.first_login ??
+        userData?.firstLogin ??
+        userData?.firstLoginAfterKyc;
+      const firstLog = firstLogRaw === true || String(firstLogRaw || '').toLowerCase() === 'true';
+
+      const isKycApproved = kycApproved && firstLog;
+      // const isKycApproved =
+      //   canAccessPlatform === true ||
+      //   String(canAccessPlatform || '').toLowerCase() === 'true';
 
       setWelcomeModalVisible(isKycApproved);
     } catch (error) {
@@ -109,10 +129,20 @@ export default function Main() {
 
   const handleWelcomeModalClose = React.useCallback(async () => {
     setWelcomeModalVisible(false);
-    await AsyncStorage.multiSet([
-      [KYC_WELCOME_SHOWN_KEY, 'true'],
-      [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-    ]);
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      if (id) {
+        await updatLoginModal(id);
+      }
+      
+    } catch (e) {
+      console.log('updatLoginModal failed:', e?.message || e);
+    } finally {
+      await AsyncStorage.multiSet([
+        [KYC_WELCOME_SHOWN_KEY, 'true'],
+        [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+      ]);
+    }
   }, []);
 
   useEffect(() => {
@@ -207,10 +237,10 @@ export default function Main() {
 
       // At the top of handleDeepLink, after receiving com.valens.app://
       const isMetaMaskReturn = url === 'com.valens.app://' || url === 'com.valens.app';
-      console.log("isMetaMaskReturn-------------",isMetaMaskReturn)
+      console.log("isMetaMaskReturn-------------", isMetaMaskReturn)
       if (isMetaMaskReturn) {
         const pendingMetamask = await AsyncStorage.getItem('pending_metamask_connect');
-      console.log("pendingMetamask-------------",pendingMetamask)
+        console.log("pendingMetamask-------------", pendingMetamask)
 
         if (pendingMetamask === 'true') {
           await AsyncStorage.removeItem('pending_metamask_connect');
