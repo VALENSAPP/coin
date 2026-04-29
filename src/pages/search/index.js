@@ -58,7 +58,7 @@ import styles from './Style';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
-import { exploretBattle } from '../../services/battle';
+import { battleByUserId, exploretBattle } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 import BattleExplore from './BattleExplore';
@@ -120,6 +120,42 @@ const pickBattleDisplayText = (...values) =>
     const normalized = `${value}`.trim().toLowerCase();
     return normalized && normalized !== 'null' && normalized !== 'undefined';
   });
+
+const normalizeUserId = value => String(value != null ? value : '').trim();
+
+const usersFromGetAllUserBody = body => {
+  if (!(body?.statusCode === 200 || body?.status === 200)) return [];
+  if (Array.isArray(body?.data?.users)) return body.data.users;
+  if (Array.isArray(body?.users)) return body.users;
+  return [];
+};
+
+const mergeUsersById = lists => {
+  const users = new Map();
+  lists.forEach(list => {
+    if (!Array.isArray(list)) return;
+    list.forEach(user => {
+      const id = normalizeUserId(user?.id || user?._id || user?.userId || '');
+      if (id && !users.has(id)) users.set(id, user);
+    });
+  });
+  return [...users.values()];
+};
+
+const getRawBattlesFromResponse = response => {
+  const raw = response?.data?.battles || response?.data?.data || response?.battles || response?.data || [];
+  return Array.isArray(raw) ? raw : [];
+};
+
+const getSearchBattleStatus = battle => {
+  const status = String(battle?.status || '').trim().toLowerCase();
+  const now = Date.now();
+  const endTime = battle?.endTime ? (new Date(battle.endTime).getTime() || Infinity) : Infinity;
+  if (battle?.isLive || ['live', 'active', 'in_progress', 'ongoing'].includes(status)) return 'live';
+  if (['finished', 'closed', 'resolved', 'completed', 'ended'].includes(status) || endTime < now) return 'finished';
+  if (['open', 'pending', 'upcoming', 'queued'].includes(status) || endTime >= now) return 'open';
+  return 'trending';
+};
 
 const normalizeBattleOptionLabel = (option, index) => {
   if (typeof option === 'string') return option.trim();
@@ -204,6 +240,7 @@ const mapBattleCard = battle => {
     id: battle?.creator?.id || battle?.creatorId || '',
     userName: battle?.creator?.userName || battle?.creator?.username || 'creator',
     name: battle?.creator?.displayName || battle?.creator?.name || battle?.creator?.userName || 'Creator',
+    businessName: battle?.creator?.businessName || battle?.creator?.business?.name || battle?.creator?.companyName || '',
     avatar: battle?.creator?.image || battle?.creator?.avatar || battle?.creator?.profilePicture || '',
   };
   return {
@@ -216,6 +253,7 @@ const mapBattleCard = battle => {
       id: battle.opponent.id || '',
       userName: battle.opponent.userName || battle.opponent.username || '',
       name: battle.opponent.displayName || battle.opponent.name || battle.opponent.userName || '',
+      businessName: battle.opponent.businessName || battle.opponent.business?.name || battle.opponent.companyName || '',
       avatar: battle.opponent.image || battle.opponent.avatar || battle.opponent.profilePicture || '',
       profile: battle.opponent.profile || 'user',
     } : null,
@@ -416,6 +454,7 @@ const SearchScreen = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [liveBattles, setLiveBattles] = useState([]);
+  const [searchedUserBattles, setSearchedUserBattles] = useState([]);
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
@@ -490,6 +529,7 @@ const SearchScreen = () => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     if (!normalizedQuery) {
       setFilteredUsers([]);
+      setSearchedUserBattles([]);
       setIsSearching(false);
       setHasSearched(false);
       return;
@@ -499,32 +539,60 @@ const SearchScreen = () => {
     setIsSearching(true);
     setHasSearched(false);
     try {
-      const res = await getAllUser({
-        userName: searchQuery,
-        displayName: searchQuery,
-        name: searchQuery,
-      });
-      console.log(res, 'dta in searacha ')
+      const fetchUserSlice = params => getAllUser(params).catch(() => ({ statusCode: 0 }));
+      const [byUserName, byDisplayName, byName, byBusinessName] = await Promise.all([
+        fetchUserSlice({ userName: searchQuery }),
+        fetchUserSlice({ displayName: searchQuery }),
+        fetchUserSlice({ name: searchQuery }),
+        fetchUserSlice({ businessName: searchQuery }),
+      ]);
       if (activeSearchRequestIdRef.current !== requestId) return;
-      if (res.statusCode === 200 || res.status === 200) {
-        const users = Array.isArray(res?.data?.users) ? res.data.users : [];
-        const filtered = users.filter(user => {
-          const userName = String(user?.userName || user?.username || '').toLowerCase();
-          const displayName = String(user?.displayName || '').toLowerCase();
-          const name = String(user?.name || '').toLowerCase();
-          return (
-            userName.includes(normalizedQuery) ||
-            displayName.includes(normalizedQuery) ||
-            name.includes(normalizedQuery)
-          );
+      const users = mergeUsersById([
+        usersFromGetAllUserBody(byUserName),
+        usersFromGetAllUserBody(byDisplayName),
+        usersFromGetAllUserBody(byName),
+        usersFromGetAllUserBody(byBusinessName),
+      ]);
+      const filtered = users.filter(user => {
+        const userName = String(user?.userName || user?.username || '').toLowerCase();
+        const displayName = String(user?.displayName || '').toLowerCase();
+        const name = String(user?.name || '').toLowerCase();
+        const businessName = String(user?.businessName || user?.business?.name || '').toLowerCase();
+        return (
+          userName.includes(normalizedQuery) ||
+          displayName.includes(normalizedQuery) ||
+          name.includes(normalizedQuery) ||
+          businessName.includes(normalizedQuery)
+        );
+      });
+      setFilteredUsers(filtered);
+
+      const seenBattleIds = new Set();
+      const openBattles = [];
+      const usersToCheck = filtered.slice(0, 12);
+      const battleResponses = await Promise.allSettled(
+        usersToCheck.map(user => {
+          const targetUserId = normalizeUserId(user?.id || user?._id || user?.userId || '');
+          if (!targetUserId) return Promise.resolve(null);
+          return battleByUserId({ params: { userId: targetUserId } });
+        }),
+      );
+      if (activeSearchRequestIdRef.current !== requestId) return;
+      battleResponses.forEach(result => {
+        if (result.status !== 'fulfilled' || !result.value) return;
+        getRawBattlesFromResponse(result.value).forEach(battle => {
+          const mappedBattle = mapBattleCard(battle);
+          if (!mappedBattle.id || seenBattleIds.has(mappedBattle.id)) return;
+          if (!['open', 'live'].includes(getSearchBattleStatus(mappedBattle))) return;
+          seenBattleIds.add(mappedBattle.id);
+          openBattles.push(mappedBattle);
         });
-        setFilteredUsers(filtered);
-      } else {
-        setFilteredUsers([]);
-      }
+      });
+      setSearchedUserBattles(openBattles);
     } catch (err) {
       if (activeSearchRequestIdRef.current !== requestId) return;
       setFilteredUsers([]);
+      setSearchedUserBattles([]);
     } finally {
       if (activeSearchRequestIdRef.current === requestId) {
         setIsSearching(false);
@@ -533,17 +601,18 @@ const SearchScreen = () => {
     }
   }, []);
 
-  const handleSearch = useCallback(text => {
-    setSearchText(text);
+  const handleSearch = useCallback(value => {
+    setSearchText(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (!text.trim()) {
+    if (!value.trim()) {
       activeSearchRequestIdRef.current = 0;
       setFilteredUsers([]);
+      setSearchedUserBattles([]);
       setIsSearching(false);
       setHasSearched(false);
       return;
     }
-    searchTimeoutRef.current = setTimeout(() => searchUsers(text), 500);
+    searchTimeoutRef.current = setTimeout(() => searchUsers(value), 500);
   }, [searchUsers]);
 
   // ─── OPTIMIZATION 5: Fetch posts + donations IN PARALLEL ───────────────────
@@ -746,7 +815,7 @@ const SearchScreen = () => {
         battleLive: Boolean(user?.battleLive || user?.isBattleLive) || Number(String(targetId).slice(-1)) % 3 === 0,
       },
     });
-  }, [navigation, route?.name]);
+  }, [navigation, route?.name, route?.params, userId]);
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
@@ -861,6 +930,37 @@ const SearchScreen = () => {
   const renderListHeader = useCallback(() => (
     <Text style={styles.sectionTitle}>Search Results</Text>
   ), []);
+
+  const renderSearchBattleFooter = useCallback(() => (
+    <View style={styles.searchBattlesSection}>
+      <Text style={styles.sectionTitle}>Open battles</Text>
+      {searchedUserBattles.length > 0 ? (
+        searchedUserBattles.map(item => (
+          <View key={`search-battle-${item.id}`} style={styles.searchBattleCardWrapper}>
+            <BattleCard
+              item={item}
+              fullWidth
+              selectedOption={selectedBattleOptions[item.id]}
+              onCardPress={handleBattleCardPress}
+              onOptionSelect={updateSelectedBattleOption}
+              onUserPress={handleUserProfile}
+            />
+          </View>
+        ))
+      ) : (
+        <View style={styles.searchBattlesEmpty}>
+          <Icon name="shield-outline" size={24} color="#999" />
+          <Text style={styles.emptySubtitle}>No open battles found for these users</Text>
+        </View>
+      )}
+    </View>
+  ), [
+    searchedUserBattles,
+    selectedBattleOptions,
+    handleBattleCardPress,
+    updateSelectedBattleOption,
+    handleUserProfile,
+  ]);
 
   const previewMediaUrl = useMemo(() => {
     if (!previewPost) return null;
@@ -980,6 +1080,7 @@ const SearchScreen = () => {
                   showsVerticalScrollIndicator={false}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                   ListHeaderComponent={renderListHeader}
+                  ListFooterComponent={renderSearchBattleFooter}
                   contentContainerStyle={styles.listContent}
                   initialNumToRender={10}
                   maxToRenderPerBatch={10}

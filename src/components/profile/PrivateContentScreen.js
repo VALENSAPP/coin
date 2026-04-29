@@ -303,7 +303,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
       {
         isCompany ?
           <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyTitle, textStyle]}>Expanding Valens Format</Text>
+            <Text style={[styles.emptyTitle, textStyle]}>Marketplace</Text>
           </View>
           :
           <View style={styles.emptyContainer}>
@@ -329,7 +329,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
           {
             isCompany ?
               <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyTitle, textStyle]}>Expanding Valens Format</Text>
+                <Text style={[styles.emptyTitle, textStyle]}>Marketplace</Text>
               </View>
               :
               <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
