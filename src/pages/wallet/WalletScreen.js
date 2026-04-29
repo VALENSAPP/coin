@@ -542,7 +542,7 @@ export default function WalletComponent() {
             </ScrollView>
 
             {/* Tabs */}
-            <View style={{ flex: 1, minHeight: 350 }}>
+            {/* <View style={{ flex: 1, minHeight: 350 }}>
                 <Tab.Navigator
                     screenOptions={{
                         tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: text },
@@ -563,7 +563,7 @@ export default function WalletComponent() {
                         component={MyHoldings}
                     />
                 </Tab.Navigator>
-            </View>
+            </View> */}
 
             {/* Token Purchase Modal */}
             <RBSheet

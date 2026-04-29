@@ -336,7 +336,7 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="WalletMain"
             component={WalletComponent}
-            options={{ headerTitle: 'Wallet' }}
+            options={{ headerTitle: 'Buy Mission Credits' }}
           />
           <Stack.Screen
             name="DepositeCash"
