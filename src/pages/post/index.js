@@ -144,7 +144,7 @@ export default function PostScreen({ navigation }) {
           const durationSec = durationMs > 1000 ? durationMs / 1000 : durationMs;
 
           if (postType === 'flip') {
-            if (durationSec < 15) {
+            if (durationSec < 14) {
               Alert.alert('Short Video', 'Please select a video of at least 15 seconds.');
               return false;
             }

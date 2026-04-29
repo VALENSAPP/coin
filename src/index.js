@@ -1,4 +1,4 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,7 +14,6 @@ import { refreshToken } from './services/authentication';
 import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
-import { notificationListener, requestUserPermission } from './services/NotificationService';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import NotificationModal from './components/modals/NotificationModal';
 import { initializeSocket } from './services/socket';
@@ -24,7 +23,11 @@ import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
+import { updatLoginModal } from './services/kycverification';
 // import { getUserCountry } from './hooks/countryLocation';
+
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
+const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const linking = {
   prefixes: [
@@ -58,7 +61,17 @@ export default function Main() {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigationRef = useRef(null);
+  const pendingNotificationNavigation = useRef(false);
+  const isNavigationReadyRef = useRef(false);
+  const isLoggedInRef = useRef(false);
+  const isLoadingRef = useRef(true);
   const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    isNavigationReadyRef.current = isNavigationReady;
+    isLoggedInRef.current = isLoggedIn;
+    isLoadingRef.current = isLoading;
+  }, [isLoading, isLoggedIn, isNavigationReady]);
 
   useEffect(() => {
     const setup = async () => {
@@ -73,10 +86,31 @@ export default function Main() {
     setup();
   }, []);
 
-  useEffect(() => {
-    // requestUserPermission();
-    notificationListener();
+  const navigateToHeartNotification = React.useCallback(() => {
+    if (
+      !navigationRef.current ||
+      !isNavigationReadyRef.current ||
+      !isLoggedInRef.current ||
+      isLoadingRef.current
+    ) {
+      pendingNotificationNavigation.current = true;
+      return;
+    }
+
+    pendingNotificationNavigation.current = false;
+    navigationRef.current.navigate('MainApp', {
+      screen: 'HomeMain',
+      params: {
+        screen: 'HeartNotification',
+      },
+    });
   }, []);
+
+  useEffect(() => {
+    if (pendingNotificationNavigation.current) {
+      navigateToHeartNotification();
+    }
+  }, [isLoading, isLoggedIn, isNavigationReady, navigateToHeartNotification]);
 
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
     try {
@@ -85,21 +119,37 @@ export default function Main() {
         return;
       }
 
-
       const id = await AsyncStorage.getItem('userId');
       if (!id) {
         return;
       }
 
+      const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+      const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
+      if (hasShownWelcome || hasShownLegacy) {
+        setWelcomeModalVisible(false);
+        return;
+      }
+
       const response = await getUserCredentials(id);
+      console.log(response, 'fdATA')
       if (response?.statusCode !== 200) {
         return;
       }
       const userData = response?.data?.user || response?.data || response;
-      const canAccessPlatform = userData?.canAccessPlatform;
-      const isKycApproved =
-        canAccessPlatform === true ||
-        String(canAccessPlatform || '').toLowerCase() === 'true';
+      const kycApproved = userData?.kyc === true || String(userData?.kyc || '').toLowerCase() === 'true';
+      const firstLogRaw =
+        userData?.first_log ??
+        userData?.firstLog ??
+        userData?.first_login ??
+        userData?.firstLogin ??
+        userData?.firstLoginAfterKyc;
+      const firstLog = firstLogRaw === true || String(firstLogRaw || '').toLowerCase() === 'true';
+
+      const isKycApproved = kycApproved && firstLog;
+      // const isKycApproved =
+      //   canAccessPlatform === true ||
+      //   String(canAccessPlatform || '').toLowerCase() === 'true';
 
       setWelcomeModalVisible(isKycApproved);
     } catch (error) {
@@ -109,10 +159,20 @@ export default function Main() {
 
   const handleWelcomeModalClose = React.useCallback(async () => {
     setWelcomeModalVisible(false);
-    await AsyncStorage.multiSet([
-      [KYC_WELCOME_SHOWN_KEY, 'true'],
-      [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-    ]);
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      if (id) {
+        await updatLoginModal(id);
+      }
+      
+    } catch (e) {
+      console.log('updatLoginModal failed:', e?.message || e);
+    } finally {
+      await AsyncStorage.multiSet([
+        [KYC_WELCOME_SHOWN_KEY, 'true'],
+        [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
+      ]);
+    }
   }, []);
 
   useEffect(() => {
@@ -207,10 +267,10 @@ export default function Main() {
 
       // At the top of handleDeepLink, after receiving com.valens.app://
       const isMetaMaskReturn = url === 'com.valens.app://' || url === 'com.valens.app';
-      console.log("isMetaMaskReturn-------------",isMetaMaskReturn)
+      console.log("isMetaMaskReturn-------------", isMetaMaskReturn)
       if (isMetaMaskReturn) {
         const pendingMetamask = await AsyncStorage.getItem('pending_metamask_connect');
-      console.log("pendingMetamask-------------",pendingMetamask)
+        console.log("pendingMetamask-------------", pendingMetamask)
 
         if (pendingMetamask === 'true') {
           await AsyncStorage.removeItem('pending_metamask_connect');
@@ -393,6 +453,8 @@ export default function Main() {
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
+    // Existing startup effect intentionally runs from this dependency set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
 
   const fetchRefreshToken = async () => {
@@ -422,8 +484,10 @@ export default function Main() {
 
     messaging().onNotificationOpenedApp(remoteMessage => {
       console.log("onNotificationOpenedApp data------------------------", remoteMessage)
-      setMessage(remoteMessage.notification.body);
-      setModalVisible(true);
+      setMessage(remoteMessage?.notification?.body || '');
+      navigateToHeartNotification();
+      // setModalVisible(true);
+
     });
 
     messaging()
@@ -431,14 +495,16 @@ export default function Main() {
       .then(remoteMessage => {
         if (remoteMessage) {
           console.log("getInitialNotification data------------------------", remoteMessage)
-          setMessage(remoteMessage.notification.body);
-          setModalVisible(true);
+          setMessage(remoteMessage?.notification?.body || '');
+          navigateToHeartNotification();
+          // setModalVisible(true);
         }
       });
   }
 
   const handleNavigationReady = () => {
     console.log('Navigation is ready');
+    isNavigationReadyRef.current = true;
     setIsNavigationReady(true);
   };
 

@@ -85,6 +85,7 @@ import BattleReward from '../pages/settings/BattleReward';
 import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
+import ValensWallet from '../pages/wallet/ValensWallet';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -369,10 +370,15 @@ export default function MainTabNavigator() {
             component={WalletDashboardScreen}
             options={{ headerTitle: 'Dashboard' }}
           />
-          <Stack.Screen
+          {/* <Stack.Screen
             name="Portfolio"
             component={PortfolioScreen}
             options={{ headerTitle: 'Portfolio' }}
+          /> */}
+           <Stack.Screen
+            name="ValensWallet"
+            component={ValensWallet}
+            options={{ headerTitle: 'Valens Wallet' }}
           />
           <Stack.Screen
             name="Market"

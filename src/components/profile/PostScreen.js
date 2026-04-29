@@ -302,13 +302,25 @@ const PostScreen = memo(({ postCheck, userData: propUserData }) => {
   }, [posts]);
 
   const openPosts = useCallback((index) => {
+    const selectedPost = posts?.[index];
+    if (!selectedPost) return;
+    const { isVideo } = getPreviewMedia(selectedPost);
+
+    if (isVideo) {
+      navigation.getParent().navigate('ProfileMain', {
+        screen: 'FlipsScreen',
+        params: { item: selectedPost, key: Date.now().toString() },
+      });
+      return;
+    }
+
     navigation.getParent().navigate('ProfileMain', {
       screen: 'PostView',
       params: {
         postData: posts,
         startIndex: index,
-        hideTabBar: true, 
-        userData: userData     // <<< ADD THIS
+        hideTabBar: true,
+        userData: userData,
       },
     });
   }, [navigation, posts, userData]);

@@ -43,6 +43,7 @@ import KYCVerification from '../pages/authentication/kycVerification';
 import Usersprofile from '../pages/home/Usersprofile';
 import { useAppTheme } from '../theme/useApptheme';
 import SelectAccountType from '../pages/authentication/setAccountType';
+import ValensWallet from '../pages/wallet/ValensWallet';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -289,11 +290,11 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      {/* <Drawer.Screen
-        name="DrawerCreators"
-        component={DummyComponent}
+      <Drawer.Screen
+        name="Valens Wallet"
+        component={ValensWallet}
         options={{
-          drawerLabel: 'Creators',
+          drawerLabel: 'Valens Wallet',
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
@@ -302,11 +303,11 @@ const GlobalDrawerNavigator = () => {
             navigation.closeDrawer();
             navigation.navigate('MainApp', {
               screen: 'wallet',
-              params: { screen: 'Creators' }
+              params: { screen: 'ValensWallet' }
             });
           },
         })}
-      /> */}
+      />
       <Drawer.Screen
         name="DrawerSubscription"
         component={DummyComponent}
