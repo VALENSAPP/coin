@@ -131,8 +131,8 @@ export default function OpenBattleScreen() {
     () => route?.params?.params || route?.params || {},
     [route?.params],
   );
-  console.log("routeParamsrouteParamsrouteParamsrouteParamsrouteParamsrouteParams",routeParams)
-   const { bgStyle, text, card } = useAppTheme(routeParams.profile);
+  console.log("routeParamsrouteParamsrouteParamsrouteParamsrouteParamsrouteParams", routeParams)
+  const { bgStyle, text, card } = useAppTheme(routeParams.profile);
   const isCompanyProfile =
     routeParams?.isCompanyProfile === true ||
     String(routeParams?.isCompanyProfile).toLowerCase() === 'true';
@@ -264,13 +264,13 @@ export default function OpenBattleScreen() {
         invitedUserId: inviteIsSelf
           ? ''
           : String(
-              pickFirst(
-                routeParams.invitedUserId,
-                routeParams.invitedUser?.id,
-                routeParams.invitedUser?._id,
-                prev.invitedUserId,
-              ) ?? '',
-            ),
+            pickFirst(
+              routeParams.invitedUserId,
+              routeParams.invitedUser?.id,
+              routeParams.invitedUser?._id,
+              prev.invitedUserId,
+            ) ?? '',
+          ),
       }));
     })();
 
@@ -549,32 +549,32 @@ export default function OpenBattleScreen() {
     });
   };
 
- const updateOption = (index, value) => {
-  setForm(prev => {
-    const options = [...prev.options];
-    options[index] = {
-      ...options[index],
-      text: value,
-    };
+  const updateOption = (index, value) => {
+    setForm(prev => {
+      const options = [...prev.options];
+      options[index] = {
+        ...options[index],
+        text: value,
+      };
 
-    // ✅ Live duplicate check
-    const texts = options
-      .map(opt => opt.text?.trim().toLowerCase())
-      .filter(Boolean);
+      // ✅ Live duplicate check
+      const texts = options
+        .map(opt => opt.text?.trim().toLowerCase())
+        .filter(Boolean);
 
-    const hasDuplicates = new Set(texts).size !== texts.length;
+      const hasDuplicates = new Set(texts).size !== texts.length;
 
-    setErrors(prevErrors => ({
-      ...prevErrors,
-      options: hasDuplicates ? 'Duplicate options are not allowed' : '',
-    }));
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        options: hasDuplicates ? 'Duplicate options are not allowed' : '',
+      }));
 
-    return {
-      ...prev,
-      options,
-    };
-  });
-};
+      return {
+        ...prev,
+        options,
+      };
+    });
+  };
   const addOption = () => {
     setForm(prev => ({
       ...prev,
@@ -646,51 +646,51 @@ export default function OpenBattleScreen() {
   };
 
   const validate = () => {
-  const nextErrors = {};
-  const question = form.question.trim();
-  const invitedUserId = form.invitedUserId.trim();
+    const nextErrors = {};
+    const question = form.question.trim();
+    const invitedUserId = form.invitedUserId.trim();
 
-  const options = getFilledOptions(form.options);
+    const options = getFilledOptions(form.options);
 
-  if (!question) {
-    nextErrors.question = 'Question is required';
-  }
+    if (!question) {
+      nextErrors.question = 'Question is required';
+    }
 
-  if (isPoll && options.length < 2) {
-    nextErrors.options = 'Please add at least 2 options';
-  }
+    if (isPoll && options.length < 2) {
+      nextErrors.options = 'Please add at least 2 options';
+    }
 
-  // ✅ NEW: Duplicate check
-  const lowerOptions = options.map(opt => opt.toLowerCase());
-  const hasDuplicates = new Set(lowerOptions).size !== lowerOptions.length;
+    // ✅ NEW: Duplicate check
+    const lowerOptions = options.map(opt => opt.toLowerCase());
+    const hasDuplicates = new Set(lowerOptions).size !== lowerOptions.length;
 
-  if (hasDuplicates) {
-    nextErrors.options = 'Duplicate options are not allowed';
-  }
+    if (hasDuplicates) {
+      nextErrors.options = 'Duplicate options are not allowed';
+    }
 
-  if (!form.endTime) {
-    nextErrors.endTime = 'End time is required';
-  }
+    if (!form.endTime) {
+      nextErrors.endTime = 'End time is required';
+    }
 
-  if (form.endTime && new Date(form.endTime) <= new Date()) {
-    nextErrors.endTime = 'End time must be in the future';
-  }
+    if (form.endTime && new Date(form.endTime) <= new Date()) {
+      nextErrors.endTime = 'End time must be in the future';
+    }
 
-  if (isHeadToHead && !invitedUserId) {
-    nextErrors.invitedUserId = 'Please add the user you want to invite';
-  }
+    if (isHeadToHead && !invitedUserId) {
+      nextErrors.invitedUserId = 'Please add the user you want to invite';
+    }
 
-  if (isHeadToHead && options.length < 2) {
-    nextErrors.options = 'Please add 2 battle sides for head-to-head';
-  }
+    if (isHeadToHead && options.length < 2) {
+      nextErrors.options = 'Please add 2 battle sides for head-to-head';
+    }
 
-  if (form.stake && Number.isNaN(Number(form.stake))) {
-    nextErrors.stake = 'Stake must be a valid number';
-  }
+    if (form.stake && Number.isNaN(Number(form.stake))) {
+      nextErrors.stake = 'Stake must be a valid number';
+    }
 
-  setErrors(nextErrors);
-  return Object.keys(nextErrors).length === 0;
-};
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleSubmit = async () => {
     if (!validate()) {
@@ -959,7 +959,7 @@ export default function OpenBattleScreen() {
               onChangeText={value => updateField('question', value)}
             />
             {!!errors.question && (
-              <Text style={[styles.errorText, {marginTop: 8}]}>{errors.question}</Text>
+              <Text style={[styles.errorText, { marginTop: 8 }]}>{errors.question}</Text>
             )}
           </View>
 
@@ -969,9 +969,11 @@ export default function OpenBattleScreen() {
                 <Text style={[styles.label, { color: text }]}>
                   {isHeadToHead ? 'Battle Sides' : 'Options'}
                 </Text>
-                <TouchableOpacity onPress={addOption}>
-                  <Text style={[styles.addOptionText, { color: text}]}>+ Add Option</Text>
-                </TouchableOpacity>
+                {!isHeadToHead &&
+                  <TouchableOpacity onPress={addOption}>
+                    <Text style={[styles.addOptionText, { color: text }]}>+ Add Option</Text>
+                  </TouchableOpacity>
+                }
               </View>
 
               {form.options.map((option, index) => (
@@ -1158,7 +1160,7 @@ export default function OpenBattleScreen() {
               <Ionicons name="calendar-outline" size={20} color={MUTED} />
             </TouchableOpacity>
             {!!errors.endTime && (
-              <Text style={[styles.errorText, {marginTop: 8}]}>{errors.endTime}</Text>
+              <Text style={[styles.errorText, { marginTop: 8 }]}>{errors.endTime}</Text>
             )}
           </View>
 
