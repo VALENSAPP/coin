@@ -1252,12 +1252,13 @@ const StoryViewer = ({
       bottom: 0,
       left: 0,
       right: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: 'rgba(255,255,255,0.35)',
+      backgroundColor: 'transparent',
+      borderTopWidth: 0,
+      borderTopColor: 'transparent',
       paddingHorizontal: 14,
       paddingTop: 10,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+      // Keep actions close to the bottom while still respecting device insets.
+      paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 10 : 8),
       zIndex: 20,
     },
     analyticsButton: {
@@ -1431,6 +1432,17 @@ const StoryViewer = ({
         style={modalStyles.modalBg}
         {...panResponder.panHandlers}
       >
+        {currentStory?.type === 'image' && currentStory?.uri ? (
+          <Image
+            key={`story_img_${storyKey}`}
+            source={{ uri: currentStory.uri }}
+            style={modalStyles.storyMediaFullscreen}
+            resizeMode="contain"
+            onLoadEnd={onImageLoaded}
+            onError={onMediaError}
+            pointerEvents="none"
+          />
+        ) : null}
         {/* Progress bars */}
         <View
           style={[
@@ -1540,16 +1552,7 @@ const StoryViewer = ({
             modalStyles.storyContent,
           ]}
         >
-          {currentStory.type === 'image' ? (
-            <Image
-              source={{ uri: currentStory.uri }}
-              style={modalStyles.storyMedia}
-              resizeMode="cover"
-              onLoadEnd={onImageLoaded}
-              onError={onMediaError}
-              pointerEvents="none"
-            />
-          ) : (
+          {currentStory.type === 'image' ? null : (
             <View style={modalStyles.storyVideoWrap} pointerEvents="box-none">
               {/*
                 Do not use renderLoader: it sets an internal full-screen layer that only
@@ -2036,7 +2039,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         ? (Array.isArray(userStoriesResponse.data)
           ? userStoriesResponse.data
           : [userStoriesResponse.data]
-        ).reverse()
+        )
         : [];
 
       const followingStoriesRaw = followingStoriesResponse?.data
@@ -2746,6 +2749,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
   const openStoryViewer = (user, userIndex) => {
     const storiesToPrefetch = user.stories?.slice(0, 4) || [];
+    console.log(storiesToPrefetch,"Stories==>>>>>>>>>>>>>>>>>>>>>>>4444444444444444444444444")
     storiesToPrefetch.forEach(story => {
       if (story?.uri) {
         try {

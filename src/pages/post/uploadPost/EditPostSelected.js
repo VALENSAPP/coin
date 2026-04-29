@@ -3397,7 +3397,7 @@ const InstagramPostCreator = () => {
               onPress={() => handleFlipToolPress(t.key)}
               activeOpacity={0.75}
             >
-              <Icon name={t.icon} size={22} color="#e5e5e5" style={{ marginBottom: 4 }} />
+              <Icon name={t.icon} size={17} color="#e5e5e5" style={{ marginBottom: 3 }} />
               <Text style={styles.flipTabLabel}>{t.label}</Text>
             </TouchableOpacity>
           ))}
@@ -4467,27 +4467,28 @@ const styles = StyleSheet.create({
   },
   editingSectionFlip: {
     backgroundColor: '#000',
-    paddingBottom: 4,
+    paddingBottom: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#2a2a2a',
   },
   flipTabScroll: {
-    maxHeight: 104,
+    maxHeight: 76,
   },
   flipTabScrollContent: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    alignItems: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 7,
+    alignItems: 'center',
   },
   flipTabButton: {
     alignItems: 'center',
-    marginHorizontal: 8,
-    minWidth: 54,
+    marginHorizontal: 6,
+    minWidth: 41,
   },
   flipTabLabel: {
     color: '#c4c4c4',
-    fontSize: 10,
+    fontSize: 8,
     textAlign: 'center',
+    lineHeight: 10,
   },
   flipHeaderOverlay: {
     position: 'absolute',

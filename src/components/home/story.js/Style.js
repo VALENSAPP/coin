@@ -4,6 +4,12 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const modalStyles = StyleSheet.create({
   modalBg: { flex: 1, backgroundColor: '#000' },
+  /** Edge-to-edge image behind progress bar, header, and bottom actions (Instagram-style). */
+  storyMediaFullscreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 0,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
@@ -37,6 +43,7 @@ export const modalStyles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'stretch',
     paddingBottom: 0,
+    zIndex: 1,
   },
   // Reserve space for own-story bottom action bar (Delete/Share).
   storyContentOwn: {

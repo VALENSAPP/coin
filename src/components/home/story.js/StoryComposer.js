@@ -367,7 +367,7 @@ export default function StoryComposer({
   const [editingTextId, setEditingTextId] = useState(null);
   const [textColor, setTextColor] = useState('#fff');
   const [textFont, setTextFont] = useState(DEFAULT_FONTS[0].style);
-  const [activeTab, setActiveTab] = useState('filters');
+  const [activeTab, setActiveTab] = useState('none');
   const [showAudioModal, setShowAudioModal] = useState(false);
   const [showTrimModal, setShowTrimModal] = useState(false);
   const [showVolumeModal, setShowVolumeModal] = useState(false);
@@ -444,6 +444,8 @@ export default function StoryComposer({
     setShowTrimModal(false);
     setShowVolumeModal(false);
     setShowAudioTrimModal(false);
+    setActiveTab(prev => (prev === 'text' ? 'none' : prev));
+    Keyboard.dismiss();
   };
 
   useEffect(() => {
@@ -451,6 +453,11 @@ export default function StoryComposer({
       storyModalWasOpenRef.current = false;
       setEditingTextId(null);
       setTrashHot(false);
+      setActiveTab('none');
+      setShowAudioModal(false);
+      setShowTrimModal(false);
+      setShowVolumeModal(false);
+      setShowAudioTrimModal(false);
       return;
     }
     const justOpened = !storyModalWasOpenRef.current;
@@ -499,6 +506,7 @@ export default function StoryComposer({
     setIsOverlayInteracting(false);
     setShowTrashZone(false);
     setEditingTextId(null);
+    setActiveTab('none');
   }, [modalVisible, mediaList]);
 
   /** While Sound trim is open, playback must follow draft start/end (waveform), not saved trim. */
@@ -848,6 +856,8 @@ export default function StoryComposer({
       });
     }
     setDraftText('');
+    setActiveTab('none');
+    Keyboard.dismiss();
   };
 
   const setStickerTransform = (id, x, y, scaleVal, rotationVal = 0) => {
@@ -1135,6 +1145,7 @@ export default function StoryComposer({
 
     if (isVideo(currentMedia)) {
       closeSheets();
+      setActiveTab('none');
       const trim = trimPerIndex[index] || { start: 0, end: null };
       setTrimStartDraft(String(trim.start ?? 0));
       setTrimEndDraft(trim.end == null ? '' : String(trim.end));
@@ -1149,6 +1160,7 @@ export default function StoryComposer({
     }
 
     closeSheets();
+    setActiveTab('none');
     try {
       const cropped = await ImagePicker.openCropper({
         path: pathForCrop,
@@ -1182,6 +1194,7 @@ export default function StoryComposer({
     // }
     if (key === 'audio') {
       closeSheets();
+      setActiveTab('none');
       setShowAudioModal(true);
       return;
     }
@@ -1195,6 +1208,7 @@ export default function StoryComposer({
         return;
       }
       closeSheets();
+      setActiveTab('none');
       setShowVolumeModal(true);
       return;
     }
@@ -1213,6 +1227,7 @@ export default function StoryComposer({
         return;
       }
       closeSheets();
+      setActiveTab('none');
       const at = audioTrimPerIndex[index] || { start: 0, end: null };
       const dur = getMusicTimelineDurationSec(audio, musicPreviewDur);
       setAudioTrimStartDraft(String(at.start ?? 0));
@@ -1421,11 +1436,6 @@ export default function StoryComposer({
     musicPreviewKey,
     isYoutubeAudio,
   ]);
-
-  const openAudioPicker = () => {
-    closeSheets();
-    setShowAudioModal(true);
-  };
 
   const waveformSegmentSec = Math.min(
     trimClipWindowSec,
@@ -2159,100 +2169,19 @@ export default function StoryComposer({
               </View>
             )}
 
-            {/* Text tools */}
-            {activeTab === 'text' && (
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <KeyboardAvoidingView
-                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                  style={[styles.bottomTools, bgStyle]}
-                >
-                  <View style={styles.textRow}>
-                    <TextInput
-                      placeholder="Add text…"
-                      placeholderTextColor="#aaa"
-                      style={[styles.textInput, textStyle, textFont, { color: textColor }]}
-                      value={draftText}
-                      onChangeText={setDraftText}
-                    />
-                    <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
-                      <Text style={styles.addBtnLabel}>
-                        {editingTextId ? 'Save' : 'Add'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.textOptionsScroll}
-                  >
-                    {DEFAULT_FONTS.map(f => (
-                      <TouchableOpacity
-                        key={f.name}
-                        onPress={() => setTextFont(f.style)}
-                        style={[
-                          styles.fontChip,
-                          textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                    {[
-                      '#ffffff',
-                      '#ff4d4f',
-                      '#40a9ff',
-                      '#52c41a',
-                      '#faad14',
-                      '#b37feb',
-                      '#000000',
-                    ].map(c => (
-                      <TouchableOpacity
-                        key={c}
-                        onPress={() => setTextColor(c)}
-                        style={[
-                          styles.colorDot,
-                          { backgroundColor: c },
-                          textColor === c && styles.colorDotActive,
-                        ]}
-                        activeOpacity={0.7}
-                      />
-                    ))}
-                  </ScrollView>
-                </KeyboardAvoidingView>
-              </TouchableWithoutFeedback>
-            )}
-
           </View>
 
-          <View style={[styles.tabs, bgStyle, { borderTopColor: bg }]}>
-            <TouchableOpacity
-              style={styles.musicStrip}
-              onPress={openAudioPicker}
-              activeOpacity={0.7}
-            >
-              <View style={styles.musicStripIconWrap}>
-                <Icon name="musical-notes" size={22} color="#4da3ff" />
-              </View>
-              <View style={styles.musicStripTextCol}>
-                <Text style={styles.musicStripLabel}>Music</Text>
-                <Text style={styles.musicStripValue} numberOfLines={1}>
-                  {getAudioTitle(audioSel)}
-                </Text>
-                <Text style={styles.musicStripHint} numberOfLines={1}>
-                  {getAudioSubtitle(audioSel) ||
-                    (useLibraryMusic && hasLibraryMusicPlayback
-                      ? 'Preview playing · Tap to change'
-                      : 'Search songs or pick a quick track')}
-                </Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
+          <SafeAreaView
+            edges={['bottom']}
+            style={[styles.tabs, bgStyle, { borderTopColor: bg }]}
+          >
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               bounces={false}
+              scrollEnabled
+              keyboardShouldPersistTaps="handled"
+              style={styles.toolbarScrollView}
               contentContainerStyle={styles.toolbarScroll}
             >
               {TOOLBAR_ITEMS.map(item => {
@@ -2269,15 +2198,20 @@ export default function StoryComposer({
                     onPress={() => handleToolPress(item.key)}
                     activeOpacity={0.75}
                   >
-                    <Icon name={item.icon} size={22} color={active ? '#4da3ff' : '#555'} />
-                    <Text style={[styles.tabLabel, active && styles.tabLabelActive]} numberOfLines={2}>
+                    <Icon name={item.icon} size={17} color={active ? '#4da3ff' : '#555'} />
+                    <Text
+                      style={[styles.tabLabel, active && styles.tabLabelActive]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.85}
+                    >
                       {item.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-          </View>
+          </SafeAreaView>
 
           {/* Bottom Lyrics panel — disabled for now (see TOOLBAR_ITEMS lyrics entry)
         {activeTab === 'lyrics' && (
@@ -2401,7 +2335,10 @@ export default function StoryComposer({
         )}
         */}
 
-          {(showAudioModal || showTrimModal || showVolumeModal) && (
+          {(showAudioModal ||
+            showTrimModal ||
+            showVolumeModal ||
+            activeTab === 'text') && (
             <View style={styles.sheetHost} pointerEvents="box-none">
               <Pressable style={styles.sheetBackdropPress} onPress={closeSheets} />
               <View style={styles.sheetCardWrap} pointerEvents="box-none">
@@ -2586,6 +2523,73 @@ export default function StoryComposer({
                         </TouchableOpacity>
                       ))}
                     </>
+                  )}
+                  {activeTab === 'text' && (
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                      <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.textSheetInner}
+                      >
+                        <Text style={styles.sheetTitle}>Add text</Text>
+                        <Text style={styles.sheetSub}>
+                          Type a caption, then tap Add to place it on your story.
+                        </Text>
+                        <View style={styles.textRow}>
+                          <TextInput
+                            placeholder="Add text…"
+                            placeholderTextColor="#aaa"
+                            style={[styles.textInput, textStyle, textFont, { color: textColor }]}
+                            value={draftText}
+                            onChangeText={setDraftText}
+                          />
+                          <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
+                            <Text style={styles.addBtnLabel}>
+                              {editingTextId ? 'Save' : 'Add'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.textOptionsScroll}
+                        >
+                          {DEFAULT_FONTS.map(f => (
+                            <TouchableOpacity
+                              key={f.name}
+                              onPress={() => setTextFont(f.style)}
+                              style={[
+                                styles.fontChip,
+                                textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
+                              ]}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                          {[
+                            '#ffffff',
+                            '#ff4d4f',
+                            '#40a9ff',
+                            '#52c41a',
+                            '#faad14',
+                            '#b37feb',
+                            '#000000',
+                          ].map(c => (
+                            <TouchableOpacity
+                              key={c}
+                              onPress={() => setTextColor(c)}
+                              style={[
+                                styles.colorDot,
+                                { backgroundColor: c },
+                                textColor === c && styles.colorDotActive,
+                              ]}
+                              activeOpacity={0.7}
+                            />
+                          ))}
+                        </ScrollView>
+                      </KeyboardAvoidingView>
+                    </TouchableWithoutFeedback>
                   )}
                 </View>
               </View>
@@ -3430,7 +3434,7 @@ const styles = StyleSheet.create({
   },
 
   topBar: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : -5,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3813,37 +3817,40 @@ const styles = StyleSheet.create({
   tabs: {
     flexShrink: 0,
     width: '100%',
-    minHeight: Platform.OS === 'ios' ? 160 : 150,
-    paddingTop: 0,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+    paddingTop: 4,
+    paddingBottom: 3,
     backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth,
     zIndex: 20,
   },
+  /** Prevents vertical expansion on some Android ScrollView implementations */
+  toolbarScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   toolbarScroll: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingRight: 16,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingRight: 10,
   },
   tabBtn: {
-    width: 76,
-    minHeight: 72,
-    marginHorizontal: 3,
-    paddingHorizontal: 4,
+    width: 56,
+    marginHorizontal: 2,
+    paddingHorizontal: 3,
     paddingVertical: 6,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    borderRadius: 10,
+    justifyContent: 'center',
+    borderRadius: 6,
   },
   tabBtnActive: {
     backgroundColor: 'rgba(77, 163, 255, 0.12)',
   },
   tabLabel: {
-    marginTop: 6,
-    fontSize: 10,
-    lineHeight: 14,
+    marginTop: 3,
+    fontSize: 8,
+    lineHeight: 10,
     color: '#555',
     textAlign: 'center',
     width: '100%',
@@ -4203,6 +4210,9 @@ const styles = StyleSheet.create({
   },
   musicSheetInner: {
     minHeight: 120,
+  },
+  textSheetInner: {
+    width: '100%',
   },
   musicSearchInput: {
     borderWidth: 1,
