@@ -361,12 +361,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     aspectRatio: 0.6,
     marginHorizontal: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
-    backgroundColor: '#fff', //
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.25,
+    // shadowRadius: 6,
+    // elevation: 6,
+    // backgroundColor: '#fff', //
   },
   videoThumbContainer: {
     position: 'relative',

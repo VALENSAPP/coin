@@ -33,6 +33,7 @@ import TokenSellModal from "../../components/modals/TokenSellModal";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
 import { useAppTheme } from "../../theme/useApptheme";
 import HexAvatar from "../../components/home/story.js/HexAvatar";
+import { Dragonfly } from "../../assets/icons";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -65,8 +66,9 @@ export default function WalletComponent() {
     const maxPurchasable = MAX_CREDITS - creditsLeft;
     const userVerificationStatus = useMemo(() => {
         const verified =
-            userData?.kyc === true &&
-            String(userData?.subscriptionStatus || '').toUpperCase() === 'ACTIVE';
+            userData?.kyc === true;
+            //  && userData?.
+            //     kycStatus === "APPROVED";
 
         return {
             verified,
@@ -472,10 +474,10 @@ export default function WalletComponent() {
                             <View style={styles.nameRow}>
                                 <Text style={styles.username}>{userData?.displayName}</Text>
                                 {userVerificationStatus.verified && (
-                                    <Ionicons name="checkmark-circle" size={20} color={text} />
-                                )}
+                                 <Dragonfly width={22} height={22} style={styles.icon} />
+                                 )}
                             </View>
-                            <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text>
+                            {/* <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text> */}
                             {/* <View style={styles.idRow}>
                                 <Text style={[styles.walletAddress, textStyle]}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
                                 <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>

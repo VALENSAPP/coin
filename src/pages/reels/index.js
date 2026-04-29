@@ -440,6 +440,7 @@ export default function FlipsScreen() {
     try {
       dispatch(showLoader());
       const response = await getAllReels();
+      console.log(response,'data in rels')
       if (response?.statusCode === 200) {
         const transformedReels = response.data.map(item => ({
           id: item.id,
