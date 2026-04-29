@@ -138,6 +138,7 @@ export const mapBattleCard = battle => {
     id: battle?.creator?.id || battle?.creatorId || '',
     userName: battle?.creator?.userName || battle?.creator?.username || 'creator',
     name: battle?.creator?.displayName || battle?.creator?.name || battle?.creator?.userName || 'Creator',
+    businessName: battle?.creator?.businessName || battle?.creator?.business?.name || battle?.creator?.companyName || '',
     avatar: battle?.creator?.image || battle?.creator?.avatar || battle?.creator?.profilePicture || '',
   };
   return {
@@ -150,6 +151,7 @@ export const mapBattleCard = battle => {
       id: battle.opponent.id || '',
       userName: battle.opponent.userName || battle.opponent.username || '',
       name: battle.opponent.displayName || battle.opponent.name || battle.opponent.userName || '',
+      businessName: battle.opponent.businessName || battle.opponent.business?.name || battle.opponent.companyName || '',
       avatar: battle.opponent.image || battle.opponent.avatar || battle.opponent.profilePicture || '',
       profile: battle.opponent.profile || 'user',
     } : null,
@@ -171,4 +173,3 @@ export const mapBattleCard = battle => {
         : {},
   };
 };
-

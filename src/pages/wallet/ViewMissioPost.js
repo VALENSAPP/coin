@@ -178,7 +178,7 @@ export default function ViewMissioPost({ navigation, route }) {
     }
 
     return (
-        <SafeAreaView style={[{ flex: 1, paddingBottom: 50 }, bgStyle]}>
+        <SafeAreaView style={[{ flex: 1 }, bgStyle]}>
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
                 {/* Header */}
@@ -243,7 +243,7 @@ export default function ViewMissioPost({ navigation, route }) {
                                 <TouchableOpacity
                                     style={styles.campaignCard}
                                     activeOpacity={0.85}
-                                    onPress={() => navigation?.navigate('MissionPostDetail', { mission: c })}
+                                   /* onPress={() => navigation?.navigate('MissionPostDetail', { mission: c })}*/
                                 >
                                     {/* Top Row: Thumbnail + Info */}
                                     <View style={styles.cardTopRow}>
@@ -280,7 +280,7 @@ export default function ViewMissioPost({ navigation, route }) {
                                             )}
                                         </View>
 
-                                        <Ionicons name="chevron-forward" size={20} color="#bbb" style={{ marginLeft: 4 }} />
+                                        {/* <Ionicons name="chevron-forward" size={20} color="#bbb" style={{ marginLeft: 4 }} /> */}
                                     </View>
 
                                     {/* Stats Row */}
@@ -325,7 +325,7 @@ export default function ViewMissioPost({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-    container: { padding: 16 },
+    container: { padding: 16, paddingBottom: 50 },
     headerBox: { marginBottom: 16,flex: 1 },
     headerGradient: { borderRadius: 18, paddingTop: 20, marginBottom: 10,  minHeight: 150, },
     headerTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 ,paddingLeft:15},

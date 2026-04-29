@@ -337,7 +337,7 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="WalletMain"
             component={WalletComponent}
-            options={{ headerTitle: 'Wallet' }}
+            options={{ headerTitle: 'Buy Mission Credits' }}
           />
           <Stack.Screen
             name="DepositeCash"
@@ -748,6 +748,11 @@ export default function MainTabNavigator() {
           options={{
             tabBarStyle: defaultTabBarStyle,
           }}
+          listeners={() => ({
+            tabPress: () => {
+              DeviceEventEmitter.emit('SEARCH_TAB_PRESS');
+            },
+          })}
         />
         <Tab.Screen
           name="Add"

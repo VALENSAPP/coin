@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useCallback,
   useRef,
-  useMemo,
 } from 'react';
 import {
   View,
@@ -11,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Dimensions,
   Keyboard,
   Platform,
   RefreshControl,
@@ -26,32 +24,10 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { exploretBattle } from '../../services/battle';
-import { following } from '../../services/profile';
 import BattleCard from '../../components/search/Battlecard';
-import BattleExploreTabs from '../../components/battles/BattleExploreTabs';
 import {
   mapBattleCard,
 } from '../../utils/battleCardUtils';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'live', label: 'Live' },
-  { key: 'open', label: 'Open' },
-  { key: 'finished', label: 'Finished' },
-  { key: 'following', label: 'Following' },
-];
-
-const getBattleFeedType = battle => {
-  const status = String(battle?.status || '').trim().toLowerCase();
-  const now = Date.now();
-  const endTime = battle?.endTime ? (new Date(battle.endTime).getTime() || Infinity) : Infinity;
-  if (battle?.isLive || ['live', 'active', 'in_progress', 'ongoing'].includes(status)) return 'live';
-  if (['finished', 'closed', 'resolved', 'completed', 'ended'].includes(status) || endTime < now) return 'finished';
-  if (['open', 'pending', 'upcoming', 'queued'].includes(status) || endTime >= now) return 'open';
-  return 'trending';
-};
 
 export default function BattleExplore({ onClose }) {
   const navigation = useNavigation();
@@ -63,9 +39,7 @@ export default function BattleExplore({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
   const [userId, setUserId] = useState(null);
-  const [followingIds, setFollowingIds] = useState(new Set());
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
 
   const toastRef = useRef(toast);
@@ -106,56 +80,30 @@ export default function BattleExplore({ onClose }) {
     }
   }, []);
 
-  const fetchFollowing = useCallback(async () => {
-    if (!userId) return;
-    try {
-      const res = await following(userId);
-      const list = res?.data?.following || res?.data || [];
-      const ids = new Set(
-        list.map(u => String(u?.id || u?._id || u?.userId || '')).filter(Boolean)
-      );
-      setFollowingIds(ids);
-    } catch {
-      setFollowingIds(new Set());
-    }
-  }, [userId]);
-
   useEffect(() => {
     fetchBattles();
   }, [fetchBattles]);
 
   useEffect(() => {
-    if (userId) fetchFollowing();
-  }, [userId, fetchFollowing]);
-
-  useEffect(() => {
     let result = [...battles];
-
-    // Tab filter
-    if (activeTab !== 'all') {
-      if (activeTab === 'following') {
-        result = result.filter(b =>
-          followingIds.has(String(b?.creator?.id || '')) ||
-          followingIds.has(String(b?.opponent?.id || ''))
-        );
-      } else {
-        result = result.filter(b => getBattleFeedType(b) === activeTab);
-      }
-    }
 
     // Search filter
     const query = searchText.trim().toLowerCase();
     if (query) {
       result = result.filter(b => {
         const title = String(b.title || '').toLowerCase();
-        const creatorName = String(b.creator?.name || b.creator?.userName || '').toLowerCase();
-        const opponentName = String(b.opponent?.name || b.opponent?.userName || '').toLowerCase();
+        const creatorName = String(b.creator?.name || b.creator?.userName || b.creator?.businessName || '').toLowerCase();
+        const creatorBusiness = String(b.creator?.businessName || '').toLowerCase();
+        const opponentName = String(b.opponent?.name || b.opponent?.userName || b.opponent?.businessName || '').toLowerCase();
+        const opponentBusiness = String(b.opponent?.businessName || '').toLowerCase();
         const user1Name = String(b.user1?.name || b.user1?.userName || '').toLowerCase();
         const user2Name = String(b.user2?.name || b.user2?.userName || '').toLowerCase();
         return (
           title.includes(query) ||
           creatorName.includes(query) ||
+          creatorBusiness.includes(query) ||
           opponentName.includes(query) ||
+          opponentBusiness.includes(query) ||
           user1Name.includes(query) ||
           user2Name.includes(query)
         );
@@ -163,10 +111,10 @@ export default function BattleExplore({ onClose }) {
     }
 
     setFilteredBattles(result);
-  }, [battles, activeTab, searchText, followingIds]);
+  }, [battles, searchText]);
 
-  const handleSearch = useCallback(text => {
-    setSearchText(text);
+  const handleSearch = useCallback(value => {
+    setSearchText(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       // state update handled by useEffect above
@@ -175,8 +123,8 @@ export default function BattleExplore({ onClose }) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchBattles(true), userId ? fetchFollowing() : Promise.resolve()]);
-  }, [fetchBattles, fetchFollowing, userId]);
+    await fetchBattles(true);
+  }, [fetchBattles]);
 
   const handleUserProfile = useCallback(user => {
     const targetId = user?.id || user?.userId || user?._id;
@@ -244,6 +192,24 @@ export default function BattleExplore({ onClose }) {
         <View style={styles.backBtn} />
       </View>
 
+      <View style={styles.searchContainer}>
+        <Icon name="search" size={20} color="#999" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search users or businesses..."
+          placeholderTextColor="#999"
+          value={searchText}
+          onChangeText={handleSearch}
+          returnKeyType="search"
+          onSubmitEditing={Keyboard.dismiss}
+        />
+        {searchText.length > 0 && (
+          <TouchableOpacity onPress={() => handleSearch('')} style={styles.clearSearchBtn}>
+            <Icon name="close-circle" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* List */}
       {loading && !refreshing ? (
         <View style={styles.emptyContainer}>
@@ -267,9 +233,7 @@ export default function BattleExplore({ onClose }) {
               <Icon name="shield-outline" size={60} color="#ddd" />
               <Text style={styles.emptyTitle}>No battles found</Text>
               <Text style={styles.emptySubtitle}>
-                {activeTab === 'following'
-                  ? 'Battles from people you follow will appear here'
-                  : 'Try a different search or tab'}
+                Try a different search
               </Text>
             </View>
           }
@@ -313,11 +277,17 @@ const styles = StyleSheet.create({
     borderColor: '#e6e6e6',
     paddingVertical: Platform.OS === 'android' ? 6 : 10,
   },
+  searchIcon: {
+    marginRight: 8,
+  },
   searchInput: {
     flex: 1,
     fontSize: 15,
     color: '#000',
     fontWeight: '500',
+  },
+  clearSearchBtn: {
+    marginLeft: 8,
   },
   listContent: {
     paddingBottom: 20,
@@ -349,4 +319,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

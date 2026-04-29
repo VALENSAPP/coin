@@ -311,6 +311,26 @@ export default StyleSheet.create({
     paddingHorizontal: 12,
   },
 
+  searchBattlesSection: {
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+
+  searchBattleCardWrapper: {
+    marginBottom: 14,
+  },
+
+  searchBattlesEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+
   emptySubtitle: {
     fontSize: 14,
     color: '#999',
@@ -390,13 +410,6 @@ export default StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  progressContainer: {
-    height: 6,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 3,
-  },
   card: {
     width: 280,
     borderRadius: 14,
