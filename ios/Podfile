@@ -57,6 +57,13 @@ target 'valens' do
         if target.name == 'ExpoLocalization'
           config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
         end
+
+        # Xcode 26's Apple clang trips over fmt's C++20 consteval path.
+        # Building fmt as C++17 avoids the consteval compile errors while
+        # leaving the rest of React Native on its generated settings.
+        if target.name == 'fmt'
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
       end
     end
   end

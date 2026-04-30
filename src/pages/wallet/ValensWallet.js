@@ -288,7 +288,8 @@ const ValensWallet = ({ navigation }) => {
             date: 'Apr 26, 2026 • 08:15 PM',
         },
     ];
-
+    const walletIcon = isBusinessProfile
+        ?  require('../../assets/icons/pngicons/goldenWallet.png'):require('../../assets/icons/pngicons/newWallet.png');
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -323,9 +324,9 @@ const ValensWallet = ({ navigation }) => {
 
                         <View style={styles.topCardRight}>
                             <Image
-                                source={require('../../assets/icons/pngicons/newWallet.png')}
+                                source={walletIcon}
                                 style={[styles.walletImage, { width: walletImageSize * 1.5, height: walletImageSize * 1.5 }]}
-                                resizeMode="contain"
+                                // resizeMode="contain"
                             />
                         </View>
                     </LinearGradient>
@@ -575,7 +576,7 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         borderWidth: 1,
         overflow: 'hidden',
-        minHeight: '12%',
+        minHeight: '16%',
     },
     topCardLeft: {
         padding: 16,
@@ -588,7 +589,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     walletImage: {
-        opacity: 0.95,
+        // opacity: 0.95,
     },
     balanceLabelRow: {
         flexDirection: 'row',
@@ -741,7 +742,7 @@ const styles = StyleSheet.create({
         width: '48%',
         borderRadius: 16,
         borderWidth: 1,
-        padding: 14,
+        padding: 10,
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
@@ -772,6 +773,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
+        minHeight:'22%'
     },
     connectionTopRow: {
         flexDirection: 'row',
@@ -833,6 +835,7 @@ const styles = StyleSheet.create({
     connectionRight: {
         alignItems: 'flex-end',
         minWidth: 92,
+        paddingRight:25
     },
     connectionAmount: {
         fontSize: 16,
