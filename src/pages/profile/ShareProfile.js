@@ -27,6 +27,8 @@ import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
 
 const ShareProfile = ({ navigation }) => {
   const toast = useToast();
@@ -41,6 +43,24 @@ const ShareProfile = ({ navigation }) => {
   ), [userData]);
   const [username, setUsername] = useState('');
   const ownProfileImage = useSelector(state => state.profileImage?.profileImg);
+  const currentUser = useSelector(state => state.user?.profile || state.auth?.user);
+
+  const qrSize = 180;
+  const qrAvatarSize = 56;
+  const qrAvatarPos = (qrSize / 2) - (qrAvatarSize / 2);
+
+  const resolvedProfileType = useMemo(() => normalizeProfileType(
+    profile?.profile ??
+    profile?.accountType ??
+    userData?.profile ??
+    routeParams?.profile
+  ), [profile?.accountType, profile?.profile, routeParams?.profile, userData?.profile]);
+
+  const { text } = useAppTheme(resolvedProfileType);
+  const profileActionGradient =
+    resolvedProfileType === 'company'
+      ? ['#D3B683', '#e0e0c7']
+      : ['#513189bd', '#e54ba0'];
 
   const requestPermission = async () => {
     if (Platform.OS === 'android') {
@@ -152,6 +172,24 @@ const ShareProfile = ({ navigation }) => {
     ).trim()
   ), [profile, targetUserId, userData]);
 
+  const currentUserId = useMemo(() => (
+    String(
+      currentUser?.id ||
+      currentUser?.userId ||
+      currentUser?._id ||
+      '',
+    ).trim()
+  ), [currentUser]);
+
+  const isOwnProfile = Boolean(resolvedUserId && currentUserId && resolvedUserId === currentUserId);
+
+  const resolvedAvatarUri = useMemo(() => (
+    profile?.image ||
+    profile?.profileImage ||
+    (isOwnProfile ? ownProfileImage : null) ||
+    'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+  ), [isOwnProfile, ownProfileImage, profile?.image, profile?.profileImage]);
+
   const {
     primaryShareUrl,
     shareMessage,
@@ -257,7 +295,7 @@ const ShareProfile = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#1F1147', '#6B2F8A', '#E54BA0']}
+      colors={profileActionGradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.gradientContainer}
@@ -290,12 +328,7 @@ const ShareProfile = ({ navigation }) => {
           <View style={styles.shareCard}>
             <View style={styles.profileRow}>
               <HexAvatar
-                uri={
-                  profile?.image ||
-                  profile?.profileImage ||
-                  ownProfileImage ||
-                  'https://cdn-icons-png.flaticon.com/512/149/149071.png'
-                }
+                uri={resolvedAvatarUri}
                 size={54}
                 borderWidth={2}
                 borderColor="rgba(255,255,255,0.35)"
@@ -312,12 +345,31 @@ const ShareProfile = ({ navigation }) => {
             <View style={styles.qrContainer}>
               <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
                 <View style={styles.qrCard}>
-                  <QRCode
-                    value={qrShareUrl}
-                    size={180}
-                    color="#111"
-                    backgroundColor="#ffffff"
-                  />
+                  <View style={[styles.qrCodeWrapper, { width: qrSize, height: qrSize }]}>
+                    <QRCode
+                      value={qrShareUrl}
+                      size={qrSize}
+                      color="#111"
+                      backgroundColor="#ffffff"
+                    />
+
+                    <View style={[
+                      styles.qrAvatarWrapper,
+                      {
+                        width: qrAvatarSize,
+                        height: qrAvatarSize,
+                        top: qrAvatarPos,
+                        left: qrAvatarPos,
+                      },
+                    ]}>
+                      <HexAvatar
+                        uri={resolvedAvatarUri}
+                        size={qrAvatarSize}
+                        borderWidth={2.5}
+                        borderColor={text}
+                      />
+                    </View>
+                  </View>
                 </View>
               </ViewShot>
             </View>
@@ -443,6 +495,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrCodeWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrAvatarWrapper: {
+    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
   },

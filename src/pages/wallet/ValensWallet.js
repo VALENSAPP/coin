@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -30,6 +30,7 @@ import {
     totalamount,
     totalMission,
     totalSupport,
+    transationActivity,
 } from '../../services/wallet';
 import { Metamask } from '../../assets/icons';
 import { appKit } from '../../config/AppKitConfig';
@@ -45,6 +46,7 @@ const ValensWallet = ({ navigation }) => {
     const [connectedWalletAddress, setConnectedWalletAddress] = useState('');
     const [showAmounts, setShowAmounts] = useState(false);
     const [showTotalBalance, setShowTotalBalance] = useState(false);
+    const [recentActivity, setRecentActivity] = useState([]);
     const dispatch = useDispatch();
     const toast = useToast();
     const { bgStyle, text, cardStyle } = useAppTheme();
@@ -65,12 +67,13 @@ const ValensWallet = ({ navigation }) => {
             const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
             setConnectedWalletAddress(String(storedWalletAddress || '').trim());
 
-            const [totalRes, userRes, metaRes, missionRes, supportRes] = await Promise.allSettled([
+            const [totalRes, userRes, metaRes, missionRes, supportRes, activityRes] = await Promise.allSettled([
                 totalamount(),
                 userId ? getUserCredentials(userId) : Promise.resolve(null),
                 metaMaskRecived(),
                 totalMission(),
                 totalSupport(),
+                transationActivity({ page: 1, limit: 10 }),
             ]);
 
             if (totalRes.status === 'fulfilled') {
@@ -149,6 +152,129 @@ const ValensWallet = ({ navigation }) => {
                 setSubscriptionPaymentsUsd(Number.isFinite(parsed) ? parsed : 0);
             }
 
+            if (activityRes.status === 'fulfilled') {
+                const response = activityRes.value;
+                const raw =
+                    response?.data?.transactions ||
+                    response?.data?.data?.transactions ||
+                    response?.data?.data ||
+                    response?.data ||
+                    [];
+
+                const items = Array.isArray(raw) ? raw : [];
+
+                const pickFirst = (...values) =>
+                    values.find(value => value !== undefined && value !== null && value !== '');
+
+                const toNumber = (value) => {
+                    const num = Number(value);
+                    return Number.isFinite(num) ? num : 0;
+                };
+
+                const formatSignedMoney = (value) => {
+                    const n = toNumber(value);
+                    const sign = n < 0 ? '-' : '+';
+                    return `${sign}${formatMoney(Math.abs(n))}`;
+                };
+
+                const formatActivityDate = (value) => {
+                    const date = value ? new Date(value) : null;
+                    if (!date || Number.isNaN(date.getTime())) return '';
+                    const parts = date.toLocaleString('en-US', {
+                        month: 'short',
+                        day: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true,
+                    });
+                    return parts.replace(', ', ' • ').replace(', ', ' • ');
+                };
+
+                const resolveIcon = (type) => {
+                    const t = String(type || '').toLowerCase();
+                    if (t.includes('withdraw')) return 'arrow-down-outline';
+                    if (t.includes('mission')) return 'cash-outline';
+                    if (t.includes('subscription')) return 'people-outline';
+                    if (t.includes('support') || t.includes('follow')) return 'heart-outline';
+                    if (t.includes('transfer') || t.includes('wallet')) return 'swap-horizontal-outline';
+                    return 'receipt-outline';
+                };
+
+                const resolveTypeLabel = (tx) => {
+                    const rawType = pickFirst(tx?.typeTransaction, tx?.action, tx?.forPayment, tx?.type, tx?.transactionType, tx?.category, tx?.source, '');
+                    const t = String(rawType || '').trim();
+                    const lowered = t.toLowerCase();
+                    if (lowered === 'payfollowing' || lowered === 'following' || lowered.includes('following')) return 'Following Payment';
+                    if (lowered === 'missiondonation' || lowered.includes('mission')) return 'Mission Donation';
+                    if (lowered === 'donation') return 'Donation';
+                    if (!t) return 'Transaction';
+                    return t
+                        .replace(/([a-z])([A-Z])/g, '$1 $2')
+                        .replace(/_/g, ' ')
+                        .replace(/\b\w/g, (c) => c.toUpperCase());
+                };
+
+                const mapped = items.map((tx, index) => {
+                    const id = pickFirst(tx?.id, tx?._id, tx?.transactionId, tx?.txId, tx?.hash, `tx_${index}`);
+                    const typeLabel = resolveTypeLabel(tx);
+                    const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
+
+                    const rawAmount = pickFirst(
+                        tx?.amountUsd,
+                        tx?.amountUSD,
+                        tx?.amount_usd,
+                        tx?.amount,
+                        tx?.usdAmount,
+                        tx?.value,
+                        0,
+                    );
+                    const amountNumber = toNumber(rawAmount);
+                    const amountTone = amountNumber < 0 ? 'negative' : 'positive';
+
+                    const title =
+                        pickFirst(
+                            tx?.title,
+                            tx?.label,
+                            typeLabel,
+                        ) || 'Transaction';
+
+                    const subtitle = pickFirst(
+                        tx?.subtitle,
+                        tx?.description,
+                        tx?.note,
+                        tx?.missionQuestion,
+                        tx?.mission?.question,
+                        tx?.mission?.title,
+                        tx?.receiverName,
+                        tx?.senderName,
+                        '',
+                    );
+
+                    const createdAt = pickFirst(
+                        tx?.createdAt,
+                        tx?.created_at,
+                        tx?.timestamp,
+                        tx?.date,
+                        tx?.updatedAt,
+                        tx?.updated_at,
+                        null,
+                    );
+
+                    return {
+                        key: String(id),
+                        icon: resolveIcon(typeLabel),
+                        title: String(title),
+                        subtitle: subtitle ? String(subtitle) : [typeLabel, status].filter(Boolean).join(' • ') || '—',
+                        amount: formatSignedMoney(amountNumber),
+                        amountTone,
+                        date: formatActivityDate(createdAt),
+                    };
+                });
+
+                setRecentActivity(mapped);
+            }
+
 
         } catch (error) {
             showToastMessage(
@@ -205,20 +331,7 @@ const ValensWallet = ({ navigation }) => {
             value: formatMoney(subscriptionPaymentsUsd),
             subtitle: 'From subscribers',
         },
-        {
-            key: 'donations',
-            icon: 'heart-outline',
-            title: 'Donations',
-            value: '0',
-            subtitle: 'From supporters',
-        },
-        {
-            key: 'withdrawn',
-            icon: 'business',
-            title: 'Total Withdrawn',
-            value: '0',
-            subtitle: 'All time',
-        },
+
     ];
 
     const connectedWallet = String(sessionAddress || connectedWalletAddress || '').trim();
@@ -267,29 +380,11 @@ const ValensWallet = ({ navigation }) => {
         },
     ];
 
+    const resolvedRecentActivity = useMemo(
+        () => (Array.isArray(recentActivity) ? recentActivity : []),
+        [recentActivity],
+    );
 
-    const recentActivity = [
-        {
-            key: 'withdrawal',
-            icon: 'arrow-down-outline',
-            title: 'Withdrawal to Bank',
-            subtitle: 'To Chase Bank •••• 5678',
-            amount: '-$250.00',
-            amountTone: 'negative',
-            date: 'Apr 27, 2026 • 10:22 AM',
-        },
-        {
-            key: 'mission',
-            icon: 'cash-outline',
-            title: 'Mission Earnings',
-            subtitle: 'Who won today’s football match?',
-            amount: '+$120.50',
-            amountTone: 'positive',
-            date: 'Apr 26, 2026 • 08:15 PM',
-        },
-    ];
-    const walletIcon = isBusinessProfile
-        ?  require('../../assets/icons/pngicons/goldenWallet.png'):require('../../assets/icons/pngicons/newWallet.png');
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -490,9 +585,9 @@ const ValensWallet = ({ navigation }) => {
                     <View style={styles.sectionTitleRow}>
                         <Text style={[styles.sectionTitle, { color: text }]}>Recent Activity</Text>
                         <TouchableOpacity
-                            onPress={() =>
-                                showToastMessage(toast, 'success', 'View all coming soon')
-                            }
+                            onPress={() => {
+                                navigation.navigate('TransactionActivity', { activity: recentActivity });
+                            }}
                             accessibilityRole="button"
                             accessibilityLabel="View all recent activity"
                         >
@@ -500,7 +595,26 @@ const ValensWallet = ({ navigation }) => {
                         </TouchableOpacity>
                     </View>
 
-                    {recentActivity.map((activity) => {
+                    {resolvedRecentActivity.length === 0 ? (
+                        <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
+                            <View
+                                style={[
+                                    styles.activityIconWrap,
+                                    { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
+                                ]}
+                            >
+                                <Ionicons name="time-outline" size={18} color={text} />
+                            </View>
+                            <View style={styles.activityTextWrap}>
+                                <Text style={[styles.activityTitle, { color: text }]}>
+                                    No transactions yet
+                                </Text>
+                                <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
+                                    Your received transactions will appear here.
+                                </Text>
+                            </View>
+                        </View>
+                    ) : resolvedRecentActivity.slice(0, 5).map((activity) => {
                         const amountColor =
                             activity.amountTone === 'positive'
                                 ? '#22C55E'

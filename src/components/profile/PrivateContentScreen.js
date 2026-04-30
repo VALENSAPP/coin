@@ -256,19 +256,36 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     return () => sub.remove();
   }, [isFocused, refreshStatusAndPosts]);
 
-  const openPosts = useCallback(
-    (index) => {
-      navigation.getParent().navigate('ProfileMain', {
-        screen: 'PostView',
-        params: {
-          postData: posts,
-          startIndex: index,
-          hideTabBar: true,
-        },
-      });
-    },
-    [navigation, posts]
-  );
+  const openContent = useCallback(async (index) => {
+    const item = posts[index];
+    if (!item) return;
+
+    const isReel = isVideoUrl(item?.images?.[0]);
+    if (isReel) {
+      const parent = navigation.getParent?.();
+      if (parent?.navigate) {
+        parent.navigate('FlipsScreen', { item });
+        return;
+      }
+      navigation.navigate('FlipsScreen', { item });
+      return;
+    }
+
+    const imagePosts = posts.filter(p => !isVideoUrl(p?.images?.[0]));
+    const nextIndex = Math.max(
+      0,
+      imagePosts.findIndex(p => String(p?.id) === String(item?.id)),
+    );
+
+    navigation.getParent().navigate('ProfileMain', {
+      screen: 'PostView',
+      params: {
+        postData: imagePosts,
+        startIndex: nextIndex,
+        hideTabBar: true,
+      },
+    });
+  }, [navigation, posts]);
 
   const renderItem = useCallback(({ item, index }) => {
     return (
@@ -279,13 +296,13 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
           { shadowColor: text },
         ]}
         activeOpacity={0.95}
-        onPress={() => openPosts(index)}
+        onPress={() => openContent(index)}
       >
         <PostImage item={item} themeTextStyle={textStyle} />
         <View style={styles.overlay} />
       </TouchableOpacity>
     );
-  }, [openPosts, text]);
+  }, [openContent, text]);
 
   const keyExtractor = useCallback(
     (item, index) => item?.id?.toString() || index.toString(),

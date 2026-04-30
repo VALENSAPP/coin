@@ -102,3 +102,9 @@ export const getAllMissionPost = async (params) => {
 export const subscriptionEarningGraph = async (params) => {
   return axiosInstance.get('billing/subscription-earning/graph', { params });
 }
+export const transationActivity = async (params) => {
+  if (params && typeof params === 'object') {
+    return axiosInstance.get('billing/received-transactions', { params });
+  }
+  return axiosInstance.get('billing/received-transactions');
+}
