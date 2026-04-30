@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -12,20 +12,18 @@ import {
   PermissionsAndroid,
   FlatList,
   Linking,
-  Platform,
+  Modal,
+  Pressable
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
-import {
-  pickProfileImageFromCamera,
-  pickProfileImageFromGallery,
-  uriFromCropPath,
-} from '../../../utils/profileImageCrop';
-import { useNavigation } from '@react-navigation/native';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import StepHeader from './headerSection';
 import { checkDisplayName, getProfile } from '../../../services/createProfile';
+import { logout, removeDeviceAccountRequest } from '../../../services/authentication';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -33,6 +31,7 @@ import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
+import { showLoader, hideLoader } from '../../../redux/actions/LoaderAction';
 
 const { width } = Dimensions.get('window');
 const AVATAR_SIZE = 128;
@@ -43,6 +42,7 @@ export default function CreateProfile() {
   const toast = useToast();
   const route = useRoute();
   const profileFromRoute = route?.params?.profile || 'user';
+  const { accessToken, refreshToken, id } = route?.params || {};
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -59,10 +59,64 @@ export default function CreateProfile() {
   const [imageMeta, setImageMeta] = useState(null);
   const { bgStyle, textStyle, bg } = useAppTheme(profileFromRoute);
 
+  // Confirmation modal state for back swipe gesture
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   useEffect(() => {
     // Update Redux with selected profile so theme context picks it up for loader
     dispatch(setUserProfile(profileFromRoute));
   }, [profileFromRoute, dispatch]);
+
+  // Handler for confirmed logout - calls logout API and navigates to signup
+  const handleConfirmedLogout = useCallback(async () => {
+    setShowLogoutModal(false);
+
+    try {
+      dispatch(showLoader());
+      if (accessToken || refreshToken) {
+        await logout({ token: accessToken, refreshToken });
+        console.log('Logout called from back swipe confirmation');
+
+        const res = await removeDeviceAccountRequest({ userId: id });
+        const ok = res?.statusCode === 200 || res?.statusCode === 201;
+        if (ok) {
+          // Clear local storage after successful logout
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('refreshToken');
+          await AsyncStorage.removeItem('firebaseToken');
+          await AsyncStorage.removeItem('userId');
+          await AsyncStorage.removeItem('username');
+          await AsyncStorage.removeItem('email');
+          await AsyncStorage.removeItem('profile');
+          await AsyncStorage.setItem('isLoggedIn', 'false');
+          console.log('Local storage cleared after logout');
+        }
+        }
+      } catch (error) {
+        console.warn('Logout failed on back navigation:', error?.message);
+      } finally {
+        dispatch(hideLoader());
+        navigation.navigate('Signup', { profile: profileFromRoute });
+      }
+    }, [navigation, accessToken, refreshToken, dispatch]);
+
+  // Handle back navigation - show confirmation modal on back swipe gesture
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
+        // Only handle back navigation if we have tokens from social signup
+        if (!accessToken && !refreshToken) {
+          return;
+        }
+
+        // Prevent default navigation and show confirmation modal
+        e.preventDefault();
+        setShowLogoutModal(true);
+      });
+
+      return unsubscribe;
+    }, [navigation, accessToken, refreshToken])
+  );
 
   const validateUsername = v => {
     if (!v) return 'Username is required';
@@ -686,6 +740,37 @@ export default function CreateProfile() {
           </TouchableOpacity>
         </View>
       </RBSheet>
+
+      {/* Logout Confirmation Modal for back swipe gesture */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLogoutModal(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Leave and logout?</Text>
+            <Text style={styles.modalMessage}>
+              Your account will be logged out and you'll be returned to the signup screen.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={handleConfirmedLogout}
+              >
+                <Text style={styles.modalConfirmText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1029,5 +1114,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#6B7280',
+  },
+
+  // Logout Confirmation Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
 });

@@ -115,7 +115,7 @@ export default function LoginScreen() {
         }
         else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
-          navigation.navigate('CreateProfile', { profile: response.data.profile || 'user' });
+          navigation.navigate('CreateProfile', { profile: response.data.profile || 'user', id });
         }
         else if (response.statusCode === 200 && response.data.kyc == false) {
 
@@ -124,7 +124,7 @@ export default function LoginScreen() {
             await AsyncStorage.setItem('profile', profile);
             dispatch(setUserProfile(profile));
           }
-          navigation.navigate('CreateProfile', { profile: profile || 'user' });
+          navigation.navigate('CreateProfile', { profile: profile || 'user', id });
         }
         else if (response.statusCode === 200 && response.data.bio == null) {
 
@@ -133,7 +133,7 @@ export default function LoginScreen() {
             await AsyncStorage.setItem('profile', profile);
             dispatch(setUserProfile(profile));
           }
-          navigation.navigate('CreateProfile', { profile: profile || 'user' });
+          navigation.navigate('CreateProfile', { profile: profile || 'user', id });
         }
         else {
           await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
