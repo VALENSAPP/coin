@@ -384,10 +384,13 @@ const ValensWallet = ({ navigation }) => {
         () => (Array.isArray(recentActivity) ? recentActivity : []),
         [recentActivity],
     );
-
+    const walletIcon = isBusinessProfile
+        ? require('../../assets/icons/pngicons/goldenWallet-removebg.png')
+        : require('../../assets/icons/pngicons/newWallet.png');
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 80 }} >
                 <View style={styles.topCardWrap}>
                     <LinearGradient
                         colors={walletScreenGradient}
@@ -421,7 +424,7 @@ const ValensWallet = ({ navigation }) => {
                             <Image
                                 source={walletIcon}
                                 style={[styles.walletImage, { width: walletImageSize * 1.5, height: walletImageSize * 1.5 }]}
-                                // resizeMode="contain"
+                                resizeMode="contain"
                             />
                         </View>
                     </LinearGradient>
@@ -581,6 +584,7 @@ const ValensWallet = ({ navigation }) => {
                     ))}
                 </View>
 
+
                 <View style={styles.section}>
                     <View style={styles.sectionTitleRow}>
                         <Text style={[styles.sectionTitle, { color: text }]}>Recent Activity</Text>
@@ -663,7 +667,6 @@ const ValensWallet = ({ navigation }) => {
                         );
                     })}
                 </View>
-
                 <View style={styles.bottomSpacer} />
             </ScrollView>
 
@@ -683,14 +686,14 @@ const styles = StyleSheet.create({
     topCardWrap: {
         paddingHorizontal: 16,
         marginBottom: 18,
-        marginTop: '2%'
+        marginTop: '2%',
 
     },
     topCard: {
         borderRadius: 18,
         borderWidth: 1,
         overflow: 'hidden',
-        minHeight: '16%',
+        minHeight: '22%',
     },
     topCardLeft: {
         padding: 16,
@@ -703,7 +706,8 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     walletImage: {
-        // opacity: 0.95,
+        opacity: 0.95,
+        borderRadius: 20
     },
     balanceLabelRow: {
         flexDirection: 'row',
@@ -790,6 +794,7 @@ const styles = StyleSheet.create({
     section: {
         paddingHorizontal: 20,
         marginBottom: 18,
+        // bottom: "10%"
     },
     sectionTitle: {
         fontSize: 18,
@@ -860,6 +865,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
+        height: '110%'
     },
     statIcon: {
         marginBottom: 10,
@@ -887,7 +893,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
-        minHeight:'22%'
+        minHeight: '28%'
     },
     connectionTopRow: {
         flexDirection: 'row',
@@ -949,7 +955,7 @@ const styles = StyleSheet.create({
     connectionRight: {
         alignItems: 'flex-end',
         minWidth: 92,
-        paddingRight:25
+        paddingRight: 25,
     },
     connectionAmount: {
         fontSize: 16,
@@ -1000,6 +1006,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
+        paddingBottom: '10%'
     },
     activityIconWrap: {
         width: 38,
