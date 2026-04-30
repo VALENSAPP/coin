@@ -28,7 +28,7 @@ import CommentSection from '../../components/comments/CommentSection';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import CustomMarquee from '../../components/customMarquee/CustomMarquee';
 import { getAllReels } from '../../services/reels';
-import { likePost, savePost, unSavePost, follow, unfollow } from '../../services/post';
+import { likePost, savePost, unSavePost, follow, unfollow, deletePost } from '../../services/post';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -383,8 +383,17 @@ export default function FlipsScreen() {
     seekReelToLocationX(activeId, locationX);
   };
 
+  // ADD this effect — resets scroll lock whenever screen loses focus
+  useEffect(() => {
+    if (!isFocused) {
+      setIsScrubbing(false);
+      setPinchScrollLock(false);
+      scrubbingReelIdRef.current = null;
+    }
+  }, [isFocused]);
   // Helper — call on release/terminate
-  const onScrubEnd = () => {
+  // AFTER — ensure lock is always cleared even if gesture is interrupted
+  const onScrubEnd = useCallback(() => {
     setIsScrubbing(false);
     scrubbingReelIdRef.current = null;
     Animated.spring(scrubAnim, {
@@ -393,7 +402,7 @@ export default function FlipsScreen() {
       bounciness: 0,
       speed: 20,
     }).start();
-  };
+  }, [scrubAnim]);
 
   // Derived animated values
   const trackHeight = scrubAnim.interpolate({
@@ -440,43 +449,75 @@ export default function FlipsScreen() {
     try {
       dispatch(showLoader());
       const response = await getAllReels();
-      console.log(response,'data in rels')
+      console.log(response, 'data in rels')
       if (response?.statusCode === 200) {
-        const transformedReels = response.data.map(item => ({
-          id: item.id,
-          video: item.images?.[0] || '',
-          user: item.userName || 'Unknown User',
-          avatar: item.userImage || 'https://randomuser.me/api/portraits/men/1.jpg',
-          caption: item.caption || item.text || 'No caption',
-          music: item.music || 'Original Audio',
-          likes: item.likeCount || 0,
-          comments: item.commentCount || 0,
-          shares: item.shareCount || 0,
-          isLiked: item.isLike || false,
-          isFollowing: item.isFollow || false,
-          views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
-          duration: 30000,
-          verified: false,
-          likedBy: [`${item.likeCount || 0} others`],
-          isRemixable: true,
-          isSaved: item.isSaved || false,
-          isHide: item.isHide || false,
-          userId: item.userId,
-          UserId: item.UserId || item.userId,
-          profile: item.profile || 'user',
-          walletAddress: item.walletAddress || item.userWalletAddress || item.creatorWalletAddress || item.vendorWalletAddress || item.receiverWalletAddress || null,
-          hashtag: item.hashtag || [],
-          location: item.location || null,
-          taggedPeople: item.taggedPeople || [],
-        }));
-        if (paramReel) {
-          setReels(prevReels => {
-            const filteredApiReels = transformedReels.filter(apiReel => apiReel.id !== prevReels[0]?.id);
-            return [...prevReels, ...filteredApiReels];
-          });
-        } else {
-          if (transformedReels.length > 0) setReels(transformedReels);
+        const pickFirst = (...values) =>
+          values.find(value => value !== undefined && value !== null && value !== '');
+
+        const normalizeReel = (raw, { fallbackIdPrefix, fallbackIndex } = {}) => {
+          const resolvedId = pickFirst(raw?.id, raw?._id, raw?.postId, raw?.reelId);
+          const fallbackId = `${fallbackIdPrefix || 'reel'}_${Date.now()}_${fallbackIndex ?? 0}`;
+          return {
+            id: resolvedId || fallbackId,
+            video: raw?.images?.[0] || raw?.video || '',
+            user: raw?.userName || raw?.username || raw?.user || 'Unknown User',
+            avatar: raw?.userImage || raw?.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
+            caption: raw?.caption || raw?.text || 'No caption',
+            music: raw?.music || 'Original Audio',
+            likes: raw?.likeCount || raw?.likes || 0,
+            comments: raw?.commentCount || raw?.comments || 0,
+            shares: raw?.shareCount || raw?.shares || 0,
+            isLiked: raw?.isLike || raw?.isLiked || false,
+            isFollowing: raw?.isFollow || raw?.isFollowing || false,
+            views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
+            duration: 30000,
+            verified: false,
+            likedBy: [`${raw?.likeCount || raw?.likes || 0} others`],
+            isRemixable: true,
+            isSaved: raw?.isSaved || false,
+            isHide: raw?.isHide || false,
+            userId: raw?.userId || raw?.UserId,
+            UserId: raw?.UserId || raw?.userId,
+            profile: raw?.profile || 'user',
+            walletAddress: raw?.walletAddress || raw?.userWalletAddress || raw?.creatorWalletAddress || raw?.vendorWalletAddress || raw?.receiverWalletAddress || null,
+            hashtag: raw?.hashtag || [],
+            location: raw?.location || null,
+            taggedPeople: raw?.taggedPeople || [],
+          };
+        };
+
+        const apiReels = (Array.isArray(response.data) ? response.data : [])
+          .map((item, index) => normalizeReel(item, { fallbackIdPrefix: 'api', fallbackIndex: index }));
+
+        const seen = new Set();
+        const dedupedApiReels = apiReels.filter(r => {
+          const key = String(r?.id || '');
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        if (!paramReel) {
+          if (dedupedApiReels.length > 0) setReels(dedupedApiReels);
+          return;
         }
+
+        const normalizedParamReel = normalizeReel(paramReel, { fallbackIdPrefix: 'param', fallbackIndex: 0 });
+        const paramId = String(normalizedParamReel.id);
+        const matchIndex = dedupedApiReels.findIndex(r => String(r?.id) === paramId);
+
+        if (matchIndex >= 0) {
+          const next = dedupedApiReels.map(r => (String(r?.id) === paramId ? { ...r, ...normalizedParamReel } : r));
+          setReels(next);
+          setSelectedReelId(normalizedParamReel.id);
+          setCurrentIndex(matchIndex);
+          return;
+        }
+
+        const next = [normalizedParamReel, ...dedupedApiReels.filter(r => String(r?.id) !== paramId)];
+        setReels(next);
+        setSelectedReelId(normalizedParamReel.id);
+        setCurrentIndex(0);
       } else {
         showToastMessage(toast, 'danger', response?.data?.message || 'Failed to fetch reels');
       }
@@ -569,13 +610,19 @@ export default function FlipsScreen() {
   }, [navigation, route.params]);
 
 
-  const onViewableItemsChanged = useRef(({ viewableItems }) => { }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0 && viewableItems[0].isViewable) {
+      setCurrentIndex(viewableItems[0].index);
+    }
+  }).current;
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 95 });
 
   const handleScroll = useCallback(event => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const maxScroll = (reels.length - 1) * viewportHeight;
-    if (offsetY > maxScroll + 50) flatListRef.current?.scrollToIndex({ index: reels.length - 1, animated: false });
+    if (offsetY > maxScroll + viewportHeight * 0.5) {
+      flatListRef.current?.scrollToIndex({ index: reels.length - 1, animated: false });
+    }
   }, [reels.length, viewportHeight]);
 
   const handleLike = useCallback(async id => {
@@ -691,6 +738,16 @@ export default function FlipsScreen() {
   }, []);
 
   const currentReel = reels[currentIndex] || null;
+  const activeReelId = selectedReelId || currentReel?.id || null;
+  const activeReel = useMemo(() => (
+    (activeReelId ? reels.find(r => String(r?.id) === String(activeReelId)) : null) ||
+    currentReel ||
+    null
+  ), [activeReelId, currentReel, reels]);
+  const canDeleteActiveReel = useMemo(() => {
+    const ownerId = activeReel ? getReelOwnerId(activeReel) : null;
+    return Boolean(activeReelId && currentUserId && ownerId && String(ownerId) === String(currentUserId));
+  }, [activeReel, activeReelId, currentUserId, getReelOwnerId]);
   const recipientWalletAddress = getSupportRecipientWalletAddress(currentReel || {});
   const supporterProfile = normalizeProfileType(currentUserProfileType);
   const recipientProfile = normalizeProfileType(currentReel?.profile);
@@ -849,6 +906,52 @@ export default function FlipsScreen() {
     setSelectedReelId(item.id);
     moreOptionsSheetRef.current?.open();
   };
+
+  const deleteReelById = useCallback(async (reelId) => {
+    if (!reelId) return;
+
+    try {
+      const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
+      if (!userId) {
+        showToastMessage(toast, 'danger', 'No user id found; cannot delete.');
+        return;
+      }
+
+      dispatch(showLoader());
+
+      setReels(prev => {
+        const next = prev.filter(r => String(r?.id) !== String(reelId));
+        const maxIdx = Math.max(0, next.length - 1);
+        setCurrentIndex(ci => Math.max(0, Math.min(ci, maxIdx)));
+        return next;
+      });
+
+      setSelectedReelId(null);
+      moreOptionsSheetRef.current?.close?.();
+
+      const res = await deletePost(String(reelId), String(userId));
+      if (res?.statusCode === 200 && (res?.success ?? true)) {
+        showToastMessage(toast, 'success', res?.data?.message || 'Flip deleted');
+      } else {
+        showToastMessage(toast, 'danger', res?.data?.message || res?.message || 'Failed to delete reel');
+      }
+    } catch (e) {
+      showToastMessage(
+        toast,
+        'danger',
+        e?.response?.data?.message || e?.message || 'Error deleting reel',
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
+  }, [currentUserId, dispatch, toast]);
+
+  const confirmDeleteReel = useCallback((reelId) => {
+    Alert.alert('Delete reel?', 'This action cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteReelById(reelId) },
+    ]);
+  }, [deleteReelById]);
 
   const renderMusicTemplate = ({ item }) => (
     <TouchableOpacity style={styles.templateItem}>
@@ -1139,11 +1242,11 @@ export default function FlipsScreen() {
         <GestureFlatList
           ref={flatListRef}
           data={reels}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => String(item?.id ?? index)}
           renderItem={renderItem}
           pagingEnabled
           showsVerticalScrollIndicator={false}
-          decelerationRate={0.98}
+          decelerationRate='fast'
           onScroll={handleScroll}
           scrollEventThrottle={16}
           onViewableItemsChanged={onViewableItemsChanged}
@@ -1151,7 +1254,7 @@ export default function FlipsScreen() {
             const offsetY = e.nativeEvent.contentOffset.y || 0;
             const idx = Math.round(offsetY / viewportHeight);
             const maxIndex = reels.length - 1;
-            const validIdx = Math.min(idx, maxIndex);
+            const validIdx = Math.min(Math.max(0, idx), maxIndex);
             if (validIdx !== currentIndex) setCurrentIndex(validIdx);
             if (idx > maxIndex) flatListRef.current?.scrollToIndex({ index: maxIndex, animated: true });
           }}
@@ -1205,7 +1308,7 @@ export default function FlipsScreen() {
 
         <RBSheet
           ref={moreOptionsSheetRef}
-          height={350}
+          height={380}
           openDuration={250}
           customStyles={{ container: { borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#fff' } }}
           closeOnDragDown
@@ -1220,6 +1323,20 @@ export default function FlipsScreen() {
                 <Icon name={saved[selectedReelId || reels[currentIndex]?.id] ? 'bookmark' : 'bookmark-outline'} size={24} color="#000" />
                 <Text style={styles.moreOptionText}>{saved[selectedReelId || reels[currentIndex]?.id] ? 'Saved' : 'Save'}</Text>
               </TouchableOpacity>
+              {canDeleteActiveReel && (
+                <TouchableOpacity
+                  style={styles.moreOption}
+                  onPress={() => {
+                    moreOptionsSheetRef.current?.close();
+                    confirmDeleteReel(activeReelId);
+                  }}
+                >
+                  <Icon name="trash-outline" size={24} color="#000" />
+                  <Text style={[styles.moreOptionText, { color: '#000', }]}>
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.moreOption} onPress={() => { moreOptionsSheetRef.current?.close(); setTimeout(() => reportSheetRef.current?.open(), 200); }}>
                 <Icon name="flag-outline" size={24} color="#000" />
                 <Text style={styles.moreOptionText}>Report</Text>

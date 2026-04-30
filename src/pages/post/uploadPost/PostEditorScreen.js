@@ -127,7 +127,11 @@ const PostEditorScreen = () => {
         //   : 
         postType === 'private'
           ? 'private'
-          : 'normal',
+          : 'normal' 
+          ||fromIcon === 'Flips'
+           ? 'reel'
+           : 'normal'
+          ,
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);

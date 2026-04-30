@@ -115,13 +115,17 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
   }, [postCheck]);
 
   const openPosts = useCallback((index) => {
-    navigation.getParent().navigate('ProfileMain', {
-      screen: 'PostView',
-      params: {
-        postData: posts,
-        startIndex: index,
-      },
-    });
+    const reel = posts[index];
+    if (!reel) return;
+
+    // Prefer pushing inside the Profile stack (we also register FlipsScreen there).
+    const parent = navigation.getParent?.();
+    if (parent?.navigate) {
+      parent.navigate('FlipsScreen', { item: reel });
+      return;
+    }
+
+    navigation.navigate('FlipsScreen', { item: reel });
   }, [navigation, posts]);
 
   const renderItem = useCallback(({ item, index }) => (

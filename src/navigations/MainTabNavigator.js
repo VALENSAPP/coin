@@ -86,6 +86,7 @@ import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
 import ValensWallet from '../pages/wallet/ValensWallet';
+import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -375,10 +376,24 @@ export default function MainTabNavigator() {
             component={PortfolioScreen}
             options={{ headerTitle: 'Portfolio' }}
           /> */}
-           <Stack.Screen
+          <Stack.Screen
             name="ValensWallet"
             component={ValensWallet}
             options={{ headerTitle: 'Valens Wallet' }}
+          />
+          <Stack.Screen
+            name="TransactionActivity"
+            component={TransactionActivityScreen}
+            options={({ navigation }) => ({
+              headerTitle: 'Recent Activities',
+              headerRight: () => (
+                <TouchableOpacity onPress={() => navigation.goBack()}>
+                  <View style={{marginRight:10}}>
+                 <Ionicons name="close" size={20} color='#000' />
+                  </View>
+                </TouchableOpacity>
+              ),
+            })}
           />
           <Stack.Screen
             name="Market"
@@ -445,7 +460,7 @@ export default function MainTabNavigator() {
             component={ViewMissioPost}
             options={{ headerTitle: 'View Mission Post' }}
           />
-           <Stack.Screen
+          <Stack.Screen
             name="RevenueFromSubscriptions"
             component={RevenueFromSubscriptions}
             options={{ headerTitle: 'Revenue From Subscriptions' }}
