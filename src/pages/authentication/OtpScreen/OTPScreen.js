@@ -191,13 +191,13 @@ export default function OTPScreen() {
         }
         else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
           showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
-          navigation.navigate('CreateProfile', { profile });
+          navigation.navigate('CreateProfile', { profile, id });
         }
         else if (response.statusCode === 200 && response.data.kyc == false) {
-          navigation.navigate('CreateProfile', { profile });
+          navigation.navigate('CreateProfile', { profile, id });
         }
         else if (response.statusCode === 200 && response.data.bio == null) {
-          navigation.navigate('CreateProfile', { profile });
+          navigation.navigate('CreateProfile', { profile, id });
         }
         else {
           await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);

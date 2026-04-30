@@ -5,10 +5,10 @@ import Geolocation from 'react-native-geolocation-service';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { saveOrUpdateAccount } from '../../utils/accountSession';
 
-export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast) => {
+export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast, accessToken, refreshToken) => {
     if (token) {
         await AsyncStorage.setItem('token', token);
-        getProfileData(dispatch, navigation, toast);
+        getProfileData(dispatch, navigation, toast, accessToken, refreshToken);
         // navigation.reset({ index: 0, routes: [{ name: 'MainTabNavigator' }] });
     } else {
         throw new Error('Login successful, but no token received.');
@@ -163,7 +163,26 @@ export const refreshToken = async (token) => {
 }
 
 export const logout = async (token) => {
-    return axiosinstance.post('/auth/logout', token);
+    try {
+        // Call the logout API
+        await axiosinstance.post('/auth/logout', token);
+    } catch (error) {
+        console.warn('Logout API call failed:', error?.message);
+    }
+
+    // Also remove the device account if userId is available
+    try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+            const res = await removeDeviceAccountRequest({ userId });
+            const ok = res?.statusCode === 200 || res?.statusCode === 201;
+            if (ok) {
+                console.log('Device account removed on logout');
+            }
+        }
+    } catch (error) {
+        console.warn('Remove device account failed:', error?.message);
+    }
 }
 
 /** Stable device id for /auth/device-accounts, /auth/switch, /auth/remove-account */
