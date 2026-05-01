@@ -15,7 +15,8 @@ import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/n
 import { useAppTheme } from '../../theme/useApptheme';
 import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
-
+import LinearGradient from 'react-native-linear-gradient';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
 const SPACING = 2;
@@ -38,6 +39,26 @@ const normalizeImageUrl = (url) => {
 const isVideoUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
+};
+
+const mixWithWhite = (hex, amount = 0.85) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return '#f3f4f6';
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  const toHex = (c) => mix(c).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+const withAlpha = (hex, alpha = 0.12) => {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return `rgba(124,58,237,${alpha})`;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 };
 
 const PostImage = memo(({ item, themeTextStyle }) => {
@@ -127,7 +148,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
+  const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const normalizedIsSubscribed =
     isSubscribed === true ||
     String(isSubscribed || '').toUpperCase() === 'ACTIVE' ||
@@ -319,13 +340,92 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     <>
       {
         isCompany ?
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyTitle, textStyle]}>Marketplace</Text>
+          <View style={[styles.marketingContainer, bgStyle]}>
+            <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+              <LinearGradient
+                colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.leftRail}
+              >
+                <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+                  <Ionicons name="bag-handle" size={34} color={text} />
+                </View>
+                <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
+                  <Ionicons name="sparkles" size={18} color={text} />
+                </View>
+              </LinearGradient>
+
+              <View style={styles.marketingBody}>
+                {isOwnProfile ? (
+                  <>
+                    <Text style={[styles.marketingTitle, textStyle]}>SHOP 🛍️</Text>
+                    <Text style={[styles.marketingText, textStyle]}>Welcome to shop.</Text>
+                    <Text style={[styles.marketingText, textStyle]}>
+                      A curated space where our brand comes to life through exclusive pieces and
+                      refined selections. Enjoy it.
+                    </Text>
+
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={onSubscribePress}
+                      style={styles.ctaButton}
+                    >
+                      <LinearGradient
+                        colors={[text, mixWithWhite(text, 0.35)]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.ctaGradient}
+                      >
+                        <Text style={styles.ctaText}>  Start It Now</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.marketingTitle, textStyle]}>
+                      {(userData?.displayName || userData?.userName || 'Business')} SHOP
+                    </Text>
+                    <Text style={[styles.marketingText, textStyle]}>Welcome to this shop.</Text>
+                    <Text style={[styles.marketingText, textStyle]}>
+                      Explore the collection, discover new pieces, and experience the brand behind
+                      it.
+                    </Text>
+
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={onSubscribePress}
+                      style={styles.ctaButton}
+                    >
+                      <LinearGradient
+                        colors={[text, mixWithWhite(text, 0.35)]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.ctaGradient}
+                      >
+                        <Text style={styles.ctaText}>Shop now</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
           </View>
           :
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyTitle, textStyle]}>No private posts yet</Text>
-            <Text style={styles.emptySubtitle}>Private content will appear here</Text>
+          <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onSubscribePress}
+              style={styles.lockedCard}
+            >
+              <Text style={styles.lockedIcon}>🔒</Text>
+              <Text style={[styles.lockedTitle, textStyle]}>
+                Subscribe to unlock private content
+              </Text>
+              <Text style={styles.lockedSubtitle}>
+                Exclusive posts are available only for active subscribers.
+              </Text>
+            </TouchableOpacity>
           </View>
       }
     </>
@@ -345,8 +445,76 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
         <>
           {
             isCompany ?
-              <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyTitle, textStyle]}>Marketplace</Text>
+              <View style={[styles.marketingContainer, bgStyle]}>
+                <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+                  <LinearGradient
+                    colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={styles.leftRail}
+                  >
+                    <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+                      <Ionicons name="bag-handle" size={34} color={text} />
+                    </View>
+                    <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
+                      <Ionicons name="sparkles" size={18} color={text} />
+                    </View>
+                  </LinearGradient>
+
+                  <View style={styles.marketingBody}>
+                    {isOwnProfile ? (
+                      <>
+                        <Text style={[styles.marketingTitle, textStyle]}>SHOP 🛍️</Text>
+                        <Text style={[styles.marketingText, textStyle]}>Welcome to shop.</Text>
+                        <Text style={[styles.marketingText, textStyle]}>
+                          A curated space where our brand comes to life through exclusive pieces and
+                          refined selections. Enjoy it.
+                        </Text>
+
+                        <TouchableOpacity
+                          activeOpacity={0.9}
+                          onPress={onSubscribePress}
+                          style={styles.ctaButton}
+                        >
+                          <LinearGradient
+                            colors={[text, mixWithWhite(text, 0.35)]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.ctaGradient}
+                          >
+                            <Text style={styles.ctaText}> Start It Now</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[styles.marketingTitle, textStyle]}>
+                          {(userData?.displayName || userData?.userName || 'Business')} SHOP
+                        </Text>
+                        <Text style={[styles.marketingText, textStyle]}>Welcome to this shop.</Text>
+                        <Text style={[styles.marketingText, textStyle]}>
+                          Explore the collection, discover new pieces, and experience the brand behind
+                          it.
+                        </Text>
+
+                        <TouchableOpacity
+                          activeOpacity={0.9}
+                          onPress={onSubscribePress}
+                          style={styles.ctaButton}
+                        >
+                          <LinearGradient
+                            colors={[text, mixWithWhite(text, 0.35)]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.ctaGradient}
+                          >
+                            <Text style={styles.ctaText}>Shop now</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                </View>
               </View>
               :
               <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
@@ -524,5 +692,78 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  marketingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  marketingCard: {
+    maxWidth: 560,
+    alignSelf: 'center',
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+    flexDirection: 'row',
+  },
+  leftRail: {
+    width: 92,
+    paddingTop: 16,
+    paddingBottom: 14,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  railIconBubble: {
+    height: 58,
+    width: 58,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railMiniBubble: {
+    height: 34,
+    width: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marketingBody: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  marketingTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  marketingText: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  ctaButton: {
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignSelf: 'stretch',
+  },
+  ctaGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  ctaText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

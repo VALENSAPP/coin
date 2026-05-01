@@ -780,7 +780,7 @@ const BusinessProfileForm = () => {
               </View>
               <View />
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: text, shadowColor: text }]}
+                style={[styles.submitButton, { backgroundColor:'#D3B683', shadowColor: '#D3B683'}]}
                 onPress={launchSumsub}
                 disabled={isLaunchingSumsub}
               >
@@ -791,7 +791,7 @@ const BusinessProfileForm = () => {
               <View />
 
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: text, shadowColor: text }]}
+                style={[styles.submitButton, { backgroundColor: '#D3B683', shadowColor: '#D3B683' }]}
                 onPress={handleSubmit}
                 disabled={isSubmitting || isUploadingDocument}
               >

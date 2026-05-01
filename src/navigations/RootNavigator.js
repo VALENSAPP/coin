@@ -435,9 +435,11 @@ export default function MainStack() {
   }
 
   return (
-    <View style={styles.container}>
-      <GlobalDrawerNavigator />
-    </View>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="AppDrawer" component={GlobalDrawerNavigator} />
+      <Stack.Screen name="BusinessSetup" component={BusinessSetup} />
+      <Stack.Screen name="kycverify" component={KYCVerification} />
+    </Stack.Navigator>
   );
 }
 

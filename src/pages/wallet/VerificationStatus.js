@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -16,25 +16,66 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { startVerification } from '../../services/companyProfile';
+import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 
 const VerificationStatusScreen = () => {
     const [data, setData] = useState(null);
-    const navigation =useNavigation();
+    const navigation = useNavigation();
     const [verificationData, setVerificationData] = useState({
         emailVerified: false,
         kycVerified: false,
     });
+    const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
+    const sumsubLaunchLockRef = useRef(false);
     const dispatch = useDispatch();
     const toast = useToast();
     const allVerified = Object.values(verificationData).every(v => v === true);
     const { bgStyle, textStyle } = useAppTheme();
 
+    const launchSumsub = async () => {
+        if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
+        sumsubLaunchLockRef.current = true;
+        setIsLaunchingSumsub(true);
+
+        try {
+            const response = await startVerification();
+            const accessToken = response?.data?.token;
+
+            if (!accessToken) {
+                showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
+                return;
+            }
+
+            const sdk = SNSMobileSDK.init(accessToken, () => accessToken)
+                .withHandlers({
+                    onStatusChanged: (event) => {
+                        console.log('Sumsub status:', event);
+                    },
+                })
+                .withDebug(true)
+                .build();
+
+            await sdk.launch();
+        } catch (error) {
+            const errorMessage = String(error?.message || error || '').toLowerCase();
+            if (errorMessage.includes('another instance is in use')) {
+                showToastMessage(toast, 'warning', 'Verification is already open. Please complete it first.');
+            } else {
+                showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+            }
+            console.log(error, 'Sumsub launch error');
+        } finally {
+            sumsubLaunchLockRef.current = false;
+            setIsLaunchingSumsub(false);
+        }
+    };
     useFocusEffect(
         useCallback(() => {
             loadProfileData();
         }, [])
     );
-
+    console.log(data, 'dtaa in verifcation apiaipaaa')
     const loadProfileData = async () => {
         dispatch(showLoader());
         try {
@@ -103,12 +144,19 @@ const VerificationStatusScreen = () => {
                     </View>
 
                     <View style={styles.verificationItem}>
-                        <TouchableOpacity onPress={()=>{ 
-                            !verificationData.kycVerified && navigation.navigate('kycverify')
-                        }}style={styles.verificationItemLeft}>
+                        <TouchableOpacity onPress={() => {
+                            if (data?.profile === "company") {
+                                launchSumsub();
+                            } else if (!verificationData?.kycVerified) {
+                                navigation.navigate('kycverify');
+                            }
+                        }}
+                            style={styles.verificationItemLeft}>
                             <Text style={styles.verificationItemIcon}>🆔</Text>
                             <View>
-                                <Text style={styles.verificationItemTitle}>KYC Verification</Text>
+                                <Text style={styles.verificationItemTitle}>
+                                    {data?.profile === 'company' ? 'KYB Verification' : 'KYC Verification'}
+                                </Text>
                                 <Text style={styles.verificationItemSubtitle}>Government ID verified</Text>
                             </View>
                         </TouchableOpacity>
@@ -117,11 +165,17 @@ const VerificationStatusScreen = () => {
                                 <Text style={styles.verifiedText}>Verified</Text>
                             </View>
                         ) : (
-                            <TouchableOpacity onPress={()=>navigation.navigate('kycverify')}>
+                            <TouchableOpacity onPress={() => {
+                                if (data?.profile === "company") {
+                                    launchSumsub();
+                                } else if (!verificationData?.kycVerified) {
+                                    navigation.navigate('kycverify');
+                                }
+                            }}>
 
-                            <View style={styles.unVerifiedBadge}>
-                                <Text style={styles.unVerifiedText}>Not Verified</Text>
-                            </View>
+                                <View style={styles.unVerifiedBadge}>
+                                    <Text style={styles.unVerifiedText}>Not Verified</Text>
+                                </View>
                             </TouchableOpacity>
                         )}
                     </View>

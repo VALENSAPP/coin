@@ -1,9 +1,8 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
-import TaggedScreen from '../profile/TaggedScreen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
@@ -12,6 +11,9 @@ import SubscribeModal from '../modals/SubscriptionModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import PrivateContentScreen from './PrivateContentScreen';
 import { getFansubscriptionStatus } from '../../services/stirpe';
+import PrivateCircle from './PrivateCircle';
+import Shop from './Shop';
+import { Dimensions, Image } from 'react-native';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -35,11 +37,40 @@ const ProfileTabs = memo(({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [privateKey, setPrivatKey] = useState(0);
   const [activeTab, setActiveTab] = useState('Posts');
-  const [currentTabIndex, setCurrentTabIndex] = useState(0);
-  const [previousTabIndex, setPreviousTabIndex] = useState(0);
+  // const [currentTabIndex, setCurrentTabIndex] = useState(0);
+  // const [previousTabIndex, setPreviousTabIndex] = useState(0);
 
   const effectiveProfileType = profileType || userData?.profile;
   const { textStyle, text } = useAppTheme(effectiveProfileType);
+
+  // Keep options stable so the indicator animation stays smooth on swipe.
+  const tabScreenOptions = useMemo(() => ({
+    tabBarShowLabel: false,
+    swipeEnabled: true,
+    animationEnabled: true,
+    lazy: true,
+    lazyPlaceholder: () => null,
+    tabBarStyle: {
+      marginTop: 2,
+      height: 52,
+      backgroundColor: '#fff',
+      elevation: 2,
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+    },
+    tabBarIndicatorStyle: {
+      backgroundColor: text,
+      height: 3,
+      borderRadius: 999,
+      bottom: 0,
+    },
+    tabBarIconStyle: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    tabBarPressColor: 'transparent',
+    tabBarPressOpacity: 0.7,
+  }), [text]);
 
   // Update local subscription state when prop changes
   useEffect(() => {
@@ -117,12 +148,22 @@ const ProfileTabs = memo(({
     ),
     [post, userData, isSubscribed, loggedInUserId],
   );
+console.log(userData,'data in thia akjasjgskasakj')
+  const renderPrivateCircleScreen = useCallback(
+    (navProps) => <PrivateCircle {...navProps} isOwnProfile={isOwnProfile} userData={userData} />,
+    [isOwnProfile, userData],
+  );
+
+  const renderShopScreen = useCallback(
+    (navProps) => <Shop {...navProps} isOwnProfile={isOwnProfile} userData={userData} />,
+    [isOwnProfile, userData],
+  );
 
   const navigation = useNavigation();
 
   const handleModalClose = () => {
     setShowSubscribeModal(false);
-    setCurrentTabIndex(previousTabIndex);
+    // setCurrentTabIndex(previousTabIndex);
   };
 
   // ✅ subscription confirmation handler
@@ -131,34 +172,12 @@ const ProfileTabs = memo(({
     setShowSubscribeModal(false);
   };
 
+
   return (
     <>
       <Tab.Navigator
-        screenOptions={{
-          tabBarShowLabel: false,
-          swipeEnabled: true,
-          lazy: true,
-          lazyPlaceholder: () => null,
-          tabBarStyle: {
-            marginTop: 2,
-            height: 52,
-            backgroundColor: '#fff',
-            elevation: 2,
-            shadowOpacity: 0.08,
-            shadowRadius: 4,
-          },
-          tabBarIndicatorStyle: {
-            backgroundColor: text,
-            height: 3,
-            borderRadius: 2,
-          },
-          tabBarIconStyle: {
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
-          tabBarPressColor: 'transparent',
-          tabBarPressOpacity: 0.7,
-        }}
+        initialLayout={{ width: Dimensions.get('window').width }}
+        screenOptions={tabScreenOptions}
       >
         <Tab.Screen
           name="Posts"
@@ -171,16 +190,40 @@ const ProfileTabs = memo(({
               />
             ),
           }}
-          listeners={{
-            tabPress: () => {
-              setPreviousTabIndex(currentTabIndex);
-              setCurrentTabIndex(0);
-            }
-          }}
+        // listeners={{
+        //   tabPress: () => {
+        //     setPreviousTabIndex(currentTabIndex);
+        //     setCurrentTabIndex(0);
+        //   }
+        // }}
         >
           {renderPostsScreen}
         </Tab.Screen>
-
+        {userData?.profile === 'user' && (
+          <Tab.Screen
+            name="Private Circle"
+            options={{
+              tabBarIcon: ({ focused }) => (
+                <Image
+                  source={require('../../assets/icons/pngicons/private.png')}
+                  style={{
+                    width: 35,
+                    height: 35,
+                    tintColor: focused ? text : '#6b7280',
+                  }}
+                />
+              ),
+            }}
+          // listeners={{
+          //   tabPress: () => {
+          //     setPreviousTabIndex(currentTabIndex);
+          //     setCurrentTabIndex(3);
+          //   }
+          // }}
+          >
+            {renderPrivateCircleScreen}
+          </Tab.Screen>
+        )}
         {/* ✅ Reels tab now navigates to full screen */}
         <Tab.Screen
           name="Reels"
@@ -193,20 +236,20 @@ const ProfileTabs = memo(({
               />
             ),
           }}
-          // listeners={{
-          //   tabPress: () => {
-          //     setPreviousTabIndex(currentTabIndex);
-          //     setCurrentTabIndex(1);
-          //   }
-          // }}
-          listeners={({ navigation }) => ({
-            tabPress: (e) => {
-              setPreviousTabIndex(currentTabIndex);
-              setCurrentTabIndex(1);
-              // e.preventDefault(); // Prevent default tab behavior
-              // navigation.navigate('FlipsScreen'); // Navigate to full screen
-            },
-          })}
+        // listeners={{
+        //   tabPress: () => {
+        //     setPreviousTabIndex(currentTabIndex);
+        //     setCurrentTabIndex(1);
+        //   }
+        // }}
+        // listeners={({ navigation }) => ({
+        //   tabPress: (e) => {
+        //     setPreviousTabIndex(currentTabIndex);
+        //     setCurrentTabIndex(1);
+        //     // e.preventDefault(); // Prevent default tab behavior
+        //     // navigation.navigate('FlipsScreen'); // Navigate to full screen
+        //   },
+        // })}
         >
           {renderReelsScreen}
         </Tab.Screen>
@@ -238,8 +281,8 @@ const ProfileTabs = memo(({
           }}
           listeners={{
             tabPress: async () => {
-              setPreviousTabIndex(currentTabIndex);
-              setCurrentTabIndex(2);
+              // setPreviousTabIndex(currentTabIndex);
+              // setCurrentTabIndex(2);
 
               if (isOwnProfile || isSubscribed) {
                 setShowSubscribeModal(false);
@@ -266,26 +309,31 @@ const ProfileTabs = memo(({
         >
           {renderPrivateContentScreen}
         </Tab.Screen>
-
-        {/* <Tab.Screen
-          name="Tagged"
-          component={TaggedScreen}
-          options={{
-            tabBarIcon: ({ focused }) => (
-              <MaterialCommunityIcons
-                name={focused ? 'lightning-bolt' : 'lightning-bolt-outline'}
-                size={24}
-                color={focused ? (text) : '#6b7280'}
-              />
-            ),
-          }}
-          listeners={{
-            tabPress: () => {
-              setPreviousTabIndex(currentTabIndex);
-              setCurrentTabIndex(3);
-            }
-          }}
-        /> */}
+        {userData?.profile === 'user' && (
+          <Tab.Screen
+            name="My Closet"
+            options={{
+              tabBarIcon: ({ focused }) => (
+                <Image
+                  source={require('../../assets/icons/pngicons/shop.png')}
+                  style={{
+                    width: 35,
+                    height: 35,
+                    tintColor: focused ? text : '#6b7280',
+                  }}
+                />
+              ),
+            }}
+          // listeners={{
+          //   tabPress: () => {
+          //     setPreviousTabIndex(currentTabIndex);
+          //     setCurrentTabIndex(3);
+          //   }
+          // }}
+          >
+            {renderShopScreen}
+          </Tab.Screen>
+        )}
       </Tab.Navigator>
 
       {/* ✅ Subscription Modal - Only show if not subscribed */}
