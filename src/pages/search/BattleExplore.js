@@ -29,10 +29,10 @@ import {
   mapBattleCard,
 } from '../../utils/battleCardUtils';
 
-export default function BattleExplore({ onClose }) {
+export default function BattleExplore({ onClose, profile }) {
   const navigation = useNavigation();
   const toast = useToast();
-  const { bgStyle, text } = useAppTheme();
+  const { bgStyle, text } = useAppTheme(profile);
 
   const [battles, setBattles] = useState([]);
   const [filteredBattles, setFilteredBattles] = useState([]);
@@ -160,6 +160,7 @@ export default function BattleExplore({ onClose }) {
         entryPoint: 'battleExplore',
         selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
         returnTo: 'Search',
+        profile
       },
     });
   }, [navigation]);
