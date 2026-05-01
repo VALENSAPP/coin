@@ -62,6 +62,7 @@ import { battleByUserId, exploretBattle } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 import BattleExplore from './BattleExplore';
+import { getUserCredentials } from '../../services/post';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -458,6 +459,7 @@ const SearchScreen = () => {
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
+  const [profile, setProfile] = useState('user')
 
   const searchTimeoutRef = useRef(null);
   const rafRef = useRef(null);           // replaces autoplayTimeoutRef
@@ -473,6 +475,7 @@ const SearchScreen = () => {
   useEffect(() => {
     if (isScreenFocused) {
       setSearchText('');
+      fetchUserData();
     }
   }, [isScreenFocused]);
 
@@ -523,6 +526,35 @@ const SearchScreen = () => {
     if (!masonryLayout?.columns) return [];
     return masonryLayout.columns.flat();
   }, [masonryLayout]);
+
+
+  const fetchUserData = async () => {
+    const id = await AsyncStorage.getItem('userId');
+    if (!id) {
+      return;
+    }
+
+    dispatch(showLoader());
+
+    try {
+      const userRes = await getUserCredentials(id);
+      console.log(userRes, 'data in ueser profile efrafaha')
+
+      if (userRes?.statusCode === 200) {
+        console.log('userres for postres------->>>>>>>>>>>>>>>>>>', userRes.data.profile);
+
+        setProfile(userRes.data?.profile);
+      } else {
+        showToastMessage(toast, 'danger', userRes?.data?.message || 'Failed to fetch profile');
+      }
+
+    } catch (error) {
+      console.error('Error fetching profile screen data:', error);
+      showToastMessage(toast, 'danger', 'Network error occurred');
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
 
   // ─── User search ────────────────────────────────────────────────────────────
   const searchUsers = useCallback(async searchQuery => {
@@ -864,6 +896,7 @@ const SearchScreen = () => {
         selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
         returnTo: route.name,
         returnParams: route.params,
+        profile
       },
     });
   };
@@ -979,156 +1012,156 @@ const SearchScreen = () => {
   return (
     <>
       {
-          (showBattleExplore) ? ( <BattleExplore onClose={() => setShowBattleExplore(false)} /> )
+        (showBattleExplore) ? (<BattleExplore onClose={() => setShowBattleExplore(false)} profile={profile} />)
           :
 
-      <View style={[styles.container, bgStyle]}>
-        <Pressable
-          onPress={Keyboard.dismiss}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-          }}
-        />
-        <View style={{ flex: 1 }}>
-          {/* Search bar */}
-          <View style={styles.searchContainer}>
-            <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search users..."
-              placeholderTextColor="#999"
-              value={searchText}
-              onChangeText={handleSearch}
-              returnKeyType="search"
-              onSubmitEditing={Keyboard.dismiss}
+          <View style={[styles.container, bgStyle]}>
+            <Pressable
+              onPress={Keyboard.dismiss}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+              }}
             />
-            {searchText.length > 0 && (
-              <TouchableOpacity onPress={() => handleSearch('')}>
-                <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Battle cards row */}
-          {!isSearchActive && (
-            <View>
-              <TouchableOpacity
-                onPress={() => setShowBattleExplore(true)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 8,
-                  marginTop: 4,
-                  backgroundColor: text,
-                  borderRadius: 10,
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={{ fontSize: 14, fontWeight: '700', marginRight: 6 }}>
-                  ⚔️
-                </Text>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: "#fff" }}>
-                  Battle Explore
-                </Text>
-                <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-              <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
-              <AutoScrollBattleRow>
-                {loadingLiveBattles ? (
-                  <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
-                    <ActivityIndicator size="small" color="#999" />
-                  </View>
-                ) : visibleBattleCards.length > 0 ? (
-                  visibleBattleCards.map(item => (
-                    <BattleCard
-                      key={item.id}
-                      item={item}
-                      selectedOption={selectedBattleOptions[item.id]}
-                      onCardPress={handleBattleCardPress}
-                      onOptionSelect={updateSelectedBattleOption}
-                      onUserPress={handleUserProfile}
-                    />
-
-                  ))
-                ) : (
-                  <View style={[styles.card, { justifyContent: 'center' }]}>
-                    <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>No battles found</Text>
-                  </View>
-                )}
-              </AutoScrollBattleRow>
-            </View>
-          )}
-
-          {/* Search results */}
-          {searchText.trim().length > 0 ? (
-            <View style={styles.resultsContainer}>
-              {isSearching ? (
-                <View style={styles.emptyContainer}>
-                  <ActivityIndicator size="large" color="#999" />
-                  <Text style={styles.emptySubtitle}>Loading users...</Text>
-                </View>
-              ) : filteredUsers.length > 0 ? (
-                <FlatList
-                  data={filteredUsers}
-                  keyExtractor={userKeyExtractor}
-                  renderItem={renderListItem}
-                  showsVerticalScrollIndicator={false}
-                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                  ListHeaderComponent={renderListHeader}
-                  ListFooterComponent={renderSearchBattleFooter}
-                  contentContainerStyle={styles.listContent}
-                  initialNumToRender={10}
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  removeClippedSubviews={Platform.OS === 'android'}
+            <View style={{ flex: 1 }}>
+              {/* Search bar */}
+              <View style={styles.searchContainer}>
+                <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search users..."
+                  placeholderTextColor="#999"
+                  value={searchText}
+                  onChangeText={handleSearch}
+                  returnKeyType="search"
+                  onSubmitEditing={Keyboard.dismiss}
                 />
-              ) : hasSearched ? (
-                <View style={styles.emptyContainer}>
-                  <Icon name="search-outline" size={60} color="#ddd" />
-                  <Text style={styles.emptyTitle}>No users found</Text>
-                  <Text style={styles.emptySubtitle}>Try searching for a different user</Text>
+                {searchText.length > 0 && (
+                  <TouchableOpacity onPress={() => handleSearch('')}>
+                    <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Battle cards row */}
+              {!isSearchActive && (
+                <View>
+                  <TouchableOpacity
+                    onPress={() => setShowBattleExplore(true)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 8,
+                      marginTop: 4,
+                      backgroundColor: text,
+                      borderRadius: 10,
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '700', marginRight: 6 }}>
+                      ⚔️
+                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: "#fff" }}>
+                      Battle Explore
+                    </Text>
+                    <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
+                  <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
+                  <AutoScrollBattleRow>
+                    {loadingLiveBattles ? (
+                      <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
+                        <ActivityIndicator size="small" color="#999" />
+                      </View>
+                    ) : visibleBattleCards.length > 0 ? (
+                      visibleBattleCards.map(item => (
+                        <BattleCard
+                          key={item.id}
+                          item={item}
+                          selectedOption={selectedBattleOptions[item.id]}
+                          onCardPress={handleBattleCardPress}
+                          onOptionSelect={updateSelectedBattleOption}
+                          onUserPress={handleUserProfile}
+                        />
+
+                      ))
+                    ) : (
+                      <View style={[styles.card, { justifyContent: 'center' }]}>
+                        <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>No battles found</Text>
+                      </View>
+                    )}
+                  </AutoScrollBattleRow>
+                </View>
+              )}
+
+              {/* Search results */}
+              {searchText.trim().length > 0 ? (
+                <View style={styles.resultsContainer}>
+                  {isSearching ? (
+                    <View style={styles.emptyContainer}>
+                      <ActivityIndicator size="large" color="#999" />
+                      <Text style={styles.emptySubtitle}>Loading users...</Text>
+                    </View>
+                  ) : filteredUsers.length > 0 ? (
+                    <FlatList
+                      data={filteredUsers}
+                      keyExtractor={userKeyExtractor}
+                      renderItem={renderListItem}
+                      showsVerticalScrollIndicator={false}
+                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                      ListHeaderComponent={renderListHeader}
+                      ListFooterComponent={renderSearchBattleFooter}
+                      contentContainerStyle={styles.listContent}
+                      initialNumToRender={10}
+                      maxToRenderPerBatch={10}
+                      windowSize={5}
+                      removeClippedSubviews={Platform.OS === 'android'}
+                    />
+                  ) : hasSearched ? (
+                    <View style={styles.emptyContainer}>
+                      <Icon name="search-outline" size={60} color="#ddd" />
+                      <Text style={styles.emptyTitle}>No users found</Text>
+                      <Text style={styles.emptySubtitle}>Try searching for a different user</Text>
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
-            </View>
-          ) : null}
 
-          {/* Masonry grid */}
-          {searchText.trim().length === 0 ? (
-            posts.length > 0 ? (
-              <View style={styles.masonryWrapper}>
-                <FlatList
-                  data={masonryItems}
-                  renderItem={renderMasonryFlatListItem}
-                  keyExtractor={masonryKeyExtractor}
-                  showsVerticalScrollIndicator={false}
-                  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                  contentContainerStyle={[styles.masonryContainer, { height: masonryLayout.maxHeight }]}
-                  removeClippedSubviews
-                  initialNumToRender={12}
-                  // OPTIMIZATION 10: Larger batches = fewer JS thread interruptions
-                  maxToRenderPerBatch={20}
-                  windowSize={15}
-                  onScroll={onMasonryScroll}
-                  scrollEventThrottle={16}
-                  // OPTIMIZATION 11: Disable VirtualizedList warnings for absolute layout
-                  getItemLayout={undefined}
-                />
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Icon name="images-outline" size={60} color="#ddd" />
-                <Text style={styles.emptyTitle}>No posts available</Text>
-              </View>
-            )
-          ) : null}
-        </View>
-      </View>
-           }
+              {/* Masonry grid */}
+              {searchText.trim().length === 0 ? (
+                posts.length > 0 ? (
+                  <View style={styles.masonryWrapper}>
+                    <FlatList
+                      data={masonryItems}
+                      renderItem={renderMasonryFlatListItem}
+                      keyExtractor={masonryKeyExtractor}
+                      showsVerticalScrollIndicator={false}
+                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                      contentContainerStyle={[styles.masonryContainer, { height: masonryLayout.maxHeight }]}
+                      removeClippedSubviews
+                      initialNumToRender={12}
+                      // OPTIMIZATION 10: Larger batches = fewer JS thread interruptions
+                      maxToRenderPerBatch={20}
+                      windowSize={15}
+                      onScroll={onMasonryScroll}
+                      scrollEventThrottle={16}
+                      // OPTIMIZATION 11: Disable VirtualizedList warnings for absolute layout
+                      getItemLayout={undefined}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Icon name="images-outline" size={60} color="#ddd" />
+                    <Text style={styles.emptyTitle}>No posts available</Text>
+                  </View>
+                )
+              ) : null}
+            </View>
+          </View>
+      }
 
       {/* Preview modal */}
       {previewVisible && previewPost ? (
