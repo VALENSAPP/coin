@@ -750,28 +750,28 @@ export default function BattleInProgress() {
     >
       <View style={styles.commentHeader}>
         <View style={styles.commentAuthorRow}>
-           <TouchableOpacity
+          <TouchableOpacity
             activeOpacity={0.75}
             style={styles.commentAuthorIdentity}
             onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
           >
-          {reply.avatar ? (
-            <Image source={{ uri: reply.avatar }} style={styles.commentAvatar} />
-          ) : (
-            <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
-              <Ionicons name="person-outline" size={16} color="#FFFFFF" />
-            </View>
-          )}
-          <View style={styles.commentAuthorTextWrap}>
-            <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
-              <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
-                {reply.authorName}
-              </Text>
-            </View>
-            {!!reply.authorHandle && (
-              <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
+            {reply.avatar ? (
+              <Image source={{ uri: reply.avatar }} style={styles.commentAvatar} />
+            ) : (
+              <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
+                <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+              </View>
             )}
-          </View>
+            <View style={styles.commentAuthorTextWrap}>
+              <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+                <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
+                  {reply.authorName}
+                </Text>
+              </View>
+              {!!reply.authorHandle && (
+                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
+              )}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
             <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
@@ -830,33 +830,33 @@ export default function BattleInProgress() {
       <View key={comment.id} style={[styles.commentCard, { backgroundColor: palette.soft, borderColor: palette.border }]}>
         <View style={styles.commentHeader}>
           <View style={styles.commentAuthorRow}>
-          <TouchableOpacity
-            activeOpacity={0.75}
-            style={styles.commentAuthorIdentity}
-            onPress={() => handleOpenCommentAuthorProfile(comment.userId)}
-          >
-            {comment.avatar ? (
-              <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
-            ) : (
-              <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
-                <Ionicons name="person-outline" size={16} color="#FFFFFF" />
-              </View>
-            )}
-            <View style={styles.commentAuthorTextWrap}>
-              <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
-                <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
-                  {comment.authorName}
-                </Text>
-                {!!comment.side && (
-                  <View style={[styles.commentVoteSideBadge, { backgroundColor: palette.primary, marginRight: Platform.OS === 'ios' ? 14 : 10 }]}>
-                    <Text style={styles.commentVoteSideBadgeText}>{comment.side}</Text>
-                  </View>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              style={styles.commentAuthorIdentity}
+              onPress={() => handleOpenCommentAuthorProfile(comment.userId)}
+            >
+              {comment.avatar ? (
+                <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
+              ) : (
+                <View style={[styles.commentAvatar, styles.commentAvatarFallback]}>
+                  <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+                </View>
+              )}
+              <View style={styles.commentAuthorTextWrap}>
+                <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+                  <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
+                    {comment.authorName}
+                  </Text>
+                  {!!comment.side && (
+                    <View style={[styles.commentVoteSideBadge, { backgroundColor: palette.primary, marginRight: Platform.OS === 'ios' ? 14 : 10 }]}>
+                      <Text style={styles.commentVoteSideBadgeText}>{comment.side}</Text>
+                    </View>
+                  )}
+                </View>
+                {!!comment.authorHandle && (
+                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{comment.authorHandle}</Text>
                 )}
               </View>
-              {!!comment.authorHandle && (
-                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{comment.authorHandle}</Text>
-              )}
-            </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
               <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
@@ -930,6 +930,29 @@ export default function BattleInProgress() {
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
         >
+          {/* Creator row */}
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.heroCreatorRow}
+            onPress={() => handleOpenCommentAuthorProfile(battle.creatorId)}
+          >
+            <HexAvatar
+              uri={battle.creator?.avatar || FALLBACK_AVATAR}
+              size={28}
+              borderWidth={2}
+              borderColor="rgba(255,255,255,0.7)"
+            />
+            <View style={{ marginLeft: 8, flexShrink: 1 }}>
+              <Text style={styles.heroCreatorName} numberOfLines={1}>
+                {battle.creator?.name}
+              </Text>
+              {!!battle.creator?.handle && (
+                <Text style={styles.heroCreatorHandle} numberOfLines={1}>
+                  @{battle.creator.handle}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
           {/* Top row */}
           <View style={styles.heroTopRow}>
             <View style={styles.statusPill}>
@@ -1036,7 +1059,7 @@ export default function BattleInProgress() {
                       <Text style={styles.progressVotes}>{leftVotes} votes</Text>
                     </View>
                     <View style={styles.progressMidCol}>
-                      {(total === 0 || leftPct === rightPct) && <Text style={styles.progressTiedLabel}>It's tied!</Text>}
+                      {(total > 0 && leftPct === rightPct) && <Text style={styles.progressTiedLabel}>It's tied!</Text>}
                       {/* <Text style={styles.progressSubLabel}>{total === 0 ? 'Be the first vote' : 'Be the next vote'}</Text> */}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
@@ -1073,7 +1096,7 @@ export default function BattleInProgress() {
           { icon: 'chatbubble-ellipses', color: text, label: 'Comment', desc: 'Share your opinion and earn credibility' },
           { icon: 'star', color: text, label: 'Be accurate', desc: 'Correct picks earn more points' },
         ].map((item, i) => (
-          <View key={i} style={[styles.howToWinItem, bgStyle ]}>
+          <View key={i} style={[styles.howToWinItem, bgStyle]}>
             <View style={[styles.howToWinIconCircle, { backgroundColor: item.color }]}>
               <Ionicons name={item.icon} size={14} color="#fff" />
             </View>
@@ -1337,6 +1360,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
   },
+  heroCreatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginBottom: 10,
+  },
+  heroCreatorName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  heroCreatorHandle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 1,
+  },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   statusPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(232,64,64,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 5 },
   statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#e84040' },
@@ -1353,21 +1393,21 @@ const styles = StyleSheet.create({
   // Duel
   duelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, paddingLeft: 5, paddingRight: 15 },
   duelVsWrapOverlay: {
-  position: 'absolute',
-  top: '60%',
-  left: '57%',
-  marginLeft: -60,
-  marginTop: -60,
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 10,
-},
-duelVsText: {
-  color: '#FFFFFF',
-  fontSize: 30,
-  fontWeight: '900',
-  letterSpacing: 1,
-},
+    position: 'absolute',
+    top: '60%',
+    left: '57%',
+    marginLeft: -60,
+    marginTop: -60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  duelVsText: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
   duelPlayerCard: { flex: 1, maxWidth: '44%', borderRadius: 14, borderWidth: 1.5, borderColor: '#d3d1d1', paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6 },
   playerName: { color: '#1a1040', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   playerSidePill: { backgroundColor: '#ede8fb', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },

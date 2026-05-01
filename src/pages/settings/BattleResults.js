@@ -324,6 +324,39 @@ export default function BattleResults({ navigation }) {
             {description}
           </Text>
         )}
+
+        {/* Creator row */}
+        {!!battle.creator && (
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.creatorRow}
+            onPress={() => {
+              const creatorId = battle.creatorId || battle.creator?.id || '';
+              if (!creatorId) return;
+              navigation.navigate('HomeMain', {
+                screen: 'UsersProfile',
+                params: { userId: creatorId },
+              });
+            }}
+          >
+            <HexAvatar
+              uri={battle.creator?.avatar || battle.creator?.image || ''}
+              size={28}
+              borderWidth={2}
+              borderColor={text}
+            />
+            <View style={{ marginLeft: 8, flexShrink: 1 }}>
+              <Text style={[styles.creatorName, { color: text }]} numberOfLines={1}>
+                {battle.creator?.name || battle.creator?.displayName || battle.creator?.userName || ''}
+              </Text>
+              {!!(battle.creator?.handle || battle.creator?.userName) && (
+                <Text style={[styles.creatorHandle, { color: palette.muted }]} numberOfLines={1}>
+                  @{battle.creator?.handle || battle.creator?.userName}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
         {status === "RESOLVED" &&
           (winnerUserId || winnerLoading || winnerProfile) && (
             <View
@@ -551,6 +584,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 32,
+  },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  creatorName: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  creatorHandle: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
   },
   header: {
     flexDirection: 'row',
@@ -781,14 +829,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 2,
   },
-trophyWrap: {
-  position:'absolute',
-  right:10,
-  marginLeft: 10,
-  top:20,
-  elevation:10,
- 
-},
+  trophyWrap: {
+    position: 'absolute',
+    right: 10,
+    marginLeft: 10,
+    top: 20,
+    elevation: 10,
+
+  },
   trophyPng: {
     width: 110,
     height: 110,

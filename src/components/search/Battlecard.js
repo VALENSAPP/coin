@@ -398,9 +398,30 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
             <View style={styles.cardTopRow}>
+                <TouchableOpacity
+                    style={styles.pollCreatorRow}
+                    activeOpacity={0.75}
+                    onPressIn={suppressNextCardPress}
+                    onPress={event => handleUserPress(
+                        { id: item.creator?.id, userName: item.creator?.userName, image: item.creator?.avatar, displayName: item.creator?.name },
+                        event
+                    )}
+                >
+                    <HexAvatar
+                        uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
+                        size={28}
+                        borderWidth={2}
+                        borderColor="#7F77DD"
+                    />
+                    <View style={styles.pollCreatorTextWrap}>
+                        <Text style={styles.pollCreatorName} numberOfLines={1}>
+                            {item.creator?.name}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
                 <ModeBadge format={item.format} ended={ended} isLive={item.isLive} />
-                <TimerBadge endTime={item.endTime} ended={ended} />
             </View>
+            <TimerBadge endTime={item.endTime} ended={ended} />
 
             <View style={styles.versusRow}>
                 <ParticipantAvatar
@@ -789,4 +810,11 @@ const styles = StyleSheet.create({
     statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { fontSize: 11, color: GRAY_MID },
     statDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: BORDER },
+    creatorByline: {
+        fontSize: 12,
+        color: "#000",
+        fontWeight: '700',
+        marginTop: 2,
+        marginLeft: 2,
+    },
 });

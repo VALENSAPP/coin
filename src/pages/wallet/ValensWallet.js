@@ -327,9 +327,9 @@ const ValensWallet = ({ navigation }) => {
         {
             key: 'subs',
             icon: 'diamond-outline',
-            title: 'Subscription Payments',
-            value: formatMoney(subscriptionPaymentsUsd),
-            subtitle: 'From subscribers',
+            title: isBusinessProfile ? ' Marketplace Income' : 'Subscription Payments',
+            value: isBusinessProfile ? 0 : formatMoney(subscriptionPaymentsUsd),
+            subtitle: isBusinessProfile ? 'from Buyers' : 'From subscribers',
         },
 
     ];
@@ -390,7 +390,7 @@ const ValensWallet = ({ navigation }) => {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 80 }} >
+                contentContainerStyle={{ paddingBottom: 80,marginBottom:'15%' }} >
                 <View style={styles.topCardWrap}>
                     <LinearGradient
                         colors={walletScreenGradient}
