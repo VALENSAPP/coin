@@ -34,6 +34,7 @@ import {
   getYoutubeSearchApiKey,
 } from '../../../services/youtubeMusic';
 import StoryInteractiveOverlay from './StoryInteractiveOverlay';
+import StoryZoomableImage from './StoryZoomableImage';
 import {
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
@@ -48,6 +49,7 @@ import {
 } from './storyOverlayConstants';
 
 const WAVE_BAR_STEP = 4;
+const deviceWidth = Dimensions.get('window').width;
 
 const FILTERS = [
   { key: 'none', label: 'Original', overlay: null },
@@ -1764,8 +1766,15 @@ export default function StoryComposer({
                   <Image
                     pointerEvents="none"
                     source={{ uri: currentMedia.uri }}
-                    style={styles.fullScreenImage}
+                    style={styles.imageBackdrop}
                     resizeMode="cover"
+                    blurRadius={22}
+                  />
+                  <StoryZoomableImage
+                    key={`story_zoom_${index}_${currentMedia.uri}`}
+                    uri={currentMedia.uri}
+                    style={styles.fullScreenImage}
+                    resizeMode="contain"
                   />
                   {currentFilterOverlay ? (
                     <View
@@ -2339,262 +2348,262 @@ export default function StoryComposer({
             showTrimModal ||
             showVolumeModal ||
             activeTab === 'text') && (
-            <View style={styles.sheetHost} pointerEvents="box-none">
-              <Pressable style={styles.sheetBackdropPress} onPress={closeSheets} />
-              <View style={styles.sheetCardWrap} pointerEvents="box-none">
-                <View style={styles.sheetCard}>
-                  {showAudioModal && (
-                    <View style={styles.musicSheetInner}>
-                      <Text style={styles.sheetTitle}>Music</Text>
-                      <Text style={styles.sheetSub}>
-                        Search songs and choose a track for your story.
-                      </Text>
-                      {!getYoutubeSearchApiKey() ? (
-                        <Text style={styles.sheetApiKeyHint}>
-                          Song search is currently unavailable. You can still use Quick picks below.
+              <View style={styles.sheetHost} pointerEvents="box-none">
+                <Pressable style={styles.sheetBackdropPress} onPress={closeSheets} />
+                <View style={styles.sheetCardWrap} pointerEvents="box-none">
+                  <View style={styles.sheetCard}>
+                    {showAudioModal && (
+                      <View style={styles.musicSheetInner}>
+                        <Text style={styles.sheetTitle}>Music</Text>
+                        <Text style={styles.sheetSub}>
+                          Search songs and choose a track for your story.
                         </Text>
-                      ) : null}
-                      <TextInput
-                        placeholder="Search artist or song…"
-                        placeholderTextColor="#999"
-                        style={styles.musicSearchInput}
-                        value={musicQuery}
-                        onChangeText={setMusicQuery}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                      />
-                      <FlatList
-                        style={styles.musicResultsList}
-                        keyboardShouldPersistTaps="handled"
-                        data={musicQuery.trim() ? musicResults : []}
-                        keyExtractor={it => String(it.videoId)}
-                        ListHeaderComponent={
-                          !musicQuery.trim() ? (
-                            <View style={styles.quickPickBlock}>
-                              <Text style={styles.quickPickTitle}>Quick picks</Text>
-                              {AUDIO_LIBRARY.map(track => {
-                                const sel = audioPerIndex[index];
-                                const selected =
-                                  track.id === 'original'
-                                    ? isOriginalAudio(sel)
-                                    : sel === track.id;
-                                return (
-                                  <TouchableOpacity
-                                    key={track.id}
-                                    style={styles.sheetRow}
-                                    onPress={() => selectBuiltinTrack(track)}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Icon
-                                      name="musical-note"
-                                      size={18}
-                                      color="#4da3ff"
-                                    />
-                                    <Text style={styles.sheetRowText}>{track.name}</Text>
-                                    {selected ? (
+                        {!getYoutubeSearchApiKey() ? (
+                          <Text style={styles.sheetApiKeyHint}>
+                            Song search is currently unavailable. You can still use Quick picks below.
+                          </Text>
+                        ) : null}
+                        <TextInput
+                          placeholder="Search artist or song…"
+                          placeholderTextColor="#999"
+                          style={styles.musicSearchInput}
+                          value={musicQuery}
+                          onChangeText={setMusicQuery}
+                          autoCorrect={false}
+                          autoCapitalize="none"
+                        />
+                        <FlatList
+                          style={styles.musicResultsList}
+                          keyboardShouldPersistTaps="handled"
+                          data={musicQuery.trim() ? musicResults : []}
+                          keyExtractor={it => String(it.videoId)}
+                          ListHeaderComponent={
+                            !musicQuery.trim() ? (
+                              <View style={styles.quickPickBlock}>
+                                <Text style={styles.quickPickTitle}>Quick picks</Text>
+                                {AUDIO_LIBRARY.map(track => {
+                                  const sel = audioPerIndex[index];
+                                  const selected =
+                                    track.id === 'original'
+                                      ? isOriginalAudio(sel)
+                                      : sel === track.id;
+                                  return (
+                                    <TouchableOpacity
+                                      key={track.id}
+                                      style={styles.sheetRow}
+                                      onPress={() => selectBuiltinTrack(track)}
+                                      activeOpacity={0.7}
+                                    >
                                       <Icon
-                                        name="checkmark-circle"
+                                        name="musical-note"
                                         size={18}
                                         color="#4da3ff"
                                       />
-                                    ) : null}
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          ) : null
-                        }
-                        renderItem={({ item }) => {
-                          const sel = audioPerIndex[index];
-                          const selected = isYoutubeSelection(sel, item.videoId);
-                          return (
-                            <TouchableOpacity
-                              style={styles.itunesRow}
-                              onPress={() => selectYoutubeTrack(item)}
-                              activeOpacity={0.7}
-                            >
-                              {item.thumbnailUrl ? (
-                                <Image
-                                  source={{
-                                    uri: item.thumbnailUrl,
-                                  }}
-                                  style={styles.itunesArtwork}
-                                />
-                              ) : (
-                                <View style={[styles.itunesArtwork, styles.itunesArtworkPlaceholder]}>
-                                  <Icon name="musical-note" size={18} color="#4da3ff" />
-                                </View>
-                              )}
-                              <View style={styles.itunesRowText}>
-                                <Text style={styles.itunesTitle} numberOfLines={2}>
-                                  {item.title}
-                                </Text>
-                                <Text style={styles.itunesArtist} numberOfLines={1}>
-                                  {item.channelTitle}
-                                </Text>
+                                      <Text style={styles.sheetRowText}>{track.name}</Text>
+                                      {selected ? (
+                                        <Icon
+                                          name="checkmark-circle"
+                                          size={18}
+                                          color="#4da3ff"
+                                        />
+                                      ) : null}
+                                    </TouchableOpacity>
+                                  );
+                                })}
                               </View>
-                              {selected ? (
-                                <Icon name="checkmark-circle" size={18} color="#4da3ff" />
-                              ) : (
-                                <Icon name="play-circle-outline" size={22} color="#4da3ff" />
-                              )}
-                            </TouchableOpacity>
-                          );
-                        }}
-                        ListEmptyComponent={
-                          musicQuery.trim() ? (
-                            <View style={styles.musicEmptyWrap}>
-                              {musicLoading ? (
-                                <ActivityIndicator color="#4da3ff" />
-                              ) : !getYoutubeSearchApiKey() ? (
-                                <Text style={styles.musicEmptyText}>
-                                  Search is unavailable right now.
-                                </Text>
-                              ) : (
-                                <Text style={styles.musicEmptyText}>No songs found</Text>
-                              )}
-                            </View>
-                          ) : null
-                        }
-                        ListFooterComponent={
-                          <Text style={styles.sheetFootnote}>
-                            Pick a track to add audio to your story. Quick picks work offline-friendly.
-                          </Text>
-                        }
-                      />
-                    </View>
-                  )}
-                  {showTrimModal && (
-                    <>
-                      <Text style={styles.sheetTitle}>Edit clip (trim)</Text>
-                      <Text style={styles.sheetSub}>
-                        Playback loops between start and end (seconds).
-                      </Text>
-                      <TextInput
-                        value={trimStartDraft}
-                        onChangeText={setTrimStartDraft}
-                        keyboardType="decimal-pad"
-                        placeholder="Start (seconds)"
-                        style={styles.sheetInput}
-                      />
-                      <TextInput
-                        value={trimEndDraft}
-                        onChangeText={setTrimEndDraft}
-                        keyboardType="decimal-pad"
-                        placeholder="End (seconds), empty = full length"
-                        style={styles.sheetInput}
-                      />
-                      <TouchableOpacity
-                        style={styles.sheetPrimaryBtn}
-                        onPress={() => {
-                          setTrimPerIndex(prev => ({
-                            ...prev,
-                            [index]: {
-                              start: Number(trimStartDraft) || 0,
-                              end: trimEndDraft.trim() ? Number(trimEndDraft) || null : null,
-                            },
-                          }));
-                          setShowTrimModal(false);
-                        }}
-                      >
-                        <Text style={styles.sheetPrimaryBtnText}>Save</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                  {showVolumeModal && (
-                    <>
-                      <Text style={styles.sheetTitle}>Volume</Text>
-                      {[0, 0.25, 0.5, 0.75, 1].map(v => (
+                            ) : null
+                          }
+                          renderItem={({ item }) => {
+                            const sel = audioPerIndex[index];
+                            const selected = isYoutubeSelection(sel, item.videoId);
+                            return (
+                              <TouchableOpacity
+                                style={styles.itunesRow}
+                                onPress={() => selectYoutubeTrack(item)}
+                                activeOpacity={0.7}
+                              >
+                                {item.thumbnailUrl ? (
+                                  <Image
+                                    source={{
+                                      uri: item.thumbnailUrl,
+                                    }}
+                                    style={styles.itunesArtwork}
+                                  />
+                                ) : (
+                                  <View style={[styles.itunesArtwork, styles.itunesArtworkPlaceholder]}>
+                                    <Icon name="musical-note" size={18} color="#4da3ff" />
+                                  </View>
+                                )}
+                                <View style={styles.itunesRowText}>
+                                  <Text style={styles.itunesTitle} numberOfLines={2}>
+                                    {item.title}
+                                  </Text>
+                                  <Text style={styles.itunesArtist} numberOfLines={1}>
+                                    {item.channelTitle}
+                                  </Text>
+                                </View>
+                                {selected ? (
+                                  <Icon name="checkmark-circle" size={18} color="#4da3ff" />
+                                ) : (
+                                  <Icon name="play-circle-outline" size={22} color="#4da3ff" />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          }}
+                          ListEmptyComponent={
+                            musicQuery.trim() ? (
+                              <View style={styles.musicEmptyWrap}>
+                                {musicLoading ? (
+                                  <ActivityIndicator color="#4da3ff" />
+                                ) : !getYoutubeSearchApiKey() ? (
+                                  <Text style={styles.musicEmptyText}>
+                                    Search is unavailable right now.
+                                  </Text>
+                                ) : (
+                                  <Text style={styles.musicEmptyText}>No songs found</Text>
+                                )}
+                              </View>
+                            ) : null
+                          }
+                          ListFooterComponent={
+                            <Text style={styles.sheetFootnote}>
+                              Pick a track to add audio to your story. Quick picks work offline-friendly.
+                            </Text>
+                          }
+                        />
+                      </View>
+                    )}
+                    {showTrimModal && (
+                      <>
+                        <Text style={styles.sheetTitle}>Edit clip (trim)</Text>
+                        <Text style={styles.sheetSub}>
+                          Playback loops between start and end (seconds).
+                        </Text>
+                        <TextInput
+                          value={trimStartDraft}
+                          onChangeText={setTrimStartDraft}
+                          keyboardType="decimal-pad"
+                          placeholder="Start (seconds)"
+                          style={styles.sheetInput}
+                        />
+                        <TextInput
+                          value={trimEndDraft}
+                          onChangeText={setTrimEndDraft}
+                          keyboardType="decimal-pad"
+                          placeholder="End (seconds), empty = full length"
+                          style={styles.sheetInput}
+                        />
                         <TouchableOpacity
-                          key={String(v)}
-                          style={styles.sheetRow}
+                          style={styles.sheetPrimaryBtn}
                           onPress={() => {
-                            setVolumePerIndex(prev => ({ ...prev, [index]: v }));
-                            setShowVolumeModal(false);
+                            setTrimPerIndex(prev => ({
+                              ...prev,
+                              [index]: {
+                                start: Number(trimStartDraft) || 0,
+                                end: trimEndDraft.trim() ? Number(trimEndDraft) || null : null,
+                              },
+                            }));
+                            setShowTrimModal(false);
                           }}
                         >
-                          <Icon name={v === 0 ? 'volume-mute' : 'volume-high'} size={18} color="#4da3ff" />
-                          <Text style={styles.sheetRowText}>
-                            {v === 0 ? 'Mute' : `${Math.round(v * 100)}%`}
-                          </Text>
-                          {volMatches(volumePerIndex[index], v) ? (
-                            <Icon name="checkmark-circle" size={18} color="#4da3ff" />
-                          ) : null}
+                          <Text style={styles.sheetPrimaryBtnText}>Save</Text>
                         </TouchableOpacity>
-                      ))}
-                    </>
-                  )}
-                  {activeTab === 'text' && (
-                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                      <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={styles.textSheetInner}
-                      >
-                        <Text style={styles.sheetTitle}>Add text</Text>
-                        <Text style={styles.sheetSub}>
-                          Type a caption, then tap Add to place it on your story.
-                        </Text>
-                        <View style={styles.textRow}>
-                          <TextInput
-                            placeholder="Add text…"
-                            placeholderTextColor="#aaa"
-                            style={[styles.textInput, textStyle, textFont, { color: textColor }]}
-                            value={draftText}
-                            onChangeText={setDraftText}
-                          />
-                          <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
-                            <Text style={styles.addBtnLabel}>
-                              {editingTextId ? 'Save' : 'Add'}
+                      </>
+                    )}
+                    {showVolumeModal && (
+                      <>
+                        <Text style={styles.sheetTitle}>Volume</Text>
+                        {[0, 0.25, 0.5, 0.75, 1].map(v => (
+                          <TouchableOpacity
+                            key={String(v)}
+                            style={styles.sheetRow}
+                            onPress={() => {
+                              setVolumePerIndex(prev => ({ ...prev, [index]: v }));
+                              setShowVolumeModal(false);
+                            }}
+                          >
+                            <Icon name={v === 0 ? 'volume-mute' : 'volume-high'} size={18} color="#4da3ff" />
+                            <Text style={styles.sheetRowText}>
+                              {v === 0 ? 'Mute' : `${Math.round(v * 100)}%`}
                             </Text>
+                            {volMatches(volumePerIndex[index], v) ? (
+                              <Icon name="checkmark-circle" size={18} color="#4da3ff" />
+                            ) : null}
                           </TouchableOpacity>
-                        </View>
-
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.textOptionsScroll}
+                        ))}
+                      </>
+                    )}
+                    {activeTab === 'text' && (
+                      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                        <KeyboardAvoidingView
+                          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                          style={styles.textSheetInner}
                         >
-                          {DEFAULT_FONTS.map(f => (
-                            <TouchableOpacity
-                              key={f.name}
-                              onPress={() => setTextFont(f.style)}
-                              style={[
-                                styles.fontChip,
-                                textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
-                              ]}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
-                            </TouchableOpacity>
-                          ))}
-                          {[
-                            '#ffffff',
-                            '#ff4d4f',
-                            '#40a9ff',
-                            '#52c41a',
-                            '#faad14',
-                            '#b37feb',
-                            '#000000',
-                          ].map(c => (
-                            <TouchableOpacity
-                              key={c}
-                              onPress={() => setTextColor(c)}
-                              style={[
-                                styles.colorDot,
-                                { backgroundColor: c },
-                                textColor === c && styles.colorDotActive,
-                              ]}
-                              activeOpacity={0.7}
+                          <Text style={styles.sheetTitle}>Add text</Text>
+                          <Text style={styles.sheetSub}>
+                            Type a caption, then tap Add to place it on your story.
+                          </Text>
+                          <View style={styles.textRow}>
+                            <TextInput
+                              placeholder="Add text…"
+                              placeholderTextColor="#aaa"
+                              style={[styles.textInput, textStyle, textFont, { color: textColor }]}
+                              value={draftText}
+                              onChangeText={setDraftText}
                             />
-                          ))}
-                        </ScrollView>
-                      </KeyboardAvoidingView>
-                    </TouchableWithoutFeedback>
-                  )}
+                            <TouchableOpacity style={styles.addBtn} onPress={addText} activeOpacity={0.7}>
+                              <Text style={styles.addBtnLabel}>
+                                {editingTextId ? 'Save' : 'Add'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.textOptionsScroll}
+                          >
+                            {DEFAULT_FONTS.map(f => (
+                              <TouchableOpacity
+                                key={f.name}
+                                onPress={() => setTextFont(f.style)}
+                                style={[
+                                  styles.fontChip,
+                                  textFont.fontFamily === f.style.fontFamily && styles.fontChipActive,
+                                ]}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[styles.fontChipText, f.style]}>{f.name}</Text>
+                              </TouchableOpacity>
+                            ))}
+                            {[
+                              '#ffffff',
+                              '#ff4d4f',
+                              '#40a9ff',
+                              '#52c41a',
+                              '#faad14',
+                              '#b37feb',
+                              '#000000',
+                            ].map(c => (
+                              <TouchableOpacity
+                                key={c}
+                                onPress={() => setTextColor(c)}
+                                style={[
+                                  styles.colorDot,
+                                  { backgroundColor: c },
+                                  textColor === c && styles.colorDotActive,
+                                ]}
+                                activeOpacity={0.7}
+                              />
+                            ))}
+                          </ScrollView>
+                        </KeyboardAvoidingView>
+                      </TouchableWithoutFeedback>
+                    )}
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
+            )}
 
         </View>
         {showAudioTrimModal && useLibraryMusic && hasLibraryMusicPlayback ? (
@@ -3466,11 +3475,19 @@ const styles = StyleSheet.create({
 
   imageContainer: {
     ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
   },
 
   fullScreenImage: {
     width: '100%',
     height: '100%',
+  },
+
+  imageBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.65,
   },
 
   videoWrap: {
