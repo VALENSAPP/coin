@@ -457,9 +457,26 @@ export default function FlipsScreen() {
         const pickFirst = (...values) =>
           values.find(value => value !== undefined && value !== null && value !== '');
 
+        const pickOwnerId = raw => pickFirst(
+          raw?.userId,
+          raw?.UserId,
+          raw?.ownerId,
+          raw?.createdBy,
+          raw?.creatorId,
+          raw?.authorId,
+          raw?.user?.id,
+          raw?.User?.id,
+        );
+
+        const isVideoReel = raw => {
+          const url = raw?.images?.[0] || raw?.video || raw?.image || '';
+          return typeof url === 'string' && /\.(mp4|mov|avi|mkv|webm|m4v)(\?|#|$)/i.test(url);
+        };
+
         const normalizeReel = (raw, { fallbackIdPrefix, fallbackIndex } = {}) => {
           const resolvedId = pickFirst(raw?.id, raw?._id, raw?.postId, raw?.reelId);
           const fallbackId = `${fallbackIdPrefix || 'reel'}_${Date.now()}_${fallbackIndex ?? 0}`;
+          const ownerId = pickOwnerId(raw);
           return {
             id: resolvedId || fallbackId,
             video: raw?.images?.[0] || raw?.video || '',
@@ -479,8 +496,8 @@ export default function FlipsScreen() {
             isRemixable: true,
             isSaved: raw?.isSaved || false,
             isHide: raw?.isHide || false,
-            userId: raw?.userId || raw?.UserId,
-            UserId: raw?.UserId || raw?.userId,
+            userId: ownerId,
+            UserId: ownerId,
             profile: raw?.profile || 'user',
             walletAddress: raw?.walletAddress || raw?.userWalletAddress || raw?.creatorWalletAddress || raw?.vendorWalletAddress || raw?.receiverWalletAddress || null,
             hashtag: raw?.hashtag || [],
@@ -489,11 +506,27 @@ export default function FlipsScreen() {
           };
         };
 
+        const contextUserId = pickFirst(
+          route.params?.profileUserId,
+          route.params?.sourceUserId,
+        );
+
+        const filterByContextUser = reel => {
+          if (!contextUserId) return true;
+          const ownerId = pickOwnerId(reel);
+          return ownerId != null && String(ownerId) === String(contextUserId);
+        };
+
         const apiReels = (Array.isArray(response.data) ? response.data : [])
+          .filter(item => !contextUserId || filterByContextUser(item))
           .map((item, index) => normalizeReel(item, { fallbackIdPrefix: 'api', fallbackIndex: index }));
 
+        const profileReels = (Array.isArray(route.params?.profileReels) ? route.params.profileReels : [])
+          .filter(item => isVideoReel(item) && filterByContextUser(item))
+          .map((item, index) => normalizeReel(item, { fallbackIdPrefix: 'profile', fallbackIndex: index }));
+
         const seen = new Set();
-        const dedupedApiReels = apiReels.filter(r => {
+        const dedupedApiReels = [...profileReels, ...apiReels].filter(r => {
           const key = String(r?.id || '');
           if (!key || seen.has(key)) return false;
           seen.add(key);
@@ -529,7 +562,13 @@ export default function FlipsScreen() {
     } finally {
       dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [
+    dispatch,
+    route.params?.profileReels,
+    route.params?.profileUserId,
+    route.params?.sourceUserId,
+    toast,
+  ]);
 
   useEffect(() => {
     const paramReel = route.params?.item;

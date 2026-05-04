@@ -108,6 +108,40 @@ export default function ChatMessages() {
   // Track if we've already processed the shared content
   const hasProcessedShareRef = useRef(false);
 
+  const handleBackPress = useCallback(() => {
+    const { returnTo, returnParams, returnToTab } = route?.params || {};
+
+    if (returnTo) {
+      const parentNavigation = navigation.getParent?.();
+
+      if (returnToTab && returnToTab !== 'HomeMain' && parentNavigation?.navigate) {
+        parentNavigation.navigate(returnToTab, {
+          screen: returnTo,
+          params: returnParams || {},
+        });
+        return;
+      }
+
+      if (returnTo === 'FlipsScreen' && parentNavigation?.navigate) {
+        parentNavigation.navigate('ProfileMain', {
+          screen: 'FlipsScreen',
+          params: returnParams || {},
+        });
+        return;
+      }
+
+      navigation.navigate(returnTo, returnParams || {});
+      return;
+    }
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.getParent?.()?.navigate?.('HomeMain');
+  }, [navigation, route?.params]);
+
   // ✅ Get current user ID and initialize socket on mount
   useEffect(() => {
     const initializeUserAndSocket = async () => {
@@ -957,7 +991,7 @@ export default function ChatMessages() {
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
       <View style={[styles.header, bgStyle, { shadowColor: text }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={handleBackPress}>
           <SafeIcon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>{USERNAME}</Text>

@@ -21,7 +21,7 @@ import { following as apiFollowing } from '../../services/profile';
 import { sharePost } from '../../services/post';
 import Share from 'react-native-share';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 
 const { width, height: screenHeight } = Dimensions.get('window');
@@ -38,6 +38,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [search, setSearch] = useState('');
   const navigation = useNavigation();
+  const route = useRoute();
   const { text } = useAppTheme();
 
   useEffect(() => {
@@ -158,12 +159,18 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       if (ref?.current) ref.current.close();
 
       setTimeout(() => {
+        const parentState = navigation.getParent?.()?.getState?.();
+        const activeParentRoute = parentState?.routes?.[parentState.index];
+
         navigation.navigate('HomeMain', {
           screen: 'ChatMessages',
           params: {
             selectedUserIds: selectedUsers,
             sharedContent,
             fromShareModal: true,
+            returnTo: route?.name,
+            returnParams: route?.params || {},
+            returnToTab: activeParentRoute?.name,
           },
         });
         setSelectedUsers([]);
