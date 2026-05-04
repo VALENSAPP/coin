@@ -118,15 +118,35 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
     const reel = posts[index];
     if (!reel) return;
 
-    // Prefer pushing inside the Profile stack (we also register FlipsScreen there).
+    const profileUserId = userData?.id || reel?.userId || reel?.UserId;
+    const params = {
+      item: reel,
+      profileUserId,
+      profileReels: posts,
+      key: Date.now().toString(),
+    };
+
+    let targetNavigation = navigation;
+    while (targetNavigation) {
+      const routeNames = targetNavigation.getState?.()?.routeNames || [];
+      if (routeNames.includes('FlipsScreen')) {
+        targetNavigation.navigate('FlipsScreen', params);
+        return;
+      }
+      targetNavigation = targetNavigation.getParent?.();
+    }
+
     const parent = navigation.getParent?.();
     if (parent?.navigate) {
-      parent.navigate('FlipsScreen', { item: reel });
+      parent.navigate('ProfileMain', {
+        screen: 'FlipsScreen',
+        params,
+      });
       return;
     }
 
-    navigation.navigate('FlipsScreen', { item: reel });
-  }, [navigation, posts]);
+    navigation.navigate('FlipsScreen', params);
+  }, [navigation, posts, userData?.id]);
 
   const renderItem = useCallback(({ item, index }) => (
     <TouchableOpacity
@@ -140,7 +160,7 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
       <PostImage item={item} index={index} themeTextStyle={textStyle} />
       <View style={styles.overlay} />
     </TouchableOpacity>
-  ), [openPosts, text]);
+  ), [openPosts, text, textStyle]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
