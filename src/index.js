@@ -381,6 +381,7 @@ export default function Main() {
         const path = urlObj.pathname;
         const normalizedPath = String(path || '').toLowerCase();
         const postId = urlObj.searchParams.get('postId');
+        const reelId = urlObj.searchParams.get('reelId');
         const fallbackTag = urlObj.searchParams.get('af');
         const sharedProfileLink = parseProfileShareUrl(url);
 
@@ -395,6 +396,17 @@ export default function Main() {
                     userChat: true,
                     fromScreen: 'DeepLink',
                     postData: { id: String(postId) },
+                  },
+                },
+              });
+            } else if (reelId && fallbackTag === 'dd') {
+              navigationRef.current.navigate('MainApp', {
+                screen: 'HomeMain',
+                params: {
+                  screen: 'FlipsScreen',
+                  params: {
+                    item: { id: String(reelId) },
+                    uniqueKey: `deeplink_reel_${String(reelId)}`,
                   },
                 },
               });

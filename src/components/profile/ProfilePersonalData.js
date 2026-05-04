@@ -1057,6 +1057,17 @@ const ProfilePersonData = ({
       'OpenBattle',
     ]);
 
+    // Support object-based return targets for nested navigators.
+    if (returnByTo && typeof returnByTo === 'object') {
+      const tab = returnByTo?.tab;
+      const screen = returnByTo?.screen;
+      const params = returnByTo?.params;
+      if (tab) {
+        navigation.navigate(tab, screen ? { screen, params } : undefined);
+        return;
+      }
+    }
+
     // When this profile is opened from battle screens, we switch navigators.
     // Use explicit return route so back goes to the exact originating battle screen.
     if (profileBattleReturnRoutes.has(returnByTo)) {
@@ -1067,6 +1078,11 @@ const ProfilePersonData = ({
     }
     else if (returnByTo == 'Search') {
       navigation.navigate(returnByTo);
+      return;
+    }
+    else if (returnByTo === 'Add') {
+      // Jump back to the Add tab (PostEditor remains in its stack state).
+      navigation.navigate('Add');
       return;
     }
 

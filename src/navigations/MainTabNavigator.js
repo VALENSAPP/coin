@@ -3,6 +3,7 @@ import React, { useMemo, useCallback, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
   getFocusedRouteNameFromRoute,
+  StackActions,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
@@ -125,7 +126,7 @@ export default function MainTabNavigator() {
 
   const HomeStack = useMemo(() => {
     return () => (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="HeartNotification" component={heartNotification} />
         <Stack.Screen name="ChatMessages" component={ChatMessages} />
@@ -752,11 +753,24 @@ export default function MainTabNavigator() {
           component={HomeStack}
           options={getHomeMainOptions}
           listeners={({ navigation }) => ({
-            tabPress: () => {
+            tabPress: e => {
+              e.preventDefault();
+
               const state = navigation.getState();
-              const isFocused =
-                state.index ===
-                state.routes.findIndex(r => r.name === 'HomeMain');
+              const homeTabIndex = state.routes.findIndex(
+                r => r.name === 'HomeMain',
+              );
+              const homeTabRoute = state.routes[homeTabIndex];
+              const isFocused = state.index === homeTabIndex;
+
+              if (homeTabRoute?.state?.key) {
+                navigation.dispatch({
+                  ...StackActions.popToTop(),
+                  target: homeTabRoute.state.key,
+                });
+              }
+
+              navigation.navigate('HomeMain', { screen: 'Home' });
 
               if (isFocused) {
                 // 🔔 Trigger scroll-to-top + refresh
