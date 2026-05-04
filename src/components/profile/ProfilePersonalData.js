@@ -76,6 +76,15 @@ const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PROFILE_IMAGE_PREVIEW_SIZE = Math.min(SCREEN_WIDTH * 0.9, 340);
 
+/** KYC required; KYB required only when API sends `kyb` as a boolean (company KYB may still map to `kyc` only). */
+function isProfileFullyIdentityVerified(user) {
+  if (!user || user.kyc !== true) return false;
+  if (typeof user.kyb === 'boolean') {
+    return user.kyb === true;
+  }
+  return true;
+}
+
 export function getDragonflyIcon(followers, isBusiness = false) {
   if (isBusiness) return GoldLavenderDragonfly;
 
@@ -196,9 +205,7 @@ const ProfilePersonData = ({
   const { bgStyle, textStyle, text, card, bg } =
     useAppTheme(effectiveProfileType);
   const route = useRoute();
-  const isKycApproved = userData?.kyc === true;
-  // &&
-  // userData?.kycStatus === "APPROVED";
+  const showIdentityVerified = isProfileFullyIdentityVerified(userData);
   const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
 
   const Userdata = {
@@ -1091,8 +1098,8 @@ const ProfilePersonData = ({
                 <Text style={[styles.headerText, textStyle]}>
                   {Userdata.Username}
                 </Text>
-                {isKycApproved && (
-                  <DragonflyIcon width={22} height={22} style={styles.icon} />
+                {showIdentityVerified && (
+                  <DragonflyIcon width={30} height={30} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
                   <Ionicons
@@ -1169,12 +1176,23 @@ const ProfilePersonData = ({
                   activeOpacity={0.8}
                   style={{ marginBottom: 5 }}
                 >
-                  <HexAvatar
-                    uri={avatarUri}
-                    size={110}
-                    borderWidth={2}
-                    borderColor={text}
-                  />
+                  <View style={styles.avatarWithBadge}>
+                    <HexAvatar
+                      uri={avatarUri}
+                      size={110}
+                      borderWidth={2}
+                      borderColor={text}
+                    />
+                    {showIdentityVerified && (
+                      <View
+                        style={styles.verifiedAvatarBadge}
+                        accessibilityLabel="Verified account"
+                        pointerEvents="none"
+                      >
+                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
                   {!fromUsersProfile && (
                     <TouchableOpacity
                       style={[styles.addbutton, { backgroundColor: text, shadowColor: text }]}
@@ -1599,12 +1617,26 @@ const ProfilePersonData = ({
                 enableCenterFocus
               >
                 <View style={styles.profileImagePreviewHexWrap}>
-                  <HexAvatar
-                    uri={avatarUri}
-                    size={PROFILE_IMAGE_PREVIEW_SIZE}
-                    borderWidth={2}
-                    borderColor={text}
-                  />
+                  <View style={styles.avatarWithBadge}>
+                    <HexAvatar
+                      uri={avatarUri}
+                      size={PROFILE_IMAGE_PREVIEW_SIZE}
+                      borderWidth={2}
+                      borderColor={text}
+                    />
+                    {showIdentityVerified && (
+                      <View
+                        style={[
+                          styles.verifiedAvatarBadge,
+                          styles.verifiedAvatarBadgeLarge,
+                        ]}
+                        accessibilityLabel="Verified account"
+                        pointerEvents="none"
+                      >
+                        <Ionicons name="checkmark" size={22} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
                 </View>
               </ImageZoom>
             </Pressable>
@@ -1677,6 +1709,37 @@ const styles = StyleSheet.create({
   profileWraper: {
     alignItems: 'flex-start',  // ← avatar stays left
     flexShrink: 1,
+  },
+  avatarWithBadge: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  verifiedAvatarBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 14,
+    backgroundColor: '#1D9BF0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    zIndex: 4,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2,
+  },
+  verifiedAvatarBadgeLarge: {
+    top: 10,
+    left: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
   },
   displaynamee: {
     fontSize: 16,
