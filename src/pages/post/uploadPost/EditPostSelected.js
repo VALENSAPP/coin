@@ -93,6 +93,8 @@ const FLIP_EMOJI_STICKERS = [
 
 /** Visual-only: overlay shrinks while over delete so drop-to-delete is obvious. */
 const OVERLAY_TRASH_PREVIEW_SCALE = 0.42;
+/** Drop-to-delete uses a small circle around the trash icon (not a wide padded rect / half-screen fallback). */
+const TRASH_DROP_RADIUS_PX = 34;
 
 /** Tap vs drag / pinch for text: movement below this (px) still counts as a tap. */
 const TEXT_OVERLAY_TAP_MAX_MOVE = 14;
@@ -2159,30 +2161,29 @@ const InstagramPostCreator = () => {
     }
   }, []);
 
-  const getPaddedTrashRect = () => {
-    if (!trashRect) return null;
-    const padding = 44;
-    return {
-      x: Math.max(0, trashRect.x - padding),
-      y: Math.max(0, trashRect.y - padding),
-      width: trashRect.width + padding * 2,
-      height: trashRect.height + padding * 2,
-    };
-  };
-
   const isPointInTrashZone = (point) => {
-    if (!point) return false;
-    const hitRect = getPaddedTrashRect();
-    if (hitRect) {
-      return (
-        point.x >= hitRect.x &&
-        point.x <= hitRect.x + hitRect.width &&
-        point.y >= hitRect.y &&
-        point.y <= hitRect.y + hitRect.height
-      );
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      return false;
     }
-
-    return point.y >= SCREEN_HEIGHT * 0.58;
+    if (
+      trashRect &&
+      trashRect.width > 0 &&
+      trashRect.height > 0 &&
+      Number.isFinite(trashRect.x) &&
+      Number.isFinite(trashRect.y)
+    ) {
+      const cx = trashRect.x + trashRect.width / 2;
+      const cy = trashRect.y + trashRect.height / 2;
+      const dx = point.x - cx;
+      const dy = point.y - cy;
+      return Math.hypot(dx, dy) <= TRASH_DROP_RADIUS_PX;
+    }
+    // Rare: layout not measured yet — tight bottom-center band only (not half the screen).
+    return (
+      point.y >= SCREEN_HEIGHT * 0.78 &&
+      point.x >= SCREEN_WIDTH * 0.40 &&
+      point.x <= SCREEN_WIDTH * 0.60
+    );
   };
 
   const shouldDeleteOnDrop = session =>
@@ -5007,13 +5008,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     alignItems: 'center',
-    left: '30%',
+    left: '36%',
     justifyContent: 'center',
     zIndex: 100,
-    paddingBottom: 12,
-    paddingTop: 12,
-    minHeight: 80,
-    width: '40%',
+    paddingBottom: 8,
+    paddingTop: 6,
+    minHeight: 64,
+    width: '28%',
   },
   storyTrashZoneIdle: {
     backgroundColor: 'transparent',
@@ -5025,10 +5026,10 @@ const styles = StyleSheet.create({
     borderColor: '#dc2626',
   },
   storyTrashIconWrap: {
-    marginBottom: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 28,
+    marginBottom: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   storyTrashIconWrapHot: {
