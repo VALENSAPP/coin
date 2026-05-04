@@ -118,18 +118,11 @@ export const SettingsScreen = ({ navigation }) => {
       title: 'Account',
       items: [
         {
-          label: 'Profile Settings', icon: 'person', action: () => {
-            navigation.navigate('ProfileMain',
-              {
-                screen: 'EditProfile',
-                params:
-                {
-                  userdata: profileData,
-                  returnTo: 'wallet',
-                  returnScreen: 'Settings'
-                }
-              })
-          }
+          label: 'Profile Settings',
+          icon: 'person',
+          action: () => {
+            navigation.navigate('WalletEditProfile', { userdata: profileData });
+          },
         },
         { label: 'Verification Status', icon: 'shield-checkmark', action: () => navigation.navigate('VerificationStatus'), status: 'Dragonfly Verified' },
         { label: 'Privacy Settings', icon: 'lock-closed', action: () => { navigation.navigate('PrivacySettings') } },

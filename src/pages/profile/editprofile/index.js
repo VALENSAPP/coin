@@ -318,7 +318,6 @@ const ProfileEditScreen = () => {
 
   const handleBack = () => {
     if (returnTo === 'wallet' && returnScreen) {
-      // Navigate back to wallet stack's specific screen
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -327,35 +326,16 @@ const ProfileEditScreen = () => {
               name: 'wallet',
               state: {
                 routes: [{ name: returnScreen }],
-                index: 0
-              }
-            }
-          ]
-        })
+                index: 0,
+              },
+            },
+          ],
+        }),
       );
     } else {
       navigation.goBack();
     }
   };
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      // Prevent default back behavior
-      e.preventDefault();
-
-      // Navigate to your specific screen instead
-      navigation.navigate({
-        name: 'Profile',
-        state: {
-          routes: [{ name: returnScreen }],
-          index: 0
-        }
-      }); // 👈 Replace with your screen name
-    });
-
-    return unsubscribe; // cleanup on unmount
-  }, [navigation]);
-
 
   const pickImageFromGallery = async () => {
     try {

@@ -416,6 +416,14 @@ export default function MainTabNavigator() {
             options={{ headerTitle: 'Settings' }}
           />
           <Stack.Screen
+            name="WalletEditProfile"
+            component={ProfileEditScreen}
+            options={{
+              headerTitle: 'Profile Settings',
+              headerTitleAlign: 'center',
+            }}
+          />
+          <Stack.Screen
             name="ChangePassword"
             component={ChangePassword}
             options={{ headerTitle: 'Change Password' }}

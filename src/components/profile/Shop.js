@@ -172,13 +172,13 @@ const styles = StyleSheet.create({
     flexShrink: 1, // ✅ important
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 10,
   },
    paragraph: {
     fontSize: 12,
-    lineHeight: 22,
+    lineHeight: 14,
     marginBottom: 10,
     flexShrink: 1,     // ✅ important
     flexWrap: 'wrap',  // ✅ ensures wrapping
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   bullet: {
     fontSize: 12,
     textAlign: 'left',
-    lineHeight: 22,
+    lineHeight: 14,
     marginBottom: 4,
   },
   ctaButton: {
