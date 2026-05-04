@@ -26,11 +26,11 @@ const withAlpha = (hex, alpha = 0.12) => {
 
 const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
-console.log(userData,'data in thissss ss s')
-useEffect(() => {
-  // do something with userData
-  console.log(userData);
-}, [userData]);
+  console.log(userData, 'data in thissss ss s')
+  useEffect(() => {
+    // do something with userData
+    console.log(userData);
+  }, [userData]);
   const bullets = useMemo(
     () => ['close friends', 'important moments', 'VIP or trusted followers', 'private updates'],
     [],
@@ -54,12 +54,12 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '200%' }]}>
               <Ionicons name="lock-closed" size={34} color={text} />
             </View>
-            <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
+            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
               <Ionicons name="sparkles" size={18} color={text} />
-            </View>
+            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
@@ -86,16 +86,10 @@ useEffect(() => {
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleStartPress}
-              style={styles.ctaButton}
+              style={[styles.ctaButton, {backgroundColor: text}]}
             >
-              <LinearGradient
-                colors={[text, mixWithWhite(text, 0.35)]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaGradient}
-              >
-                <Text style={styles.ctaText}>Start it now</Text>
-              </LinearGradient>
+                <Text style={styles.ctaText}>Start It Now</Text>
+              {/* </LinearGradient> */}
             </TouchableOpacity>
           </View>
         </View>
@@ -107,12 +101,12 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '100%' }]}>
               <Ionicons name="lock-closed" size={34} color={text} />
             </View>
-            <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
+            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
               <Ionicons name="people" size={18} color={text} />
-            </View>
+            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
@@ -138,8 +132,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingHorizontal: 10,
+    paddingTop: 5,
     paddingBottom: 40,
   },
   card: {
@@ -158,8 +152,8 @@ const styles = StyleSheet.create({
   },
   leftRail: {
     width: 92,
-    paddingTop: 16,
-    paddingBottom: 14,
+    // paddingTop: 16,
+    // paddingBottom: 14,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -179,8 +173,10 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     paddingVertical: 14,
+    // justifyContent: 'space-between',
+    flexShrink: 1, // ✅ important
   },
   title: {
     fontSize: 20,
@@ -191,6 +187,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 22,
     marginBottom: 10,
+    flexShrink: 1,     // ✅ important
+    flexWrap: 'wrap',  // ✅ ensures wrapping
   },
   sectionTitle: {
     fontSize: 16,
@@ -205,16 +203,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ctaButton: {
-    marginTop: 10,
-    borderRadius: 14,
-    overflow: 'hidden',
-    alignSelf: 'stretch',
+    borderRadius: 18,
+    alignItems: 'center',
+    minHeight: 40, // ✅ ensures full visibility
+    justifyContent: 'center',
+    marginTop: 8
   },
   ctaGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
+    // paddingVertical: 12,
+    // paddingHorizontal: 14,
+    borderRadius: 18,
     alignItems: 'center',
+    minHeight: 40, // ✅ ensures full visibility
+    justifyContent: 'center',
   },
   ctaText: {
     color: '#fff',

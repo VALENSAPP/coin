@@ -348,11 +348,8 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                 end={{ x: 0, y: 1 }}
                 style={styles.leftRail}
               >
-                <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+                <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '80%' }]}>
                   <Ionicons name="bag-handle" size={34} color={text} />
-                </View>
-                <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
-                  <Ionicons name="sparkles" size={18} color={text} />
                 </View>
               </LinearGradient>
 
@@ -369,16 +366,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                     <TouchableOpacity
                       activeOpacity={0.9}
                       onPress={onSubscribePress}
-                      style={styles.ctaButton}
+                      style={[styles.ctaButton, {backgroundColor: text}]}
                     >
-                      <LinearGradient
-                        colors={[text, mixWithWhite(text, 0.35)]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.ctaGradient}
-                      >
                         <Text style={styles.ctaText}>  Start It Now</Text>
-                      </LinearGradient>
                     </TouchableOpacity>
                   </>
                 ) : (
@@ -395,16 +385,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                     <TouchableOpacity
                       activeOpacity={0.9}
                       onPress={onSubscribePress}
-                      style={styles.ctaButton}
+                      style={[styles.ctaButton, {backgroundColor: text}]}
                     >
-                      <LinearGradient
-                        colors={[text, mixWithWhite(text, 0.35)]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.ctaGradient}
-                      >
                         <Text style={styles.ctaText}>Shop now</Text>
-                      </LinearGradient>
                     </TouchableOpacity>
                   </>
                 )}
@@ -445,7 +428,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
         <>
           {
             isCompany ?
-              <View style={[styles.marketingContainer, bgStyle]}>
+              <View style={[styles.marketingContainer, bgStyle, {marginTop: -50}]}>
                 <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
                   <LinearGradient
                     colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
@@ -453,11 +436,8 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                     end={{ x: 0, y: 1 }}
                     style={styles.leftRail}
                   >
-                    <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+                    <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '80%' }]}>
                       <Ionicons name="bag-handle" size={34} color={text} />
-                    </View>
-                    <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
-                      <Ionicons name="sparkles" size={18} color={text} />
                     </View>
                   </LinearGradient>
 
@@ -474,16 +454,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                         <TouchableOpacity
                           activeOpacity={0.9}
                           onPress={onSubscribePress}
-                          style={styles.ctaButton}
+                          style={[styles.ctaButton, {backgroundColor: text}]}
                         >
-                          <LinearGradient
-                            colors={[text, mixWithWhite(text, 0.35)]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.ctaGradient}
-                          >
                             <Text style={styles.ctaText}> Start It Now</Text>
-                          </LinearGradient>
                         </TouchableOpacity>
                       </>
                     ) : (
@@ -500,16 +473,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                         <TouchableOpacity
                           activeOpacity={0.9}
                           onPress={onSubscribePress}
-                          style={styles.ctaButton}
+                         style={[styles.ctaButton, {backgroundColor: text}]}
                         >
-                          <LinearGradient
-                            colors={[text, mixWithWhite(text, 0.35)]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.ctaGradient}
-                          >
                             <Text style={styles.ctaText}>Shop now</Text>
-                          </LinearGradient>
                         </TouchableOpacity>
                       </>
                     )}
@@ -696,8 +662,9 @@ const styles = StyleSheet.create({
   marketingContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingBottom: 24,
+    paddingTop: 5,
   },
   marketingCard: {
     maxWidth: 560,
@@ -715,8 +682,6 @@ const styles = StyleSheet.create({
   },
   leftRail: {
     width: 92,
-    paddingTop: 16,
-    paddingBottom: 14,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -749,17 +714,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 10,
   },
-  ctaButton: {
-    marginTop: 10,
-    borderRadius: 14,
-    overflow: 'hidden',
-    alignSelf: 'stretch',
-  },
-  ctaGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
+    ctaButton: {
+    borderRadius: 18,
     alignItems: 'center',
+    minHeight: 40, // ✅ ensures full visibility
+    justifyContent: 'center',
+    marginTop: 8
   },
   ctaText: {
     color: '#fff',

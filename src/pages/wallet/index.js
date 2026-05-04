@@ -1382,7 +1382,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     <Text style={[styles.pointsColValue, { color: text }]} numberOfLines={1}>
                       {formatPointValue(item.value)}
                     </Text>
-                    <Text style={[styles.pointsColLabel, { color: text }]} numberOfLines={1}>
+                    <Text style={[styles.pointsColLabel, { color: text }]} numberOfLines={2}>
                       {item.title}
                     </Text>
                   </View>

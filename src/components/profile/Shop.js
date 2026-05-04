@@ -52,12 +52,12 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '200%' }]}>
               <Ionicons name="bag-handle" size={34} color={text} />
             </View>
-            <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
+            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
               <Ionicons name="pricetag" size={18} color={text} />
-            </View>
+            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
@@ -84,16 +84,9 @@ useEffect(() => {
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleStartPress}
-              style={styles.ctaButton}
+              style={[styles.ctaButton, {backgroundColor: text}]}
             >
-              <LinearGradient
-                colors={[text, mixWithWhite(text, 0.35)]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaGradient}
-              >
                 <Text style={styles.ctaText}>Start it now</Text>
-              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -105,12 +98,12 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9) }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '65%' }]}>
               <Ionicons name="bag-handle" size={34} color={text} />
             </View>
-            <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
+            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
               <Ionicons name="heart" size={18} color={text} />
-            </View>
+            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
@@ -133,9 +126,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
+   content: {
+    paddingHorizontal: 10,
+    paddingTop: 5,
     paddingBottom: 40,
   },
   card: {
@@ -154,8 +147,6 @@ const styles = StyleSheet.create({
   },
   leftRail: {
     width: 92,
-    paddingTop: 16,
-    paddingBottom: 14,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -175,18 +166,22 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     paddingVertical: 14,
+    // justifyContent: 'space-between',
+    flexShrink: 1, // ✅ important
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 10,
   },
-  paragraph: {
+   paragraph: {
     fontSize: 12,
     lineHeight: 22,
     marginBottom: 10,
+    flexShrink: 1,     // ✅ important
+    flexWrap: 'wrap',  // ✅ ensures wrapping
   },
   sectionTitle: {
     fontSize: 16,
@@ -201,16 +196,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ctaButton: {
-    marginTop: 10,
-    borderRadius: 14,
-    overflow: 'hidden',
-    alignSelf: 'stretch',
-  },
-  ctaGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 18,
     alignItems: 'center',
+    minHeight: 40, // ✅ ensures full visibility
+    justifyContent: 'center',
+    marginTop: 8
   },
   ctaText: {
     color: '#fff',
