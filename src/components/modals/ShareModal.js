@@ -183,14 +183,14 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
     // --- Make link based on type ----
     if (story) {
-      return `https://valens.com/story/${id}`;
+      return `com.valens.app://?af=dd&postId=${encodeURIComponent(String(id))}`;
     }
 
     if (reel || reelId) {
-      return `https://valens.com/reel/${id}`;
+      return `com.valens.app://?af=dd&reelId=${encodeURIComponent(String(id))}`;
     }
 
-    return `https://valens.com/post/${id}`;
+    return `com.valens.app://?af=dd&postId=${encodeURIComponent(String(id))}`;
   };
 
   const shareToWhatsApp = async () => {

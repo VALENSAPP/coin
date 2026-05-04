@@ -60,6 +60,7 @@ import Reanimated, {
   runOnJS,
   withSpring,
 } from 'react-native-reanimated';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
 // ──────────────────────────────────────────────────────────────────────────────────────
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -288,6 +289,8 @@ export default function FlipsScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const { text } = useAppTheme();
+
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reels, setReels] = useState([]);
@@ -1078,7 +1081,12 @@ export default function FlipsScreen() {
         <View style={[styles.bottomContent, { bottom: bottomContentBottom }]}>
           <View style={styles.userInfo}>
             <TouchableOpacity style={styles.userRow} onPress={handleUserNavigate}>
-              <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+              {/* <Image source={{ uri: item.avatar }} style={styles.userAvatar} /> */}
+              <HexAvatar
+                uri={item.avatar || require('../../assets/icons/pngicons/user.png')}
+                size={45}
+                borderWidth={0.5}
+                borderColor={text} />
               <Text style={styles.username}>
                 {item.user}
                 {item.verified && <Icon name="checkmark-circle" size={15} color="#1DA1F2" style={styles.verifiedIcon} />}

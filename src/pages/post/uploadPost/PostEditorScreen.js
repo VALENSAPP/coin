@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../../components/customButton/customButton';
 import { useToast } from 'react-native-toast-notifications';
 import { createPost } from '../../../services/post';
+import { getAllUser } from '../../../services/users';
 import {
   buildPostMetaFromImages,
   buildCreatePostMusicPayload,
@@ -46,6 +47,7 @@ const PostEditorScreen = () => {
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
   const [profile, setProfile] = useState(null);
+  const [openingTaggedProfile, setOpeningTaggedProfile] = useState(false);
   const { bgStyle, textStyle, text } = useAppTheme();
 
   const toast = useToast();
@@ -181,6 +183,51 @@ const PostEditorScreen = () => {
     );
   }, []);
 
+  const resolveUserIdFromUsername = useCallback(async (incomingUsername) => {
+    const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
+    if (!cleanUsername) return null;
+
+    try {
+      const response = await getAllUser({ userName: cleanUsername });
+      const users = response?.data?.users ?? [];
+      const exactMatch = users.find((u) =>
+        String(u?.userName || u?.username || '').toLowerCase() === cleanUsername.toLowerCase()
+      );
+      const fallbackUser = exactMatch || users[0];
+      return fallbackUser?.id || fallbackUser?._id || fallbackUser?.userId || null;
+    } catch (error) {
+      console.log('Username resolution failed:', error?.message || error);
+      return null;
+    }
+  }, []);
+
+  const openTaggedUserProfile = useCallback(async (username) => {
+    const cleanUsername = String(username || '').trim().replace(/^@+/, '');
+    if (!cleanUsername) return;
+
+    setOpeningTaggedProfile(true);
+    try {
+      const resolvedUserId = await resolveUserIdFromUsername(cleanUsername);
+      if (!resolvedUserId) {
+        showToastMessage(toast, 'danger', 'Unable to open this user profile.');
+        return;
+      }
+
+      // UsersProfile is inside HomeMain stack. Pass returnTo so the back arrow can return here.
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: String(resolvedUserId),
+          params: {
+            returnTo: 'Add',
+          },
+        },
+      });
+    } finally {
+      setOpeningTaggedProfile(false);
+    }
+  }, [navigation, resolveUserIdFromUsername, toast]);
+
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       {/* Header */}
@@ -270,7 +317,23 @@ const PostEditorScreen = () => {
           <View style={styles.captionSection}>
             <Text style={styles.captionLabel}>Tagged people</Text>
             <Text style={styles.taggedPeopleText}>
-              {taggedPeople.map(user => `@${String(user).replace(/^@+/, '')}`).join(', ')}
+              {taggedPeople.map((user, idx) => {
+                const clean = String(user).replace(/^@+/, '');
+                const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
+                return (
+                  <Text
+                    key={`${clean || 'user'}_${idx}`}
+                    style={[styles.taggedPeopleLink,{color:text}]}
+                    onPress={() => openTaggedUserProfile(clean)}
+                    suppressHighlighting
+                  >
+                    {label}
+                  </Text>
+                );
+              })}
+              {openingTaggedProfile ? (
+                <Text style={styles.taggedPeopleLoading}></Text>
+              ) : null}
             </Text>
           </View>
         )}
@@ -417,6 +480,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000',
     paddingVertical: 6,
+  },
+  taggedPeopleLink: {
+    color: '#5a2d82',
+    fontWeight: '600',
+  },
+  taggedPeopleLoading: {
+    color: '#777',
+    fontSize: 12,
   },
   captionInput: {
     borderWidth: 1,
