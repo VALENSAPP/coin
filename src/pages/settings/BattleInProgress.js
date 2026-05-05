@@ -111,6 +111,12 @@ const normalizeOption = (option, index) => {
 
 const normalizeSideKey = value => String(value || '').trim().toLowerCase();
 
+const getOptionSelectionKey = (option, index) => {
+  const optionId = String(option?.id || '');
+  const optionSide = normalizeSideKey(pickFirst(option?.side, option?.label, ''));
+  return `option-${index}-${optionId}-${optionSide}`;
+};
+
 const getCountFromSideMap = (counts = {}, sideValue = '') => {
   if (!counts || typeof counts !== 'object') return undefined;
   const side = String(sideValue || '').trim();
@@ -606,19 +612,28 @@ export default function BattleInProgress() {
 
   const handleVote = async () => {
     const finalBattleId = resolvedBattleId || battleId;
-    const finalSelectedOption = String(selectedOption || '');
+    const selectedOptionKey = String(selectedOption || '');
     const trimmedArgument = argumentText.trim();
     if (!finalBattleId) { Alert.alert('Unable to vote', 'Battle information is missing.'); return; }
-    if (!finalSelectedOption) {
+    if (!selectedOptionKey) {
       Alert.alert('Select an option', isPrediction
         ? 'Choose one option before submitting your prediction.'
         : 'Choose one side before voting in this battle.');
       return;
     }
-    const selectedBattleOption = battle.options.find(option => {
+    const selectedBattleOption = battle.options.find((option, index) => {
       const optionSide = String(pickFirst(option?.side, option?.label, ''));
-      return optionSide === finalSelectedOption || String(option?.id || '') === finalSelectedOption;
+      return (
+        getOptionSelectionKey(option, index) === selectedOptionKey ||
+        optionSide === selectedOptionKey ||
+        String(option?.id || '') === selectedOptionKey
+      );
     });
+    const finalSelectedOption = String(pickFirst(
+      selectedBattleOption?.side,
+      selectedBattleOption?.label,
+      selectedOptionKey,
+    ));
     let payload;
     if (isPrediction) {
       payload = { battleId: finalBattleId, side: finalSelectedOption, justification: trimmedArgument || 'No justification provided', comment: trimmedArgument, sourceUrl: '' };
@@ -1178,18 +1193,25 @@ export default function BattleInProgress() {
               {battle.options.map((option, index) => {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
+                const optionSelectionKey = getOptionSelectionKey(option, index);
                 const normalizedSelected = normalizeSideKey(selectedOption);
                 const normalizedOptionSide = normalizeSideKey(optionSide);
-                const isSelected =
+                const isSelectedByTap = selectedOption === optionSelectionKey;
+                const isSelectedByInitialValue =
                   (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
-                  (option.id && selectedOption === String(option.id)) ||
+                  (option.id && selectedOption === String(option.id));
+                const isSelectedByVote =
                   (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
                   (userVotedSelection.side && normalizedOptionSide && normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
+                const isSelected = hasUserVoted
+                  ? isSelectedByVote
+                  : isSelectedByTap || isSelectedByInitialValue;
                 const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
                 const shouldDisable = hasUserVoted;
+                const useCompactOptionLayout = battle.options.length <= 2;
                 return (
                   <TouchableOpacity
-                    key={`${battle.id}-${option.id}`}
+                    key={`${battle.id}-${option.id}-${index}`}
                     disabled={hasUserVoted}
                     activeOpacity={0.88}
                     style={[
@@ -1199,9 +1221,10 @@ export default function BattleInProgress() {
                         backgroundColor: isSelected
                           ? (useVotedGrayStyle ? '#F3F4F6' : palette.soft)
                           : shouldDisable ? palette.soft : '#F9FAFB',
+                        width: useCompactOptionLayout ? '48%' : '100%',
                       },
                     ]}
-                    onPress={() => { if (!hasUserVoted) setSelectedOption(option.label); }}
+                    onPress={() => { if (!hasUserVoted) setSelectedOption(optionSelectionKey); }}
                   >
                     <TouchableOpacity
                       activeOpacity={0.9}
@@ -1231,7 +1254,7 @@ export default function BattleInProgress() {
                         styles.optionPillLabel,
                         { color: isSelected ? (useVotedGrayStyle ? text : palette.primary) : '#374151' },
                       ]}
-                      onPress={() => { if (!shouldDisable) setSelectedOption(optionSide || String(option.id || '')); }}
+                      onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
                     >
                       {option.label}
                     </Text>
@@ -1455,8 +1478,8 @@ const styles = StyleSheet.create({
   resultText: { fontSize: 13, fontWeight: '700', color: '#4B5563', marginTop: 8 },
 
   // Option pills
-  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
-  optionPillCard: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: '45%', borderRadius: 15, borderWidth: 1.5, paddingVertical: 8, paddingHorizontal: 10, gap: 8 },
+  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 4 },
+  optionPillCard: { flexDirection: 'row', alignItems: 'center', minHeight: 56, borderRadius: 15, borderWidth: 1.5, paddingVertical: 8, paddingHorizontal: 10, gap: 8 },
   optionPillAvatarWrap: { flexShrink: 0 },
   optionPillAvatarFallback: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   optionPillLabel: { flex: 1, fontSize: 13, fontWeight: '700' },

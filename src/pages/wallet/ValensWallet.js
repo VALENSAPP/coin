@@ -390,7 +390,7 @@ const ValensWallet = ({ navigation }) => {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 80,marginBottom:'15%' }} >
+                contentContainerStyle={{ paddingBottom: recentActivity.length > 5 ? 150 : 60, }} >
                 <View style={styles.topCardWrap}>
                     <LinearGradient
                         colors={walletScreenGradient}
@@ -598,74 +598,75 @@ const ValensWallet = ({ navigation }) => {
                             <Text style={[styles.viewAllText, { color: text }]}>View All</Text>
                         </TouchableOpacity>
                     </View>
-
-                    {resolvedRecentActivity.length === 0 ? (
-                        <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
-                            <View
-                                style={[
-                                    styles.activityIconWrap,
-                                    { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
-                                ]}
-                            >
-                                <Ionicons name="time-outline" size={18} color={text} />
-                            </View>
-                            <View style={styles.activityTextWrap}>
-                                <Text style={[styles.activityTitle, { color: text }]}>
-                                    No transactions yet
-                                </Text>
-                                <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
-                                    Your received transactions will appear here.
-                                </Text>
-                            </View>
-                        </View>
-                    ) : resolvedRecentActivity.slice(0, 5).map((activity) => {
-                        const amountColor =
-                            activity.amountTone === 'positive'
-                                ? '#22C55E'
-                                : activity.amountTone === 'negative'
-                                    ? '#EF4444'
-                                    : text;
-                        return (
-                            <View
-                                key={activity.key}
-                                style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}
-                            >
+                    <View style={{ marginBottom: '50%' }}>
+                        {resolvedRecentActivity.length === 0 ? (
+                            <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
                                 <View
                                     style={[
                                         styles.activityIconWrap,
                                         { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
                                     ]}
                                 >
-                                    <Ionicons name={activity.icon} size={18} color={text} />
+                                    <Ionicons name="time-outline" size={18} color={text} />
                                 </View>
                                 <View style={styles.activityTextWrap}>
                                     <Text style={[styles.activityTitle, { color: text }]}>
-                                        {activity.title}
+                                        No transactions yet
                                     </Text>
-                                    <Text
-                                        style={[styles.activitySubtitle, { color: `${text}99` }]}
-                                        numberOfLines={1}
-                                    >
-                                        {activity.subtitle}
+                                    <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
+                                        Your received transactions will appear here.
                                     </Text>
                                 </View>
-                                <View style={styles.activityRight}>
-                                    <Text style={[styles.activityAmount, { color: amountColor }]}>
-                                        {activity.amount}
-                                    </Text>
-                                    <Text style={[styles.activityDate, { color: `${text}80` }]}>
-                                        {activity.date}
-                                    </Text>
-                                </View>
-                                <Ionicons
-                                    name="chevron-forward"
-                                    size={18}
-                                    color={`${text}66`}
-                                    style={styles.activityChevron}
-                                />
                             </View>
-                        );
-                    })}
+                        ) : resolvedRecentActivity.slice(0, 5).map((activity) => {
+                            const amountColor =
+                                activity.amountTone === 'positive'
+                                    ? '#22C55E'
+                                    : activity.amountTone === 'negative'
+                                        ? '#EF4444'
+                                        : text;
+                            return (
+                                <View
+                                    key={activity.key}
+                                    style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}
+                                >
+                                    <View
+                                        style={[
+                                            styles.activityIconWrap,
+                                            { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
+                                        ]}
+                                    >
+                                        <Ionicons name={activity.icon} size={18} color={text} />
+                                    </View>
+                                    <View style={styles.activityTextWrap}>
+                                        <Text style={[styles.activityTitle, { color: text }]}>
+                                            {activity.title}
+                                        </Text>
+                                        <Text
+                                            style={[styles.activitySubtitle, { color: `${text}99` }]}
+                                            numberOfLines={1}
+                                        >
+                                            {activity.subtitle}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.activityRight}>
+                                        <Text style={[styles.activityAmount, { color: amountColor }]}>
+                                            {activity.amount}
+                                        </Text>
+                                        <Text style={[styles.activityDate, { color: `${text}80` }]}>
+                                            {activity.date}
+                                        </Text>
+                                    </View>
+                                    <Ionicons
+                                        name="chevron-forward"
+                                        size={18}
+                                        color={`${text}66`}
+                                        style={styles.activityChevron}
+                                    />
+                                </View>
+                            );
+                        })}
+                    </View>
                 </View>
                 <View style={styles.bottomSpacer} />
             </ScrollView>
@@ -680,8 +681,8 @@ export default ValensWallet;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingBottom: 24,
-        marginBottom: Platform.OS === 'ios' ? 50 : 20,
+        // paddingBottom: 24,
+        // marginBottom: Platform.OS === 'ios' ? 50 : 20,
     },
     topCardWrap: {
         paddingHorizontal: 16,
@@ -1006,7 +1007,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
-        paddingBottom: '10%'
+        // paddingBottom: '10%'
     },
     activityIconWrap: {
         width: 38,

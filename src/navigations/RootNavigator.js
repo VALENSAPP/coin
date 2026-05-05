@@ -164,6 +164,19 @@ const MainAppWithDrawerSwipeSync = (props) => {
 // Global Drawer Navigator (wraps everything)
 const GlobalDrawerNavigator = () => {
   const { bgStyle, textStyle, text } = useAppTheme();
+  const reduxProfile = useSelector(state => state.userProfile.userProfile);
+  const [storedProfile, setStoredProfile] = React.useState('');
+  const resolvedProfile = String(
+    reduxProfile && reduxProfile !== 'normal' ? reduxProfile : storedProfile || 'user',
+  ).toLowerCase();
+  const isCompanyProfile = resolvedProfile === 'company';
+
+  useEffect(() => {
+    AsyncStorage.getItem('profile').then(value => {
+      if (value) setStoredProfile(value);
+    });
+  }, []);
+
   return (
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
@@ -308,6 +321,46 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
+      {!isCompanyProfile && (
+        <Drawer.Screen
+          name="My closet"
+          component={ValensWallet}
+          options={{
+            drawerLabel: 'My closet',
+            headerShown: false,
+          }}
+          listeners={({ navigation }) => ({
+            drawerItemPress: (e) => {
+              e.preventDefault();
+              navigation.closeDrawer();
+              navigation.navigate('MainApp', {
+                screen: 'wallet',
+                params: { screen: 'MyCloset' }
+              });
+            },
+          })}
+        />
+      )}
+      {isCompanyProfile && (
+        <Drawer.Screen
+          name="Shop"
+          component={ValensWallet}
+          options={{
+            drawerLabel: 'Shop',
+            headerShown: false,
+          }}
+          listeners={({ navigation }) => ({
+            drawerItemPress: (e) => {
+              e.preventDefault();
+              navigation.closeDrawer();
+              navigation.navigate('MainApp', {
+                screen: 'wallet',
+                params: { screen: 'Shop' }
+              });
+            },
+          })}
+        />
+      )}
       <Drawer.Screen
         name="DrawerSubscription"
         component={DummyComponent}
