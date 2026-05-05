@@ -157,23 +157,6 @@ const getPreviewMedia = (post) => {
   return { mediaUrl, posterUrl, isVideo };
 };
 
-const isFlipPost = (post) => {
-  const flipLikeValues = ['flip', 'flips', 'reel', 'reels'];
-  const typeCandidates = [
-    post?.type,
-    post?.postType,
-    post?.post_type,
-    post?.mediaType,
-    post?.media_type,
-    post?.contentType,
-  ];
-
-  return typeCandidates.some(
-    (value) =>
-      typeof value === 'string' && flipLikeValues.includes(value.trim().toLowerCase()),
-  );
-};
-
 // Memoized image component for better performance
 const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
@@ -254,8 +237,11 @@ const PostScreen = memo(({ postCheck, userData: propUserData }) => {
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
-    const withoutFlips = (postCheck || []).filter((post) => !isFlipPost(post));
-    setPosts(withoutFlips);
+    const imagePosts = (postCheck || []).filter((post) => {
+      const { isVideo } = getPreviewMedia(post);
+      return !isVideo;
+    });
+    setPosts(imagePosts);
   }, [postCheck]);
 
   useEffect(() => {
