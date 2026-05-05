@@ -298,5 +298,70 @@
     "backToLoginLink": "Back to Login",
     "verificationFailed": "Verification failed",
     "resendFailed": "Failed to resend code"
+  },
+  "home": {
+    "appTitle": "VALENS",
+    "notificationsLabel": "Notifications",
+    "chatLabel": "Messages",
+    "storiesOpenLabel": "Open Stories",
+    "storiesCloseLabel": "Close Stories",
+    "unreadBadgeOverflow": "9+",
+    "loginSuccess": "User logged in successfully",
+    "somethingWentWrong": "Something went wrong",
+    "fetchPostsError": "Failed to load posts",
+    "fcmTokenUpdateError": "Failed to update notification token",
+    "kycPendingToast": "KYC verification is still pending. Please try again later.",
+    "kycRejectedToast": "KYC verification was rejected. Please try again.",
+    "businessSubscription": {
+      "title": "Activate your subscription",
+      "message": "Activate your business subscription to unlock all features.",
+      "activateButton": "Activate",
+      "laterButton": "Later"
+    }
+  },
+  "notifications": {
+    "headerTitle": "Notifications",
+    "markAllRead": "Mark all as read",
+    "tabs": {
+      "all": "All",
+      "battles": "Battles"
+    },
+    "loadingNotifications": "Loading notifications...",
+    "loadingBattles": "Loading battle requests...",
+    "popupClose": "Close",
+    "battleInvitationTitle": "Battle Invitation",
+    "battleInvitationMessage": "You have a new battle request.",
+    "battleStakeLabel": "Stake: {{value}}",
+    "battleOptionFallback": "Option {{index}}",
+    "battleAccept": "Accept",
+    "battleDecline": "Decline",
+    "battleDeclinedTitle": "Battle Declined",
+    "battleDeclinedDefault": "The battle request was declined.",
+    "battleActionUnavailableTitle": "Action Unavailable",
+    "battleActionUnavailableMessage": "Battle details are not available for this request.",
+    "battleUpdateErrorTitle": "Failed to update battle",
+    "battleUpdateErrorDefault": "Please try again.",
+    "empty": {
+      "allTitle": "No notifications yet",
+      "allSubtitle": "When you receive notifications, they will appear here",
+      "allCreatePost": "Create your first post",
+      "commentsTitle": "No activity on posts",
+      "commentsSubtitle": "Likes and comments will appear here",
+      "followsTitle": "No new followers",
+      "followsSubtitle": "When someone follows you, it will appear here",
+      "battlesTitle": "No battle requests",
+      "battlesSubtitle": "Battle invitations will appear here"
+    }
+  },
+  "usersProfile": {
+    "noUserIdError": "User ID not found in parameters",
+    "fetchPostsError": "Failed to fetch posts",
+    "fetchProfileError": "Failed to fetch profile",
+    "fetchDashboardError": "Failed to fetch dashboard",
+    "networkError": "A network error occurred",
+    "followActionFailed": "Action failed, please try again",
+    "followUpdateError": "Failed to update follow status",
+    "somethingWentWrong": "Something went wrong",
+    "tokensSoldSuccess": "Tokens sold successfully!"
   }
 }

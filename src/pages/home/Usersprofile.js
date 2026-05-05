@@ -27,16 +27,16 @@ import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getFansubscriptionStatus } from '../../services/stirpe';
+import { useLanguage } from '../../i18n';
 
 const Usersprofile = () => {
   const route = useRoute();
-  const { userId: targetUserId } = route.params
+  const { t } = useLanguage();
+  const { userId: targetUserId } = route.params;
 
   const screenParams = route?.params?.params || route?.params || {};
   const returnTo = screenParams?.returnTo;
   const battleLiveFromRoute = Boolean(screenParams?.battleLive);
-
-  console.log(returnTo,"7777777777")
 
   const [posts, setPosts] = useState([]);
   const [userDashboard, setUserDashboard] = useState();
@@ -54,8 +54,6 @@ const Usersprofile = () => {
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme(userData?.profile);
-
- 
 
   const fetchLoggedInUserId = useCallback(async () => {
     try {
@@ -108,7 +106,7 @@ const Usersprofile = () => {
     } catch (error) {
       console.error('Error checking subscription status:', error);
     }
-    
+
     setIsSubscribed(false);
     return false;
   }, [targetUserId, isActiveStatus]);
@@ -119,7 +117,6 @@ const Usersprofile = () => {
       if (response?.statusCode === 200 && response?.data) {
         setTokenAddress(response.data.data?.tokenAddress);
       }
-      console.log(response,'data for the user profiule other ß')
     } catch (err) {
       console.error('Error fetching profile token info:', err);
     }
@@ -127,7 +124,7 @@ const Usersprofile = () => {
 
   const fetchAllData = useCallback(async () => {
     if (!targetUserId) {
-      showToastMessage(toast, 'danger', 'No userId in route params');
+      showToastMessage(toast, 'danger', t('usersProfile.noUserIdError'));
       return;
     }
 
@@ -135,50 +132,56 @@ const Usersprofile = () => {
 
     try {
       const currentUserId = await fetchLoggedInUserId();
-      
+
       await Promise.all([
         fetchProfile(),
-        checkSubscriptionStatus(currentUserId)
+        checkSubscriptionStatus(currentUserId),
       ]);
 
       const [postsRes, userRes, dashRes] = await Promise.all([
-        getPostByUser(targetUserId,'normal'),
+        getPostByUser(targetUserId, 'normal'),
         getUserCredentials(targetUserId),
         getUserDashboard(targetUserId),
       ]);
-console.log(userRes,'data in ueser profile efrafaha')
       if (postsRes?.statusCode === 200) {
         setPosts(postsRes.data || []);
       } else {
-        showToastMessage(toast, 'danger', postsRes?.data?.message || 'Failed to fetch posts');
+        showToastMessage(
+          toast,
+          'danger',
+          postsRes?.data?.message || t('usersProfile.fetchPostsError'),
+        );
       }
 
       if (userRes?.statusCode === 200) {
-        console.log('userres for postres------->>>>>>>>>>>>>>>>>>',userRes.data);
-        
         setUserData(userRes.data?.user || userRes.data);
         setIsFollowing(userRes.data?.isFollow);
       } else {
-        showToastMessage(toast, 'danger', userRes?.data?.message || 'Failed to fetch profile');
+        showToastMessage(
+          toast,
+          'danger',
+          userRes?.data?.message || t('usersProfile.fetchProfileError'),
+        );
       }
 
       if (dashRes?.statusCode === 200) {
         setUserDashboard(dashRes.data?.dashboardData);
       } else {
-        showToastMessage(toast, 'danger', dashRes?.data?.message || 'Failed to fetch dashboard');
+        showToastMessage(
+          toast,
+          'danger',
+          dashRes?.data?.message || t('usersProfile.fetchDashboardError'),
+        );
       }
-
     } catch (error) {
       console.error('Error fetching profile screen data:', error);
-      showToastMessage(toast, 'danger', 'Network error occurred');
+      showToastMessage(toast, 'danger', t('usersProfile.networkError'));
     } finally {
       dispatch(hideLoader());
     }
-  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus]);
+  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus, t]);
 
   const toggleFollow = async () => {
-    console.log('targetUserId--------------------',targetUserId)
-    console.log('followBusy--------------------',followBusy)
 
     if (!targetUserId || followBusy) return;
     setFollowBusy(true);
@@ -193,7 +196,7 @@ console.log(userRes,'data in ueser profile efrafaha')
       }
     } catch (e) {
       console.error('Toggle follow error:', e);
-      showToastMessage(toast, 'danger', 'Action failed, please try again');
+      showToastMessage(toast, 'danger', t('usersProfile.followActionFailed'));
     } finally {
       setFollowBusy(false);
     }
@@ -213,7 +216,7 @@ console.log(userRes,'data in ueser profile efrafaha')
         showToastMessage(
           toast,
           'danger',
-          res?.data?.message || res?.message || 'Unable to update follow',
+          res?.data?.message || res?.message || t('usersProfile.followUpdateError'),
         );
         return false;
       } else {
@@ -226,16 +229,15 @@ console.log(userRes,'data in ueser profile efrafaha')
       showToastMessage(
         toast,
         'danger',
-        e?.response?.data?.message || 'Something went wrong',
+        e?.response?.data?.message || t('usersProfile.somethingWentWrong'),
       );
       return false;
     } finally {
       setFollowBusy(false);
       onRefresh();
     }
-  }
+  };
 
-  // ✅ Listen for payment completion events
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
       console.log('✅ Payment completed event received in Usersprofile:', data);
@@ -264,7 +266,7 @@ console.log(userRes,'data in ueser profile efrafaha')
       return () => {
         isActive = false;
       };
-    }, [fetchAllData])
+    }, [fetchAllData]),
   );
 
   const onRefresh = async () => {
@@ -283,7 +285,7 @@ console.log(userRes,'data in ueser profile efrafaha')
 
   const handleTokenSell = useCallback(async () => {
     sellSheetRef.current?.close();
-    showToastMessage(toast, 'success', 'Tokens sold successfully!');
+    showToastMessage(toast, 'success', t('usersProfile.tokensSoldSuccess'));
     await fetchAllData();
   }, []);
 
@@ -322,19 +324,18 @@ console.log(userRes,'data in ueser profile efrafaha')
           executeFollowAction={executeFollowAction}
           returnByTo={returnTo}
           screenParams={screenParams}
-         
         />
 
         <View>
-          <HighlightStories userData={userData}/>
+          <HighlightStories userData={userData} />
         </View>
 
-        <ProfileTabs 
-          post={posts} 
-          displayName={userData?.userName} 
-          userData={userData ? { ...userData, battleLive: battleLiveFromRoute } : userData} 
+        <ProfileTabs
+          post={posts}
+          displayName={userData?.userName}
+          userData={userData ? { ...userData, battleLive: battleLiveFromRoute } : userData}
           profileType={userData?.profile}
-          dashboard={userDashboard} 
+          dashboard={userDashboard}
           targetUserId={targetUserId}
           isSubscribed={isSubscribed}
           loggedInUserId={loggedInUserId}
