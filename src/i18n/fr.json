@@ -1,0 +1,27 @@
+{
+  "login": {
+    "welcomeTitle": "Bienvenue de Retour",
+    "welcomeSubtitle": "Connectez-vous pour continuer votre voyage",
+    "emailLabel": "Email ou Nom d'Utilisateur",
+    "emailPlaceholder": "Entrez votre email ou nom d'utilisateur",
+    "passwordLabel": "Mot de Passe",
+    "passwordPlaceholder": "Entrez votre mot de passe",
+    "forgotPassword": "Mot de Passe Oublié ?",
+    "signInButton": "Se Connecter",
+    "dividerOrContinue": "ou continuez avec",
+    "socialSection": "Social",
+    "google": "Google",
+    "twitter": "Twitter",
+    "apple": "Apple",
+    "noAccountText": "Pas de compte ?",
+    "signUpLink": "S'inscrire",
+    "emailRequired": "Email/Nom d'utilisateur requis",
+    "emailInvalid": "Entrez une adresse email valide",
+    "passwordRequired": "Mot de passe requis",
+    "passwordMinLength": "Le mot de passe doit comporter au moins 8 caractères",
+    "passwordRules": "Le mot de passe doit inclure majuscule, minuscule, nombre et caractère spécial",
+    "backToApp": "Retour à l'app",
+    "socialMediaUpgrade": "Les réseaux sociaux ont été améliorés",
+    "selectLanguage": "Sélectionner la Langue"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "login": {
+    "welcomeTitle": "Welcome Back",
+    "welcomeSubtitle": "Sign in to continue your journey",
+    "emailLabel": "Email or Username",
+    "emailPlaceholder": "Enter your email or username",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "forgotPassword": "Forgot Password?",
+    "signInButton": "Sign In",
+    "dividerOrContinue": "or continue with",
+    "socialSection": "Social",
+    "google": "Google",
+    "twitter": "Twitter",
+    "apple": "Apple",
+    "noAccountText": "Don't have an account?",
+    "signUpLink": "Sign up",
+    "emailRequired": "Email/Username is required",
+    "emailInvalid": "Enter a valid email address",
+    "passwordRequired": "Password is required",
+    "passwordMinLength": "Password must be at least 8 characters",
+    "passwordRules": "Password must include uppercase, lowercase, number & special character",
+    "backToApp": "Back to the app",
+    "socialMediaUpgrade": "Social media just got an upgrade",
+    "selectLanguage": "Select Language"
+  }
+}

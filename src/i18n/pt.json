@@ -1,0 +1,27 @@
+{
+  "login": {
+    "welcomeTitle": "Bem-vindo de Volta",
+    "welcomeSubtitle": "Faça login para continuar sua jornada",
+    "emailLabel": "E-mail ou Nome de Usuário",
+    "emailPlaceholder": "Digite seu e-mail ou nome de usuário",
+    "passwordLabel": "Senha",
+    "passwordPlaceholder": "Digite sua senha",
+    "forgotPassword": "Esqueceu a Senha?",
+    "signInButton": "Entrar",
+    "dividerOrContinue": "ou continue com",
+    "socialSection": "Social",
+    "google": "Google",
+    "twitter": "Twitter",
+    "apple": "Apple",
+    "noAccountText": "Não tem conta?",
+    "signUpLink": "Cadastre-se",
+    "emailRequired": "E-mail/Nome de usuário é obrigatório",
+    "emailInvalid": "Digite um endereço de e-mail válido",
+    "passwordRequired": "Senha é obrigatória",
+    "passwordMinLength": "A senha deve ter pelo menos 8 caracteres",
+    "passwordRules": "A senha deve incluir maiúscula, minúscula, número e caractere especial",
+    "backToApp": "Voltar para o app",
+    "socialMediaUpgrade": "Redes sociais receberam um upgrade",
+    "selectLanguage": "Selecione o Idioma"
+  }
+}
