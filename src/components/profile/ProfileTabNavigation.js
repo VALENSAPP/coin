@@ -32,6 +32,10 @@ const ProfileTabs = memo(({
   isSubscribed: isSubscribedProp, // Receive from parent
   loggedInUserId, // Receive from parent
   refreshKey,
+  ListHeaderComponent,   // ← new
+  onScroll,              // ← new
+  scrollEventThrottle,   // ← new
+  refreshControl,      
 }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);

@@ -114,7 +114,8 @@ const ProfilePersonData = ({
   userData,
   executeFollowAction,
   returnByTo,
-  screenParams
+  screenParams,
+  compactScrollY,
 }) => {
   // useEffect(() => {
   //   console.log(
@@ -1020,6 +1021,31 @@ const ProfilePersonData = ({
   };
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
+  const middleCollapseStyle = useMemo(() => {
+    if (!compactScrollY) return null;
+
+    return {
+      maxHeight: compactScrollY.interpolate({
+        inputRange: [0, 70, 150],
+        outputRange: [260, 130, 0],
+        extrapolate: 'clamp',
+      }),
+      opacity: compactScrollY.interpolate({
+        inputRange: [0, 80, 135],
+        outputRange: [1, 0.55, 0],
+        extrapolate: 'clamp',
+      }),
+      transform: [
+        {
+          translateY: compactScrollY.interpolate({
+            inputRange: [0, 150],
+            outputRange: [0, -12],
+            extrapolate: 'clamp',
+          }),
+        },
+      ],
+    };
+  }, [compactScrollY]);
   const usernameModalData = useMemo(() => {
     return {
       ...(userData || {}),
@@ -1386,23 +1412,26 @@ const ProfilePersonData = ({
             </Text>
           </View>
 
-          <View style={styles.biobox}>
-            <Text style={styles.biotext}>{Userdata.Bio}</Text>
-            <View style={styles.socialRow}>
-              {socialMediaLinks.map(item => (
-                <TouchableOpacity
-                  key={`${item.platform}-${item.url}`}
-                  style={styles.socialIconButton}
-                  activeOpacity={0.7}
-                  onPress={() => handleOpenSocialUrl(item.url)}
-                >
-                  {renderSocialIcon(item.platform)}
-                </TouchableOpacity>
-              ))}
+          <Animated.View
+            style={[styles.collapsibleProfileMiddle, middleCollapseStyle]}
+          >
+            <View style={styles.biobox}>
+              <Text style={styles.biotext}>{Userdata.Bio}</Text>
+              <View style={styles.socialRow}>
+                {socialMediaLinks.map(item => (
+                  <TouchableOpacity
+                    key={`${item.platform}-${item.url}`}
+                    style={styles.socialIconButton}
+                    activeOpacity={0.7}
+                    onPress={() => handleOpenSocialUrl(item.url)}
+                  >
+                    {renderSocialIcon(item.platform)}
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
 
-          {!!websiteLink && (
+            {!!websiteLink && (
             <TouchableOpacity
               style={styles.bioLinkWrap}
               activeOpacity={0.7}
@@ -1410,147 +1439,152 @@ const ProfilePersonData = ({
             >
               <Text style={styles.bioLinkText}>{websiteLink}</Text>
             </TouchableOpacity>
-          )}
+            )}
+          </Animated.View>
         </View>
 
-        <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
-          {fromUsersProfile && (
-            <TouchableOpacity
-              style={[
-                styles.battleBtnWrapper,
-                {
-                  backgroundColor: text,
-                  borderColor: text,
-                },
-              ]}
-              onPress={handleInviteBattlePress}
-            >
-              <LinearGradient
-                colors={profileActionGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.battleBtn}
-              >
-                <Text style={styles.battleBtnText}>Invite to Battle</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-          {!fromUsersProfile && (
-            <TouchableOpacity
-              style={[
-                styles.battleBtnWrapper,
-                {
-                  backgroundColor: text,
-                  borderColor: text,
-                },
-              ]}
-              onPress={handleOpenBattlePress}
-            >
-              <LinearGradient
-                colors={profileActionGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.battleBtn}
-              >
-                <Text style={styles.battleBtnText}>Open Battle</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
+        <Animated.View
+          style={[styles.collapsibleProfileMiddle, middleCollapseStyle]}
+        >
+            <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
+              {fromUsersProfile && (
+                <TouchableOpacity
+                  style={[
+                    styles.battleBtnWrapper,
+                    {
+                      backgroundColor: text,
+                      borderColor: text,
+                    },
+                  ]}
+                  onPress={handleInviteBattlePress}
+                >
+                  <LinearGradient
+                    colors={profileActionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.battleBtn}
+                  >
+                    <Text style={styles.battleBtnText}>Invite to Battle</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+              {!fromUsersProfile && (
+                <TouchableOpacity
+                  style={[
+                    styles.battleBtnWrapper,
+                    {
+                      backgroundColor: text,
+                      borderColor: text,
+                    },
+                  ]}
+                  onPress={handleOpenBattlePress}
+                >
+                  <LinearGradient
+                    colors={profileActionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.battleBtn}
+                  >
+                    <Text style={styles.battleBtnText}>Open Battle</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
 
-        <View style={[styles.tabContainer, { height: 50 }]}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              {
-                backgroundColor: text,
-                borderColor: text,
-              },
-            ]}
-            onPress={handleBattleTabPress}
-          >
-            <Text
-              style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
-            >
-              Battle
-            </Text>
-          </TouchableOpacity>
-        </View>
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <TouchableOpacity style={styles.statItem}>
-            <Ionicons name="add-circle-outline" size={16} color="#444" />
-            <Text style={[styles.statText, { color: text }]}>
-              {' '}
-              Mint: {Userdata.totalPost}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statItem}
-            activeOpacity={0.5}
-            onPress={() => {
-              if (fromUsersProfile) {
-                navigation.navigate('ProfileMain', {
-                  screen: 'FollowersFollowingScreen',
-                  tab: 'followers',
-                  params: {
-                    userName: Userdata.Username,
-                    userId: fromUsersProfile ? targetUserId : userId,
-                    returnTo: 'Home',
-                    screenParams: screenParams
+            <View style={[styles.tabContainer, { height: 50 }]}>
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  {
+                    backgroundColor: text,
+                    borderColor: text,
                   },
-                });
-              } else {
-                navigation.navigate('FollowersFollowingScreen', {
-                  tab: 'followers',
-                  params: {
-                    userName: Userdata.Username,
-                    userId: userId,
-                    returnTo: 'UserProfile',
-                  },
-                });
-              }
-            }}
-          >
-            <FontAwesome name="user" size={16} color="#444" />
-            <Text style={[styles.statText, { color: text }]}>
-              {' '}
-              Followers: {Userdata.Followers}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() => {
-              if (fromUsersProfile) {
-                navigation.navigate('ProfileMain', {
-                  screen: 'FollowersFollowingScreen',
-                  tab: 'following',
-                  params: {
-                    userName: displayName,
-                    userId: fromUsersProfile ? targetUserId : userId,
-                    returnTo: 'Home',
-                    screenParams: screenParams
-                  },
-                });
-              } else {
-                navigation.navigate('FollowersFollowingScreen', {
-                  tab: 'following',
-                  params: {
-                    userName: displayName,
-                    userId: userId,
-                    returnTo: 'UserProfile',
-                  },
-                });
-              }
-            }}
-          >
-            <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
-            <Text style={[styles.statText, { color: text }]}>
-              {' '}
-              Following: {Userdata.Followings}
-            </Text>
-          </TouchableOpacity>
-        </View>
+                ]}
+                onPress={handleBattleTabPress}
+              >
+                <Text
+                  style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
+                >
+                  Battle
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {/* Stats */}
+            <View style={styles.statsRow}>
+              <TouchableOpacity style={styles.statItem}>
+                <Ionicons name="add-circle-outline" size={16} color="#444" />
+                <Text style={[styles.statText, { color: text }]}>
+                  {' '}
+                  Mint: {Userdata.totalPost}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.statItem}
+                activeOpacity={0.5}
+                onPress={() => {
+                  if (fromUsersProfile) {
+                    navigation.navigate('ProfileMain', {
+                      screen: 'FollowersFollowingScreen',
+                      tab: 'followers',
+                      params: {
+                        userName: Userdata.Username,
+                        userId: fromUsersProfile ? targetUserId : userId,
+                        returnTo: 'Home',
+                        screenParams: screenParams
+                      },
+                    });
+                  } else {
+                    navigation.navigate('FollowersFollowingScreen', {
+                      tab: 'followers',
+                      params: {
+                        userName: Userdata.Username,
+                        userId: userId,
+                        returnTo: 'UserProfile',
+                      },
+                    });
+                  }
+                }}
+              >
+                <FontAwesome name="user" size={16} color="#444" />
+                <Text style={[styles.statText, { color: text }]}>
+                  {' '}
+                  Followers: {Userdata.Followers}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() => {
+                  if (fromUsersProfile) {
+                    navigation.navigate('ProfileMain', {
+                      screen: 'FollowersFollowingScreen',
+                      tab: 'following',
+                      params: {
+                        userName: displayName,
+                        userId: fromUsersProfile ? targetUserId : userId,
+                        returnTo: 'Home',
+                        screenParams: screenParams
+                      },
+                    });
+                  } else {
+                    navigation.navigate('FollowersFollowingScreen', {
+                      tab: 'following',
+                      params: {
+                        userName: displayName,
+                        userId: userId,
+                        returnTo: 'UserProfile',
+                      },
+                    });
+                  }
+                }}
+              >
+                <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
+                <Text style={[styles.statText, { color: text }]}>
+                  {' '}
+                  Following: {Userdata.Followings}
+                </Text>
+              </TouchableOpacity>
+            </View>
+        </Animated.View>
         {/* <TouchableOpacity style={styles.infoButton}>
   <Ionicons name="information-circle-outline" size={22} color="#144c9b" />
 </TouchableOpacity> */}
@@ -1843,6 +1877,9 @@ const styles = StyleSheet.create({
   },
   socialIconButton: {
     marginLeft: 10,
+  },
+  collapsibleProfileMiddle: {
+    overflow: 'hidden',
   },
 
   // --- Stats ---

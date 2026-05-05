@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   RefreshControl,
-  ScrollView
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,6 +31,7 @@ const ProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const profileScrollY = useRef(new Animated.Value(0)).current;
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -172,8 +173,13 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={styles.scrollContainer}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: profileScrollY } } }],
+          { useNativeDriver: false },
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -189,6 +195,7 @@ const ProfileScreen = () => {
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
+          compactScrollY={profileScrollY}
           
           // executeFollowAction={executeFollowAction}
         />
@@ -196,7 +203,7 @@ const ProfileScreen = () => {
           <HighlightStories userData={userData}/>
         </View>
         <ProfileTabs post={posts} displayName={userData?.userName} userData={userData} dashboard={userDashboard} loggedInUserId={userId}  refreshKey={refreshKey}/>
-      </ScrollView>
+      </Animated.ScrollView>
       {/* <WelcomeValensModal
         visible={welcomeModalVisible}
         onClose={async () => {
