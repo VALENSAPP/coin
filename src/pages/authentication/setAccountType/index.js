@@ -18,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import createStyles from "./Style";
 import { AuthHeader } from "../../../components/auth";
+import { useLanguage } from '../../../i18n';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -100,6 +101,7 @@ const AnimatedBackground = () => {
 // Account Card
 const AccountCard = ({ isPurple, onPress }) => {
     const scaleAnim = useSharedValue(1);
+    const { t } = useLanguage();
 
     const handlePressIn = () => {
         scaleAnim.value = withSpring(0.96);
@@ -115,24 +117,23 @@ const AccountCard = ({ isPurple, onPress }) => {
 
     const styles = createStyles();
 
-    // ✅ Updated Features
     const personaFeatures = [
-        { icon: "heart-outline", label: "Support & Being Support" },
-        { icon: "flash-outline", label: "Join Battles" },
-        { icon: "shield-checkmark-outline", label: "Verified User" },
-        { icon: "storefront-outline", label: "Creator Storefront" },
-        { icon: "people-outline", label: "Fan Subscriptions" },
-        { icon: "flag-outline", label: "Mission Posts" },
-        { icon: "lock-closed-outline", label: "Private Circle Posts" },
+        { icon: "heart-outline", label: t('selectAccountType.personaFeatures.support') },
+        { icon: "flash-outline", label: t('selectAccountType.personaFeatures.battles') },
+        { icon: "shield-checkmark-outline", label: t('selectAccountType.personaFeatures.verified') },
+        { icon: "storefront-outline", label: t('selectAccountType.personaFeatures.storefront') },
+        { icon: "people-outline", label: t('selectAccountType.personaFeatures.subscriptions') },
+        { icon: "flag-outline", label: t('selectAccountType.personaFeatures.missions') },
+        { icon: "lock-closed-outline", label: t('selectAccountType.personaFeatures.privateCircle') },
     ];
 
     const businessFeatures = [
-        { icon: "storefront-outline", label: "Create Shop" },
-        { icon: "people-outline", label: "Support Community" },
-        { icon: "rocket-outline", label: "Launch Missions" },
-        { icon: "flash-outline", label: "Run Battles" },
-        { icon: "shield-checkmark-outline", label: "Get Verified — KYB" },
-        { icon: "lock-closed-outline", label: "VIP Private Posts" },
+        { icon: "storefront-outline", label: t('selectAccountType.businessFeatures.shop') },
+        { icon: "people-outline", label: t('selectAccountType.businessFeatures.community') },
+        { icon: "rocket-outline", label: t('selectAccountType.businessFeatures.missions') },
+        { icon: "flash-outline", label: t('selectAccountType.businessFeatures.battles') },
+        { icon: "shield-checkmark-outline", label: t('selectAccountType.businessFeatures.verified') },
+        { icon: "lock-closed-outline", label: t('selectAccountType.businessFeatures.vip') },
     ];
 
     const features = isPurple ? personaFeatures : businessFeatures;
@@ -159,16 +160,18 @@ const AccountCard = ({ isPurple, onPress }) => {
                 </View>
 
                 <Text style={isPurple ? styles.cardTitlePurple : styles.cardTitleGold}>
-                    {isPurple ? "I'm a Persona" : "I'm a Business"}
+                    {isPurple
+                        ? t('selectAccountType.personaTitle')
+                        : t('selectAccountType.businessTitle')}
                 </Text>
 
                 <Text style={styles.cardDesc}>
                     {isPurple
-                        ? "Connect, support, join battles & missions"
-                        : "Sell, launch, grow, and get verified"}
+                        ? t('selectAccountType.personaDesc')
+                        : t('selectAccountType.businessDesc')}
                 </Text>
 
-                {/* ✅ Features List */}
+                {/* Features List */}
                 <View style={{ marginTop: 0 }}>
                     {features.map((item, index) => (
                         <View key={index} style={styles.listItem}>
@@ -188,7 +191,9 @@ const AccountCard = ({ isPurple, onPress }) => {
                 style={isPurple ? styles.purpleBtn : styles.goldBtn}
             >
                 <Text style={isPurple ? styles.purpleBtnText : styles.goldBtnText}>
-                    {isPurple ? "Continue as Persona" : "Continue as Business"}
+                    {isPurple
+                        ? t('selectAccountType.continueAsPersona')
+                        : t('selectAccountType.continueAsBusiness')}
                 </Text>
             </TouchableOpacity>
         </AnimatedTouchable>
@@ -200,6 +205,7 @@ const SelectAccountType = () => {
     const styles = createStyles();
     const { height } = Dimensions.get("window");
     const navigation = useNavigation();
+    const { t } = useLanguage();
 
     const handleCardPress = (accountType) => {
         const profile = accountType === "business" ? "company" : "user";
@@ -222,7 +228,7 @@ const SelectAccountType = () => {
             >
                 <View style={styles.contentContainer}>
                     <AuthHeader
-                        subtitle="Social media just got an upgrade"
+                        subtitle={t('selectAccountType.subtitle')}
                         showBackButton={true}
                         headerHeight={height * 0.28}
                         fromsetAccountType={true}

@@ -15,11 +15,10 @@ import { useDispatch } from 'react-redux';
 import { forgotPassword } from '../../../services/authentication';
 import { showLoader, hideLoader } from '../../../redux/actions/LoaderAction';
 import { useToast } from 'react-native-toast-notifications';
-import CustomButton from '../../../components/customButton/customButton';
-import { LogoIcon } from '../../../assets/icons';
 import { AuthHeader } from '../../../components/auth';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const { width, height } = Dimensions.get('window');
@@ -32,29 +31,23 @@ const ForgetPassword = () => {
   const [isEmailMode, setIsEmailMode] = useState(true);
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
-
-  const toggleMode = () => {
-    setIsEmailMode(!isEmailMode);
-  };
+  const { t } = useLanguage();
 
   const handleContinue = async () => {
     if (!EMAIL_REGEX.test(email.trim())) {
-      setError('Please enter a valid email address');
+      setError(t('forgotPassword.emailInvalid'));
       return;
     }
-    Keyboard.dismiss()
+    Keyboard.dismiss();
     dispatch(showLoader());
     try {
-      const response = await forgotPassword({
-        email,
-      });
-      console.log(response, 'response');
-      if (response &&  response.statusCode == 200) {
+      const response = await forgotPassword({ email });
+      if (response && response.statusCode == 200) {
         showToastMessage(toast, 'success', response.data.message);
         navigation.navigate('OTPScreen', { email, type: 'forgotpassword' });
         setError('');
-      }else{
-         showToastMessage(toast, 'danger', response.message);
+      } else {
+        showToastMessage(toast, 'danger', response.message);
       }
     } catch (error) {
       showToastMessage(toast, 'danger', 'An unexpected error occurred.');
@@ -70,35 +63,37 @@ const ForgetPassword = () => {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Enhanced Header */}
+      {/* Header */}
       <AuthHeader
-        title="Reset Password"
-        subtitle="Enter your email address and we'll help you find your account"
+        title={t('forgotPassword.headerTitle')}
+        subtitle={t('forgotPassword.headerSubtitle')}
         onBackPress={() => navigation.goBack()}
       />
 
-      {/* Enhanced Form Card */}
+      {/* Form Card */}
       <View style={styles.formWrapper}>
         <View style={styles.card}>
           <View style={styles.welcomeSection}>
-            <Text style={styles.welcomeTitle}>Reset Password</Text>
+            <Text style={styles.welcomeTitle}>{t('forgotPassword.cardTitle')}</Text>
             <Text style={styles.welcomeSubtitle}>
-              Enter your email address and we'll help you find your account
+              {t('forgotPassword.cardSubtitle')}
             </Text>
           </View>
 
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>
-                {isEmailMode ? 'Email Address' : 'Phone Number'}
+                {isEmailMode
+                  ? t('forgotPassword.emailLabel')
+                  : t('forgotPassword.phonelabel')}
               </Text>
               <View style={[styles.inputGroup, error && styles.inputError]}>
                 <TextInput
                   style={styles.textInput}
                   placeholder={
                     isEmailMode
-                      ? 'Enter your email address'
-                      : 'Enter your phone number'
+                      ? t('forgotPassword.emailPlaceholder')
+                      : t('forgotPassword.phonePlaceholder')
                   }
                   placeholderTextColor="#9CA3AF"
                   keyboardType={isEmailMode ? 'email-address' : 'phone-pad'}
@@ -114,7 +109,7 @@ const ForgetPassword = () => {
             </View>
 
             <View style={styles.infoSection}>
-              <View style={[styles.infoBox, {borderLeftColor: text}]}>
+              <View style={[styles.infoBox, { borderLeftColor: text }]}>
                 <Icon
                   name="information-circle"
                   size={20}
@@ -122,38 +117,33 @@ const ForgetPassword = () => {
                   style={styles.infoIcon}
                 />
                 <Text style={styles.infoText}>
-                  You may receive an OTP code at this{' '}
-                  {isEmailMode ? 'email' : 'phone number'} after clicking
-                  Continue
+                  {isEmailMode
+                    ? t('forgotPassword.infoTextEmail')
+                    : t('forgotPassword.infoTextPhone')}
                 </Text>
               </View>
             </View>
 
-            {/* Mode Toggle */}
-            {/* <TouchableOpacity style={styles.toggleButton} onPress={toggleMode}>
-        <Text style={styles.toggleText}>
-                Use {isEmailMode ? 'phone number' : 'email address'} instead
-        </Text>
-      </TouchableOpacity> */}
-
             {/* Continue Button */}
             <TouchableOpacity
-              style={[styles.continueButton, {backgroundColor: text, shadowColor: text}]}
-              onPress={()=> handleContinue()}
+              style={[styles.continueButton, { backgroundColor: text, shadowColor: text }]}
+              onPress={handleContinue}
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              <Text style={styles.continueButtonText}>
+                {t('forgotPassword.continueButton')}
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Back to Login */}
           <View style={styles.backToLoginSection}>
             <Text style={styles.backToLoginText}>
-              Remember your password?{' '}
+              {t('forgotPassword.rememberPassword')}{' '}
               <Text
                 style={[styles.backToLoginLink, textStyle]}
                 onPress={() => navigation.goBack()}
               >
-                Back to Login
+                {t('forgotPassword.backToLogin')}
               </Text>
             </Text>
           </View>
@@ -172,15 +162,11 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
   },
-
-  // Form wrapper styles
   formWrapper: {
     flex: 1,
-      marginTop: -20,
-      paddingHorizontal: 7,
+    marginTop: -20,
+    paddingHorizontal: 7,
   },
-
-  // Enhanced Card Styles
   card: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
@@ -193,8 +179,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
-
-  // Welcome Section
   welcomeSection: {
     alignItems: 'center',
     marginBottom: 32,
@@ -214,8 +198,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 10,
   },
-
-  // Enhanced Input Styles
   inputContainer: {
     width: '100%',
   },
@@ -255,8 +237,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '500',
   },
-
-  // Info Section
   infoSection: {
     marginBottom: 24,
   },
@@ -277,20 +257,6 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 20,
   },
-
-  // Toggle Button
-  toggleButton: {
-    alignItems: 'center',
-    marginBottom: 24,
-    padding: 8,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-
-  // Continue Button
   continueButton: {
     height: 52,
     borderRadius: 16,
@@ -307,8 +273,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
-  // Back to Login Section
   backToLoginSection: {
     alignItems: 'center',
     marginTop: 16,
