@@ -168,7 +168,7 @@ const TimerBadge = ({ endTime, ended }) => (
 const ModeBadge = ({ format, ended, isLive }) => (
     <View style={[styles.modeBadge, ended && styles.modeBadgeEnded]}>
         {!ended && (isLive ? <LiveDot /> : <View style={styles.modeBadgeDotOrange} />)}
-        <Text style={[styles.modeBadgeText, ended && styles.modeBadgeTextEnded]}>
+        <Text style={[styles.modeBadgeText, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
             {format === 'POLL' ? 'Poll' : 'Battle Mode 🔥'}
         </Text>
     </View>
@@ -178,6 +178,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
     if (isEmpty) {
         return (
             <View style={styles.participantSlot}>
+                
                 <View style={styles.participantContent}>
                     <View style={styles.emptySlot}>
                         <Icon name="person-add-outline" size={15} color="#A78BFA" />
@@ -701,6 +702,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 3,
         gap: 4,
+        flexShrink: 0,
     },
     modeBadgeEnded: { backgroundColor: GRAY_BG },
     modeBadgeDotOrange: {
@@ -793,9 +795,9 @@ const styles = StyleSheet.create({
     acceptBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 
     // Poll creator
-    pollCreatorRow: { flexDirection: 'row', alignItems: 'center', maxWidth: '58%', marginRight: 8 },
+    pollCreatorRow: { flexDirection: 'row', alignItems: 'center',   flex: 1, marginRight: 8,minWidth: 0,  },
     pollCreatorTextWrap: { marginLeft: 6, flexShrink: 1, minWidth: 0 },
-    pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT },
+    pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT,flexShrink: 1,  },
     pollCreatorHandle: { fontSize: 10, color: GRAY_MID },
 
     // Meta
