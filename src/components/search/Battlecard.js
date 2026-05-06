@@ -71,12 +71,6 @@ const formatBattleCount = value => {
     return `${n}`;
 };
 
-const chunk = (arr, n) => {
-    const out = [];
-    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
-    return out;
-};
-
 const normalizeCountKey = value => String(value || '').trim().toLowerCase();
 
 const buildNormalizedCountMap = (counts = {}) => {
@@ -355,28 +349,22 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
 
                 {item.options?.length > 0 && (
                     <View style={styles.pollOptions}>
-                        {chunk(item.options.slice(0, 4), 2).map((pair, rowIdx) => (
-                            <View key={rowIdx} style={styles.joinRow}>
-                                {pair.map((option, pairIdx) => {
-                                    const originalIndex = rowIdx * 2 + pairIdx;
-                                    const optionImageUrl = optionImages[originalIndex];
-                                    const label = option?.label || option;
-                                    const isSelected = selectedOption === label;
-                                    return (
-                                        <OptionChip
-                                            key={`${item.id}-${option?.id || label}`}
-                                            option={option}
-                                            isSelected={isSelected}
-                                            disabled={ended}
-                                            avatarUrl={optionImageUrl || option?.image || DEFAULT_AVATAR}
-                                            onPress={() => handleOption(label)}
-                                            percent={optionPercents[originalIndex]}
-                                        />
-                                    );
-                                })}
-                                {pair.length === 1 && <View style={{ flex: 1 }} />}
-                            </View>
-                        ))}
+                        {item.options.slice(0, 4).map((option, idx) => {
+                            const optionImageUrl = optionImages[idx];
+                            const label = option?.label || option;
+                            const isSelected = selectedOption === label;
+                            return (
+                                <OptionChip
+                                    key={`${item.id}-${option?.id || label}`}
+                                    option={option}
+                                    isSelected={isSelected}
+                                    disabled={ended}
+                                    avatarUrl={optionImageUrl || option?.image || DEFAULT_AVATAR}
+                                    onPress={() => handleOption(label)}
+                                    percent={optionPercents[idx]}
+                                />
+                            );
+                        })}
                     </View>
                 )}
                 <View style={styles.metaRow}>
@@ -459,7 +447,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
             <StakePill amount={item.stakeAmount || 0} />
 
             {!soloOpponent && item.options?.length > 0 && (
-                <View style={styles.joinRow}>
+                <View style={styles.pollOptions}>
                     {item.options.slice(0, 2).map((option, idx) => {
                         const optionImageUrl = optionImages[idx];
                         const label = option?.label || option;
@@ -765,10 +753,9 @@ const styles = StyleSheet.create({
     stakeAmount: { fontWeight: '700', color: PURPLE_DARK },
 
     // Option chips
-    joinRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
-    pollOptions: { gap: 5, marginBottom: 6 },
+    pollOptions: { width: '100%', gap: 6, marginBottom: 6 },
     optionChip: {
-        flex: 1, flexDirection: 'row', alignItems: 'center',
+        width: '100%', flexDirection: 'row', alignItems: 'center',
         gap: 4, borderRadius: 24, borderWidth: 1, borderColor: BORDER,
         backgroundColor: '#fff', paddingVertical: 4, paddingHorizontal: 5, minWidth: 0,
     },

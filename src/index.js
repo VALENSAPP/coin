@@ -382,6 +382,7 @@ export default function Main() {
         const normalizedPath = String(path || '').toLowerCase();
         const postId = urlObj.searchParams.get('postId');
         const reelId = urlObj.searchParams.get('reelId');
+        const storyId = String(urlObj.searchParams.get('storyId') || '').trim();
         const fallbackTag = urlObj.searchParams.get('af');
         const sharedProfileLink = parseProfileShareUrl(url);
 
@@ -407,6 +408,16 @@ export default function Main() {
                   params: {
                     item: { id: String(reelId) },
                     uniqueKey: `deeplink_reel_${String(reelId)}`,
+                  },
+                },
+              });
+            } else if (storyId && fallbackTag === 'dd') {
+              navigationRef.current.navigate('MainApp', {
+                screen: 'HomeMain',
+                params: {
+                  screen: 'Home',
+                  params: {
+                    sharedStoryId: storyId,
                   },
                 },
               });

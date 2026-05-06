@@ -36,11 +36,87 @@ import useSocket from '../../hooks/useSocket';
 import { clampRGBA } from 'react-native-reanimated/lib/typescript/Colors';
 import { checkSubscription } from '../../services/stirpe';
 import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
+import StoryViewerModal from '../../components/modals/StoryViewerModal';
+import { getFollowingUserStories, getStoryByUser } from '../../services/stories';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 130;
 
-export default function HomeScreen() {
+const isVideoStoryMedia = value => {
+  if (!value || typeof value !== 'string') return false;
+  const normalized = value.toLowerCase();
+  return ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'].some(ext => normalized.includes(ext))
+    || normalized.includes('/video/')
+    || normalized.includes('video');
+};
+
+const splitSharedStoryId = value => {
+  const rawId = String(value || '').trim();
+  const match = rawId.match(/^(.*)_(\d+)$/);
+  return {
+    rawId,
+    baseId: match ? match[1] : rawId,
+    mediaIndex: match ? Number(match[2]) : null,
+  };
+};
+
+const getStoryOwner = (story, fallbackUserId) => {
+  const owner = story?.user || {};
+  return {
+    id: story?.userId || owner?.id || owner?._id || fallbackUserId,
+    name: owner?.displayName || owner?.userName || owner?.username || story?.userName || 'Unknown User',
+    image: owner?.image || story?.userImage || '',
+  };
+};
+
+const findStoryBySharedId = (storyRows, sharedStoryId, fallbackUserId = '') => {
+  const { rawId, baseId, mediaIndex } = splitSharedStoryId(sharedStoryId);
+  if (!baseId) return null;
+
+  for (const story of storyRows) {
+    const storyBaseId = String(story?.id || story?._id || story?.storyId || '').trim();
+    const media = Array.isArray(story?.media) ? story.media : [];
+    const directUri = story?.uri || story?.url || story?.storyUrl || story?.image || story?.thumbnail;
+    const owner = getStoryOwner(story, fallbackUserId);
+
+    if (storyBaseId === baseId && media.length) {
+      const index = mediaIndex != null && media[mediaIndex] ? mediaIndex : 0;
+      const uri = String(media[index] || '').trim();
+      if (!uri) continue;
+
+      return {
+        id: rawId || `${storyBaseId}_${index}`,
+        storyId: storyBaseId,
+        uri,
+        media: [uri],
+        type: isVideoStoryMedia(uri) ? 'video' : 'image',
+        caption: story?.caption || story?.text || '',
+        createdAt: story?.createdAt || story?.updatedAt,
+        userName: owner.name,
+        userImage: owner.image,
+      };
+    }
+
+    if (storyBaseId === baseId && directUri) {
+      const uri = String(directUri).trim();
+      return {
+        id: rawId || storyBaseId,
+        storyId: storyBaseId,
+        uri,
+        media: [uri],
+        type: story?.type || (isVideoStoryMedia(uri) ? 'video' : 'image'),
+        caption: story?.caption || story?.text || '',
+        createdAt: story?.createdAt || story?.updatedAt,
+        userName: owner.name,
+        userImage: owner.image,
+      };
+    }
+  }
+
+  return null;
+};
+
+export default function HomeScreen({ route }) {
   const styles = createStyles();
   const navigation = useNavigation();
   const [posts, setPosts] = useState([]);
@@ -53,6 +129,9 @@ export default function HomeScreen() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socketReady, setSocketReady] = useState(false);
+  const [linkedStory, setLinkedStory] = useState(null);
+  const [linkedStoryVisible, setLinkedStoryVisible] = useState(false);
+  const [openingLinkedStory, setOpeningLinkedStory] = useState(false);
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const postsRef = useRef(null);
 
@@ -526,6 +605,47 @@ export default function HomeScreen() {
     checkBusinessSubscriptionStatus();
   }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus]);
 
+  const openLinkedStory = useCallback(async (sharedStoryId) => {
+    const storyId = String(sharedStoryId || '').trim();
+    if (!storyId || openingLinkedStory) return;
+
+    try {
+      setOpeningLinkedStory(true);
+      const userId = await AsyncStorage.getItem('userId');
+      const [ownStoryResponse, followingStoryResponse] = await Promise.all([
+        userId ? getStoryByUser(userId, { time: 'all' }).catch(() => null) : Promise.resolve(null),
+        getFollowingUserStories().catch(() => null),
+      ]);
+
+      const ownStories = ownStoryResponse?.data
+        ? (Array.isArray(ownStoryResponse.data) ? ownStoryResponse.data : [ownStoryResponse.data])
+        : [];
+      const followingStories = followingStoryResponse?.data
+        ? (Array.isArray(followingStoryResponse.data) ? followingStoryResponse.data : [followingStoryResponse.data])
+        : [];
+      const matchedStory = findStoryBySharedId([...ownStories, ...followingStories], storyId, userId);
+
+      if (matchedStory) {
+        setLinkedStory(matchedStory);
+        setLinkedStoryVisible(true);
+      } else {
+        showToastMessage(toast, 'danger', 'This drop is no longer available.');
+      }
+    } catch (error) {
+      console.error('Error opening shared story link:', error);
+      showToastMessage(toast, 'danger', 'Unable to open this drop.');
+    } finally {
+      setOpeningLinkedStory(false);
+      navigation.setParams?.({ sharedStoryId: undefined });
+    }
+  }, [navigation, openingLinkedStory, toast]);
+
+  useEffect(() => {
+    const sharedStoryId = route?.params?.sharedStoryId;
+    if (!isFocused || !sharedStoryId) return;
+    openLinkedStory(sharedStoryId);
+  }, [isFocused, openLinkedStory, route?.params?.sharedStoryId]);
+
   // Listen for payment completion - optimized
   useEffect(() => {
     if (!isFocused) return;
@@ -725,6 +845,16 @@ export default function HomeScreen() {
         }}
         onLater={() => {
           setShowBusinessSubscriptionPrompt(false);
+        }}
+      />
+      <StoryViewerModal
+        visible={linkedStoryVisible}
+        story={linkedStory}
+        userName={linkedStory?.userName}
+        userImage={linkedStory?.userImage}
+        onClose={() => {
+          setLinkedStoryVisible(false);
+          setLinkedStory(null);
         }}
       />
 

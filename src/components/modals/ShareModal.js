@@ -29,6 +29,7 @@ const COLS = 3;
 const CELL_W = Math.floor(width / COLS);
 const AVATAR_SIZE = 64;
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const cleanStoryId = value => String(value || '').replace(/_\d+$/, '');
 
 const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onShare }, ref) => {
   const [selfUserId, setSelfUserId] = useState(null);
@@ -132,6 +133,40 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     return null;
   };
 
+  const resolveStoryId = () => {
+    if (!story) return null;
+
+    if (typeof story === "string" || typeof story === "number") {
+      return cleanStoryId(story);
+    }
+
+    return cleanStoryId(
+      story.storyId ||
+      story.id ||
+      story._id ||
+      story.story?.id ||
+      story.story?._id ||
+      ''
+    ) || null;
+  };
+
+  const resolveStoryLinkId = () => {
+    if (!story) return null;
+
+    if (typeof story === "string" || typeof story === "number") {
+      return String(story);
+    }
+
+    return String(
+      story.storyId ||
+      story.id ||
+      story._id ||
+      story.story?.id ||
+      story.story?._id ||
+      ''
+    ) || null;
+  };
+
   const handleSend = async () => {
     if (selectedUsers.length === 0) {
       Alert.alert('No Selection', 'Please select at least one user.');
@@ -153,6 +188,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         reel,
         reelId,
         story,
+        storyId: resolveStoryId(),
       };
 
       // Navigate to ChatMessages with multi-selected users
@@ -184,13 +220,13 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   };
 
   const generateShareLink = () => {
-    const id = resolvePostId();
+    const id = story ? resolveStoryLinkId() : resolvePostId();
 
     if (!id) return null;
 
     // --- Make link based on type ----
     if (story) {
-      return `com.valens.app://?af=dd&postId=${encodeURIComponent(String(id))}`;
+      return `com.valens.app://?af=dd&storyId=${encodeURIComponent(String(id))}`;
     }
 
     if (reel || reelId) {
