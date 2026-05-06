@@ -37,6 +37,7 @@ const ProfileTabs = memo(({
   scrollEventThrottle,   // ← new
   refreshControl,      
   onPostPinChanged,
+  scrollEnabled = true,
 }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -135,9 +136,10 @@ const ProfileTabs = memo(({
         userData={userData}
         isOwnProfile={isOwnProfile}
         onPostPinChanged={onPostPinChanged}
+        scrollEnabled={scrollEnabled} 
       />
     ),
-    [post, userData, isOwnProfile, onPostPinChanged],
+    [post, userData, isOwnProfile, onPostPinChanged, scrollEnabled],
   );
 
   const renderReelsScreen = useCallback(
@@ -148,9 +150,10 @@ const ProfileTabs = memo(({
         userData={userData}
         isOwnProfile={isOwnProfile}
         onPostPinChanged={onPostPinChanged}
+        scrollEnabled={scrollEnabled}
       />
     ),
-    [post, userData, isOwnProfile, onPostPinChanged],
+    [post, userData, isOwnProfile, onPostPinChanged, scrollEnabled],
   );
 
   const renderPrivateContentScreen = useCallback(
@@ -164,10 +167,10 @@ const ProfileTabs = memo(({
         onSubscribePress={() => { userData?.profile !== 'company' && setShowSubscribeModal(true) }}
         isCompany={userData?.profile === 'company'}   // 👈 add this
         refreshKey={refreshKey}
-
+        scrollEnabled={scrollEnabled} 
       />
     ),
-    [post, userData, isSubscribed, loggedInUserId, refreshKey],
+    [post, userData, isSubscribed, loggedInUserId, refreshKey, scrollEnabled],
   );
 
   const renderPrivateCircleScreen = useCallback(

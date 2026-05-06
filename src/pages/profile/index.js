@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -33,10 +33,18 @@ const ProfileScreen = () => {
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const profileScrollY = useRef(new Animated.Value(0)).current;
+  const [compactLocked, setCompactLocked] = useState(false);
+  const compactLockedRef = useRef(false);
+  const lastScrollYRef = useRef(0);
+  const relockMinYRef = useRef(0);
 
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle } = useAppTheme();
+
+  useEffect(() => {
+    compactLockedRef.current = compactLocked;
+  }, [compactLocked]);
 
   const fetchProfilePosts = useCallback(async (idOverride = '') => {
     const id = idOverride || userId || await AsyncStorage.getItem('userId');
@@ -60,16 +68,16 @@ const ProfileScreen = () => {
       return;
     }
     setUserId(id);
-    
+
 
     dispatch(showLoader());
     try {
       const [postsRes, userRes, dashRes] = await Promise.all([
-        getPostByUser(id,'normal'),
+        getPostByUser(id, 'normal'),
         getUserCredentials(id),
         getUserDashboard(id),
       ]);
-     
+
       // Posts
       if (postsRes.statusCode === 200) {
         setPosts(sortPostsByPinned(postsRes.data));
@@ -77,15 +85,15 @@ const ProfileScreen = () => {
         showToastMessage(
           toast,
           'danger',
-         'Failed to fetch posts'
+          'Failed to fetch posts'
         );
       }
 
       // Profile data
-      
+
       if (userRes.statusCode === 200) {
-       
-        
+
+
         let userDataToSet;
         if (userRes.data && userRes.data.user) {
           userDataToSet = userRes.data.user;
@@ -94,16 +102,16 @@ const ProfileScreen = () => {
         } else {
           userDataToSet = userRes;
         }
-        
-     
-        
+
+
+
         // Ensure the image URL is properly formatted
         if (userDataToSet?.image) {
           let formattedImageUrl = userDataToSet.image;
-          
+
           // Remove any whitespace
           formattedImageUrl = formattedImageUrl.trim();
-          
+
           // If it's already a full URL, use as is
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
           } else if (formattedImageUrl.startsWith('/')) {
@@ -113,7 +121,7 @@ const ProfileScreen = () => {
             // If it doesn't start with /, assume it's a relative path
             formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
           }
-          
+
           userDataToSet.image = formattedImageUrl;
         }
         AsyncStorage.setItem('currentUsername', userDataToSet.displayName);
@@ -153,7 +161,7 @@ const ProfileScreen = () => {
         showToastMessage(
           toast,
           'danger',
-         'Failed to fetch dashboard'
+          'Failed to fetch dashboard'
         );
       }
     } catch (error) {
@@ -180,9 +188,9 @@ const ProfileScreen = () => {
 
   // Pull-to-refresh
   const onRefresh = async () => {
-    setRefreshing(true); 
+    setRefreshing(true);
     await fetchAllData();
-     setRefreshKey(prev => prev + 1);
+    setRefreshKey(prev => prev + 1);
     setRefreshing(false);
   };
 
@@ -201,19 +209,37 @@ const ProfileScreen = () => {
     }
   }, [fetchProfilePosts]);
 
+const handleProfileScroll = useCallback((event) => {
+  const y = Math.max(0, event?.nativeEvent?.contentOffset?.y ?? 0);
+  profileScrollY.setValue(y);
+
+  const dy = y - lastScrollYRef.current;
+  lastScrollYRef.current = y;
+
+  // Collapse on any upward scroll past 30px
+  if (dy > 0 && y > 30 && !compactLockedRef.current) {
+    compactLockedRef.current = true;
+    setCompactLocked(true);
+  }
+
+  // Expand ONLY on explicit downward swipe (dy < 0 means finger moving down)
+  if (dy < -8 && compactLockedRef.current) {
+    compactLockedRef.current = false;
+    setCompactLocked(false);
+  }
+}, [profileScrollY]);
+
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <Animated.ScrollView
         contentContainerStyle={styles.scrollContainer}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: profileScrollY } } }],
-          { useNativeDriver: false },
-        )}
+        onScroll={handleProfileScroll}
         scrollEventThrottle={16}
+        nestedScrollEnabled={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh} 
+            onRefresh={onRefresh}
             colors={userData?.profile == 'company' ? ['#D3B683'] : ['#7c3aed']}
           />
         }
@@ -225,12 +251,12 @@ const ProfileScreen = () => {
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
-          compactScrollY={profileScrollY}
-          
-          // executeFollowAction={executeFollowAction}
+          compactLocked={compactLocked}
+
+        // executeFollowAction={executeFollowAction}
         />
         <View>
-          <HighlightStories userData={userData}/>
+          <HighlightStories userData={userData} />
         </View>
         <ProfileTabs
           post={posts}
@@ -240,6 +266,7 @@ const ProfileScreen = () => {
           loggedInUserId={userId}
           refreshKey={refreshKey}
           onPostPinChanged={handlePostPinChanged}
+          scrollEnabled={false}  
         />
       </Animated.ScrollView>
       {/* <WelcomeValensModal

@@ -12,7 +12,6 @@ import {
   Linking,
   ActivityIndicator,
   Animated,
-  Easing,
   Dimensions,
 } from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -115,7 +114,7 @@ const ProfilePersonData = ({
   executeFollowAction,
   returnByTo,
   screenParams,
-  compactScrollY,
+  compactLocked = false,
 }) => {
   // useEffect(() => {
   //   console.log(
@@ -126,6 +125,28 @@ const ProfilePersonData = ({
 
   const navigation = useNavigation();
   const [profileImage, setProfileImage] = useState(null);
+
+  const collapseAnim = useRef(new Animated.Value(1)).current;
+
+  // useEffect add karo compactLocked ke liye
+  useEffect(() => {
+  Animated.timing(collapseAnim, {
+    toValue: compactLocked ? 0 : 1,
+    duration: compactLocked ? 80 : 200,  // collapse fast, expand slightly slower
+    useNativeDriver: false,
+  }).start();
+}, [compactLocked]);
+
+  // maxHeight interpolate karo
+  const animatedMaxHeight = collapseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 260],
+  });
+
+  const animatedOpacity = collapseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   const fetchAllData = useCallback(async () => {
     try {
@@ -189,7 +210,6 @@ const ProfilePersonData = ({
   const [totalSupportLoading, setTotalSupportLoading] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
-  const totalSupportAnim = useRef(new Animated.Value(0)).current;
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -641,21 +661,10 @@ const ProfilePersonData = ({
     if (!totalSupportOpen) {
       fetchReceivedSupportAmount();
       setTotalSupportOpen(true);
-      Animated.timing(totalSupportAnim, {
-        toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.back(1.2)),
-        useNativeDriver: false,
-      }).start();
     } else {
-      Animated.timing(totalSupportAnim, {
-        toValue: 0,
-        duration: 220,
-        easing: Easing.in(Easing.ease),
-        useNativeDriver: false,
-      }).start(() => setTotalSupportOpen(false));
+      setTotalSupportOpen(false);
     }
-  }, [totalSupportOpen, totalSupportAnim, fetchReceivedSupportAmount]);
+  }, [totalSupportOpen, fetchReceivedSupportAmount]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1021,31 +1030,9 @@ const ProfilePersonData = ({
   };
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
-  const middleCollapseStyle = useMemo(() => {
-    if (!compactScrollY) return null;
-
-    return {
-      maxHeight: compactScrollY.interpolate({
-        inputRange: [0, 70, 150],
-        outputRange: [260, 130, 0],
-        extrapolate: 'clamp',
-      }),
-      opacity: compactScrollY.interpolate({
-        inputRange: [0, 80, 135],
-        outputRange: [1, 0.55, 0],
-        extrapolate: 'clamp',
-      }),
-      transform: [
-        {
-          translateY: compactScrollY.interpolate({
-            inputRange: [0, 150],
-            outputRange: [0, -12],
-            extrapolate: 'clamp',
-          }),
-        },
-      ],
-    };
-  }, [compactScrollY]);
+  const middleCollapseStyle = compactLocked
+    ? styles.collapsibleProfileMiddleCollapsed
+    : styles.collapsibleProfileMiddleExpanded;
   const usernameModalData = useMemo(() => {
     return {
       ...(userData || {}),
@@ -1199,7 +1186,7 @@ const ProfilePersonData = ({
             ) : (
               <TouchableOpacity
                 style={styles.iconButton}
-                onPress={() => {AsyncStorage.setItem('profile', userData?.profile); navigation.navigate('Settings')}}
+                onPress={() => { AsyncStorage.setItem('profile', userData?.profile); navigation.navigate('Settings') }}
               >
                 <Feather name="menu" size={25} color="#111100" />
               </TouchableOpacity>
@@ -1379,11 +1366,8 @@ const ProfilePersonData = ({
                 width: '50%',          // same width as the edit column
                 zIndex: 999,
                 overflow: 'hidden',
-                height: totalSupportAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 72],
-                }),
-                opacity: totalSupportAnim,
+                height: totalSupportOpen ? 72 : 0,
+                opacity: totalSupportOpen ? 1 : 0,
                 borderRadius: 10,
                 backgroundColor: '#fff',
                 borderWidth: 1,
@@ -1413,7 +1397,13 @@ const ProfilePersonData = ({
           </View>
 
           <Animated.View
-            style={[styles.collapsibleProfileMiddle, middleCollapseStyle]}
+            style={[
+              styles.collapsibleProfileMiddle,
+              {
+                maxHeight: animatedMaxHeight,
+                opacity: animatedOpacity,
+              }
+            ]}
           >
             <View style={styles.biobox}>
               <Text style={styles.biotext}>{Userdata.Bio}</Text>
@@ -1432,158 +1422,164 @@ const ProfilePersonData = ({
             </View>
 
             {!!websiteLink && (
-            <TouchableOpacity
-              style={styles.bioLinkWrap}
-              activeOpacity={0.7}
-              onPress={() => handleOpenSocialUrl(websiteLink)}
-            >
-              <Text style={styles.bioLinkText}>{websiteLink}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.bioLinkWrap}
+                activeOpacity={0.7}
+                onPress={() => handleOpenSocialUrl(websiteLink)}
+              >
+                <Text style={styles.bioLinkText}>{websiteLink}</Text>
+              </TouchableOpacity>
             )}
           </Animated.View>
         </View>
 
         <Animated.View
-          style={[styles.collapsibleProfileMiddle, middleCollapseStyle]}
+          style={[
+            styles.collapsibleProfileMiddle,
+            {
+              maxHeight: animatedMaxHeight,
+              opacity: animatedOpacity,
+            }
+          ]}
         >
-            <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
-              {fromUsersProfile && (
-                <TouchableOpacity
-                  style={[
-                    styles.battleBtnWrapper,
-                    {
-                      backgroundColor: text,
-                      borderColor: text,
-                    },
-                  ]}
-                  onPress={handleInviteBattlePress}
-                >
-                  <LinearGradient
-                    colors={profileActionGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.battleBtn}
-                  >
-                    <Text style={styles.battleBtnText}>Invite to Battle</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-              {!fromUsersProfile && (
-                <TouchableOpacity
-                  style={[
-                    styles.battleBtnWrapper,
-                    {
-                      backgroundColor: text,
-                      borderColor: text,
-                    },
-                  ]}
-                  onPress={handleOpenBattlePress}
-                >
-                  <LinearGradient
-                    colors={profileActionGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.battleBtn}
-                  >
-                    <Text style={styles.battleBtnText}>Open Battle</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={[styles.tabContainer, { height: 50 }]}>
+          <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
+            {fromUsersProfile && (
               <TouchableOpacity
                 style={[
-                  styles.tab,
+                  styles.battleBtnWrapper,
                   {
                     backgroundColor: text,
                     borderColor: text,
                   },
                 ]}
-                onPress={handleBattleTabPress}
+                onPress={handleInviteBattlePress}
               >
-                <Text
-                  style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
+                <LinearGradient
+                  colors={profileActionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.battleBtn}
                 >
-                  Battle
-                </Text>
+                  <Text style={styles.battleBtnText}>Invite to Battle</Text>
+                </LinearGradient>
               </TouchableOpacity>
-            </View>
-            {/* Stats */}
-            <View style={styles.statsRow}>
-              <TouchableOpacity style={styles.statItem}>
-                <Ionicons name="add-circle-outline" size={16} color="#444" />
-                <Text style={[styles.statText, { color: text }]}>
-                  {' '}
-                  Mint: {Userdata.totalPost}
-                </Text>
-              </TouchableOpacity>
+            )}
+            {!fromUsersProfile && (
               <TouchableOpacity
-                style={styles.statItem}
-                activeOpacity={0.5}
-                onPress={() => {
-                  if (fromUsersProfile) {
-                    navigation.navigate('ProfileMain', {
-                      screen: 'FollowersFollowingScreen',
-                      tab: 'followers',
-                      params: {
-                        userName: Userdata.Username,
-                        userId: fromUsersProfile ? targetUserId : userId,
-                        returnTo: 'Home',
-                        screenParams: screenParams
-                      },
-                    });
-                  } else {
-                    navigation.navigate('FollowersFollowingScreen', {
-                      tab: 'followers',
-                      params: {
-                        userName: Userdata.Username,
-                        userId: userId,
-                        returnTo: 'UserProfile',
-                      },
-                    });
-                  }
-                }}
+                style={[
+                  styles.battleBtnWrapper,
+                  {
+                    backgroundColor: text,
+                    borderColor: text,
+                  },
+                ]}
+                onPress={handleOpenBattlePress}
               >
-                <FontAwesome name="user" size={16} color="#444" />
-                <Text style={[styles.statText, { color: text }]}>
-                  {' '}
-                  Followers: {Userdata.Followers}
-                </Text>
+                <LinearGradient
+                  colors={profileActionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.battleBtn}
+                >
+                  <Text style={styles.battleBtnText}>Open Battle</Text>
+                </LinearGradient>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.statItem}
-                onPress={() => {
-                  if (fromUsersProfile) {
-                    navigation.navigate('ProfileMain', {
-                      screen: 'FollowersFollowingScreen',
-                      tab: 'following',
-                      params: {
-                        userName: displayName,
-                        userId: fromUsersProfile ? targetUserId : userId,
-                        returnTo: 'Home',
-                        screenParams: screenParams
-                      },
-                    });
-                  } else {
-                    navigation.navigate('FollowersFollowingScreen', {
-                      tab: 'following',
-                      params: {
-                        userName: displayName,
-                        userId: userId,
-                        returnTo: 'UserProfile',
-                      },
-                    });
-                  }
-                }}
+            )}
+          </View>
+
+          <View style={[styles.tabContainer, { height: 50 }]}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                {
+                  backgroundColor: text,
+                  borderColor: text,
+                },
+              ]}
+              onPress={handleBattleTabPress}
+            >
+              <Text
+                style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
               >
-                <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
-                <Text style={[styles.statText, { color: text }]}>
-                  {' '}
-                  Following: {Userdata.Followings}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                Battle
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {/* Stats */}
+          <View style={styles.statsRow}>
+            <TouchableOpacity style={styles.statItem}>
+              <Ionicons name="add-circle-outline" size={16} color="#444" />
+              <Text style={[styles.statText, { color: text }]}>
+                {' '}
+                Mint: {Userdata.totalPost}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statItem}
+              activeOpacity={0.5}
+              onPress={() => {
+                if (fromUsersProfile) {
+                  navigation.navigate('ProfileMain', {
+                    screen: 'FollowersFollowingScreen',
+                    tab: 'followers',
+                    params: {
+                      userName: Userdata.Username,
+                      userId: fromUsersProfile ? targetUserId : userId,
+                      returnTo: 'Home',
+                      screenParams: screenParams
+                    },
+                  });
+                } else {
+                  navigation.navigate('FollowersFollowingScreen', {
+                    tab: 'followers',
+                    params: {
+                      userName: Userdata.Username,
+                      userId: userId,
+                      returnTo: 'UserProfile',
+                    },
+                  });
+                }
+              }}
+            >
+              <FontAwesome name="user" size={16} color="#444" />
+              <Text style={[styles.statText, { color: text }]}>
+                {' '}
+                Followers: {Userdata.Followers}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => {
+                if (fromUsersProfile) {
+                  navigation.navigate('ProfileMain', {
+                    screen: 'FollowersFollowingScreen',
+                    tab: 'following',
+                    params: {
+                      userName: displayName,
+                      userId: fromUsersProfile ? targetUserId : userId,
+                      returnTo: 'Home',
+                      screenParams: screenParams
+                    },
+                  });
+                } else {
+                  navigation.navigate('FollowersFollowingScreen', {
+                    tab: 'following',
+                    params: {
+                      userName: displayName,
+                      userId: userId,
+                      returnTo: 'UserProfile',
+                    },
+                  });
+                }
+              }}
+            >
+              <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
+              <Text style={[styles.statText, { color: text }]}>
+                {' '}
+                Following: {Userdata.Followings}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
         {/* <TouchableOpacity style={styles.infoButton}>
   <Ionicons name="information-circle-outline" size={22} color="#144c9b" />
@@ -1635,66 +1631,66 @@ const ProfilePersonData = ({
           ]);
         }}
       />
-    
-      {/* Profile Image Viewer Modal */}
-        <Modal
-          visible={imageViewerVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setImageViewerVisible(false)}
-        >
-          <Pressable
-            style={styles.profileImagePreviewOverlay}
-            onPress={() => setImageViewerVisible(false)}
-          >
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setImageViewerVisible(false)}
-              style={styles.profileImagePreviewCloseBtn}
-            >
-              <Ionicons name="close" size={26} color="#FFFFFF" />
-            </TouchableOpacity>
 
-            <Pressable
-              style={styles.profileImagePreviewZoomHost}
-              onPress={(e) => e?.stopPropagation?.()}
+      {/* Profile Image Viewer Modal */}
+      <Modal
+        visible={imageViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageViewerVisible(false)}
+      >
+        <Pressable
+          style={styles.profileImagePreviewOverlay}
+          onPress={() => setImageViewerVisible(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setImageViewerVisible(false)}
+            style={styles.profileImagePreviewCloseBtn}
+          >
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <Pressable
+            style={styles.profileImagePreviewZoomHost}
+            onPress={(e) => e?.stopPropagation?.()}
+          >
+            <ImageZoom
+              cropWidth={SCREEN_WIDTH}
+              cropHeight={SCREEN_HEIGHT}
+              imageWidth={PROFILE_IMAGE_PREVIEW_SIZE}
+              imageHeight={PROFILE_IMAGE_PREVIEW_SIZE}
+              enableCenterFocus
             >
-              <ImageZoom
-                cropWidth={SCREEN_WIDTH}
-                cropHeight={SCREEN_HEIGHT}
-                imageWidth={PROFILE_IMAGE_PREVIEW_SIZE}
-                imageHeight={PROFILE_IMAGE_PREVIEW_SIZE}
-                enableCenterFocus
-              >
-                <View style={styles.profileImagePreviewHexWrap}>
-                  <View style={styles.avatarWithBadge}>
-                    <HexAvatar
-                      uri={avatarUri}
-                      size={PROFILE_IMAGE_PREVIEW_SIZE}
-                      borderWidth={2}
-                      borderColor={text}
-                    />
-                    {showIdentityVerified && (
-                      <View
-                        style={[
-                          styles.verifiedAvatarBadge,
-                          styles.verifiedAvatarBadgeLarge,
-                        ]}
-                        accessibilityLabel="Verified account"
-                        pointerEvents="none"
-                      >
-                        <Ionicons name="checkmark" size={22} color="#FFFFFF" />
-                      </View>
-                    )}
-                  </View>
+              <View style={styles.profileImagePreviewHexWrap}>
+                <View style={styles.avatarWithBadge}>
+                  <HexAvatar
+                    uri={avatarUri}
+                    size={PROFILE_IMAGE_PREVIEW_SIZE}
+                    borderWidth={2}
+                    borderColor={text}
+                  />
+                  {showIdentityVerified && (
+                    <View
+                      style={[
+                        styles.verifiedAvatarBadge,
+                        styles.verifiedAvatarBadgeLarge,
+                      ]}
+                      accessibilityLabel="Verified account"
+                      pointerEvents="none"
+                    >
+                      <Ionicons name="checkmark" size={22} color="#FFFFFF" />
+                    </View>
+                  )}
                 </View>
-              </ImageZoom>
-            </Pressable>
+              </View>
+            </ImageZoom>
           </Pressable>
-        </Modal>
-      </View>
-    );
-  };
+        </Pressable>
+      </Modal>
+    </View>
+  );
+};
 
 export default ProfilePersonData;
 
@@ -1881,6 +1877,16 @@ const styles = StyleSheet.create({
   collapsibleProfileMiddle: {
     overflow: 'hidden',
   },
+  // collapsibleProfileMiddleExpanded: {
+  //   maxHeight: 260,
+  //   opacity: 1,
+  //   transform: [{ translateY: 0 }],
+  // },
+  // collapsibleProfileMiddleCollapsed: {
+  //   maxHeight: 0,
+  //   opacity: 0,
+  //   transform: [{ translateY: -12 }],
+  // },
 
   // --- Stats ---
   statsRow: {

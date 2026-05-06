@@ -235,7 +235,7 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {  
+const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {  
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
   const [pinningPostId, setPinningPostId] = useState('');
@@ -430,6 +430,8 @@ const PostScreen = memo(({ postCheck, userData: propUserData, isOwnProfile = fal
       <FlatList
         data={posts}
         renderItem={renderItem}
+        scrollEnabled={scrollEnabled}        // ← disable internal scroll
+        nestedScrollEnabled={false}          
         keyExtractor={keyExtractor}
         numColumns={numColumns}
         ListEmptyComponent={renderEmptyComponent}
