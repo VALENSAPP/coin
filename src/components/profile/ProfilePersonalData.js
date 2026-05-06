@@ -1621,35 +1621,26 @@ const ProfilePersonData = ({
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
-      <WelcomeValensModal
-        visible={welcomeModalVisible}
-        onClose={async () => {
-          setWelcomeModalVisible(false);
-          await AsyncStorage.multiSet([
-            [KYC_WELCOME_SHOWN_KEY, 'true'],
-            [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-          ]);
-        }}
-      />
-
+  
+    
       {/* Profile Image Viewer Modal */}
-      <Modal
-        visible={imageViewerVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setImageViewerVisible(false)}
-      >
-        <Pressable
-          style={styles.profileImagePreviewOverlay}
-          onPress={() => setImageViewerVisible(false)}
+        <Modal
+          visible={imageViewerVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setImageViewerVisible(false)}
         >
-          <TouchableOpacity
-            activeOpacity={0.85}
+          <Pressable
+            style={styles.profileImagePreviewOverlay}
             onPress={() => setImageViewerVisible(false)}
-            style={styles.profileImagePreviewCloseBtn}
           >
-            <Ionicons name="close" size={26} color="#FFFFFF" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setImageViewerVisible(false)}
+              style={styles.profileImagePreviewCloseBtn}
+            >
+              <Ionicons name="close" size={26} color="#FFFFFF" />
+            </TouchableOpacity>
 
           <Pressable
             style={styles.profileImagePreviewZoomHost}
