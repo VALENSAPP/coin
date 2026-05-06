@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
+  Alert,
   View,
   FlatList,
   Image,
@@ -14,6 +15,9 @@ import Video from 'react-native-video';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getProgressBarColor } from '../../utils/progressBarUtils';
 import { getTotalDonationAmount } from '../../services/tokens';
+import { pinPost, unpinPost } from '../../services/post';
+import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -157,6 +161,12 @@ const getPreviewMedia = (post) => {
   return { mediaUrl, posterUrl, isVideo };
 };
 
+const getImagePosts = postList =>
+  (Array.isArray(postList) ? postList : []).filter((post) => {
+    const { isVideo } = getPreviewMedia(post);
+    return !isVideo;
+  });
+
 // Memoized image component for better performance
 const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
@@ -225,9 +235,10 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ postCheck, userData: propUserData }) => {  
+const PostScreen = memo(({ postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {  
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
+  const [pinningPostId, setPinningPostId] = useState('');
   const navigation = useNavigation();
   const route = useRoute();
   
@@ -237,11 +248,7 @@ const PostScreen = memo(({ postCheck, userData: propUserData }) => {
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
-    const imagePosts = (postCheck || []).filter((post) => {
-      const { isVideo } = getPreviewMedia(post);
-      return !isVideo;
-    });
-    setPosts(imagePosts);
+    setPosts(sortPostsByPinned(getImagePosts(postCheck)));
   }, [postCheck]);
 
   useEffect(() => {
@@ -311,6 +318,47 @@ const PostScreen = memo(({ postCheck, userData: propUserData }) => {
     });
   }, [navigation, posts, userData]);
 
+  const handleTogglePinPost = useCallback(async (post) => {
+    const postId = String(post?.id || post?._id || '');
+    if (!isOwnProfile || !postId || pinningPostId) return;
+
+    const nextPinned = !isPostPinned(post);
+    setPinningPostId(postId);
+    try {
+      const payload = { postId };
+      if (nextPinned) await pinPost(payload);
+      else await unpinPost(payload);
+
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, nextPinned));
+      const refreshedPosts = await onPostPinChanged?.(postId, nextPinned);
+      if (!nextPinned && Array.isArray(refreshedPosts)) {
+        setPosts(sortPostsByPinned(getImagePosts(refreshedPosts)));
+      }
+    } catch (error) {
+      Alert.alert(
+        nextPinned ? 'Unable to pin post' : 'Unable to unpin post',
+        error?.response?.data?.message || error?.message || 'Please try again.',
+      );
+    } finally {
+      setPinningPostId('');
+    }
+  }, [isOwnProfile, onPostPinChanged, pinningPostId]);
+
+  const confirmTogglePinPost = useCallback((post) => {
+    if (!isOwnProfile) return;
+    const pinned = isPostPinned(post);
+    Alert.alert(
+      pinned ? 'Unpin post' : 'Pin post',
+      pinned ? 'Do you want to unpin this post?' : 'Do you want to pin this post?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: pinned ? 'Unpin' : 'Pin',
+          onPress: () => handleTogglePinPost(post),
+        },
+      ],
+    );
+  }, [handleTogglePinPost, isOwnProfile]);
 
   const renderItem = useCallback(({ item, index }) => {
     const isMissionPost =
@@ -328,9 +376,17 @@ const PostScreen = memo(({ postCheck, userData: propUserData }) => {
         ]}
         activeOpacity={0.95}
         onPress={() => openPosts(index)}
+        onLongPress={() => confirmTogglePinPost(item)}
+        delayLongPress={450}
       >
         <PostImage item={item} index={index} themeTextStyle={textStyle} />
         <View style={styles.overlay} />
+        {isPostPinned(item) && (
+          <View style={styles.pinnedBadge}>
+            <Ionicons name="pin" size={12} color="#FFFFFF" />
+            <Text style={styles.pinnedBadgeText}>Pinned</Text>
+          </View>
+        )}
         {isMissionPost && stats && (
           <View style={styles.missionBadgeWrapper}>
             <MissionProgressBar
@@ -344,7 +400,7 @@ const PostScreen = memo(({ postCheck, userData: propUserData }) => {
         )}
       </TouchableOpacity>
     );
-  }, [openPosts, text, textStyle, donationTotals]);
+  }, [confirmTogglePinPost, openPosts, text, textStyle, donationTotals]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
@@ -434,6 +490,23 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(90, 45, 130, 0.08)', // subtle purple tint
     opacity: 0,
+  },
+  pinnedBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 24, 39, 0.82)',
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    gap: 3,
+  },
+  pinnedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   missionBadgeWrapper: {
     position: 'absolute',
