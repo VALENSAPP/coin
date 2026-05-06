@@ -27,6 +27,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -49,6 +50,7 @@ const PostEditorScreen = () => {
   const [profile, setProfile] = useState(null);
   const [openingTaggedProfile, setOpeningTaggedProfile] = useState(false);
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const toast = useToast();
   console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType });
@@ -97,10 +99,11 @@ const PostEditorScreen = () => {
   useEffect(() => {
     setEditorImages(images);
   }, [images]);
+
   const handlePost = async () => {
     if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
-        showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
+        showToastMessage(toast, 'danger', t('postEditor.invalidLink'));
         return;
       }
 
@@ -121,19 +124,14 @@ const PostEditorScreen = () => {
         uri: getMediaUri(img),
         type: img.type,
         name: getMediaUri(img).split('/').pop()
-
       })),
       type:
-        //  fromIcon === 'Flips'
-        //   ? 'reel'
-        //   : 
         postType === 'private'
           ? 'private'
-          : 'normal' 
-          ||fromIcon === 'Flips'
-           ? 'reel'
-           : 'normal'
-          ,
+          : 'normal'
+          || fromIcon === 'Flips'
+          ? 'reel'
+          : 'normal',
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
@@ -149,19 +147,18 @@ const PostEditorScreen = () => {
       console.log('Post creation response:', response);
 
       if (response.statusCode == 200) {
-        showToastMessage(toast, 'success', 'Post created successfully');
+        showToastMessage(toast, 'success', t('postEditor.postSuccess'));
         navigation.navigate('HomeMain');
       } else {
-        showToastMessage(toast, 'danger', response.message || 'Please try again');
+        showToastMessage(toast, 'danger', response.message || t('postEditor.postFail'));
       }
     } catch (err) {
       console.error('Post creation error:', err);
-      showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
+      showToastMessage(toast, 'danger', err?.response?.message || t('postEditor.postError'));
     } finally {
       dispatch(hideLoader());
     }
   };
-
 
   const isValidLink = (text) => {
     const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})([\/\w .-]*)*\/?$/i;
@@ -209,11 +206,10 @@ const PostEditorScreen = () => {
     try {
       const resolvedUserId = await resolveUserIdFromUsername(cleanUsername);
       if (!resolvedUserId) {
-        showToastMessage(toast, 'danger', 'Unable to open this user profile.');
+        showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
         return;
       }
 
-      // UsersProfile is inside HomeMain stack. Pass returnTo so the back arrow can return here.
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
         params: {
@@ -226,7 +222,7 @@ const PostEditorScreen = () => {
     } finally {
       setOpeningTaggedProfile(false);
     }
-  }, [navigation, resolveUserIdFromUsername, toast]);
+  }, [navigation, resolveUserIdFromUsername, toast, t]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -235,7 +231,9 @@ const PostEditorScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
+        <Text style={styles.title}>
+          {fromIcon == 'Flips' ? t('postEditor.newFlip') : t('postEditor.newPost')}
+        </Text>
         <Text></Text>
       </View>
 
@@ -255,7 +253,8 @@ const PostEditorScreen = () => {
                       <Video
                         source={{ uri: getMediaUri(img) }}
                         style={styles.imageThumb}
-                        resizeMode="contain" paused={true}
+                        resizeMode="contain"
+                        paused={true}
                         muted={true}
                         controls={false}
                         poster={getVideoPosterUri(img) || undefined}
@@ -268,7 +267,8 @@ const PostEditorScreen = () => {
                     <Image
                       source={{ uri: getMediaUri(img) }}
                       style={styles.imageThumb}
-                      resizeMode="contain" />
+                      resizeMode="contain"
+                    />
                   )}
                   {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
                     <TouchableOpacity
@@ -276,7 +276,9 @@ const PostEditorScreen = () => {
                       onPress={() => removeDrawingFromImage(idx)}
                       activeOpacity={0.8}
                     >
-                      <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
+                      <Text style={[styles.removeDrawingText, { color: text }]}>
+                        {t('postEditor.removeDrawing')}
+                      </Text>
                     </TouchableOpacity>
                   )}
                   {img.appliedFilter && img.appliedFilter !== 'none' && (
@@ -284,38 +286,16 @@ const PostEditorScreen = () => {
                       <Text style={styles.filterBadgeText}>{img.filterName}</Text>
                     </View>
                   )}
-                  {/* {(img.textOverlays?.length > 0 ||
-                    img.overlayImages?.length > 0 ||
-                    img.hasDrawing) && (
-                      <View style={styles.overlayIndicators}>
-                        {img.textOverlays?.length > 0 && (
-                          <View style={styles.indicator}>
-                            <Text style={styles.indicatorText}>T</Text>
-                          </View>
-                        )}
-                        {img.overlayImages?.length > 0 && (
-                          <View style={styles.indicator}>
-                            <Text style={styles.indicatorText}>I</Text>
-                          </View>
-                        )}
-                        {img.hasDrawing && (
-                          <View style={styles.indicator}>
-                            <Text style={styles.indicatorText}>D</Text>
-                          </View>
-                        )}
-                      </View>
-                    )} */}
                 </View>
               ))}
-
             </ScrollView>
           </View>
         )}
 
-        {/* Caption Input */}
+        {/* Tagged People */}
         {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
           <View style={styles.captionSection}>
-            <Text style={styles.captionLabel}>Tagged people</Text>
+            <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
             <Text style={styles.taggedPeopleText}>
               {taggedPeople.map((user, idx) => {
                 const clean = String(user).replace(/^@+/, '');
@@ -323,7 +303,7 @@ const PostEditorScreen = () => {
                 return (
                   <Text
                     key={`${clean || 'user'}_${idx}`}
-                    style={[styles.taggedPeopleLink,{color:text}]}
+                    style={[styles.taggedPeopleLink, { color: text }]}
                     onPress={() => openTaggedUserProfile(clean)}
                     suppressHighlighting
                   >
@@ -337,11 +317,13 @@ const PostEditorScreen = () => {
             </Text>
           </View>
         )}
+
+        {/* Caption Input */}
         <View style={styles.captionSection}>
-          <Text style={styles.captionLabel}>Write a caption (optional)</Text>
+          <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
           <TextInput
             style={[styles.captionInput, bgStyle]}
-            placeholder="Write a caption (optional)"
+            placeholder={t('postEditor.captionPlaceholder')}
             value={caption}
             onChangeText={setCaption}
             multiline
@@ -351,26 +333,25 @@ const PostEditorScreen = () => {
         </View>
 
         {/* Link Input */}
-        {
-          postType == 'crowdfunding' && (
-            <View style={[styles.captionSection, { marginTop: -5 }]}>
-              <Text style={styles.captionLabel}>Add a link (optional)</Text>
-              <TextInput
-                style={[styles.linkInput, bgStyle]}
-                placeholder="https://example.com"
-                value={link}
-                onChangeText={setLink}
-                keyboardType="url"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor={'#e0e0e0'}
-              />
-            </View>
-          )}
+        {postType == 'crowdfunding' && (
+          <View style={[styles.captionSection, { marginTop: -5 }]}>
+            <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
+            <TextInput
+              style={[styles.linkInput, bgStyle]}
+              placeholder={t('postEditor.linkPlaceholder')}
+              value={link}
+              onChangeText={setLink}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor={'#e0e0e0'}
+            />
+          </View>
+        )}
       </ScrollView>
 
       <CustomButton
-        title="Continue"
+        title={t('postEditor.continueButton')}
         onPress={handlePost}
         style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, bordercolor: text }]}
         textStyle={styles.socialBtnText}

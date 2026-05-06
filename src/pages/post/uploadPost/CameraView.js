@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useLanguage } from '../../i18n';
 
 const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
   const camera = useRef(null);
@@ -17,24 +18,25 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
   const [flash, setFlash] = useState('off');
   const [isRecording, setIsRecording] = useState(false);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
-  const [allowAudio, setAllowAudio] = useState(false); // track mic permission
+  const [allowAudio, setAllowAudio] = useState(false);
 
   const device = useCameraDevice(devicePosition);
+  const { t } = useLanguage();
 
   const requestAndroidPermissions = async () => {
     if (Platform.OS !== 'android') return true;
-  
+
     try {
       const cameraGranted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.CAMERA
       );
-  
+
       const micGranted = mode === 'video'
         ? await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
           )
         : 'granted';
-  
+
       return (
         cameraGranted === PermissionsAndroid.RESULTS.GRANTED &&
         micGranted === PermissionsAndroid.RESULTS.GRANTED
@@ -44,7 +46,6 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
       return false;
     }
   };
-  
 
   useEffect(() => {
     (async () => {
@@ -58,8 +59,8 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
 
       const camOK = cam === 'authorized' || cam === 'granted';
       const micOK = mic === 'granted';
-      console.log(mic)
-      
+      console.log(mic);
+
       if (systemGranted && camOK) {
         setPermissionsGranted(true);
         setAllowAudio(micOK);
@@ -67,8 +68,8 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
         setPermissionsGranted(false);
         setAllowAudio(false);
         Alert.alert(
-          'Permissions Required',
-          'Camera and Microphone access are required to record videos with sound.'
+          t('camera.permissionsTitle'),
+          t('camera.permissionsMessage')
         );
       }
     })();
@@ -97,7 +98,7 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
           },
           onRecordingError: (error) => {
             console.error(error);
-            Alert.alert('Recording Error', error.message);
+            Alert.alert(t('camera.recordingErrorTitle'), error.message);
             setIsRecording(false);
           },
         });
@@ -110,7 +111,7 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
   if (!device || !permissionsGranted) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: 'white' }}>Loading camera or permissions...</Text>
+        <Text style={{ color: 'white' }}>{t('camera.loadingCamera')}</Text>
       </View>
     );
   }
@@ -122,7 +123,9 @@ const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
         <TouchableOpacity onPress={onCancel}>
           <Icon name="close" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>{mode === 'photo' ? 'Photo' : 'Video'}</Text>
+        <Text style={styles.headerText}>
+          {mode === 'photo' ? t('camera.modePhoto') : t('camera.modeVideo')}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
