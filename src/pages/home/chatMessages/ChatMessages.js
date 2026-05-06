@@ -290,8 +290,8 @@ export default function ChatMessages() {
             mediaType = 'STORY';
             mediaId = sharedContent.storyId;
             // Clean story ID (remove _0 suffix if present)
-            if (mediaId && mediaId.includes('_')) {
-              mediaId = mediaId.split('_')[0];
+            if (mediaId) {
+              mediaId = String(mediaId).replace(/_\d+$/, '');
             }
           }
 
@@ -347,8 +347,7 @@ export default function ChatMessages() {
             if (sharedContent.postId) messageData.postId = sharedContent.postId;
             if (sharedContent.reelId) messageData.reelId = sharedContent.reelId;
             if (sharedContent.storyId) {
-              let storyId = sharedContent.storyId;
-              if (storyId.includes('_')) storyId = storyId.split('_')[0];
+              let storyId = String(sharedContent.storyId).replace(/_\d+$/, '');
               messageData.storyId = storyId;
             }
 

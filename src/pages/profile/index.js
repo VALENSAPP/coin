@@ -20,6 +20,7 @@ import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 import { useLanguage } from '../../i18n';
+import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -38,6 +39,20 @@ const ProfileScreen = () => {
   const dispatch = useDispatch();
   const { bgStyle, textStyle } = useAppTheme();
   const { t } = useLanguage();
+
+  const fetchProfilePosts = useCallback(async (idOverride = '') => {
+    const id = idOverride || userId || await AsyncStorage.getItem('userId');
+    if (!id) return null;
+
+    const postsRes = await getPostByUser(id, 'normal');
+    if (postsRes?.statusCode === 200) {
+      const nextPosts = sortPostsByPinned(postsRes.data || []);
+      setPosts(nextPosts);
+      return nextPosts;
+    }
+
+    return null;
+  }, [userId]);
 
   // Single function to fetch posts, profile info, and dashboard in parallel
   const fetchAllData = useCallback(async () => {
@@ -58,7 +73,7 @@ const ProfileScreen = () => {
 
       // Posts
       if (postsRes.statusCode === 200) {
-        setPosts(postsRes.data);
+        setPosts(sortPostsByPinned(postsRes.data));
       } else {
         showToastMessage(toast, 'danger', t('profile.fetchPostsError'));
       }
@@ -152,6 +167,21 @@ const ProfileScreen = () => {
     setRefreshing(false);
   };
 
+  const handlePostPinChanged = useCallback(async (postId, pinned) => {
+    if (pinned) {
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
+      return null;
+    }
+
+    try {
+      return await fetchProfilePosts();
+    } catch (error) {
+      console.error('Error refreshing posts after unpin:', error);
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
+      return null;
+    }
+  }, [fetchProfilePosts]);
+
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <Animated.ScrollView
@@ -188,6 +218,7 @@ const ProfileScreen = () => {
           dashboard={userDashboard}
           loggedInUserId={userId}
           refreshKey={refreshKey}
+          onPostPinChanged={handlePostPinChanged}
         />
       </Animated.ScrollView>
       {/* <WelcomeValensModal

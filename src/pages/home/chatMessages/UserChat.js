@@ -190,6 +190,7 @@ const getAvatarSource = (avatar) =>
   avatar && typeof avatar === 'string' && avatar.trim() !== ''
     ? { uri: avatar }
     : FALLBACK_AVATAR;
+const cleanStoryId = value => String(value || '').replace(/_\d+$/, '');
    
 
 const UserChat = ({ route, navigation }) => {
@@ -213,7 +214,7 @@ const UserChat = ({ route, navigation }) => {
     : reel
       ? { type: 'reel', reel: reel, reelId: reelId || reel?.id }
       : story
-        ? { type: 'story', story: story, storyId: storyId || story?.id }
+        ? { type: 'story', story: story, storyId: cleanStoryId(storyId || story?.storyId || story?.id) }
         : null;
   console.log(initialShared, 'indidtalshare')
   console.log('Story params received:', { story, storyId, hasStory: !!story, hasStoryId: !!storyId });
@@ -365,9 +366,8 @@ const UserChat = ({ route, navigation }) => {
           mediaType = 'REEL';
         } else if (initialShared.type === 'story') {
           mediaType = 'STORY';
-          // Story IDs have format: {uuid}_0, need to remove the _0 suffix for API
-          if (cleanMediaId && cleanMediaId.includes('_')) {
-            cleanMediaId = cleanMediaId.split('_')[0];
+          if (cleanMediaId) {
+            cleanMediaId = cleanStoryId(cleanMediaId);
             console.log('🔧 Cleaned story ID:', { original: mediaId, cleaned: cleanMediaId });
           }
         }
@@ -1079,7 +1079,7 @@ const UserChat = ({ route, navigation }) => {
       } else if (sharedItem?.type === 'reel') {
         messageData.reelId = sharedItem.reelId;
       } else if (sharedItem?.type === 'story') {
-        messageData.storyId = sharedItem.storyId;
+        messageData.storyId = cleanStoryId(sharedItem.storyId);
       }
       console.log('[UserChat] Sending message. Socket ready?', socketReady);
       const socket = getSocket();
@@ -1376,6 +1376,18 @@ const UserChat = ({ route, navigation }) => {
         return;
       }
     }
+
+    try {
+      const urlObj = new URL(normalizedUrl.replace(/^com\.valens\.app:\/\//i, 'com.valens.app://callback'));
+      const storyIdFromLink = String(urlObj.searchParams.get('storyId') || '').trim();
+
+      if (storyIdFromLink && urlObj.searchParams.get('af') === 'dd') {
+        navigation.navigate('Home', {
+          sharedStoryId: storyIdFromLink,
+        });
+        return;
+      }
+    } catch (_error) {}
 
     const webFallbackUrl = normalizedUrl.replace(/^com\.valens:\/\//i, 'https://valensGoApp.com/');
 

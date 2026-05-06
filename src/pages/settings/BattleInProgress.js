@@ -1189,7 +1189,7 @@ export default function BattleInProgress() {
             <Text style={[styles.sectionTitle, { color: text }]}>
               {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
             </Text>
-            <View style={styles.optionGrid}>
+            <View style={[styles.optionGrid,{width:'100%'}]}>
               {battle.options.map((option, index) => {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
@@ -1208,7 +1208,6 @@ export default function BattleInProgress() {
                   : isSelectedByTap || isSelectedByInitialValue;
                 const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
                 const shouldDisable = hasUserVoted;
-                const useCompactOptionLayout = battle.options.length <= 2;
                 return (
                   <TouchableOpacity
                     key={`${battle.id}-${option.id}-${index}`}
@@ -1221,7 +1220,7 @@ export default function BattleInProgress() {
                         backgroundColor: isSelected
                           ? (useVotedGrayStyle ? '#F3F4F6' : palette.soft)
                           : shouldDisable ? palette.soft : '#F9FAFB',
-                        width: useCompactOptionLayout ? '48%' : '100%',
+                        width: '100%',
                       },
                     ]}
                     onPress={() => { if (!hasUserVoted) setSelectedOption(optionSelectionKey); }}
@@ -1478,7 +1477,7 @@ const styles = StyleSheet.create({
   resultText: { fontSize: 13, fontWeight: '700', color: '#4B5563', marginTop: 8 },
 
   // Option pills
-  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 4 },
+  optionGrid: { flexDirection: 'column', gap: 10, marginBottom: 6 },
   optionPillCard: { flexDirection: 'row', alignItems: 'center', minHeight: 56, borderRadius: 15, borderWidth: 1.5, paddingVertical: 8, paddingHorizontal: 10, gap: 8 },
   optionPillAvatarWrap: { flexShrink: 0 },
   optionPillAvatarFallback: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },

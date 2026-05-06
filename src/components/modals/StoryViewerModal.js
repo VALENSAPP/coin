@@ -17,6 +17,7 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,15 +28,16 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
+  const insets = useSafeAreaInsets();
 
   // Determine if story is video
-  const isVideo = story?.type === 'video' || 
+  const isVideo = story?.type === 'video' ||
     (story?.media?.[0] && isVideoUrl(story.media[0])) ||
     (story?.uri && isVideoUrl(story.uri));
 
-  const mediaUri = story?.uri || 
-    story?.media?.[0] || 
-    story?.thumbnail || 
+  const mediaUri = story?.uri ||
+    story?.media?.[0] ||
+    story?.thumbnail ||
     story?.image;
 
   const storyCaption = story?.caption || story?.text || '';
@@ -68,13 +70,13 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     timerRef.current = setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
       const progress = Math.min(elapsed / duration, 1);
-      
+
       setCurrentTime(elapsed);
       progressAnim.setValue(progress);
 
       if (progress >= 1) {
         stopProgress();
-        onClose();
+        handleClose();
       }
     }, 16); // 60fps
   };
@@ -93,7 +95,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       progressAnim.setValue(progress);
 
       if (progress >= 0.99) {
-        onClose();
+        handleClose();
       }
     }
   };
@@ -114,10 +116,15 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     }
   };
 
+  function handleClose() {
+    stopProgress();
+    onClose();
+  }
+
   // Pan responder for swipe down to close
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         return Math.abs(gestureState.dy) > 10;
       },
@@ -128,7 +135,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 100 && gestureState.vy > 0.5) {
-          onClose();
+          handleClose();
         }
       },
     })
@@ -141,13 +148,16 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       visible={visible}
       transparent={false}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
       statusBarTranslucent
     >
       <StatusBar backgroundColor="#000" barStyle="light-content" />
-      <View style={styles.container} {...panResponder.panHandlers}>
+      <SafeAreaView style={styles.container} {...panResponder.panHandlers}>
         {/* Progress Bar */}
-        <View style={styles.progressBarContainer}>
+        <View style={[
+          styles.progressBarContainer,
+          { top: insets.top } // 🔥 move below notch
+        ]}>
           <Animated.View
             style={[
               styles.progressBar,
@@ -164,8 +174,20 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
         {/* Header */}
         <LinearGradient
           colors={['rgba(0,0,0,0.6)', 'transparent']}
-          style={styles.header}
+          style={[
+            styles.header,
+            { paddingTop: insets.top + 10 } // 🔥 fix
+          ]}
         >
+          <TouchableOpacity
+            style={styles.topBackButton}
+            activeOpacity={0.85}
+            onPress={handleClose}
+          >
+            <Icon name="chevron-back" size={22} color="#fff" />
+            <Text style={styles.topBackText}>Back</Text>
+          </TouchableOpacity>
+
           <View style={styles.headerContent}>
             <Image
               source={{ uri: userImage || 'https://via.placeholder.com/40' }}
@@ -179,7 +201,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Icon name="close" size={28} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
@@ -244,7 +266,19 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
             {isVideo ? '🎬 Video Story' : '📷 Photo Story'}
           </Text>
         </View>
-      </View>
+
+        <TouchableOpacity
+          style={[
+            styles.bottomBackButton,
+            { bottom: insets.bottom + 20 } // 🔥 fix for gesture bar
+          ]}
+          activeOpacity={0.85}
+          onPress={handleClose}
+        >
+          <Icon name="chevron-back" size={22} color="#fff" />
+          <Text style={styles.bottomBackText}>Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -301,7 +335,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 120,
+    elevation: 12,
+  },
+  topBackButton: {
+    minHeight: 40,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.74)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  topBackText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 2,
   },
   headerContent: {
     flexDirection: 'row',
@@ -330,7 +383,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
   },
   contentContainer: {
     flex: 1,
@@ -384,6 +443,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  bottomBackButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 42,
+    zIndex: 30,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomBackText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
 
