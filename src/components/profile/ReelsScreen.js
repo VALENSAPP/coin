@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
+  Alert,
   View,
   FlatList,
   Image,
@@ -11,6 +12,9 @@ import {
 } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import Video from 'react-native-video';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { pinPost, unpinPost } from '../../services/post';
+import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -33,6 +37,12 @@ const isVideoUrl = (url) => {
   const lowerUrl = url.toLowerCase();
   return videoExtensions.some(ext => lowerUrl.includes(ext));
 };
+
+const getVideoPosts = postList =>
+  (Array.isArray(postList) ? postList : []).filter(post => {
+    const firstImage = post?.images?.[0];
+    return firstImage && isVideoUrl(firstImage);
+  });
 
 // Memoized image component for better performance
 const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
@@ -98,20 +108,15 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const ReelsScreen = memo(({ postCheck, userData }) => {
+const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPinChanged }) => {
   const [posts, setPosts] = useState([]);
+  const [pinningPostId, setPinningPostId] = useState('');
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
     // Filter posts to only show those with MP4 videos
-    if (postCheck && Array.isArray(postCheck)) {
-      const videoPosts = postCheck.filter(post => {
-        const firstImage = post?.images?.[0];
-        return firstImage && isVideoUrl(firstImage);
-      });
-      setPosts(videoPosts);
-    }
+    setPosts(sortPostsByPinned(getVideoPosts(postCheck)));
   }, [postCheck]);
 
   const openPosts = useCallback((index) => {
@@ -148,6 +153,48 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
     navigation.navigate('FlipsScreen', params);
   }, [navigation, posts, userData?.id]);
 
+  const handleTogglePinPost = useCallback(async (post) => {
+    const postId = String(post?.id || post?._id || '');
+    if (!isOwnProfile || !postId || pinningPostId) return;
+
+    const nextPinned = !isPostPinned(post);
+    setPinningPostId(postId);
+    try {
+      const payload = { postId };
+      if (nextPinned) await pinPost(payload);
+      else await unpinPost(payload);
+
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, nextPinned));
+      const refreshedPosts = await onPostPinChanged?.(postId, nextPinned);
+      if (!nextPinned && Array.isArray(refreshedPosts)) {
+        setPosts(sortPostsByPinned(getVideoPosts(refreshedPosts)));
+      }
+    } catch (error) {
+      Alert.alert(
+        nextPinned ? 'Unable to pin post' : 'Unable to unpin post',
+        error?.response?.data?.message || error?.message || 'Please try again.',
+      );
+    } finally {
+      setPinningPostId('');
+    }
+  }, [isOwnProfile, onPostPinChanged, pinningPostId]);
+
+  const confirmTogglePinPost = useCallback((post) => {
+    if (!isOwnProfile) return;
+    const pinned = isPostPinned(post);
+    Alert.alert(
+      pinned ? 'Unpin post' : 'Pin post',
+      pinned ? 'Do you want to unpin this post?' : 'Do you want to pin this post?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: pinned ? 'Unpin' : 'Pin',
+          onPress: () => handleTogglePinPost(post),
+        },
+      ],
+    );
+  }, [handleTogglePinPost, isOwnProfile]);
+
   const renderItem = useCallback(({ item, index }) => (
     <TouchableOpacity
       style={[
@@ -156,11 +203,19 @@ const ReelsScreen = memo(({ postCheck, userData }) => {
       ]}
       activeOpacity={0.95}
       onPress={() => openPosts(index)}
+      onLongPress={() => confirmTogglePinPost(item)}
+      delayLongPress={450}
     >
       <PostImage item={item} index={index} themeTextStyle={textStyle} />
       <View style={styles.overlay} />
+      {isPostPinned(item) && (
+        <View style={styles.pinnedBadge}>
+          <Ionicons name="pin" size={12} color="#FFFFFF" />
+          <Text style={styles.pinnedBadgeText}>Pinned</Text>
+        </View>
+      )}
     </TouchableOpacity>
-  ), [openPosts, text, textStyle]);
+  ), [confirmTogglePinPost, openPosts, text, textStyle]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
@@ -250,6 +305,23 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(90, 45, 130, 0.08)',
     opacity: 0,
+  },
+  pinnedBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 24, 39, 0.82)',
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    gap: 3,
+  },
+  pinnedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   placeholderImage: {
     justifyContent: 'center',

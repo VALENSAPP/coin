@@ -27,6 +27,7 @@ import { getProfile } from '../../services/createProfile';
 import { getUserTokenInfoByBlockChain } from '../../services/tokens';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getFansubscriptionStatus } from '../../services/stirpe';
+import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 
 const Usersprofile = () => {
   const route = useRoute();
@@ -113,6 +114,19 @@ const Usersprofile = () => {
     return false;
   }, [targetUserId, isActiveStatus]);
 
+  const fetchProfilePosts = useCallback(async () => {
+    if (!targetUserId) return null;
+
+    const postsRes = await getPostByUser(targetUserId, 'normal');
+    if (postsRes?.statusCode === 200) {
+      const nextPosts = sortPostsByPinned(postsRes.data || []);
+      setPosts(nextPosts);
+      return nextPosts;
+    }
+
+    return null;
+  }, [targetUserId]);
+
   const fetchProfile = useCallback(async () => {
     try {
       const response = await getUserTokenInfoByBlockChain(targetUserId);
@@ -148,7 +162,7 @@ const Usersprofile = () => {
       ]);
 console.log(userRes,'data in ueser profile efrafaha')
       if (postsRes?.statusCode === 200) {
-        setPosts(postsRes.data || []);
+        setPosts(sortPostsByPinned(postsRes.data || []));
       } else {
         showToastMessage(toast, 'danger', postsRes?.data?.message || 'Failed to fetch posts');
       }
@@ -273,6 +287,21 @@ console.log(userRes,'data in ueser profile efrafaha')
     setRefreshing(false);
   };
 
+  const handlePostPinChanged = useCallback(async (postId, pinned) => {
+    if (pinned) {
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
+      return null;
+    }
+
+    try {
+      return await fetchProfilePosts();
+    } catch (error) {
+      console.error('Error refreshing posts after unpin:', error);
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
+      return null;
+    }
+  }, [fetchProfilePosts]);
+
   const handleTokenModalClose = () => {
     purchaseSheetRef.current?.close?.();
   };
@@ -285,7 +314,7 @@ console.log(userRes,'data in ueser profile efrafaha')
     sellSheetRef.current?.close();
     showToastMessage(toast, 'success', 'Tokens sold successfully!');
     await fetchAllData();
-  }, []);
+  }, [fetchAllData, toast]);
 
   const handleModalClose = useCallback(() => {
     Keyboard.dismiss();
@@ -338,6 +367,7 @@ console.log(userRes,'data in ueser profile efrafaha')
           targetUserId={targetUserId}
           isSubscribed={isSubscribed}
           loggedInUserId={loggedInUserId}
+          onPostPinChanged={handlePostPinChanged}
         />
       </ScrollView>
 

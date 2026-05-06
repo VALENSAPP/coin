@@ -36,6 +36,7 @@ const ProfileTabs = memo(({
   onScroll,              // ← new
   scrollEventThrottle,   // ← new
   refreshControl,      
+  onPostPinChanged,
 }) => {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -127,13 +128,29 @@ const ProfileTabs = memo(({
 
   // Memoize posts screen
   const renderPostsScreen = useCallback(
-    (navProps) => <PostsScreen {...navProps} postCheck={post} userData={userData} />,
-    [post, userData],
+    (navProps) => (
+      <PostsScreen
+        {...navProps}
+        postCheck={post}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+        onPostPinChanged={onPostPinChanged}
+      />
+    ),
+    [post, userData, isOwnProfile, onPostPinChanged],
   );
 
   const renderReelsScreen = useCallback(
-    (navProps) => <ReelsScreen {...navProps} postCheck={post} userData={userData} />,
-    [post, userData],
+    (navProps) => (
+      <ReelsScreen
+        {...navProps}
+        postCheck={post}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+        onPostPinChanged={onPostPinChanged}
+      />
+    ),
+    [post, userData, isOwnProfile, onPostPinChanged],
   );
 
   const renderPrivateContentScreen = useCallback(
@@ -150,9 +167,9 @@ const ProfileTabs = memo(({
 
       />
     ),
-    [post, userData, isSubscribed, loggedInUserId],
+    [post, userData, isSubscribed, loggedInUserId, refreshKey],
   );
-console.log(userData,'data in thia akjasjgskasakj')
+
   const renderPrivateCircleScreen = useCallback(
     (navProps) => <PrivateCircle {...navProps} isOwnProfile={isOwnProfile} userData={userData} />,
     [isOwnProfile, userData],

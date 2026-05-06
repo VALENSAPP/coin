@@ -226,3 +226,11 @@ export async function reportPost(data) {
 export async function postCommentReaction(data) {
   return axiosInstance.post('/post/comment/reaction', data);
 }
+
+export async function pinPost(data) {
+  return axiosInstance.post('post/pin', data);
+}
+
+export async function unpinPost(data) {
+  return axiosInstance.post('post/unpin', data);
+}

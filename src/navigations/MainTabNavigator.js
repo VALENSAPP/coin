@@ -88,9 +88,29 @@ import { getUserCredentials } from '../services/post';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
+import ProfileShop from '../components/profile/Shop';
+import ShopScreen from '../pages/wallet/ShopScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+const MyClosetScreen = (props) => {
+  const [storedProfile, setStoredProfile] = React.useState('user');
+
+  useEffect(() => {
+    AsyncStorage.getItem('profile').then(value => {
+      if (value) setStoredProfile(value);
+    });
+  }, []);
+
+  return (
+    <ProfileShop
+      {...props}
+      isOwnProfile
+      userData={{ profile: storedProfile }}
+    />
+  );
+};
 
 export default function MainTabNavigator() {
   const [profile, setProfile] = React.useState(null);
@@ -381,6 +401,16 @@ export default function MainTabNavigator() {
             name="ValensWallet"
             component={ValensWallet}
             options={{ headerTitle: 'Valens Wallet' }}
+          />
+          <Stack.Screen
+            name="MyCloset"
+            component={MyClosetScreen}
+            options={{ headerTitle: 'My Closet' }}
+          />
+          <Stack.Screen
+            name="Shop"
+            component={ShopScreen}
+            options={{ headerTitle: 'Shop' }}
           />
           <Stack.Screen
             name="TransactionActivity"
