@@ -1,14 +1,14 @@
 import React from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    Dimensions,
-    Share,
-    Alert,
+  SafeAreaView,
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Share,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
@@ -17,146 +17,132 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 const { width } = Dimensions.get('window');
 
 export default function InviteScreen() {
-    const navigation = useNavigation();
-    const route = useRoute();
-    const { bgStyle } = useAppTheme();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { bgStyle } = useAppTheme();
+  const { t } = useLanguage();
 
-    // Generate unique referral code for this user
-    const userReferralCode = route?.params?.referralCode;
+  const userReferralCode = route?.params?.referralCode;
 
-    const copyReferralCode = () => {
-        Clipboard.setString(userReferralCode);
-        Alert.alert("Copied!", "Referral code copied successfully");
-    };
+  const copyReferralCode = () => {
+    Clipboard.setString(userReferralCode);
+    Alert.alert(t('invite.copiedTitle'), t('invite.copiedReferralMessage'));
+  };
 
-    // OPTION 1: Custom URL Scheme (works immediately)
-    // Format: yourapp://referral?code=ABC123
-    const deepLinkQr = `https://www.valens.app/`;
+  const deepLinkQr = `https://www.valens.app/`;
+  const deepLinkUrl = 'https://www.valens.app/';
 
-    // OPTION 2: Universal Link (requires domain setup)
-    // Format: https://yourdomain.com/referral?code=ABC123
-    const deepLinkUrl = 'https://www.valens.app/';
-    //  `https://yourdomain.com/referral?code=${userReferralCode}`;
+  const avatar = route?.params?.avatar;
 
-    const avatar = route?.params?.avatar;
+  const qrSize = Math.min(width * 0.72, 320);
+  const innerPadding = 14;
+  const innerSize = qrSize + innerPadding;
+  const avatarSize = 56;
+  const avatarPos = (innerSize / 2) - (avatarSize / 2);
 
-    // sizing
-    const qrSize = Math.min(width * 0.72, 320);
-    const innerPadding = 14;
-    const innerSize = qrSize + innerPadding;
-    const avatarSize = 56;
-    const avatarPos = (innerSize / 2) - (avatarSize / 2);
+  const onShare = async () => {
+    try {
+      await Share.share({
+        message: `${t('invite.shareMessage')} ${userReferralCode}\n\n${deepLinkUrl}`,
+        title: t('invite.shareTitle'),
+      });
+    } catch (e) {
+      console.warn('Share error', e);
+    }
+  };
 
-    const onShare = async () => {
-        try {
-            await Share.share({
-                message: `Join Valens and earn rewards! Use my referral code: ${userReferralCode}\n\n${deepLinkUrl}`,
-                // url: deepLinkUrl,
-                title: 'Join Valens',
-            });
-        } catch (e) {
-            console.warn('Share error', e);
-        }
-    };
+  const onCopyLink = () => {
+    Clipboard.setString(deepLinkUrl);
+    Alert.alert(t('invite.copiedTitle'), t('invite.copiedLinkMessage'));
+  };
 
-    const onCopyLink = () => {
-        Clipboard.setString(deepLinkUrl);
-        Alert.alert('Copied!', 'Referral link copied to clipboard');
-    };
+  return (
+    <SafeAreaView style={[styles.safe, bgStyle]}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Header */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          width: '100%',
+        }}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={26} color="#666" />
+          </TouchableOpacity>
+          <Text style={styles.title}>{t('invite.headerTitle')}</Text>
+          <View style={{ width: 26 }} />
+        </View>
 
-    return (
-        <SafeAreaView style={[styles.safe, bgStyle]}>
-            <ScrollView contentContainerStyle={styles.container}>
-                {/* Back button */}
-                <View
-                    style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        width: '100%',
-                        // paddingHorizontal: 5,
-                    }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={26} color="#666" />
-                    </TouchableOpacity>
+        <Text style={styles.subtitle}>
+          {t('invite.subtitle')}{' '}
+          <Text style={{ fontWeight: '700' }}>{t('invite.learnMore')}</Text>
+        </Text>
 
-                    <Text style={styles.title}>Invite friends, earn Rewards</Text>
+        {/* QR with pastel gradient border */}
+        <View style={{ height: 18 }} />
 
-                    {/* Empty view to balance spacing on the right */}
-                    <View style={{ width: 26 }} />
-                </View>
-                <Text style={styles.subtitle}>
-                    For every friend you invite to Valens, you'll earn rewards for every trade. <Text style={{ fontWeight: '700' }}>Learn more.</Text>
-                </Text>
+        <LinearGradient
+          colors={['#FAD9B6', '#C6F6D9', '#BEE8FF', '#F1C9F2']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.qrGradient, { width: innerSize + 16, height: innerSize + 16, borderRadius: 18 }]}
+        >
+          <View style={[styles.qrInner, { width: innerSize, height: innerSize, borderRadius: 14 }]}>
+            <View style={{ width: qrSize, height: qrSize, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
+              <QRCode value={deepLinkQr} size={qrSize * 0.94} />
+            </View>
+            <View style={[styles.avatarWrapper, {
+              width: avatarSize,
+              height: avatarSize,
+              top: avatarPos,
+              left: avatarPos,
+            }]}>
+              <HexAvatar
+                uri={avatar}
+                size={avatarSize}
+                borderWidth={2.5}
+                borderColor="#5a2d82"
+              />
+            </View>
+          </View>
+        </LinearGradient>
 
-                {/* QR with pastel gradient border */}
-                <View style={{ height: 18 }} />
+        {/* Share row */}
+        <View style={{ height: 22 }} />
+        <View style={styles.shareRow}>
+          <TouchableOpacity style={styles.shareButton} onPress={onShare} activeOpacity={0.85}>
+            <Text style={styles.shareText}>{t('invite.shareYourLink')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.iconButton, bgStyle]} onPress={onCopyLink} activeOpacity={0.85}>
+            <Ionicons name="link-outline" size={22} color="#111" />
+          </TouchableOpacity>
+        </View>
 
-                <LinearGradient
-                    colors={['#FAD9B6', '#C6F6D9', '#BEE8FF', '#F1C9F2']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.qrGradient, { width: innerSize + 16, height: innerSize + 16, borderRadius: 18 }]}
-                >
-                    <View style={[styles.qrInner, { width: innerSize, height: innerSize, borderRadius: 14 }]}>
-                        <View style={{ width: qrSize, height: qrSize, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-                            {/* QR code now contains the deep link */}
-                            <QRCode value={deepLinkQr} size={qrSize * 0.94} />
-                        </View>
+        {/* Bottom section */}
+        <View style={{ height: 28 }} />
+        <Text style={styles.sectionTitle}>{t('invite.yourInvites')}</Text>
+        <Text style={styles.sectionSubtitle}>{t('invite.yourInvitesSubtitle')}</Text>
 
-                        {/* avatar overlay centered on top of QR */}
-                        <View style={[styles.avatarWrapper, {
-                            width: avatarSize,
-                            height: avatarSize,
-                            top: avatarPos,
-                            left: avatarPos,
-                        }]}>
-                            <HexAvatar
-                                uri={avatar}
-                                size={avatarSize}
-                                borderWidth={2.5}
-                                borderColor="#5a2d82"
-                            />
-                        </View>
-                    </View>
-                </LinearGradient>
-
-                {/* Share row */}
-                <View style={{ height: 22 }} />
-                <View style={styles.shareRow}>
-                    <TouchableOpacity style={styles.shareButton} onPress={onShare} activeOpacity={0.85}>
-                        <Text style={styles.shareText}>Share your link</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.iconButton, bgStyle]} onPress={onCopyLink} activeOpacity={0.85}>
-                        <Ionicons name="link-outline" size={22} color="#111" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Bottom section */}
-                <View style={{ height: 28 }} />
-                <Text style={styles.sectionTitle}>Your invites</Text>
-                <Text style={styles.sectionSubtitle}>Invite your first user to earn 10 points.</Text>
-
-                {/* Debug info (remove in production) */}
-                <View style={styles.debugBox}>
-                    <View style={styles.referralRow}>
-                        <Text style={styles.debugText}>Referral Code: {userReferralCode}</Text>
-
-                        <TouchableOpacity onPress={copyReferralCode}>
-                            <Ionicons name="copy-outline" size={18} color="#333" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <Text style={styles.debugText}>Deep Link: {deepLinkUrl}</Text>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
-    );
+        {/* Referral code box */}
+        <View style={styles.debugBox}>
+          <View style={styles.referralRow}>
+            <Text style={styles.debugText}>
+              {t('invite.referralCodeLabel')} {userReferralCode}
+            </Text>
+            <TouchableOpacity onPress={copyReferralCode}>
+              <Ionicons name="copy-outline" size={18} color="#333" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.debugText}>{t('invite.deepLinkLabel')} {deepLinkUrl}</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({

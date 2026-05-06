@@ -25,6 +25,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '../../i18n';
 import { createBattle } from '../../services/battle';
 import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -112,6 +113,7 @@ export default function OpenBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const toast = useToast();
+  const { t } = useLanguage();
   const [form, setForm] = useState(createInitialForm);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -150,20 +152,21 @@ export default function OpenBattleScreen() {
     ? COMPANY_GRADIENT
     : PRIMARY_GRADIENT;
   const bottomBarPaddingBottom = isKeyboardVisible ? 10 : Math.max(tabBarHeight + 8, 14);
+
   const formatOptions = useMemo(
     () => [
       {
         key: 'POLL',
-        title: 'Battle Poll',
-        subtitle: 'Add question and answer options',
+        title: t('openBattle.formatPollTitle'),
+        subtitle: t('openBattle.formatPollSubtitle'),
       },
       {
         key: 'HEAD_TO_HEAD',
-        title: 'Head to Head',
-        subtitle: 'Add question and invite another user',
+        title: t('openBattle.formatHeadToHeadTitle'),
+        subtitle: t('openBattle.formatHeadToHeadSubtitle'),
       },
     ],
-    [],
+    [t],
   );
 
   const battleTypeOptions = useMemo(
@@ -320,8 +323,6 @@ export default function OpenBattleScreen() {
       const me = normalizeUserId(
         viewerUserId || (await AsyncStorage.getItem('userId')) || '',
       );
-      // One request with userName+displayName+name often ANDs on the server, so a
-      // display-name search never matches a handle like "mqk9cwjbf8". Query each field alone and merge.
       const fetchInviteSlice = params =>
         getAllUser(params).catch(() => ({ statusCode: 0 }));
       const [byUserName, byDisplayName, byName] = await Promise.all([
@@ -451,7 +452,7 @@ export default function OpenBattleScreen() {
             return;
           }
           if (response?.errorCode || response?.errorMessage) {
-            showToastMessage(toast, 'danger', 'Failed to pick image');
+            showToastMessage(toast, 'danger', t('openBattle.failedToPickImage'));
             return;
           }
 
@@ -469,8 +470,8 @@ export default function OpenBattleScreen() {
     const hasCameraPermission = await requestCameraPermission();
     if (!hasCameraPermission) {
       Alert.alert(
-        'Permission Denied',
-        'Camera permission is required to take photos.',
+        t('openBattle.permissionDenied'),
+        t('openBattle.cameraPermissionRequired'),
       );
       return;
     }
@@ -487,7 +488,7 @@ export default function OpenBattleScreen() {
             return;
           }
           if (response?.errorCode || response?.errorMessage) {
-            showToastMessage(toast, 'danger', 'Failed to capture image');
+            showToastMessage(toast, 'danger', t('openBattle.failedToCaptureImage'));
             return;
           }
 
@@ -557,7 +558,6 @@ export default function OpenBattleScreen() {
         text: value,
       };
 
-      // ✅ Live duplicate check
       const texts = options
         .map(opt => opt.text?.trim().toLowerCase())
         .filter(Boolean);
@@ -566,7 +566,7 @@ export default function OpenBattleScreen() {
 
       setErrors(prevErrors => ({
         ...prevErrors,
-        options: hasDuplicates ? 'Duplicate options are not allowed' : '',
+        options: hasDuplicates ? t('openBattle.optionsDuplicate') : '',
       }));
 
       return {
@@ -575,6 +575,7 @@ export default function OpenBattleScreen() {
       };
     });
   };
+
   const addOption = () => {
     setForm(prev => ({
       ...prev,
@@ -653,39 +654,38 @@ export default function OpenBattleScreen() {
     const options = getFilledOptions(form.options);
 
     if (!question) {
-      nextErrors.question = 'Question is required';
+      nextErrors.question = t('openBattle.questionRequired');
     }
 
     if (isPoll && options.length < 2) {
-      nextErrors.options = 'Please add at least 2 options';
+      nextErrors.options = t('openBattle.optionsMinTwo');
     }
 
-    // ✅ NEW: Duplicate check
     const lowerOptions = options.map(opt => opt.toLowerCase());
     const hasDuplicates = new Set(lowerOptions).size !== lowerOptions.length;
 
     if (hasDuplicates) {
-      nextErrors.options = 'Duplicate options are not allowed';
+      nextErrors.options = t('openBattle.optionsDuplicate');
     }
 
     if (!form.endTime) {
-      nextErrors.endTime = 'End time is required';
+      nextErrors.endTime = t('openBattle.endTimeRequired');
     }
 
     if (form.endTime && new Date(form.endTime) <= new Date()) {
-      nextErrors.endTime = 'End time must be in the future';
+      nextErrors.endTime = t('openBattle.endTimeFuture');
     }
 
     if (isHeadToHead && !invitedUserId) {
-      nextErrors.invitedUserId = 'Please add the user you want to invite';
+      nextErrors.invitedUserId = t('openBattle.inviteUserRequired');
     }
 
     if (isHeadToHead && options.length < 2) {
-      nextErrors.options = 'Please add 2 battle sides for head-to-head';
+      nextErrors.options = t('openBattle.headToHeadSidesRequired');
     }
 
     if (form.stake && Number.isNaN(Number(form.stake))) {
-      nextErrors.stake = 'Stake must be a valid number';
+      nextErrors.stake = t('openBattle.stakeInvalid');
     }
 
     setErrors(nextErrors);
@@ -694,7 +694,7 @@ export default function OpenBattleScreen() {
 
   const handleSubmit = async () => {
     if (!validate()) {
-      showToastMessage(toast, 'danger', 'Please fix the highlighted fields.');
+      showToastMessage(toast, 'danger', t('openBattle.fixFieldsError'));
       return;
     }
 
@@ -708,7 +708,6 @@ export default function OpenBattleScreen() {
 
     if (isPoll) {
       payload.options = filledOptions;
-      // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
         .map(opt => (opt.image));
@@ -717,7 +716,6 @@ export default function OpenBattleScreen() {
     if (isHeadToHead) {
       payload.invitedUserId = form.invitedUserId.trim();
       payload.options = filledOptions;
-      // Include image metadata if needed
       payload.optionImages = form.options
         .slice(0, filledOptions.length)
         .map(opt => (opt.image));
@@ -740,7 +738,7 @@ export default function OpenBattleScreen() {
         showToastMessage(
           toast,
           'success',
-          response?.message || 'Battle created successfully',
+          response?.message || t('openBattle.battleCreatedSuccess'),
         );
         setForm(createInitialForm());
         setErrors({});
@@ -753,7 +751,7 @@ export default function OpenBattleScreen() {
             '',
           battle: response?.data?.battle || response?.data || payload,
           entryPoint: 'open_battle',
-          profile
+          profile,
         });
         return;
       }
@@ -761,13 +759,13 @@ export default function OpenBattleScreen() {
       showToastMessage(
         toast,
         'danger',
-        response?.message || 'Failed to create battle',
+        response?.message || t('openBattle.battleCreatedFail'),
       );
     } catch (error) {
       showToastMessage(
         toast,
         'danger',
-        error?.message || 'Something went wrong',
+        error?.message || t('openBattle.somethingWentWrong'),
       );
     } finally {
       setSubmitting(false);
@@ -797,13 +795,13 @@ export default function OpenBattleScreen() {
             <Ionicons name="chevron-back" size={24} color={text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: text }]}>
-            Create Battle
+            {t('openBattle.screenTitle')}
           </Text>
           <TouchableOpacity
             onPress={() =>
               Alert.alert(
-                'Battle Format',
-                'Poll needs a question and options. Head to head needs a question, two sides, and the invited user.',
+                t('openBattle.helpAlertTitle'),
+                t('openBattle.helpAlertMessage'),
               )
             }
             style={styles.headerIconBtn}
@@ -821,16 +819,16 @@ export default function OpenBattleScreen() {
               <Ionicons name="trophy-outline" size={30} color={text} />
             </View>
             <Text style={[styles.heroTitle, { color: text }]}>
-              Set up your battle
+              {t('openBattle.heroTitle')}
             </Text>
             <Text style={styles.heroSubtitle}>
-              Choose the format, add the required details, and publish.
+              {t('openBattle.heroSubtitle')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: text }]}>
-              Battle Format
+              {t('openBattle.battleFormatSection')}
             </Text>
             <View style={styles.formatRow}>
               {formatOptions.map(option => {
@@ -884,64 +882,8 @@ export default function OpenBattleScreen() {
             </View>
           </View>
 
-          {/* <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: text }]}>
-              Winner Logic
-            </Text>
-            <View style={styles.formatRow}>
-              {battleTypeOptions.map(option => {
-                const isSelected = form.battleType === option.key;
-                const Wrapper = isSelected ? LinearGradient : View;
-                const wrapperProps = isSelected
-                  ? {
-                    colors: gradientColors,
-                    start: { x: 0, y: 0 },
-                    end: { x: 1, y: 0 },
-                  }
-                  : {};
-
-                return (
-                  <TouchableOpacity
-                    key={option.key}
-                    style={styles.formatCell}
-                    onPress={() => updateField('battleType', option.key)}
-                    activeOpacity={0.88}
-                  >
-                    <Wrapper
-                      {...wrapperProps}
-                      style={[
-                        styles.formatCard,
-                        !isSelected && {
-                          backgroundColor: SOFT,
-                          borderColor: BORDER,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.formatTitle,
-                          { color: isSelected ? '#fff' : '#111827' },
-                        ]}
-                      >
-                        {option.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.formatSubtitle,
-                          { color: isSelected ? '#F3F4F6' : MUTED },
-                        ]}
-                      >
-                        {option.subtitle}
-                      </Text>
-                    </Wrapper>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View> */}
-
           <View style={styles.section}>
-            <Text style={[styles.label, { color: text }]}>Question</Text>
+            <Text style={[styles.label, { color: text }]}>{t('openBattle.questionLabel')}</Text>
             <TextInput
               style={[
                 styles.input,
@@ -952,7 +894,7 @@ export default function OpenBattleScreen() {
                   borderColor: errors.question ? ERROR : BORDER,
                 },
               ]}
-              placeholder="Write your battle question"
+              placeholder={t('openBattle.questionPlaceholder')}
               placeholderTextColor={MUTED}
               multiline
               value={form.question}
@@ -967,11 +909,11 @@ export default function OpenBattleScreen() {
             <View style={styles.section}>
               <View style={styles.rowBetween}>
                 <Text style={[styles.label, { color: text }]}>
-                  {isHeadToHead ? 'Battle Sides' : 'Options'}
+                  {isHeadToHead ? t('openBattle.battleSidesLabel') : t('openBattle.optionsLabel')}
                 </Text>
                 {!isHeadToHead &&
                   <TouchableOpacity onPress={addOption}>
-                    <Text style={[styles.addOptionText, { color: text }]}>+ Add Option</Text>
+                    <Text style={[styles.addOptionText, { color: text }]}>{t('openBattle.addOption')}</Text>
                   </TouchableOpacity>
                 }
               </View>
@@ -1012,7 +954,9 @@ export default function OpenBattleScreen() {
                         },
                       ]}
                       placeholder={
-                        isHeadToHead ? `Side ${index + 1}` : `Option ${index + 1}`
+                        isHeadToHead
+                          ? t('openBattle.sidePlaceholder', { number: index + 1 })
+                          : t('openBattle.optionPlaceholder', { number: index + 1 })
                       }
                       placeholderTextColor={MUTED}
                       value={option.text}
@@ -1039,8 +983,7 @@ export default function OpenBattleScreen() {
               )}
               {isHeadToHead ? (
                 <Text style={styles.helperText}>
-                  Add the two sides for this duel. Users will choose a side from
-                  battle in progress.
+                  {t('openBattle.battleSidesHelperText')}
                 </Text>
               ) : null}
             </View>
@@ -1048,7 +991,7 @@ export default function OpenBattleScreen() {
 
           {isHeadToHead && (
             <View style={styles.section}>
-              <Text style={[styles.label, { color: text }]}>Invite User</Text>
+              <Text style={[styles.label, { color: text }]}>{t('openBattle.inviteUserLabel')}</Text>
               <View
                 style={[
                   styles.searchInputWrap,
@@ -1061,15 +1004,14 @@ export default function OpenBattleScreen() {
                 <Ionicons name="search" size={18} color={MUTED} />
                 <TextInput
                   style={[styles.searchInput, { color: text }]}
-                  placeholder="Search User"
+                  placeholder={t('openBattle.inviteSearchPlaceholder')}
                   placeholderTextColor={MUTED}
                   value={inviteSearchText}
                   onChangeText={handleInviteSearchChange}
                 />
               </View>
               <Text style={styles.helperText}>
-                Head to head needs the other user you want to challenge. Select
-                a user and we will use that user id for the invite.
+                {t('openBattle.inviteHelperText')}
               </Text>
               {!!errors.invitedUserId && (
                 <Text style={styles.errorText}>{errors.invitedUserId}</Text>
@@ -1135,7 +1077,7 @@ export default function OpenBattleScreen() {
           )}
 
           <View style={styles.section}>
-            <Text style={[styles.label, { color: text }]}>End Time</Text>
+            <Text style={[styles.label, { color: text }]}>{t('openBattle.endTimeLabel')}</Text>
             <TouchableOpacity
               style={[
                 styles.input,
@@ -1155,7 +1097,7 @@ export default function OpenBattleScreen() {
               >
                 {form.endTime
                   ? formatDisplayDate(form.endTime)
-                  : 'Select end time'}
+                  : t('openBattle.endTimePlaceholder')}
               </Text>
               <Ionicons name="calendar-outline" size={20} color={MUTED} />
             </TouchableOpacity>
@@ -1166,7 +1108,7 @@ export default function OpenBattleScreen() {
 
           <View style={styles.section}>
             <Text style={[styles.label, { color: text }]}>
-              Stake (Optional)
+              {t('openBattle.stakeLabel')}
             </Text>
             <TextInput
               style={[
@@ -1177,7 +1119,7 @@ export default function OpenBattleScreen() {
                   borderColor: errors.stake ? ERROR : BORDER,
                 },
               ]}
-              placeholder="0"
+              placeholder={t('openBattle.stakePlaceholder')}
               placeholderTextColor={MUTED}
               keyboardType="numeric"
               value={form.stake}
@@ -1197,10 +1139,10 @@ export default function OpenBattleScreen() {
             >
               <View style={styles.publicCopy}>
                 <Text style={[styles.label, { color: text, marginBottom: 4 }]}>
-                  Public Battle
+                  {t('openBattle.publicBattleLabel')}
                 </Text>
                 <Text style={styles.helperText}>
-                  Keep this on to create a public battle.
+                  {t('openBattle.publicBattleHelper')}
                 </Text>
               </View>
               <Switch
@@ -1228,7 +1170,7 @@ export default function OpenBattleScreen() {
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.createBtnText}>CREATE BATTLE</Text>
+                <Text style={styles.createBtnText}>{t('openBattle.createButton')}</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
@@ -1265,10 +1207,9 @@ export default function OpenBattleScreen() {
           }}
           onClose={() => { }}
         >
-
           <View style={styles.imagePickerHeader}>
             <Text style={[styles.imagePickerTitle, { color: text }]}>
-              Add Image
+              {t('openBattle.addImageTitle')}
             </Text>
           </View>
 
@@ -1284,10 +1225,10 @@ export default function OpenBattleScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
-                Choose from Gallery
+                {t('openBattle.chooseFromGallery')}
               </Text>
               <Text style={styles.imagePickerOptionSubtitle}>
-                Select an existing image
+                {t('openBattle.chooseFromGallerySubtitle')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1302,10 +1243,10 @@ export default function OpenBattleScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.imagePickerOptionTitle, { color: text }]}>
-                Take a Photo
+                {t('openBattle.takeAPhoto')}
               </Text>
               <Text style={styles.imagePickerOptionSubtitle}>
-                Capture a new image
+                {t('openBattle.takeAPhotoSubtitle')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1315,7 +1256,7 @@ export default function OpenBattleScreen() {
             onPress={() => imagePickerSheetRef.current?.close()}
             activeOpacity={0.7}
           >
-            <Text style={styles.imagePickerCancelText}>Cancel</Text>
+            <Text style={styles.imagePickerCancelText}>{t('openBattle.cancel')}</Text>
           </TouchableOpacity>
         </RBSheet>
       </KeyboardAvoidingView>

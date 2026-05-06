@@ -36,12 +36,12 @@ import {
   normalizeProfileType,
 } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 export default function FollowersFollowingScreen({ navigation, route }) {
   const initialTab = route?.params?.tab;
-  // console.log(route?.params?.params.userName, 'checkTab');
 
   const headerUsername =
     route?.params?.params?.userName ||
@@ -64,9 +64,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const [selectedSupportUser, setSelectedSupportUser] = useState(null);
   const [selfProfileType, setSelfProfileType] = useState('user');
+
   const toast = useToast();
   const { startSupportPayment } = useWalletConnectSupport();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     (async () => {
@@ -130,8 +132,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       try {
         if (tab === 'followers') {
           const res = await apiFollowers(profileUserId);
-          console.log(res, 'reposne in folowing liststst');
-
           const rows = res?.data?.data ?? res?.data ?? [];
           const users = rows
             .map(rel => rel?.follower || rel?.followerUser || rel?.user || null)
@@ -141,7 +141,6 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           setFollowersList(usersWithProfile);
         } else {
           const res = await apiFollowing(profileUserId);
-
           const rows = res?.data?.data ?? res?.data ?? [];
           const users = rows
             .map(rel => rel?.following || rel?.user || null)
@@ -153,14 +152,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       } catch (e) {
         console.log(e);
         Alert.alert(
-          'Error',
-          e?.response?.data?.message || 'Failed to load list',
+          t('followersFollowing.errorTitle'),
+          e?.response?.data?.message || t('followersFollowing.loadListError'),
         );
       } finally {
         if (!silent) setLoading(false);
       }
     },
-    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile],
+    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile, t],
   );
 
   useEffect(() => {
@@ -200,7 +199,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           showToastMessage(
             toast,
             'danger',
-            res?.data?.message || res?.message || 'Unable to update follow',
+            res?.data?.message || res?.message || t('followersFollowing.unableToUpdateFollow'),
           );
           return;
         }
@@ -212,12 +211,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
         if (resolvedFollowing && shouldFollow) {
           const recipientProfile = normalizeProfileType(user.profile);
-          if (
-            isSupportAllowed({
-              supporterProfile: selfProfileType,
-              recipientProfile,
-            })
-          ) {
+          if (isSupportAllowed({ supporterProfile: selfProfileType, recipientProfile })) {
             setSelectedSupportUser({ ...user, isFollowing: true });
             setSupportModalVisible(true);
           }
@@ -226,13 +220,13 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         showToastMessage(
           toast,
           'danger',
-          e?.response?.data?.message || 'Something went wrong',
+          e?.response?.data?.message || t('followersFollowing.somethingWentWrong'),
         );
       } finally {
         setFollowBusyById(prev => ({ ...prev, [user.id]: false }));
       }
     },
-    [followBusyById, toast, updateFollowState, selfProfileType],
+    [followBusyById, toast, updateFollowState, selfProfileType, t],
   );
 
   const recipientWalletAddress = useMemo(
@@ -247,29 +241,28 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     const recipientProfile = normalizeProfileType(selectedSupportUser?.profile);
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
       Alert.alert(
-        'Support unavailable',
-        'Tips are not available for business profiles.',
+        t('followersFollowing.supportUnavailableTitle'),
+        t('followersFollowing.supportUnavailableMessage'),
       );
       setSupportModalVisible(false);
       return;
     }
     setSupportModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, [selfProfileType, selectedSupportUser?.profile]);
+  }, [selfProfileType, selectedSupportUser?.profile, t]);
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
       Alert.alert(
-        'Wallet not connected',
-        'This user has not connected a wallet yet. Follow is still active.',
+        t('followersFollowing.walletNotConnectedTitle'),
+        t('followersFollowing.walletNotConnectedMessage'),
       );
       return;
     }
     setSupportDisclaimerVisible(false);
     await startSupportPayment(recipientWalletAddress, {
       senderId: selfUserId != null ? String(selfUserId) : '',
-      receiverId:
-        selectedSupportUser?.id != null ? String(selectedSupportUser.id) : '',
+      receiverId: selectedSupportUser?.id != null ? String(selectedSupportUser.id) : '',
       chain: 'POLYGON',
     });
   }, [
@@ -278,6 +271,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     startSupportPayment,
     selfUserId,
     selectedSupportUser?.id,
+    t,
   ]);
 
   const filteredFollowers = useMemo(() => {
@@ -301,22 +295,17 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   }, [search, followingList]);
 
   const getUserAccentColor = useCallback((profileType) => {
-    return String(profileType || '').toLowerCase() === 'company'
-      ? '#D3B683'
-      : '#5a2d82';
+    return String(profileType || '').toLowerCase() === 'company' ? '#D3B683' : '#5a2d82';
   }, []);
 
   const goToUserProfile = useCallback(
     (user) => {
       if (!user?.id) return;
-
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
         params: {
           userId: user.id,
           username: user.username,
-          // returnTo: route?.name,
-          // stackName: 'ProfileMain',
         },
       });
     },
@@ -336,169 +325,166 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           returnTo: 'Search',
         },
       });
-      } else {
-        navigation.goBack();
-      }
+    } else {
+      navigation.goBack();
+    }
   };
 
-    const renderItem =
-      tab =>
-        ({ item }) => {
-          const isFollowingState = !!item.isFollowing;
-          const accentColor = getUserAccentColor(item?.profile);
+  const renderItem =
+    tab =>
+      ({ item }) => {
+        const isFollowingState = !!item.isFollowing;
+        const accentColor = getUserAccentColor(item?.profile);
 
-          return (
-            <TouchableOpacity style={[styles.userRow, { shadowColor: accentColor }]} activeOpacity={0.7} onPress={() => goToUserProfile(item)}>
-              <View style={styles.avatarWrap}>
-                <HexAvatar
-                  uri={item.avatar || DEFAULT_AVATAR}
-                  size={50}
-                  borderWidth={2}
-                  borderColor={accentColor}
-                />
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={[styles.username, { color: accentColor }]}>{item.username}</Text>
-                {!!item.fullName && (
-                  <Text style={styles.fullName}>{item.fullName}</Text>
-                )}
-                {/* {!!item.profile && (
-                <Text style={[styles.profileType, { color: accentColor }]}>{item.profile}</Text>
-              )} */}
-              </View>
-
-              {String(item.id) !== String(selfUserId) && (
-                <TouchableOpacity
-                  style={[
-                    styles.followBtn,
-                    followBusyById[item.id]
-                      ? [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }]
-                      : isFollowingState
-                        ? [styles.following, { borderColor: accentColor }]
-                        : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
-                  ]}
-                  onPress={(e) => {
-                    e?.stopPropagation?.();
-                    handleVallowingClick(item);
-                  }}
-                  disabled={!!followBusyById[item.id]}
-                >
-                  {followBusyById[item.id] ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={isFollowingState ? [styles.followingText, { color: accentColor }] : styles.followText}>
-                      {isFollowingState ? 'Following' : 'Follow'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+        return (
+          <TouchableOpacity
+            style={[styles.userRow, { shadowColor: accentColor }]}
+            activeOpacity={0.7}
+            onPress={() => goToUserProfile(item)}
+          >
+            <View style={styles.avatarWrap}>
+              <HexAvatar
+                uri={item.avatar || DEFAULT_AVATAR}
+                size={50}
+                borderWidth={2}
+                borderColor={accentColor}
+              />
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={[styles.username, { color: accentColor }]}>{item.username}</Text>
+              {!!item.fullName && (
+                <Text style={styles.fullName}>{item.fullName}</Text>
               )}
-            </TouchableOpacity>
-          );
-        };
+            </View>
 
-    const data =
-      activeTab === 'followers' ? filteredFollowers : filteredFollowing;
-
-    return (
-      <SafeAreaView style={[styles.container, bgStyle]}>
-        {/* Header */}
-        <View style={styles.headerView}>
-          <TouchableOpacity onPress={handleBack}>
-            <Icon name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={[styles.usernameHeader, textStyle]}>{headerUsername}</Text>
-        </View>
-
-        {/* Tabs */}
-        <View style={styles.tabsRow}>
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              activeTab === 'followers' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
-            ]}
-            onPress={() => setActiveTab('followers')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                textStyle,
-                activeTab === 'followers' && styles.tabTextActive,
-              ]}
-            >
-              Followers
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              activeTab === 'following' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
-            ]}
-            onPress={() => setActiveTab('following')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                textStyle,
-                activeTab === 'following' && styles.tabTextActive,
-              ]}
-            >
-              Following
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search */}
-        <TextInput
-          style={[styles.searchBar, { shadowColor: text }]}
-          placeholder={
-            activeTab === 'followers' ? 'Search Followers' : 'Search Following'
-          }
-          placeholderTextColor="#888"
-          value={search}
-          onChangeText={setSearch}
-        />
-
-        {/* List */}
-        {loading ? (
-          <View style={{ paddingTop: 40 }}>
-            <ActivityIndicator />
-          </View>
-        ) : (
-          <FlatList
-            data={data}
-            renderItem={renderItem(activeTab)}
-            keyExtractor={item => String(item.id)}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={() => (
-              <View style={{ alignItems: 'center', paddingTop: 30 }}>
-                <Text style={{ color: '#888' }}>
-                  No {activeTab === 'followers' ? 'Followers' : 'Following'} yet
-                </Text>
-              </View>
+            {String(item.id) !== String(selfUserId) && (
+              <TouchableOpacity
+                style={[
+                  styles.followBtn,
+                  followBusyById[item.id]
+                    ? [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }]
+                    : isFollowingState
+                      ? [styles.following, { borderColor: accentColor }]
+                      : [styles.follow, { backgroundColor: accentColor, shadowColor: accentColor }],
+                ]}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  handleVallowingClick(item);
+                }}
+                disabled={!!followBusyById[item.id]}
+              >
+                {followBusyById[item.id] ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={isFollowingState
+                    ? [styles.followingText, { color: accentColor }]
+                    : styles.followText}
+                  >
+                    {isFollowingState
+                      ? t('followersFollowing.following')
+                      : t('followersFollowing.follow')}
+                  </Text>
+                )}
+              </TouchableOpacity>
             )}
-          />
-        )}
+          </TouchableOpacity>
+        );
+      };
 
-        <SupportCreatorModal
-          visible={supportModalVisible}
-          creatorName={selectedSupportUser?.username || 'Creator'}
-          onClose={() => setSupportModalVisible(false)}
-          onSupport={handleOpenSupportDisclaimer}
+  const listData = activeTab === 'followers' ? filteredFollowers : filteredFollowing;
+
+  return (
+    <SafeAreaView style={[styles.container, bgStyle]}>
+      {/* Header */}
+      <View style={styles.headerView}>
+        <TouchableOpacity onPress={handleBack}>
+          <Icon name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={[styles.usernameHeader, textStyle]}>{headerUsername}</Text>
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabsRow}>
+        <TouchableOpacity
+          style={[
+            styles.tabBtn,
+            activeTab === 'followers' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
+          ]}
+          onPress={() => setActiveTab('followers')}
+        >
+          <Text style={[styles.tabText, textStyle, activeTab === 'followers' && styles.tabTextActive]}>
+            {t('followersFollowing.followersTab')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabBtn,
+            activeTab === 'following' && styles.tabBtnActive && { backgroundColor: text, shadowColor: text },
+          ]}
+          onPress={() => setActiveTab('following')}
+        >
+          <Text style={[styles.tabText, textStyle, activeTab === 'following' && styles.tabTextActive]}>
+            {t('followersFollowing.followingTab')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search */}
+      <TextInput
+        style={[styles.searchBar, { shadowColor: text }]}
+        placeholder={
+          activeTab === 'followers'
+            ? t('followersFollowing.searchFollowers')
+            : t('followersFollowing.searchFollowing')
+        }
+        placeholderTextColor="#888"
+        value={search}
+        onChangeText={setSearch}
+      />
+
+      {/* List */}
+      {loading ? (
+        <View style={{ paddingTop: 40 }}>
+          <ActivityIndicator />
+        </View>
+      ) : (
+        <FlatList
+          data={listData}
+          renderItem={renderItem(activeTab)}
+          keyExtractor={item => String(item.id)}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={() => (
+            <View style={{ alignItems: 'center', paddingTop: 30 }}>
+              <Text style={{ color: '#888' }}>
+                {activeTab === 'followers'
+                  ? t('followersFollowing.noFollowers')
+                  : t('followersFollowing.noFollowing')}
+              </Text>
+            </View>
+          )}
         />
-        <SupportCreatorModal
-          visible={supportDisclaimerVisible}
-          creatorName={selectedSupportUser?.username || 'Creator'}
-          variant="disclaimer"
-          onClose={() => setSupportDisclaimerVisible(false)}
-          onSupport={handleSupportNow}
-        />
-      </SafeAreaView>
-    );
-  }
+      )}
+
+      <SupportCreatorModal
+        visible={supportModalVisible}
+        creatorName={selectedSupportUser?.username || t('followersFollowing.creatorFallback')}
+        onClose={() => setSupportModalVisible(false)}
+        onSupport={handleOpenSupportDisclaimer}
+      />
+      <SupportCreatorModal
+        visible={supportDisclaimerVisible}
+        creatorName={selectedSupportUser?.username || t('followersFollowing.creatorFallback')}
+        variant="disclaimer"
+        onClose={() => setSupportDisclaimerVisible(false)}
+        onSupport={handleSupportNow}
+      />
+    </SafeAreaView>
+  );
+}
 
   const styles = StyleSheet.create({
     container: {

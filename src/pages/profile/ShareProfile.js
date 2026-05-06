@@ -26,6 +26,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLanguage } from '../../i18n';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
@@ -33,6 +34,7 @@ import { normalizeProfileType } from '../../utils/supportEligibility';
 const ShareProfile = ({ navigation }) => {
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const routeParams = useRoute().params || {};
   const { userData, targetUserId } = routeParams;
   const viewShotRef = useRef(null);
@@ -89,20 +91,19 @@ const ShareProfile = ({ navigation }) => {
     try {
       const hasPermission = await requestPermission();
       if (!hasPermission) {
-        Alert.alert('Permission Denied');
+        Alert.alert(t('shareProfile.permissionDenied'));
         return;
       }
 
       if (!viewShotRef.current) {
-        Alert.alert('Error', 'QR not ready');
+        Alert.alert(t('shareProfile.errorTitle'), t('shareProfile.qrNotReady'));
         return;
       }
 
-      // Capture QR
       const uri = await viewShotRef.current.capture();
 
       if (!uri) {
-        Alert.alert('Error', 'Capture failed');
+        Alert.alert(t('shareProfile.errorTitle'), t('shareProfile.captureFailed'));
         return;
       }
 
@@ -111,16 +112,10 @@ const ShareProfile = ({ navigation }) => {
       let saveUri = uri;
 
       if (Platform.OS === 'android') {
-        // Create new file path
         const newPath = `${RNFS.PicturesDirectoryPath}/qr_${Date.now()}.png`;
-
-        // Move file from cache → pictures
         await RNFS.moveFile(sourcePath, newPath);
-
-        // Save to gallery
         saveUri = `file://${newPath}`;
       } else {
-        // iOS: save directly from the temp file returned by view-shot
         saveUri = uri.startsWith('file://') ? uri : `file://${sourcePath}`;
       }
 
@@ -129,11 +124,11 @@ const ShareProfile = ({ navigation }) => {
         album: 'Valens',
       });
 
-      showToastMessage(toast, 'success', 'QR saved to gallery ✅');
+      showToastMessage(toast, 'success', t('shareProfile.qrSavedToGallery'));
 
     } catch (error) {
       console.log('FINAL ERROR:', error);
-      Alert.alert('Error', error?.message || 'Failed to save QR');
+      Alert.alert(t('shareProfile.errorTitle'), error?.message || t('shareProfile.captureFailed'));
     }
   };
 
@@ -142,12 +137,12 @@ const ShareProfile = ({ navigation }) => {
       .split('')
       .map((c) => {
         const code = c.codePointAt(0);
-        if (code >= 65 && code <= 90) return String.fromCodePoint(code + 0x1D400 - 65);  // A–Z
-        if (code >= 97 && code <= 122) return String.fromCodePoint(code + 0x1D41A - 97);  // a–z
-        if (code >= 48 && code <= 57) return String.fromCodePoint(code + 0x1D7CE - 48);  // 0–9
-        return c; // keep @, ., :, / etc. as-is
+        if (code >= 65 && code <= 90) return String.fromCodePoint(code + 0x1D400 - 65);
+        if (code >= 97 && code <= 122) return String.fromCodePoint(code + 0x1D41A - 97);
+        if (code >= 48 && code <= 57) return String.fromCodePoint(code + 0x1D7CE - 48);
+        return c;
       })
-    .join('');
+      .join('');
 
   const resolvedUsername = useMemo(() => (
     String(
@@ -213,29 +208,33 @@ const ShareProfile = ({ navigation }) => {
 
   const copyToClipboard = () => {
     if (!primaryShareUrl) {
-      Alert.alert('Error', 'No link available to copy');
+      Alert.alert(t('shareProfile.errorTitle'), t('shareProfile.noLinkToCopy'));
       return;
     }
 
     Clipboard.setString(primaryShareUrl);
-
-    showToastMessage(toast, 'success', 'Profile link copied ✅');
+    showToastMessage(toast, 'success', t('shareProfile.profileLinkCopied'));
   };
 
   const onShare = async () => {
     try {
       if (!resolvedUsername && !resolvedUserId) {
-        Alert.alert('Profile not available', 'Unable to share profile right now.');
+        Alert.alert(
+          t('shareProfile.profileNotAvailable'),
+          t('shareProfile.profileNotAvailableMessage'),
+        );
         return;
       }
 
-      const resolvedUsername = String(username || '').trim();
-      const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';
+      const currentUsername = String(username || '').trim();
+      const profileLabel = currentUsername ? `@${currentUsername}` : 'this profile';
 
-     const result = await Share.share({
-      url: qrShareUrl,  
-      message: `👤 Check out ${toBold(profileLabel)} on Valens!\n\n🔗 Open profile`,
-    });
+      const result = await Share.share({
+        url: qrShareUrl,
+        message: t('shareProfile.shareMessageTemplate', {
+          username: toBold(profileLabel),
+        }),
+      });
 
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
@@ -247,7 +246,10 @@ const ShareProfile = ({ navigation }) => {
         console.log('Share dismissed');
       }
     } catch (error) {
-      Alert.alert('Error', 'Error sharing content: ' + error.message);
+      Alert.alert(
+        t('shareProfile.shareErrorTitle'),
+        t('shareProfile.shareErrorMessage', { error: error.message }),
+      );
     }
   };
 
@@ -257,37 +259,21 @@ const ShareProfile = ({ navigation }) => {
       icon: 'link',
       iconFamily: 'Feather',
       onPress: copyToClipboard,
-      label: 'Copy Link',
+      label: t('shareProfile.copyLink'),
     },
-    // {
-    //   id: 'twitter',
-    //   icon: 'logo-twitter',
-    //   iconFamily: 'Ionicons',
-    //   onPress: () => Linking.openURL('https://x.com/i/flow/signup?lang=en'),
-    //   label: 'Twitter',
-    //   color: '#1DA1F2',
-    // },
-    // {
-    //   id: 'home',
-    //   icon: 'home',
-    //   iconFamily: 'Feather',
-    //   onPress: () => Linking.openURL('https://valensGoApp.com'),
-    //   label: 'Home',
-    //   color: '#34C759',
-    // },
     {
       id: 'download',
       icon: 'download-outline',
       iconFamily: 'Ionicons',
       onPress: downloadQRCode,
-      label: 'Save',
+      label: t('shareProfile.save'),
     },
     {
       id: 'share',
       icon: 'share-outline',
       iconFamily: 'Ionicons',
       onPress: onShare,
-      label: 'Share',
+      label: t('shareProfile.share'),
     },
   ];
 
@@ -314,7 +300,7 @@ const ShareProfile = ({ navigation }) => {
               <Ionicons name="close" size={20} color="#fff" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Share Profile</Text>
+          <Text style={styles.headerTitle}>{t('shareProfile.headerTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -334,11 +320,11 @@ const ShareProfile = ({ navigation }) => {
                 borderColor="rgba(255,255,255,0.35)"
               />
               <View style={styles.profileText}>
-                <Text style={styles.brandText}>Valens</Text>
+                <Text style={styles.brandText}>{t('shareProfile.brandName')}</Text>
                 <Text style={styles.handleText} numberOfLines={1}>
                   @{resolvedUsername || 'valens'}
                 </Text>
-                <Text style={styles.subtitle}>Scan or share the link below</Text>
+                <Text style={styles.subtitle}>{t('shareProfile.scanOrShare')}</Text>
               </View>
             </View>
 
@@ -373,19 +359,6 @@ const ShareProfile = ({ navigation }) => {
                 </View>
               </ViewShot>
             </View>
-
-            {/* <TouchableOpacity
-              style={[styles.linkRow, !hasShareUrl && styles.linkRowDisabled]}
-              onPress={copyToClipboard}
-              activeOpacity={0.85}
-              disabled={!hasShareUrl}
-            >
-              <Feather name="link" size={18} color="#FFFFFF" />
-              <Text style={styles.linkText} numberOfLines={1}>
-                {primaryShareUrl || 'Link unavailable'}
-              </Text>
-              <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
-            </TouchableOpacity> */}
           </View>
 
           <View style={styles.actionsGrid}>

@@ -25,7 +25,6 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isFirstDayOfMonth } from 'date-fns';
 import { useAppTheme } from '../../theme/useApptheme';
 import WithdrawalModal from '../../components/modals/WithdrawModal';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -33,6 +32,7 @@ import { getOnboardingStatus, getWithdrawalHistory } from '../../services/profil
 import { openStripeOnboarding, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { useLanguage } from '../../i18n';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -55,10 +55,11 @@ export default function CreatorCoin() {
   const dispatch = useDispatch();
   const withdrawSheetRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const copyToClipboard = () => {
     Clipboard.setString(data?.walletAddress);
-    showToastMessage(toast, 'success', 'Copied to clipboard ✅');
+    showToastMessage(toast, 'success', t('creatorCoin.copiedClipboard'));
   };
 
   const handleWithdrawModalClose = () => {
@@ -69,14 +70,12 @@ export default function CreatorCoin() {
     fetchAllData();
   }, []);
 
-  // Load more transactions when page changes
   useEffect(() => {
     if (withdrawHistory.length > 0) {
       loadMoreTransactions();
     }
   }, [currentPage]);
 
-  // Check for onboarding required withdrawal on initial load
   useEffect(() => {
     if (withdrawHistory.length > 0) {
       const onboardingRequired = withdrawHistory.filter(
@@ -85,10 +84,10 @@ export default function CreatorCoin() {
 
       if (onboardingRequired.length > 0) {
         const totalAmount = onboardingRequired.reduce(
-          (sum, item) => sum + item.withdrawAmount, 
+          (sum, item) => sum + item.withdrawAmount,
           0
         );
-        
+
         setPendingWithdrawal({
           items: onboardingRequired,
           totalAmount: totalAmount,
@@ -99,24 +98,18 @@ export default function CreatorCoin() {
     }
   }, [withdrawHistory]);
 
-  // ✅ Listen for payment/onboarding completion events
   useEffect(() => {
     console.log('🎧 CreatorCoin: Setting up PAYMENT_COMPLETED listener');
-    
+
     const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
       console.log('🔔 CreatorCoin: PAYMENT_COMPLETED event received!', data);
-      console.log('📞 CreatorCoin: Calling fetchAllData');
-      
       fetchAllData();
-      
-      console.log('✅ CreatorCoin: Refresh function called');
     });
 
     return () => {
-      console.log('🔇 CreatorCoin: Removing PAYMENT_COMPLETED listener');
       subscription.remove();
     };
-  }, []); // ✅ Empty array - setup once
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -155,7 +148,7 @@ export default function CreatorCoin() {
       if (dashboardRes.statusCode === 200) {
         setUserDashboard(dashboardRes.data.dashboardData);
       } else {
-        showToastMessage(toast, 'danger', 'Failed to fetch dashboard');
+        showToastMessage(toast, 'danger', t('creatorCoin.fetchDashboardError'));
       }
 
       if (withdrawRes?.statusCode === 200) {
@@ -181,7 +174,7 @@ export default function CreatorCoin() {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.message ?? 'Something went wrong',
+        error?.response?.message ?? t('creatorCoin.somethingWentWrong'),
       );
     } finally {
       dispatch(hideLoader());
@@ -239,22 +232,18 @@ export default function CreatorCoin() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed':
-        return '#10b981';
-      case 'pending':
-        return '#f59e0b';
-      case 'requires_onboarding':
-        return '#ef4444';
-      default:
-        return '#ef4444';
+      case 'completed':  return '#10b981';
+      case 'pending':    return '#f59e0b';
+      case 'requires_onboarding': return '#ef4444';
+      default:           return '#ef4444';
     }
   };
 
   const getStatusText = (status) => {
-    if (status === 'requires_onboarding') {
-      return 'Setup Required';
-    }
-    return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
+    if (status === 'requires_onboarding') return t('creatorCoin.statusSetupRequired');
+    return status
+      ? status.charAt(0).toUpperCase() + status.slice(1)
+      : t('creatorCoin.statusPending');
   };
 
   const renderWithdrawItem = (item, index) => {
@@ -275,17 +264,14 @@ export default function CreatorCoin() {
             <Text style={styles.withdrawDate}>
               {new Date(item.createdAt).toLocaleString('en-IN', {
                 dateStyle: 'medium',
-                timeStyle: 'short'
+                timeStyle: 'short',
               })}
             </Text>
           </View>
         </View>
         <View style={styles.withdrawRight}>
           <View style={styles.statusContainer}>
-            <Text style={[
-              styles.withdrawStatus,
-              { color: getStatusColor(item.status) }
-            ]}>
+            <Text style={[styles.withdrawStatus, { color: getStatusColor(item.status) }]}>
               {getStatusText(item.status)}
             </Text>
           </View>
@@ -303,11 +289,12 @@ export default function CreatorCoin() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Creator coin</Text>
-        <TouchableOpacity onPress={() => { navigation.navigate('ShareProfile', { userData: data }); }}>
+        <Text style={styles.headerTitle}>{t('creatorCoin.headerTitle')}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('ShareProfile', { userData: data })}>
           <Ionicons name="share-outline" size={24} color="black" />
         </TouchableOpacity>
       </View>
+
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         onScroll={handleScroll}
@@ -318,8 +305,8 @@ export default function CreatorCoin() {
             onRefresh={onRefresh}
             colors={['#783eb9a9']}
           />
-        }>
-
+        }
+      >
         {/* Profile + Price */}
         <View style={styles.priceSection}>
           <View style={styles.username}>
@@ -337,7 +324,7 @@ export default function CreatorCoin() {
         <View style={[styles.balanceBox, bgStyle]}>
           <Image source={{ uri: avatarUri }} style={styles.balanceAvatar} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.balanceTitle}>Your balance</Text>
+            <Text style={styles.balanceTitle}>{t('creatorCoin.yourBalance')}</Text>
             <Text style={styles.balanceValue}>${data?.tokenBalance}</Text>
           </View>
         </View>
@@ -346,20 +333,32 @@ export default function CreatorCoin() {
         {onboardingStatus != null && (
           <View style={[styles.stripeStatusBox, bgStyle]}>
             <View style={styles.stripeStatusRow}>
-              <Text style={styles.detailLabel}>Stripe payments</Text>
-              <Text style={[styles.stripeStatusBadge, { color: onboardingStatus.canReceivePayments ? '#10b981' : '#f59e0b' }]}>
-                {onboardingStatus.canReceivePayments ? 'Active' : 'Setup required'}
+              <Text style={styles.detailLabel}>{t('creatorCoin.stripePayments')}</Text>
+              <Text style={[
+                styles.stripeStatusBadge,
+                { color: onboardingStatus.canReceivePayments ? '#10b981' : '#f59e0b' }
+              ]}>
+                {onboardingStatus.canReceivePayments
+                  ? t('creatorCoin.stripeActive')
+                  : t('creatorCoin.stripeSetupRequired')}
               </Text>
             </View>
             {onboardingStatus.accountId ? (
               <View style={styles.stripeStatusRow}>
-                <Text style={styles.detailLabel}>Stripe account</Text>
-                <Text style={styles.detailValue} numberOfLines={1}>{onboardingStatus.accountId}</Text>
+                <Text style={styles.detailLabel}>{t('creatorCoin.stripeAccount')}</Text>
+                <Text style={styles.detailValue} numberOfLines={1}>
+                  {onboardingStatus.accountId}
+                </Text>
               </View>
             ) : null}
             {!onboardingStatus.canReceivePayments && (
-              <TouchableOpacity style={[styles.stripeSetupButton, { backgroundColor: text }]} onPress={() => setShowConnectStripeModal(true)}>
-                <Text style={styles.stripeSetupButtonText}>Complete Stripe setup to receive payments</Text>
+              <TouchableOpacity
+                style={[styles.stripeSetupButton, { backgroundColor: text }]}
+                onPress={() => setShowConnectStripeModal(true)}
+              >
+                <Text style={styles.stripeSetupButtonText}>
+                  {t('creatorCoin.stripeSetupCta')}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -369,13 +368,15 @@ export default function CreatorCoin() {
         <View style={styles.statsRow}>
           <View>
             <TouchableOpacity>
-              <Text style={styles.statLabel}>Holders</Text>
-              <Text style={styles.statValue}>{userDashboard?.totalFollowers ? userDashboard?.totalFollowers : 0}</Text>
+              <Text style={styles.statLabel}>{t('creatorCoin.holders')}</Text>
+              <Text style={styles.statValue}>
+                {userDashboard?.totalFollowers ?? 0}
+              </Text>
             </TouchableOpacity>
           </View>
           <View>
             <TouchableOpacity>
-              <Text style={styles.statLabel}>Total volume</Text>
+              <Text style={styles.statLabel}>{t('creatorCoin.totalVolume')}</Text>
               <Text style={styles.statValue}>${data?.tokenBalance}</Text>
             </TouchableOpacity>
           </View>
@@ -389,34 +390,39 @@ export default function CreatorCoin() {
             contentContainerStyle={styles.buttonRow}
           >
             <TouchableOpacity style={[styles.smallBtn, bgStyle]} onPress={copyToClipboard}>
-              <Text style={styles.smallBtnText}>Copy address</Text>
+              <Text style={styles.smallBtnText}>{t('creatorCoin.copyAddress')}</Text>
               <Ionicons name="copy-outline" size={15} color="#000" />
             </TouchableOpacity>
             <TouchableOpacity style={[styles.smallBtn, bgStyle]}>
               <Ionicons name="remove-circle-outline" size={15} color="#000" />
-              <Text style={styles.smallBtnText}>Basescan</Text>
+              <Text style={styles.smallBtnText}>{t('creatorCoin.basescan')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
 
         <View style={[styles.detailsBox, bgStyle]}>
           <View style={[styles.detailRow, bgStyle]}>
-            <Text style={styles.detailLabel}>Contract address</Text>
+            <Text style={styles.detailLabel}>{t('creatorCoin.contractAddress')}</Text>
             <TouchableOpacity onPress={copyToClipboard} style={styles.adressCopy}>
-              <Text style={styles.detailValue}>{data?.walletAddress.trim().slice(0, 12) + '....'}</Text>
+              <Text style={styles.detailValue}>
+                {data?.walletAddress.trim().slice(0, 12) + '....'}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Created</Text>
+            <Text style={styles.detailLabel}>{t('creatorCoin.created')}</Text>
             <Text style={styles.detailValue}>
-              {new Date(data?.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+              {new Date(data?.createdAt).toLocaleString('en-IN', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
             </Text>
           </View>
         </View>
 
         {/* Withdraw History Section */}
         <View style={styles.historySection}>
-          <Text style={styles.historyTitle}>Withdraw History</Text>
+          <Text style={styles.historyTitle}>{t('creatorCoin.withdrawHistory')}</Text>
 
           {displayedTransactions.length > 0 ? (
             <>
@@ -425,18 +431,18 @@ export default function CreatorCoin() {
               {isLoadingMore && (
                 <View style={styles.loadingMore}>
                   <ActivityIndicator size="small" color="#783eb9" />
-                  <Text style={styles.loadingText}>Loading more...</Text>
+                  <Text style={styles.loadingText}>{t('creatorCoin.loadingMore')}</Text>
                 </View>
               )}
 
               {displayedTransactions.length >= withdrawHistory.length && withdrawHistory.length > 0 && (
-                <Text style={styles.endText}>No more transactions</Text>
+                <Text style={styles.endText}>{t('creatorCoin.noMoreTransactions')}</Text>
               )}
             </>
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="wallet-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>No withdrawal history yet</Text>
+              <Text style={styles.emptyText}>{t('creatorCoin.noWithdrawHistory')}</Text>
             </View>
           )}
         </View>
@@ -445,12 +451,12 @@ export default function CreatorCoin() {
       {/* Trade Button */}
       <TouchableOpacity
         style={[styles.tradeButton, { backgroundColor: text }]}
-        onPress={() => { withdrawSheetRef.current?.open?.() }}
+        onPress={() => withdrawSheetRef.current?.open?.()}
       >
-        <Text style={styles.tradeText}>Withdraw</Text>
+        <Text style={styles.tradeText}>{t('creatorCoin.withdrawButton')}</Text>
       </TouchableOpacity>
 
-      {/* Token Purchase Modal */}
+      {/* Withdrawal Bottom Sheet */}
       <RBSheet
         ref={withdrawSheetRef}
         height={500}
@@ -458,19 +464,10 @@ export default function CreatorCoin() {
         draggable={true}
         closeOnPressMask={true}
         customModalProps={{ statusBarTranslucent: true }}
-        onClose={() => {
-          Keyboard.dismiss();
-        }}
+        onClose={() => Keyboard.dismiss()}
         customStyles={{
-          container: [{
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            bottom: -30,
-          }, bgStyle],
-          draggableIcon: {
-            backgroundColor: '#ccc',
-            width: 60,
-          },
+          container: [{ borderTopLeftRadius: 30, borderTopRightRadius: 30, bottom: -30 }, bgStyle],
+          draggableIcon: { backgroundColor: '#ccc', width: 60 },
         }}
       >
         <WithdrawalModal
@@ -492,22 +489,26 @@ export default function CreatorCoin() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Ionicons name="alert-circle" size={50} color="#783eb9" />
-              <Text style={styles.modalTitle}>Complete Onboarding</Text>
+              <Text style={styles.modalTitle}>{t('creatorCoin.onboardingModalTitle')}</Text>
             </View>
-            
+
             <View style={styles.modalBody}>
               <Text style={styles.modalDescription}>
-                You have{' '}
+                {t('creatorCoin.onboardingModalYouHave')}{' '}
                 <Text style={styles.modalAmount}>
-                  {pendingWithdrawal?.count} pending withdrawal{pendingWithdrawal?.count > 1 ? 's' : ''}
+                  {pendingWithdrawal?.count}{' '}
+                  {t('creatorCoin.onboardingModalPendingWithdrawal')}
+                  {pendingWithdrawal?.count > 1 ? t('creatorCoin.onboardingModalPluralSuffix') : ''}
                 </Text>
-                {' '}totaling{' '}
+                {' '}{t('creatorCoin.onboardingModalTotaling')}{' '}
                 <Text style={styles.modalAmount}>
                   ${pendingWithdrawal?.totalAmount}
                 </Text>
               </Text>
               <Text style={styles.modalSubtext}>
-                To complete {pendingWithdrawal?.count > 1 ? 'these withdrawals' : 'this withdrawal'}, you need to finish the onboarding process. Would you like to proceed?
+                {pendingWithdrawal?.count > 1
+                  ? t('creatorCoin.onboardingModalSubtextPlural')
+                  : t('creatorCoin.onboardingModalSubtextSingular')}
               </Text>
             </View>
 
@@ -516,14 +517,14 @@ export default function CreatorCoin() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={handleCancelOnboarding}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{t('creatorCoin.cancel')}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
                 onPress={handleConfirmOnboarding}
               >
-                <Text style={styles.confirmButtonText}>Proceed</Text>
+                <Text style={styles.confirmButtonText}>{t('creatorCoin.proceed')}</Text>
               </TouchableOpacity>
             </View>
           </View>

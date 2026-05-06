@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useLanguage } from '../../i18n';
+import { useLanguage } from '../../../i18n';
 
 const CameraScreen = ({ mode = 'photo', onCapture, onCancel }) => {
   const camera = useRef(null);

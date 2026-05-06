@@ -1,145 +1,96 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native'
-import React from 'react'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useAppTheme } from '../../theme/useApptheme'
-import { useNavigation } from '@react-navigation/native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../../i18n';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useNavigation } from '@react-navigation/native';
 
 const TermConditionScreen = () => {
     const { bgStyle, textStyle } = useAppTheme();
     const navigation = useNavigation();
-    
+    const { t } = useLanguage();
+
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-                <TouchableOpacity 
-                    onPress={() => navigation.goBack()} 
-                    style={styles.closeButton}
-                    activeOpacity={0.7}
-                >
-                    <Text style={[styles.closeIcon, textStyle]}>✕</Text>
-                </TouchableOpacity>
+            <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.closeButton}
+                activeOpacity={0.7}
+            >
+                <Text style={[styles.closeIcon, textStyle]}>✕</Text>
+            </TouchableOpacity>
+
             <View style={styles.header}>
                 <Text style={[styles.heading, textStyle]}>
-                    VALENS MASTER SUBSCRIPTOR POLICY
+                    {t('termCondition.screenTitle')}
                 </Text>
                 <View style={styles.placeholder} />
             </View>
-            
+
             {/* SCROLL CONTENT */}
             <ScrollView
                 style={styles.scrollBox}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                <Text style={styles.sectionTitle}>1. Overview</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section1Title')}</Text>
                 <Text style={styles.text}>
-                    This Master Subscription Policy applies to all users participating in the Valens
-                    subscription ecosystem, including Plan Owners and Subscribers. By activating or
-                    subscribing, users agree to this policy, including Valens Terms of Use, Privacy
-                    Policy, and Payout Policy.
+                    {t('termCondition.section1Text')}
                 </Text>
 
-                {/* PART A */}
-                {/* <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
+                {/* PART A — SUBSCRIBERS */}
+                <Text style={styles.partTitle}>{t('termCondition.partATitle')}</Text>
 
-                <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section2Title')}</Text>
                 <Text style={styles.text}>
-                    When you activate a subscription plan, you become a Plan Owner. You may create private
-                    channels, define perks, and set monthly subscription prices between $9.99 USD and
-                    $100.00 USD.
+                    {t('termCondition.section2Text')}
                 </Text>
 
-                <Text style={styles.sectionTitle}>3. Platform Fees</Text>
-
-                <Text style={styles.subSection}>3.1 Monthly Maintenance Fee</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section3Title')}</Text>
                 <Text style={styles.text}>
-                    Valens charges $19.99 USD/month for hosting and operating your subscription channel.
+                    {t('termCondition.section3Text')}
                 </Text>
 
-                <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
-                <Text style={styles.text}>A 5% withdrawal fee applies to every payout request.</Text>
-
-                <Text style={styles.subSection}>3.3 Billing Authorization</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section4Title')}</Text>
                 <Text style={styles.text}>
-                    By enabling your plan, you authorize Valens to charge maintenance fees and deduct
-                    payout withdrawal fees automatically.
+                    {t('termCondition.section4Text')}
                 </Text>
 
-                <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section5Title')}</Text>
                 <Text style={styles.text}>
-                    Earnings are visible in the Creator Dashboard. Payouts follow the Payout Policy. KYC
-                    verification is required. You must report earnings to tax authorities.
+                    {t('termCondition.section5Text')}
                 </Text>
 
-                <Text style={styles.sectionTitle}>5. Content Responsibilities</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section6Title')}</Text>
                 <Text style={styles.text}>
-                    All private content must follow Valens guidelines. Illegal, harmful, abusive, or
-                    fraudulent content is prohibited.
+                    {t('termCondition.section6Text')}
                 </Text>
 
-                <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
-                <Text style={styles.text}>
-                    Valens may restrict monetization, freeze payouts, remove content, or disable plans
-                    upon violations.
-                </Text> */}
+                {/* PART B — GENERAL TERMS */}
+                <Text style={styles.partTitle}>{t('termCondition.partBTitle')}</Text>
 
-                {/* PART B */}
-                <Text style={styles.partTitle}>PART A — TERMS FOR SUBSCRIBERS</Text>
-
-                <Text style={styles.sectionTitle}>2. Subscription Access</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section7Title')}</Text>
                 <Text style={styles.text}>
-                    Subscribers gain access to exclusive private content and perks. Access is
-                    non-transferable.
+                    {t('termCondition.section7Text')}
                 </Text>
 
-                <Text style={styles.sectionTitle}>3. Monthly Billing & Auto-Renewal</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section8Title')}</Text>
                 <Text style={styles.text}>
-                    By subscribing, you authorize Valens to bill you monthly until cancellation.
+                    {t('termCondition.section8Text')}
                 </Text>
 
-                <Text style={styles.sectionTitle}>4. Cancellation</Text>
+                <Text style={styles.sectionTitle}>{t('termCondition.section9Title')}</Text>
                 <Text style={styles.text}>
-                    You may cancel anytime. Access remains until the end of the billing period. No
-                    partial refunds.
-                </Text>
-
-                <Text style={styles.sectionTitle}>5. No Refunds</Text>
-                <Text style={styles.text}>
-                    All subscription payments are final and non-refundable, including unused periods.
-                </Text>
-
-                <Text style={styles.sectionTitle}>6. Content Protection</Text>
-                <Text style={styles.text}>
-                    Subscribers may NOT screenshot, record, download, print, or share subscription
-                    content. Violations may result in a security block.
-                </Text>
-
-                {/* PART C */}
-                <Text style={styles.partTitle}>PART B — GENERAL TERMS</Text>
-
-                <Text style={styles.sectionTitle}>7. Safety & Compliance</Text>
-                <Text style={styles.text}>
-                    All interactions must comply with Valens Community Guidelines and legal requirements.
-                </Text>
-
-                <Text style={styles.sectionTitle}>8. Platform Rights</Text>
-                <Text style={styles.text}>
-                    Valens may update fees, freeze suspicious activity, restrict payouts, or suspend
-                    programs.
-                </Text>
-
-                <Text style={styles.sectionTitle}>9. Agreement to Terms</Text>
-                <Text style={styles.text}>
-                    By using subscription features, you agree to this policy and authorize Valens to
-                    manage charges and fees.
+                    {t('termCondition.section9Text')}
                 </Text>
 
                 <View style={{ marginTop: 20 }} />
             </ScrollView>
         </SafeAreaView>
-    )
-}
+    );
+};
 
-export default TermConditionScreen
+export default TermConditionScreen;
 
 const styles = StyleSheet.create({
     container: {
