@@ -462,6 +462,7 @@ const ReelItem = React.memo(
     currentUserId,
     sideActionsBottom,
     bottomContentBottom,
+    horizontalActionsBottom,
     // stable callbacks
     onPinchLockChange,
     handleVideoLoad,
@@ -526,7 +527,11 @@ const ReelItem = React.memo(
         />
 
         {/* Horizontal actions */}
-        <View style={styles.horizontalActions}>
+        <View
+          style={[
+            styles.horizontalActions,
+            { bottom: horizontalActionsBottom },
+          ]}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => togglePlaybackSpeed(item.id)}
@@ -602,17 +607,35 @@ const ReelItem = React.memo(
                 borderWidth={0.5}
                 borderColor={textColor}
               />
-              <Text style={styles.username}>
-                {item.user}
-                {item.verified && (
-                  <Icon
-                    name="checkmark-circle"
-                    size={15}
-                    color="#1DA1F2"
-                    style={styles.verifiedIcon}
+              <View style={styles.userTextColumn}>
+                <View style={styles.usernameContainer}>
+                  <Text style={styles.username}>{item.user}</Text>
+                  {item.verified && (
+                    <Icon
+                      name="checkmark-circle"
+                      size={15}
+                      color="#1DA1F2"
+                      style={styles.verifiedIcon}
+                    />
+                  )}
+                </View>
+                <View style={styles.musicRow}>
+                  <Feather
+                    name="music"
+                    size={12}
+                    color="#fff"
+                    style={styles.musicIcon}
                   />
-                )}
-              </Text>
+                  <CustomMarquee
+                    speed={3}
+                    loop
+                    delay={1000}
+                    style={styles.musicMarquee}
+                    textStyle={{ fontSize: 13, color: 'white' }}>
+                    {item.music}
+                  </CustomMarquee>
+                </View>
+              </View>
               {!isOwnReel && (
                 <TouchableOpacity
                   style={styles.followButton}
@@ -626,28 +649,6 @@ const ReelItem = React.memo(
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
-          </View>
-          <View
-            style={{
-              flexDirection: 'row',
-              marginBottom: 7,
-              marginTop: -12,
-              left: 38,
-            }}>
-            <Feather
-              name="music"
-              size={12}
-              color="#fff"
-              style={styles.musicIcon}
-            />
-            <CustomMarquee
-              speed={3}
-              loop
-              delay={1000}
-              style={{ width: 80, maxWidth: 250, left: 8 }}
-              textStyle={{ fontSize: 13, color: 'white' }}>
-              {item.music}
-            </CustomMarquee>
           </View>
           <Text style={styles.caption} numberOfLines={2}>
             {item.caption}
@@ -690,7 +691,8 @@ const ReelItem = React.memo(
       prev.heartAnimatingId === next.heartAnimatingId &&
       prev.followingBusy === next.followingBusy &&
       prev.windowWidth === next.windowWidth &&
-      prev.viewportHeight === next.viewportHeight
+      prev.viewportHeight === next.viewportHeight &&
+      prev.horizontalActionsBottom === next.horizontalActionsBottom
     );
   },
 );
@@ -785,11 +787,15 @@ export default function FlipsScreen() {
 
   const viewportHeight = Math.max(1, windowHeight);
   const tabBarHeight = useBottomTabBarHeight();
-  const bottomOverlayInset = Math.max(
-    tabBarHeight + (Platform.OS === 'ios' ? 10 : 12),
-  );
-  const bottomContentBottom = bottomOverlayInset + 20;
-  const sideActionsBottom = bottomOverlayInset + 8;
+  const isIOS = Platform.OS === 'ios';
+  const bottomOverlayInset = tabBarHeight + (isIOS ? 6 : 8);
+  const bottomContentBottom = isIOS
+    ? Math.max(26, bottomOverlayInset + 2)
+    : Math.max(6, bottomOverlayInset - 30);
+  const sideActionsBottom = isIOS
+    ? bottomContentBottom - 14
+    : bottomContentBottom - 18;
+  const horizontalActionsBottom = bottomContentBottom + (isIOS ? 112 : 100);
 
   const scrubAnim = useRef(new Animated.Value(0)).current;
 
@@ -1949,6 +1955,7 @@ export default function FlipsScreen() {
         currentUserId={currentUserId}
         sideActionsBottom={sideActionsBottom}
         bottomContentBottom={bottomContentBottom}
+        horizontalActionsBottom={horizontalActionsBottom}
         onPinchLockChange={onPinchLockChange}
         handleVideoLoad={handleVideoLoad}
         handleVideoProgress={handleVideoProgress}
@@ -1986,6 +1993,7 @@ export default function FlipsScreen() {
       currentUserId,
       sideActionsBottom,
       bottomContentBottom,
+      horizontalActionsBottom,
       onPinchLockChange,
       handleVideoLoad,
       handleVideoProgress,
@@ -2611,18 +2619,17 @@ const styles = StyleSheet.create({
   buttons: { padding: 8 },
   horizontalActions: {
     position: 'absolute',
-    bottom: 190,
     left: 10,
     right: 80,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 10,
-    gap: 30,
+    gap: 26,
   },
   actionButton: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
   actionSvgIcon: { opacity: 1 },
   actionSvgIconInactive: { opacity: 0.7 },
@@ -2646,10 +2653,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
-  userInfo: { marginBottom: 8 },
-  userRow: { flexDirection: 'row', alignItems: 'center' },
+  userInfo: { marginBottom: 4 },
+  userRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  userTextColumn: {
+    flex: 1,
+    marginLeft: 8,
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   userAvatar: {
     width: 32,
     height: 32,
@@ -2660,7 +2679,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
-    flex: 1,
   },
   verifiedIcon: { marginLeft: 6 },
   followButton: {
@@ -2670,6 +2688,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 4,
+    marginLeft: 10,
+    marginTop: 2,
   },
   followButtonText: {
     color: '#fff',
@@ -2680,12 +2700,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     lineHeight: 18,
-    marginBottom: 8,
+    marginBottom: 4,
+    marginLeft: 0,
   },
-  likedBySection: { marginBottom: 4 },
+  likedBySection: { marginBottom: 0, marginLeft: 0 },
   likedByText: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
   likedByBold: { fontWeight: 'bold', color: '#fff' },
-  musicIcon: { marginTop: 4 },
+  musicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  musicMarquee: { width: 110, maxWidth: 250, marginLeft: 8 },
+  musicIcon: { marginTop: 0 },
   dropdownOverlay: {
     position: 'absolute',
     top: 0,
