@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 
@@ -24,7 +24,18 @@ const normalizeBattleItem = raw => {
     pickFirst(raw?._count?.participants, raw?.participantsCount, raw?.votes, 0),
   );
   const stake = Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0));
-  const endTime = pickFirst(raw?.endTime, raw?.endsAt, raw?.resolvedAt, null);
+  const endTime = pickFirst(
+    raw?.endTime,
+    raw?.end_time,
+    raw?.endsAt,
+    raw?.ends_at,
+    raw?.endDate,
+    raw?.end_date,
+    raw?.expiryTime,
+    raw?.expiresAt,
+    // raw?.resolvedAt,
+    null,
+  );
   const type = String(pickFirst(raw?.battleType, raw?.type, 'opinion')).toLowerCase();
 
   return {
@@ -63,8 +74,14 @@ const emptySummary = {
 
 const formatDate = value => {
   if (!value) return 'No end date';
-  const parsed = new Date(value);
+
+  const parsed =
+    typeof value === 'number'
+      ? new Date(value < 10_000_000_000 ? value * 1000 : value)
+      : new Date(value);
+
   if (Number.isNaN(parsed.getTime())) return 'No end date';
+
   return parsed.toLocaleDateString();
 };
 
@@ -112,11 +129,12 @@ export default function ProfileBattleHub({
     setLoading(true);
     try {
       const response = await battleByUserId({ params: { userId: viewedUserId } });
-      console.log(response,'data in this apiiaa')
-      const rawBattles =
-        response?.data?.battles ||
-        response?.data?.data ||
-        response?.data ||
+      const payload = response?.data?.data ?? response?.data ?? response ?? {};
+      const rawBattles = Array.isArray(payload)
+        ? payload
+        : payload?.battles ||
+        payload?.data?.battles ||
+        payload?.data ||
         response?.battles ||
         [];
 
@@ -131,10 +149,6 @@ export default function ProfileBattleHub({
       setLoading(false);
     }
   }, [viewedUserId]);
-    useEffect(() => {
-    loadBattles();
-  }, []);
-
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {
       setBattlePointSummary(emptySummary);
@@ -143,7 +157,6 @@ export default function ProfileBattleHub({
 
     try {
       const response = await battlePoint({ params: { userId: viewedUserId } });
-      console.log(response,'data in this ao')
       const rawData =
         response?.data?.data ||
         response?.data ||
@@ -168,10 +181,6 @@ export default function ProfileBattleHub({
         ).length,
         points: Number(totals?.totalBattlePoints || 0),
       });
-
-      if (rawItems.length > 0) {
-        setBattles(rawItems.map(normalizeBattleItem).filter(item => item.id));
-      }
     } catch (_err) {
       setBattlePointSummary(emptySummary);
     }
@@ -181,6 +190,13 @@ export default function ProfileBattleHub({
     loadBattles();
     getBattlePoint();
   }, [loadBattles, getBattlePoint]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBattles();
+      getBattlePoint();
+    }, [getBattlePoint, loadBattles]),
+  );
 
   const stats = useMemo(
     () => [

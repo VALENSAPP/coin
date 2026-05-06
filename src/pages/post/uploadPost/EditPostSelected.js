@@ -229,6 +229,8 @@ const InstagramPostCreator = () => {
   const [editorRegionLayoutHeight, setEditorRegionLayoutHeight] = useState(0);
   const [tagSearch, setTagSearch] = useState('');
   const [selectedTaggedPeople, setSelectedTaggedPeople] = useState([]);
+  // username -> userId (so backend can notify tagged users)
+  const [selectedTaggedPeopleIds, setSelectedTaggedPeopleIds] = useState({});
   const [userSuggestions, setUserSuggestions] = useState([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const userSearchTimeoutRef = useRef(null);
@@ -290,12 +292,23 @@ const InstagramPostCreator = () => {
       try {
         const response = await getAllUser({ userName: tagSearch.trim() });
         if (activeSearchRequestIdRef.current !== requestId) return;
-        const users = Array.isArray(response?.data?.users) ? response.data.users : [];
+
+        // Backend responses vary; support common wrappers:
+        // - { data: { users: [...] } }
+        // - { data: { data: { users: [...] } } }
+        const users = Array.isArray(response?.data?.users)
+          ? response.data.users
+          : Array.isArray(response?.data?.data?.users)
+            ? response.data.data.users
+            : Array.isArray(response?.data?.result?.users)
+              ? response.data.result.users
+              : [];
         setUserSuggestions(
           users
             .map(user => ({
               ...user,
               _username: String(user?.userName || user?.username || '').trim().replace(/^@+/, ''),
+              _userId: String(user?._id || user?.id || user?.userId || user?.userid || '').trim(),
             }))
             .filter(user => user._username && !selectedTaggedPeople.includes(user._username))
             .slice(0, 12),
@@ -412,13 +425,26 @@ const InstagramPostCreator = () => {
   const handleSelectTagUser = user => {
     const username = String(user?._username || user?.userName || user?.username || '').trim().replace(/^@+/, '');
     if (!username) return;
+
+    const userIdRaw = user?._userId || user?._id || user?.id || user?.userId || user?.userid;
+    const userId = String(userIdRaw || '').trim();
+
     setSelectedTaggedPeople(prev => (prev.includes(username) ? prev : [...prev, username]));
+    if (userId) {
+      setSelectedTaggedPeopleIds(prev => ({ ...(prev || {}), [username]: userId }));
+    }
     setTagSearch('');
     setUserSuggestions([]);
   };
 
   const handleRemoveTaggedPerson = username => {
     setSelectedTaggedPeople(prev => prev.filter(person => person !== username));
+    setSelectedTaggedPeopleIds(prev => {
+      if (!prev || typeof prev !== 'object') return {};
+      const next = { ...prev };
+      delete next[username];
+      return next;
+    });
   };
 
   const overlayGestureState = useRef({});
@@ -1090,7 +1116,24 @@ const InstagramPostCreator = () => {
           return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
       );
-      navigation.navigate('PostEditor', { images: processedImages, imageEdits, postType, fromIcon, taggedPeople: selectedTaggedPeople });
+
+      console.log('Successfully processed images/videos with overlays', processedImages);
+
+      navigation.navigate('PostEditor', {
+        images: processedImages,
+        imageEdits: imageEdits,
+        postType: postType,
+        fromIcon: fromIcon,
+        taggedPeople: selectedTaggedPeople,
+        taggedPeopleIds: selectedTaggedPeople
+          .map(username => selectedTaggedPeopleIds?.[username])
+          .filter(Boolean),
+        taggedPeopleMeta: selectedTaggedPeople.map(username => ({
+          username,
+          userId: selectedTaggedPeopleIds?.[username] || null,
+        })),
+      });
+
     } catch (error) {
       console.log('Error processing images:', error);
       Alert.alert(
@@ -1103,7 +1146,54 @@ const InstagramPostCreator = () => {
             onPress: () => {
               const fallbackImages = selectedImages.map((image, index) => {
                 const edits = imageEdits[index] || createEmptyImageEdits();
-                return { ...image, originalUri: getMediaDisplayUri(image), processedUri: edits.processedImageUri || getMediaDisplayUri(image), filter: edits.filter, isVideo: isMediaVideo(image), trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
+
+                return {
+                  ...image,
+                  originalUri: getMediaDisplayUri(image),
+                  processedUri: edits.processedImageUri || getMediaDisplayUri(image),
+                  filter: edits.filter,
+                  isVideo: isMediaVideo(image),
+                  trimStart: edits.trimStart,
+                  trimEnd: edits.trimEnd,
+                  musicId: edits.musicId,
+                  musicTitle: edits.musicTitle,
+                  musicArtist: edits.musicArtist,
+                  musicSource: edits.musicSource,
+                  musicYoutubeVideoId: edits.musicYoutubeVideoId,
+                  musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl,
+                  musicYoutubeDurationSec: edits.musicYoutubeDurationSec,
+                  musicTrimStart: edits.musicTrimStart ?? 0,
+                  musicTrimEnd: edits.musicTrimEnd ?? null,
+                  musicLyrics: edits.musicLyrics ?? null,
+                  musicBadge: edits.musicBadge ?? null,
+                  flipVolume: flipVolumeByIndex[index] ?? 1,
+                  textOverlays: edits.textOverlays.map(overlay => ({
+                    ...overlay,
+                    position: overlay.position || { x: 0, y: 0 }
+                  })),
+                  overlayImages: edits.overlayImages.map(overlay => ({
+                    ...overlay,
+                    position: overlay.position || { x: 0, y: 0 }
+                  })),
+                  drawings: edits.drawings,
+                  uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing,
+                  imageIndex: index
+                };
+              });
+
+              navigation.navigate('PostEditor', {
+                images: fallbackImages,
+                imageEdits: imageEdits,
+                postType: postType,
+                fromIcon: fromIcon,
+                taggedPeople: selectedTaggedPeople,
+                taggedPeopleIds: selectedTaggedPeople
+                  .map(username => selectedTaggedPeopleIds?.[username])
+                  .filter(Boolean),
+                taggedPeopleMeta: selectedTaggedPeople.map(username => ({
+                  username,
+                  userId: selectedTaggedPeopleIds?.[username] || null,
+                })),
               });
               navigation.navigate('PostEditor', { images: fallbackImages, imageEdits, postType, fromIcon, taggedPeople: selectedTaggedPeople });
             }

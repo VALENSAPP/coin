@@ -43,6 +43,8 @@ const PostEditorScreen = () => {
     postType,
     fromIcon,
     taggedPeople = [],
+    taggedPeopleIds = [],
+    taggedPeopleMeta = [],
   } = route.params || {};
   const [editorImages, setEditorImages] = useState(images);
   const [caption, setCaption] = useState('');
@@ -112,14 +114,19 @@ const PostEditorScreen = () => {
         caption,
         link,
         taggedPeople,
+        taggedPeopleIds,
+        taggedPeopleMeta,
       });
       return;
     }
 
     dispatch(showLoader());
-    const payload = {
+    const payload = { 
       caption: caption.trim(),
-      taggedPeople: Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
+      taggedPeople:taggedPeopleIds ,
+      // Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
+      // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length ? { taggedPeopleIds } : {}),
+      // ...(Array.isArray(taggedPeopleMeta) && taggedPeopleMeta.length ? { taggedPeopleMeta } : {}),
       media: editorImages.map(img => ({
         uri: getMediaUri(img),
         type: img.type,

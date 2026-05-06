@@ -25,6 +25,15 @@ export const createPost = async data => {
     formData.append("taggedPeople", data.taggedPeople);
   }
 
+  if (Array.isArray(data.taggedPeopleIds) && data.taggedPeopleIds.length > 0) {
+    // Send as JSON so backend can parse reliably from multipart form-data.
+    formData.append("taggedPeopleIds", JSON.stringify(data.taggedPeopleIds));
+  }
+
+  if (Array.isArray(data.taggedPeopleMeta) && data.taggedPeopleMeta.length > 0) {
+    formData.append("taggedPeopleMeta", JSON.stringify(data.taggedPeopleMeta));
+  }
+
   if (data.type) {
     formData.append("type", data.type);
   }
