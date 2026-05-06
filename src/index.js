@@ -66,6 +66,7 @@ export default function Main() {
   const isLoggedInRef = useRef(false);
   const isLoadingRef = useRef(true);
   const appState = useRef(AppState.currentState);
+  const welcomeModalCloseInFlight = useRef(false);
 
   useEffect(() => {
     isNavigationReadyRef.current = isNavigationReady;
@@ -157,23 +158,20 @@ export default function Main() {
     }
   }, [isLoggedIn]);
 
-  const handleWelcomeModalClose = React.useCallback(async () => {
+  const handleWelcomeModalClose = async () => {
+    if (welcomeModalCloseInFlight.current) return;
+    welcomeModalCloseInFlight.current = true;
+
     setWelcomeModalVisible(false);
+
     try {
-      const id = await AsyncStorage.getItem('userId');
-      if (id) {
-        await updatLoginModal(id);
-      }
-      
-    } catch (e) {
-      console.log('updatLoginModal failed:', e?.message || e);
+      await updatLoginModal();
+    } catch (error) {
+      console.log('Failed to update first login after KYC:', error?.message || error);
     } finally {
-      await AsyncStorage.multiSet([
-        [KYC_WELCOME_SHOWN_KEY, 'true'],
-        [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-      ]);
+      welcomeModalCloseInFlight.current = false;
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (!isLoggedIn) {

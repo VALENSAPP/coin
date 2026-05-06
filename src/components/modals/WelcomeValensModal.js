@@ -1,4 +1,4 @@
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from "react-native";
 import React from "react";
 import { useAppTheme } from "../../theme/useApptheme";
 
@@ -12,8 +12,8 @@ export default function WelcomeValensModal({ visible, onClose }) {
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.modalContent, bgStyle]}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={[styles.modalContent, bgStyle]} onPress={() => {}}>
           <Text style={[styles.title, textStyle]}>Welcome, you are Valens!</Text>
           <Text style={styles.description}>
             Your KYC verification has been approved. You can now explore the app and start connecting with the community.
@@ -25,8 +25,8 @@ export default function WelcomeValensModal({ visible, onClose }) {
           >
             <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

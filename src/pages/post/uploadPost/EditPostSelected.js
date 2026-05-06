@@ -278,6 +278,8 @@ const InstagramPostCreator = () => {
   const [editorRegionLayoutHeight, setEditorRegionLayoutHeight] = useState(0);
   const [tagSearch, setTagSearch] = useState('');
   const [selectedTaggedPeople, setSelectedTaggedPeople] = useState([]);
+  // username -> userId (so backend can notify tagged users)
+  const [selectedTaggedPeopleIds, setSelectedTaggedPeopleIds] = useState({});
   const [userSuggestions, setUserSuggestions] = useState([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const userSearchTimeoutRef = useRef(null);
@@ -350,12 +352,22 @@ const InstagramPostCreator = () => {
         const response = await getAllUser({ userName: tagSearch.trim() });
         if (activeSearchRequestIdRef.current !== requestId) return;
 
-        const users = Array.isArray(response?.data?.users) ? response.data.users : [];
+        // Backend responses vary; support common wrappers:
+        // - { data: { users: [...] } }
+        // - { data: { data: { users: [...] } } }
+        const users = Array.isArray(response?.data?.users)
+          ? response.data.users
+          : Array.isArray(response?.data?.data?.users)
+            ? response.data.data.users
+            : Array.isArray(response?.data?.result?.users)
+              ? response.data.result.users
+              : [];
         setUserSuggestions(
           users
             .map(user => ({
               ...user,
               _username: String(user?.userName || user?.username || '').trim().replace(/^@+/, ''),
+              _userId: String(user?._id || user?.id || user?.userId || user?.userid || '').trim(),
             }))
             .filter(user => user._username && !selectedTaggedPeople.includes(user._username))
             .slice(0, 12),
@@ -552,13 +564,25 @@ const InstagramPostCreator = () => {
       .replace(/^@+/, '');
     if (!username) return;
 
+    const userIdRaw = user?._userId || user?._id || user?.id || user?.userId || user?.userid;
+    const userId = String(userIdRaw || '').trim();
+
     setSelectedTaggedPeople(prev => (prev.includes(username) ? prev : [...prev, username]));
+    if (userId) {
+      setSelectedTaggedPeopleIds(prev => ({ ...(prev || {}), [username]: userId }));
+    }
     setTagSearch('');
     setUserSuggestions([]);
   };
 
   const handleRemoveTaggedPerson = username => {
     setSelectedTaggedPeople(prev => prev.filter(person => person !== username));
+    setSelectedTaggedPeopleIds(prev => {
+      if (!prev || typeof prev !== 'object') return {};
+      const next = { ...prev };
+      delete next[username];
+      return next;
+    });
   };
 
   const overlayGestureState = useRef({});
@@ -2287,6 +2311,13 @@ const InstagramPostCreator = () => {
         postType: postType,
         fromIcon: fromIcon,
         taggedPeople: selectedTaggedPeople,
+        taggedPeopleIds: selectedTaggedPeople
+          .map(username => selectedTaggedPeopleIds?.[username])
+          .filter(Boolean),
+        taggedPeopleMeta: selectedTaggedPeople.map(username => ({
+          username,
+          userId: selectedTaggedPeopleIds?.[username] || null,
+        })),
       });
 
     } catch (error) {
@@ -2342,6 +2373,13 @@ const InstagramPostCreator = () => {
                 postType: postType,
                 fromIcon: fromIcon,
                 taggedPeople: selectedTaggedPeople,
+                taggedPeopleIds: selectedTaggedPeople
+                  .map(username => selectedTaggedPeopleIds?.[username])
+                  .filter(Boolean),
+                taggedPeopleMeta: selectedTaggedPeople.map(username => ({
+                  username,
+                  userId: selectedTaggedPeopleIds?.[username] || null,
+                })),
               });
             }
           }

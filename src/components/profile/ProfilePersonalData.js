@@ -1625,16 +1625,7 @@ const ProfilePersonData = ({
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
-      <WelcomeValensModal
-        visible={welcomeModalVisible}
-        onClose={async () => {
-          setWelcomeModalVisible(false);
-          await AsyncStorage.multiSet([
-            [KYC_WELCOME_SHOWN_KEY, 'true'],
-            [LEGACY_KYC_WELCOME_SHOWN_KEY, 'true'],
-          ]);
-        }}
-      />
+  
     
       {/* Profile Image Viewer Modal */}
         <Modal
