@@ -220,7 +220,7 @@ const ProfileTabs = memo(({
         >
           {renderPostsScreen}
         </Tab.Screen>
-        {userData?.profile === 'user' && (
+        {/* {userData?.profile === 'user' && ( */}
           <Tab.Screen
             name="Private Circle"
             options={{
@@ -244,7 +244,7 @@ const ProfileTabs = memo(({
           >
             {renderPrivateCircleScreen}
           </Tab.Screen>
-        )}
+        {/* )} */}
         {/* ✅ Reels tab now navigates to full screen */}
         <Tab.Screen
           name="Reels"

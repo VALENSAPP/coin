@@ -4,6 +4,8 @@ import {
   Text,
   Image,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -29,6 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const HEADER_HEIGHT = 56;
 
 const PostEditorScreen = () => {
   const navigation = useNavigation();
@@ -237,129 +240,120 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
-        <Text></Text>
-      </View>
-
-      <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
-        {/* Images Card with horizontal scroll */}
-        {editorImages.length > 0 && (
-          <View style={[styles.imagesCard, bgStyle]}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.imagesContainer}
-            >
-              {editorImages.map((img, idx) => (
-                <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
-                  {isMediaVideo(img) ? (
-                    <View style={styles.videoThumbContainer}>
-                      <Video
-                        source={{ uri: getMediaUri(img) }}
-                        style={styles.imageThumb}
-                        resizeMode="contain" paused={true}
-                        muted={true}
-                        controls={false}
-                        poster={getVideoPosterUri(img) || undefined}
-                      />
-                      <View style={styles.videoBadge}>
-                        <Icon name="play" size={14} color="#fff" />
-                      </View>
-                    </View>
-                  ) : (
-                    <Image
-                      source={{ uri: getMediaUri(img) }}
-                      style={styles.imageThumb}
-                      resizeMode="contain" />
-                  )}
-                  {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
-                    <TouchableOpacity
-                      style={styles.removeDrawingBtn}
-                      onPress={() => removeDrawingFromImage(idx)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
-                    </TouchableOpacity>
-                  )}
-                  {img.appliedFilter && img.appliedFilter !== 'none' && (
-                    <View style={styles.filterBadge}>
-                      <Text style={styles.filterBadgeText}>{img.filterName}</Text>
-                    </View>
-                  )}
-                  {/* {(img.textOverlays?.length > 0 ||
-                    img.overlayImages?.length > 0 ||
-                    img.hasDrawing) && (
-                      <View style={styles.overlayIndicators}>
-                        {img.textOverlays?.length > 0 && (
-                          <View style={styles.indicator}>
-                            <Text style={styles.indicatorText}>T</Text>
-                          </View>
-                        )}
-                        {img.overlayImages?.length > 0 && (
-                          <View style={styles.indicator}>
-                            <Text style={styles.indicatorText}>I</Text>
-                          </View>
-                        )}
-                        {img.hasDrawing && (
-                          <View style={styles.indicator}>
-                            <Text style={styles.indicatorText}>D</Text>
-                          </View>
-                        )}
-                      </View>
-                    )} */}
-                </View>
-              ))}
-
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Caption Input */}
-        {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
-          <View style={styles.captionSection}>
-            <Text style={styles.captionLabel}>Tagged people</Text>
-            <Text style={styles.taggedPeopleText}>
-              {taggedPeople.map((user, idx) => {
-                const clean = String(user).replace(/^@+/, '');
-                const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
-                return (
-                  <Text
-                    key={`${clean || 'user'}_${idx}`}
-                    style={[styles.taggedPeopleLink,{color:text}]}
-                    onPress={() => openTaggedUserProfile(clean)}
-                    suppressHighlighting
-                  >
-                    {label}
-                  </Text>
-                );
-              })}
-              {openingTaggedProfile ? (
-                <Text style={styles.taggedPeopleLoading}></Text>
-              ) : null}
-            </Text>
-          </View>
-        )}
-        <View style={styles.captionSection}>
-          <Text style={styles.captionLabel}>Write a caption (optional)</Text>
-          <TextInput
-            style={[styles.captionInput, bgStyle]}
-            placeholder="Write a caption (optional)"
-            value={caption}
-            onChangeText={setCaption}
-            multiline
-            textAlignVertical="top"
-            placeholderTextColor={'#e0e0e0'}
-          />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? HEADER_HEIGHT : 0}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
+          <Text></Text>
         </View>
 
-        {/* Link Input */}
-        {
-          postType == 'crowdfunding' && (
+        <ScrollView
+          style={[styles.content, bgStyle]}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Images Card with horizontal scroll */}
+          {editorImages.length > 0 && (
+            <View style={[styles.imagesCard, bgStyle]}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.imagesContainer}
+                keyboardShouldPersistTaps="handled"
+              >
+                {editorImages.map((img, idx) => (
+                  <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
+                    {isMediaVideo(img) ? (
+                      <View style={styles.videoThumbContainer}>
+                        <Video
+                          source={{ uri: getMediaUri(img) }}
+                          style={styles.imageThumb}
+                          resizeMode="contain"
+                          paused={true}
+                          muted={true}
+                          controls={false}
+                          poster={getVideoPosterUri(img) || undefined}
+                        />
+                        <View style={styles.videoBadge}>
+                          <Icon name="play" size={14} color="#fff" />
+                        </View>
+                      </View>
+                    ) : (
+                      <Image
+                        source={{ uri: getMediaUri(img) }}
+                        style={styles.imageThumb}
+                        resizeMode="contain"
+                      />
+                    )}
+                    {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
+                      <TouchableOpacity
+                        style={styles.removeDrawingBtn}
+                        onPress={() => removeDrawingFromImage(idx)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
+                      </TouchableOpacity>
+                    )}
+                    {img.appliedFilter && img.appliedFilter !== 'none' && (
+                      <View style={styles.filterBadge}>
+                        <Text style={styles.filterBadgeText}>{img.filterName}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Caption Input */}
+          {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
+            <View style={styles.captionSection}>
+              <Text style={styles.captionLabel}>Tagged people</Text>
+              <Text style={styles.taggedPeopleText}>
+                {taggedPeople.map((user, idx) => {
+                  const clean = String(user).replace(/^@+/, '');
+                  const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
+                  return (
+                    <Text
+                      key={`${clean || 'user'}_${idx}`}
+                      style={[styles.taggedPeopleLink, { color: text }]}
+                      onPress={() => openTaggedUserProfile(clean)}
+                      suppressHighlighting
+                    >
+                      {label}
+                    </Text>
+                  );
+                })}
+                {openingTaggedProfile ? (
+                  <Text style={styles.taggedPeopleLoading}></Text>
+                ) : null}
+              </Text>
+            </View>
+          )}
+          <View style={styles.captionSection}>
+            <Text style={styles.captionLabel}>Write a caption (optional)</Text>
+            <TextInput
+              style={[styles.captionInput, bgStyle]}
+              placeholder="Write a caption (optional)"
+              value={caption}
+              onChangeText={setCaption}
+              multiline
+              textAlignVertical="top"
+              placeholderTextColor={'#e0e0e0'}
+            />
+          </View>
+
+          {/* Link Input */}
+          {postType == 'crowdfunding' && (
             <View style={[styles.captionSection, { marginTop: -5 }]}>
               <Text style={styles.captionLabel}>Add a link (optional)</Text>
               <TextInput
@@ -374,14 +368,21 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
               />
             </View>
           )}
-      </ScrollView>
+        </ScrollView>
 
-      <CustomButton
-        title="Continue"
-        onPress={handlePost}
-        style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, bordercolor: text }]}
-        textStyle={styles.socialBtnText}
-      />
+        <View style={styles.footer}>
+          <CustomButton
+            title="Continue"
+            onPress={handlePost}
+            style={[
+              styles.socialBtn,
+              styles.instagramBtn,
+              { backgroundColor: text, bordercolor: text },
+            ]}
+            textStyle={styles.socialBtnText}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -389,7 +390,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    height: 56,
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     paddingHorizontal: 16,
     alignItems: 'center',
@@ -401,6 +402,9 @@ const styles = StyleSheet.create({
   shareButton: { paddingHorizontal: 8, paddingVertical: 4 },
   postBtn: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
   content: { flex: 1 },
+  contentContainer: {
+    paddingBottom: 120,
+  },
   imagesCard: {
     margin: 16,
     borderRadius: 12,
@@ -512,6 +516,11 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: '#000'
+  },
+  footer: {
+    paddingTop: 6,
+    paddingBottom: 10,
+    alignItems: 'center',
   },
   instagramBtn: {
     color: '#fff',

@@ -1665,7 +1665,7 @@ const ProfilePersonData = ({
                       borderWidth={2}
                       borderColor={text}
                     />
-                    {showIdentityVerified && (
+                    {/* {showIdentityVerified && (
                       <View
                         style={[
                           styles.verifiedAvatarBadge,
@@ -1676,7 +1676,7 @@ const ProfilePersonData = ({
                       >
                         <Ionicons name="checkmark" size={22} color="#FFFFFF" />
                       </View>
-                    )}
+                    )} */}
                   </View>
                 </View>
               </ImageZoom>
