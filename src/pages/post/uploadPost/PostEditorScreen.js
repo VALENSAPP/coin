@@ -4,6 +4,8 @@ import {
   Text,
   Image,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -30,6 +32,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const HEADER_HEIGHT = 56;
 
 const PostEditorScreen = () => {
   const navigation = useNavigation();
@@ -121,9 +124,9 @@ const PostEditorScreen = () => {
     }
 
     dispatch(showLoader());
-    const payload = { 
+    const payload = {
       caption: caption.trim(),
-      taggedPeople:taggedPeopleIds ,
+      taggedPeople: taggedPeopleIds,
       // Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length ? { taggedPeopleIds } : {}),
       // ...(Array.isArray(taggedPeopleMeta) && taggedPeopleMeta.length ? { taggedPeopleMeta } : {}),
@@ -136,9 +139,9 @@ const PostEditorScreen = () => {
         postType === 'private'
           ? 'private'
           : 'normal'
-          || fromIcon === 'Flips'
-          ? 'reel'
-          : 'normal',
+            || fromIcon === 'Flips'
+            ? 'reel'
+            : 'normal',
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
@@ -233,136 +236,144 @@ const PostEditorScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>
-          {fromIcon == 'Flips' ? t('postEditor.newFlip') : t('postEditor.newPost')}
-        </Text>
-        <Text></Text>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? HEADER_HEIGHT : 0}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.title}>
+            {fromIcon == 'Flips' ? t('postEditor.newFlip') : t('postEditor.newPost')}
+          </Text>
+          <Text></Text>
+        </View>
 
-      <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
-        {/* Images Card with horizontal scroll */}
-        {editorImages.length > 0 && (
-          <View style={[styles.imagesCard, bgStyle]}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.imagesContainer}
-            >
-              {editorImages.map((img, idx) => (
-                <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
-                  {isMediaVideo(img) ? (
-                    <View style={styles.videoThumbContainer}>
-                      <Video
+        <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
+          {/* Images Card with horizontal scroll */}
+          {editorImages.length > 0 && (
+            <View style={[styles.imagesCard, bgStyle]}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.imagesContainer}
+              >
+                {editorImages.map((img, idx) => (
+                  <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
+                    {isMediaVideo(img) ? (
+                      <View style={styles.videoThumbContainer}>
+                        <Video
+                          source={{ uri: getMediaUri(img) }}
+                          style={styles.imageThumb}
+                          resizeMode="contain"
+                          paused={true}
+                          muted={true}
+                          controls={false}
+                          poster={getVideoPosterUri(img) || undefined}
+                        />
+                        <View style={styles.videoBadge}>
+                          <Icon name="play" size={14} color="#fff" />
+                        </View>
+                      </View>
+                    ) : (
+                      <Image
                         source={{ uri: getMediaUri(img) }}
                         style={styles.imageThumb}
                         resizeMode="contain"
-                        paused={true}
-                        muted={true}
-                        controls={false}
-                        poster={getVideoPosterUri(img) || undefined}
                       />
-                      <View style={styles.videoBadge}>
-                        <Icon name="play" size={14} color="#fff" />
+                    )}
+                    {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
+                      <TouchableOpacity
+                        style={styles.removeDrawingBtn}
+                        onPress={() => removeDrawingFromImage(idx)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.removeDrawingText, { color: text }]}>
+                          {t('postEditor.removeDrawing')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {img.appliedFilter && img.appliedFilter !== 'none' && (
+                      <View style={styles.filterBadge}>
+                        <Text style={styles.filterBadgeText}>{img.filterName}</Text>
                       </View>
-                    </View>
-                  ) : (
-                    <Image
-                      source={{ uri: getMediaUri(img) }}
-                      style={styles.imageThumb}
-                      resizeMode="contain"
-                    />
-                  )}
-                  {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
-                    <TouchableOpacity
-                      style={styles.removeDrawingBtn}
-                      onPress={() => removeDrawingFromImage(idx)}
-                      activeOpacity={0.8}
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Tagged People */}
+          {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
+            <View style={styles.captionSection}>
+              <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
+              <Text style={styles.taggedPeopleText}>
+                {taggedPeople.map((user, idx) => {
+                  const clean = String(user).replace(/^@+/, '');
+                  const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
+                  return (
+                    <Text
+                      key={`${clean || 'user'}_${idx}`}
+                      style={[styles.taggedPeopleLink, { color: text }]}
+                      onPress={() => openTaggedUserProfile(clean)}
+                      suppressHighlighting
                     >
-                      <Text style={[styles.removeDrawingText, { color: text }]}>
-                        {t('postEditor.removeDrawing')}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  {img.appliedFilter && img.appliedFilter !== 'none' && (
-                    <View style={styles.filterBadge}>
-                      <Text style={styles.filterBadgeText}>{img.filterName}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+                      {label}
+                    </Text>
+                  );
+                })}
+                {openingTaggedProfile ? (
+                  <Text style={styles.taggedPeopleLoading}></Text>
+                ) : null}
+              </Text>
+            </View>
+          )}
 
-        {/* Tagged People */}
-        {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
+          {/* Caption Input */}
           <View style={styles.captionSection}>
-            <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
-            <Text style={styles.taggedPeopleText}>
-              {taggedPeople.map((user, idx) => {
-                const clean = String(user).replace(/^@+/, '');
-                const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
-                return (
-                  <Text
-                    key={`${clean || 'user'}_${idx}`}
-                    style={[styles.taggedPeopleLink, { color: text }]}
-                    onPress={() => openTaggedUserProfile(clean)}
-                    suppressHighlighting
-                  >
-                    {label}
-                  </Text>
-                );
-              })}
-              {openingTaggedProfile ? (
-                <Text style={styles.taggedPeopleLoading}></Text>
-              ) : null}
-            </Text>
-          </View>
-        )}
-
-        {/* Caption Input */}
-        <View style={styles.captionSection}>
-          <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
-          <TextInput
-            style={[styles.captionInput, bgStyle]}
-            placeholder={t('postEditor.captionPlaceholder')}
-            value={caption}
-            onChangeText={setCaption}
-            multiline
-            textAlignVertical="top"
-            placeholderTextColor={'#e0e0e0'}
-          />
-        </View>
-
-        {/* Link Input */}
-        {postType == 'crowdfunding' && (
-          <View style={[styles.captionSection, { marginTop: -5 }]}>
-            <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
+            <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
             <TextInput
-              style={[styles.linkInput, bgStyle]}
-              placeholder={t('postEditor.linkPlaceholder')}
-              value={link}
-              onChangeText={setLink}
-              keyboardType="url"
-              autoCapitalize="none"
-              autoCorrect={false}
+              style={[styles.captionInput, bgStyle]}
+              placeholder={t('postEditor.captionPlaceholder')}
+              value={caption}
+              onChangeText={setCaption}
+              multiline
+              textAlignVertical="top"
               placeholderTextColor={'#e0e0e0'}
             />
           </View>
-        )}
-      </ScrollView>
 
-      <CustomButton
-        title={t('postEditor.continueButton')}
-        onPress={handlePost}
-        style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, bordercolor: text }]}
-        textStyle={styles.socialBtnText}
-      />
+          {/* Link Input */}
+          {postType == 'crowdfunding' && (
+            <View style={[styles.captionSection, { marginTop: -5 }]}>
+              <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
+              <TextInput
+                style={[styles.linkInput, bgStyle]}
+                placeholder={t('postEditor.linkPlaceholder')}
+                value={link}
+                onChangeText={setLink}
+                keyboardType="url"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor={'#e0e0e0'}
+              />
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <CustomButton
+            title={t('postEditor.continueButton')}
+            onPress={handlePost}
+            style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, bordercolor: text }]}
+            textStyle={styles.socialBtnText}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -370,7 +381,7 @@ const PostEditorScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    height: 56,
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     paddingHorizontal: 16,
     alignItems: 'center',
@@ -382,6 +393,9 @@ const styles = StyleSheet.create({
   shareButton: { paddingHorizontal: 8, paddingVertical: 4 },
   postBtn: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
   content: { flex: 1 },
+  contentContainer: {
+    paddingBottom: 120,
+  },
   imagesCard: {
     margin: 16,
     borderRadius: 12,
@@ -493,6 +507,11 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: '#000'
+  },
+  footer: {
+    paddingTop: 6,
+    paddingBottom: 10,
+    alignItems: 'center',
   },
   instagramBtn: {
     color: '#fff',

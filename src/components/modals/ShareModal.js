@@ -23,6 +23,7 @@ import Share from 'react-native-share';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { getSocket, initializeSocket } from '../../services/socket';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const COLS = 3;
@@ -167,6 +168,70 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     ) || null;
   };
 
+  const directSendToInbox = useCallback(async (sharedContent) => {
+    // Send shared content directly to inbox without navigating to ChatMessages.
+    // Keeps behavior consistent for reels (share from Flips).
+    try {
+      let mediaType, mediaId;
+      if (sharedContent.post) {
+        mediaType = 'POST';
+        mediaId = sharedContent.postId;
+      } else if (sharedContent.reel) {
+        mediaType = 'REEL';
+        mediaId = sharedContent.reelId;
+      } else if (sharedContent.story) {
+        mediaType = 'STORY';
+        mediaId = sharedContent.storyId;
+        if (mediaId) mediaId = String(mediaId).replace(/_\d+$/, '');
+      }
+
+      if (mediaType && mediaId) {
+        await sharePost({
+          mediaId,
+          mediaType,
+          conversationType: 'MEDIA',
+          sharedUserId: String(selfUserId),
+          receiverUserId: selectedUsers,
+        });
+      }
+
+      let socket = getSocket();
+      if (!socket?.connected) {
+        try {
+          socket = await initializeSocket(String(selfUserId));
+        } catch (_) {
+          socket = getSocket();
+        }
+      }
+
+      const messageType = sharedContent.post ? 'POST_SHARE'
+        : sharedContent.reel ? 'REEL_SHARE'
+          : sharedContent.story ? 'STORY_SHARE'
+            : 'MEDIA';
+
+      for (let i = 0; i < selectedUsers.length; i++) {
+        const receiverId = String(selectedUsers[i]);
+        const messageData = {
+          senderId: String(selfUserId),
+          receiverId,
+          type: messageType,
+        };
+
+        if (sharedContent.postId) messageData.postId = sharedContent.postId;
+        if (sharedContent.reelId) messageData.reelId = sharedContent.reelId;
+        if (sharedContent.storyId) {
+          messageData.storyId = String(sharedContent.storyId).replace(/_\d+$/, '');
+        }
+
+        if (socket?.connected) socket.emit('sendMessage', messageData);
+      }
+
+      Alert.alert('Sent', `Shared with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}.`);
+    } catch (e) {
+      Alert.alert('Error', e?.response?.data?.message || 'Failed to share');
+    }
+  }, [selfUserId, selectedUsers]);
+
   const handleSend = async () => {
     if (selectedUsers.length === 0) {
       Alert.alert('No Selection', 'Please select at least one user.');
@@ -190,6 +255,14 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         story,
         storyId: resolveStoryId(),
       };
+
+      // Reels: send directly to inbox (no ChatMessages navigation)
+      if (reel || reelId) {
+        if (ref?.current) ref.current.close();
+        await directSendToInbox(sharedContent);
+        setSelectedUsers([]);
+        return;
+      }
 
       // Navigate to ChatMessages with multi-selected users
       if (ref?.current) ref.current.close();
