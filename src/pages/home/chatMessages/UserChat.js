@@ -839,14 +839,19 @@ const UserChat = ({ route, navigation }) => {
           formattedMsg.story = msg.story;
           formattedMsg.content = msg.content;
         } else if (msg.post) {
-          // Check if the post is a reel type
-          if (msg.post.type === 'reel') {
+          // Treat as a reel only when payload indicates video (prevents image posts showing in reel UI).
+          const maybeReelVideo =
+            msg.reel ||
+            msg.reelId ||
+            msg.post?.video ||
+            (Array.isArray(msg.post?.images) && isVideoUrl(msg.post.images[0]?.url || msg.post.images[0]));
+
+          if (msg.post.type === 'reel' && maybeReelVideo) {
             formattedMsg.type = 'reel_share';
             formattedMsg.reel = msg.post;
             formattedMsg.content = msg.content;
           } else {
-            // For normal posts, crowdfunding, and other post types, always show as post_share
-            // This preserves user information (userName, userImage) and post metadata
+            // Default: render as post_share
             formattedMsg.type = 'post_share';
             formattedMsg.post = msg.post;
           }

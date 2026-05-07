@@ -1,23 +1,26 @@
 // Create a new file: components/chat/StoryViewerModal.js
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Modal,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Text,
   Dimensions,
   Animated,
   PanResponder,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import HexAvatar from '../home/story.js/HexAvatar';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -29,6 +32,33 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const [selfUserId, setSelfUserId] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        setSelfUserId(id ? String(id) : null);
+      } catch (_) {
+        setSelfUserId(null);
+      }
+    })();
+  }, []);
+
+  const storyUserId = useMemo(() => {
+    const candidate =
+      story?.userId ||
+      story?.UserId ||
+      story?.user?._id ||
+      story?.user?.id ||
+      story?.user?.userId ||
+      null;
+    return candidate ? String(candidate) : null;
+  }, [story]);
+
+  const storyUsername = userName || story?.userName || story?.username || story?.user?.displayName || story?.user?.username || 'Unknown User';
+  const storyAvatar = userImage || story?.userImage || story?.image || story?.user?.image || story?.user?.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
   // Determine if story is video
   const isVideo = story?.type === 'video' ||
@@ -121,6 +151,28 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     onClose();
   }
 
+  const handleOpenStoryUserProfile = useCallback(() => {
+    if (!storyUserId) return;
+
+    handleClose();
+
+    setTimeout(() => {
+      // If user taps their own story, open Profile tab instead of UsersProfile.
+      if (selfUserId && String(storyUserId) === String(selfUserId)) {
+        navigation.navigate('ProfileMain', { screen: 'Profile' });
+        return;
+      }
+
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: String(storyUserId),
+          username: storyUsername || '',
+        },
+      });
+    }, 150);
+  }, [navigation, selfUserId, storyUserId, storyUsername]);
+
   // Pan responder for swipe down to close
   const panResponder = useRef(
     PanResponder.create({
@@ -179,26 +231,37 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
             { paddingTop: insets.top + 10 } // 🔥 fix
           ]}
         >
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.topBackButton}
             activeOpacity={0.85}
             onPress={handleClose}
           >
             <Icon name="chevron-back" size={22} color="#fff" />
             <Text style={styles.topBackText}>Back</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <View style={styles.headerContent}>
-            <Image
-              source={{ uri: userImage || 'https://via.placeholder.com/40' }}
-              style={styles.userAvatar}
-            />
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{userName || 'Unknown User'}</Text>
-              <Text style={styles.timeAgo}>
-                {formatTimeAgo(story.createdAt || new Date())}
-              </Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.userPressable}
+              onPress={handleOpenStoryUserProfile}
+              disabled={!storyUserId}
+            >
+              <HexAvatar
+                uri={storyAvatar}
+                size={44}
+                borderWidth={2}
+                borderColor="#fff"
+              />
+              <View style={styles.userInfo}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {storyUsername}
+                </Text>
+                <Text style={styles.timeAgo}>
+                  {formatTimeAgo(story.createdAt || new Date())}
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
@@ -361,12 +424,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#fff',
+  userPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   userInfo: {
     marginLeft: 12,
