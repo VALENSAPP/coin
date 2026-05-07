@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -34,11 +34,19 @@ const ProfileScreen = () => {
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const profileScrollY = useRef(new Animated.Value(0)).current;
+  const [compactLocked, setCompactLocked] = useState(false);
+  const compactLockedRef = useRef(false);
+  const lastScrollYRef = useRef(0);
+  const relockMinYRef = useRef(0);
 
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle } = useAppTheme();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    compactLockedRef.current = compactLocked;
+  }, [compactLocked]);
 
   const fetchProfilePosts = useCallback(async (idOverride = '') => {
     const id = idOverride || userId || await AsyncStorage.getItem('userId');
@@ -182,15 +190,33 @@ const ProfileScreen = () => {
     }
   }, [fetchProfilePosts]);
 
+const handleProfileScroll = useCallback((event) => {
+  const y = Math.max(0, event?.nativeEvent?.contentOffset?.y ?? 0);
+  profileScrollY.setValue(y);
+
+  const dy = y - lastScrollYRef.current;
+  lastScrollYRef.current = y;
+
+  // Collapse on any upward scroll past 30px
+  if (dy > 0 && y > 30 && !compactLockedRef.current) {
+    compactLockedRef.current = true;
+    setCompactLocked(true);
+  }
+
+  // Expand ONLY on explicit downward swipe (dy < 0 means finger moving down)
+  if (dy < -8 && compactLockedRef.current) {
+    compactLockedRef.current = false;
+    setCompactLocked(false);
+  }
+}, [profileScrollY]);
+
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <Animated.ScrollView
         contentContainerStyle={styles.scrollContainer}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: profileScrollY } } }],
-          { useNativeDriver: false },
-        )}
+        onScroll={handleProfileScroll}
         scrollEventThrottle={16}
+        nestedScrollEnabled={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -206,7 +232,9 @@ const ProfileScreen = () => {
           bio={userData?.bio}
           dashboard={userDashboard}
           userData={userData}
-          compactScrollY={profileScrollY}
+          compactLocked={compactLocked}
+
+        // executeFollowAction={executeFollowAction}
         />
         <View>
           <HighlightStories userData={userData} />
@@ -219,6 +247,7 @@ const ProfileScreen = () => {
           loggedInUserId={userId}
           refreshKey={refreshKey}
           onPostPinChanged={handlePostPinChanged}
+          scrollEnabled={false}  
         />
       </Animated.ScrollView>
       {/* <WelcomeValensModal
