@@ -1002,6 +1002,11 @@ export default function FlipsScreen() {
             route.params?.sourceUserId,
           );
 
+          const cameFromProfileContext =
+            contextUserId != null &&
+            String(contextUserId) !== '' &&
+            Array.isArray(route.params?.profileReels);
+
           const filterByContextUser = reel => {
             if (!contextUserId) return true;
             const ownerId = pickOwnerId(reel);
@@ -1011,28 +1016,39 @@ export default function FlipsScreen() {
             );
           };
 
-          const apiReels = (
-            Array.isArray(response.data) ? response.data : []
-          )
-            .filter(
-              item => !contextUserId || filterByContextUser(item),
-            )
-            .map((item, index) =>
-              normalizeReel(item, {
-                fallbackIdPrefix: 'api',
-                fallbackIndex: index,
-              }),
-            );
+          // When user opens Flips from a Profile, show ONLY that profile's reels.
+          // (Some API items don't carry ownerId consistently, which can leak other reels.)
+          const apiReels = cameFromProfileContext
+            ? []
+            : (Array.isArray(response.data) ? response.data : [])
+                .filter(
+                  item =>
+                    !contextUserId || filterByContextUser(item),
+                )
+                .map((item, index) =>
+                  normalizeReel(item, {
+                    fallbackIdPrefix: 'api',
+                    fallbackIndex: index,
+                  }),
+                );
 
-          const profileReels = (
-            Array.isArray(route.params?.profileReels)
-              ? route.params.profileReels
-              : []
+          const profileReelsRaw = Array.isArray(
+            route.params?.profileReels,
           )
-            .filter(
-              item =>
-                isVideoReel(item) && filterByContextUser(item),
-            )
+            ? route.params.profileReels
+            : [];
+
+          // Profile-provided posts can be missing `userId/UserId` on some items even though they
+          // belong to that profile. Keep video items, and only drop ones that *explicitly* belong
+          // to a different user.
+          const profileReels = profileReelsRaw
+            .filter(item => {
+              if (!isVideoReel(item)) return false;
+              if (!contextUserId) return true;
+              const ownerId = pickOwnerId(item);
+              if (ownerId == null || ownerId === '') return true;
+              return String(ownerId) === String(contextUserId);
+            })
             .map((item, index) =>
               normalizeReel(item, {
                 fallbackIdPrefix: 'profile',
