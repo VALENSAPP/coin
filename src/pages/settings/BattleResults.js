@@ -20,6 +20,7 @@ import { normalizeProfileType } from '../../utils/supportEligibility';
 import { battleWinner } from '../../services/battle';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import trophyPng from '../../assets/icons/pngicons/trophy.png';
+import { useLanguage } from '../../i18n';
 
 const withAlpha = (hex, alpha) => {
   if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
@@ -54,6 +55,7 @@ const findCountByFlexibleKey = (countsMap, rawLabel) => {
 
 export default function BattleResults({ navigation }) {
   const route = useRoute();
+  const { t } = useLanguage();
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
   const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
   const { battle = {} } = route.params || {};
@@ -141,15 +143,15 @@ export default function BattleResults({ navigation }) {
 
   const winnerText =
     normalizedStatus === 'RESOLVED'
-      ? 'Winner Declared'
+      ? t('battleResults.winnerDeclared')
       : normalizedStatus === 'LIVE'
-        ? 'Battle Ongoing'
-        : 'Battle Closed';
+        ? t('battleResults.battleOngoing')
+        : t('battleResults.battleClosed');
+
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
     const secondary =
       primary.toLowerCase() === '#d3b683' ? '#b8924f' : '#8f54f7';
-
 
     return {
       primary,
@@ -245,18 +247,15 @@ export default function BattleResults({ navigation }) {
       setWinnerLoading(true);
 
       try {
-        // Call both APIs together
         const [winnerRes, profileRes] = await Promise.all([
           battleId ? battleWinner(battleId) : null,
           winnerUserId ? getUserCredentials(winnerUserId) : null,
         ]);
 
-        // Handle winner API
         if (active && winnerRes) {
           setWinnerData(winnerRes?.data || winnerRes);
         }
 
-        // Handle profile API
         if (active && profileRes) {
           const user =
             profileRes?.data?.user ||
@@ -271,7 +270,7 @@ export default function BattleResults({ navigation }) {
               user?.displayName ||
               user?.userName ||
               user?.username ||
-              'Winning User',
+              t('battleResults.winningUser'),
             image:
               user?.image ||
               user?.avatar ||
@@ -301,6 +300,7 @@ export default function BattleResults({ navigation }) {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -309,13 +309,16 @@ export default function BattleResults({ navigation }) {
             <Icon name="arrow-back-ios-new" size={20} color={text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: text }]}>
-            Battle Results
+            {t('battleResults.headerTitle')}
           </Text>
           <View style={styles.headerIconBtn} />
         </View>
 
         <Text style={[styles.meta, { color: palette.muted }]}>
-          Ends: {endedAt ? new Date(endedAt).toLocaleString() : 'Not available'}
+          {t('battleResults.metaEnds')}{' '}
+          {endedAt
+            ? new Date(endedAt).toLocaleString()
+            : t('battleResults.metaNotAvailable')}
         </Text>
 
         <Text style={[styles.title, { color: text }]}>{title}</Text>
@@ -357,7 +360,9 @@ export default function BattleResults({ navigation }) {
             </View>
           </TouchableOpacity>
         )}
-        {status === "RESOLVED" &&
+
+        {/* Winner Profile Card */}
+        {status === 'RESOLVED' &&
           (winnerUserId || winnerLoading || winnerProfile) && (
             <View
               style={[
@@ -380,15 +385,6 @@ export default function BattleResults({ navigation }) {
                     <ActivityIndicator size="small" color={palette.primary} />
                   </View>
                 ) : (
-                  // <Image
-                  //   source={
-                  //     winnerProfile?.image
-                  //       ? { uri: winnerProfile.image }
-                  //       : require('../../assets/icons/pngicons/user.png')
-                  //   }
-                  //   defaultSource={require('../../assets/icons/pngicons/user.png')}
-                  //   style={styles.winnerAvatar}
-                  // />
                   <HexAvatar
                     uri={winnerProfile?.image || require('../../assets/icons/pngicons/user.png')}
                     size={60}
@@ -401,17 +397,17 @@ export default function BattleResults({ navigation }) {
                   <Text
                     style={[styles.winnerProfileLabel, { color: palette.muted }]}
                   >
-                    Winning User
+                    {t('battleResults.winningUser')}
                   </Text>
                   <Text style={[styles.winnerProfileName, { color: text }]}>
-                    {winnerProfile?.name || 'Winning User'}
+                    {winnerProfile?.name || t('battleResults.winningUser')}
                   </Text>
 
                   {!!winningSide && (
                     <Text
                       style={[styles.winnerProfileMeta, { color: palette.muted }]}
                     >
-                      Side: {winningSide}
+                      {t('battleResults.sideLabel')} {winningSide}
                     </Text>
                   )}
                   <View
@@ -424,9 +420,8 @@ export default function BattleResults({ navigation }) {
                     ]}
                   >
                     <Text style={[styles.pointsLabel, { color: palette.muted }]}>
-                      Points Earned
+                      {t('battleResults.pointsEarned')}
                     </Text>
-
                     <Text style={[styles.pointsValue, { color: palette.primary }]}>
                       {winnerData?.points || 0}
                     </Text>
@@ -443,6 +438,7 @@ export default function BattleResults({ navigation }) {
             </View>
           )}
 
+        {/* Hero Banner */}
         <LinearGradient
           colors={[palette.secondary, palette.primary, palette.secondary]}
           start={{ x: 0, y: 0 }}
@@ -465,36 +461,33 @@ export default function BattleResults({ navigation }) {
           </View>
 
           <Text style={styles.winner}>{winnerText}</Text>
-          <Text style={styles.sub}>{participants} participants</Text>
-          {status === "RESOLVED" && (
+          <Text style={styles.sub}>
+            {participants} {t('battleResults.participants')}
+          </Text>
+
+          {status === 'RESOLVED' && (
             <>
               {winningSide && (
                 <Text style={styles.sub}>
-                  Winning side: {winningSide}
+                  {t('battleResults.winningSideLabel')} {winningSide}
                 </Text>
               )}
-
-              {/* {winnerUserId && (
-                <Text style={styles.sub}>
-                  Winner user: {String(winnerUserId).slice(0, 8)}
-                </Text>
-              )} */}
             </>
           )}
 
           <View style={styles.statsRow}>
             <View style={styles.statChip}>
-              <Text style={styles.statLabel}>Votes</Text>
+              <Text style={styles.statLabel}>{t('battleResults.statsVotes')}</Text>
               <Text style={styles.statValue}>{totalVotes}</Text>
             </View>
             <View style={styles.statChip}>
-              <Text style={styles.statLabel}>Comments</Text>
+              <Text style={styles.statLabel}>{t('battleResults.statsComments')}</Text>
               <Text style={styles.statValue}>{totalComments}</Text>
             </View>
           </View>
         </LinearGradient>
 
-        {/* {isPollFormat && ( */}
+        {/* Battle Options Card */}
         <View
           style={[
             styles.card,
@@ -505,11 +498,13 @@ export default function BattleResults({ navigation }) {
             },
           ]}
         >
-          <Text style={[styles.section, { color: text }]}>Battle Options</Text>
+          <Text style={[styles.section, { color: text }]}>
+            {t('battleResults.battleOptions')}
+          </Text>
 
           {options.length === 0 && (
             <Text style={[styles.metaText, { color: palette.muted }]}>
-              No options available
+              {t('battleResults.noOptionsAvailable')}
             </Text>
           )}
 
@@ -540,7 +535,7 @@ export default function BattleResults({ navigation }) {
                     </View>
 
                     <Text style={[styles.metaText, { color: palette.muted }]}>
-                      {voteTotal} votes
+                      {voteTotal} {t('battleResults.votesLabel')}
                     </Text>
 
                     <View
@@ -565,7 +560,6 @@ export default function BattleResults({ navigation }) {
             </View>
           ))}
         </View>
-        {/* )} */}
       </ScrollView>
     </SafeAreaView>
   );

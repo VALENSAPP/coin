@@ -42,6 +42,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { Vsbanner } from '../../assets/icons';
+import { useLanguage } from '../../i18n';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) return false;
@@ -359,19 +360,22 @@ const normalizeBattle = (raw, currentUserId = '') => {
   };
 };
 
-const formatBattleTime = value => {
-  if (!value) return 'End time not set';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'End time not set';
-  return parsed.toLocaleString();
+const getStatusTone = (status, t) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized.includes('live') || normalized.includes('progress'))
+    return { label: t('battleInProgress.statusLive'), color: '#DC2626' };
+  if (normalized.includes('finish') || normalized.includes('closed') || normalized.includes('resolved'))
+    return { label: t('battleInProgress.statusFinished'), color: '#4B5563' };
+  if (normalized.includes('result'))
+    return { label: t('battleInProgress.statusResult'), color: '#8B5CF6' };
+  return { label: t('battleInProgress.statusOpen'), color: '#0F766E' };
 };
 
-const getStatusTone = status => {
-  const normalized = String(status || '').toLowerCase();
-  if (normalized.includes('live') || normalized.includes('progress')) return { label: 'LIVE', color: '#DC2626' };
-  if (normalized.includes('finish') || normalized.includes('closed') || normalized.includes('resolved')) return { label: 'FINISHED', color: '#4B5563' };
-  if (normalized.includes('result')) return { label: 'RESULT', color: '#8B5CF6' };
-  return { label: 'OPEN', color: '#0F766E' };
+const formatBattleTime = (value, t) => {
+  if (!value) return t('battleInProgress.endTimeNotSet');
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return t('battleInProgress.endTimeNotSet');
+  return parsed.toLocaleString();
 };
 
 const isSuccessfulResponse = response =>
@@ -383,6 +387,7 @@ const isSuccessfulResponse = response =>
 export default function BattleInProgress() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
   const { profile } = route.params || {};
   const resolvedProfileType = normalizeProfileType(profile);
   const { bgStyle, textStyle, cardStyle, text, card } = useAppTheme(resolvedProfileType);
@@ -428,7 +433,10 @@ export default function BattleInProgress() {
     };
   }, [card, text]);
 
-  const statusMeta = useMemo(() => getStatusTone(battle.status), [battle.status]);
+  const statusMeta = useMemo(
+    () => getStatusTone(battle.status, t),
+    [battle.status, t],
+  );
   const isPrediction = battle.format === 'POLL';
   const isHeadToHead = battle.format === 'HEAD_TO_HEAD';
   const resolvedBattleId = String(pickFirst(
@@ -483,13 +491,16 @@ export default function BattleInProgress() {
       setBattle(normalizeBattle(enrichedBattle, storedId || currentUserId));
     } catch (error) {
       if (!routeBattle || !Object.keys(routeBattle).length) {
-        Alert.alert('Unable to load battle', error?.response?.data?.message || error?.message || 'Please try again.');
+        Alert.alert(
+          t('battleInProgress.loadingError'),
+          error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+        );
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [battleId, currentUserId, hasInitialBattleData, routeBattle]);
+  }, [battleId, currentUserId, hasInitialBattleData, routeBattle, t]);
 
   useEffect(() => { getbattle(); }, []);
   useEffect(() => {
@@ -567,20 +578,21 @@ export default function BattleInProgress() {
   }, []);
 
   const handleOpenReply = useCallback(comment => {
-    setReplyingToComment({ id: comment?.id || '', authorName: comment?.authorName || 'User' });
+    setReplyingToComment({
+      id: comment?.id || '',
+      authorName: comment?.authorName || t('battleInProgress.fallbackUser'),
+    });
     setReplyText('');
     setTimeout(() => {
       replyInputRef.current?.focus?.();
       scrollRef.current?.update?.();
     }, 120);
-  }, []);
+  }, [t]);
 
   const handleOpenCommentAuthorProfile = useCallback(
     userId => {
       const targetUserId = String(userId || '').trim();
-      if (!targetUserId) {
-        return;
-      }
+      if (!targetUserId) return;
 
       if (targetUserId === String(currentUserId || '')) {
         navigation.navigate('ProfileMain', { screen: 'Profile' });
@@ -614,11 +626,18 @@ export default function BattleInProgress() {
     const finalBattleId = resolvedBattleId || battleId;
     const selectedOptionKey = String(selectedOption || '');
     const trimmedArgument = argumentText.trim();
-    if (!finalBattleId) { Alert.alert('Unable to vote', 'Battle information is missing.'); return; }
+
+    if (!finalBattleId) {
+      Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
+      return;
+    }
     if (!selectedOptionKey) {
-      Alert.alert('Select an option', isPrediction
-        ? 'Choose one option before submitting your prediction.'
-        : 'Choose one side before voting in this battle.');
+      Alert.alert(
+        t('battleInProgress.voteAlertSelectOption'),
+        isPrediction
+          ? t('battleInProgress.voteAlertSelectPredictionMsg')
+          : t('battleInProgress.voteAlertSelectVoteMsg'),
+      );
       return;
     }
     const selectedBattleOption = battle.options.find((option, index) => {
@@ -636,9 +655,20 @@ export default function BattleInProgress() {
     ));
     let payload;
     if (isPrediction) {
-      payload = { battleId: finalBattleId, side: finalSelectedOption, justification: trimmedArgument || 'No justification provided', comment: trimmedArgument, sourceUrl: '' };
+      payload = {
+        battleId: finalBattleId,
+        side: finalSelectedOption,
+        justification: trimmedArgument || 'No justification provided',
+        comment: trimmedArgument,
+        sourceUrl: '',
+      };
     } else {
-      payload = { battleId: finalBattleId, optionId: String(selectedBattleOption?.id || ''), side: finalSelectedOption, comment: trimmedArgument };
+      payload = {
+        battleId: finalBattleId,
+        optionId: String(selectedBattleOption?.id || ''),
+        side: finalSelectedOption,
+        comment: trimmedArgument,
+      };
     }
     setSubmittingVote(true);
     try {
@@ -646,17 +676,25 @@ export default function BattleInProgress() {
       if (isPrediction) response = await predictBattle(payload);
       else response = await voteBattle(payload);
       if (!isSuccessfulResponse(response)) {
-        Alert.alert(isPrediction ? 'Prediction not submitted' : 'Vote not submitted', response?.message || 'Please try again.');
+        Alert.alert(
+          isPrediction ? t('battleInProgress.predictionNotSubmitted') : t('battleInProgress.voteNotSubmitted'),
+          response?.message || t('battleInProgress.tryAgain'),
+        );
         return;
       }
       setArgumentText('');
       setKeepActiveSelectedStyle(true);
       await fetchBattle(true);
-      Alert.alert(isPrediction ? 'Prediction submitted' : 'Vote submitted',
-        isPrediction ? 'Your prediction has been added to this battle.' : 'Your vote has been added to this battle.');
+
+      Alert.alert(
+        isPrediction ? t('battleInProgress.predictionSubmitted') : t('battleInProgress.voteSubmitted'),
+        isPrediction ? t('battleInProgress.predictionSubmittedMsg') : t('battleInProgress.voteSubmittedMsg'),
+      );
     } catch (error) {
-      Alert.alert(isPrediction ? 'Prediction not submitted' : 'Vote not submitted',
-        error?.response?.data?.message || error?.message || 'Please try again.');
+      Alert.alert(
+        isPrediction ? t('battleInProgress.predictionNotSubmitted') : t('battleInProgress.voteNotSubmitted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
     } finally {
       setSubmittingVote(false);
     }
@@ -669,13 +707,16 @@ export default function BattleInProgress() {
     try {
       const response = await commentUpload({ battleId, comment: message, message });
       if (!isSuccessfulResponse(response)) {
-        Alert.alert('Comment not posted', response?.message || 'Please try again.');
+        Alert.alert(t('battleInProgress.commentNotPosted'), response?.message || t('battleInProgress.tryAgain'));
         return;
       }
       setCommentText('');
       await fetchBattle(true);
     } catch (error) {
-      Alert.alert('Comment not posted', error?.response?.data?.message || error?.message || 'Please try again.');
+      Alert.alert(
+        t('battleInProgress.commentNotPosted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
     } finally {
       setSubmittingComment(false);
     }
@@ -689,7 +730,7 @@ export default function BattleInProgress() {
     try {
       const response = await replyCommentBattle({ battleId, comment: message, parentCommentId });
       if (!isSuccessfulResponse(response)) {
-        Alert.alert('Reply not posted', response?.message || 'Please try again.');
+        Alert.alert(t('battleInProgress.replyNotPosted'), response?.message || t('battleInProgress.tryAgain'));
         return;
       }
       setReplyText('');
@@ -697,7 +738,10 @@ export default function BattleInProgress() {
       setExpandedReplies(prev => ({ ...prev, [parentCommentId]: false }));
       await fetchBattle(true);
     } catch (error) {
-      Alert.alert('Reply not posted', error?.response?.data?.message || error?.message || 'Please try again.');
+      Alert.alert(
+        t('battleInProgress.replyNotPosted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
     } finally {
       setSubmittingComment(false);
     }
@@ -735,7 +779,10 @@ export default function BattleInProgress() {
           likes: previousCommentState.likes,
         })),
       }));
-      Alert.alert('Unable to like comment', error?.response?.data?.message || error?.message || 'Please try again.');
+      Alert.alert(
+        t('battleInProgress.likeCommentFailed'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
     } finally {
       setLikingCommentId('');
     }
@@ -784,15 +831,23 @@ export default function BattleInProgress() {
                 </Text>
               </View>
               {!!reply.authorHandle && (
-                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
+                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
+                  @{reply.authorHandle}
+                </Text>
               )}
             </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
-            <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
+            <Text style={[styles.replyTriggerText, { color: palette.primary }]}>
+              {t('battleInProgress.replyTrigger')}
+            </Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
+        <TouchableOpacity
+          style={styles.commentLikeButton}
+          onPress={() => handleCommentLike(reply.id)}
+          disabled={likingCommentId === reply.id}
+        >
           {likingCommentId === reply.id ? (
             <ActivityIndicator size="small" color={palette.primary} />
           ) : (
@@ -809,11 +864,15 @@ export default function BattleInProgress() {
       {replyingToComment?.id === reply.id && (
         <View style={styles.replyComposer}>
           <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
-            Replying to {replyingToComment.authorName}
+            {t('battleInProgress.replyingTo').replace('{{name}}', replyingToComment.authorName)}
           </Text>
           <TextInput
-            ref={replyInputRef} value={replyText} onChangeText={setReplyText}
-            placeholder="Write your reply" placeholderTextColor="#9CA3AF" multiline
+            ref={replyInputRef}
+            value={replyText}
+            onChangeText={setReplyText}
+            placeholder={t('battleInProgress.replyPlaceholder')}
+            placeholderTextColor="#9CA3AF"
+            multiline
             style={[styles.replyInput, textStyle, cardStyle, { borderColor: palette.border }]}
           />
           <View style={styles.replyActions}>
@@ -821,13 +880,19 @@ export default function BattleInProgress() {
               style={[styles.replySecondaryButton, { borderColor: palette.border }]}
               onPress={() => { setReplyingToComment(null); setReplyText(''); }}
             >
-              <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>Cancel</Text>
+              <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
+                {t('battleInProgress.cancelReply')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.replyPrimaryButton, { backgroundColor: palette.primary }]}
-              onPress={handlePostReply} disabled={submittingComment}
+              onPress={handlePostReply}
+              disabled={submittingComment}
             >
-              {submittingComment ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.replyPrimaryButtonText}>Post</Text>}
+              {submittingComment
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={styles.replyPrimaryButtonText}>{t('battleInProgress.postReply')}</Text>
+              }
             </TouchableOpacity>
           </View>
         </View>
@@ -863,21 +928,32 @@ export default function BattleInProgress() {
                     {comment.authorName}
                   </Text>
                   {!!comment.side && (
-                    <View style={[styles.commentVoteSideBadge, { backgroundColor: palette.primary, marginRight: Platform.OS === 'ios' ? 14 : 10 }]}>
+                    <View style={[styles.commentVoteSideBadge, {
+                      backgroundColor: palette.primary,
+                      marginRight: Platform.OS === 'ios' ? 14 : 10,
+                    }]}>
                       <Text style={styles.commentVoteSideBadgeText}>{comment.side}</Text>
                     </View>
                   )}
                 </View>
                 {!!comment.authorHandle && (
-                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{comment.authorHandle}</Text>
+                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>
+                    @{comment.authorHandle}
+                  </Text>
                 )}
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
-              <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
+              <Text style={[styles.replyTriggerText, { color: palette.primary }]}>
+                {t('battleInProgress.replyTrigger')}
+              </Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
+          <TouchableOpacity
+            style={styles.commentLikeButton}
+            onPress={() => handleCommentLike(comment.id)}
+            disabled={likingCommentId === comment.id}
+          >
             {likingCommentId === comment.id ? (
               <ActivityIndicator size="small" color={palette.primary} />
             ) : (
@@ -893,22 +969,30 @@ export default function BattleInProgress() {
         <Text style={[styles.commentMessage, textStyle]}>{comment.message}</Text>
         {hasReplies && !isExpanded && (
           <TouchableOpacity style={styles.viewRepliesButton} onPress={() => toggleReplies(comment.id)}>
-            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>View replies ({repliesCount})</Text>
+            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
+              {t('battleInProgress.viewReplies').replace('{{count}}', repliesCount)}
+            </Text>
           </TouchableOpacity>
         )}
         {hasReplies && isExpanded && (
           <TouchableOpacity style={styles.viewRepliesButton} onPress={() => toggleReplies(comment.id)}>
-            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>Hide replies</Text>
+            <Text style={[styles.viewRepliesText, { color: palette.primary }]}>
+              {t('battleInProgress.hideReplies')}
+            </Text>
           </TouchableOpacity>
         )}
         {replyingToComment?.id === comment.id && (
           <View style={styles.replyComposer}>
             <Text style={[styles.replyComposerLabel, { color: palette.textMuted }]}>
-              Replying to {replyingToComment.authorName}
+              {t('battleInProgress.replyingTo').replace('{{name}}', replyingToComment.authorName)}
             </Text>
             <TextInput
-              ref={replyInputRef} value={replyText} onChangeText={setReplyText}
-              placeholder="Write your reply" placeholderTextColor="#9CA3AF" multiline
+              ref={replyInputRef}
+              value={replyText}
+              onChangeText={setReplyText}
+              placeholder={t('battleInProgress.replyPlaceholder')}
+              placeholderTextColor="#9CA3AF"
+              multiline
               style={[styles.replyInput, textStyle, cardStyle, { borderColor: palette.border }]}
             />
             <View style={styles.replyActions}>
@@ -916,13 +1000,19 @@ export default function BattleInProgress() {
                 style={[styles.replySecondaryButton, { borderColor: palette.border }]}
                 onPress={() => { setReplyingToComment(null); setReplyText(''); }}
               >
-                <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>Cancel</Text>
+                <Text style={[styles.replySecondaryButtonText, { color: palette.textMuted }]}>
+                  {t('battleInProgress.cancelReply')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.replyPrimaryButton, { backgroundColor: palette.primary }]}
-                onPress={handlePostReply} disabled={submittingComment}
+                onPress={handlePostReply}
+                disabled={submittingComment}
               >
-                {submittingComment ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.replyPrimaryButtonText}>Post</Text>}
+                {submittingComment
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Text style={styles.replyPrimaryButtonText}>{t('battleInProgress.postReply')}</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>
@@ -934,7 +1024,7 @@ export default function BattleInProgress() {
     );
   };
 
-  // ─── render hero card (light lavender) ────────────────────────────────────
+  // ─── render hero card ──────────────────────────────────────────────────────
 
   const renderHeroCard = () => (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -951,20 +1041,11 @@ export default function BattleInProgress() {
             style={styles.heroCreatorRow}
             onPress={() => handleOpenCommentAuthorProfile(battle.creatorId)}
           >
-            <HexAvatar
-              uri={battle.creator?.avatar || FALLBACK_AVATAR}
-              size={28}
-              borderWidth={2}
-              borderColor="rgba(255,255,255,0.7)"
-            />
+            <HexAvatar uri={battle.creator?.avatar || FALLBACK_AVATAR} size={28} borderWidth={2} borderColor="rgba(255,255,255,0.7)" />
             <View style={{ marginLeft: 8, flexShrink: 1 }}>
-              <Text style={styles.heroCreatorName} numberOfLines={1}>
-                {battle.creator?.name}
-              </Text>
+              <Text style={styles.heroCreatorName} numberOfLines={1}>{battle.creator?.name}</Text>
               {!!battle.creator?.handle && (
-                <Text style={styles.heroCreatorHandle} numberOfLines={1}>
-                  @{battle.creator.handle}
-                </Text>
+                <Text style={styles.heroCreatorHandle} numberOfLines={1}>@{battle.creator.handle}</Text>
               )}
             </View>
           </TouchableOpacity>
@@ -976,7 +1057,7 @@ export default function BattleInProgress() {
             </View>
             <View style={styles.timerPill}>
               <Ionicons name="time-outline" size={12} color="#fff" />
-              <Text style={styles.timerPillText}>{formatBattleTime(battle.endTime)}</Text>
+              <Text style={styles.timerPillText}>{formatBattleTime(battle.endTime, t)}</Text>
             </View>
           </View>
 
@@ -988,11 +1069,17 @@ export default function BattleInProgress() {
           <View style={styles.heroInfoRow}>
             <View style={styles.heroInfoChip}>
               <Ionicons name="people-outline" size={12} color="#fff" />
-              <Text style={styles.heroInfoText}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
+              <Text style={styles.heroInfoText}>
+                {battle.primaryCount} {t(battle.primaryCountLabel === 'votes' ? 'battleInProgress.primaryLabelVotes' : 'battleInProgress.primaryLabelParticipants')}
+              </Text>
             </View>
             <View style={styles.heroInfoChip}>
               <Ionicons name="calendar-outline" size={12} color="#fff" />
-              <Text style={styles.heroInfoText}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+              <Text style={styles.heroInfoText}>
+                {battle.format === 'HEAD_TO_HEAD'
+                  ? t('battleInProgress.formatHeadToHead')
+                  : t('battleInProgress.formatPoll')}
+              </Text>
             </View>
           </View>
 
@@ -1007,13 +1094,18 @@ export default function BattleInProgress() {
                   const d1 = participantUserData[p1?.userId] || {};
                   const navigateToUser = (userId) => {
                     if (currentUserId === userId) navigation.navigate('ProfileMain', { screen: 'Profile' });
-                    else navigation.navigate('HomeMain', { screen: 'UsersProfile', params: { userId, returnTo: route?.name || 'BattleInProgress' } });
+                    else navigation.navigate('HomeMain', {
+                      screen: 'UsersProfile',
+                      params: { userId, returnTo: route?.name || 'BattleInProgress' },
+                    });
                   };
                   return (
                     <>
                       <TouchableOpacity activeOpacity={0.75} onPress={() => navigateToUser(p0?.userId)} style={styles.duelPlayerCard}>
                         <HexAvatar uri={d0?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor={text} />
-                        <Text style={styles.playerName} numberOfLines={2}>{d0?.name || 'User'}</Text>
+                        <Text style={styles.playerName} numberOfLines={2}>
+                          {d0?.name || t('battleInProgress.fallbackUser')}
+                        </Text>
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p0?.side}</Text>
                         </View>
@@ -1026,7 +1118,9 @@ export default function BattleInProgress() {
 
                       <TouchableOpacity activeOpacity={0.75} onPress={() => navigateToUser(p1?.userId)} style={styles.duelPlayerCard}>
                         <HexAvatar uri={d1?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor={text} />
-                        <Text style={styles.playerName} numberOfLines={2}>{d1?.name || 'User'}</Text>
+                        <Text style={styles.playerName} numberOfLines={2}>
+                          {d1?.name || t('battleInProgress.fallbackUser')}
+                        </Text>
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p1?.side}</Text>
                         </View>
@@ -1071,15 +1165,20 @@ export default function BattleInProgress() {
                   <View style={styles.progressTopRow}>
                     <View>
                       <Text style={styles.progressPctLeft}>{leftPct}%</Text>
-                      <Text style={styles.progressVotes}>{leftVotes} votes</Text>
+                      <Text style={styles.progressVotes}>
+                        {leftVotes} {t('battleInProgress.votesLabel')}
+                      </Text>
                     </View>
                     <View style={styles.progressMidCol}>
-                      {(total > 0 && leftPct === rightPct) && <Text style={styles.progressTiedLabel}>It's tied!</Text>}
-                      {/* <Text style={styles.progressSubLabel}>{total === 0 ? 'Be the first vote' : 'Be the next vote'}</Text> */}
+                      {total > 0 && leftPct === rightPct && (
+                        <Text style={styles.progressTiedLabel}>{t('battleInProgress.tiedLabel')}</Text>
+                      )}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.progressPctRight}>{rightPct}%</Text>
-                      <Text style={styles.progressVotes}>{rightVotes} votes</Text>
+                      <Text style={styles.progressVotes}>
+                        {rightVotes} {t('battleInProgress.votesLabel')}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.progressBarTrack}>
@@ -1094,22 +1193,38 @@ export default function BattleInProgress() {
               );
             })()}
           </View>
-
         </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
   );
 
-  // ─── render how to win (horizontal) ───────────────────────────────────────
+  // ─── render how to win ─────────────────────────────────────────────────────
 
   const renderHowToWinCard = () => (
     <View style={[styles.howToWinCard, cardStyle, { shadowColor: palette.primary }]}>
-      <Text style={[styles.howToWinTitle, { color: text }]}>How to win</Text>
+      <Text style={[styles.howToWinTitle, { color: text }]}>
+        {t('battleInProgress.howToWinTitle')}
+      </Text>
       <View style={styles.howToWinRow}>
         {[
-          { icon: 'checkmark-circle', color: text, label: 'Vote', desc: 'Tap your pick and cast your vote' },
-          { icon: 'chatbubble-ellipses', color: text, label: 'Comment', desc: 'Share your opinion and earn credibility' },
-          { icon: 'star', color: text, label: 'Be accurate', desc: 'Correct picks earn more points' },
+          {
+            icon: 'checkmark-circle',
+            color: text,
+            label: t('battleInProgress.howToWinVoteLabel'),
+            desc: t('battleInProgress.howToWinVoteDesc'),
+          },
+          {
+            icon: 'chatbubble-ellipses',
+            color: text,
+            label: t('battleInProgress.howToWinCommentLabel'),
+            desc: t('battleInProgress.howToWinCommentDesc'),
+          },
+          {
+            icon: 'star',
+            color: text,
+            label: t('battleInProgress.howToWinAccurateLabel'),
+            desc: t('battleInProgress.howToWinAccurateDesc'),
+          },
         ].map((item, i) => (
           <View key={i} style={[styles.howToWinItem, bgStyle]}>
             <View style={[styles.howToWinIconCircle, { backgroundColor: item.color }]}>
@@ -1150,7 +1265,9 @@ export default function BattleInProgress() {
             <TouchableOpacity onPress={handleBackPress} style={styles.headerIconBtn}>
               <Icon name="arrow-back-ios-new" size={20} color={text} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: text }]}>Battle In Progress</Text>
+            <Text style={[styles.headerTitle, { color: text }]}>
+              {t('battleInProgress.screenTitle')}
+            </Text>
             <TouchableOpacity
               onPress={() => { setRefreshing(true); fetchBattle(true); }}
               style={styles.headerIconBtn}
@@ -1162,34 +1279,37 @@ export default function BattleInProgress() {
             </TouchableOpacity>
           </View>
 
-          {/* Hero card — light lavender */}
           {renderHeroCard()}
-
-          {/* How to Win — horizontal */}
           {renderHowToWinCard()}
 
           {/* Winner Logic */}
           <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
-            <Text style={[styles.sectionTitle, { color: text }]}>Winner Logic</Text>
+            <Text style={[styles.sectionTitle, { color: text }]}>
+              {t('battleInProgress.winnerLogicTitle')}
+            </Text>
             <Text style={[styles.infoText, textStyle]}>
               {isPrediction
-                ? 'Prediction battles rank the correct result first, with engagement used as support.'
-                : 'Opinion battles rank the winner by votes plus likes and argument engagement.'}
+                ? t('battleInProgress.winnerLogicPrediction')
+                : t('battleInProgress.winnerLogicOpinion')}
             </Text>
             {!!battle.resultValue && (
-              <Text style={[styles.resultText, textStyle]}>Current result signal: {battle.resultValue}</Text>
+              <Text style={[styles.resultText, textStyle]}>
+                {t('battleInProgress.currentResultSignal').replace('{{value}}', battle.resultValue)}
+              </Text>
             )}
             {!!battle.winnerName && (
-              <Text style={[styles.resultText, textStyle]}>Winner: {battle.winnerName}</Text>
+              <Text style={[styles.resultText, textStyle]}>
+                {t('battleInProgress.winner').replace('{{name}}', battle.winnerName)}
+              </Text>
             )}
           </View>
 
           {/* Choose Your Side / Make Prediction */}
           <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
             <Text style={[styles.sectionTitle, { color: text }]}>
-              {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
+              {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
             </Text>
-            <View style={[styles.optionGrid,{width:'100%'}]}>
+            <View style={[styles.optionGrid, { width: '100%' }]}>
               {battle.options.map((option, index) => {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
@@ -1275,7 +1395,13 @@ export default function BattleInProgress() {
               value={hasUserVoted ? commentText : argumentText}
               onChangeText={hasUserVoted ? setCommentText : setArgumentText}
               onFocus={() => scrollRef.current?.update?.()}
-              placeholder={hasUserVoted ? 'Write a comment...' : isPrediction ? 'Add your prediction reasoning' : 'Add your argument'}
+              placeholder={
+                hasUserVoted
+                  ? t('battleInProgress.commentPlaceholder')
+                  : isPrediction
+                    ? t('battleInProgress.predictionReasoningPlaceholder')
+                    : t('battleInProgress.argumentPlaceholder')
+              }
               placeholderTextColor="#9CA3AF"
               multiline
               style={[styles.argumentInput, textStyle, cardStyle, { borderColor: palette.border }]}
@@ -1302,7 +1428,11 @@ export default function BattleInProgress() {
                 {submittingVote
                   ? <ActivityIndicator size="small" color="#FFFFFF" />
                   : <Text style={styles.primaryButtonText}>
-                    {hasUserVoted ? 'Add Comment' : isPrediction ? 'Submit Prediction' : 'Vote in Battle'}
+                    {hasUserVoted
+                      ? t('battleInProgress.addComment')
+                      : isPrediction
+                        ? t('battleInProgress.submitPrediction')
+                        : t('battleInProgress.voteInBattle')}
                   </Text>
                 }
               </LinearGradient>
@@ -1313,7 +1443,11 @@ export default function BattleInProgress() {
           <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
             {battle.comments.length > 0
               ? battle.comments.map(comment => renderCommentItem(comment))
-              : <Text style={[styles.emptyCommentText, textStyle]}>No comments yet. Start the conversation and strengthen your side.</Text>
+              : (
+                <Text style={[styles.emptyCommentText, textStyle]}>
+                  {t('battleInProgress.noCommentsYet')}
+                </Text>
+              )
             }
           </View>
 
@@ -1331,14 +1465,21 @@ export default function BattleInProgress() {
                 profile,
               })}
             >
-              <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>View Results</Text>
+              <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                {t('battleInProgress.viewResults')}
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAwareScrollView>
       </TouchableWithoutFeedback>
 
       {/* Image preview modal */}
-      <Modal visible={optionImagePreviewVisible} transparent animationType="fade" onRequestClose={closeOptionImagePreview}>
+      <Modal
+        visible={optionImagePreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeOptionImagePreview}
+      >
         <Pressable style={styles.optionImagePreviewBackdrop} onPress={closeOptionImagePreview}>
           <TouchableOpacity
             accessibilityRole="button"
@@ -1348,11 +1489,25 @@ export default function BattleInProgress() {
           >
             <Ionicons name="close" size={26} color="#FFFFFF" />
           </TouchableOpacity>
-          <Pressable style={styles.optionImagePreviewZoomHost} onPress={(e) => e?.stopPropagation?.()}>
+          <Pressable
+            style={styles.optionImagePreviewZoomHost}
+            onPress={(e) => e?.stopPropagation?.()}
+          >
             {!!optionImagePreviewUri && (
-              <ImageZoom cropWidth={SCREEN_WIDTH} cropHeight={SCREEN_HEIGHT} imageWidth={OPTION_IMAGE_PREVIEW_SIZE} imageHeight={OPTION_IMAGE_PREVIEW_SIZE} enableCenterFocus>
+              <ImageZoom
+                cropWidth={SCREEN_WIDTH}
+                cropHeight={SCREEN_HEIGHT}
+                imageWidth={OPTION_IMAGE_PREVIEW_SIZE}
+                imageHeight={OPTION_IMAGE_PREVIEW_SIZE}
+                enableCenterFocus
+              >
                 <View style={styles.optionImagePreviewHexWrap}>
-                  <HexAvatar uri={optionImagePreviewUri || FALLBACK_AVATAR} size={OPTION_IMAGE_PREVIEW_SIZE} borderWidth={2} borderColor="rgba(255,255,255,0.6)" />
+                  <HexAvatar
+                    uri={optionImagePreviewUri || FALLBACK_AVATAR}
+                    size={OPTION_IMAGE_PREVIEW_SIZE}
+                    borderWidth={2}
+                    borderColor="rgba(255,255,255,0.6)"
+                  />
                 </View>
               </ImageZoom>
             )}

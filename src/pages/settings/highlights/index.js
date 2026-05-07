@@ -29,6 +29,7 @@ import {
   updateHighlight,
 } from '../../../services/highlightStory';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 
 const isVideoMedia = value => {
@@ -204,8 +205,9 @@ const HighlightsScreen = ({ navigation, route }) => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [removingStory, setRemovingStory] = useState(false);
 
-  const toast = useToast(); 
+  const toast = useToast();
   const { bgStyle, textStyle, cardStyle, text: themeText, card } = useAppTheme(profileType);
+  const { t } = useLanguage();
 
   const fetchHighlights = useCallback(async (isRefreshing = false) => {
     try {
@@ -221,7 +223,6 @@ const HighlightsScreen = ({ navigation, route }) => {
 
       if (readOnly) {
         const userResponse = await getHighlightUserId({ params: { userId } }).catch(() => null);
-        console.log(userResponse, 'user rpesposne ')
         const userHighlights = normalizeHighlightsResponse(userResponse?.data);
         setHighlights(userHighlights);
         return;
@@ -269,20 +270,14 @@ const HighlightsScreen = ({ navigation, route }) => {
   }, []);
 
   const openCreateModal = useCallback(() => {
-    if (readOnly) {
-      return;
-    }
-
+    if (readOnly) return;
     setManagerMode('create');
     setHighlightTitle('');
     setManagerVisible(true);
   }, [readOnly]);
 
   const openEditModal = useCallback(() => {
-    if (!activeHighlight || readOnly) {
-      return;
-    }
-
+    if (!activeHighlight || readOnly) return;
     setManagerMode('edit');
     setHighlightTitle(activeHighlight.title || '');
     setManagerVisible(true);
@@ -304,7 +299,6 @@ const HighlightsScreen = ({ navigation, route }) => {
     try {
       const response = await getHighlight({ highlightId: highlight.id });
       const detail = normalizeHighlightsResponse(response?.data)[0];
-      console.log(response, 'repsnie in highlight ')
       if (detail?.stories?.length) {
         setActiveHighlight(detail);
         setViewerStories(detail.stories || []);
@@ -325,7 +319,6 @@ const HighlightsScreen = ({ navigation, route }) => {
       if (current < viewerStories.length - 1) {
         return current + 1;
       }
-
       closeViewer();
       return current;
     });
@@ -351,7 +344,7 @@ const HighlightsScreen = ({ navigation, route }) => {
   const handleCreateOrUpdateHighlight = useCallback(async () => {
     const trimmedTitle = highlightTitle.trim();
     if (!trimmedTitle) {
-      showToastMessage(toast, 'danger', 'Please enter a highlight name');
+      showToastMessage(toast, 'danger', t('highlights.nameRequired'));
       return;
     }
 
@@ -370,7 +363,7 @@ const HighlightsScreen = ({ navigation, route }) => {
           response?.data?.id ||
           response?.data?._id;
 
-        showToastMessage(toast, 'success', response?.data?.message || 'Highlight created');
+        showToastMessage(toast, 'success', response?.data?.message || t('highlights.created'));
         closeManagerModal();
         await fetchHighlights(true);
 
@@ -381,7 +374,7 @@ const HighlightsScreen = ({ navigation, route }) => {
       }
 
       if (!activeHighlight?.id) {
-        showToastMessage(toast, 'danger', 'Highlight not found');
+        showToastMessage(toast, 'danger', t('highlights.notFound'));
         return;
       }
 
@@ -392,7 +385,7 @@ const HighlightsScreen = ({ navigation, route }) => {
         name: trimmedTitle,
       });
 
-      showToastMessage(toast, 'success', response?.data?.message || 'Highlight updated');
+      showToastMessage(toast, 'success', response?.data?.message || t('highlights.updated'));
       closeManagerModal();
 
       setActiveHighlight(prev => (prev ? { ...prev, title: trimmedTitle } : prev));
@@ -406,7 +399,7 @@ const HighlightsScreen = ({ navigation, route }) => {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || 'Failed to save highlight',
+        error?.response?.data?.message || t('highlights.saveFailed'),
       );
     } finally {
       setSavingHighlight(false);
@@ -418,18 +411,17 @@ const HighlightsScreen = ({ navigation, route }) => {
     highlightTitle,
     managerMode,
     openArchiveForExistingHighlight,
+    t,
     toast,
   ]);
 
   const handleRemoveCurrentStory = useCallback(() => {
-    if (!activeHighlight?.id || !currentStory) {
-      return;
-    }
+    if (!activeHighlight?.id || !currentStory) return;
 
-    Alert.alert('Remove Drops', 'Remove this Drops from the highlight?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('highlights.removeDropAlert'), t('highlights.removeDropMessage'), [
+      { text: t('highlights.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('highlights.remove'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -445,7 +437,7 @@ const HighlightsScreen = ({ navigation, route }) => {
             };
 
             const response = await removeHighlight(payload);
-            showToastMessage(toast, 'success', response?.data?.message || 'Drops removed');
+            showToastMessage(toast, 'success', response?.data?.message || t('highlights.dropRemoved'));
 
             const nextStories = viewerStories.filter((_, index) => index !== viewerIndex);
             const nextHighlight = {
@@ -475,7 +467,7 @@ const HighlightsScreen = ({ navigation, route }) => {
             showToastMessage(
               toast,
               'danger',
-              error?.response?.data?.message || 'Failed to remove Drops',
+              error?.response?.data?.message || t('highlights.removeDropFailed'),
             );
           } finally {
             setRemovingStory(false);
@@ -483,7 +475,7 @@ const HighlightsScreen = ({ navigation, route }) => {
         },
       },
     ]);
-  }, [activeHighlight, closeViewer, currentStory, toast, viewerIndex, viewerStories]);
+  }, [activeHighlight, closeViewer, currentStory, t, toast, viewerIndex, viewerStories]);
 
   const renderBubble = item => (
     <TouchableOpacity
@@ -554,7 +546,9 @@ const HighlightsScreen = ({ navigation, route }) => {
           <Icon name="arrow-back" size={24} color={themeText || '#202020'} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>
-          {readOnly ? `${screenTitle || 'User'} Highlights` : 'Drops Highlights'}
+          {readOnly
+            ? `${screenTitle || t('highlights.titleReadOnly')} ${t('highlights.titleReadOnly')}`
+            : t('highlights.title')}
         </Text>
         {readOnly ? (
           <View style={styles.headerAction} />
@@ -578,22 +572,22 @@ const HighlightsScreen = ({ navigation, route }) => {
       >
         <View style={[styles.introCard, { backgroundColor: card || '#fff' }]}>
           <Text style={[styles.introTitle, textStyle]}>
-            {readOnly ? `${screenTitle || 'User'} drops highlights` : 'Manage your drops highlights'}
+            {readOnly
+              ? `${screenTitle || t('highlights.titleReadOnly')} ${t('highlights.manageSubtitleReadOnly')}`
+              : t('highlights.manageTitle')}
           </Text>
           <Text style={styles.introText}>
-            {readOnly
-              ? 'Open each highlight to view the drops uploaded on this profile.'
-              : 'Create highlight covers, rename them, add archived drops, open full detail, and remove drops when you need to clean things up.'}
+            {readOnly ? t('highlights.readOnlyDesc') : t('highlights.manageDesc')}
           </Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statPill}>
               <Text style={styles.statValue}>{highlights.length}</Text>
-              <Text style={styles.statLabel}>Highlights</Text>
+              <Text style={styles.statLabel}>{t('highlights.statHighlights')}</Text>
             </View>
             <View style={styles.statPill}>
               <Text style={styles.statValue}>{totalStories}</Text>
-              <Text style={styles.statLabel}>Drops</Text>
+              <Text style={styles.statLabel}>{t('highlights.statDrops')}</Text>
             </View>
             {!readOnly ? (
               <TouchableOpacity
@@ -602,7 +596,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                 onPress={openCreateModal}
               >
                 <Icon name="add-circle-outline" size={16} color="#fff" />
-                <Text style={styles.managePillText}>Create</Text>
+                <Text style={styles.managePillText}>{t('highlights.create')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -618,26 +612,27 @@ const HighlightsScreen = ({ navigation, route }) => {
                   </View>
                 </View>
                 <Text style={[styles.bubbleLabel, textStyle]} numberOfLines={1}>
-                  New
+                  {t('highlights.new')}
                 </Text>
               </TouchableOpacity>
             ) : null}
-
             {highlights.map(renderBubble)}
           </ScrollView>
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, textStyle]}>highlight parts</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('highlights.sectionTitle')}</Text>
           <Text style={styles.sectionMeta}>
-            {highlights.length ? `${highlights.length} Higlight groups` : 'No groups yet'}
+            {highlights.length
+              ? `${highlights.length} ${t('highlights.statHighlights')}`
+              : t('highlights.noGroups')}
           </Text>
         </View>
 
         {loading ? (
           <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" color={themeText || '#202020'} />
-            <Text style={[styles.loadingText, textStyle]}>Loading highlights...</Text>
+            <Text style={[styles.loadingText, textStyle]}>{t('highlights.loading')}</Text>
           </View>
         ) : highlights.length ? (
           highlights.map(item => {
@@ -679,7 +674,10 @@ const HighlightsScreen = ({ navigation, route }) => {
                         {item.title}
                       </Text>
                       <Text style={styles.collectionMeta}>
-                        {item.storyCount} drop{item.storyCount === 1 ? '' : 's'} saved in this highlight
+                        {item.storyCount}{' '}
+                        {item.storyCount === 1
+                          ? t('highlights.dropsSaved_one', { count: item.storyCount })
+                          : t('highlights.dropsSaved_other', { count: item.storyCount })}
                       </Text>
                     </View>
                   </View>
@@ -700,7 +698,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                       onPress={() => openViewer(item)}
                     >
                       <Icon name="play" size={14} color="#fff" />
-                      <Text style={styles.watchButtonText}>Watch</Text>
+                      <Text style={styles.watchButtonText}>{t('highlights.watch')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -719,12 +717,10 @@ const HighlightsScreen = ({ navigation, route }) => {
               <Icon name="add" size={28} color="#262626" />
             </View>
             <Text style={[styles.emptyTitle, textStyle]}>
-              {readOnly ? 'No highlights yet' : 'Create your first highlight'}
+              {readOnly ? t('highlights.emptyTitleReadOnly') : t('highlights.emptyTitle')}
             </Text>
             <Text style={styles.emptyText}>
-              {readOnly
-                ? 'This user has not uploaded any highlight drops yet.'
-                : 'Create a highlight name first, then select archived drops and save them into different highlight parts.'}
+              {readOnly ? t('highlights.emptyDescReadOnly') : t('highlights.emptyDesc')}
             </Text>
             {!readOnly ? (
               <TouchableOpacity
@@ -732,13 +728,14 @@ const HighlightsScreen = ({ navigation, route }) => {
                 style={[styles.emptyButton, { backgroundColor: themeText || '#262626' }]}
                 onPress={openCreateModal}
               >
-                <Text style={styles.emptyButtonText}>Create Highlight</Text>
+                <Text style={styles.emptyButtonText}>{t('highlights.createButton')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         )}
       </ScrollView>
 
+      {/* Story viewer modal */}
       <Modal visible={viewerVisible} transparent={false} animationType="fade" onRequestClose={closeViewer}>
         <View style={styles.viewerContainer}>
           <View style={styles.viewerHeader}>
@@ -747,7 +744,7 @@ const HighlightsScreen = ({ navigation, route }) => {
             </TouchableOpacity>
             <View style={styles.viewerTitleWrap}>
               <Text style={styles.viewerTitle} numberOfLines={1}>
-                {activeHighlight?.title || 'Highlight'}
+                {activeHighlight?.title || t('highlights.titleReadOnly')}
               </Text>
               <Text style={styles.viewerSubtitle}>
                 {viewerStories.length ? `${viewerIndex + 1} of ${viewerStories.length}` : ''}
@@ -776,7 +773,7 @@ const HighlightsScreen = ({ navigation, route }) => {
             </View>
           ) : !currentStory ? (
             <View style={styles.viewerLoading}>
-              <Text style={styles.viewerEmptyText}>No drops available in this highlight.</Text>
+              <Text style={styles.viewerEmptyText}>{t('highlights.noDropsAvailable')}</Text>
             </View>
           ) : (
             <TouchableOpacity style={styles.viewerMedia} activeOpacity={1} onPress={nextStory}>
@@ -814,7 +811,7 @@ const HighlightsScreen = ({ navigation, route }) => {
                 ) : (
                   <>
                     <Icon name="trash-outline" size={16} color="#fff" />
-                    <Text style={styles.viewerFooterButtonText}>Remove Drop</Text>
+                    <Text style={styles.viewerFooterButtonText}>{t('highlights.removeDrop')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -823,22 +820,21 @@ const HighlightsScreen = ({ navigation, route }) => {
         </View>
       </Modal>
 
+      {/* Create / Edit modal */}
       <Modal visible={managerVisible && !readOnly} transparent animationType="fade" onRequestClose={closeManagerModal}>
         <View style={styles.managerOverlay}>
           <View style={[styles.managerCard, { backgroundColor: card || '#fff' }]}>
             <Text style={[styles.managerTitle, textStyle]}>
-              {managerMode === 'create' ? 'Create Drops Highlight' : 'Edit Drops Highlight'}
+              {managerMode === 'create' ? t('highlights.createModalTitle') : t('highlights.editModalTitle')}
             </Text>
             <Text style={styles.managerSubtitle}>
-              {managerMode === 'create'
-                ? 'Give your highlight a name, then add archived drops into it.'
-                : 'Update the highlight name for this saved group.'}
+              {managerMode === 'create' ? t('highlights.createModalDesc') : t('highlights.editModalDesc')}
             </Text>
 
             <TextInput
               value={highlightTitle}
               onChangeText={setHighlightTitle}
-              placeholder="Highlight name"
+              placeholder={t('highlights.highlightNamePlaceholder')}
               placeholderTextColor="#9ca3af"
               style={[styles.managerInput, { color: themeText || '#202020' }]}
               maxLength={40}
@@ -858,13 +854,13 @@ const HighlightsScreen = ({ navigation, route }) => {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Text style={styles.managerPrimaryText}>
-                  {managerMode === 'create' ? 'Create and Add Stories' : 'Save Changes'}
+                  {managerMode === 'create' ? t('highlights.createAndAdd') : t('highlights.saveChanges')}
                 </Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity activeOpacity={0.9} style={styles.managerSecondaryButton} onPress={closeManagerModal}>
-              <Text style={styles.managerSecondaryText}>Cancel</Text>
+              <Text style={styles.managerSecondaryText}>{t('highlights.cancelModal')}</Text>
             </TouchableOpacity>
           </View>
         </View>

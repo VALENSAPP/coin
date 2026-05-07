@@ -74,7 +74,6 @@ import {
   normalizeProfileType,
 } from '../../utils/supportEligibility';
 import { Comments, ShareIcom, Thumbup } from '../../assets/icons';
-
 import {
   Gesture,
   GestureDetector,
@@ -87,6 +86,7 @@ import Reanimated, {
   withSpring,
 } from 'react-native-reanimated';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_REEL_PINCH = 3.5;
@@ -163,7 +163,7 @@ const mockComments = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ReelPinchVideoBlock — properly memoized with correct syntax
+// ReelPinchVideoBlock
 // ─────────────────────────────────────────────────────────────────────────────
 const ReelPinchVideoBlock = React.memo(
   function ReelPinchVideoBlock({
@@ -185,13 +185,6 @@ const ReelPinchVideoBlock = React.memo(
     thumbnailUri,
   }) {
     const [videoReady, setVideoReady] = useState(false);
-
-    useEffect(() => {
-      console.log('[Reels] thumbnailUri', {
-        // itemId: item?.id,
-        thumbnailUri,
-      });
-    }, [item?.id, thumbnailUri]);
 
     const pinchScale = useSharedValue(1);
     const translateX = useSharedValue(0);
@@ -327,8 +320,6 @@ const ReelPinchVideoBlock = React.memo(
               transformStyle,
             ]}
             collapsable={false}>
-            {/* Only mount native Video for the visible reel — paused neighbors still
-                hold ExoPlayer/MediaCodec decoders and commonly OOM-crash on Android. */}
             {isCurrent ? (
               <>
                 <Video
@@ -345,34 +336,28 @@ const ReelPinchVideoBlock = React.memo(
                   progressUpdateInterval={500}
                   playWhenInactive={false}
                   ignoreSilentSwitch="obey"
-                  onReadyForDisplay={() => setVideoReady(true)}   // ← fires once decoder is ready
+                  onReadyForDisplay={() => setVideoReady(true)}
                 />
-
-                {/* Thumbnail overlay — shown until video is ready to display */}
                 {showThumbnailOverlay && (
-                  <>
-                    <Image
-                      source={{ uri: thumbnailUri }}
-                      style={[
-                        styles.video,
-                        {
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          resizeMode: 'cover',
-                          zIndex: 10,
-                        },
-                      ]}
-                      blurRadius={0}
-                    />
-                  </>
+                  <Image
+                    source={{ uri: thumbnailUri }}
+                    style={[
+                      styles.video,
+                      {
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        resizeMode: 'cover',
+                        zIndex: 10,
+                      },
+                    ]}
+                    blurRadius={0}
+                  />
                 )}
               </>
             ) : (
-              /* Non-current slots: render thumbnail as a lightweight static placeholder
-                 so the list looks populated without loading any video decoder */
               !!thumbnailUri ? (
                 <Image
                   source={{ uri: thumbnailUri }}
@@ -413,7 +398,6 @@ const ReelPinchVideoBlock = React.memo(
       </View>
     );
   },
-  // Custom comparator — only re-render when props that affect output change
   (prev, next) => {
     return (
       prev.isCurrent === next.isCurrent &&
@@ -437,8 +421,7 @@ const ReelPinchVideoBlock = React.memo(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ReelItem — extracted component so renderItem can use hooks per-item
-// Memoized with a comparator that checks the specific slice of state it uses
+// ReelItem
 // ─────────────────────────────────────────────────────────────────────────────
 const ReelItem = React.memo(
   function ReelItem({
@@ -463,7 +446,6 @@ const ReelItem = React.memo(
     sideActionsBottom,
     bottomContentBottom,
     horizontalActionsBottom,
-    // stable callbacks
     onPinchLockChange,
     handleVideoLoad,
     handleVideoProgress,
@@ -480,6 +462,8 @@ const ReelItem = React.memo(
     getReelOwnerId,
     formatCount,
     text: textColor,
+    // i18n
+    tFlips,
   }) {
     const isCurrent = currentIndex === index;
     const isOwnReel =
@@ -487,7 +471,6 @@ const ReelItem = React.memo(
       item?.userId != null &&
       String(currentUserId) === String(item.userId);
 
-    // Stable per-item callbacks bound to item.id
     const onVideoLoad = useCallback(
       data => handleVideoLoad(item.id, data),
       [item.id, handleVideoLoad],
@@ -535,11 +518,11 @@ const ReelItem = React.memo(
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => togglePlaybackSpeed(item.id)}
-            accessibilityLabel="Toggle playback speed">
+            accessibilityLabel={tFlips('flips.toggleSpeed')}>
             <Text style={styles.speedBadge}>
               {(playbackRateMap[item.id] ?? 1) + '×'}
             </Text>
-            <Text style={styles.actionLabel}>Speed</Text>
+            <Text style={styles.actionLabel}>{tFlips('flips.speedLabel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -571,7 +554,7 @@ const ReelItem = React.memo(
             style={styles.actionButton}
             onPress={() => openShareSheet()}>
             <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
-            <Text style={styles.actionLabel}>Share</Text>
+            <Text style={styles.actionLabel}>{tFlips('flips.shareLabel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -644,7 +627,7 @@ const ReelItem = React.memo(
                     String(getReelOwnerId(item)),
                   )}>
                   <Text style={styles.followButtonText}>
-                    {!item.isFollowing ? 'Follow' : 'Following'}
+                    {!item.isFollowing ? tFlips('flips.follow') : tFlips('flips.following')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -655,15 +638,15 @@ const ReelItem = React.memo(
           </Text>
           <TouchableOpacity style={styles.likedBySection}>
             <Text style={styles.likedByText}>
-              ❤️ Liked by{' '}
+              ❤️ {tFlips('flips.likedBy')}{' '}
               <Text style={styles.likedByBold}>
                 {(() => {
                   const likeCount = Number(
                     item.likes ?? item.likeCount ?? 0,
                   );
-                  if (likeCount === 0) return 'no one yet';
-                  if (likeCount === 1) return '1 person';
-                  return `${likeCount} others`;
+                  if (likeCount === 0) return tFlips('flips.likedByNone');
+                  if (likeCount === 1) return tFlips('flips.likedByOne');
+                  return `${likeCount} ${tFlips('flips.likedByOthers')}`;
                 })()}
               </Text>
             </Text>
@@ -709,15 +692,14 @@ export default function FlipsScreen() {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const { text } = useAppTheme();
+  const { t } = useLanguage();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reels, setReels] = useState([]);
-  /** Keeps latest reels for fetch callbacks — avoids stale closures without widening deps. */
   const reelsRef = useRef(reels);
   useEffect(() => {
     reelsRef.current = reels;
   }, [reels]);
-  /** Before Explore→Flips handoff clears the feed; restored if the refresh fails. */
   const exploreScrollBackupRef = useRef([]);
   const [muted, setMuted] = useState({});
   const [paused, setPaused] = useState({});
@@ -739,15 +721,10 @@ export default function FlipsScreen() {
   }, []);
 
   const flatListRef = useRef();
-  // While opening Flips from Explore, FlatList can still report offset 0 before
-  // scrollToIndex runs — handleScroll would clamp currentIndex to 0 and fight fetch.
   const suppressScrollDerivedIndexRef = useRef(false);
   const videoRefs = useRef({});
-  // Raw currentTime values — never causes re-renders
   const videoProgressRef = useRef({});
-  // Per-reel Animated.Values for the progress bar — drives UI without setState
   const videoProgressAnimRef = useRef({});
-  // Per-reel duration in seconds
   const videoDurationSecRef = useRef({});
   const likedRef = useRef(liked);
 
@@ -769,15 +746,13 @@ export default function FlipsScreen() {
   const [commentPostId, setCommentPostId] = useState(null);
   const [commentPostOwnerId, setCommentPostOwnerId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
-    useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [pendingFollowUserId, setPendingFollowUserId] = useState(null);
   const [pendingFollowAction, setPendingFollowAction] = useState(null);
   const [followingBusy, setFollowingBusy] = useState(new Set());
   const [tokenAddress, setTokenAddress] = useState(null);
-  const [currentUserProfileType, setCurrentUserProfileType] =
-    useState('user');
+  const [currentUserProfileType, setCurrentUserProfileType] = useState('user');
 
   const { bgStyle } = useAppTheme();
   const { startSupportPayment } = useWalletConnectSupport();
@@ -844,11 +819,11 @@ export default function FlipsScreen() {
     outputRange: [0.4, 1],
   });
 
-  const options = [
-    "I don't like this post",
-    "I've already seen this",
-    "It's inappropriate",
-    'Other',
+  const notInterestedOptions = [
+    t('flips.notInterestedOption1'),
+    t('flips.notInterestedOption2'),
+    t('flips.notInterestedOption3'),
+    t('flips.notInterestedOption4'),
   ];
 
   const formatCount = useCallback(count => {
@@ -862,11 +837,7 @@ export default function FlipsScreen() {
     if (selectedReelId) {
       setReels(prev => prev.filter(r => r.id !== selectedReelId));
       setSelectedReelId(null);
-      showToastMessage(
-        toast,
-        'success',
-        "Thanks — we'll show you fewer posts like this",
-      );
+      showToastMessage(toast, 'success', t('flips.notInterestedToast'));
     }
   };
 
@@ -891,9 +862,6 @@ export default function FlipsScreen() {
     async paramReel => {
       let showedGlobalLoader = false;
       try {
-        // Empty list: full-screen loader only. When reels already exist (e.g. came back from
-        // Explore), skip global loader — the current cell already shows thumbnail + spinner
-        // until the native player is ready, and stacking both looked like “two loaders”.
         if (reelsRef.current.length === 0) {
           dispatch(showLoader());
           showedGlobalLoader = true;
@@ -942,29 +910,13 @@ export default function FlipsScreen() {
             return {
               id: resolvedId || fallbackId,
               video: raw?.images?.[0] || raw?.video || '',
-              thumbnails: Array.isArray(raw?.thumbnails)
-                ? raw.thumbnails
-                : [],
+              thumbnails: Array.isArray(raw?.thumbnails) ? raw.thumbnails : [],
               thumbnail:
-                raw?.thumbnails?.[0] ||
-                raw?.thumbnail ||
-                raw?.thumbNail ||
-                raw?.videoThumbnail ||
-                raw?.coverImage ||
-                raw?.poster ||
-                raw?.images?.[1] ||
-                raw?.image ||
-                raw?.images?.[0] ||
-                '',
-              user:
-                raw?.userName ||
-                raw?.username ||
-                raw?.user ||
-                'Unknown User',
-              avatar:
-                raw?.userImage ||
-                raw?.avatar ||
-                'https://randomuser.me/api/portraits/men/1.jpg',
+                raw?.thumbnails?.[0] || raw?.thumbnail || raw?.thumbNail ||
+                raw?.videoThumbnail || raw?.coverImage || raw?.poster ||
+                raw?.images?.[1] || raw?.image || raw?.images?.[0] || '',
+              user: raw?.userName || raw?.username || raw?.user || 'Unknown User',
+              avatar: raw?.userImage || raw?.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
               caption: raw?.caption || raw?.text || 'No caption',
               music: raw?.music || 'Original Audio',
               likes: raw?.likeCount || raw?.likes || 0,
@@ -972,9 +924,7 @@ export default function FlipsScreen() {
               shares: raw?.shareCount || raw?.shares || 0,
               isLiked: raw?.isLike || raw?.isLiked || false,
               isFollowing: raw?.isFollow || raw?.isFollowing || false,
-              views: formatCount(
-                Math.floor(Math.random() * 1000000) + 100000,
-              ),
+              views: formatCount(Math.floor(Math.random() * 1000000) + 100000),
               duration: 30000,
               verified: false,
               likedBy: [`${raw?.likeCount || raw?.likes || 0} others`],
@@ -985,12 +935,9 @@ export default function FlipsScreen() {
               UserId: ownerId,
               profile: raw?.profile || 'user',
               walletAddress:
-                raw?.walletAddress ||
-                raw?.userWalletAddress ||
-                raw?.creatorWalletAddress ||
-                raw?.vendorWalletAddress ||
-                raw?.receiverWalletAddress ||
-                null,
+                raw?.walletAddress || raw?.userWalletAddress ||
+                raw?.creatorWalletAddress || raw?.vendorWalletAddress ||
+                raw?.receiverWalletAddress || null,
               hashtag: raw?.hashtag || [],
               location: raw?.location || null,
               taggedPeople: raw?.taggedPeople || [],
@@ -1014,14 +961,9 @@ export default function FlipsScreen() {
           const apiReels = (
             Array.isArray(response.data) ? response.data : []
           )
-            .filter(
-              item => !contextUserId || filterByContextUser(item),
-            )
+            .filter(item => !contextUserId || filterByContextUser(item))
             .map((item, index) =>
-              normalizeReel(item, {
-                fallbackIdPrefix: 'api',
-                fallbackIndex: index,
-              }),
+              normalizeReel(item, { fallbackIdPrefix: 'api', fallbackIndex: index }),
             );
 
           const profileReels = (
@@ -1029,15 +971,9 @@ export default function FlipsScreen() {
               ? route.params.profileReels
               : []
           )
-            .filter(
-              item =>
-                isVideoReel(item) && filterByContextUser(item),
-            )
+            .filter(item => isVideoReel(item) && filterByContextUser(item))
             .map((item, index) =>
-              normalizeReel(item, {
-                fallbackIdPrefix: 'profile',
-                fallbackIndex: index,
-              }),
+              normalizeReel(item, { fallbackIdPrefix: 'profile', fallbackIndex: index }),
             );
 
           const seen = new Set();
@@ -1052,8 +988,7 @@ export default function FlipsScreen() {
           });
 
           if (!paramReel) {
-            if (dedupedApiReels.length > 0)
-              setReels(dedupedApiReels);
+            if (dedupedApiReels.length > 0) setReels(dedupedApiReels);
             return;
           }
 
@@ -1083,9 +1018,7 @@ export default function FlipsScreen() {
 
           const next = [
             normalizedParamReel,
-            ...dedupedApiReels.filter(
-              r => String(r?.id) !== paramId,
-            ),
+            ...dedupedApiReels.filter(r => String(r?.id) !== paramId),
           ];
           setReels(next);
           setSelectedReelId(normalizedParamReel.id);
@@ -1094,12 +1027,9 @@ export default function FlipsScreen() {
           showToastMessage(
             toast,
             'danger',
-            response?.data?.message || 'Failed to fetch reels',
+            response?.data?.message || t('flips.fetchReelsFailed'),
           );
-          if (
-            paramReel &&
-            exploreScrollBackupRef.current.length > 0
-          ) {
+          if (paramReel && exploreScrollBackupRef.current.length > 0) {
             setReels(exploreScrollBackupRef.current);
             setCurrentIndex(0);
           }
@@ -1109,12 +1039,9 @@ export default function FlipsScreen() {
         showToastMessage(
           toast,
           'danger',
-          error?.response?.message ?? 'Something went wrong',
+          error?.response?.message ?? t('flips.somethingWentWrong'),
         );
-        if (
-          paramReel &&
-          exploreScrollBackupRef.current.length > 0
-        ) {
+        if (paramReel && exploreScrollBackupRef.current.length > 0) {
           setReels(exploreScrollBackupRef.current);
           setCurrentIndex(0);
         }
@@ -1132,14 +1059,13 @@ export default function FlipsScreen() {
       route.params?.profileUserId,
       route.params?.sourceUserId,
       toast,
+      t,
     ],
   );
 
   useEffect(() => {
     const paramReel = route.params?.item;
     if (paramReel) {
-      // Drop stale feed immediately so we don't play the wrong reel while getAllReels runs,
-      // and while FlatList is still at offset 0 before scrollToIndex targets the tapped post.
       exploreScrollBackupRef.current =
         reelsRef.current.length > 0 ? [...reelsRef.current] : [];
       reelsRef.current = [];
@@ -1161,11 +1087,11 @@ export default function FlipsScreen() {
 
   const copyToClipboard = url => {
     if (!url) {
-      showToastMessage(toast, 'danger', 'No link available to copy');
+      showToastMessage(toast, 'danger', t('flips.noLinkToCopy'));
       return;
     }
     Clipboard.setString(url);
-    showToastMessage(toast, 'success', 'Link copied to clipboard');
+    showToastMessage(toast, 'success', t('flips.linkCopied'));
   };
 
   useEffect(() => {
@@ -1202,8 +1128,6 @@ export default function FlipsScreen() {
     }
   }, [navigation, route.params]);
 
-  // Single active <Video> uses `index === currentIndex`. Do NOT derive currentIndex from
-  // viewableItems[0] — order is undefined, so nothing matched → permanent black screen.
   const handleScroll = useCallback(
     event => {
       const offsetY = event.nativeEvent.contentOffset.y || 0;
@@ -1212,13 +1136,10 @@ export default function FlipsScreen() {
       const maxIndex = Math.max(0, reels.length - 1);
       const validIdx = Math.min(Math.max(0, pageIdx), maxIndex);
       if (!suppressScrollDerivedIndexRef.current) {
-        setCurrentIndex(prev =>
-          prev !== validIdx ? validIdx : prev,
-        );
+        setCurrentIndex(prev => (prev !== validIdx ? validIdx : prev));
       }
 
       const maxScroll = maxIndex * viewportHeight;
-      // reels can be [] during Explore→Flips handoff; reels.length - 1 would be -1 and crashes.
       if (
         reels.length > 0 &&
         offsetY > maxScroll + viewportHeight * 0.5
@@ -1240,9 +1161,7 @@ export default function FlipsScreen() {
       setLiked(prev => ({ ...prev, [id]: !wasLiked }));
       setLikesCount(prev => ({
         ...prev,
-        [id]: wasLiked
-          ? Math.max(0, prevCount - 1)
-          : prevCount + 1,
+        [id]: wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1,
       }));
       setLikingIds(prev => new Set(prev).add(id));
       try {
@@ -1250,30 +1169,24 @@ export default function FlipsScreen() {
         const ok = res?.statusCode === 200 && res?.success;
         if (ok) {
           const serverLiked = !!res?.data?.liked;
-          const serverCount =
-            res?.data?.likesCount ?? res?.data?.totalLikes;
+          const serverCount = res?.data?.likesCount ?? res?.data?.totalLikes;
           setLiked(prev => ({ ...prev, [id]: serverLiked }));
           if (serverCount !== undefined)
-            setLikesCount(prev => ({
-              ...prev,
-              [id]: serverCount,
-            }));
+            setLikesCount(prev => ({ ...prev, [id]: serverCount }));
         } else {
           setLiked(prev => ({ ...prev, [id]: wasLiked }));
           setLikesCount(prev => ({ ...prev, [id]: prevCount }));
           showToastMessage(
-            toast,
-            'danger',
-            res?.data?.message || 'Failed to toggle like',
+            toast, 'danger',
+            res?.data?.message || t('flips.likeToggleFailed'),
           );
         }
       } catch (e) {
         setLiked(prev => ({ ...prev, [id]: wasLiked }));
         setLikesCount(prev => ({ ...prev, [id]: prevCount }));
         showToastMessage(
-          toast,
-          'danger',
-          e?.response?.data?.message || 'Something went wrong',
+          toast, 'danger',
+          e?.response?.data?.message || t('flips.somethingWentWrong'),
         );
       } finally {
         setLikingIds(prev => {
@@ -1283,7 +1196,7 @@ export default function FlipsScreen() {
         });
       }
     },
-    [liked, likesCount, likingIds, toast],
+    [liked, likesCount, likingIds, toast, t],
   );
 
   const getReelOwnerId = useCallback(
@@ -1307,8 +1220,7 @@ export default function FlipsScreen() {
         const res = shouldFollow
           ? await follow(targetUserId)
           : await unfollow(targetUserId);
-        const ok =
-          res?.statusCode === 200 && (res?.success ?? true);
+        const ok = res?.statusCode === 200 && (res?.success ?? true);
         if (!ok) {
           setReels(prev =>
             prev.map(reel =>
@@ -1318,9 +1230,8 @@ export default function FlipsScreen() {
             ),
           );
           showToastMessage(
-            toast,
-            'danger',
-            res?.data?.message || 'Unable to update follow',
+            toast, 'danger',
+            res?.data?.message || t('flips.followUpdateFailed'),
           );
           return false;
         }
@@ -1345,9 +1256,8 @@ export default function FlipsScreen() {
           ),
         );
         showToastMessage(
-          toast,
-          'danger',
-          e?.response?.data?.message || 'Something went wrong',
+          toast, 'danger',
+          e?.response?.data?.message || t('flips.somethingWentWrong'),
         );
         return false;
       } finally {
@@ -1358,7 +1268,7 @@ export default function FlipsScreen() {
         });
       }
     },
-    [getReelOwnerId, toast],
+    [getReelOwnerId, toast, t],
   );
 
   const handleToggleFollow = useCallback(
@@ -1369,10 +1279,7 @@ export default function FlipsScreen() {
       setPendingFollowUserId(targetUserId);
       setPendingFollowAction(shouldFollow);
       if (shouldFollow) {
-        setTimeout(
-          () => purchaseSheetRef.current?.open?.(),
-          0,
-        );
+        setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
         return true;
       }
       return executeFollowAction(targetUserId, false);
@@ -1387,20 +1294,13 @@ export default function FlipsScreen() {
         !targetUserId ||
         String(targetUserId) === String(currentUserId) ||
         followingBusy.has(String(targetUserId))
-      )
-        return;
+      ) return;
       const shouldFollow = !item.isFollowing;
-      const result = await executeFollowAction(
-        targetUserId,
-        shouldFollow,
-        item.userTokenAddress,
-      );
+      const result = await executeFollowAction(targetUserId, shouldFollow, item.userTokenAddress);
       const success = typeof result === 'boolean' ? result : true;
       if (!success || !shouldFollow) return;
       const recipientProfile = normalizeProfileType(item?.profile);
-      const supporterProfile = normalizeProfileType(
-        currentUserProfileType,
-      );
+      const supporterProfile = normalizeProfileType(currentUserProfileType);
       if (isSupportAllowed({ supporterProfile, recipientProfile })) {
         setModalVisible(true);
       }
@@ -1417,24 +1317,14 @@ export default function FlipsScreen() {
   const handleTokenPurchase = useCallback(async () => {
     try {
       purchaseSheetRef.current?.close?.();
-      if (
-        pendingFollowUserId != null &&
-        pendingFollowAction != null
-      )
-        await executeFollowAction(
-          pendingFollowUserId,
-          pendingFollowAction,
-        );
+      if (pendingFollowUserId != null && pendingFollowAction != null)
+        await executeFollowAction(pendingFollowUserId, pendingFollowAction);
     } finally {
       setPendingFollowUserId(null);
       setPendingFollowAction(null);
       setPurchaseAutoFocus(false);
     }
-  }, [
-    executeFollowAction,
-    pendingFollowAction,
-    pendingFollowUserId,
-  ]);
+  }, [executeFollowAction, pendingFollowAction, pendingFollowUserId]);
 
   const handleTokenSell = useCallback(async () => {
     sellSheetRef.current?.close?.();
@@ -1442,8 +1332,8 @@ export default function FlipsScreen() {
       await executeFollowAction(pendingFollowUserId, false);
     setPendingFollowUserId(null);
     setPendingFollowAction(null);
-    showToastMessage(toast, 'success', 'Tokens sold successfully!');
-  }, [executeFollowAction, pendingFollowUserId, toast]);
+    showToastMessage(toast, 'success', t('flips.tokensSoldSuccess'));
+  }, [executeFollowAction, pendingFollowUserId, toast, t]);
 
   const handleTokenModalClose = useCallback(() => {
     purchaseSheetRef.current?.close?.();
@@ -1458,9 +1348,7 @@ export default function FlipsScreen() {
     () =>
       (activeReelId
         ? reels.find(r => String(r?.id) === String(activeReelId))
-        : null) ||
-      currentReel ||
-      null,
+        : null) || currentReel || null,
     [activeReelId, currentReel, reels],
   );
   const canDeleteActiveReel = useMemo(() => {
@@ -1473,51 +1361,39 @@ export default function FlipsScreen() {
     );
   }, [activeReel, activeReelId, currentUserId, getReelOwnerId]);
 
-  const recipientWalletAddress = getSupportRecipientWalletAddress(
-    currentReel || {},
-  );
+  const recipientWalletAddress = getSupportRecipientWalletAddress(currentReel || {});
   const supporterProfile = normalizeProfileType(currentUserProfileType);
   const recipientProfile = normalizeProfileType(currentReel?.profile);
 
   const handleSupportNow = useCallback(async () => {
     if (!recipientWalletAddress) {
       Alert.alert(
-        'Wallet not connected',
-        'This user has not connected a wallet yet. Follow is still active.',
+        t('flips.walletNotConnectedTitle'),
+        t('flips.walletNotConnectedMessage'),
       );
       return;
     }
     setSupportDisclaimerVisible(false);
-    const receiverId =
-      currentReel?.UserId ?? currentReel?.userId ?? '';
+    const receiverId = currentReel?.UserId ?? currentReel?.userId ?? '';
     await startSupportPayment(recipientWalletAddress, {
-      senderId:
-        currentUserId != null ? String(currentUserId) : '',
-      receiverId:
-        receiverId !== '' ? String(receiverId) : '',
+      senderId: currentUserId != null ? String(currentUserId) : '',
+      receiverId: receiverId !== '' ? String(receiverId) : '',
       chain: 'POLYGON',
     });
-  }, [
-    currentReel,
-    currentUserId,
-    recipientWalletAddress,
-    startSupportPayment,
-  ]);
+  }, [currentReel, currentUserId, recipientWalletAddress, startSupportPayment, t]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
-    if (
-      !isSupportAllowed({ supporterProfile, recipientProfile })
-    ) {
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
       Alert.alert(
-        'Support unavailable',
-        'Tips are not available for business profiles.',
+        t('flips.supportUnavailableTitle'),
+        t('flips.supportUnavailableMessage'),
       );
       setModalVisible(false);
       return;
     }
     setModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, [recipientProfile, supporterProfile]);
+  }, [recipientProfile, supporterProfile, t]);
 
   const animateHeart = useCallback(
     id => {
@@ -1541,7 +1417,6 @@ export default function FlipsScreen() {
     [scaleAnim],
   );
 
-  // ── Stable tap refs — callbacks update without changing identity ──
   const handleDoubleTapLeftRef = useRef(null);
   const handleSingleTapToggleRef = useRef(null);
 
@@ -1557,7 +1432,6 @@ export default function FlipsScreen() {
     setPaused(prev => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  // These never change identity — safe to pass to memoized children
   const stableDoubleTap = useCallback(id => {
     handleDoubleTapLeftRef.current?.(id);
   }, []);
@@ -1568,11 +1442,9 @@ export default function FlipsScreen() {
 
   const getDurationSecForReel = useCallback(
     (id, fallbackMs = 30000) => {
-      // Read from ref — no state dependency
       const fromRef = videoDurationSecRef.current[id];
       if (fromRef) return fromRef;
-      const ms =
-        reels.find(r => r.id === id)?.duration ?? fallbackMs;
+      const ms = reels.find(r => r.id === id)?.duration ?? fallbackMs;
       return Math.max(0.001, Number(ms) / 1000);
     },
     [reels],
@@ -1583,10 +1455,7 @@ export default function FlipsScreen() {
       const videoRef = videoRefs.current[id];
       if (!videoRef?.seek) return;
       const outerW = progressBarWidthRef.current || windowWidth;
-      const innerW = Math.max(
-        1,
-        outerW - 2 * FLIPS_PROGRESS_H_PADDING,
-      );
+      const innerW = Math.max(1, outerW - 2 * FLIPS_PROGRESS_H_PADDING);
       const x = Math.min(
         Math.max(locationX - FLIPS_PROGRESS_H_PADDING, 0),
         innerW,
@@ -1597,7 +1466,6 @@ export default function FlipsScreen() {
       try {
         videoRef.seek(t);
         videoProgressRef.current[id] = t;
-        // Update Animated.Value directly — zero setState, zero re-render
         if (videoProgressAnimRef.current[id]) {
           videoProgressAnimRef.current[id].setValue(ratio);
         }
@@ -1635,18 +1503,14 @@ export default function FlipsScreen() {
         if (resp && resp.statusCode === 200) {
           showToastMessage(toast, 'success', resp.data.message);
           Alert.alert(resp?.data?.message);
-          setSaved(prev => ({
-            ...prev,
-            [reelId]: !isCurrentlySaved,
-          }));
+          setSaved(prev => ({ ...prev, [reelId]: !isCurrentlySaved }));
         } else {
           showToastMessage(toast, 'danger', resp.data.message);
         }
       } catch (err) {
         showToastMessage(
-          toast,
-          'danger',
-          err?.response?.data?.message ?? 'Something went wrong',
+          toast, 'danger',
+          err?.response?.data?.message ?? t('flips.somethingWentWrong'),
         );
       } finally {
         setSavingIds(prev => {
@@ -1656,7 +1520,7 @@ export default function FlipsScreen() {
         });
       }
     },
-    [saved, savingIds, toast],
+    [saved, savingIds, toast, t],
   );
 
   const handleCommentClose = useCallback(() => {
@@ -1665,18 +1529,12 @@ export default function FlipsScreen() {
   }, []);
 
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
-    setCommentsCount(prev => ({
-      ...prev,
-      [postId]: Math.max(0, newCount),
-    }));
+    setCommentsCount(prev => ({ ...prev, [postId]: Math.max(0, newCount) }));
   }, []);
 
   useEffect(() => {
-    if (!flatListRef.current || !selectedReelId || reels.length === 0)
-      return;
-    const idx = reels.findIndex(
-      r => String(r?.id) === String(selectedReelId),
-    );
+    if (!flatListRef.current || !selectedReelId || reels.length === 0) return;
+    const idx = reels.findIndex(r => String(r?.id) === String(selectedReelId));
     if (idx < 0) {
       setSelectedReelId(null);
       suppressScrollDerivedIndexRef.current = false;
@@ -1709,28 +1567,24 @@ export default function FlipsScreen() {
       }
     };
 
-    requestAnimationFrame(() =>
-      requestAnimationFrame(scrollToTarget),
-    );
+    requestAnimationFrame(() => requestAnimationFrame(scrollToTarget));
   }, [selectedReelId, reels, viewportHeight]);
 
   const handleShare = async item => {
     try {
       const result = await Share.share({
-        message: `Check out this amazing reel by @${item.user}!\n\n"${item.caption}"\n\nShared via Flips`,
-        title: `Reel by @${item.user}`,
+        message: `${t('flips.shareMessage')} @${item.user}!\n\n"${item.caption}"\n\n${t('flips.shareVia')}`,
+        title: `${t('flips.shareTitle')} @${item.user}`,
       });
       if (result.action === Share.sharedAction) {
         setReels(prev =>
           prev.map(reel =>
-            reel.id === item.id
-              ? { ...reel, shares: reel.shares + 1 }
-              : reel,
+            reel.id === item.id ? { ...reel, shares: reel.shares + 1 } : reel,
           ),
         );
       }
     } catch {
-      Alert.alert('Error', 'Failed to share reel');
+      Alert.alert(t('flips.errorTitle'), t('flips.shareFailedMessage'));
     }
   };
 
@@ -1747,88 +1601,62 @@ export default function FlipsScreen() {
     async reelId => {
       if (!reelId) return;
       try {
-        const userId =
-          currentUserId ??
-          (await AsyncStorage.getItem('userId'));
+        const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
         if (!userId) {
-          showToastMessage(
-            toast,
-            'danger',
-            'No user id found; cannot delete.',
-          );
+          showToastMessage(toast, 'danger', t('flips.noUserIdError'));
           return;
         }
         dispatch(showLoader());
         setReels(prev => {
-          const next = prev.filter(
-            r => String(r?.id) !== String(reelId),
-          );
+          const next = prev.filter(r => String(r?.id) !== String(reelId));
           const maxIdx = Math.max(0, next.length - 1);
-          setCurrentIndex(ci =>
-            Math.max(0, Math.min(ci, maxIdx)),
-          );
+          setCurrentIndex(ci => Math.max(0, Math.min(ci, maxIdx)));
           return next;
         });
         setSelectedReelId(null);
         moreOptionsSheetRef.current?.close?.();
-        const res = await deletePost(
-          String(reelId),
-          String(userId),
-        );
+        const res = await deletePost(String(reelId), String(userId));
         if (res?.statusCode === 200 && (res?.success ?? true)) {
-          showToastMessage(
-            toast,
-            'success',
-            res?.data?.message || 'Flip deleted',
-          );
+          showToastMessage(toast, 'success', res?.data?.message || t('flips.flipDeleted'));
         } else {
           showToastMessage(
-            toast,
-            'danger',
-            res?.data?.message ||
-            res?.message ||
-            'Failed to delete reel',
+            toast, 'danger',
+            res?.data?.message || res?.message || t('flips.deleteReelFailed'),
           );
         }
       } catch (e) {
         showToastMessage(
-          toast,
-          'danger',
-          e?.response?.data?.message ||
-          e?.message ||
-          'Error deleting reel',
+          toast, 'danger',
+          e?.response?.data?.message || e?.message || t('flips.deleteReelError'),
         );
       } finally {
         dispatch(hideLoader());
       }
     },
-    [currentUserId, dispatch, toast],
+    [currentUserId, dispatch, toast, t],
   );
 
   const confirmDeleteReel = useCallback(
     reelId => {
       Alert.alert(
-        'Delete reel?',
-        'This action cannot be undone.',
+        t('flips.deleteReelTitle'),
+        t('flips.deleteReelMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('flips.cancel'), style: 'cancel' },
           {
-            text: 'Delete',
+            text: t('flips.delete'),
             style: 'destructive',
             onPress: () => deleteReelById(reelId),
           },
         ],
       );
     },
-    [deleteReelById],
+    [deleteReelById, t],
   );
 
-  // ── Stable video callbacks — bound to itemId inside ReelItem ──
   const handleVideoLoad = useCallback((itemId, data) => {
-    // Store duration in ref — no setState, no re-render
     const durSec = Math.max(0.001, data.duration);
     videoDurationSecRef.current[itemId] = durSec;
-    // Create Animated.Value for this reel if not yet created
     if (!videoProgressAnimRef.current[itemId]) {
       videoProgressAnimRef.current[itemId] = new Animated.Value(0);
     }
@@ -1838,7 +1666,6 @@ export default function FlipsScreen() {
     if (scrubbingReelIdRef.current === itemId) return;
     const t = data.currentTime;
     videoProgressRef.current[itemId] = t;
-    // Drive the progress bar via Animated.Value — zero setState
     const durSec = videoDurationSecRef.current[itemId];
     if (durSec && videoProgressAnimRef.current[itemId]) {
       const ratio = Math.min(1, Math.max(0, t / durSec));
@@ -1858,8 +1685,7 @@ export default function FlipsScreen() {
   }, []);
 
   const handleUserNavigate = useCallback(async () => {
-    const userId =
-      currentUserId ?? (await AsyncStorage.getItem('userId'));
+    const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
     const currentReelItem = reels[currentIndex];
     const targetUserId =
       currentReelItem?.userId ||
@@ -1873,21 +1699,12 @@ export default function FlipsScreen() {
         screen: 'UsersProfile',
         params: { userId: targetUserId },
       });
-  }, [
-    currentIndex,
-    currentUserId,
-    navigation,
-    reels,
-    route.params?.item,
-  ]);
+  }, [currentIndex, currentUserId, navigation, reels, route.params?.item]);
 
   const renderMusicTemplate = ({ item }) => (
     <TouchableOpacity style={styles.templateItem}>
       <View style={styles.templateThumbnail}>
-        <Image
-          source={{ uri: item.thumbnail }}
-          style={styles.templateImage}
-        />
+        <Image source={{ uri: item.thumbnail }} style={styles.templateImage} />
         <View style={styles.templatePlay}>
           <Icon name="play" size={20} color="#fff" />
         </View>
@@ -1895,10 +1712,10 @@ export default function FlipsScreen() {
       <View style={styles.templateInfo}>
         <Text style={styles.templateName}>{item.name}</Text>
         <Text style={styles.templateMusic}>♪ {item.music}</Text>
-        <Text style={styles.templateUses}>{item.uses} uses</Text>
+        <Text style={styles.templateUses}>{item.uses} {t('flips.templateUses')}</Text>
       </View>
       <TouchableOpacity style={styles.useTemplateBtn}>
-        <Text style={styles.useTemplateBtnText}>Use</Text>
+        <Text style={styles.useTemplateBtnText}>{t('flips.templateUse')}</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -1917,21 +1734,16 @@ export default function FlipsScreen() {
       try {
         const profile = await AsyncStorage.getItem('profile');
         if (isMounted)
-          setCurrentUserProfileType(
-            normalizeProfileType(profile || 'user'),
-          );
+          setCurrentUserProfileType(normalizeProfileType(profile || 'user'));
       } catch {
         if (isMounted) setCurrentUserProfileType('user');
       }
     };
     loadCurrentUserId();
     loadCurrentUserProfile();
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [isFocused]);
 
-  // ── renderItem — thin wrapper, all heavy logic lives in ReelItem ──
   const renderItem = useCallback(
     ({ item, index }) => (
       <ReelItem
@@ -1972,53 +1784,26 @@ export default function FlipsScreen() {
         getReelOwnerId={getReelOwnerId}
         formatCount={formatCount}
         text={text}
+        tFlips={t}
       />
     ),
     [
-      currentIndex,
-      windowWidth,
-      viewportHeight,
-      isFocused,
-      playbackRate,
-      paused,
-      muted,
-      isBuffering,
-      liked,
-      likesCount,
-      commentsCount,
-      saved,
-      heartAnimatingId,
-      scaleAnim,
-      followingBusy,
-      currentUserId,
-      sideActionsBottom,
-      bottomContentBottom,
-      horizontalActionsBottom,
-      onPinchLockChange,
-      handleVideoLoad,
-      handleVideoProgress,
-      registerVideoRef,
-      stableDoubleTap,
-      stableSingleTap,
-      handleLike,
-      handleComment,
-      openShareSheet,
-      handleMoreOptions,
-      handleFollowPress,
-      handleUserNavigate,
-      togglePlaybackSpeed,
-      getReelOwnerId,
-      formatCount,
-      text,
+      currentIndex, windowWidth, viewportHeight, isFocused, playbackRate,
+      paused, muted, isBuffering, liked, likesCount, commentsCount, saved,
+      heartAnimatingId, scaleAnim, followingBusy, currentUserId, sideActionsBottom,
+      bottomContentBottom, horizontalActionsBottom, onPinchLockChange,
+      handleVideoLoad, handleVideoProgress, registerVideoRef, stableDoubleTap,
+      stableSingleTap, handleLike, handleComment, openShareSheet, handleMoreOptions,
+      handleFollowPress, handleUserNavigate, togglePlaybackSpeed, getReelOwnerId,
+      formatCount, text, t,
     ],
   );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView
-        style={styles.container}
-        edges={['left', 'right']}>
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor="#020202ff" />
+
         {/* Header */}
         <View
           style={[
@@ -2032,32 +1817,24 @@ export default function FlipsScreen() {
             },
           ]}
           pointerEvents="box-none">
-          <TouchableOpacity
-            onPress={handleBackPress}
-            style={styles.buttons}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.buttons}>
             <Icon name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerLeft}
             onPress={() => setDropdownVisible(v => !v)}>
-            <Text style={styles.logo}>Flips</Text>
-            <Icon
-              name="chevron-down"
-              size={18}
-              color="#fff"
-              style={styles.chevronIcon}
-            />
+            <Text style={styles.logo}>{t('flips.screenTitle')}</Text>
+            <Icon name="chevron-down" size={18} color="#fff" style={styles.chevronIcon} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerIconButton}>
             <Feather name="camera" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {/* Progress scrub bar — reads Animated.Value directly, no setState */}
+        {/* Progress scrub bar */}
         {reels.length > 0 && reels[currentIndex]?.id
           ? (() => {
             const activeId = reels[currentIndex].id;
-            // Ensure Animated.Value exists for this reel
             if (!videoProgressAnimRef.current[activeId]) {
               videoProgressAnimRef.current[activeId] = new Animated.Value(0);
             }
@@ -2076,7 +1853,6 @@ export default function FlipsScreen() {
                 runOnJS(onScrubEnd)();
               });
 
-            // fillAnim is 0–1 ratio; convert to percentage string for width
             const fillWidth = fillAnim.interpolate({
               inputRange: [0, 1],
               outputRange: ['0%', '100%'],
@@ -2105,8 +1881,7 @@ export default function FlipsScreen() {
                   collapsable={false}
                   pointerEvents="box-only"
                   onLayout={e => {
-                    progressBarWidthRef.current =
-                      e.nativeEvent.layout.width;
+                    progressBarWidthRef.current = e.nativeEvent.layout.width;
                   }}>
                   <Animated.View
                     style={{
@@ -2115,27 +1890,22 @@ export default function FlipsScreen() {
                       borderRadius: 4,
                       overflow: 'visible',
                     }}>
-                    {/* Fill — width driven by Animated.Value */}
                     <Animated.View
                       style={{
                         position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
+                        left: 0, top: 0, bottom: 0,
                         width: fillWidth,
                         backgroundColor: '#fff',
                         borderRadius: 4,
                         opacity: trackOpacity,
                       }}
                     />
-                    {/* Thumb */}
                     <Animated.View
                       style={{
                         position: 'absolute',
                         left: thumbLeft,
                         top: '50%',
-                        width: 16,
-                        height: 16,
+                        width: 16, height: 16,
                         borderRadius: 8,
                         backgroundColor: '#fff',
                         opacity: thumbOpacity,
@@ -2168,43 +1938,27 @@ export default function FlipsScreen() {
           }
           ref={flatListRef}
           data={reels}
-          keyExtractor={(item, index) =>
-            String(item?.id ?? index)
-          }
+          keyExtractor={(item, index) => String(item?.id ?? index)}
           renderItem={renderItem}
           pagingEnabled
           showsVerticalScrollIndicator={false}
           decelerationRate="fast"
-          // Small window + single mounted Video (current row only).
           windowSize={3}
           initialNumToRender={3}
           maxToRenderPerBatch={2}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           onMomentumScrollEnd={e => {
-            // While Explore→Flips alignment runs, the list can emit momentum-end at y=0
-            // before scrollToOffset reaches the target — that used to force currentIndex to 0.
-            if (suppressScrollDerivedIndexRef.current) {
-              return;
-            }
-            if (reels.length === 0) {
-              return;
-            }
-            const offsetY =
-              e.nativeEvent.contentOffset.y || 0;
+            if (suppressScrollDerivedIndexRef.current) return;
+            if (reels.length === 0) return;
+            const offsetY = e.nativeEvent.contentOffset.y || 0;
             const h = viewportHeight || 1;
             const idx = Math.round(offsetY / h);
             const maxIndex = reels.length - 1;
-            const validIdx = Math.min(
-              Math.max(0, idx),
-              maxIndex,
-            );
+            const validIdx = Math.min(Math.max(0, idx), maxIndex);
             setCurrentIndex(validIdx);
             if (idx > maxIndex && maxIndex >= 0) {
-              flatListRef.current?.scrollToIndex({
-                index: maxIndex,
-                animated: true,
-              });
+              flatListRef.current?.scrollToIndex({ index: maxIndex, animated: true });
             }
           }}
           snapToAlignment="start"
@@ -2216,9 +1970,7 @@ export default function FlipsScreen() {
           })}
           overScrollMode="never"
           bounces={false}
-          scrollEnabled={
-            reels.length > 0 && !isScrubbing && !pinchScrollLock
-          }
+          scrollEnabled={reels.length > 0 && !isScrubbing && !pinchScrollLock}
           removeClippedSubviews={false}
           nestedScrollEnabled={false}
           extraData={{
@@ -2232,27 +1984,18 @@ export default function FlipsScreen() {
 
         {dropdownVisible && (
           <View style={styles.dropdownOverlay}>
-            <TouchableWithoutFeedback
-              onPress={() => setDropdownVisible(false)}>
+            <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
               <View style={styles.dropdownBackdrop} />
             </TouchableWithoutFeedback>
             <View style={styles.dropdown}>
               <View style={styles.arrowUp} />
               <TouchableOpacity style={styles.dropdownOption}>
-                <Icon
-                  name="people-outline"
-                  size={22}
-                  color="#000"
-                />
-                <Text style={styles.dropdownText}>Following</Text>
+                <Icon name="people-outline" size={22} color="#000" />
+                <Text style={styles.dropdownText}>{t('flips.dropdownFollowing')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.dropdownOption}>
-                <Icon
-                  name="location-outline"
-                  size={22}
-                  color="#000"
-                />
-                <Text style={styles.dropdownText}>Nearby</Text>
+                <Icon name="location-outline" size={22} color="#000" />
+                <Text style={styles.dropdownText}>{t('flips.dropdownNearby')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2271,11 +2014,7 @@ export default function FlipsScreen() {
           }}
           customStyles={{
             container: [
-              {
-                borderTopLeftRadius: 18,
-                borderTopRightRadius: 18,
-                bottom: -20,
-              },
+              { borderTopLeftRadius: 18, borderTopRightRadius: 18, bottom: -20 },
               bgStyle,
             ],
             draggableIcon: { backgroundColor: '#ccc', width: 60 },
@@ -2303,36 +2042,24 @@ export default function FlipsScreen() {
           closeOnPressMask>
           <View style={styles.moreOptionsContainer}>
             <View style={styles.moreOptionsHeader}>
-              <Text style={styles.moreOptionsTitle}>
-                More Options
-              </Text>
+              <Text style={styles.moreOptionsTitle}>{t('flips.moreOptionsTitle')}</Text>
             </View>
             <ScrollView style={styles.moreOptionsList}>
               <TouchableOpacity
                 style={styles.moreOption}
                 onPress={() => {
-                  handleToggleSave(
-                    selectedReelId || reels[currentIndex]?.id,
-                  );
+                  handleToggleSave(selectedReelId || reels[currentIndex]?.id);
                   moreOptionsSheetRef.current?.close();
                 }}>
                 <Icon
-                  name={
-                    saved[
-                      selectedReelId || reels[currentIndex]?.id
-                    ]
-                      ? 'bookmark'
-                      : 'bookmark-outline'
-                  }
+                  name={saved[selectedReelId || reels[currentIndex]?.id] ? 'bookmark' : 'bookmark-outline'}
                   size={24}
                   color="#000"
                 />
                 <Text style={styles.moreOptionText}>
-                  {saved[
-                    selectedReelId || reels[currentIndex]?.id
-                  ]
-                    ? 'Saved'
-                    : 'Save'}
+                  {saved[selectedReelId || reels[currentIndex]?.id]
+                    ? t('flips.saved')
+                    : t('flips.save')}
                 </Text>
               </TouchableOpacity>
               {canDeleteActiveReel && (
@@ -2342,73 +2069,38 @@ export default function FlipsScreen() {
                     moreOptionsSheetRef.current?.close();
                     confirmDeleteReel(activeReelId);
                   }}>
-                  <Icon
-                    name="trash-outline"
-                    size={24}
-                    color="#000"
-                  />
-                  <Text style={styles.moreOptionText}>
-                    Delete
-                  </Text>
+                  <Icon name="trash-outline" size={24} color="#000" />
+                  <Text style={styles.moreOptionText}>{t('flips.delete')}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 style={styles.moreOption}
                 onPress={() => {
                   moreOptionsSheetRef.current?.close();
-                  setTimeout(
-                    () => reportSheetRef.current?.open(),
-                    200,
-                  );
+                  setTimeout(() => reportSheetRef.current?.open(), 200);
                 }}>
-                <Icon
-                  name="flag-outline"
-                  size={24}
-                  color="#000"
-                />
-                <Text style={styles.moreOptionText}>Report</Text>
+                <Icon name="flag-outline" size={24} color="#000" />
+                <Text style={styles.moreOptionText}>{t('flips.report')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.moreOption}
                 onPress={() => {
                   moreOptionsSheetRef.current?.close();
-                  setTimeout(
-                    () =>
-                      notInterestedSheetRef.current?.open?.(),
-                    220,
-                  );
+                  setTimeout(() => notInterestedSheetRef.current?.open?.(), 220);
                 }}>
-                <Icon
-                  name="eye-off-outline"
-                  size={24}
-                  color="#000"
-                />
-                <Text style={styles.moreOptionText}>
-                  Not Interested
-                </Text>
+                <Icon name="eye-off-outline" size={24} color="#000" />
+                <Text style={styles.moreOptionText}>{t('flips.notInterested')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.moreOption}
                 onPress={() => {
                   const reel =
-                    reels.find(r => r.id === selectedReelId) ||
-                    reels[currentIndex];
-                  copyToClipboard(
-                    reel?.video ||
-                    reel?.images?.[0] ||
-                    reel?.image ||
-                    '',
-                  );
+                    reels.find(r => r.id === selectedReelId) || reels[currentIndex];
+                  copyToClipboard(reel?.video || reel?.images?.[0] || reel?.image || '');
                   moreOptionsSheetRef.current?.close();
                 }}>
-                <Icon
-                  name="copy-outline"
-                  size={24}
-                  color="#000"
-                />
-                <Text style={styles.moreOptionText}>
-                  Copy Link
-                </Text>
+                <Icon name="copy-outline" size={24} color="#000" />
+                <Text style={styles.moreOptionText}>{t('flips.copyLink')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -2429,15 +2121,10 @@ export default function FlipsScreen() {
           closeOnPressMask>
           <View style={styles.templatesContainer}>
             <View style={styles.templatesHeader}>
-              <TouchableOpacity
-                onPress={() =>
-                  musicTemplatesSheetRef.current?.close()
-                }>
+              <TouchableOpacity onPress={() => musicTemplatesSheetRef.current?.close()}>
                 <Icon name="close" size={24} color="#000" />
               </TouchableOpacity>
-              <Text style={styles.templatesTitle}>
-                Music Templates
-              </Text>
+              <Text style={styles.templatesTitle}>{t('flips.musicTemplatesTitle')}</Text>
               <View style={{ width: 24 }} />
             </View>
             <FlatList
@@ -2466,60 +2153,39 @@ export default function FlipsScreen() {
               <Icon name="eye-off" size={22} color="#5a2d82" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sheetTitle}>
-                Not Interested
-              </Text>
-              <Text style={styles.sheetSubtitle}>
-                Tell us why you don't want to see this
-              </Text>
+              <Text style={styles.sheetTitle}>{t('flips.notInterestedTitle')}</Text>
+              <Text style={styles.sheetSubtitle}>{t('flips.notInterestedSubtitle')}</Text>
             </View>
           </View>
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}>
-            {options.map((option, index) => (
+            {notInterestedOptions.map((option, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.reasonItem}
-                onPress={() =>
-                  handleNotInterestedSelect(option)
-                }>
+                onPress={() => handleNotInterestedSelect(option)}>
                 <View style={styles.reasonIconWrapper}>
-                  <Icon
-                    name="eye-off"
-                    size={18}
-                    color="#5a2d82"
-                  />
+                  <Icon name="eye-off" size={18} color="#5a2d82" />
                 </View>
                 <Text style={styles.reasonText}>{option}</Text>
-                <Icon
-                  name="chevron-forward"
-                  size={20}
-                  color="#ccc"
-                />
+                <Icon name="chevron-forward" size={20} color="#ccc" />
               </TouchableOpacity>
             ))}
           </ScrollView>
         </RBSheet>
 
-        <ShareModal
-          ref={shareRef}
-          reel={reels[currentIndex]}
-          reelId={reels[currentIndex]?.id}
-        />
-        <ReportFlowScreen
-          ref={reportSheetRef}
-          postId={selectedReelId || reels[currentIndex]?.id}
-        />
+        <ShareModal ref={shareRef} reel={reels[currentIndex]} reelId={reels[currentIndex]?.id} />
+        <ReportFlowScreen ref={reportSheetRef} postId={selectedReelId || reels[currentIndex]?.id} />
         <SupportCreatorModal
           visible={modalVisible}
-          creatorName={currentReel?.user || 'Creator'}
+          creatorName={currentReel?.user || t('flips.creatorFallback')}
           onClose={() => setModalVisible(false)}
           onSupport={handleOpenSupportDisclaimer}
         />
         <SupportCreatorModal
           visible={supportDisclaimerVisible}
-          creatorName={currentReel?.user || 'Creator'}
+          creatorName={currentReel?.user || t('flips.creatorFallback')}
           variant="disclaimer"
           onClose={() => setSupportDisclaimerVisible(false)}
           onSupport={handleSupportNow}
