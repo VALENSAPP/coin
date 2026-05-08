@@ -26,7 +26,6 @@ const withAlpha = (hex, alpha = 0.12) => {
 
 const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
-  console.log(userData, 'data in thissss ss s')
   useEffect(() => {
     // do something with userData
     console.log(userData);

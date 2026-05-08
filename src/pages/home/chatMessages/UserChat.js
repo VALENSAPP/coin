@@ -1991,6 +1991,16 @@ const UserChat = ({ route, navigation }) => {
                           ...storyData,
                           uri: mediaUri,
                           type: mediaType,
+                          userId:
+                            storyData.userId ||
+                            storyData.UserId ||
+                            storyUserData?._id ||
+                            storyUserData?.id ||
+                            storyUserData?.userId ||
+                            item.senderId ||
+                            item.senderInfo?.id ||
+                            item.senderInfo?._id ||
+                            null,
                           userName: storyUser.displayName,
                           userImage: storyUser.image,
                           caption: caption,

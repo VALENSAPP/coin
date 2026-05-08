@@ -35,6 +35,7 @@ import { useAppTheme } from "../../theme/useApptheme";
 import HexAvatar from "../../components/home/story.js/HexAvatar";
 import { Dragonfly } from "../../assets/icons";
 import { useLanguage } from "../../i18n";
+import { getDragonflyIcon } from "../../components/profile/ProfilePersonalData";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
@@ -73,8 +74,16 @@ export default function WalletComponent() {
                 ? t('walletScreen.dragonflyVerified')
                 : t('walletScreen.profileNotVerified'),
         };
-    }, [userData?.kyc, t]);
-
+    }, [userData?.kyc, userData?.subscriptionStatus]);
+    const DragonflyIcon = useMemo(() => {
+        const followerCount = Number(
+            userData?.totalFollowers ??
+            userData?.followers ??
+            userData?.followerCount ??
+            0
+        );
+        return getDragonflyIcon(followerCount);
+    }, [userData?.followerCount, userData?.followers, userData?.totalFollowers]);
     const referPoints = useMemo(() => {
         const rawPoints =
             userData?.referPoints ?? userData?.referralPoints ?? userData?.referPoint ?? 0;
@@ -403,8 +412,8 @@ export default function WalletComponent() {
                             <View style={styles.nameRow}>
                                 <Text style={styles.username}>{userData?.displayName}</Text>
                                 {userVerificationStatus.verified && (
-                                    <Dragonfly width={22} height={22} style={styles.icon} />
-                                )}
+                                 <DragonflyIcon width={22} height={22} style={styles.icon} />
+                                 )}
                             </View>
                         </View>
                         <HexAvatar

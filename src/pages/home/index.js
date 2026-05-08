@@ -87,6 +87,7 @@ const findStoryBySharedId = (storyRows, sharedStoryId, fallbackUserId = '') => {
       return {
         id: rawId || `${storyBaseId}_${index}`,
         storyId: storyBaseId,
+        userId: owner.id ? String(owner.id) : undefined,
         uri,
         media: [uri],
         type: isVideoStoryMedia(uri) ? 'video' : 'image',
@@ -102,6 +103,7 @@ const findStoryBySharedId = (storyRows, sharedStoryId, fallbackUserId = '') => {
       return {
         id: rawId || storyBaseId,
         storyId: storyBaseId,
+        userId: owner.id ? String(owner.id) : undefined,
         uri,
         media: [uri],
         type: story?.type || (isVideoStoryMedia(uri) ? 'video' : 'image'),
