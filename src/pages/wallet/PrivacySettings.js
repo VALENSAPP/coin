@@ -18,11 +18,13 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
     const toast = useToast();
     const { bgStyle, textStyle } = useAppTheme();
+    const { t } = useLanguage();
 
     const [privacySettings, setPrivacySettings] = useState({
         profileVisibility: 'public',
@@ -35,12 +37,12 @@ const PrivacySettingsScreen = () => {
             const resp = await userProfileStatusSet(dataToSend);
             if (resp?.statusCode === 200) {
                 setPrivacySettings({ ...privacySettings, profileVisibility: status });
-                showToastMessage(toast, 'success', 'Privacy settings updated successfully');
+                showToastMessage(toast, 'success', t('privacySettings.updateSuccess'));
             } else {
-                showToastMessage(toast, 'danger', resp?.message || 'Failed to update settings');
+                showToastMessage(toast, 'danger', resp?.message || t('privacySettings.updateError'));
             }
         } catch (e) {
-            showToastMessage(toast, 'danger', 'An error occurred while updating settings');
+            showToastMessage(toast, 'danger', t('privacySettings.updateError'));
         } finally {
             dispatch(hideLoader());
         }
@@ -52,18 +54,17 @@ const PrivacySettingsScreen = () => {
 
     const handleDeleteAccount = () => {
         Alert.alert(
-            'Delete Account',
-            'Are you sure you want to delete your account? This action cannot be undone.',
+            t('privacySettings.deleteAccountTitle'),
+            t('privacySettings.deleteAccountMessage'),
             [
                 {
-                    text: 'Cancel',
+                    text: t('privacySettings.cancel'),
                     style: 'cancel',
                 },
                 {
-                    text: 'Delete',
+                    text: t('privacySettings.delete'),
                     style: 'destructive',
                     onPress: () => {
-                        // Implement delete account logic here
                         handleOnDelete();
                     },
                 },
@@ -89,10 +90,10 @@ const PrivacySettingsScreen = () => {
                 AsyncStorage.removeItem('stripeCustomerId');
                 dispatch(loggedOut());
             } else {
-                showToastMessage(toast, 'danger', resp?.message || 'Failed to delete account');
+                showToastMessage(toast, 'danger', resp?.message || t('privacySettings.deleteError'));
             }
         } catch (e) {
-            showToastMessage(toast, 'danger', 'An error occurred while deleting account');
+            showToastMessage(toast, 'danger', t('privacySettings.deleteError'));
         } finally {
             dispatch(hideLoader());
         }
@@ -103,7 +104,7 @@ const PrivacySettingsScreen = () => {
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
                 <View style={[styles.section, { marginTop: 20 }]}>
-                    <Text style={styles.sectionTitle}>Profile Visibility</Text>
+                    <Text style={styles.sectionTitle}>{t('privacySettings.profileVisibility')}</Text>
                     <View style={styles.radioGroup}>
                         <TouchableOpacity
                             style={styles.radioItem}
@@ -115,8 +116,8 @@ const PrivacySettingsScreen = () => {
                                 )}
                             </View>
                             <View>
-                                <Text style={styles.radioTitle}>Public</Text>
-                                <Text style={styles.radioSubtitle}>Anyone can view your profile</Text>
+                                <Text style={styles.radioTitle}>{t('privacySettings.public')}</Text>
+                                <Text style={styles.radioSubtitle}>{t('privacySettings.publicSubtitle')}</Text>
                             </View>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -129,8 +130,8 @@ const PrivacySettingsScreen = () => {
                                 )}
                             </View>
                             <View>
-                                <Text style={styles.radioTitle}>Private</Text>
-                                <Text style={styles.radioSubtitle}>Only you can view your profile</Text>
+                                <Text style={styles.radioTitle}>{t('privacySettings.private')}</Text>
+                                <Text style={styles.radioSubtitle}>{t('privacySettings.privateSubtitle')}</Text>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -141,7 +142,7 @@ const PrivacySettingsScreen = () => {
                         style={styles.dangerButton}
                         onPress={handleDeleteAccount}
                     >
-                        <Text style={styles.dangerButtonText}>Delete Account</Text>
+                        <Text style={styles.dangerButtonText}>{t('privacySettings.deleteAccount')}</Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>

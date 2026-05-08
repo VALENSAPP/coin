@@ -17,6 +17,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 export const CreatorsScreen = ({ navigation }) => {
   const [creators, setCreators] = useState([]);
@@ -24,6 +25,7 @@ export const CreatorsScreen = ({ navigation }) => {
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
   const toast = useToast();
+  const { t } = useLanguage();
 
   const fetchTopCreators = async () => {
     try {
@@ -36,21 +38,24 @@ export const CreatorsScreen = ({ navigation }) => {
           name: `@${creator.username || 'unknown'}`,
           vendorId: creator.vendorId,
           price: `$${Number(creator.purchaseTokenPrice).toFixed(4) || '0.0000'}`,
-          marketCap: '$--', // Placeholder unless provided by API
-          followers: Math.floor(Math.random() * 3000), // Placeholder for now
-          // verified: index % 2 === 0, // Randomly set for demo
-          bio: 'Tokenized creator on the platform', // Placeholder bio
+          marketCap: '$--',
+          followers: Math.floor(Math.random() * 3000),
+          bio: t('creators.defaultBio'),
         }));
 
-        setCreators(formattedCreators.slice(0, 10)); // Limit to 10 if needed
+        setCreators(formattedCreators.slice(0, 10));
       } else {
-        showToastMessage(toast, 'danger', response.data.message || 'Failed to fetch creators');
+        showToastMessage(
+          toast,
+          'danger',
+          response.data.message || t('creators.errorFetch'),
+        );
       }
     } catch (error) {
       showToastMessage(
-        toast, 
+        toast,
         'danger',
-        error?.response?.message ?? 'Something went wrong while fetching creators',
+        error?.response?.message ?? t('creators.errorGeneral'),
       );
     } finally {
       dispatch(hideLoader());
@@ -63,8 +68,8 @@ export const CreatorsScreen = ({ navigation }) => {
   }, []);
 
   const renderCreator = ({ item }) => (
-    <View style={[styles.creatorCard, {shadowColor: text}]}>
-      <View style={[styles.creatorCardHeader, { backgroundColor: text}]}>
+    <View style={[styles.creatorCard, { shadowColor: text }]}>
+      <View style={[styles.creatorCardHeader, { backgroundColor: text }]}>
         <View style={styles.creatorAvatar}>
           <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
         </View>
@@ -72,31 +77,38 @@ export const CreatorsScreen = ({ navigation }) => {
       <View style={styles.creatorCardContent}>
         <View style={styles.creatorNameRow}>
           <Text style={styles.creatorCardName}>{item.name}</Text>
-          {item.verified && <Ionicons name="checkmark-circle" size={16} color={text} />}
+          {item.verified && (
+            <Ionicons name="checkmark-circle" size={16} color={text} />
+          )}
         </View>
         <Text style={styles.creatorBio}>{item.bio}</Text>
 
         <View style={styles.creatorStats}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.price}</Text>
-            <Text style={styles.statLabel}>Price</Text>
+            <Text style={styles.statLabel}>{t('creators.price')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.marketCap}</Text>
-            <Text style={styles.statLabel}>Market Cap</Text>
+            <Text style={styles.statLabel}>{t('creators.marketCap')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.followers}</Text>
-            <Text style={styles.statLabel}>Holders</Text>
+            <Text style={styles.statLabel}>{t('creators.holders')}</Text>
           </View>
         </View>
 
         <View style={styles.creatorActions}>
           <TouchableOpacity style={styles.followButton}>
-            <Text style={styles.followButtonText}>Follow</Text>
+            <Text style={styles.followButtonText}>{t('creators.follow')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.viewProfileButton, {backgroundColor: text}]} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
-            <Text style={styles.viewProfileButtonText}>View Profile</Text>
+          <TouchableOpacity
+            style={[styles.viewProfileButton, { backgroundColor: text }]}
+            onPress={() =>
+              navigation.navigate('CreatorProfile', { userId: item.vendorId })
+            }
+          >
+            <Text style={styles.viewProfileButtonText}>{t('creators.viewProfile')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -107,10 +119,10 @@ export const CreatorsScreen = ({ navigation }) => {
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Creators</Text> 
+          <Text style={styles.headerTitle}>{t('creators.headerTitle')}</Text>
           <TouchableOpacity style={styles.createProfileButton}>
             <Ionicons name="add" size={20} color="#fff" />
-            <Text style={styles.createProfileButtonText}>Create Profile</Text>
+            <Text style={styles.createProfileButtonText}>{t('creators.createProfile')}</Text>
           </TouchableOpacity>
         </View>
 

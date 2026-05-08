@@ -1,22 +1,27 @@
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native'
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useLayoutEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const CashOut = () => {
     const [address, setAddress] = useState('');
     const { bgStyle, textStyle, text } = useAppTheme();
     const navigation = useNavigation();
+    const { t } = useLanguage();
 
     useLayoutEffect(() => {
         navigation.setOptions({
-            title: 'Cash Out',
-            headerStyle: [{
-                elevation: 0,
-                shadowOpacity: 0,
-            }, bgStyle],
+            title: t('cashOutsettings.headerTitle'),
+            headerStyle: [
+                {
+                    elevation: 0,
+                    shadowOpacity: 0,
+                },
+                bgStyle,
+            ],
             headerTitleStyle: {
                 fontWeight: 'bold',
                 color: '#111',
@@ -25,19 +30,25 @@ const CashOut = () => {
                 <TouchableOpacity
                     onPress={() => {
                         if (address.trim() === '') {
-                            Alert.alert('Error', 'Please enter a wallet address.');
+                            Alert.alert(
+                                t('cashOutsettings.alertErrorTitle'),
+                                t('cashOutsettings.alertErrorMessage'),
+                            );
                         } else {
-                            Alert.alert('Success', `Address saved:\n${address}`);
+                            Alert.alert(
+                                t('cashOutsettings.alertSuccessTitle'),
+                                t('cashOutsettings.alertSuccessMessage').replace('{{address}}', address),
+                            );
                         }
                     }}
                     style={styles.headerButton}
                 >
-                    <Text style={styles.headerButtonText}>Done</Text>
+                    <Text style={styles.headerButtonText}>{t('cashOutsettings.headerDone')}</Text>
                 </TouchableOpacity>
             ),
         });
-    }, [navigation, address]);
- 
+    }, [navigation, address, t]);
+
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <MaterialCommunityIcons
@@ -47,15 +58,13 @@ const CashOut = () => {
                 style={styles.icon}
             />
 
-            <Text style={[styles.header, textStyle]}>Cash Out Sparks Instantly</Text>
-            <Text style={styles.subText}>
-                Link your wallet to convert the Sparks you've earned to Ethereum.
-            </Text>
+            <Text style={[styles.header, textStyle]}>{t('cashOutsettings.title')}</Text>
+            <Text style={styles.subText}>{t('cashOutsettings.subtitle')}</Text>
 
-            <View style={[styles.inputBox, {shadowColor: text}]}>
-                <Text style={styles.label}>Wallet Address</Text>
+            <View style={[styles.inputBox, { shadowColor: text }]}>
+                <Text style={styles.label}>{t('cashOutsettings.walletAddressLabel')}</Text>
                 <TextInput
-                    placeholder="Enter your wallet address"
+                    placeholder={t('cashOutsettings.walletAddressPlaceholder')}
                     style={styles.input}
                     placeholderTextColor="#888"
                     value={address}
@@ -63,8 +72,10 @@ const CashOut = () => {
                 />
             </View>
 
-            <TouchableOpacity style={[styles.button, {backgroundColor: text, shadowColor: text}]}>
-                <Text style={styles.buttonText}>Cash Out</Text>
+            <TouchableOpacity
+                style={[styles.button, { backgroundColor: text, shadowColor: text }]}
+            >
+                <Text style={styles.buttonText}>{t('cashOutsettings.cashOutButton')}</Text>
             </TouchableOpacity>
         </SafeAreaView>
     );

@@ -51,6 +51,7 @@ import {
   Metamask,
 } from '../../assets/icons';
 import Svg, { Polygon } from 'react-native-svg';
+import { useLanguage } from '../../i18n';
 
 const { width, height } = Dimensions.get('window');
 const AVATAR_PREVIEW_SIZE = Math.min(width * 0.9, 340);
@@ -63,45 +64,45 @@ const DEFAULT_REWARD_POINTS = {
   used: 0,
 };
 
-const DRAGONFLY_TIERS = [
+const DRAGONFLY_TIERS = (t) => [
   {
     id: 'white',
     Icon: WhiteDragonfly,
-    title: 'White Dragonfly',
-    range: '0 - 1K',
-    note: 'New user with few followers.',
+    title: t('walletDashboard.dragonflyTiers.white.title'),
+    range: t('walletDashboard.dragonflyTiers.white.range'),
+    note: t('walletDashboard.dragonflyTiers.white.note'),
     color: '#ffffff',
   },
   {
     id: 'black',
     Icon: BlueDragonfly,
-    title: 'Black Dragonfly',
-    range: '1K - 10K',
-    note: 'Up to 10,000 followers.',
+    title: t('walletDashboard.dragonflyTiers.black.title'),
+    range: t('walletDashboard.dragonflyTiers.black.range'),
+    note: t('walletDashboard.dragonflyTiers.black.note'),
     color: '#000000',
   },
   {
     id: 'silver',
     Icon: SoftGrayDragonfly,
-    title: 'Silver Dragonfly',
-    range: '10K - 100K',
-    note: 'Up to 100,000 followers.',
+    title: t('walletDashboard.dragonflyTiers.silver.title'),
+    range: t('walletDashboard.dragonflyTiers.silver.range'),
+    note: t('walletDashboard.dragonflyTiers.silver.note'),
     color: '#c0c0c0',
   },
   {
     id: 'gold',
     Icon: GoldDragonfly,
-    title: 'Gold Dragonfly',
-    range: '100K - 1M',
-    note: '100,000 to 1 million followers.',
+    title: t('walletDashboard.dragonflyTiers.gold.title'),
+    range: t('walletDashboard.dragonflyTiers.gold.range'),
+    note: t('walletDashboard.dragonflyTiers.gold.note'),
     color: '#ffd700',
   },
   {
     id: 'purple',
     Icon: LavenderDragonfly,
-    title: 'Purple Dragonfly',
-    range: '1M - 10M',
-    note: '1 million to 10 million followers.',
+    title: t('walletDashboard.dragonflyTiers.purple.title'),
+    range: t('walletDashboard.dragonflyTiers.purple.range'),
+    note: t('walletDashboard.dragonflyTiers.purple.note'),
     color: '#800080',
   },
 ];
@@ -182,6 +183,8 @@ const mapFollowersGraphResponse = (response) => {
 };
 
 export const WalletDashboardScreen = ({ navigation }) => {
+  const { t } = useLanguage();
+
   const [activityPeriod, setActivityPeriod] = useState('Weekly'); // Daily | Weekly (matches API range)
   const [walletTransactions, setWalletTransactions] = useState(0);
   const [selectedPrice, setSelectedPrice] = useState(0);
@@ -197,14 +200,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [missionDonationTotal, setMissionDonationTotal] = useState(0);
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
-    { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet' },
-    { id: 'support', title: 'Subscription Earning', value: '-', icon: 'pie-chart' },
-    { id: 'followers', title: 'Followers', value: '-', icon: 'people' },
-    { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', currentCredits: 5 },
-    // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
-    { id: 'Mission Post', title: 'Mission Post', value: '-', icon:  'ribbon' },
-    { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift' },
-    { id: 'metamask', title: 'Metamask Wallet', value: '-', icon: 'logo-usd' },
+    { id: 'Total Earning', title: t('walletDashboard.kpi.totalEarning'), value: '-', icon: 'wallet' },
+    { id: 'support', title: t('walletDashboard.kpi.subscriptionEarning'), value: '-', icon: 'pie-chart' },
+    { id: 'followers', title: t('walletDashboard.kpi.followers'), value: '-', icon: 'people' },
+    { id: 'credits', title: t('walletDashboard.kpi.creditsLeft'), value: '-', icon: 'flash', currentCredits: 5 },
+    { id: 'Mission Post', title: t('walletDashboard.kpi.missionPost'), value: '-', icon: 'ribbon' },
+    { id: 'referralPoints', title: t('walletDashboard.kpi.referralPoints'), value: '-', icon: 'gift' },
+    { id: 'metamask', title: t('walletDashboard.kpi.metamaskWallet'), value: '-', icon: 'logo-usd' },
   ]);
   const dispatch = useDispatch();
   const toast = useToast();
@@ -221,7 +223,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     walletAddress: '',
   });
   const [userProfile, setUserProfile] = useState({
-    name: 'User',
+    name: t('walletDashboard.headerDefaultUser'),
     image: FALLBACK_AVATAR,
   });
   const [followersCount, setFollowersCount] = useState(0);
@@ -243,7 +245,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     () => [
       {
         id: 'battlePoints',
-        title: 'Battle Points',
+        title: t('walletDashboard.battlePoints.battlePoints'),
         value: rewardSummary.totalBattlePoints,
         icon: 'trophy-outline',
         iconBackground: 'rgba(250, 204, 21, 0.16)',
@@ -251,7 +253,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       },
       {
         id: 'referPoints',
-        title: 'Refer Points',
+        title: t('walletDashboard.battlePoints.referPoints'),
         value: rewardSummary.referPoints,
         icon: 'gift-outline',
         iconBackground: 'rgba(34, 211, 238, 0.16)',
@@ -259,14 +261,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
       },
       {
         id: 'usedPoints',
-        title: 'Used Points',
+        title: t('walletDashboard.battlePoints.usedPoints'),
         value: rewardSummary.used,
         icon: 'remove-circle-outline',
         iconBackground: 'rgba(248, 113, 113, 0.16)',
         iconColor: '#fca5a5',
       },
     ],
-    [rewardSummary]
+    [rewardSummary, t]
   );
 
   const rewardPoints = async () => {
@@ -331,7 +333,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
       setIsBusinessProfile(response?.data?.profile !== 'user');
       setKyc(response?.data?.kycStatus || null);
       console.log(response,'data in this apiaia for resposne ')
-      // 🔥 Adjust keys based on your API response
       const stripeCustomerId =
         response?.data?.stripeAccountId ||
         response?.data?.stripeCustomerId ||
@@ -342,7 +343,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
         response?.data?.walletAddress ||
         '';
 
-      // ✅ Save in state
       setUserWalletData({
         stripeCustomerId,
         walletAddress,
@@ -352,7 +352,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         response?.data?.userName ||
         response?.data?.username ||
         response?.data?.name ||
-        'User';
+        t('walletDashboard.headerDefaultUser');
 
       const profileImage =
         response?.data?.image ||
@@ -367,7 +367,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     } catch (error) {
       console.log('Error fetching user details:', error);
     } finally {
-      dispatch(hideLoader()); // Add this
+      dispatch(hideLoader());
     }
   };
   useFocusEffect(
@@ -388,7 +388,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const list = [...visibleKpiData];
     const isMetaMaskLast = list[list.length - 1]?.id === 'metamask';
 
-    // Keep Metamask as the last, full-width row (design match).
     if (isMetaMaskLast && list.length % 2 === 0) {
       list.splice(list.length - 1, 0, { id: 'kpi-placeholder', isPlaceholder: true });
     } else if (!isMetaMaskLast && list.length % 2 !== 0) {
@@ -424,9 +423,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
     const onKeyboardHide = () => {
       timeout = setTimeout(() => {
-        // reset layout for both sheets
         purchaseSheetRef.current?.updateLayout?.({ height: 500 });
-      }, 300); // wait until keyboard animation is done
+      }, 300);
     };
 
     const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
@@ -437,17 +435,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
     };
   }, []);
 
-  // Replace the useFocusEffect and useCallback section with this:
-
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
         try {
-          dispatch(showLoader()); // Show loader once at the beginning
+          dispatch(showLoader());
 
           await Promise.allSettled([
-            // fetchAllTransaction(),
-            // fetchDashboardData(),
             getUserDetail(),
             fetchCreditsLeft(),
             rewardPoints(),
@@ -457,14 +451,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
             fetchReferralPoints(),
             fetchMetaMaskReceived(),
             totalMissonDonation(),
-            // fetchActivityOverview(),
             fetchTopCreators(),
-            // fetchActivities(),
           ]);
         } catch (error) {
           console.error('Error fetching dashboard data:', error);
         } finally {
-          dispatch(hideLoader()); // Hide loader once at the end
+          dispatch(hideLoader());
         }
       };
 
@@ -473,29 +465,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return () => {
         // Cleanup if needed
       };
-    }, [dispatch]) // Add dispatch to dependency array
+    }, [dispatch])
   );
-
-  // Remove the separate useEffect for activityPeriod
-  // and replace with this one that properly triggers:
-  // useEffect(() => {
-  //   if (activityPeriod) {
-  //     fetchActivityOverview();
-  //   }
-  // }, [activityPeriod]);
-
-  // Update fetchAllData to remove the useCallback wrapper
-  // const fetchAllData = async () => {
-  //   await Promise.all([
-  //     fetchAllTransaction(),
-  //     fetchDashboardData(),
-  //     fetchCreditsLeft(),
-  //     fetchFollowers(),
-  //     fetchActivityOverview(),
-  //     fetchTopCreators(),
-  //     fetchActivities(),
-  //   ]);
-  // };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -503,9 +474,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       dispatch(showLoader());
 
       await Promise.allSettled([
-        // fetchAllTransaction(),
         getUserDetail(),
-        // fetchDashboardData(),
         getGraph(),
         fetchCreditsLeft(),
         rewardPoints(),
@@ -514,9 +483,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         fetchTotalEarning(),
         fetchReferralPoints(),
         fetchMetaMaskReceived(),
-        // fetchActivityOverview(),
         fetchTopCreators(),
-        // fetchActivities(),
       ]);
     } catch (error) {
       console.error('Error refreshing data:', error);
@@ -531,21 +498,21 @@ export const WalletDashboardScreen = ({ navigation }) => {
       await appKit?.disconnect?.();
       await AsyncStorage.multiRemove(['walletAddress', 'walletChainId', 'walletType']);
       setUserWalletData((prev) => ({ ...prev, walletAddress: '' }));
-      showToastMessage(toast, 'success', 'Wallet disconnected');
+      showToastMessage(toast, 'success', t('walletDashboard.metamask.walletDisconnected'));
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Unable to disconnect wallet');
+      showToastMessage(toast, 'danger', t('walletDashboard.metamask.walletDisconnectError'));
     }
-  }, [toast]);
+  }, [toast, t]);
 
   const handleMetaMaskCardPress = useCallback(() => {
     if (isMetaMaskConnected) {
       Alert.alert(
-        'Disconnect wallet',
-        'Do you want to disconnect your wallet?',
+        t('walletDashboard.metamask.disconnectAlertTitle'),
+        t('walletDashboard.metamask.disconnectAlertMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('walletDashboard.metamask.disconnectAlertCancel'), style: 'cancel' },
           {
-            text: 'Disconnect',
+            text: t('walletDashboard.metamask.disconnectAlertConfirm'),
             style: 'destructive',
             onPress: handleDisconnectWallet,
           },
@@ -554,7 +521,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return;
     }
     openWalletConnect();
-  }, [handleDisconnectWallet, isMetaMaskConnected, openWalletConnect]);
+  }, [handleDisconnectWallet, isMetaMaskConnected, openWalletConnect, t]);
 
   const hapticFeedback = (type) => {
     const options = {
@@ -576,7 +543,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
   };
 
-  // Helper function to format activity type
   const getActivityType = (activity) => {
     if (activity.purchase) return 'buy';
     if (activity.sell) return 'sell';
@@ -584,7 +550,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return 'mint';
   };
 
-  // Helper function to format activity action text
   const formatActivityAction = (activity) => {
     if (activity.purchase && activity.purchase.length > 0) {
       const purchase = activity.purchase[0];
@@ -600,7 +565,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return 'Activity recorded';
   };
 
-  // Helper function to format time
   const formatTime = (timestamp) => {
     const now = new Date();
     const activityTime = new Date(timestamp);
@@ -614,51 +578,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
     return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   };
-
-  //   const fetchDashboardData = async () => {
-  //   const storedPrice = await AsyncStorage.getItem('priceInUsd');
-  //   try {
-  //     const response = await getTotalTokenPurchase();
-
-  //     console.log('getTotalTokenPurchasegetTotalTokenPurchase',response)
-  //     if (response?.statusCode === 200) {
-  //       const totalPortfolioValue = response.data.reduce(
-  //         (sum, item) => sum + (item.totalTokenAmount || 0),
-  //         0
-  //       );
-  //       console.log("portfolio value----------------", totalPortfolioValue);
-  //       setKpiData(prevKpiData => {
-  //         const newKpiData = [...prevKpiData];
-  //         newKpiData[0] = {
-  //           ...newKpiData[0],
-  //           value: `$ ${totalPortfolioValue.toFixed(4)}`
-  //         };
-  //         newKpiData[1] = {
-  //           ...newKpiData[1],
-  //           value: `$ ${Number(storedPrice).toFixed(4)}`
-  //         };
-  //         return newKpiData;
-  //       });
-  //     } else {
-  //       showToastMessage(toast, 'danger', response?.message);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error in fetchDashboardData:', error);
-  //   }
-  // };
-
-  // const fetchAllTransaction = async () => {
-  //   try {
-  //     const response = await getLatestTransactions();
-  //     if (response?.statusCode === 200) {
-  //       setWalletTransactions(response.data.transactions);
-  //     } else {
-  //       showToastMessage(toast, 'danger', response.data.message);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error in fetchAllTransaction:', error);
-  //   }
-  // };
 
   const fetchCreditsLeft = async () => {
     try {
@@ -714,54 +633,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
   useEffect(() => {
     getGraph();
   }, [getGraph]);
-
-  //   const fetchActivityOverview = async () => {
-  //   const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
-
-  //   const periodMap = {
-  //     'Weekly': 'week',
-  //     'Monthly': 'month',
-  //     'Yearly': 'year'
-  //   };
-
-  //   try {
-  //     const response = await getTokenHistory(getTokenAddress, periodMap[activityPeriod]);
-
-  //     if (response?.statusCode === 200) {
-  //       if (response.data.history && Array.isArray(response.data.history)) {
-  //         // Sort by date first
-  //         const sortedHistory = [...response.data.history].sort(
-  //           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  //         );
-
-  //         // Use balanceAfter to show actual portfolio value over time
-  //         const formattedData = sortedHistory.map(item => ({
-  //           timestamp: new Date(item.date).getTime(),
-  //           value: parseFloat(item.balanceAfter || 0) // Use balanceAfter instead of amount
-  //         })).filter(item => !isNaN(item.value) && !isNaN(item.timestamp));
-
-  //         if (formattedData.length > 0) {
-  //           setPriceHistory(formattedData);
-  //           setSelectedPrice(formattedData[formattedData.length - 1].value);
-  //         } else {
-  //           setPriceHistory([]);
-  //           setSelectedPrice(0);
-  //         }
-  //       } else {
-  //         setPriceHistory([]);
-  //         setSelectedPrice(0);
-  //       }
-  //     } else {
-  //       showToastMessage(toast, 'danger', response.data.message);
-  //       setPriceHistory([]);
-  //       setSelectedPrice(0);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error in fetchActivityOverview:', error);
-  //     setPriceHistory([]);
-  //     setSelectedPrice(0);
-  //   }
-  // };
 
   const fetchFollowers = async () => {
     const id = await AsyncStorage.getItem('userId');
@@ -898,14 +769,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
         0;
       const postCount = Number(activePostCount) || 0;
 
-      // ✅ Update local state (optional)
       setMissionDonationTotal(totalAmount);
 
-      // ✅ UPDATE KPI CARD
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
           item.id === 'Mission Post'
-            ? { ...item, value: `$ ${totalAmount.toFixed(2)} \nActive: ${postCount || 0}` }
+            ? {
+                ...item,
+                value: `$ ${totalAmount.toFixed(2)} \n${t('walletDashboard.kpi.missionActive', { count: postCount || 0 })}`,
+              }
             : item
         )
       );
@@ -938,95 +810,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
   };
 
-  //   const fetchActivities = async () => {
-  //   try {
-  //     const response = await getRecentActivities();
-  //     if (response?.statusCode === 200) {
-  //       console.log('Recent activities', response.data);
-
-  //       const formattedActivities = [];
-  //       let activityId = 1;
-
-  //       if (response.data.activities) {
-  //         const activities = response.data.activities;
-
-  //         if (activities.purchase && Array.isArray(activities.purchase)) {
-  //           activities.purchase.forEach(purchase => {
-  //             formattedActivities.push({
-  //               id: activityId++,
-  //               action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
-  //               time: formatTime(purchase.createdAt),
-  //               type: 'buy',
-  //               createdAt: new Date(purchase.createdAt).getTime(),
-  //               rawData: purchase
-  //             });
-  //           });
-  //         }
-
-  //         if (activities.sell && Array.isArray(activities.sell)) {
-  //           activities.sell.forEach(sell => {
-  //             formattedActivities.push({
-  //               id: activityId++,
-  //               action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
-  //               time: formatTime(sell.createdAt),
-  //               type: 'sell',
-  //               createdAt: new Date(sell.createdAt).getTime(),
-  //               rawData: sell
-  //             });
-  //           });
-  //         }
-
-  //         if (activities.following && Array.isArray(activities.following)) {
-  //           activities.following.forEach(follow => {
-  //             formattedActivities.push({
-  //               id: activityId++,
-  //               action: `${follow.followerName || 'Someone'} followed you`,
-  //               time: formatTime(follow.createdAt),
-  //               type: 'follow',
-  //               createdAt: new Date(follow.createdAt).getTime(),
-  //               rawData: follow
-  //             });
-  //           });
-  //         }
-  //       }
-
-  //       formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
-
-  //       formattedActivities.forEach((activity, index) => {
-  //         activity.id = index + 1;
-  //       });
-
-  //       setRecentActivities(formattedActivities.slice(0, 6));
-  //     } else {
-  //       showToastMessage(toast, 'danger', response.data.message);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error in fetchActivities:', error);
-  //   }
-  // }
-
   const handleTokenModalClose = () => {
     purchaseSheetRef.current?.close?.();
     setPendingFollowUserId(null);
   };
 
-  const handleTokenPurchase = async () => {
-    // try {
-    //   purchaseSheetRef.current?.close?.();
-    // } catch (error) {
-    //   showToastMessage(
-    //     toast,
-    //     'danger',
-    //     error?.message || 'Token purchase failed',
-    //   );
-    // } finally {
-    //   dispatch(hideLoader());
-    //   setPendingFollowUserId(null);
-    // }
-  }
+  const handleTokenPurchase = async () => {};
 
   const handleTokenSell = useCallback(() => {
-    // sellSheetRef.current?.close();
     showToastMessage(toast, 'success', 'Tokens sold successfully!');
     onRefresh();
   }, []);
@@ -1040,8 +831,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const isCreditsCard = item.id === 'credits';
     const isMissionPostCard = item.id === 'Mission Post';
     const isSupportCard = item.id === 'support';
-    const metaStatusText = isMetaMaskConnected ? 'Connected' : 'Disconnected';
-    const metaActionText = isMetaMaskConnected ? 'Tap to disconnect' : 'Tap to connect';
+    const metaStatusText = isMetaMaskConnected
+      ? t('walletDashboard.metamask.connected')
+      : t('walletDashboard.metamask.disconnected');
+    const metaActionText = isMetaMaskConnected
+      ? t('walletDashboard.metamask.tapToDisconnect')
+      : t('walletDashboard.metamask.tapToConnect');
 
     if (isMetaMaskCard) {
       return (
@@ -1150,7 +945,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             ]}
             numberOfLines={2}
           >
-            Tap to buy credits
+            {t('walletDashboard.kpi.tapToBuyCredits')}
           </Text>
         ) : null}
         {(isCreditsCard || isMissionPostCard) ? (
@@ -1198,79 +993,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     return cardContent;
   };
 
-  // const renderActivity = ({ item }) => (
-  //   <View style={styles.activityItem}>
-  //     <View style={[styles.activityIcon, {
-  //       backgroundColor: item.type === 'buy' ? '#10b981' :
-  //         item.type === 'sell' ? '#ef4444' :
-  //           item.type === 'follow' ? '#3b82f6' : '#8b5cf6'
-  //     }]}>
-  //       <Ionicons
-  //         name={item.type === 'buy' ? 'add' :
-  //           item.type === 'sell' ? 'remove' :
-  //             item.type === 'follow' ? 'people' : 'flash'}
-  //         size={16}
-  //         color="#fff"
-  //       />
-  //     </View>
-  //     <View style={styles.activityContent}>
-  //       <Text style={styles.activityAction}>{item.action}</Text>
-  //       <Text style={styles.activityTime}>{item.time}</Text>
-  //     </View>
-  //   </View>
-  // );
-
-  // const renderWallet = ({ item }) => (
-  //   <View style={styles.walletItem}>
-  //     <View>
-  //       <Text style={styles.walletChain}>
-  //         {item.forPayment.charAt(0).toUpperCase() + item.forPayment.slice(1)}
-  //       </Text>
-  //       <Text style={styles.walletAddress}>{(item.stripeInvoiceId || '').trim().slice(0, 15) + '...'}
-  //       </Text>
-  //     </View>
-  //     <View style={styles.walletRight}>
-  //       <Text style={styles.walletBalance}>{item.amount}</Text>
-  //       <View style={[styles.kycBadge, {
-  //         backgroundColor: item.status === 'succeeded' ? '#dcfce7' : '#fef3c7'
-  //       }]}>
-  //         <Text style={[styles.kycText, {
-  //           color: item.status === 'succeeded' ? '#166534' : '#92400e'
-  //         }]}>
-  //           {item.status}
-  //         </Text>
-  //       </View>
-  //     </View>
-  //   </View>
-  // );
-
-  // const renderCreator = ({ item }) => (
-  //   <TouchableOpacity
-  //     style={styles.creatorItem}
-  //     onPress={() => {
-  //       setPendingFollowUserId(item.vendorId);
-  //       setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
-  //     }}
-  //   >
-  //     <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
-  //       <Text style={styles.avatarText}>{item.name.charAt(1).toUpperCase()}</Text>
-  //     </View>
-  //     <View style={styles.creatorInfo}>
-  //       <Text style={styles.creatorName}>{item.name}</Text>
-  //       <Text style={[styles.creatorPrice, textStyle]}>{item.followers}</Text>
-  //     </View>
-  //     {/* Arrow indicator at the end */}
-  //     <View style={styles.arrowContainer}>
-  //       {item.tokenStatus === 'high' && (
-  //         <Ionicons name="arrow-up" size={20} color="#22c55e" />
-  //       )}
-  //       {item.tokenStatus === 'low' && (
-  //         <Ionicons name="arrow-down" size={20} color="#ef4444" />
-  //       )}
-  //     </View>
-  //   </TouchableOpacity>
-  // );
-
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView
@@ -1281,7 +1003,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             onRefresh={onRefresh}
             colors={[text]}
             tintColor={text}
-            title="Pull to refresh"
+            title={t('walletDashboard.pullToRefresh')}
             titleColor={text}
           />
         }
@@ -1314,7 +1036,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   ]}
                   numberOfLines={1}
                 >
-                  @{userProfile.name || 'User'}
+                  @{userProfile.name || t('walletDashboard.headerDefaultUser')}
                 </Text>
                 {kyc === "APPROVED" || kyc=== true && (
                   <View style={styles.headerStatus}>
@@ -1325,8 +1047,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                         { color: text },
                       ]}
                     >
-                      Verified
-                      {/* · {followersCount.toLocaleString()} followers */}
+                      {t('walletDashboard.headerVerified')}
                     </Text>
                   </View>
                 )}
@@ -1346,9 +1067,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
             scrollEnabled={false}
           />
         </View>
+
+        {/* Battle Points */}
         <View style={[styles.section, { marginBottom: 10, marginTop: -30 }]}>
           <Text style={[styles.sectionTitle, styles.pointsSectionTitle, textStyle]}>
-            Battle Points
+            {t('walletDashboard.battlePoints.sectionTitle')}
           </Text>
           <LinearGradient
             colors={walletScreenGradient}
@@ -1360,20 +1083,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
             <View style={styles.pointsFourColRow}>
               <View style={styles.pointsMainCol}>
                 <View style={styles.pointsMainIconWrap}>
-                  {/* <Ionicons name="star" size={10} color="#ffffff" /> */}
                   <HexStarIcon size={34} starSize={14} starColor="#ffffff" bgColor={text} />
                 </View>
                 <View style={styles.pointsMainText}>
                   <Text style={[styles.pointsMainLabel, { color: text }]} numberOfLines={2}>
-                    Total Platform Points
+                    {t('walletDashboard.battlePoints.totalPlatformPoints')}
                   </Text>
                   <Text style={[styles.pointsMainValue, { color: text }]} numberOfLines={1}>
                     {formatPointValue(rewardSummary.totalPlatformPoints)}
                   </Text>
                 </View>
               </View>
-
-              {/* <View style={styles.pointsDivider} /> */}
 
               {rewardPointCards.map((item, index) => (
                 <React.Fragment key={item.id}>
@@ -1398,29 +1118,39 @@ export const WalletDashboardScreen = ({ navigation }) => {
         {/* Activity Overview */}
         <View style={[styles.section, {marginTop: 17}]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, textStyle]}>Activity Overview</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>
+              {t('walletDashboard.activityOverview.sectionTitle')}
+            </Text>
           </View>
 
           <View style={styles.periodSelector}>
-            {['Daily', 'Weekly'].map((period) => (
-              <TouchableOpacity
-                key={period}
-                style={[
-                  styles.periodButton,
-                  activityPeriod === period && { backgroundColor: text },
-                ]}
-                onPress={() => setActivityPeriod(period)}
-              >
-                <Text
+            {[
+              t('walletDashboard.activityOverview.periodDaily'),
+              t('walletDashboard.activityOverview.periodWeekly'),
+            ].map((period) => {
+              // Map translated label back to internal key
+              const periodKey =
+                period === t('walletDashboard.activityOverview.periodDaily') ? 'Daily' : 'Weekly';
+              return (
+                <TouchableOpacity
+                  key={period}
                   style={[
-                    styles.periodText,
-                    activityPeriod === period && styles.periodTextActive,
+                    styles.periodButton,
+                    activityPeriod === periodKey && { backgroundColor: text },
                   ]}
+                  onPress={() => setActivityPeriod(periodKey)}
                 >
-                  {period}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.periodText,
+                      activityPeriod === periodKey && styles.periodTextActive,
+                    ]}
+                  >
+                    {period}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Chart with LineGraph */}
@@ -1430,7 +1160,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 ? Math.round(Number(selectedPrice)).toLocaleString()
                 : '0'}
             </Text>
-            <Text style={styles.chartLabel}>Followers</Text>
+            <Text style={styles.chartLabel}>
+              {t('walletDashboard.activityOverview.chartLabel')}
+            </Text>
 
             {priceHistory.length > 0 ? (
               <LineChart.Provider data={priceHistory}>
@@ -1463,74 +1195,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
             ) : (
               <View style={styles.emptyChart}>
                 <Ionicons name="bar-chart-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyChartText}>No data available</Text>
-                <Text style={styles.emptyChartSubtext}>Check back later for activity updates</Text>
+                <Text style={styles.emptyChartText}>
+                  {t('walletDashboard.activityOverview.noDataTitle')}
+                </Text>
+                <Text style={styles.emptyChartSubtext}>
+                  {t('walletDashboard.activityOverview.noDataSubtitle')}
+                </Text>
               </View>
             )}
           </View>
         </View>
-
-        {/* Recent Activities */}
-        {/* <View style={styles.section}>
-          <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>Recent Activities</Text>
-          <View style={[styles.activitiesContainer, { shadowColor: text }]}>
-            {recentActivities.length > 0 ? (
-              <FlatList
-                data={recentActivities}
-                renderItem={renderActivity}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No recent activities</Text>
-              </View>
-            )}
-          </View>
-        </View> */}
-
-        {/* My Wallets */}
-        {/* <View style={styles.section}>
-          <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>My Wallets</Text>
-          <View style={[styles.walletsContainer, { shadowColor: text }]}> */}
-        {/* <FlatList
-              data={walletTransactions}
-              renderItem={renderWallet}
-              keyExtractor={(item, index) => index.toString()}
-              scrollEnabled={false}
-            // /> */}
-        {/* // <Text style={styles.walletTip}>
-            //   Tip: Convert followers into holders with Post Coins. Your monthly credits renew automatically.
-            // </Text> */}
-        {/* <View style={styles.walletInfoBox}>
-              <Text style={styles.walletLabel}>Stripe Account ID</Text>
-              <Text style={styles.walletValue}> {userWalletData.stripeCustomerId || 'Not Connected'}</Text>
-            </View>
-            <View style={styles.walletInfoBox}>
-              <Text style={styles.walletLabel}>Wallet Address</Text>
-              <Text style={styles.walletValue}> {userWalletData.walletAddress || 'Not Available'}</Text>
-            </View>
-          </View>
-        </View> */}
-
-        {/* Top Creators */}
-        {/* <View style={styles.section}>
-          <Text style={[styles.sectionTitle, textStyle, { marginBottom: 5 }]}>Top Creators (Trending)</Text>
-          <View style={[styles.creatorsContainer, { shadowColor: text }]}>
-            {topCreators.length > 0 ? (
-              <FlatList
-                data={topCreators}
-                renderItem={renderCreator}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No top creators available</Text>
-              </View>
-            )}
-          </View>
-          </View> */}
 
         <Modal
           visible={avatarPreviewVisible}
@@ -1571,10 +1245,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </Pressable>
         </Modal>
   
-         <Modal
-            visible={dragonflyModalVisible}
-            transparent
-            animationType="fade"
+        <Modal
+          visible={dragonflyModalVisible}
+          transparent
+          animationType="fade"
           onRequestClose={closeDragonflyModal}
         >
           <View style={styles.modalOverlay}>
@@ -1590,10 +1264,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
               >
                 <View style={styles.modalHeaderRow}>
                   <View style={styles.modalTitleBlock}>
-                    {/* <View style={styles.modalBadge}>
-                      <Ionicons name="leaf" size={16} color="#fbbf24" />
-                    </View> */}
-                    <Text style={[styles.modalTitle, textStyle]}>What This Means</Text>
+                    <Text style={[styles.modalTitle, textStyle]}>
+                      {t('walletDashboard.dragonflyModal.title')}
+                    </Text>
                   </View>
                   <View style={styles.modalIconWrap}>
                     <BlueDragonfly width={60} height={60} />
@@ -1601,18 +1274,20 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
                 <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    The dragonfly represents your community strength on Valens.
+                    {t('walletDashboard.dragonflyModal.paragraph1')}
                   </Text>
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    Your follower count isn't just a number — it reflects real people choosing to be connected to you.
+                    {t('walletDashboard.dragonflyModal.paragraph2')}
                   </Text>
 
-                  <Text style={[styles.modalSectionHeading, textStyle]}>On Valens:</Text>
+                  <Text style={[styles.modalSectionHeading, textStyle]}>
+                    {t('walletDashboard.dragonflyModal.onValensHeading')}
+                  </Text>
                   <View style={styles.modalBulletList}>
                     {[
-                      'Following is intentional',
-                      'Connections are transparent',
-                      'Your audience reflects trust, interest, and participation',
+                      t('walletDashboard.dragonflyModal.bullet1'),
+                      t('walletDashboard.dragonflyModal.bullet2'),
+                      t('walletDashboard.dragonflyModal.bullet3'),
                     ].map((item) => (
                       <View key={item} style={styles.modalBulletItem}>
                         <View style={styles.modalBulletPoint} />
@@ -1622,24 +1297,24 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   </View>
 
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    The more followers you have, the stronger your presence and credibility within the community.
+                    {t('walletDashboard.dragonflyModal.paragraph3')}
                   </Text>
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    This is not about reach — it&apos;s about real connection.
+                    {t('walletDashboard.dragonflyModal.paragraph4')}
                   </Text>
 
                   <View style={styles.modalGrid}>
-                    {DRAGONFLY_TIERS.map(({ id, Icon, title, range, note, color }, index) => {
+                    {DRAGONFLY_TIERS(t).map(({ id, Icon, title, range, note, color }, index) => {
                       const isLastRow =
-                        DRAGONFLY_TIERS.length % 3 !== 0 &&
-                        index >= DRAGONFLY_TIERS.length - (DRAGONFLY_TIERS.length % 3);
+                        DRAGONFLY_TIERS(t).length % 3 !== 0 &&
+                        index >= DRAGONFLY_TIERS(t).length - (DRAGONFLY_TIERS(t).length % 3);
 
                       return (
                         <View
                           key={id}
                           style={[
                             styles.modalCard,
-                            isLastRow && styles.lastRowCard, // 👈 center fix
+                            isLastRow && styles.lastRowCard,
                           ]}
                         >
                           <Icon width={42} height={42} />
@@ -1662,13 +1337,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     })}
                   </View>
 
-
                   <TouchableOpacity
                     style={[styles.modalCloseButton, { backgroundColor: text }]}
                     onPress={closeDragonflyModal}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.modalCloseButtonText}>Got it</Text>
+                    <Text style={styles.modalCloseButtonText}>
+                      {t('walletDashboard.dragonflyModal.gotIt')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>

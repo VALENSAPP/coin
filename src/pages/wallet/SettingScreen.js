@@ -20,6 +20,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getProfile } from '../../services/createProfile';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 export const SettingsScreen = ({ navigation }) => {
   const [autoInvest, setAutoInvest] = useState(true);
@@ -30,6 +31,8 @@ export const SettingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
+
   const profilePhotoUri =
     profileImage ||
     userData?.image ||
@@ -89,7 +92,7 @@ export const SettingsScreen = ({ navigation }) => {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.message ?? 'Something went wrong',
+        error?.response?.message ?? t('walletSettings.fetchError'),
       );
     } finally {
       dispatch(hideLoader());
@@ -115,35 +118,49 @@ export const SettingsScreen = ({ navigation }) => {
 
   const settingsSections = [
     {
-      title: 'Account',
+      title: t('walletSettings.sectionAccount'),
       items: [
         {
-          label: 'Profile Settings',
+          label: t('walletSettings.profileSettings'),
           icon: 'person',
           action: () => {
             navigation.navigate('WalletEditProfile', { userdata: profileData });
           },
         },
-        { label: 'Verification Status', icon: 'shield-checkmark', action: () => navigation.navigate('VerificationStatus'), status: 'Dragonfly Verified' },
-        { label: 'Privacy Settings', icon: 'lock-closed', action: () => { navigation.navigate('PrivacySettings') } },
-      ]
+        {
+          label: t('walletSettings.verificationStatus'),
+          icon: 'shield-checkmark',
+          action: () => navigation.navigate('VerificationStatus'),
+          status: t('walletSettings.verifiedStatus'),
+        },
+        {
+          label: t('walletSettings.privacySettings'),
+          icon: 'lock-closed',
+          action: () => { navigation.navigate('PrivacySettings'); },
+        },
+      ],
     },
-    // {
-    //   title: 'Trading',
-    //   items: [
-    //     { label: 'Auto-invest', icon: 'flash', toggle: true, value: autoInvest, onToggle: setAutoInvest },
-    //     { label: 'Price Alerts', icon: 'notifications', toggle: true, value: priceAlerts, onToggle: setPriceAlerts },
-    //     { label: 'Default Buy Amount', icon: 'wallet', action: () => { }, value: '$25' },
-    //   ]
-    // },
     {
-      title: 'Security',
+      title: t('walletSettings.sectionSecurity'),
       items: [
-        { label: 'Two-Factor Auth', icon: 'shield', action: () => { navigation.navigate('TwoFactorAuth') }, status: 'Enabled' },
-        { label: 'Change Password', icon: 'key', action: () => navigation.navigate('ChangePassword') },
-        { label: 'Login History', icon: 'time', action: () => { navigation.navigate('LoginHistory') } },
-      ]
-    }
+        {
+          label: t('walletSettings.twoFactorAuth'),
+          icon: 'shield',
+          action: () => { navigation.navigate('TwoFactorAuth'); },
+          status: t('walletSettings.twoFactorEnabled'),
+        },
+        {
+          label: t('walletSettings.changePassword'),
+          icon: 'key',
+          action: () => navigation.navigate('ChangePassword'),
+        },
+        {
+          label: t('walletSettings.loginHistory'),
+          icon: 'time',
+          action: () => { navigation.navigate('LoginHistory'); },
+        },
+      ],
+    },
   ];
 
   const renderSettingItem = ({ item }) => (
@@ -159,14 +176,13 @@ export const SettingsScreen = ({ navigation }) => {
       <View style={styles.settingRight}>
         {item.toggle ? (
           <TouchableOpacity
-            style={[styles.toggleButton, item.value && {backgroundColor: text}]}
+            style={[styles.toggleButton, item.value && { backgroundColor: text }]}
             onPress={() => item.onToggle(!item.value)}
           >
             <View style={[styles.toggleSwitch, item.value && styles.toggleSwitchActive]} />
           </TouchableOpacity>
         ) : (
           <View style={styles.settingValue}>
-            {/* {item.status && <Text style={styles.settingStatus}>{item.status}</Text>} */}
             {item.value && <Text style={styles.settingText}>{item.value}</Text>}
             <Ionicons name="chevron-forward" size={16} color="#666" />
           </View>
@@ -178,7 +194,7 @@ export const SettingsScreen = ({ navigation }) => {
   const renderSection = (section) => (
     <View key={section.title} style={styles.settingsSection}>
       <Text style={[styles.sectionTitle, textStyle]}>{section.title}</Text>
-      <View style={[styles.settingsContainer, {shadowColor: text}]}>
+      <View style={[styles.settingsContainer, { shadowColor: text }]}>
         <FlatList
           data={section.items}
           renderItem={renderSettingItem}
@@ -192,13 +208,8 @@ export const SettingsScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* <View style={styles.header}>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Manage your account preferences</Text>
-        </View> */}
-
         {/* User Info Card */}
-        <View style={[styles.userInfoCard, {shadowColor: text}]}>
+        <View style={[styles.userInfoCard, { shadowColor: text }]}>
           <View style={styles.profileAvatarWrap}>
             <HexAvatar
               uri={profilePhotoUri}
@@ -210,10 +221,6 @@ export const SettingsScreen = ({ navigation }) => {
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{userData?.displayName}</Text>
             <Text style={styles.userUsername}>@{userData?.userName}</Text>
-            {/* <View style={styles.verificationBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={text} />
-              <Text style={styles.verificationText}>Dragonfly Verified</Text>
-            </View> */}
           </View>
         </View>
 
