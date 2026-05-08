@@ -24,7 +24,8 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { createCheckoutSession } from '../../services/stirpe';
 import { getPaymentSessionUrl, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
-import StripePaymentMethodModal from '../../components/modals/StripePaymentMethodModal'; 
+import StripePaymentMethodModal from '../../components/modals/StripePaymentMethodModal';
+import { useLanguage } from '../../i18n';
 
 const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const [loading, setLoading] = useState(false);
@@ -32,10 +33,11 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const toast = useToast();
   const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const handleDeepLink = (event) => {
-      console.log(event,'checkEvent Exist')
+      console.log(event, 'checkEvent Exist');
       if (event?.url) {
         handlePaymentResult(event.url);
       }
@@ -47,7 +49,6 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
       if (url) handlePaymentResult(url);
     });
 
-    // Disable hardware back on this screen (keep as you had it)
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
 
     return () => {
@@ -55,7 +56,6 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
       backHandler.remove();
     };
   }, []);
-
 
   const getUserToken = async () => {
     try {
@@ -66,10 +66,9 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
     }
   };
 
-  // Tiny, robust parser that works for custom schemes
   const parseDeepLink = (url) => {
     try {
-      const [, afterScheme = ''] = url.split('://'); // "payment-success?x=1"
+      const [, afterScheme = ''] = url.split('://');
       const [host, queryString = ''] = afterScheme.split('?');
       const params = Object.fromEntries(new URLSearchParams(queryString));
       return { host, params };
@@ -82,36 +81,34 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
     const { host, params } = parseDeepLink(url);
 
     if (host === 'payment-success') {
-      // If you include ?session_id={CHECKOUT_SESSION_ID} in success_url, you can verify here
-      await verifyPaymentStatus(true /*, params.session_id */);
+      await verifyPaymentStatus(true);
     } else if (host === 'payment-cancel') {
       Alert.alert(
-        'Payment Cancelled',
-        'Your payment was cancelled. You need an active subscription to use the app.',
-        [{ text: 'Try Again', onPress: () => {} }],
+        t('payment.paymentCancelled'),
+        t('payment.paymentCancelledMsg'),
+        [{ text: t('payment.tryAgain'), onPress: () => {} }],
       );
     } else if (host === 'payment-failure') {
       Alert.alert(
-        'Payment Error',
-        'There was an error processing your payment. Please try again.',
-        [{ text: 'Try Again', onPress: () => {} }],
+        t('payment.paymentError'),
+        t('payment.paymentErrorMsg'),
+        [{ text: t('payment.tryAgain'), onPress: () => {} }],
       );
     }
   };
 
-  const verifyPaymentStatus = async (success /*, sessionId */) => {
-    // Optionally call your backend with sessionId to verify before unlocking
+  const verifyPaymentStatus = async (success) => {
     if (success) {
       Alert.alert(
-        'Payment Successful!',
-        'Your subscription is now active. Welcome to premium features!',
-        [{ text: 'Continue', onPress: () => onPaymentSuccess?.() }],
+        t('payment.paymentSuccess'),
+        t('payment.paymentSuccessMsg'),
+        [{ text: t('payment.continueBtn'), onPress: () => onPaymentSuccess?.() }],
       );
     } else {
       Alert.alert(
-        'Payment Failed!',
-        'Your subscription is not Active. Please purchase a subscription',
-        [{ text: 'Continue', onPress: () => onPaymentSuccess?.() }],
+        t('payment.paymentFailed'),
+        t('payment.paymentFailedMsg'),
+        [{ text: t('payment.continueBtn'), onPress: () => onPaymentSuccess?.() }],
       );
     }
   };
@@ -127,7 +124,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
       const token = await getUserToken();
 
       if (!token) {
-        showToastMessage(toast, 'danger', 'Authentication token not found. Please login again.');
+        showToastMessage(toast, 'danger', t('payment.authError'));
         return;
       }
 
@@ -144,7 +141,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         );
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+      showToastMessage(toast, 'danger', error?.response?.data?.message || t('payment.networkError'));
     } finally {
       setLoading(false);
     }
@@ -153,31 +150,26 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const openPaymentBrowser = async (url) => {
     try {
       if (await InAppBrowser.isAvailable()) {
-        /**
-         * Use openAuth so the browser auto-closes when Stripe redirects to your custom scheme.
-         * IMPORTANT: Configure your backend Checkout URLs as HTTPS pages that immediately
-         * window.location.replace('com.valens.app://payment-success?session_id=...') etc.
-         */
         const authResult = await InAppBrowser.openAuth(url, 'com.valens://', {
           showTitle: true,
           enableUrlBarHiding: true,
           enableDefaultShare: false,
           forceCloseOnRedirection: true,
         });
-        await handleRetryCheck()
+        await handleRetryCheck();
       } else {
         await Linking.openURL(url);
       }
     } catch (error) {
-      Alert.alert('Error', error?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+      Alert.alert('Error', error?.message || t('payment.networkError'));
     }
   };
 
   const handleLogout = async () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('payment.logoutTitle'), t('payment.logoutMessage'), [
+      { text: t('payment.logoutCancel'), style: 'cancel' },
       {
-        text: 'Logout',
+        text: t('payment.logoutConfirm'),
         onPress: async () => {
           try {
             await AsyncStorage.multiRemove([
@@ -195,8 +187,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
             ]);
             await AsyncStorage.setItem('isLoggedIn', 'false');
             dispatch(loggedOut());
-          } catch (error) {
-          }
+          } catch (error) {}
         },
       },
     ]);
@@ -207,23 +198,23 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
       setLoading(true);
       try {
         const result = await onRetryCheck();
-        
-        // Check the result from subscription verification
+
         if (result && result.success) {
-          // Subscription is active - user will be automatically navigated away
-          // No need to show additional message as RootNavigator handles it
+          // Subscription is active — RootNavigator handles navigation
         } else {
-          // Subscription is not active - show appropriate message
           if (result && result.message) {
-            if (result.message.includes('No active subscription') || result.message.includes('No subscription found')) {
-              showToastMessage(toast, 'info', 'Please subscribe to access Valens-app.');
+            if (
+              result.message.includes('No active subscription') ||
+              result.message.includes('No subscription found')
+            ) {
+              showToastMessage(toast, 'info', t('payment.noSubscription'));
             } else {
               showToastMessage(toast, 'warning', result.message);
             }
           }
         }
       } catch (error) {
-        showToastMessage(toast, 'danger', 'Failed to verify subscription status. Please try again.');
+        showToastMessage(toast, 'danger', t('payment.verifyFailed'));
       } finally {
         setLoading(false);
       }
@@ -234,198 +225,191 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
 
   return (
     <>
-    <LinearGradient
-      colors={['#667eea', '#764ba2', '#f093fb']}
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <LinearGradient
+        colors={['#667eea', '#764ba2', '#f093fb']}
+        style={styles.container}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.content}>
-            {/* Header Section */}
-            <View style={styles.header}>
-              <View style={styles.iconContainer}>
-                <Text style={styles.iconEmoji}>👑</Text>
-              </View>
-              <Text style={styles.title}>Premium Access Required</Text>
-              <Text style={styles.subtitle}>
-              Subscribe to unlock all features and continue using the Valens App</Text>
-            </View>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-            {/* Pricing Card */}
-            <View style={styles.pricingCard}>
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularText}>MOST POPULAR</Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <SafeAreaView style={styles.safeArea}>
+            <View style={styles.content}>
+              {/* Header Section */}
+              <View style={styles.header}>
+                <View style={styles.iconContainer}>
+                  <Text style={styles.iconEmoji}>👑</Text>
+                </View>
+                <Text style={styles.title}>{t('payment.title')}</Text>
+                <Text style={styles.subtitle}>{t('payment.subtitle')}</Text>
               </View>
-              
-              <View style={styles.priceContainer}>
-                <Text style={styles.currency}>$</Text>
-                <Text style={styles.price}>2</Text>
-                <Text style={styles.period}>/month</Text>
-              </View>
-              
-              <Text style={styles.priceDescription}>Billed monthly • Cancel anytime</Text>
 
-              <View style={styles.features}>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>Unlimited app access</Text>
+              {/* Pricing Card */}
+              <View style={styles.pricingCard}>
+                <View style={styles.popularBadge}>
+                  <Text style={styles.popularText}>{t('payment.mostPopular')}</Text>
                 </View>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>Premium creator features</Text>
-                </View>
-                {/* <View style={styles.featureRow}> */}
-                  {/* <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  {/* <Text style={styles.feature}>Built-in secure wallet</Text> */}
-                {/* </View> */} 
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>5 free Post credits monthly</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>Dashboard & market insights</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>Priority support & early access</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <View style={styles.checkmarkContainer}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                  <Text style={styles.feature}>Cancel anytime</Text>
-                </View>
-              </View>
-            </View>
 
-            {/* Security Info */}
-            <View style={styles.infoSection}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoIcon}>🔒</Text>
-                <Text style={styles.infoText}>Secure payment powered by Stripe</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoIcon}>💡</Text>
-                <Text style={styles.infoText1}>Cancel anytime from your account settings</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoIcon}>📋</Text>
-                <Text style={styles.infoText}>Read Terms & Privacy Policy before canceling</Text>
-              </View>
-              <View style={styles.warningRow}>
-                <Text style={styles.infoIcon}>⚠️</Text>
-                <Text style={styles.warningText}>Profile coins are digital collectibles designed for community engagement. They are not securities or financial products.</Text>
-              </View>
-            </View>
+                <View style={styles.priceContainer}>
+                  <Text style={styles.currency}>{t('payment.currency')}</Text>
+                  <Text style={styles.price}>{t('payment.price')}</Text>
+                  <Text style={styles.period}>{t('payment.period')}</Text>
+                </View>
 
-            {/* Action Buttons */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.subscribeButton, loading && styles.disabledButton]}
-                onPress={createStripeSubscription}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={['#FF6B6B', '#FF8E53']}
-                  style={styles.buttonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                <Text style={styles.priceDescription}>{t('payment.billingNote')}</Text>
+
+                <View style={styles.features}>
+                  <View style={styles.featureRow}>
+                    <View style={styles.checkmarkContainer}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.feature}>{t('payment.features.unlimitedAccess')}</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <View style={styles.checkmarkContainer}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.feature}>{t('payment.features.premiumCreator')}</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <View style={styles.checkmarkContainer}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.feature}>{t('payment.features.freeCredits')}</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <View style={styles.checkmarkContainer}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.feature}>{t('payment.features.dashboard')}</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <View style={styles.checkmarkContainer}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.feature}>{t('payment.features.prioritySupport')}</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <View style={styles.checkmarkContainer}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.feature}>{t('payment.features.cancelAnytime')}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Security Info */}
+              <View style={styles.infoSection}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoIcon}>🔒</Text>
+                  <Text style={styles.infoText}>{t('payment.security.stripe')}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoIcon}>💡</Text>
+                  <Text style={styles.infoText1}>{t('payment.security.cancel')}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoIcon}>📋</Text>
+                  <Text style={styles.infoText}>{t('payment.security.terms')}</Text>
+                </View>
+                <View style={styles.warningRow}>
+                  <Text style={styles.infoIcon}>⚠️</Text>
+                  <Text style={styles.warningText}>{t('payment.security.disclaimer')}</Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.subscribeButton, loading && styles.disabledButton]}
+                  onPress={createStripeSubscription}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#FF6B6B', '#FF8E53']}
+                    style={styles.buttonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <Text style={styles.subscribeButtonText}>{t('payment.subscribeButton')}</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={handleRetryCheck}
+                  activeOpacity={0.7}
+                  disabled={loading}
                 >
                   {loading ? (
-                    <ActivityIndicator color="white" size="small" />
+                    <View style={styles.retryButtonLoading}>
+                      <ActivityIndicator color="#007AFF" size="small" />
+                      <Text style={[styles.retryButtonText, { marginLeft: 10 }]}>
+                        {t('payment.checkingStatus')}
+                      </Text>
+                    </View>
                   ) : (
-                    <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
+                    <Text style={styles.retryButtonText}>{t('payment.verifyButton')}</Text>
                   )}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.retryButton} 
-                onPress={handleRetryCheck}
-                activeOpacity={0.7}
-                disabled={loading}
-              >
-                {loading ? (
-                  <View style={styles.retryButtonLoading}>
-                    <ActivityIndicator color="#007AFF" size="small" />
-                    <Text style={[styles.retryButtonText, { marginLeft: 10 }]}>Checking Status...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.retryButtonText}>Already subscribed? Verify Status</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-              <View style={styles.legalLinks}>
-                <TouchableOpacity 
-                  style={styles.legalButton} 
-                  onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.legalButtonText}>Terms & Conditions</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.legalButton} 
-                  onPress={() => Linking.openURL('https://www.valens.app/privacy-policy')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.legalButtonText}>Privacy Policy</Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.disclaimer}>
-                Profile coins are digital collectibles for community engagement. They are not securities or financial products.
-              </Text>
+              {/* Footer */}
+              <View style={styles.footer}>
+                <View style={styles.legalLinks}>
+                  <TouchableOpacity
+                    style={styles.legalButton}
+                    onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.legalButtonText}>{t('payment.legal.termsLink')}</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.logoutButton} 
-                onPress={handleLogout}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.logoutButtonText}>Logout</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.legalButton}
+                    onPress={() => Linking.openURL('https://www.valens.app/privacy-policy')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.legalButtonText}>{t('payment.legal.privacyLink')}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.disclaimer}>{t('payment.legal.footerDisclaimer')}</Text>
+
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={handleLogout}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.logoutButtonText}>{t('payment.logout')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </SafeAreaView>
-      </ScrollView>
-    </LinearGradient>
+          </SafeAreaView>
+        </ScrollView>
+      </LinearGradient>
 
-    <StripePaymentMethodModal
-      visible={showPaymentMethodModal}
-      onClose={() => setShowPaymentMethodModal(false)}
-      onConnectStripe={async () => {
-        try {
-          await openPaymentConnectionAndRefresh();
-        } catch (e) {
-          showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
-        }
-      }}
-    />
+      <StripePaymentMethodModal
+        visible={showPaymentMethodModal}
+        onClose={() => setShowPaymentMethodModal(false)}
+        onConnectStripe={async () => {
+          try {
+            await openPaymentConnectionAndRefresh();
+          } catch (e) {
+            showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+          }
+        }}
+      />
     </>
   );
 };

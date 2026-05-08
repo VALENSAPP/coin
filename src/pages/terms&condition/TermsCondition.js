@@ -1,4 +1,3 @@
-// src/pages/authentication/termsAndPrivacy.js
 import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -14,44 +13,43 @@ import Icon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
+import { useLanguage } from '../../i18n';
 
 export default function TermsCondition() {
   const navigation = useNavigation();
   const toast = useToast();
+  const { t } = useLanguage();
 
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Handle opening links
   const openLink = async (url) => {
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
         await Linking.openURL(url);
       } else {
-        toast.show('Cannot open this link', { type: 'warning' });
+        toast.show(t('terms.cannotOpenLink'), { type: 'warning' });
       }
     } catch (error) {
       console.error('Error opening link:', error);
-      toast.show('Error opening link', { type: 'danger' });
+      toast.show(t('terms.errorOpeningLink'), { type: 'danger' });
     }
   };
 
-  // Validate agreements
   const validateAgreements = () => {
     const newErrors = {};
     if (!acceptTerms) {
-      newErrors.terms = 'You must accept the Terms and Conditions';
+      newErrors.terms = t('terms.termsCard.errorRequired');
     }
     if (!acceptPrivacy) {
-      newErrors.privacy = 'You must accept the Privacy Policy';
+      newErrors.privacy = t('terms.privacyCard.privacyErrorRequired');
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle continue button
   const handleContinue = () => {
     if (validateAgreements()) {
       const agreementData = {
@@ -59,13 +57,10 @@ export default function TermsCondition() {
         acceptPrivacy,
         agreementTimestamp: new Date().toISOString(),
       };
-      console.log('createProfile')
+      console.log('createProfile');
       navigation.navigate('CreateProfile', { agreementData });
     } else {
-      Alert.alert(
-        'Agreements Required',
-        'Please accept both the Terms and Conditions and Privacy Policy to continue.'
-      );
+      Alert.alert(t('terms.alertTitle'), t('terms.alertMessage'));
     }
   };
 
@@ -73,13 +68,13 @@ export default function TermsCondition() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView 
+      <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -98,11 +93,9 @@ export default function TermsCondition() {
                 <Icon name="shield-check" size={32} color="#FFF" />
               </LinearGradient>
             </View>
-            
-            <Text style={styles.title}>Legal Agreements</Text>
-            <Text style={styles.subtitle}>
-              Before joining Valens, please review and accept our platform policies to ensure a safe and respectful community for everyone.
-            </Text>
+
+            <Text style={styles.title}>{t('terms.title')}</Text>
+            <Text style={styles.subtitle}>{t('terms.subtitle')}</Text>
           </View>
 
           {/* Terms and Conditions Card */}
@@ -112,38 +105,29 @@ export default function TermsCondition() {
                 <Icon name="file-text" size={20} color="#4F46E5" />
               </View>
               <View style={styles.cardHeaderText}>
-                <Text style={styles.cardTitle}>Terms and Conditions</Text>
-                <Text style={styles.cardSubtitle}>Platform rules and user conduct</Text>
+                <Text style={styles.cardTitle}>{t('terms.termsCard.title')}</Text>
+                <Text style={styles.cardSubtitle}>{t('terms.termsCard.subtitle')}</Text>
               </View>
-              {/* <TouchableOpacity 
-                style={styles.readButton}
-                onPress={() => openLink('https://valens.com/terms')}
-              >
-                <Text style={styles.readButtonText}>Read</Text>
-                <Icon name="external-link" size={14} color="#4F46E5" />
-              </TouchableOpacity> */}
             </View>
 
             <View style={styles.cardContent}>
-              <Text style={styles.cardDescription}>
-                Our Terms and Conditions cover:
-              </Text>
+              <Text style={styles.cardDescription}>{t('terms.termsCard.description')}</Text>
               <View style={styles.bulletPoints}>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>Platform rules and user responsibilities</Text>
+                  <Text style={styles.bulletText}>{t('terms.termsCard.bullet1')}</Text>
                 </View>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>Coin system usage and guidelines</Text>
+                  <Text style={styles.bulletText}>{t('terms.termsCard.bullet2')}</Text>
                 </View>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>Anti-discrimination and harassment policies</Text>
+                  <Text style={styles.bulletText}>{t('terms.termsCard.bullet3')}</Text>
                 </View>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>Community standards and moderation</Text>
+                  <Text style={styles.bulletText}>{t('terms.termsCard.bullet4')}</Text>
                 </View>
               </View>
             </View>
@@ -160,13 +144,9 @@ export default function TermsCondition() {
               >
                 {acceptTerms && <Icon name="check" size={16} color="#FFF" />}
               </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>
-                I have read and agree to the Terms and Conditions
-              </Text>
+              <Text style={styles.checkboxLabel}>{t('terms.termsCard.checkboxLabel')}</Text>
             </View>
-            {errors.terms && (
-              <Text style={styles.errorText}>{errors.terms}</Text>
-            )}
+            {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
           </View>
 
           {/* Privacy Policy Card */}
@@ -176,38 +156,29 @@ export default function TermsCondition() {
                 <Icon name="lock" size={20} color="#059669" />
               </View>
               <View style={styles.cardHeaderText}>
-                <Text style={styles.cardTitle}>Privacy Policy</Text>
-                <Text style={styles.cardSubtitle}>Data protection and privacy</Text>
+                <Text style={styles.cardTitle}>{t('terms.privacyCard.title')}</Text>
+                <Text style={styles.cardSubtitle}>{t('terms.privacyCard.subtitle')}</Text>
               </View>
-              {/* <TouchableOpacity 
-                style={[styles.readButton, styles.readButtonPrivacy]}
-                onPress={() => openLink('https://valens.com/privacy')}
-              >
-                <Text style={[styles.readButtonText, styles.readButtonTextPrivacy]}>Read</Text>
-                <Icon name="external-link" size={14} color="#059669" />
-              </TouchableOpacity> */}
             </View>
 
             <View style={styles.cardContent}>
-              <Text style={styles.cardDescription}>
-                Our Privacy Policy explains:
-              </Text>
+              <Text style={styles.cardDescription}>{t('terms.privacyCard.description')}</Text>
               <View style={styles.bulletPoints}>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>What personal data we collect</Text>
+                  <Text style={styles.bulletText}>{t('terms.privacyCard.bullet1')}</Text>
                 </View>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>How we use and protect your information</Text>
+                  <Text style={styles.bulletText}>{t('terms.privacyCard.bullet2')}</Text>
                 </View>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>Your privacy rights and controls</Text>
+                  <Text style={styles.bulletText}>{t('terms.privacyCard.bullet3')}</Text>
                 </View>
                 <View style={styles.bulletPoint}>
                   <Icon name="check-circle" size={14} color="#10B981" />
-                  <Text style={styles.bulletText}>Data sharing and security measures</Text>
+                  <Text style={styles.bulletText}>{t('terms.privacyCard.bullet4')}</Text>
                 </View>
               </View>
             </View>
@@ -224,13 +195,9 @@ export default function TermsCondition() {
               >
                 {acceptPrivacy && <Icon name="check" size={16} color="#FFF" />}
               </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>
-                I have read and accept the Privacy Policy
-              </Text>
+              <Text style={styles.checkboxLabel}>{t('terms.privacyCard.checkboxLabel')}</Text>
             </View>
-            {errors.privacy && (
-              <Text style={styles.errorText}>{errors.privacy}</Text>
-            )}
+            {errors.privacy && <Text style={styles.errorText}>{errors.privacy}</Text>}
           </View>
 
           {/* Important Notice */}
@@ -239,12 +206,8 @@ export default function TermsCondition() {
               <Icon name="info" size={18} color="#F59E0B" />
             </View>
             <View style={styles.noticeContent}>
-              <Text style={styles.noticeTitle}>Important Notice</Text>
-              <Text style={styles.noticeText}>
-                Valens is committed to creating a safe, inclusive, and respectful environment. 
-                We have zero tolerance for discrimination, harassment, or abuse of any kind. 
-                Violations may result in immediate account suspension or permanent ban.
-              </Text>
+              <Text style={styles.noticeTitle}>{t('terms.notice.title')}</Text>
+              <Text style={styles.noticeText}>{t('terms.notice.text')}</Text>
             </View>
           </View>
 
@@ -260,20 +223,14 @@ export default function TermsCondition() {
                 isValid && styles.continueButtonTextActive,
               ]}
             >
-              Continue to Profile Setup
+              {t('terms.continueButton')}
             </Text>
-            <Icon 
-              name="arrow-right" 
-              size={18} 
-              color={isValid ? "#FFF" : "#9CA3AF"} 
-            />
+            <Icon name="arrow-right" size={18} color={isValid ? '#FFF' : '#9CA3AF'} />
           </TouchableOpacity>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              By continuing, you confirm that you understand and agree to be bound by these terms.
-            </Text>
+            <Text style={styles.footerText}>{t('terms.footer')}</Text>
           </View>
         </View>
       </ScrollView>

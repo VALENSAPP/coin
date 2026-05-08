@@ -3,10 +3,12 @@ import { View, StyleSheet, Text } from 'react-native';
 import Video from 'react-native-video';
 import TextGradient from '../../assets/textgradient/TextGradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const Splash = () => {
-  const fullText = "We are all Valens";
-  const [displayedText, setDisplayedText] = useState("");
+  const { t } = useLanguage();
+  const fullText = t('splash.tagline');
+  const [displayedText, setDisplayedText] = useState('');
   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
@@ -17,10 +19,10 @@ const Splash = () => {
       if (index === fullText.length) {
         clearInterval(interval);
       }
-    }, 200); // typing speed
+    }, 200);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fullText]);
 
   return (
     <View style={[styles.container, bgStyle]}>
@@ -39,7 +41,7 @@ const Splash = () => {
       {/* <View style={styles.overlay}>
         <View style={styles.textWrapper}>
           <TextGradient
-            style={{ fontWeight: "bold", fontSize: 42,  textAlign: 'left', }}
+            style={{ fontWeight: "bold", fontSize: 42, textAlign: 'left' }}
             locations={[0, 1]}
             colors={["#513189bd", "#e54ba0"]}
             start={{ x: 0, y: 0 }}
