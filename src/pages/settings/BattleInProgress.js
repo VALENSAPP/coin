@@ -363,7 +363,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
 const getStatusTone = (status, t) => {
   const normalized = String(status || '').toLowerCase();
   if (normalized.includes('live') || normalized.includes('progress'))
-    return { label: t('battleInProgress.statusLive'), color: '#DC2626' };
+    return { label: t('battleInProgress.statusLive'), color: '#22C55E' };
   if (normalized.includes('finish') || normalized.includes('closed') || normalized.includes('resolved'))
     return { label: t('battleInProgress.statusFinished'), color: '#4B5563' };
   if (normalized.includes('result'))
@@ -376,20 +376,14 @@ const formatBattleTime = (value, t) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return t('battleInProgress.endTimeNotSet');
   return parsed.toLocaleString();
+}
+
 const formatStakeAmount = value => {
   const parsed = Number(value);
   const safeValue = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   return safeValue.toLocaleString(undefined, {
     maximumFractionDigits: 2,
   });
-};
-
-const getStatusTone = status => {
-  const normalized = String(status || '').toLowerCase();
-  if (normalized.includes('live') || normalized.includes('progress')) return { label: 'LIVE', color: '#22C55E' };
-  if (normalized.includes('finish') || normalized.includes('closed') || normalized.includes('resolved')) return { label: 'FINISHED', color: '#4B5563' };
-  if (normalized.includes('result')) return { label: 'RESULT', color: '#8B5CF6' };
-  return { label: 'OPEN', color: '#0F766E' };
 };
 
 const isSuccessfulResponse = response =>
