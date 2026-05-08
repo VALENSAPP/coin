@@ -366,9 +366,17 @@ const formatBattleTime = value => {
   return parsed.toLocaleString();
 };
 
+const formatStakeAmount = value => {
+  const parsed = Number(value);
+  const safeValue = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  return safeValue.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  });
+};
+
 const getStatusTone = status => {
   const normalized = String(status || '').toLowerCase();
-  if (normalized.includes('live') || normalized.includes('progress')) return { label: 'LIVE', color: '#DC2626' };
+  if (normalized.includes('live') || normalized.includes('progress')) return { label: 'LIVE', color: '#22C55E' };
   if (normalized.includes('finish') || normalized.includes('closed') || normalized.includes('resolved')) return { label: 'FINISHED', color: '#4B5563' };
   if (normalized.includes('result')) return { label: 'RESULT', color: '#8B5CF6' };
   return { label: 'OPEN', color: '#0F766E' };
@@ -411,6 +419,7 @@ export default function BattleInProgress() {
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const statusPulseAnim = useRef(new Animated.Value(1)).current;
 
   const palette = useMemo(() => {
     const primary = text || '#bb7ef1';
@@ -468,6 +477,31 @@ export default function BattleInProgress() {
       setOptionImagePreviewVisible(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (statusMeta.label !== 'LIVE') {
+      statusPulseAnim.setValue(1);
+      return undefined;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(statusPulseAnim, {
+          toValue: 0.35,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(statusPulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+
+    return () => pulse.stop();
+  }, [statusMeta.label, statusPulseAnim]);
 
   const fetchBattle = useCallback(async (isSilent = false) => {
     if (!battleId) { setLoading(false); return; }
@@ -970,9 +1004,9 @@ export default function BattleInProgress() {
           </TouchableOpacity>
           {/* Top row */}
           <View style={styles.heroTopRow}>
-            <View style={styles.statusPill}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusPillText}>{statusMeta.label}</Text>
+            <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
+              <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
+              <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
             </View>
             <View style={styles.timerPill}>
               <Ionicons name="time-outline" size={12} color="#fff" />
@@ -993,6 +1027,12 @@ export default function BattleInProgress() {
             <View style={styles.heroInfoChip}>
               <Ionicons name="calendar-outline" size={12} color="#fff" />
               <Text style={styles.heroInfoText}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+            </View>
+            <View style={styles.heroInfoChip}>
+              <Ionicons name="flash" size={12} color="#fff" />
+              <Text style={styles.heroInfoText}>
+                Stakes: {formatStakeAmount(battle.stake)}
+              </Text>
             </View>
           </View>
 
@@ -1407,7 +1447,7 @@ const styles = StyleSheet.create({
   timerPillText: { fontSize: 11, fontWeight: '600', color: "#fff" },
   heroTitle: { color: "#fff", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
   heroDescription: { color: "#fff", fontSize: 13, lineHeight: 19, marginBottom: 8 },
-  heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   heroInfoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(107,95,166,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   heroInfoText: { color: "#fff", fontSize: 11, fontWeight: '600' },
   heroMetaRight: { alignItems: 'flex-end' },

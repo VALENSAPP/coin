@@ -140,7 +140,7 @@ export default function InviteScreen() {
                 {/* Bottom section */}
                 <View style={{ height: 28 }} />
                 <Text style={styles.sectionTitle}>Your invites</Text>
-                <Text style={styles.sectionSubtitle}>Invite your first user to earn 10 points.</Text>
+                <Text style={styles.sectionSubtitle}>Invite your first user to earn 1000 points.</Text>
 
                 {/* Debug info (remove in production) */}
                 <View style={styles.debugBox}>

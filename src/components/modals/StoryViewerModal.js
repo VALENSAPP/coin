@@ -21,8 +21,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import HexAvatar from '../home/story.js/HexAvatar';
+import { getUserCredentials } from '../../services/post';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [isPaused, setIsPaused] = useState(false);
@@ -34,6 +36,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [selfUserId, setSelfUserId] = useState(null);
+  const [storyOwnerProfile, setStoryOwnerProfile] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -57,8 +60,63 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     return candidate ? String(candidate) : null;
   }, [story]);
 
-  const storyUsername = userName || story?.userName || story?.username || story?.user?.displayName || story?.user?.username || 'Unknown User';
-  const storyAvatar = userImage || story?.userImage || story?.image || story?.user?.image || story?.user?.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  useEffect(() => {
+    let active = true;
+
+    const fetchStoryOwnerProfile = async () => {
+      if (!visible || !storyUserId) {
+        if (active) setStoryOwnerProfile(null);
+        return;
+      }
+
+      try {
+        const response = await getUserCredentials(storyUserId);
+        const rawUser = response?.data?.user || response?.data?.data || response?.data || {};
+
+        if (!active) return;
+
+        setStoryOwnerProfile({
+          name:
+            rawUser?.displayName ||
+            rawUser?.name ||
+            rawUser?.userName ||
+            rawUser?.username ||
+            null,
+          image:
+            rawUser?.image ||
+            rawUser?.avatar ||
+            rawUser?.profilePic ||
+            rawUser?.profilePicture ||
+            null,
+        });
+      } catch (_error) {
+        if (active) setStoryOwnerProfile(null);
+      }
+    };
+
+    fetchStoryOwnerProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [storyUserId, visible]);
+
+  const storyUsername =
+    storyOwnerProfile?.name ||
+    userName ||
+    story?.userName ||
+    story?.username ||
+    story?.user?.displayName ||
+    story?.user?.username ||
+    'Unknown User';
+  const storyAvatar =
+    storyOwnerProfile?.image ||
+    userImage ||
+    story?.userImage ||
+    story?.image ||
+    story?.user?.image ||
+    story?.user?.avatar ||
+    FALLBACK_AVATAR;
 
   // Determine if story is video
   const isVideo = story?.type === 'video' ||
@@ -330,7 +388,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
           </Text>
         </View>
 
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={[
             styles.bottomBackButton,
             { bottom: insets.bottom + 20 } // 🔥 fix for gesture bar
@@ -340,7 +398,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
         >
           <Icon name="chevron-back" size={22} color="#fff" />
           <Text style={styles.bottomBackText}>Back</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </SafeAreaView>
     </Modal>
   );

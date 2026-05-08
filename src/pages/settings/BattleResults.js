@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Platform,
   SafeAreaView,
@@ -52,6 +53,14 @@ const findCountByFlexibleKey = (countsMap, rawLabel) => {
   return partialMatch ? partialMatch[1] : undefined;
 };
 
+const formatStakeAmount = value => {
+  const parsed = Number(value);
+  const safeValue = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  return safeValue.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  });
+};
+
 export default function BattleResults({ navigation }) {
   const route = useRoute();
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
@@ -69,6 +78,7 @@ export default function BattleResults({ navigation }) {
   const optionVoteCount = route?.params?.optionVoteCount || battle?.optionVoteCount || {};
   const [winnerProfile, setWinnerProfile] = useState(null);
   const [winnerLoading, setWinnerLoading] = useState(false);
+  const livePulseAnim = useState(() => new Animated.Value(1))[0];
   const battleId = battle?.id || battle?.battleId || route?.params?.battleId || '';
   const title = battle.title || 'Battle';
   const description = battle.question || '';
@@ -81,6 +91,23 @@ export default function BattleResults({ navigation }) {
   const comments = battle.comments || [];
   const status = battle.status || 'LIVE';
   const normalizedStatus = String(status || '').trim().toUpperCase();
+  const isLiveStatus =
+    normalizedStatus.includes('LIVE') || normalizedStatus.includes('PROGRESS');
+  const isFinishedStatus =
+    normalizedStatus.includes('RESOLVED') ||
+    normalizedStatus.includes('FINISH') ||
+    normalizedStatus.includes('CLOSED') ||
+    normalizedStatus.includes('RESULT');
+  const statusBadgeLabel = isLiveStatus
+    ? 'LIVE BATTLE'
+    : isFinishedStatus
+      ? 'FINISHED BATTLE'
+      : 'BATTLE OPEN';
+  const statusBadgeColor = isLiveStatus
+    ? '#22C55E'
+    : isFinishedStatus
+      ? '#9CA3AF'
+      : '#60A5FA';
   const battleFormat = String(battle.format || '').toUpperCase().trim();
   const isPollFormat = battleFormat === 'POLL';
   const participants = battle.primaryCount || 0;
@@ -142,7 +169,7 @@ export default function BattleResults({ navigation }) {
   const winnerText =
     normalizedStatus === 'RESOLVED'
       ? 'Winner Declared'
-      : normalizedStatus === 'LIVE'
+      : isLiveStatus
         ? 'Battle Ongoing'
         : 'Battle Closed';
   const palette = useMemo(() => {
@@ -163,6 +190,31 @@ export default function BattleResults({ navigation }) {
       track: withAlpha(primary, '18'),
     };
   }, [card, text]);
+
+  useEffect(() => {
+    if (!isLiveStatus) {
+      livePulseAnim.setValue(1);
+      return undefined;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(livePulseAnim, {
+          toValue: 0.35,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(livePulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+
+    return () => pulse.stop();
+  }, [isLiveStatus, livePulseAnim]);
 
   useEffect(() => {
     let active = true;
@@ -464,6 +516,35 @@ export default function BattleResults({ navigation }) {
             <Ionicons name="trophy-outline" size={34} color={palette.warm} />
           </View>
 
+          <View style={styles.metaPillsRow}>
+            <View
+              style={[
+                styles.liveStatusPill,
+                { backgroundColor: withAlpha(statusBadgeColor, '2E') },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.liveStatusDot,
+                  {
+                    opacity: isLiveStatus ? livePulseAnim : 1,
+                    backgroundColor: statusBadgeColor,
+                  },
+                ]}
+              />
+              <Text style={[styles.liveStatusText, { color: statusBadgeColor }]}>
+                {statusBadgeLabel}
+              </Text>
+            </View>
+
+            <View style={styles.stakePill}>
+              <Ionicons name="flash" size={11} color="#7F77DD" />
+              <Text style={styles.stakeText}>
+                Stakes: <Text style={styles.stakeAmount}>{formatStakeAmount(stake)}</Text>
+              </Text>
+            </View>
+          </View>
+
           <Text style={styles.winner}>{winnerText}</Text>
           <Text style={styles.sub}>{participants} participants</Text>
           {status === "RESOLVED" && (
@@ -700,6 +781,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+  },
+  liveStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+    gap: 6,
+  },
+  metaPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  liveStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  liveStatusText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  stakePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: '#F5F1FF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  stakeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#5B5860',
+  },
+  stakeAmount: {
+    fontWeight: '700',
+    color: '#7F77DD',
   },
   winner: {
     fontSize: 22,

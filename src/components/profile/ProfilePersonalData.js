@@ -64,6 +64,7 @@ import { useToast } from 'react-native-toast-notifications';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { metaMaskRecived } from '../../services/wallet';
+import { battleByUserId } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
@@ -84,14 +85,17 @@ function isProfileFullyIdentityVerified(user) {
   return true;
 }
 
-export function getDragonflyIcon(followers, isBusiness = false) {
-  if (isBusiness) return GoldLavenderDragonfly;
+export function getDragonflyIcon(followers) {
+  const parsedFollowers = Number(followers);
+  const safeFollowers = Number.isFinite(parsedFollowers)
+    ? Math.max(0, parsedFollowers)
+    : 0;
 
-  if (followers <= 50) return WhiteDragonfly;
-  if (followers <= 10000) return SoftGrayDragonfly;
-  if (followers <= 500000) return LilacDragonfly;
-  if (followers <= 1000000) return GoldDragonfly;
-  if (followers >= 10000000) return GoldLavenderDragonfly;
+  if (safeFollowers <= 50) return WhiteDragonfly;
+  if (safeFollowers <= 10000) return SoftGrayDragonfly;
+  if (safeFollowers <= 500000) return LilacDragonfly;
+  if (safeFollowers <= 1000000) return GoldDragonfly;
+  if (safeFollowers >= 10000000) return GoldLavenderDragonfly;
 
   return WhiteDragonfly;
 }
@@ -210,6 +214,7 @@ const ProfilePersonData = ({
   const [totalSupportLoading, setTotalSupportLoading] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
+  const [hasLiveBattle, setHasLiveBattle] = useState(false);
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -228,6 +233,20 @@ const ProfilePersonData = ({
   const route = useRoute();
   const showIdentityVerified = isProfileFullyIdentityVerified(userData);
   const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
+  const battleStatusPulseAnim = useRef(new Animated.Value(1)).current;
+
+  const viewedBattleUserId = useMemo(
+    () =>
+      String(
+        targetUserId ||
+          userData?.id ||
+          userData?._id ||
+          userData?.userId ||
+          userId ||
+          '',
+      ).trim(),
+    [targetUserId, userData?.id, userData?._id, userData?.userId, userId],
+  );
 
   const Userdata = {
     Displayname: displayName || 'No Name',
@@ -737,6 +756,74 @@ const ProfilePersonData = ({
       };
     }, [dispatch, fromUsersProfile]),
   );
+
+  const fetchLiveBattleStatus = useCallback(async () => {
+    if (!viewedBattleUserId) {
+      setHasLiveBattle(false);
+      return;
+    }
+    try {
+      const response = await battleByUserId({ params: { userId: viewedBattleUserId } });
+      console.log(response,'dta in batatle bu user id dim this screenne ')
+      const payload =
+        response?.data?.data ?? response?.data?.battles ?? response?.data ?? response ?? [];
+      const rawBattles = Array.isArray(payload)
+        ? payload
+        : payload?.battles ||
+          payload?.data?.battles ||
+          payload?.data ||
+          response?.battles ||
+          [];
+      const liveBattleFound = (Array.isArray(rawBattles) ? rawBattles : []).some(
+        battle => {
+          const status = String(
+            battle?.status || battle?.battleStatus || '',
+          ).toLowerCase();
+          const isLiveFlag = Boolean(battle?.isLive || battle?.live);
+          return (
+            isLiveFlag ||
+            status.includes('live') ||
+            status.includes('progress') ||
+            status.includes('active') ||
+            status.includes('ongoing')
+          );
+        },
+      );
+      setHasLiveBattle(liveBattleFound);
+    } catch (_error) {
+      setHasLiveBattle(false);
+    }
+  }, [viewedBattleUserId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchLiveBattleStatus();
+    }, [fetchLiveBattleStatus]),
+  );
+
+  useEffect(() => {
+    if (!hasLiveBattle) {
+      battleStatusPulseAnim.setValue(1);
+      return undefined;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(battleStatusPulseAnim, {
+          toValue: 0.35,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(battleStatusPulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [hasLiveBattle, battleStatusPulseAnim]);
 
   const handleNavigate = () => {
     if (data) {
@@ -1498,11 +1585,24 @@ const ProfilePersonData = ({
               ]}
               onPress={handleBattleTabPress}
             >
-              <Text
-                style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
-              >
-                Battle
-              </Text>
+              <View style={styles.tabContentRow}>
+                <Text
+                  style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
+                >
+                  Battle
+                </Text>
+                {hasLiveBattle && (
+                  <View style={styles.liveBadge}>
+                    <Animated.View
+                      style={[
+                        styles.liveBadgeDot,
+                        { opacity: battleStatusPulseAnim },
+                      ]}
+                    />
+                    <Text style={styles.liveBadgeText}>LIVE</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
           {/* Stats */}
@@ -1971,6 +2071,32 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  tabContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  liveBadgeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#22C55E',
+    marginRight: 5,
+  },
+  liveBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   activeTabText: {
     color: '#fff',

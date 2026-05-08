@@ -415,8 +415,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
   );
   const isMetaMaskConnected = isWalletConnected || !!connectedWallet;
   const DragonflyIcon = useMemo(
-    () => getDragonflyIcon(followersCount, isBusinessProfile),
-    [followersCount, isBusinessProfile],
+    () => getDragonflyIcon(followersCount),
+    [followersCount],
   );
 
   useEffect(() => {

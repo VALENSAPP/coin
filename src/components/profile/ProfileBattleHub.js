@@ -2,14 +2,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -115,6 +116,7 @@ export default function ProfileBattleHub({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [battles, setBattles] = useState([]);
+  const [searchText, setSearchText] = useState('');
   const [battlePointSummary, setBattlePointSummary] = useState(emptySummary);
 
   const PRIMARY_GRADIENT =
@@ -268,15 +270,29 @@ export default function ProfileBattleHub({
     }
   }, [getBattlePoint, loadBattles]);
 
+  const filteredBattles = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return battles;
+
+    return battles.filter(battle =>
+      String(battle?.title || '').toLowerCase().includes(query),
+    );
+  }, [battles, searchText]);
+
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      enableOnAndroid
+      extraScrollHeight={140}
+      extraHeight={120}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
       contentContainerStyle={styles.contentContainer}
     >
-      <View style={[styles.heroCard, bgStyle]}>
+        <View style={[styles.heroCard, bgStyle]}>
         <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
           Battle Performance
         </Text>
@@ -317,9 +333,24 @@ export default function ProfileBattleHub({
             </LinearGradient>
           </TouchableOpacity>
         )}
-      </View>
-
-      <View style={styles.sectionHeader}>
+        </View>
+        <View style={[styles.searchContainer, bgStyle]}>
+        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search battle question..."
+          placeholderTextColor="#999"
+          value={searchText}
+          onChangeText={setSearchText}
+          returnKeyType="search"
+        />
+        {searchText.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchText('')} style={styles.clearSearchBtn}>
+            <Ionicons name="close-circle" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
+        </View>
+        <View style={styles.sectionHeader}>
         <Text
           style={[
             styles.sectionTitle,
@@ -331,67 +362,70 @@ export default function ProfileBattleHub({
         <Text style={styles.sectionSubtitle}>
           Open any battle to continue the flow.
         </Text>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color={text} />
         </View>
-      ) : battles.length > 0 ? (
-        battles.map(battle => {
-          const statusMeta = getStatusMeta(battle);
-          return (
-            <TouchableOpacity
-              key={battle.id}
-              activeOpacity={0.86}
-              style={[styles.battleCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}
-              onPress={() => openBattle(battle)}
-            >
-              <View style={styles.cardHeader}>
-                <View
-                  style={[
-                    styles.statusPill,
-                    { backgroundColor: `${statusMeta.tone}18` },
-                  ]}
-                >
-                  <Text style={[styles.statusText, { color: statusMeta.tone }]}>
-                    {statusMeta.label}
+
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="small" color={text} />
+          </View>
+        ) : filteredBattles.length > 0 ? (
+          filteredBattles.map(battle => {
+            const statusMeta = getStatusMeta(battle);
+            return (
+              <TouchableOpacity
+                key={battle.id}
+                activeOpacity={0.86}
+                style={[styles.battleCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}
+                onPress={() => openBattle(battle)}
+              >
+                <View style={styles.cardHeader}>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      { backgroundColor: `${statusMeta.tone}18` },
+                    ]}
+                  >
+                    <Text style={[styles.statusText, { color: statusMeta.tone }]}>
+                      {statusMeta.label}
+                    </Text>
+                  </View>
+                  <Text style={styles.cardMeta}>
+                    {battle.battleType === 'prediction' ? 'Prediction' : 'Opinion'}
                   </Text>
                 </View>
-                <Text style={styles.cardMeta}>
-                  {battle.battleType === 'prediction' ? 'Prediction' : 'Opinion'}
-                </Text>
-              </View>
 
-              <Text style={styles.cardTitle}>{battle.title}</Text>
+                <Text style={styles.cardTitle}>{battle.title}</Text>
 
-              {!!battle.options.length && (
-                <View style={styles.optionRow}>
-                  {battle.options.slice(0, 3).map(option => (
-                    <View key={`${battle.id}-${option.id}`} style={styles.optionChip}>
-                      <Text style={styles.optionText}>{option.label}</Text>
-                    </View>
-                  ))}
+                {!!battle.options.length && (
+                  <View style={styles.optionRow}>
+                    {battle.options.slice(0, 3).map(option => (
+                      <View key={`${battle.id}-${option.id}`} style={styles.optionChip}>
+                        <Text style={styles.optionText}>{option.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                <View style={styles.cardFooter}>
+                  <Text style={styles.footerText}>{formatDate(battle.endTime)}</Text>
                 </View>
-              )}
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.footerText}>{formatDate(battle.endTime)}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })
-      ) : (
-        <View style={[styles.emptyCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}>
-          <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
-          <Text style={[styles.emptyTitle, { color: text }]}>No battles yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Start with an opinion battle or invite someone into a head-to-head
-            duel.
-          </Text>
-        </View>
-      )}
-    </ScrollView>
+              </TouchableOpacity>
+            );
+          })
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}>
+            <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
+            <Text style={[styles.emptyTitle, { color: text }]}>
+              {searchText.trim() ? 'No battles found' : 'No battles yet'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {searchText.trim()
+                ? 'Try a different battle question.'
+                : 'Start with an opinion battle or invite someone into a head-to-head duel.'}
+            </Text>
+          </View>
+        )}
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -465,6 +499,29 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 10,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f2f2f2',
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    borderColor: '#e6e6e6',
+    paddingVertical: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#000',
+    fontWeight: '500',
+  },
+  clearSearchBtn: {
+    marginLeft: 8,
   },
   sectionTitle: {
     fontSize: 16,
