@@ -90,6 +90,7 @@ import ValensWallet from '../pages/wallet/ValensWallet';
 import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen';
 import ProfileShop from '../components/profile/Shop';
 import ShopScreen from '../pages/wallet/ShopScreen';
+import PrivateCircle from '../components/profile/PrivateCircle';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -411,6 +412,11 @@ export default function MainTabNavigator() {
             name="Shop"
             component={ShopScreen}
             options={{ headerTitle: 'Shop' }}
+          />
+           <Stack.Screen
+            name="Privatecircle"
+            component={PrivateCircle}
+            options={{ headerTitle: 'Privatecircle' }}
           />
           <Stack.Screen
             name="TransactionActivity"
