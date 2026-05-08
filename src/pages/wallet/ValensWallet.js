@@ -34,6 +34,7 @@ import {
 } from '../../services/wallet';
 import { Metamask } from '../../assets/icons';
 import { appKit } from '../../config/AppKitConfig';
+import { useLanguage } from '../../i18n';
 
 const ValensWallet = ({ navigation }) => {
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
@@ -51,6 +52,7 @@ const ValensWallet = ({ navigation }) => {
     const toast = useToast();
     const { bgStyle, text, cardStyle } = useAppTheme();
     const { width: screenWidth } = useWindowDimensions();
+    const { t } = useLanguage();
     const { openWalletConnect, isConnected: isWalletConnected, address: sessionAddress } =
         useWalletConnectSupport();
 
@@ -221,44 +223,20 @@ const ValensWallet = ({ navigation }) => {
                     const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
 
                     const rawAmount = pickFirst(
-                        tx?.amountUsd,
-                        tx?.amountUSD,
-                        tx?.amount_usd,
-                        tx?.amount,
-                        tx?.usdAmount,
-                        tx?.value,
-                        0,
+                        tx?.amountUsd, tx?.amountUSD, tx?.amount_usd, tx?.amount, tx?.usdAmount, tx?.value, 0,
                     );
                     const amountNumber = toNumber(rawAmount);
                     const amountTone = amountNumber < 0 ? 'negative' : 'positive';
 
-                    const title =
-                        pickFirst(
-                            tx?.title,
-                            tx?.label,
-                            typeLabel,
-                        ) || 'Transaction';
+                    const title = pickFirst(tx?.title, tx?.label, typeLabel) || 'Transaction';
 
                     const subtitle = pickFirst(
-                        tx?.subtitle,
-                        tx?.description,
-                        tx?.note,
-                        tx?.missionQuestion,
-                        tx?.mission?.question,
-                        tx?.mission?.title,
-                        tx?.receiverName,
-                        tx?.senderName,
-                        '',
+                        tx?.subtitle, tx?.description, tx?.note, tx?.missionQuestion,
+                        tx?.mission?.question, tx?.mission?.title, tx?.receiverName, tx?.senderName, '',
                     );
 
                     const createdAt = pickFirst(
-                        tx?.createdAt,
-                        tx?.created_at,
-                        tx?.timestamp,
-                        tx?.date,
-                        tx?.updatedAt,
-                        tx?.updated_at,
-                        null,
+                        tx?.createdAt, tx?.created_at, tx?.timestamp, tx?.date, tx?.updatedAt, tx?.updated_at, null,
                     );
 
                     return {
@@ -275,18 +253,16 @@ const ValensWallet = ({ navigation }) => {
                 setRecentActivity(mapped);
             }
 
-
         } catch (error) {
             showToastMessage(
                 toast,
                 'danger',
-                error?.response?.message ?? 'Something went wrong'
+                error?.response?.message ?? t('savedPosts.somethingWentWrong')
             );
         } finally {
             dispatch(hideLoader());
         }
     };
-
 
     const formatMoney = (value) => {
         if (typeof value !== 'number' || Number.isNaN(value)) return '$0.00';
@@ -320,43 +296,46 @@ const ValensWallet = ({ navigation }) => {
         {
             key: 'mission',
             icon: 'flag-outline',
-            title: 'Mission Earnings',
+            title: t('valensWallet.missionEarnings'),
             value: formatMoney(missionEarningsUsd),
-            subtitle: 'From mission posts',
+            subtitle: t('valensWallet.missionEarningsSubtitle'),
         },
         {
             key: 'subs',
             icon: 'diamond-outline',
-            title: isBusinessProfile ? ' Marketplace Income' : 'Subscription Payments',
+            title: isBusinessProfile ? t('valensWallet.marketplaceIncome') : t('valensWallet.subscriptionPayments'),
             value: isBusinessProfile ? 0 : formatMoney(subscriptionPaymentsUsd),
-            subtitle: isBusinessProfile ? 'from Buyers' : 'From subscribers',
+            subtitle: isBusinessProfile ? t('valensWallet.marketplaceIncomeSubtitle') : t('valensWallet.subscriptionPaymentsSubtitle'),
         },
-
     ];
 
     const connectedWallet = String(sessionAddress || connectedWalletAddress || '').trim();
     const isMetaMaskConnected = isWalletConnected || !!connectedWallet;
     const metaMaskPreview = connectedWallet
         ? `${connectedWallet.slice(0, 8)}…${connectedWallet.slice(-4)}`
-        : 'Not connected';
+        : t('valensWallet.notConnected');
 
     const handleDisconnectWallet = async () => {
         try {
             await appKit?.disconnect?.();
             await AsyncStorage.multiRemove(['walletAddress', 'walletChainId', 'walletType']);
             setConnectedWalletAddress('');
-            showToastMessage(toast, 'success', 'Wallet disconnected');
+            showToastMessage(toast, 'success', t('valensWallet.disconnectSuccess'));
         } catch (error) {
-            showToastMessage(toast, 'danger', 'Unable to disconnect wallet');
+            showToastMessage(toast, 'danger', t('valensWallet.disconnectFailed'));
         }
     };
 
     const handleMetaMaskCardPress = () => {
         if (isMetaMaskConnected) {
-            Alert.alert('Disconnect wallet', 'Do you want to disconnect your wallet?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Disconnect', style: 'destructive', onPress: handleDisconnectWallet },
-            ]);
+            Alert.alert(
+                t('valensWallet.disconnectAlertTitle'),
+                t('valensWallet.disconnectAlertMessage'),
+                [
+                    { text: t('valensWallet.cancel'), style: 'cancel' },
+                    { text: t('valensWallet.disconnect'), style: 'destructive', onPress: handleDisconnectWallet },
+                ]
+            );
             return;
         }
         openWalletConnect();
@@ -365,16 +344,16 @@ const ValensWallet = ({ navigation }) => {
     const walletConnections = [
         {
             key: 'metamask',
-            label: 'Wallet',
+            label: t('valensWallet.walletLabel'),
             title: 'MetaMask',
             badge: {
-                text: isMetaMaskConnected ? 'Connected' : 'Disconnected',
+                text: isMetaMaskConnected ? t('valensWallet.connected') : t('valensWallet.disconnected'),
                 tone: isMetaMaskConnected ? 'success' : 'muted',
             },
-            meta: isMetaMaskConnected ? metaMaskPreview : 'Tap to connect',
+            meta: isMetaMaskConnected ? metaMaskPreview : t('valensWallet.tapToConnect'),
             amount: `$ ${Number(metaMaskReceivedUsd || 0).toFixed(2)}`,
             approx: '',
-            cta: isMetaMaskConnected ? 'Disconnect MetaMask' : 'Connect MetaMask',
+            cta: isMetaMaskConnected ? t('valensWallet.disconnectMetaMask') : t('valensWallet.connectMetaMask'),
             onPress: handleMetaMaskCardPress,
             leftIcon: { type: 'custom', name: 'metamask' },
         },
@@ -384,13 +363,17 @@ const ValensWallet = ({ navigation }) => {
         () => (Array.isArray(recentActivity) ? recentActivity : []),
         [recentActivity],
     );
+
     const walletIcon = isBusinessProfile
         ? require('../../assets/icons/pngicons/goldenWallet-removebg.png')
         : require('../../assets/icons/pngicons/newWallet.png');
+
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-            <ScrollView showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: recentActivity.length > 5 ? 150 : 60, }} >
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: recentActivity.length > 5 ? 150 : 60 }}
+            >
                 <View style={styles.topCardWrap}>
                     <LinearGradient
                         colors={walletScreenGradient}
@@ -401,11 +384,9 @@ const ValensWallet = ({ navigation }) => {
                         <View style={[styles.topCardLeft, { paddingRight: walletImageSize + 24 }]}>
                             <View style={styles.balanceLabelRow}>
                                 <Text style={[styles.balanceLabel, { color: `${text}cc` }]}>
-                                    Total Balance
+                                    {t('valensWallet.totalBalance')}
                                 </Text>
-                                <TouchableOpacity
-                                    onPress={() => setShowTotalBalance((prev) => !prev)}
-                                >
+                                <TouchableOpacity onPress={() => setShowTotalBalance((prev) => !prev)}>
                                     <Ionicons
                                         name={showTotalBalance ? 'eye-outline' : 'eye-off-outline'}
                                         size={16}
@@ -416,8 +397,7 @@ const ValensWallet = ({ navigation }) => {
                             <Text style={[styles.balanceValue, { color: text, fontSize: balanceFontSize }]}>
                                 {displayPortfolioValue}
                             </Text>
-                            <View style={styles.balanceSubRow}>
-                            </View>
+                            <View style={styles.balanceSubRow} />
                         </View>
 
                         <View style={styles.topCardRight}>
@@ -430,9 +410,9 @@ const ValensWallet = ({ navigation }) => {
                     </LinearGradient>
                 </View>
 
+                {/* Wallet Overview */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: text }]}>Wallet Overview</Text>
-
+                    <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.overviewTitle')}</Text>
                     <View style={styles.statsGrid}>
                         {walletOverviewCards.map((card) => (
                             <LinearGradient
@@ -449,26 +429,18 @@ const ValensWallet = ({ navigation }) => {
                                 ) : (
                                     <Ionicons name={card.icon} size={22} color={text} style={styles.statIcon} />
                                 )}
-
-                                <Text style={[styles.statTitle, { color: `${text}cc` }]}>
-                                    {card.title}
-                                </Text>
+                                <Text style={[styles.statTitle, { color: `${text}cc` }]}>{card.title}</Text>
                                 <Text style={[styles.statValue, { color: text }]}>{card.value}</Text>
-                                <Text style={[styles.statSubtitle, { color: `${text}99` }]}>
-                                    {card.subtitle}
-                                </Text>
+                                <Text style={[styles.statSubtitle, { color: `${text}99` }]}>{card.subtitle}</Text>
                             </LinearGradient>
                         ))}
                     </View>
                 </View>
 
+                {/* Wallet Connections */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: text }]}>
-                        Wallet Connections
-                    </Text>
-                    <Text style={[styles.sectionSubtitle, { color: `${text}99` }]}>
-                        Manage your linked accounts and wallets
-                    </Text>
+                    <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.connectionsTitle')}</Text>
+                    <Text style={[styles.sectionSubtitle, { color: `${text}99` }]}>{t('valensWallet.connectionsSubtitle')}</Text>
 
                     {walletConnections.map((connection) => (
                         <LinearGradient
@@ -480,65 +452,26 @@ const ValensWallet = ({ navigation }) => {
                         >
                             <View style={styles.connectionTopRow}>
                                 <View style={styles.connectionLeft}>
-                                    <View
-                                        style={[
-                                            styles.connectionIconWrap,
-                                            { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
-                                        ]}
-                                    >
+                                    <View style={[styles.connectionIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
                                         {connection.key === 'metamask' ? (
                                             <Metamask width={28} height={28} />
                                         ) : connection.leftIcon.type === 'image' ? (
-                                            <Image
-                                                source={connection.leftIcon.source}
-                                                style={styles.connectionIconImage}
-                                            />
+                                            <Image source={connection.leftIcon.source} style={styles.connectionIconImage} />
                                         ) : (
-                                            <Ionicons
-                                                name={connection.leftIcon.name}
-                                                size={22}
-                                                color={text}
-                                            />
+                                            <Ionicons name={connection.leftIcon.name} size={22} color={text} />
                                         )}
                                     </View>
                                     <View style={styles.connectionTextWrap}>
-                                        <Text style={[styles.connectionLabel, { color: `${text}99` }]}>
-                                            {connection.label}
-                                        </Text>
+                                        <Text style={[styles.connectionLabel, { color: `${text}99` }]}>{connection.label}</Text>
                                         <View style={styles.connectionTitleRow}>
-                                            <Text style={[styles.connectionTitle, { color: text }]}>
-                                                {connection.title}
-                                            </Text>
-                                            <View
-                                                style={[
-                                                    styles.badge,
-                                                    {
-                                                        backgroundColor:
-                                                            connection.badge.tone === 'success'
-                                                                ? '#E8F7EE'
-                                                                : `${text}1a`,
-                                                    },
-                                                ]}
-                                            >
-                                                <Text
-                                                    style={[
-                                                        styles.badgeText,
-                                                        {
-                                                            color:
-                                                                connection.badge.tone === 'success'
-                                                                    ? '#1B7F3C'
-                                                                    : text,
-                                                        },
-                                                    ]}
-                                                >
+                                            <Text style={[styles.connectionTitle, { color: text }]}>{connection.title}</Text>
+                                            <View style={[styles.badge, { backgroundColor: connection.badge.tone === 'success' ? '#E8F7EE' : `${text}1a` }]}>
+                                                <Text style={[styles.badgeText, { color: connection.badge.tone === 'success' ? '#1B7F3C' : text }]}>
                                                     {connection.badge.text}
                                                 </Text>
                                             </View>
                                         </View>
-                                        <Text
-                                            style={[styles.connectionMeta, { color: `${text}80` }]}
-                                            numberOfLines={1}
-                                        >
+                                        <Text style={[styles.connectionMeta, { color: `${text}80` }]} numberOfLines={1}>
                                             {connection.meta}
                                         </Text>
                                     </View>
@@ -547,23 +480,16 @@ const ValensWallet = ({ navigation }) => {
                                 <View style={styles.connectionRight}>
                                     {connection.key === 'metamask' && (
                                         <Text style={[styles.connectionReceivedLabel, { color: `${text}99` }]}>
-                                            Amount received
+                                            {t('valensWallet.amountReceived')}
                                         </Text>
                                     )}
                                     {!!connection.amount && (
                                         <Text style={[styles.connectionAmount, { color: text }]}>{connection.amount}</Text>
                                     )}
                                     {!!connection.approx && (
-                                        <Text style={[styles.connectionApprox, { color: `${text}99` }]}>
-                                            {connection.approx}
-                                        </Text>
+                                        <Text style={[styles.connectionApprox, { color: `${text}99` }]}>{connection.approx}</Text>
                                     )}
-                                    <Ionicons
-                                        name="chevron-forward"
-                                        size={18}
-                                        color={`${text}80`}
-                                        style={styles.connectionChevron}
-                                    />
+                                    <Ionicons name="chevron-forward" size={18} color={`${text}80`} style={styles.connectionChevron} />
                                 </View>
                             </View>
 
@@ -576,45 +502,37 @@ const ValensWallet = ({ navigation }) => {
                                 <View style={[styles.plusCircle, { borderColor: `${text}66` }]}>
                                     <Ionicons name="add" size={16} color={text} />
                                 </View>
-                                <Text style={[styles.connectionCtaText, { color: text }]}>
-                                    {connection.cta}
-                                </Text>
+                                <Text style={[styles.connectionCtaText, { color: text }]}>{connection.cta}</Text>
                             </TouchableOpacity>
                         </LinearGradient>
                     ))}
                 </View>
 
-
+                {/* Recent Activity */}
                 <View style={styles.section}>
                     <View style={styles.sectionTitleRow}>
-                        <Text style={[styles.sectionTitle, { color: text }]}>Recent Activity</Text>
+                        <Text style={[styles.sectionTitle, { color: text }]}>{t('valensWallet.recentActivityTitle')}</Text>
                         <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('TransactionActivity', { activity: recentActivity });
-                            }}
+                            onPress={() => navigation.navigate('TransactionActivity', { activity: recentActivity })}
                             accessibilityRole="button"
-                            accessibilityLabel="View all recent activity"
+                            accessibilityLabel={t('valensWallet.viewAll')}
                         >
-                            <Text style={[styles.viewAllText, { color: text }]}>View All</Text>
+                            <Text style={[styles.viewAllText, { color: text }]}>{t('valensWallet.viewAll')}</Text>
                         </TouchableOpacity>
                     </View>
+
                     <View style={{ marginBottom: '50%' }}>
                         {resolvedRecentActivity.length === 0 ? (
                             <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
-                                <View
-                                    style={[
-                                        styles.activityIconWrap,
-                                        { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
-                                    ]}
-                                >
+                                <View style={[styles.activityIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
                                     <Ionicons name="time-outline" size={18} color={text} />
                                 </View>
                                 <View style={styles.activityTextWrap}>
                                     <Text style={[styles.activityTitle, { color: text }]}>
-                                        No transactions yet
+                                        {t('valensWallet.noTransactionsTitle')}
                                     </Text>
                                     <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
-                                        Your received transactions will appear here.
+                                        {t('valensWallet.noTransactionsSubtitle')}
                                     </Text>
                                 </View>
                             </View>
@@ -626,48 +544,27 @@ const ValensWallet = ({ navigation }) => {
                                         ? '#EF4444'
                                         : text;
                             return (
-                                <View
-                                    key={activity.key}
-                                    style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}
-                                >
-                                    <View
-                                        style={[
-                                            styles.activityIconWrap,
-                                            { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
-                                        ]}
-                                    >
+                                <View key={activity.key} style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
+                                    <View style={[styles.activityIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
                                         <Ionicons name={activity.icon} size={18} color={text} />
                                     </View>
                                     <View style={styles.activityTextWrap}>
-                                        <Text style={[styles.activityTitle, { color: text }]}>
-                                            {activity.title}
-                                        </Text>
-                                        <Text
-                                            style={[styles.activitySubtitle, { color: `${text}99` }]}
-                                            numberOfLines={1}
-                                        >
+                                        <Text style={[styles.activityTitle, { color: text }]}>{activity.title}</Text>
+                                        <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
                                             {activity.subtitle}
                                         </Text>
                                     </View>
                                     <View style={styles.activityRight}>
-                                        <Text style={[styles.activityAmount, { color: amountColor }]}>
-                                            {activity.amount}
-                                        </Text>
-                                        <Text style={[styles.activityDate, { color: `${text}80` }]}>
-                                            {activity.date}
-                                        </Text>
+                                        <Text style={[styles.activityAmount, { color: amountColor }]}>{activity.amount}</Text>
+                                        <Text style={[styles.activityDate, { color: `${text}80` }]}>{activity.date}</Text>
                                     </View>
-                                    <Ionicons
-                                        name="chevron-forward"
-                                        size={18}
-                                        color={`${text}66`}
-                                        style={styles.activityChevron}
-                                    />
+                                    <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />
                                 </View>
                             );
                         })}
                     </View>
                 </View>
+
                 <View style={styles.bottomSpacer} />
             </ScrollView>
 
