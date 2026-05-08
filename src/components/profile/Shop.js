@@ -98,7 +98,7 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '65%' }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '35%' }]}>
               <Ionicons name="bag-handle" size={34} color={text} />
             </View>
             {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
@@ -166,8 +166,8 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
-    paddingHorizontal: 15,
-    paddingVertical: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     // justifyContent: 'space-between',
     flexShrink: 1, // ✅ important
   },

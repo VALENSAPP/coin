@@ -44,6 +44,7 @@ import Usersprofile from '../pages/home/Usersprofile';
 import { useAppTheme } from '../theme/useApptheme';
 import SelectAccountType from '../pages/authentication/setAccountType';
 import ValensWallet from '../pages/wallet/ValensWallet';
+import PrivateCircle from '../components/profile/PrivateCircle';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -379,6 +380,24 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
+       <Drawer.Screen
+          name="Privatecircle"
+          component={PrivateCircle}
+          options={{
+            drawerLabel: 'Privatecircle',
+            headerShown: false,
+          }}
+          listeners={({ navigation }) => ({
+            drawerItemPress: (e) => {
+              e.preventDefault();
+              navigation.closeDrawer();
+              navigation.navigate('MainApp', {
+                screen: 'wallet',
+                params: { screen: 'Privatecircle' }
+              });
+            },
+          })}
+        />
       <Drawer.Screen
         name="DrawerSettings"
         component={DummyComponent}
