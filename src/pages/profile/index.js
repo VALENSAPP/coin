@@ -37,6 +37,8 @@ const ProfileScreen = () => {
   const compactLockedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const relockMinYRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const touchLastYRef = useRef(0);
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -186,8 +188,18 @@ const ProfileScreen = () => {
     }, [fetchAllData])
   );
 
+  const expandProfileHeader = useCallback(() => {
+    if (!compactLockedRef.current) return;
+    compactLockedRef.current = false;
+    setCompactLocked(false);
+  }, []);
+
   // Pull-to-refresh
   const onRefresh = async () => {
+    if (compactLockedRef.current) {
+      expandProfileHeader();
+      return;
+    }
     setRefreshing(true);
     await fetchAllData();
     setRefreshKey(prev => prev + 1);
@@ -206,7 +218,8 @@ const ProfileScreen = () => {
   }, [fetchProfilePosts]);
 
 const handleProfileScroll = useCallback((event) => {
-  const y = Math.max(0, event?.nativeEvent?.contentOffset?.y ?? 0);
+  const rawY = event?.nativeEvent?.contentOffset?.y ?? 0;
+  const y = Math.max(0, rawY);
   profileScrollY.setValue(y);
 
   const dy = y - lastScrollYRef.current;
@@ -219,17 +232,37 @@ const handleProfileScroll = useCallback((event) => {
   }
 
   // Expand ONLY on explicit downward swipe (dy < 0 means finger moving down)
-  if (dy < -8 && compactLockedRef.current) {
-    compactLockedRef.current = false;
-    setCompactLocked(false);
+  if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
+    expandProfileHeader();
   }
-}, [profileScrollY]);
+}, [expandProfileHeader, profileScrollY]);
+
+const handleProfileTouchStart = useCallback((event) => {
+  const pageY = event?.nativeEvent?.pageY ?? 0;
+  touchStartYRef.current = pageY;
+  touchLastYRef.current = pageY;
+}, []);
+
+const handleProfileTouchMove = useCallback((event) => {
+  if (!compactLockedRef.current) return;
+
+  const pageY = event?.nativeEvent?.pageY ?? 0;
+  const totalDragY = pageY - touchStartYRef.current;
+  const frameDragY = pageY - touchLastYRef.current;
+  touchLastYRef.current = pageY;
+
+  if (totalDragY > 18 || frameDragY > 10) {
+    expandProfileHeader();
+  }
+}, [expandProfileHeader]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <Animated.ScrollView
         contentContainerStyle={styles.scrollContainer}
         onScroll={handleProfileScroll}
+        onTouchStart={handleProfileTouchStart}
+        onTouchMove={handleProfileTouchMove}
         scrollEventThrottle={16}
         nestedScrollEnabled={true}
         refreshControl={

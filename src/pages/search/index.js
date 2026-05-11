@@ -66,6 +66,7 @@ import { getUserCredentials } from '../../services/post';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const USER_SEARCH_LIMIT = 50;
 
 // ─── Utility Functions (unchanged, kept outside component) ───────────────────
 
@@ -471,14 +472,6 @@ const SearchScreen = () => {
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
 
-  // Clear search bar when screen focused (tab selected)
-  useEffect(() => {
-    if (isScreenFocused) {
-      setSearchText('');
-      fetchUserData();
-    }
-  }, [isScreenFocused]);
-
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('SEARCH_TAB_PRESS', () => {
       setShowBattleExplore(false);
@@ -528,7 +521,7 @@ const SearchScreen = () => {
   }, [masonryLayout]);
 
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     const id = await AsyncStorage.getItem('userId');
     if (!id) {
       return;
@@ -554,7 +547,15 @@ const SearchScreen = () => {
     } finally {
       dispatch(hideLoader());
     }
-  };
+  }, [dispatch, toast]);
+
+  // Clear search bar when screen focused (tab selected)
+  useEffect(() => {
+    if (isScreenFocused) {
+      setSearchText('');
+      fetchUserData();
+    }
+  }, [fetchUserData, isScreenFocused]);
 
   // ─── User search ────────────────────────────────────────────────────────────
   const searchUsers = useCallback(async searchQuery => {
@@ -571,7 +572,10 @@ const SearchScreen = () => {
     setIsSearching(true);
     setHasSearched(false);
     try {
-      const fetchUserSlice = params => getAllUser(params).catch(() => ({ statusCode: 0 }));
+      const fetchUserSlice = params =>
+        getAllUser({ ...params, limit: USER_SEARCH_LIMIT }).catch(() => ({
+          statusCode: 0,
+        }));
       const [byUserName, byDisplayName, byName, byBusinessName] = await Promise.all([
         fetchUserSlice({ userName: searchQuery }),
         fetchUserSlice({ displayName: searchQuery }),
@@ -1110,7 +1114,9 @@ const SearchScreen = () => {
                       data={filteredUsers}
                       keyExtractor={userKeyExtractor}
                       renderItem={renderListItem}
+                      style={styles.resultsList}
                       showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
                       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                       ListHeaderComponent={renderListHeader}
                       ListFooterComponent={renderSearchBattleFooter}
