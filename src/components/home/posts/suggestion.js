@@ -11,6 +11,7 @@ import {
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
 import FollowCard from './FollowCard';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 export default function Suggestion({
   users = [],
@@ -27,6 +28,7 @@ export default function Suggestion({
     ? [...users, { id: '__see_more__', username: 'See more' }]
     : users;
   const { textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   // Hexagon dimensions - MUST MATCH FollowCard exactly
   const cardWidth = 200;
@@ -48,7 +50,7 @@ export default function Suggestion({
   return (
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title]}>Suggested for you</Text>
+        <Text style={[styles.title]}>{t('suggestion.suggestedForYou')}</Text>
       </View>
 
       <FlatList
@@ -92,20 +94,19 @@ export default function Suggestion({
                   {isLoading ? (
                     <ActivityIndicator color={text} size="large" />
                   ) : (
-                    <Text style={[styles.seeMoreText, textStyle]}>See more</Text>
+                    <Text style={[styles.seeMoreText, textStyle]}>{t('suggestion.seeMore')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
             );
           }
 
-          const following =
-            item.isFollow ?? false;
+          const following = item.isFollow ?? false;
 
           return (
             <FollowCard
               userId={item.id}
-              username={item.username || 'Unknown'}
+              username={item.username || t('suggestion.unknownUser')}
               avatar={item.avatar || undefined}
               isFollowing={!!following}
               loading={busyIds.has(String(item.id))}
