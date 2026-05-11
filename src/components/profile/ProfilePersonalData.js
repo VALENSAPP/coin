@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Easing,
 } from 'react-native';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -75,6 +76,7 @@ const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PROFILE_IMAGE_PREVIEW_SIZE = Math.min(SCREEN_WIDTH * 0.9, 340);
+const TOTAL_SUPPORT_CARD_HEIGHT = 72;
 
 /** KYC required; KYB required only when API sends `kyb` as a boolean (company KYB may still map to `kyc` only). */
 function isProfileFullyIdentityVerified(user) {
@@ -139,7 +141,7 @@ const ProfilePersonData = ({
     duration: compactLocked ? 80 : 200,  // collapse fast, expand slightly slower
     useNativeDriver: false,
   }).start();
-}, [compactLocked]);
+}, [collapseAnim, compactLocked]);
 
   // maxHeight interpolate karo
   const animatedMaxHeight = collapseAnim.interpolate({
@@ -215,6 +217,7 @@ const ProfilePersonData = ({
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
   const [hasLiveBattle, setHasLiveBattle] = useState(false);
+  const totalSupportAnim = useRef(new Animated.Value(0)).current;
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -685,6 +688,23 @@ const ProfilePersonData = ({
     }
   }, [totalSupportOpen, fetchReceivedSupportAmount]);
 
+  useEffect(() => {
+    Animated.timing(totalSupportAnim, {
+      toValue: totalSupportOpen ? 1 : 0,
+      duration: totalSupportOpen ? 220 : 150,
+      easing: totalSupportOpen
+        ? Easing.out(Easing.cubic)
+        : Easing.in(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [totalSupportAnim, totalSupportOpen]);
+
+  useEffect(() => {
+    if (compactLocked && totalSupportOpen) {
+      setTotalSupportOpen(false);
+    }
+  }, [compactLocked, totalSupportOpen]);
+
   useFocusEffect(
     useCallback(() => {
       // if (fromUsersProfile) return;
@@ -1120,6 +1140,22 @@ const ProfilePersonData = ({
   const middleCollapseStyle = compactLocked
     ? styles.collapsibleProfileMiddleCollapsed
     : styles.collapsibleProfileMiddleExpanded;
+  const totalSupportCardHeight = totalSupportAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, TOTAL_SUPPORT_CARD_HEIGHT],
+  });
+  const totalSupportCardOpacity = totalSupportAnim.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0, 0, 1],
+  });
+  const totalSupportCardTranslateY = totalSupportAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-8, 0],
+  });
+  const totalSupportCardScale = totalSupportAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1],
+  });
   const usernameModalData = useMemo(() => {
     return {
       ...(userData || {}),
@@ -1446,33 +1482,26 @@ const ProfilePersonData = ({
             </View>
             <Animated.View
               pointerEvents={totalSupportOpen ? 'auto' : 'none'}
-              style={{
-                position: 'absolute',
-                top: 120,
-                right: 0,
-                width: '50%',          // same width as the edit column
-                zIndex: 999,
-                overflow: 'hidden',
-                height: totalSupportOpen ? 72 : 0,
-                opacity: totalSupportOpen ? 1 : 0,
-                borderRadius: 10,
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: '#e5e7eb',
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: '#513189',
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 10,
-              }}
+              style={[
+                styles.totalSupportPopover,
+                {
+                  height: totalSupportCardHeight,
+                  opacity: totalSupportCardOpacity,
+                  transform: [
+                    { translateY: totalSupportCardTranslateY },
+                    { scale: totalSupportCardScale },
+                  ],
+                },
+              ]}
             >
               {totalSupportLoading ? (
                 <ActivityIndicator size="small" color="#513189" />
               ) : (
                 <>
-                  <Text style={{ fontSize: 11, color: '#6B7280' }}>Total Support Received</Text>
-                  <Text style={{ fontSize: 22, fontWeight: '700', color: '#513189' }}>
+                  <Text style={styles.totalSupportPopoverLabel}>
+                    Total Support Received
+                  </Text>
+                  <Text style={styles.totalSupportPopoverAmount}>
                     $ {totalSupportAmount.toFixed(2)}
                   </Text>
                 </>
@@ -1761,7 +1790,7 @@ const ProfilePersonData = ({
                     borderWidth={2}
                     borderColor={text}
                   />
-                  {showIdentityVerified && (
+                  {/* {showIdentityVerified && (
                     <View
                       style={[
                         styles.verifiedAvatarBadge,
@@ -1772,7 +1801,7 @@ const ProfilePersonData = ({
                     >
                       <Ionicons name="checkmark" size={22} color="#FFFFFF" />
                     </View>
-                  )}
+                  )} */}
                 </View>
               </View>
             </ImageZoom>
@@ -1931,6 +1960,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
     letterSpacing: 0.5,
+  },
+  totalSupportPopover: {
+    position: 'absolute',
+    top: 120,
+    right: 0,
+    width: '50%',
+    zIndex: 999,
+    overflow: 'hidden',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#513189',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  totalSupportPopoverLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  totalSupportPopoverAmount: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#513189',
   },
 
   // --- Bio ---
