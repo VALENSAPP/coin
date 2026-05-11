@@ -1,5 +1,16 @@
+const isTruthyPinnedFlag = value => {
+  if (value === true || value === 1) return true;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'true' || normalized === '1';
+};
+
 export const isPostPinned = post =>
-  post?.pinned === true || String(post?.pinned || '').toLowerCase() === 'true';
+  isTruthyPinnedFlag(
+    post?.pinned ??
+    post?.isPinned ??
+    post?.is_pinned ??
+    post?.pin,
+  );
 
 export const sortPostsByPinned = posts =>
   [...(Array.isArray(posts) ? posts : [])].sort((a, b) => {

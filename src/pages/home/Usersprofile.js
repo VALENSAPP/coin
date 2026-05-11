@@ -288,15 +288,11 @@ console.log(userRes,'data in ueser profile efrafaha')
   };
 
   const handlePostPinChanged = useCallback(async (postId, pinned) => {
-    if (pinned) {
-      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
-      return null;
-    }
-
     try {
+      setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
       return await fetchProfilePosts();
     } catch (error) {
-      console.error('Error refreshing posts after unpin:', error);
+      console.error('Error refreshing posts after pin/unpin:', error);
       setPosts(prevPosts => setPostPinnedState(prevPosts, postId, pinned));
       return null;
     }
