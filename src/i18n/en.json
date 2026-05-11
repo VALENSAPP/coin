@@ -1679,7 +1679,8 @@
     "twoFactorEnabled": "Enabled",
     "changePassword": "Change Password",
     "loginHistory": "Login History",
-    "fetchError": "Something went wrong"
+    "fetchError": "Something went wrong",
+    "language": "Select Language"
   },
   "shop": {
     "title": "SHOP",

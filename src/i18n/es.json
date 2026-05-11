@@ -1679,7 +1679,8 @@
     "twoFactorEnabled": "Activado",
     "changePassword": "Cambiar contraseña",
     "loginHistory": "Historial de inicio de sesión",
-    "fetchError": "Algo salió mal"
+    "fetchError": "Algo salió mal",
+    "language": "Seleccionar idioma"
   },
   "shop": {
     "title": "TIENDA",

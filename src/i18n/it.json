@@ -1679,7 +1679,8 @@
     "twoFactorEnabled": "Abilitata",
     "changePassword": "Cambia password",
     "loginHistory": "Cronologia accessi",
-    "fetchError": "Qualcosa è andato storto"
+    "fetchError": "Qualcosa è andato storto",
+    "language": "Seleziona la lingua"
   },
   "shop": {
     "title": "SHOP",

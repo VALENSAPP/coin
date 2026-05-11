@@ -1679,7 +1679,8 @@
     "twoFactorEnabled": "Activé",
     "changePassword": "Changer le mot de passe",
     "loginHistory": "Historique de connexion",
-    "fetchError": "Une erreur s’est produite"
+    "fetchError": "Une erreur s’est produite",
+    "language": "Sélectionner la langue"
   },
   "shop": {
     "title": "BOUTIQUE",

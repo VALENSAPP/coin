@@ -138,6 +138,11 @@ export const SettingsScreen = ({ navigation }) => {
           icon: 'lock-closed',
           action: () => { navigation.navigate('PrivacySettings'); },
         },
+        {
+          label: t('walletSettings.language'),
+          icon: 'language',
+          action: () => navigation.push('LanguageSelectionScreen'),
+        },
       ],
     },
     {

@@ -1679,7 +1679,8 @@
     "twoFactorEnabled": "Ativado",
     "changePassword": "Alterar senha",
     "loginHistory": "Histórico de login",
-    "fetchError": "Algo deu errado"
+    "fetchError": "Algo deu errado",
+    "language": "Selecionar idioma"
   },
   "shop": {
     "title": "SHOP",

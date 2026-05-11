@@ -91,6 +91,7 @@ import TransactionActivityScreen from '../pages/wallet/TransactionActivityScreen
 import ProfileShop from '../components/profile/Shop';
 import ShopScreen from '../pages/wallet/ShopScreen';
 import PrivateCircle from '../components/profile/PrivateCircle';
+import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -509,6 +510,11 @@ export default function MainTabNavigator() {
             name="RevenueFromSubscriptions"
             component={RevenueFromSubscriptions}
             options={{ headerTitle: 'Revenue From Subscriptions' }}
+          />
+           <Stack.Screen
+            name="LanguageSelectionScreen"
+            component={LanguageSelectionScreen}
+            options={{ headerTitle: 'Select Language', headerTitleAlign: 'center' }}
           />
         </Stack.Navigator>
       );
