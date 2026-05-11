@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import LikeButton from './LikeButton';
 import { getTimeAgo, parseText } from '../../utils/commentUtils';
-
+import { useLanguage } from '../../i18n';
+ 
 export default function CommentItem({
   comment,
   onLike,
@@ -11,6 +12,8 @@ export default function CommentItem({
   showReplies,
   replyCount,
 }) {
+  const { t } = useLanguage();
+ 
   return (
     <View style={styles.row}>
       <TouchableOpacity>
@@ -26,12 +29,14 @@ export default function CommentItem({
         <View style={styles.metaRow}>
           <Text style={styles.time}>{getTimeAgo(comment.timestamp)}</Text>
           <TouchableOpacity onPress={onReply}>
-            <Text style={styles.reply}>Reply</Text>
+            <Text style={styles.reply}>{t('comments.reply')}</Text>
           </TouchableOpacity>
           {replyCount > 0 && (
             <TouchableOpacity onPress={onToggleReplies}>
               <Text style={styles.reply}>
-                {showReplies ? 'Hide replies' : `View replies (${replyCount})`}
+                {showReplies
+                  ? t('comments.hideReplies')
+                  : t('comments.viewReplies', { count: replyCount })}
               </Text>
             </TouchableOpacity>
           )}

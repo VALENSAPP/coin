@@ -2,32 +2,36 @@ import React, { useRef, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Image, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
-
+import { useLanguage } from '../../i18n';
+ 
 export default function CommentInput({ onSend, replyTo, onCancelReply }) {
   const [text, setText] = React.useState('');
   const { bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
   const inputRef = useRef();
-
+ 
   useEffect(() => {
     if (replyTo && inputRef.current) {
       inputRef.current.focus();
       setText(`@${replyTo.username} `);
     }
   }, [replyTo]);
-
+ 
   const handleSend = () => {
     if (!text.trim()) return;
     onSend(text.trim());
     setText('');
   };
-
+ 
   return (
     <View style={[styles.row, bgStyle]}>
       <Image source={{ uri: 'https://randomuser.me/api/portraits/men/7.jpg' }} style={styles.avatar} />
       <View style={{ flex: 1 }}>
         {replyTo && (
           <View style={styles.replyingToRow}>
-            <Text style={styles.replyingTo}>Replying to @{replyTo.username}</Text>
+            <Text style={styles.replyingTo}>
+              {t('comments.replyingTo')} @{replyTo.username}
+            </Text>
             <TouchableOpacity onPress={onCancelReply}>
               <Icon name="close" size={16} color="#888" />
             </TouchableOpacity>
@@ -36,7 +40,7 @@ export default function CommentInput({ onSend, replyTo, onCancelReply }) {
         <TextInput
           ref={inputRef}
           style={[styles.input, bgStyle]}
-          placeholder="Add a comment..."
+          placeholder={t('comments.inputPlaceholder')}
           value={text}
           onChangeText={setText}
           onSubmitEditing={handleSend}

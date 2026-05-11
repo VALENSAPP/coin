@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import LikeButton from './LikeButton';
 import { getTimeAgo, parseText } from '../../utils/commentUtils';
-
+import { useLanguage } from '../../i18n';
+ 
 export default function ReplyItem({ reply, onLike, onReply }) {
+  const { t } = useLanguage();
+ 
   return (
     <View style={styles.row}>
       <TouchableOpacity>
@@ -19,7 +22,7 @@ export default function ReplyItem({ reply, onLike, onReply }) {
         <View style={styles.metaRow}>
           <Text style={styles.time}>{getTimeAgo(reply.timestamp)}</Text>
           <TouchableOpacity onPress={onReply}>
-            <Text style={styles.reply}>Reply</Text>
+            <Text style={styles.reply}>{t('comments.reply')}</Text>
           </TouchableOpacity>
         </View>
       </View>
