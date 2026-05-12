@@ -63,7 +63,6 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 import BattleExplore from './BattleExplore';
 import { getUserCredentials } from '../../services/post';
-import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -344,6 +343,8 @@ const MissionProgressBar = memo(({ progressPercent = 0, goalAmount = 0, currentR
 });
 
 // ─── OPTIMIZATION 1: MasonryItem as standalone React.memo component ──────────
+// This is the biggest win — each cell no longer re-renders when unrelated state
+// (searchText, playingVideoIndexes for OTHER items, donationTotals) changes.
 const MasonryItem = memo(
   ({ post, index, height, top, columnIndex, width, spacing, isPlaying, donationTotal, onPress, onLongPress }) => {
     const imageUrl = useMemo(
@@ -392,6 +393,7 @@ const MasonryItem = memo(
               repeat
               paused={!isPlaying}
               muted
+              // OPTIMIZATION: bufferConfig reduces initial load time
               bufferConfig={{
                 minBufferMs: 1500,
                 maxBufferMs: 5000,
@@ -408,6 +410,7 @@ const MasonryItem = memo(
             source={{ uri: imageUrl }}
             style={styles.media}
             resizeMode="cover"
+            // OPTIMIZATION: fadeDuration=0 removes the fade-in delay on each image
             fadeDuration={0}
           />
         )}
@@ -425,6 +428,7 @@ const MasonryItem = memo(
       </TouchableOpacity>
     );
   },
+  // OPTIMIZATION 2: Custom comparison — only re-render when playing state or donation changes
   (prev, next) =>
     prev.isPlaying === next.isPlaying &&
     prev.donationTotal === next.donationTotal &&
@@ -439,7 +443,6 @@ const SearchScreen = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute();
-  const { t } = useLanguage();
 
   const [userId, setUserId] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -457,10 +460,10 @@ const SearchScreen = () => {
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
-  const [profile, setProfile] = useState('user');
+  const [profile, setProfile] = useState('user')
 
   const searchTimeoutRef = useRef(null);
-  const rafRef = useRef(null);
+  const rafRef = useRef(null);           // replaces autoplayTimeoutRef
   const scrollOffsetRef = useRef(0);
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
@@ -470,21 +473,18 @@ const SearchScreen = () => {
   const isSearchActive = searchText.trim().length > 0;
 
   useEffect(() => {
-    if (isScreenFocused) {
-      setSearchText('');
-      fetchUserData();
-    }
-  }, [isScreenFocused]);
-
-  useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('SEARCH_TAB_PRESS', () => {
       setShowBattleExplore(false);
     });
-    return () => { subscription.remove(); };
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
+  // ─── OPTIMIZATION 4: Masonry layout memoized with stable deps ──────────────
   const masonryLayout = useMemo(() => {
     if (posts.length === 0) return { columns: [[], [], []], maxHeight: 0 };
     const NUM_COLUMNS = 3;
@@ -512,6 +512,7 @@ const SearchScreen = () => {
     });
     const maxHeight = Math.max(...columnHeights);
     return { columns, maxHeight, itemSize: BASE_ITEM_SIZE, spacing: ITEM_SPACING };
+    // Only recalculate when post IDs change — not on every render
   }, [posts]);
 
   const masonryItems = useMemo(() => {
@@ -522,15 +523,24 @@ const SearchScreen = () => {
 
   const fetchUserData = useCallback(async () => {
     const id = await AsyncStorage.getItem('userId');
-    if (!id) return;
+    if (!id) {
+      return;
+    }
+
     dispatch(showLoader());
+
     try {
       const userRes = await getUserCredentials(id);
+      console.log(userRes, 'data in ueser profile efrafaha')
+
       if (userRes?.statusCode === 200) {
+        console.log('userres for postres------->>>>>>>>>>>>>>>>>>', userRes.data.profile);
+
         setProfile(userRes.data?.profile);
       } else {
         showToastMessage(toast, 'danger', userRes?.data?.message || 'Failed to fetch profile');
       }
+
     } catch (error) {
       console.error('Error fetching profile screen data:', error);
       showToastMessage(toast, 'danger', 'Network error occurred');
@@ -547,6 +557,7 @@ const SearchScreen = () => {
     }
   }, [fetchUserData, isScreenFocused]);
 
+  // ─── User search ────────────────────────────────────────────────────────────
   const searchUsers = useCallback(async searchQuery => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     if (!normalizedQuery) {
@@ -640,6 +651,9 @@ const SearchScreen = () => {
     searchTimeoutRef.current = setTimeout(() => searchUsers(value), 500);
   }, [searchUsers]);
 
+  // ─── OPTIMIZATION 5: Fetch posts + donations IN PARALLEL ───────────────────
+  // Before: donations waited for posts to finish, then fetched one-by-one
+  // After: posts render immediately, donations load in background simultaneously
   const fetchPosts = useCallback(async () => {
     try {
       dispatch(showLoader());
@@ -666,9 +680,11 @@ const SearchScreen = () => {
           }
         });
 
+        // OPTIMIZATION: Show posts immediately — don't await donations
         setPosts(flattenedPosts);
         dispatch(hideLoader());
 
+        // Fetch donations in the background without blocking render
         const missionPostIds = [...new Set(
           flattenedPosts
             .filter(post => post?.id && (post?.isMission === true || post?.type === 'crowdfunding' || Number(post?.raiseAmount) > 0))
@@ -676,6 +692,7 @@ const SearchScreen = () => {
         )];
 
         if (missionPostIds.length > 0) {
+          // OPTIMIZATION: All donation requests fire in parallel
           Promise.allSettled(
             missionPostIds.map(postId => getTotalDonationAmount({ postId }))
           ).then(responses => {
@@ -714,6 +731,7 @@ const SearchScreen = () => {
             normalizedBattles.push(mappedBattle);
           });
         }
+        console.log(rawBattles, 'battles in search')
         setLiveBattles(normalizedBattles);
       } else {
         setLiveBattles([]);
@@ -727,9 +745,11 @@ const SearchScreen = () => {
 
   useEffect(() => {
     AsyncStorage.getItem('userId').then(id => setUserId(id));
+    // OPTIMIZATION 6: Fire both fetches in parallel instead of sequentially
     Promise.all([fetchPosts(), fetchExploreBattles()]);
   }, [fetchPosts, fetchExploreBattles]);
 
+  // Refetch data when screen comes back into focus
   useEffect(() => {
     if (isScreenFocused && !searchText.trim()) {
       Promise.all([fetchPosts(), fetchExploreBattles()]);
@@ -743,6 +763,7 @@ const SearchScreen = () => {
     };
   }, []);
 
+  // ─── OPTIMIZATION 7: rAF-based scroll handler (smoother than setTimeout) ───
   const syncVisibleVideos = useCallback((offsetY = 0) => {
     if (!isScreenFocused || previewVisible || isSearchActive) {
       setPlayingVideoIndexes(prev => (prev.size === 0 ? prev : new Set()));
@@ -778,6 +799,7 @@ const SearchScreen = () => {
   const onMasonryScroll = useCallback(event => {
     const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
     scrollOffsetRef.current = offsetY;
+    // OPTIMIZATION: Use rAF instead of setTimeout for scroll-linked updates
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       syncVisibleVideos(offsetY);
@@ -789,6 +811,7 @@ const SearchScreen = () => {
     syncVisibleVideos(scrollOffsetRef.current);
   }, [syncVisibleVideos]);
 
+  // ─── Battle feed filtering ───────────────────────────────────────────────
   const getBattleFeedType = useCallback(battle => {
     const status = String(battle?.status || '').trim().toLowerCase();
     const now = Date.now();
@@ -806,12 +829,12 @@ const SearchScreen = () => {
     );
   }, [liveBattles, getBattleFeedType]);
 
+  // ─── Stable callbacks passed down to memoized children ──────────────────
   const handleUserProfile = useCallback(user => {
     const targetId = user?.id || user?.userId || user?._id;
-    if (!targetId) {
-      showToastMessage(toastRef.current, 'danger', t('search.unableToOpenProfile'));
-      return;
-    }
+    if (!targetId) { showToastMessage(toastRef.current, 'danger', 'Unable to open profile'); return; }
+
+    // If user taps their own avatar/name, go to their Profile tab (not UsersProfile).
     if (String(targetId) === String(userId || '')) {
       navigation.navigate('ProfileMain', {
         screen: 'Profile',
@@ -828,7 +851,7 @@ const SearchScreen = () => {
         battleLive: Boolean(user?.battleLive || user?.isBattleLive) || Number(String(targetId).slice(-1)) % 3 === 0,
       },
     });
-  }, [navigation, route?.name, route?.params, userId, t]);
+  }, [navigation, route?.name, route?.params, userId]);
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
@@ -877,7 +900,7 @@ const SearchScreen = () => {
         selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
         returnTo: route.name,
         returnParams: route.params,
-        profile,
+        profile
       },
     });
   };
@@ -899,6 +922,7 @@ const SearchScreen = () => {
     }
   }, [searchText, searchUsers, fetchPosts, fetchExploreBattles]);
 
+  // ─── OPTIMIZATION 8: Stable renderItem using memoized MasonryItem ────────
   const renderMasonryFlatListItem = useCallback(({ item: layoutItem }) => (
     <MasonryItem
       post={layoutItem.post}
@@ -920,9 +944,10 @@ const SearchScreen = () => {
     />
   ), [isScreenFocused, previewVisible, isSearchActive, playingVideoIndexes, donationTotals, handlePostPress, openPreview]);
 
+  // OPTIMIZATION 9: Stable keyExtractor to prevent FlatList re-keying
   const masonryKeyExtractor = useCallback((item, idx) =>
     item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`,
-    []);
+    [], []);
 
   const userKeyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);
 
@@ -940,12 +965,12 @@ const SearchScreen = () => {
   ), [handleUserProfile, text]);
 
   const renderListHeader = useCallback(() => (
-    <Text style={styles.sectionTitle}>{t('search.searchResultsTitle')}</Text>
-  ), [t]);
+    <Text style={styles.sectionTitle}>Search Results</Text>
+  ), []);
 
   const renderSearchBattleFooter = useCallback(() => (
     <View style={styles.searchBattlesSection}>
-      <Text style={styles.sectionTitle}>{t('search.openBattles')}</Text>
+      <Text style={styles.sectionTitle}>Open battles</Text>
       {searchedUserBattles.length > 0 ? (
         searchedUserBattles.map(item => (
           <View key={`search-battle-${item.id}`} style={styles.searchBattleCardWrapper}>
@@ -962,12 +987,11 @@ const SearchScreen = () => {
       ) : (
         <View style={styles.searchBattlesEmpty}>
           <Icon name="shield-outline" size={24} color="#999" />
-          <Text style={styles.emptySubtitle}>{t('search.noBattlesFound')}</Text>
+          <Text style={styles.emptySubtitle}>No open battles found for these users</Text>
         </View>
       )}
     </View>
   ), [
-    t,
     searchedUserBattles,
     selectedBattleOptions,
     handleBattleCardPress,
@@ -991,31 +1015,90 @@ const SearchScreen = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
-      {showBattleExplore ? (
-        <BattleExplore onClose={() => setShowBattleExplore(false)} profile={profile} />
-      ) : (
-        <View style={[styles.container, bgStyle]}>
-          <Pressable
-            onPress={Keyboard.dismiss}
-            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
-          />
-          <View style={{ flex: 1 }}>
-            {/* Search bar */}
-            <View style={styles.searchContainer}>
-              <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('search.searchPlaceholder')}
-                placeholderTextColor="#999"
-                value={searchText}
-                onChangeText={handleSearch}
-                returnKeyType="search"
-                onSubmitEditing={Keyboard.dismiss}
-              />
-              {searchText.length > 0 && (
-                <TouchableOpacity onPress={() => handleSearch('')}>
-                  <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
+      {
+        (showBattleExplore) ? (<BattleExplore onClose={() => setShowBattleExplore(false)} profile={profile} />)
+          :
+
+          <View style={[styles.container, bgStyle]}>
+            <Pressable
+              onPress={Keyboard.dismiss}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+              }}
+            />
+            <View style={{ flex: 1 }}>
+              {/* Search bar */}
+              <View style={styles.searchContainer}>
+                <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search users..."
+                  placeholderTextColor="#999"
+                  value={searchText}
+                  onChangeText={handleSearch}
+                  returnKeyType="search"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+                {searchText.length > 0 && (
+                  <TouchableOpacity onPress={() => handleSearch('')}>
+                    <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Battle cards row */}
+              {!isSearchActive && (
+                <View>
+                  <TouchableOpacity
+                    onPress={() => setShowBattleExplore(true)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 8,
+                      marginTop: 4,
+                      backgroundColor: text,
+                      borderRadius: 10,
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '700', marginRight: 6 }}>
+                      ⚔️
+                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: "#fff" }}>
+                      Battle Explore
+                    </Text>
+                    <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
+                  <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
+                  <AutoScrollBattleRow>
+                    {loadingLiveBattles ? (
+                      <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
+                        <ActivityIndicator size="small" color="#999" />
+                      </View>
+                    ) : visibleBattleCards.length > 0 ? (
+                      visibleBattleCards.map(item => (
+                        <BattleCard
+                          key={item.id}
+                          item={item}
+                          selectedOption={selectedBattleOptions[item.id]}
+                          onCardPress={handleBattleCardPress}
+                          onOptionSelect={updateSelectedBattleOption}
+                          onUserPress={handleUserProfile}
+                        />
+
+                      ))
+                    ) : (
+                      <View style={[styles.card, { justifyContent: 'center' }]}>
+                        <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>No battles found</Text>
+                      </View>
+                    )}
+                  </AutoScrollBattleRow>
+                </View>
               )}
 
               {/* Search results */}
@@ -1083,120 +1166,8 @@ const SearchScreen = () => {
                 )
               ) : null}
             </View>
-
-            {/* Battle cards row */}
-            {!isSearchActive && (
-              <View>
-                <TouchableOpacity
-                  onPress={() => setShowBattleExplore(true)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingVertical: 8,
-                    marginTop: 4,
-                    backgroundColor: text,
-                    borderRadius: 10,
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: '700', marginRight: 6 }}>⚔️</Text>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>
-                    {t('search.battleExplore')}
-                  </Text>
-                  <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-                <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 10 }} />
-                <AutoScrollBattleRow>
-                  {loadingLiveBattles ? (
-                    <View style={[styles.card, { alignItems: 'center', justifyContent: 'center' }]}>
-                      <ActivityIndicator size="small" color="#999" />
-                    </View>
-                  ) : visibleBattleCards.length > 0 ? (
-                    visibleBattleCards.map(item => (
-                      <BattleCard
-                        key={item.id}
-                        item={item}
-                        selectedOption={selectedBattleOptions[item.id]}
-                        onCardPress={handleBattleCardPress}
-                        onOptionSelect={updateSelectedBattleOption}
-                        onUserPress={handleUserProfile}
-                      />
-                    ))
-                  ) : (
-                    <View style={[styles.card, { justifyContent: 'center' }]}>
-                      <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>
-                        {t('search.noBattlesFoundCard')}
-                      </Text>
-                    </View>
-                  )}
-                </AutoScrollBattleRow>
-              </View>
-            )}
-
-            {/* Search results */}
-            {searchText.trim().length > 0 ? (
-              <View style={styles.resultsContainer}>
-                {isSearching ? (
-                  <View style={styles.emptyContainer}>
-                    <ActivityIndicator size="large" color="#999" />
-                    <Text style={styles.emptySubtitle}>{t('search.loadingUsers')}</Text>
-                  </View>
-                ) : filteredUsers.length > 0 ? (
-                  <FlatList
-                    data={filteredUsers}
-                    keyExtractor={userKeyExtractor}
-                    renderItem={renderListItem}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                    ListHeaderComponent={renderListHeader}
-                    ListFooterComponent={renderSearchBattleFooter}
-                    contentContainerStyle={styles.listContent}
-                    initialNumToRender={10}
-                    maxToRenderPerBatch={10}
-                    windowSize={5}
-                    removeClippedSubviews={Platform.OS === 'android'}
-                  />
-                ) : hasSearched ? (
-                  <View style={styles.emptyContainer}>
-                    <Icon name="search-outline" size={60} color="#ddd" />
-                    <Text style={styles.emptyTitle}>{t('search.noUsersFoundTitle')}</Text>
-                    <Text style={styles.emptySubtitle}>{t('search.noUsersFoundSubtitle')}</Text>
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* Masonry grid */}
-            {searchText.trim().length === 0 ? (
-              posts.length > 0 ? (
-                <View style={styles.masonryWrapper}>
-                  <FlatList
-                    data={masonryItems}
-                    renderItem={renderMasonryFlatListItem}
-                    keyExtractor={masonryKeyExtractor}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                    contentContainerStyle={[styles.masonryContainer, { height: masonryLayout.maxHeight }]}
-                    removeClippedSubviews
-                    initialNumToRender={12}
-                    maxToRenderPerBatch={20}
-                    windowSize={15}
-                    onScroll={onMasonryScroll}
-                    scrollEventThrottle={16}
-                    getItemLayout={undefined}
-                  />
-                </View>
-              ) : (
-                <View style={styles.emptyContainer}>
-                  <Icon name="images-outline" size={60} color="#ddd" />
-                  <Text style={styles.emptyTitle}>{t('search.noPostsAvailable')}</Text>
-                </View>
-              )
-            ) : null}
           </View>
-        </View>
-      )}
+      }
 
       {/* Preview modal */}
       {previewVisible && previewPost ? (
@@ -1220,7 +1191,7 @@ const SearchScreen = () => {
                   )
                 ) : (
                   <View style={styles.previewFallback}>
-                    <Text style={styles.previewFallbackText}>{t('archive.previewUnavailable')}</Text>
+                    <Text style={styles.previewFallbackText}>Preview unavailable</Text>
                   </View>
                 )}
               </View>
