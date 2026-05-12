@@ -17,7 +17,7 @@ import {
 import Video from 'react-native-video';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import HexAvatar from '../home/story.js/HexAvatar';
@@ -26,11 +26,32 @@ import { getUserCredentials } from '../../services/post';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+const pickNonEmpty = (...values) => {
+  for (const value of values) {
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return null;
+};
+
+const unwrapUserProfileResponse = (response) => {
+  const payload = response?.data ?? response ?? {};
+  return (
+    payload?.data?.user ||
+    payload?.data?.profile ||
+    payload?.data ||
+    payload?.user ||
+    payload?.profile ||
+    payload
+  );
+};
+
 const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [duration, setDuration] = useState(5); // Default 5 seconds for images
-  const [currentTime, setCurrentTime] = useState(0);
+  const [, setCurrentTime] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
   const insets = useSafeAreaInsets();
@@ -56,6 +77,9 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       story?.user?._id ||
       story?.user?.id ||
       story?.user?.userId ||
+      story?.senderId ||
+      story?.sender?._id ||
+      story?.sender?.id ||
       null;
     return candidate ? String(candidate) : null;
   }, [story]);
@@ -71,23 +95,29 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
       try {
         const response = await getUserCredentials(storyUserId);
-        const rawUser = response?.data?.user || response?.data?.data || response?.data || {};
+        const rawUser = unwrapUserProfileResponse(response);
 
         if (!active) return;
 
+        const displayName = pickNonEmpty(
+          rawUser?.displayName,
+          rawUser?.name,
+          rawUser?.fullName,
+          rawUser?.userName,
+          rawUser?.username
+        );
+        const avatar = pickNonEmpty(
+          rawUser?.image,
+          rawUser?.avatar,
+          rawUser?.profilePic,
+          rawUser?.profilePicture,
+          rawUser?.photoUrl,
+          rawUser?.photoURL
+        );
+
         setStoryOwnerProfile({
-          name:
-            rawUser?.displayName ||
-            rawUser?.name ||
-            rawUser?.userName ||
-            rawUser?.username ||
-            null,
-          image:
-            rawUser?.image ||
-            rawUser?.avatar ||
-            rawUser?.profilePic ||
-            rawUser?.profilePicture ||
-            null,
+          name: displayName,
+          image: avatar,
         });
       } catch (_error) {
         if (active) setStoryOwnerProfile(null);
@@ -101,21 +131,27 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     };
   }, [storyUserId, visible]);
 
-  const storyUsername =
-    storyOwnerProfile?.name ||
-    userName ||
-    story?.userName ||
-    story?.username ||
-    story?.user?.displayName ||
-    story?.user?.username ||
-    'Unknown User';
+  const storyUsername = pickNonEmpty(
+    storyOwnerProfile?.name,
+    userName,
+    story?.userName,
+    story?.username,
+    story?.displayName,
+    story?.user?.displayName,
+    story?.user?.userName,
+    story?.user?.username,
+    story?.user?.name
+  ) || 'Unknown User';
   const storyAvatar =
     storyOwnerProfile?.image ||
     userImage ||
     story?.userImage ||
-    story?.image ||
+    story?.avatar ||
+    story?.profilePic ||
+    story?.profilePicture ||
     story?.user?.image ||
     story?.user?.avatar ||
+    story?.image ||
     FALLBACK_AVATAR;
 
   // Determine if story is video
@@ -130,22 +166,19 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
   const storyCaption = story?.caption || story?.text || '';
 
-  useEffect(() => {
-    if (visible) {
-      setIsLoading(true);
-      setCurrentTime(0);
-      progressAnim.setValue(0);
-      startProgress();
-    } else {
-      stopProgress();
+  const stopProgress = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+  }, []);
 
-    return () => {
-      stopProgress();
-    };
-  }, [visible]);
+  const handleClose = useCallback(() => {
+    stopProgress();
+    onClose();
+  }, [onClose, stopProgress]);
 
-  const startProgress = () => {
+  const startProgress = useCallback(() => {
     stopProgress();
 
     if (isVideo) {
@@ -167,14 +200,22 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
         handleClose();
       }
     }, 16); // 60fps
-  };
+  }, [duration, handleClose, isVideo, progressAnim, stopProgress]);
 
-  const stopProgress = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+  useEffect(() => {
+    if (visible) {
+      setIsLoading(true);
+      setCurrentTime(0);
+      progressAnim.setValue(0);
+      startProgress();
+    } else {
+      stopProgress();
     }
-  };
+
+    return () => {
+      stopProgress();
+    };
+  }, [progressAnim, startProgress, stopProgress, visible]);
 
   const handleVideoProgress = (data) => {
     if (data.currentTime && data.seekableDuration) {
@@ -204,11 +245,6 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     }
   };
 
-  function handleClose() {
-    stopProgress();
-    onClose();
-  }
-
   const handleOpenStoryUserProfile = useCallback(() => {
     if (!storyUserId) return;
 
@@ -229,7 +265,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
         },
       });
     }, 150);
-  }, [navigation, selfUserId, storyUserId, storyUsername]);
+  }, [handleClose, navigation, selfUserId, storyUserId, storyUsername]);
 
   // Pan responder for swipe down to close
   const panResponder = useRef(
@@ -262,72 +298,8 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       statusBarTranslucent
     >
       <StatusBar backgroundColor="#000" barStyle="light-content" />
-      <SafeAreaView style={styles.container} {...panResponder.panHandlers}>
-        {/* Progress Bar */}
-        <View style={[
-          styles.progressBarContainer,
-          { top: insets.top } // 🔥 move below notch
-        ]}>
-          <Animated.View
-            style={[
-              styles.progressBar,
-              {
-                width: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%'],
-                }),
-              },
-            ]}
-          />
-        </View>
-
-        {/* Header */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.6)', 'transparent']}
-          style={[
-            styles.header,
-            { paddingTop: insets.top + 10 } // 🔥 fix
-          ]}
-        >
-          {/* <TouchableOpacity
-            style={styles.topBackButton}
-            activeOpacity={0.85}
-            onPress={handleClose}
-          >
-            <Icon name="chevron-back" size={22} color="#fff" />
-            <Text style={styles.topBackText}>Back</Text>
-          </TouchableOpacity> */}
-
-          <View style={styles.headerContent}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.userPressable}
-              onPress={handleOpenStoryUserProfile}
-              disabled={!storyUserId}
-            >
-              <HexAvatar
-                uri={storyAvatar}
-                size={44}
-                borderWidth={2}
-                borderColor="#fff"
-              />
-              <View style={styles.userInfo}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {storyUsername}
-                </Text>
-                <Text style={styles.timeAgo}>
-                  {formatTimeAgo(story.createdAt || new Date())}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-            <Icon name="close" size={28} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
-
-        {/* Story Content */}
+      <View style={styles.container} {...panResponder.panHandlers}>
+        <View style={styles.mediaLayer}>
         <TouchableOpacity
           activeOpacity={1}
           onPress={togglePause}
@@ -352,6 +324,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
                 console.error('Video error:', error);
                 setIsLoading(false);
               }}
+              controls={false}
             />
           ) : (
             <Image
@@ -370,22 +343,69 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
             </View>
           )}
         </TouchableOpacity>
+        </View>
 
         {/* Caption */}
         {storyCaption && storyCaption.trim() !== '' && (
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.captionContainer}
+            style={[styles.captionContainer, styles.captionZ]}
           >
             <Text style={styles.captionText}>{storyCaption}</Text>
           </LinearGradient>
         )}
 
         {/* Story Type Badge */}
-        <View style={styles.badge}>
+        <View style={[styles.badge, styles.badgeZ]}>
           <Text style={styles.badgeText}>
             {isVideo ? '🎬 Video Story' : '📷 Photo Story'}
           </Text>
+        </View>
+
+        <View style={styles.uiLayer} pointerEvents="box-none">
+          <View style={[styles.progressBarContainer, { top: insets.top + 6 }]}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          </View>
+
+          <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.userPressable}
+                onPress={handleOpenStoryUserProfile}
+                disabled={!storyUserId}
+              >
+                <HexAvatar
+                  uri={storyAvatar}
+                  size={44}
+                  borderWidth={2}
+                  borderColor="#fff"
+                />
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName} numberOfLines={1}>
+                    {storyUsername}
+                  </Text>
+                  <Text style={styles.timeAgo}>
+                    {formatTimeAgo(story.createdAt || new Date())}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+              <Icon name="close" size={28} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* <TouchableOpacity
@@ -399,7 +419,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
           <Icon name="chevron-back" size={22} color="#fff" />
           <Text style={styles.bottomBackText}>Back</Text>
         </TouchableOpacity> */}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -432,6 +452,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  mediaLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+    elevation: 1,
+    backgroundColor: '#000',
+  },
+  uiLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+  },
   progressBarContainer: {
     position: 'absolute',
     top: 0,
@@ -439,7 +470,8 @@ const styles = StyleSheet.create({
     right: 0,
     height: 3,
     backgroundColor: 'rgba(255,255,255,0.3)',
-    zIndex: 100,
+    zIndex: 10000,
+    elevation: 10000,
   },
   progressBar: {
     height: '100%',
@@ -456,8 +488,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 120,
-    elevation: 12,
+    zIndex: 10001,
+    elevation: 10001,
+    minHeight: 92,
+    backgroundColor: 'rgba(0,0,0,0.52)',
   },
   topBackButton: {
     minHeight: 40,
@@ -481,20 +515,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   userPressable: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   userInfo: {
     marginLeft: 12,
     flex: 1,
+    minWidth: 0,
   },
   userName: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1,
   },
   timeAgo: {
     color: 'rgba(255,255,255,0.8)',
@@ -511,9 +549,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   contentContainer: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
   },
   media: {
     width: SCREEN_WIDTH,
@@ -548,6 +587,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
+  },
+  captionZ: {
+    zIndex: 30,
+  },
+  badgeZ: {
+    zIndex: 31,
   },
   badge: {
     position: 'absolute',
