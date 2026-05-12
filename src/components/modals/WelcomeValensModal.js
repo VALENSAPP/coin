@@ -1,9 +1,11 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from "react-native";
 import React from "react";
 import { useAppTheme } from "../../theme/useApptheme";
+import { useLanguage } from "../../i18n";
 
 export default function WelcomeValensModal({ visible, onClose }) {
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal
@@ -14,16 +16,16 @@ export default function WelcomeValensModal({ visible, onClose }) {
     >
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={[styles.modalContent, bgStyle]} onPress={() => {}}>
-          <Text style={[styles.title, textStyle]}>Welcome, you are Valens!</Text>
+          <Text style={[styles.title, textStyle]}>{t('welcomeValensModal.title')}</Text>
           <Text style={styles.description}>
-            Your KYC verification has been approved. You can now explore the app and start connecting with the community.
+            {t('welcomeValensModal.description')}
           </Text>
 
           <TouchableOpacity
             style={[styles.button, { backgroundColor: text }]}
             onPress={onClose}
           >
-            <Text style={styles.buttonText}>Get Started</Text>
+            <Text style={styles.buttonText}>{t('welcomeValensModal.getStarted')}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

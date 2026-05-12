@@ -1,30 +1,33 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useLanguage } from '../../i18n';
 
 export default function ModalHome({ visible, onClose }) {
     console.log('ModalHome', visible);
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-        <View style={styles.modalContent}>
-          <TouchableOpacity style={styles.option}>
-            <Icon name="people-outline" size={22} color="#000" style={styles.optionIcon} />
-            <Text style={styles.optionText}>Following</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.option}>
-            <Icon name="star-outline" size={22} color="#000" style={styles.optionIcon} />
-            <Text style={styles.optionText}>Favourites</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
+    const { t } = useLanguage();
+
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+                <View style={styles.modalContent}>
+                    <TouchableOpacity style={styles.option}>
+                        <Icon name="people-outline" size={22} color="#000" style={styles.optionIcon} />
+                        <Text style={styles.optionText}>{t('modalHome.following')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.option}>
+                        <Icon name="star-outline" size={22} color="#000" style={styles.optionIcon} />
+                        <Text style={styles.optionText}>{t('modalHome.favourites')}</Text>
+                    </TouchableOpacity>
+                </View>
+            </TouchableOpacity>
+        </Modal>
+    );
 }
 
 const styles = StyleSheet.create({

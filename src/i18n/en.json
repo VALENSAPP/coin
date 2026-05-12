@@ -2589,5 +2589,57 @@
     "waitingForAddress": "Waiting for address… If this stays empty, try connecting again.",
     "continueButton": "Continue to pay",
     "notNowButton": "Not now"
+  },
+  "withdrawalModal": {
+    "title": "Withdraw Amount",
+    "enterAmount": "Enter Amount",
+    "feeBreakdownTitle": "Fee Structure & Breakdown",
+    "enteredAmount": "Entered Amount",
+    "withdrawalFee": "Withdrawal Fee (5%)",
+    "finalAmount": "Final Withdrawal Amount",
+    "withdrawButton": "Withdraw ${{amount}}",
+    "processing": "Processing...",
+    "invalidAmountError": "Please enter a valid amount",
+    "failedError": "Failed to process withdrawal. Please try again."
+  },
+  "welcomeValensModal": {
+    "title": "Welcome, you are Valens!",
+    "description": "Your KYC verification has been approved. You can now explore the app and start connecting with the community.",
+    "getStarted": "Get Started"
+  },
+  "postStoryMusicTrim": {
+    "cancel": "Cancel",
+    "done": "Done",
+    "preview": "Preview",
+    "originalSound": "Original sound",
+    "chillBeat": "Chill Beat",
+    "energyPop": "Energy Pop",
+    "loFiDream": "Lo-Fi Dream",
+    "music": "Music",
+    "lyricsTitle": "Lyrics for this selection",
+    "lyricsHint": "Matches the trim handles below (same as Lyrics preview when synced lines exist).",
+    "lyricsOpenHint": "Open Lyrics (toolbar) and load lyrics for this track to see lines that match your trim.",
+    "noTimedLines": "No timed lines in this selection — widen the trim or reload lyrics.",
+    "plainLyricsNote": "(Plain lyrics — no line times; audio still follows your trim.)",
+    "noLyricsText": "No lyrics text.",
+    "clipLength": "Clip length",
+    "15s": "15s",
+    "30s": "30s",
+    "trimLabel": "Trim",
+    "waveHint": "Scroll the waveform for the full track, then drag the window to pick a {{min}}–{{max}}s clip (default {{default}}s on long songs).",
+    "full": "Full",
+    "selection": "Selection",
+    "hideExactTimes": "Hide exact times",
+    "showExactTimes": "Exact start / end (seconds)",
+    "startPlaceholder": "Start",
+    "endPlaceholder": "End"
+  },
+  "modalHome": {
+    "following": "Following",
+    "favourites": "Favourites"
+  },
+  "newCreatorsCard": {
+    "unverified": "Unverified",
+    "newBadge": "NEW"
   }
 }
