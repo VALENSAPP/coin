@@ -2641,5 +2641,48 @@
   "newCreatorsCard": {
     "unverified": "Unverified",
     "newBadge": "NEW"
+  },
+  "postScreen": {
+    "noPostsTitle": "No posts yet",
+    "noPostsSubtitle": "Share your first moment",
+    "pinPost": "Pin post",
+    "unpinPost": "Unpin post",
+    "pinConfirm": "Do you want to pin this post?",
+    "unpinConfirm": "Do you want to unpin this post?",
+    "cancel": "Cancel",
+    "pin": "Pin",
+    "pinned": "Pinned",
+    "unpin": "Unpin",
+    "unableToPinTitle": "Unable to pin post",
+    "unableToUnpinTitle": "Unable to unpin post",
+    "tryAgain": "Please try again."
+  },
+  "postView": {
+    "postsHeaderFallback": "Posts",
+    "deletePostTitle": "Delete post?",
+    "deletePostMessage": "This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "commentedLabel": "Commented:",
+    "failedLoadPost": "Failed to load post details",
+    "failedLoadPostGeneric": "Failed to load post",
+    "cantEditPost": "You can't edit this post.",
+    "cantDeletePost": "You can't delete this post.",
+    "postNotFound": "Post not found",
+    "postIdNotFound": "Post ID not found",
+    "postCopied": "Post copied",
+    "failedToggleLike": "Failed to toggle like",
+    "somethingWentWrong": "Something went wrong",
+    "failedDelete": "Failed to delete",
+    "errorDeletingPost": "Error deleting post",
+    "noUserIdDelete": "No user id found; cannot delete.",
+    "postDeleted": "Post deleted",
+    "postHidden": "Post hidden",
+    "postUnhidden": "Post unhidden",
+    "failedHidePost": "Failed to hide post",
+    "failedUnhidePost": "Failed to unhide post",
+    "followSuccess": "Successfully Followed!",
+    "unfollowSuccess": "Unfollowed",
+    "unableToUpdateFollow": "Unable to update follow"
   }
 }
