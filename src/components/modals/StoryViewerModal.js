@@ -1,4 +1,4 @@
-// Create a new file: components/chat/StoryViewerModal.js
+// components/chat/StoryViewerModal.js
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import HexAvatar from '../home/story.js/HexAvatar';
 import { getUserCredentials } from '../../services/post';
+import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -50,7 +51,7 @@ const unwrapUserProfileResponse = (response) => {
 const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [duration, setDuration] = useState(5); // Default 5 seconds for images
+  const [duration, setDuration] = useState(5);
   const [, setCurrentTime] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
@@ -58,6 +59,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const navigation = useNavigation();
   const [selfUserId, setSelfUserId] = useState(null);
   const [storyOwnerProfile, setStoryOwnerProfile] = useState(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     (async () => {
@@ -115,10 +117,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
           rawUser?.photoURL
         );
 
-        setStoryOwnerProfile({
-          name: displayName,
-          image: avatar,
-        });
+        setStoryOwnerProfile({ name: displayName, image: avatar });
       } catch (_error) {
         if (active) setStoryOwnerProfile(null);
       }
@@ -131,17 +130,19 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     };
   }, [storyUserId, visible]);
 
-  const storyUsername = pickNonEmpty(
-    storyOwnerProfile?.name,
-    userName,
-    story?.userName,
-    story?.username,
-    story?.displayName,
-    story?.user?.displayName,
-    story?.user?.userName,
-    story?.user?.username,
-    story?.user?.name
-  ) || 'Unknown User';
+  const storyUsername =
+    pickNonEmpty(
+      storyOwnerProfile?.name,
+      userName,
+      story?.userName,
+      story?.username,
+      story?.displayName,
+      story?.user?.displayName,
+      story?.user?.userName,
+      story?.user?.username,
+      story?.user?.name
+    ) || t('storyViewer.unknownUser');
+
   const storyAvatar =
     storyOwnerProfile?.image ||
     userImage ||
@@ -154,15 +155,12 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     story?.image ||
     FALLBACK_AVATAR;
 
-  // Determine if story is video
-  const isVideo = story?.type === 'video' ||
+  const isVideo =
+    story?.type === 'video' ||
     (story?.media?.[0] && isVideoUrl(story.media[0])) ||
     (story?.uri && isVideoUrl(story.uri));
 
-  const mediaUri = story?.uri ||
-    story?.media?.[0] ||
-    story?.thumbnail ||
-    story?.image;
+  const mediaUri = story?.uri || story?.media?.[0] || story?.thumbnail || story?.image;
 
   const storyCaption = story?.caption || story?.text || '';
 
@@ -181,12 +179,8 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const startProgress = useCallback(() => {
     stopProgress();
 
-    if (isVideo) {
-      // For videos, progress is handled by onProgress callback
-      return;
-    }
+    if (isVideo) return;
 
-    // For images, use timer
     const startTime = Date.now();
     timerRef.current = setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
@@ -199,7 +193,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
         stopProgress();
         handleClose();
       }
-    }, 16); // 60fps
+    }, 16);
   }, [duration, handleClose, isVideo, progressAnim, stopProgress]);
 
   useEffect(() => {
@@ -251,7 +245,6 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     handleClose();
 
     setTimeout(() => {
-      // If user taps their own story, open Profile tab instead of UsersProfile.
       if (selfUserId && String(storyUserId) === String(selfUserId)) {
         navigation.navigate('ProfileMain', { screen: 'Profile' });
         return;
@@ -267,7 +260,6 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     }, 150);
   }, [handleClose, navigation, selfUserId, storyUserId, storyUsername]);
 
-  // Pan responder for swipe down to close
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -300,52 +292,47 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       <StatusBar backgroundColor="#000" barStyle="light-content" />
       <View style={styles.container} {...panResponder.panHandlers}>
         <View style={styles.mediaLayer}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={togglePause}
-          style={styles.contentContainer}
-        >
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#fff" />
-            </View>
-          )}
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={togglePause}
+            style={styles.contentContainer}
+          >
+            {isLoading && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#fff" />
+              </View>
+            )}
 
-          {isVideo ? (
-            <Video
-              source={{ uri: mediaUri }}
-              style={styles.media}
-              resizeMode="contain"
-              paused={isPaused || !visible}
-              repeat={false}
-              onLoad={handleVideoLoad}
-              onProgress={handleVideoProgress}
-              onError={(error) => {
-                console.error('Video error:', error);
-                setIsLoading(false);
-              }}
-              controls={false}
-            />
-          ) : (
-            <Image
-              source={{ uri: mediaUri }}
-              style={styles.media}
-              resizeMode="contain"
-              onLoad={() => setIsLoading(false)}
-              onError={() => setIsLoading(false)}
-            />
-          )}
+            {isVideo ? (
+              <Video
+                source={{ uri: mediaUri }}
+                style={styles.media}
+                resizeMode="contain"
+                paused={isPaused || !visible}
+                repeat={false}
+                onLoad={handleVideoLoad}
+                onProgress={handleVideoProgress}
+                onError={() => setIsLoading(false)}
+                controls={false}
+              />
+            ) : (
+              <Image
+                source={{ uri: mediaUri }}
+                style={styles.media}
+                resizeMode="contain"
+                onLoad={() => setIsLoading(false)}
+                onError={() => setIsLoading(false)}
+              />
+            )}
 
-          {/* Pause indicator */}
-          {isPaused && (
-            <View style={styles.pauseIndicator}>
-              <Icon name="pause" size={60} color="rgba(255,255,255,0.8)" />
-            </View>
-          )}
-        </TouchableOpacity>
+            {isPaused && (
+              <View style={styles.pauseIndicator}>
+                <Icon name="pause" size={60} color="rgba(255,255,255,0.8)" />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Caption */}
         {storyCaption && storyCaption.trim() !== '' && (
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.7)']}
@@ -355,10 +342,11 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
           </LinearGradient>
         )}
 
-        {/* Story Type Badge */}
         <View style={[styles.badge, styles.badgeZ]}>
           <Text style={styles.badgeText}>
-            {isVideo ? '🎬 Video Story' : '📷 Photo Story'}
+            {isVideo
+              ? t('storyViewer.videoStoryBadge')
+              : t('storyViewer.photoStoryBadge')}
           </Text>
         </View>
 
@@ -385,18 +373,13 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
                 onPress={handleOpenStoryUserProfile}
                 disabled={!storyUserId}
               >
-                <HexAvatar
-                  uri={storyAvatar}
-                  size={44}
-                  borderWidth={2}
-                  borderColor="#fff"
-                />
+                <HexAvatar uri={storyAvatar} size={44} borderWidth={2} borderColor="#fff" />
                 <View style={styles.userInfo}>
                   <Text style={styles.userName} numberOfLines={1}>
                     {storyUsername}
                   </Text>
                   <Text style={styles.timeAgo}>
-                    {formatTimeAgo(story.createdAt || new Date())}
+                    {formatTimeAgo(story.createdAt || new Date(), t)}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -407,43 +390,31 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* <TouchableOpacity
-          style={[
-            styles.bottomBackButton,
-            { bottom: insets.bottom + 20 } // 🔥 fix for gesture bar
-          ]}
-          activeOpacity={0.85}
-          onPress={handleClose}
-        >
-          <Icon name="chevron-back" size={22} color="#fff" />
-          <Text style={styles.bottomBackText}>Back</Text>
-        </TouchableOpacity> */}
       </View>
     </Modal>
   );
 };
 
-// Helper function to check if URL is video
 const isVideoUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
-  return videoExtensions.some(ext => url.toLowerCase().includes(ext));
+  return videoExtensions.some((ext) => url.toLowerCase().includes(ext));
 };
 
-// Helper function to format time ago
-const formatTimeAgo = (timestamp) => {
+const formatTimeAgo = (timestamp, t) => {
   try {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
 
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 60) return t('storyViewer.timeJustNow');
+    if (diffInSeconds < 3600)
+      return t('storyViewer.timeMinutesAgo', { count: Math.floor(diffInSeconds / 60) });
+    if (diffInSeconds < 86400)
+      return t('storyViewer.timeHoursAgo', { count: Math.floor(diffInSeconds / 3600) });
+    return t('storyViewer.timeDaysAgo', { count: Math.floor(diffInSeconds / 86400) });
   } catch (error) {
-    return 'Recently';
+    return t('storyViewer.timeRecently');
   }
 };
 

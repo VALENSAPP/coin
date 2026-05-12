@@ -7,12 +7,12 @@ import {
     StyleSheet,
     ScrollView,
     Image,
-    Pressable,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PagerView from 'react-native-pager-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const TradeModal = ({ visible, onClose }) => {
     const rbSheetRef = useRef(null);
@@ -24,6 +24,7 @@ const TradeModal = ({ visible, onClose }) => {
     const isDisabled = !buyAmount || parseInt(buyAmount) === 0;
     const isSellDisabled = !sellAmount || parseInt(sellAmount) === 0;
     const { bgStyle, textStyle } = useAppTheme();
+    const { t } = useLanguage();
 
     useEffect(() => {
         if (visible) {
@@ -52,30 +53,23 @@ const TradeModal = ({ visible, onClose }) => {
             draggable
             height={500}
             onClose={onClose}
-            customModalProps={{
-                statusBarTranslucent: true,
-            }}
+            customModalProps={{ statusBarTranslucent: true }}
             customStyles={{
-                container: [{
-                    borderTopLeftRadius: 20,
-                    borderTopRightRadius: 20,
-                }, bgStyle],
-                draggableIcon: {
-                    width: 80,
-                    backgroundColor: '#ccc',
-                },
-            }}>
+                container: [{ borderTopLeftRadius: 20, borderTopRightRadius: 20 }, bgStyle],
+                draggableIcon: { width: 80, backgroundColor: '#ccc' },
+            }}
+        >
             <View style={[styles.modalContainer, bgStyle]}>
                 <View style={styles.tabHeader}>
                     <TouchableOpacity onPress={() => handleTabPress(0)} style={styles.tab}>
                         <Text style={[styles.tabText, page === 0 && styles.activeTabText]}>
-                            Follow
+                            {t('tradeModal.followTab')}
                         </Text>
                         {page === 0 && <View style={styles.activeIndicator} />}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleTabPress(1)} style={styles.tab}>
                         <Text style={[styles.tabText, page === 1 && styles.activeTabText]}>
-                            Unfollow
+                            {t('tradeModal.unfollowTab')}
                         </Text>
                         {page === 1 && <View style={styles.activeIndicator} />}
                     </TouchableOpacity>
@@ -87,7 +81,7 @@ const TradeModal = ({ visible, onClose }) => {
                     ref={pagerRef}
                     onPageSelected={(e) => setPage(e.nativeEvent.position)}
                 >
-                    {/* Buy Page */}
+                    {/* Follow (Buy) Page */}
                     <View key="1" style={styles.page}>
                         <ScrollView contentContainerStyle={styles.content}>
                             <View style={[styles.inputRow, bgStyle]}>
@@ -102,15 +96,15 @@ const TradeModal = ({ visible, onClose }) => {
                                 <View style={{ alignItems: 'center' }}>
                                     <View style={styles.tokenInfo}>
                                         <Ionicons name="sparkles-outline" size={18} />
-                                        <Text style={styles.tokenLabel}>Sparks</Text>
+                                        <Text style={styles.tokenLabel}>{t('tradeModal.sparksLabel')}</Text>
                                         <Ionicons name="chevron-down" size={16} color="#000" />
                                     </View>
-                                    <Text style={styles.balanceText}>Balance: ✨0</Text>
+                                    <Text style={styles.balanceText}>{t('tradeModal.balanceZero')}</Text>
                                 </View>
                             </View>
 
                             <View style={styles.quickButtonsRow}>
-                                {['111', '1,111', '11,111', 'Max'].map((label, index) => (
+                                {['111', '1,111', '11,111', t('tradeModal.maxLabel')].map((label, index) => (
                                     <TouchableOpacity
                                         key={index}
                                         style={[styles.quickButton, bgStyle]}
@@ -130,7 +124,7 @@ const TradeModal = ({ visible, onClose }) => {
 
                             <TextInput
                                 style={[styles.commentInput, bgStyle]}
-                                placeholder="Add a comment..."
+                                placeholder={t('tradeModal.commentPlaceholder')}
                                 placeholderTextColor="#999"
                             />
 
@@ -144,13 +138,13 @@ const TradeModal = ({ visible, onClose }) => {
                                         isDisabled && styles.disabledBuyButtonText,
                                     ]}
                                 >
-                                    Follow
+                                    {t('tradeModal.followButton')}
                                 </Text>
                             </TouchableOpacity>
                         </ScrollView>
                     </View>
 
-                    {/* Sell Page */}
+                    {/* Unfollow (Sell) Page */}
                     <View key="2" style={styles.page}>
                         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                             <View style={[styles.inputRow, bgStyle]}>
@@ -170,7 +164,7 @@ const TradeModal = ({ visible, onClose }) => {
                                         style={styles.avatar}
                                     />
                                     <Text style={styles.balanceText}>
-                                        Balance: {formatNumber(sellBalance)}
+                                        {t('tradeModal.balanceLabel', { amount: formatNumber(sellBalance) })}
                                     </Text>
                                 </View>
                             </View>
@@ -189,16 +183,15 @@ const TradeModal = ({ visible, onClose }) => {
 
                             <View style={styles.warningContainer}>
                                 <Ionicons name="alert-circle-outline" size={18} color="#000" />
-                                <Text style={styles.warningText}>Selling unavailable</Text>
+                                <Text style={styles.warningText}>{t('tradeModal.sellingUnavailable')}</Text>
                             </View>
                             <Text style={styles.warningDescription}>
-                                No liquidity. This coin will become available to sell as this post
-                                gets discovered and collected.
+                                {t('tradeModal.sellingUnavailableDesc')}
                             </Text>
 
                             <TextInput
                                 style={[styles.commentInput, bgStyle]}
-                                placeholder="Add a comment..."
+                                placeholder={t('tradeModal.commentPlaceholder')}
                                 placeholderTextColor="#999"
                             />
 
@@ -212,7 +205,7 @@ const TradeModal = ({ visible, onClose }) => {
                                         isSellDisabled && styles.disabledBuyButtonText,
                                     ]}
                                 >
-                                    Unfollow
+                                    {t('tradeModal.unfollowButton')}
                                 </Text>
                             </TouchableOpacity>
                         </ScrollView>

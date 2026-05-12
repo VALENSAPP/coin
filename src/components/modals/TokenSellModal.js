@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Keyboard, Alert } from 'react-native';
-import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { getTokenPrice, sellToken, tokenPurchaseAmtByVendor } from '../../services/tokens';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
+import { useLanguage } from '../../i18n';
 
 const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
   const [loading, setLoading] = useState(false);
@@ -13,8 +14,8 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
   const [availableTokens, setAvailableTokens] = useState(0);
   const [usdAmount, setUsdAmount] = useState(0);
   const toast = useToast();
-
   const dispatch = useDispatch();
+  const { t } = useLanguage();
 
   useEffect(() => {
     tokenPurchaseAmt();
@@ -30,19 +31,16 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
         amountTokens: JSON.stringify(availableTokens),
         tokenAddress: tokenAddress,
       };
-      console.log('requestBody for selling tokens:', requestBody);
 
       const response = await sellToken(requestBody);
-       console.log('response for selling tokens:', response);
       if (response && response.statusCode == 200) {
         onSell();
-      }
-      else {
+      } else {
         showToastMessage(toast, 'danger', response.message);
       }
     } catch (error) {
       console.error('Error creating sell session:', error);
-      alert('Failed to process token sale. Please check your connection and try again.');
+      Alert.alert(t('tokenSell.errorTitle'), t('tokenSell.sellError'));
     } finally {
       setIsProcessingSale(false);
       dispatch(hideLoader());
@@ -53,18 +51,14 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
     try {
       dispatch(showLoader());
       if (userId) {
-        console.log('userId for token purchase amount:', userId);
-        
         const response = await tokenPurchaseAmtByVendor(userId);
-         console.log('response.data.vendorTokenAmount:', response.data.vendorTokenAmount);
         if (response.statusCode === 200) {
-          setAvailableTokens(response.data.vendorTokenAmount)
-        } else {
+          setAvailableTokens(response.data.vendorTokenAmount);
         }
       }
     } catch (err) {
       console.log(err);
-      Alert.alert('Error', err.message || 'Failed to fetch token purchase amount');
+      Alert.alert(t('tokenSell.errorTitle'), err.message || t('tokenSell.fetchAmountError'));
     } finally {
       dispatch(hideLoader());
     }
@@ -76,21 +70,19 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
       dispatch(showLoader());
       const response = await getTokenPrice({ tokenAddress });
       if (response.statusCode === 200) {
-        console.log('Token price fetched:', response.data);
         setUsdAmount(response?.data?.priceInUsd);
       }
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to fetch token price');
+      Alert.alert(t('tokenSell.errorTitle'), err.message || t('tokenSell.fetchPriceError'));
     } finally {
       dispatch(hideLoader());
     }
   };
 
-  // Show loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>{t('tokenSell.loading')}</Text>
       </View>
     );
   }
@@ -103,16 +95,15 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
           <View style={styles.tokenIconContainer}>
             <Icon name="trending-down" size={32} color="#dc2626" />
           </View>
-          <Text style={styles.tokenTitle}>Unsupportive Tokens</Text>
+          <Text style={styles.tokenTitle}>{t('tokenSell.title')}</Text>
           <Text style={styles.availableTokens}>
-            Available: {availableTokens.toLocaleString()} tokens
-            {/* Available: 1 tokens */}
+            {t('tokenSell.availableLabel', { count: availableTokens.toLocaleString() })}
           </Text>
         </View>
 
         {/* Tokens to Sell (Disabled Display) */}
         <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>Tokens to Unsupport</Text>
+          <Text style={styles.inputLabel}>{t('tokenSell.tokensToUnsupportLabel')}</Text>
           <View style={[styles.inputGroup, styles.inputGroupDisabled]}>
             <Icon name="diamond" size={20} color="#9CA3AF" style={styles.tokenIcon} />
             <Text style={[styles.textDisplay, styles.textDisplayDisabled]}>
@@ -123,7 +114,7 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
 
         {/* USD Amount Display */}
         <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>USD Amount</Text>
+          <Text style={styles.inputLabel}>{t('tokenSell.usdAmountLabel')}</Text>
           <View style={[styles.inputGroup, styles.inputGroupDisabled]}>
             <Text style={[styles.currencySymbol, styles.currencySymbolDisabled]}>$</Text>
             <Text style={[styles.textDisplay, styles.textDisplayDisabled]}>
@@ -134,26 +125,21 @@ const TokenSellModal = ({ onSell, tokenAddress, userId }) => {
 
         {/* Sell Button */}
         <TouchableOpacity
-          style={[
-            styles.sellButton,
-            // isButtonDisabled && styles.sellButtonDisabled,
-          ]}
+          style={styles.sellButton}
           onPress={handleSell}
-          // disabled={isButtonDisabled}
           activeOpacity={0.8}
         >
           {isProcessingSale ? (
             <>
               <Icon name="hourglass" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-              <Text style={styles.sellButtonText}>Processing...</Text>
+              <Text style={styles.sellButtonText}>{t('tokenSell.processingButton')}</Text>
             </>
           ) : (
-            <>
-              {/* <Icon name="trending-down" size={20} color="#FFFFFF" style={styles.buttonIcon} /> */}
-              <Text style={styles.sellButtonText}>
-                Unsupport Tokens for ${(availableTokens * usdAmount).toFixed(2)}
-              </Text>
-            </>
+            <Text style={styles.sellButtonText}>
+              {t('tokenSell.sellButton', {
+                total: (availableTokens * usdAmount).toFixed(2),
+              })}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
