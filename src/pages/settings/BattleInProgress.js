@@ -36,6 +36,7 @@ import {
   predictBattle,
   replyCommentBattle,
   voteBattle,
+  battlePoint,
 } from '../../services/battle';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -415,6 +416,7 @@ export default function BattleInProgress() {
   const [likingCommentId, setLikingCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
   const [participantUserData, setParticipantUserData] = useState({});
+  const [participantBattleStats, setParticipantBattleStats] = useState({});
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const replyInputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -541,9 +543,11 @@ export default function BattleInProgress() {
       try {
         const participant0 = battle.participants[0];
         const participant1 = battle.participants[1];
-        const [res0, res1] = await Promise.all([
+        const [res0, res1, points0, points1] = await Promise.all([
           getUserCredentials(participant0?.userId),
           getUserCredentials(participant1?.userId),
+          battlePoint({ params: { userId: participant0?.userId } }),
+          battlePoint({ params: { userId: participant1?.userId } }),
         ]);
         const userData0 = res0?.statusCode === 200 ? (res0.data?.user || res0.data || {}) : {};
         const userData1 = res1?.statusCode === 200 ? (res1.data?.user || res1.data || {}) : {};
@@ -554,6 +558,20 @@ export default function BattleInProgress() {
           else if (url.startsWith('/')) return `http://35.174.167.92:3002${url}`;
           else return `http://35.174.167.92:3002/${url}`;
         };
+
+        const normalizePointPayload = (response) => {
+          const rawData = response?.data?.data || response?.data || response || {};
+          const totals = rawData?.totals || {};
+          return {
+            level: String(rawData?.level || 'Rookie'),
+            points: Number(totals?.totalBattlePoints || rawData?.points || 0),
+            credibility: Number(rawData?.credibilityScore || rawData?.credibility || 0),
+          };
+        };
+
+        const stats0 = normalizePointPayload(points0);
+        const stats1 = normalizePointPayload(points1);
+
         setParticipantUserData({
           [participant0?.userId]: {
             name: userData0?.displayName || userData0?.name || null,
@@ -565,6 +583,10 @@ export default function BattleInProgress() {
             image: formatImageUrl(userData1?.image),
             userId: participant1?.userId,
           },
+        });
+        setParticipantBattleStats({
+          [participant0?.userId]: stats0,
+          [participant1?.userId]: stats1,
         });
       } catch (error) {
         console.error('Error fetching participant credentials:', error);
@@ -1015,6 +1037,29 @@ export default function BattleInProgress() {
           </View>
 
           {/* Title + description */}
+          {!!isHeadToHead && (() => {
+            const creatorName = String(battle?.creator?.name || '').trim();
+            const creatorId = String(battle?.creatorId || battle?.creator?.id || '').trim();
+            const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+            const opponent = participants.find(p => String(p?.userId || '') && String(p?.userId || '') !== creatorId);
+            const opponentName = String(
+              pickFirst(
+                participantUserData?.[opponent?.userId]?.name,
+                battle?.opponent?.name,
+                battle?.invitedUser?.name,
+                battle?.user2?.name,
+                '',
+              ),
+            ).trim();
+            if (!creatorName || !opponentName) return null;
+            return (
+              <Text style={styles.heroChallengeLine} numberOfLines={2}>
+                <Text style={styles.heroChallengeStrong}>{creatorName}</Text>
+                {' challenged '}
+                <Text style={styles.heroChallengeStrong}>{opponentName}</Text>
+              </Text>
+            );
+          })()}
           <Text style={styles.heroTitle}>{battle.title}</Text>
           {!!battle.description && <Text style={styles.heroDescription}>{battle.description}</Text>}
 
@@ -1052,8 +1097,27 @@ export default function BattleInProgress() {
                   return (
                     <>
                       <TouchableOpacity activeOpacity={0.75} onPress={() => navigateToUser(p0?.userId)} style={styles.duelPlayerCard}>
-                        <HexAvatar uri={d0?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor={text} />
+                        <LinearGradient
+                          colors={['rgba(59,130,246,0.38)', 'rgba(29,78,216,0.18)']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.duelPlayerCardBg}
+                        />
+                        <View style={styles.avatarBadgeWrap}>
+                          <HexAvatar uri={d0?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor="rgba(255,255,255,0.85)" />
+                          {!!participantBattleStats?.[p0?.userId]?.level && (
+                            <View style={styles.playerBadge}>
+                              <Ionicons name="ribbon" size={12} color="#111827" />
+                              <Text style={styles.playerBadgeText} numberOfLines={1}>
+                                {String(participantBattleStats[p0.userId].level).slice(0, 10)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={styles.playerName} numberOfLines={2}>{d0?.name || 'User'}</Text>
+                        <Text style={styles.playerPoints} numberOfLines={1}>
+                          {Number(participantBattleStats?.[p0?.userId]?.points || 0).toLocaleString()} pts
+                        </Text>
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p0?.side}</Text>
                         </View>
@@ -1065,8 +1129,27 @@ export default function BattleInProgress() {
                       </View>
 
                       <TouchableOpacity activeOpacity={0.75} onPress={() => navigateToUser(p1?.userId)} style={styles.duelPlayerCard}>
-                        <HexAvatar uri={d1?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor={text} />
+                        <LinearGradient
+                          colors={['rgba(244,114,182,0.38)', 'rgba(219,39,119,0.18)']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.duelPlayerCardBg}
+                        />
+                        <View style={styles.avatarBadgeWrap}>
+                          <HexAvatar uri={d1?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor="rgba(255,255,255,0.85)" />
+                          {!!participantBattleStats?.[p1?.userId]?.level && (
+                            <View style={styles.playerBadge}>
+                              <Ionicons name="ribbon" size={12} color="#111827" />
+                              <Text style={styles.playerBadgeText} numberOfLines={1}>
+                                {String(participantBattleStats[p1.userId].level).slice(0, 10)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={styles.playerName} numberOfLines={2}>{d1?.name || 'User'}</Text>
+                        <Text style={styles.playerPoints} numberOfLines={1}>
+                          {Number(participantBattleStats?.[p1?.userId]?.points || 0).toLocaleString()} pts
+                        </Text>
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p1?.side}</Text>
                         </View>
@@ -1234,6 +1317,9 @@ export default function BattleInProgress() {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
                 const optionSelectionKey = getOptionSelectionKey(option, index);
+                const headToHeadAccent = isHeadToHead
+                  ? (index === 0 ? { accent: '#3B82F6', soft: 'rgba(59,130,246,0.08)' } : { accent: '#DB2777', soft: 'rgba(219,39,119,0.08)' })
+                  : { accent: palette.primary, soft: palette.soft };
                 const normalizedSelected = normalizeSideKey(selectedOption);
                 const normalizedOptionSide = normalizeSideKey(optionSide);
                 const isSelectedByTap = selectedOption === optionSelectionKey;
@@ -1256,10 +1342,10 @@ export default function BattleInProgress() {
                     style={[
                       styles.optionPillCard,
                       {
-                        borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : palette.primary) : '#E5E7EB',
+                        borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#E5E7EB',
                         backgroundColor: isSelected
-                          ? (useVotedGrayStyle ? '#F3F4F6' : palette.soft)
-                          : shouldDisable ? palette.soft : '#F9FAFB',
+                          ? (useVotedGrayStyle ? '#F3F4F6' : headToHeadAccent.soft)
+                          : shouldDisable ? headToHeadAccent.soft : '#F9FAFB',
                         width: '100%',
                       },
                     ]}
@@ -1274,16 +1360,16 @@ export default function BattleInProgress() {
                         uri={optionImage || option.image}
                         size={36}
                         borderWidth={2}
-                        borderColor={isSelected ? palette.primary : '#D1D5DB'}
+                        borderColor={isSelected ? headToHeadAccent.accent : '#D1D5DB'}
                         fallback={
                           <View style={[
                             styles.optionPillAvatarFallback,
                             {
-                              borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : palette.primary) : '#D1D5DB',
-                              backgroundColor: isSelected ? (useVotedGrayStyle ? '#E5E7EB' : palette.soft) : '#EDE9F6',
+                              borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#D1D5DB',
+                              backgroundColor: isSelected ? (useVotedGrayStyle ? '#E5E7EB' : headToHeadAccent.soft) : '#EDE9F6',
                             },
                           ]}>
-                            <Ionicons name="person" size={18} color={isSelected ? palette.primary : text} />
+                            <Ionicons name="person" size={18} color={isSelected ? headToHeadAccent.accent : text} />
                           </View>
                         }
                       />
@@ -1291,7 +1377,7 @@ export default function BattleInProgress() {
                     <Text
                       style={[
                         styles.optionPillLabel,
-                        { color: isSelected ? (useVotedGrayStyle ? text : palette.primary) : '#374151' },
+                        { color: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#374151' },
                       ]}
                       onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
                     >
@@ -1300,8 +1386,8 @@ export default function BattleInProgress() {
                     <View style={[
                       styles.optionPillRadio,
                       {
-                        borderColor: isSelected ? (useVotedGrayStyle ? text : palette.primary) : '#D1D5DB',
-                        backgroundColor: isSelected ? (useVotedGrayStyle ? text : palette.primary) : '#FFFFFF',
+                        borderColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#D1D5DB',
+                        backgroundColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#FFFFFF',
                         opacity: hasUserVoted && !isSelected ? 0.3 : 1,
                       },
                     ]} />
@@ -1310,6 +1396,9 @@ export default function BattleInProgress() {
               })}
             </View>
 
+            <Text style={styles.argumentLabel}>
+              {hasUserVoted ? 'Comment' : 'Your argument'}
+            </Text>
             <TextInput
               editable
               value={hasUserVoted ? commentText : argumentText}
@@ -1445,6 +1534,8 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 11, fontWeight: '700', color: '#e84040', letterSpacing: 0.4 },
   timerPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(107,95,166,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
   timerPillText: { fontSize: 11, fontWeight: '600', color: "#fff" },
+  heroChallengeLine: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', marginBottom: 6, marginHorizontal: 8 },
+  heroChallengeStrong: { color: '#FFFFFF', fontWeight: '900' },
   heroTitle: { color: "#fff", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
   heroDescription: { color: "#fff", fontSize: 13, lineHeight: 19, marginBottom: 8 },
   heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
@@ -1470,8 +1561,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
   },
-  duelPlayerCard: { flex: 1, maxWidth: '44%', borderRadius: 14, borderWidth: 1.5, borderColor: '#d3d1d1', paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6 },
-  playerName: { color: '#1a1040', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  duelPlayerCard: { flex: 1, maxWidth: '44%', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.32)', paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6, overflow: 'hidden' },
+  duelPlayerCardBg: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
+  avatarBadgeWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  playerBadge: { position: 'absolute', bottom: -6, right: -10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(17,24,39,0.12)' },
+  playerBadgeText: { fontSize: 10, fontWeight: '800', color: '#111827', maxWidth: 72 },
+  playerName: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  playerPoints: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '700', marginTop: -2 },
   playerSidePill: { backgroundColor: '#ede8fb', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   playerSidePillText: { color: '#6b5fa6', fontSize: 11, fontWeight: '600' },
   vsOverlay: { position: 'absolute', left: '50%', top: '50%', marginLeft: -18, marginTop: -18, zIndex: 10 },
@@ -1523,6 +1619,7 @@ const styles = StyleSheet.create({
   optionPillAvatarFallback: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   optionPillLabel: { flex: 1, fontSize: 13, fontWeight: '700' },
   optionPillRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, flexShrink: 0 },
+  argumentLabel: { fontSize: 12, fontWeight: '800', color: '#4B5563', marginTop: 10, marginBottom: 6 },
 
   // Argument input + button
   argumentInput: { minHeight: 90, borderRadius: 16, borderWidth: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111827', textAlignVertical: 'top', marginTop: 14, marginBottom: 14 },

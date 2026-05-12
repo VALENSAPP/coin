@@ -2233,6 +2233,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginLeft:-5,
   },
   kpiIconWrap: {
     width: 30,
