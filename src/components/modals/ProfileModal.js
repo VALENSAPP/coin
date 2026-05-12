@@ -227,12 +227,29 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       });
     };
 
+    const buildReturnTo = () => {
+      try {
+        const parent = navigation.getParent?.();
+        const state = parent?.getState?.();
+        const currentTab = state?.routes?.[state.index]?.name;
+        return currentTab ? { tab: currentTab } : null;
+      } catch {
+        return null;
+      }
+    };
+
     switch (type) {
-      case 'mint':
-        closeThenNavigate('Add', { screen: 'Add' });
+      case 'mint': // post
+        closeThenNavigate('Add', {
+          screen: 'Add',
+          params: { returnTo: buildReturnTo() },
+        });
         break;
-      case 'Flips':
-        closeThenNavigate('Add', { screen: 'Add', params: { type: 'Flips' } });
+      case 'Flips': // reels
+        closeThenNavigate('Add', {
+          screen: 'Add',
+          params: { type: 'Flips', returnTo: buildReturnTo() },
+        });
         break;
       case 'drops':
         handleAddStory();

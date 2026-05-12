@@ -56,6 +56,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [search, setSearch] = useState('');
   const [followersList, setFollowersList] = useState([]);
   const [followingList, setFollowingList] = useState([]);
+  const [selfFollowingIds, setSelfFollowingIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [followBusyById, setFollowBusyById] = useState({});
@@ -80,6 +81,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
       setSelfProfileType(normalizeProfileType(storedProfile || 'user'));
     })();
   }, []);
+
+  const selfFollowingIdSet = useMemo(() => {
+    const safeIds = Array.isArray(selfFollowingIds) ? selfFollowingIds : [];
+    return new Set(safeIds.map((id) => String(id)));
+  }, [selfFollowingIds]);
 
   const shapeUser = (u, { defaultFollowing = false } = {}) => ({
     id: String(u?.id ?? u?._id ?? u?.userId ?? ''),
@@ -120,6 +126,29 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     return updated;
   }, []);
 
+  const fetchSelfFollowingIds = useCallback(async () => {
+    if (!selfUserId) return;
+
+    try {
+      const res = await apiFollowing(selfUserId);
+      const rows = res?.data?.data ?? res?.data ?? [];
+      const ids = rows
+        .map((rel) => {
+          const user = rel?.following || rel?.user || rel?.toUser || rel?.to || null;
+          return user?.id ?? user?._id ?? user?.userId ?? null;
+        })
+        .filter(Boolean)
+        .map((id) => String(id));
+      setSelfFollowingIds(ids);
+    } catch (_e) {
+      setSelfFollowingIds([]);
+    }
+  }, [selfUserId]);
+
+  useEffect(() => {
+    fetchSelfFollowingIds();
+  }, [fetchSelfFollowingIds]);
+
   const loadData = useCallback(
     async (tab, { silent = false } = {}) => {
       const profileUserId = profileUserIdFromRoute || selfUserId;
@@ -134,18 +163,33 @@ export default function FollowersFollowingScreen({ navigation, route }) {
           const res = await apiFollowers(profileUserId);
           const rows = res?.data?.data ?? res?.data ?? [];
           const users = rows
-            .map(rel => rel?.follower || rel?.followerUser || rel?.user || null)
-            .filter(Boolean)
-            .map(u => shapeUser(u, { defaultFollowing: !!u?.isFollowing }));
+            .map((rel) => {
+              const user =
+                rel?.follower || rel?.followerUser || rel?.user || rel?.fromUser || rel?.from || null;
+              if (!user) return null;
+
+              const userId = user?.id ?? user?._id ?? user?.userId ?? null;
+              const derivedFollowing = userId
+                ? selfFollowingIdSet.has(String(userId))
+                : false;
+              return shapeUser(user, { defaultFollowing: derivedFollowing });
+            })
+            .filter(Boolean);
           const usersWithProfile = await enrichUsersWithProfile(users);
           setFollowersList(usersWithProfile);
         } else {
           const res = await apiFollowing(profileUserId);
           const rows = res?.data?.data ?? res?.data ?? [];
           const users = rows
-            .map(rel => rel?.following || rel?.user || null)
+            .map(rel => rel?.following || rel?.user || rel?.toUser || rel?.to || null)
             .filter(Boolean)
-            .map(u => shapeUser(u, { defaultFollowing: true }));
+            .map((u) => {
+              const userId = u?.id ?? u?._id ?? u?.userId ?? null;
+              const derivedFollowing = userId
+                ? selfFollowingIdSet.has(String(userId)) || String(profileUserId) === String(selfUserId)
+                : false;
+              return shapeUser(u, { defaultFollowing: derivedFollowing });
+            });
           const usersWithProfile = await enrichUsersWithProfile(users);
           setFollowingList(usersWithProfile);
         }
@@ -159,7 +203,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         if (!silent) setLoading(false);
       }
     },
-    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile, t],
+    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile, selfFollowingIdSet, t],
   );
 
   useEffect(() => {

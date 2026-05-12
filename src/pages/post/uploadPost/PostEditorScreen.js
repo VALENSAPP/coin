@@ -42,6 +42,31 @@ const PostEditorScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
+  const returnTo = route?.params?.returnTo || route?.params?.params?.returnTo;
+
+  const navigateBackOrReturnTo = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (returnTo && typeof returnTo === 'object') {
+      const tab = returnTo?.tab;
+      const screen = returnTo?.screen;
+      const params = returnTo?.params;
+      if (tab) {
+        navigation.navigate(tab, screen ? { screen, params } : undefined);
+        return;
+      }
+    }
+
+    if (typeof returnTo === 'string' && returnTo.length) {
+      navigation.navigate(returnTo);
+      return;
+    }
+
+    navigation.navigate('HomeMain');
+  }, [navigation, returnTo]);
   const {
     images = [],
     currentFilter = 'none',
@@ -222,7 +247,7 @@ const PostEditorScreen = () => {
 
       if (response.statusCode == 200) {
         showToastMessage(toast, 'success', t('postEditor.postSuccess'));
-        navigation.navigate('HomeMain');
+        navigateBackOrReturnTo();
       } else {
         showToastMessage(toast, 'danger', response.message || t('postEditor.postFail'));
       }
@@ -289,7 +314,7 @@ const PostEditorScreen = () => {
         params: {
           userId: String(resolvedUserId),
           params: {
-            returnTo: 'Add',
+            returnTo: { tab: 'Add' },
           },
         },
       });

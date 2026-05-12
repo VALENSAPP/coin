@@ -384,7 +384,7 @@ const GlobalDrawerNavigator = () => {
           name="Privatecircle"
           component={PrivateCircle}
           options={{
-            drawerLabel: 'Privatecircle',
+            drawerLabel: 'Private Circle',
             headerShown: false,
           }}
           listeners={({ navigation }) => ({
@@ -488,15 +488,15 @@ export default function MainStack() {
 
   if (!isLogin || isAddAccount) {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'} screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="OTPScreen" component={OTPScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgetPassword} />
         <Stack.Screen name="CreateNewPassword" component={NewPasswordScreen} />
         <Stack.Screen name="CreateProfile" component={CreateProfile} />
-        <Stack.Screen name="BusinessSetup" component={BusinessSetup} />
-        <Stack.Screen name="kycverify" component={KYCVerification} />
+        <Stack.Screen name="BusinessSetupAuth" component={BusinessSetup} />
+        <Stack.Screen name="KycVerifyAuth" component={KYCVerification} />
         <Stack.Screen name="Wallet" component={WalletScreen} />
         <Stack.Screen name="Splash" component={Splash} />
         <Stack.Screen name="TermsCondition" component={TermsCondition} />
@@ -507,7 +507,7 @@ export default function MainStack() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator key="appStack" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AppDrawer" component={GlobalDrawerNavigator} />
       <Stack.Screen name="BusinessSetup" component={BusinessSetup} />
       <Stack.Screen name="kycverify" component={KYCVerification} />

@@ -1199,7 +1199,15 @@ const ProfilePersonData = ({
       const screen = returnByTo?.screen;
       const params = returnByTo?.params;
       if (tab) {
-        navigation.navigate(tab, screen ? { screen, params } : undefined);
+        const parentNav = navigation.getParent?.();
+        if (parentNav?.jumpTo) {
+          parentNav.jumpTo(tab);
+          if (screen) {
+            parentNav.navigate(tab, { screen, params });
+          }
+        } else {
+          navigation.navigate(tab, screen ? { screen, params } : undefined);
+        }
         return;
       }
     }
@@ -1218,7 +1226,9 @@ const ProfilePersonData = ({
     }
     else if (returnByTo === 'Add') {
       // Jump back to the Add tab (PostEditor remains in its stack state).
-      navigation.navigate('Add');
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.jumpTo) parentNav.jumpTo('Add');
+      else navigation.navigate('Add');
       return;
     }
 
