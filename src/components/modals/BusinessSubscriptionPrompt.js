@@ -91,6 +91,7 @@ const BusinessSubscriptionPrompt = ({
               secondaryToolbarColor: '#f0f0f0',
               forceCloseOnRedirection: true,
             });
+            handleClose();
           } else {
             await Linking.openURL(response.data.url);
           }
@@ -180,7 +181,7 @@ const BusinessSubscriptionPrompt = ({
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          
+
           {step === 1 ? (
             <>
               {/* <Text style={styles.icon}>✨</Text> */}
@@ -229,7 +230,7 @@ const BusinessSubscriptionPrompt = ({
                 <TouchableOpacity style={styles.secondaryButton} onPress={handleClose}>
                   <Text style={styles.secondaryButtonText}>Maybe Later</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: text }]}
                   onPress={handleActivateNow}
@@ -263,7 +264,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingBottom: 22,
-    paddingTop:10,
+    paddingTop: 10,
     paddingHorizontal: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -288,13 +289,13 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 20,
     marginBottom: 10,
-    paddingVertical:10,
-    textAlign:'center'
+    paddingVertical: 10,
+    textAlign: 'center'
   },
   closeButton: {
     padding: 8,
-    flexDirection:'row',
-    justifyContent:'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   sectionTitle: {
     fontSize: 14,

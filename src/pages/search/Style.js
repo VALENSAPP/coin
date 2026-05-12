@@ -36,11 +36,17 @@ export default StyleSheet.create({
   ------------------------------------------------------- */
   resultsContainer: {
     flex: 1,
+    minHeight: 0,
     paddingBottom: 30,
   },
 
+  resultsList: {
+    flex: 1,
+  },
+
   listContent: {
-    paddingBottom: 20,
+    flexGrow: 1,
+    paddingBottom: 120,
     paddingHorizontal: 10,
   },
 

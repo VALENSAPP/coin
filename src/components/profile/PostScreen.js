@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import {
   Alert,
   View,
@@ -238,7 +238,7 @@ PostImage.displayName = 'PostImage';
 const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {  
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
-  const [pinningPostId, setPinningPostId] = useState('');
+  const pinningPostIdRef = useRef('');
   const navigation = useNavigation();
   const route = useRoute();
   
@@ -320,10 +320,10 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
 
   const handleTogglePinPost = useCallback(async (post) => {
     const postId = String(post?.id || post?._id || '');
-    if (!isOwnProfile || !postId || pinningPostId) return;
+    if (!isOwnProfile || !postId || pinningPostIdRef.current) return;
 
     const nextPinned = !isPostPinned(post);
-    setPinningPostId(postId);
+    pinningPostIdRef.current = postId;
     try {
       const payload = { postId };
       if (nextPinned) await pinPost(payload);
@@ -331,18 +331,16 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
 
       setPosts(prevPosts => setPostPinnedState(prevPosts, postId, nextPinned));
       const refreshedPosts = await onPostPinChanged?.(postId, nextPinned);
-      if (!nextPinned && Array.isArray(refreshedPosts)) {
-        setPosts(sortPostsByPinned(getImagePosts(refreshedPosts)));
-      }
+      if (Array.isArray(refreshedPosts)) setPosts(sortPostsByPinned(getImagePosts(refreshedPosts)));
     } catch (error) {
       Alert.alert(
         nextPinned ? 'Unable to pin post' : 'Unable to unpin post',
         error?.response?.data?.message || error?.message || 'Please try again.',
       );
     } finally {
-      setPinningPostId('');
+      pinningPostIdRef.current = '';
     }
-  }, [isOwnProfile, onPostPinChanged, pinningPostId]);
+  }, [isOwnProfile, onPostPinChanged]);
 
   const confirmTogglePinPost = useCallback((post) => {
     if (!isOwnProfile) return;

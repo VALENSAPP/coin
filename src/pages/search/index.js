@@ -67,6 +67,7 @@ import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const USER_SEARCH_LIMIT = 50;
 
 // ─── Utility Functions (unchanged, kept outside component) ───────────────────
 
@@ -518,7 +519,8 @@ const SearchScreen = () => {
     return masonryLayout.columns.flat();
   }, [masonryLayout]);
 
-  const fetchUserData = async () => {
+
+  const fetchUserData = useCallback(async () => {
     const id = await AsyncStorage.getItem('userId');
     if (!id) return;
     dispatch(showLoader());
@@ -535,7 +537,15 @@ const SearchScreen = () => {
     } finally {
       dispatch(hideLoader());
     }
-  };
+  }, [dispatch, toast]);
+
+  // Clear search bar when screen focused (tab selected)
+  useEffect(() => {
+    if (isScreenFocused) {
+      setSearchText('');
+      fetchUserData();
+    }
+  }, [fetchUserData, isScreenFocused]);
 
   const searchUsers = useCallback(async searchQuery => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -551,7 +561,10 @@ const SearchScreen = () => {
     setIsSearching(true);
     setHasSearched(false);
     try {
-      const fetchUserSlice = params => getAllUser(params).catch(() => ({ statusCode: 0 }));
+      const fetchUserSlice = params =>
+        getAllUser({ ...params, limit: USER_SEARCH_LIMIT }).catch(() => ({
+          statusCode: 0,
+        }));
       const [byUserName, byDisplayName, byName, byBusinessName] = await Promise.all([
         fetchUserSlice({ userName: searchQuery }),
         fetchUserSlice({ displayName: searchQuery }),
@@ -1004,6 +1017,71 @@ const SearchScreen = () => {
                   <Icon name="close-circle" size={20} color="#999" style={{ marginLeft: 8 }} />
                 </TouchableOpacity>
               )}
+
+              {/* Search results */}
+              {searchText.trim().length > 0 ? (
+                <View style={styles.resultsContainer}>
+                  {isSearching ? (
+                    <View style={styles.emptyContainer}>
+                      <ActivityIndicator size="large" color="#999" />
+                      <Text style={styles.emptySubtitle}>Loading users...</Text>
+                    </View>
+                  ) : filteredUsers.length > 0 ? (
+                    <FlatList
+                      data={filteredUsers}
+                      keyExtractor={userKeyExtractor}
+                      renderItem={renderListItem}
+                      style={styles.resultsList}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
+                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                      ListHeaderComponent={renderListHeader}
+                      ListFooterComponent={renderSearchBattleFooter}
+                      contentContainerStyle={styles.listContent}
+                      initialNumToRender={10}
+                      maxToRenderPerBatch={10}
+                      windowSize={5}
+                      removeClippedSubviews={Platform.OS === 'android'}
+                    />
+                  ) : hasSearched ? (
+                    <View style={styles.emptyContainer}>
+                      <Icon name="search-outline" size={60} color="#ddd" />
+                      <Text style={styles.emptyTitle}>No users found</Text>
+                      <Text style={styles.emptySubtitle}>Try searching for a different user</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* Masonry grid */}
+              {searchText.trim().length === 0 ? (
+                posts.length > 0 ? (
+                  <View style={styles.masonryWrapper}>
+                    <FlatList
+                      data={masonryItems}
+                      renderItem={renderMasonryFlatListItem}
+                      keyExtractor={masonryKeyExtractor}
+                      showsVerticalScrollIndicator={false}
+                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                      contentContainerStyle={[styles.masonryContainer, { height: masonryLayout.maxHeight }]}
+                      removeClippedSubviews
+                      initialNumToRender={12}
+                      // OPTIMIZATION 10: Larger batches = fewer JS thread interruptions
+                      maxToRenderPerBatch={20}
+                      windowSize={15}
+                      onScroll={onMasonryScroll}
+                      scrollEventThrottle={16}
+                      // OPTIMIZATION 11: Disable VirtualizedList warnings for absolute layout
+                      getItemLayout={undefined}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Icon name="images-outline" size={60} color="#ddd" />
+                    <Text style={styles.emptyTitle}>No posts available</Text>
+                  </View>
+                )
+              ) : null}
             </View>
 
             {/* Battle cards row */}

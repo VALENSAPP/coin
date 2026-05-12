@@ -348,7 +348,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                 end={{ x: 0, y: 1 }}
                 style={styles.leftRail}
               >
-                <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '80%' }]}>
+                <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '50%' }]}>
                   <Ionicons name="bag-handle" size={34} color={text} />
                 </View>
               </LinearGradient>
@@ -366,9 +366,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                     <TouchableOpacity
                       activeOpacity={0.9}
                       onPress={onSubscribePress}
-                      style={[styles.ctaButton, {backgroundColor: text}]}
+                      style={[styles.ctaButton, { backgroundColor: text }]}
                     >
-                        <Text style={styles.ctaText}>  Start It Now</Text>
+                      <Text style={styles.ctaText}>  Start It Now</Text>
                     </TouchableOpacity>
                   </>
                 ) : (
@@ -385,9 +385,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                     <TouchableOpacity
                       activeOpacity={0.9}
                       onPress={onSubscribePress}
-                      style={[styles.ctaButton, {backgroundColor: text}]}
+                      style={[styles.ctaButton, { backgroundColor: text }]}
                     >
-                        <Text style={styles.ctaText}>Shop now</Text>
+                      <Text style={styles.ctaText}>Shop now</Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -428,7 +428,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
         <>
           {
             isCompany ?
-              <View style={[styles.marketingContainer, bgStyle, {marginTop: -50}]}>
+              <View style={[styles.marketingContainer, bgStyle, { marginTop: -50 }]}>
                 <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
                   <LinearGradient
                     colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
@@ -454,9 +454,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                         <TouchableOpacity
                           activeOpacity={0.9}
                           onPress={onSubscribePress}
-                          style={[styles.ctaButton, {backgroundColor: text}]}
+                          style={[styles.ctaButton, { backgroundColor: text }]}
                         >
-                            <Text style={styles.ctaText}> Start It Now</Text>
+                          <Text style={styles.ctaText}> Start It Now</Text>
                         </TouchableOpacity>
                       </>
                     ) : (
@@ -473,9 +473,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
                         <TouchableOpacity
                           activeOpacity={0.9}
                           onPress={onSubscribePress}
-                         style={[styles.ctaButton, {backgroundColor: text}]}
+                          style={[styles.ctaButton, { backgroundColor: text }]}
                         >
-                            <Text style={styles.ctaText}>Shop now</Text>
+                          <Text style={styles.ctaText}>Shop now</Text>
                         </TouchableOpacity>
                       </>
                     )}
@@ -705,25 +705,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   marketingTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   marketingText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 12,
+    lineHeight: 14,
     marginBottom: 10,
   },
-    ctaButton: {
+  ctaButton: {
     borderRadius: 18,
     alignItems: 'center',
-    minHeight: 40, // ✅ ensures full visibility
+    minHeight: 30, // ✅ ensures full visibility
     justifyContent: 'center',
     marginTop: 8
   },
   ctaText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
 });
