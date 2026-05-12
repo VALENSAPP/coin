@@ -28,11 +28,13 @@ import {
     createOnboardingLink,
     getOnboardingStatus,
 } from '../../utils/stripeOnboarding';
+import { useLanguage } from '../../i18n';
 
 export default function MissionSupportScreen({ visible, onClose, item, onDonationSuccess }) {
     const { bgStyle, textStyle, bg } = useAppTheme();
     const dispatch = useDispatch();
     const toast = useToast();
+    const { t } = useLanguage();
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
@@ -41,8 +43,6 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const paymentCompletedRef = useRef(false);
     const finalAmount = Number(selectedAmount || customAmount);
     const isAmountValid = finalAmount > 0;
-
-
 
     const amounts = [5, 10, 25, 50];
 
@@ -96,47 +96,33 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
         return null;
     };
 
-    // ✅ Listen for payment completion events
     useEffect(() => {
-        // Only setup listener when modal is visible
         if (!visible) return;
 
-        console.log('🎧 MissionSupport: Setting up PAYMENT_COMPLETED listener');
-
         const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
-            console.log('🔔 MissionSupport: PAYMENT_COMPLETED event received!', data);
-
-            // Reset loading state
             paymentCompletedRef.current = true;
             setIsButtonLoading(false);
             dispatch(hideLoader());
 
-            // Call success callback if provided
             if (onDonationSuccess) {
-                console.log('📞 MissionSupport: Calling onDonationSuccess');
                 onDonationSuccess();
             }
 
-            // Reset form
             setCustomAmount('');
             setSelectedAmount(null);
             setNote('');
-
-            // Close modal
             onClose();
 
-            showToastMessage(toast, 'success', 'Donation completed successfully!');
+            showToastMessage(toast, 'success', t('missionSupportScreen.donationSuccess'));
         });
 
         return () => {
-            console.log('🔇 MissionSupport: Removing PAYMENT_COMPLETED listener');
             subscription.remove();
         };
-    }, [visible]); // ✅ Only depend on visible prop
+    }, [visible]);
 
     const runPaymentFlow = async (createPaymentSession) => {
         const onboardingStatus = await GetInbordingstatus();
-        console.log(onboardingStatus, 'data in donation')
 
         if (isOnboardingReady(onboardingStatus)) {
             const response = await createPaymentSession();
@@ -207,30 +193,26 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             return;
         }
 
-        showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+        showToastMessage(toast, 'warning', t('missionSupportScreen.onboardingIncomplete'));
     };
 
     const handleConfirm = async () => {
         setIsButtonLoading(true);
 
-        if (item?.profile === "user") {
+        if (item?.profile === 'user') {
             await handleMissionDonation();
-        }
-        else {
+        } else {
             const finalAmount = selectedAmount || customAmount;
-            console.log("Final Amount:", finalAmount);
-            console.log("Note:", note);
             try {
-                dispatch(showLoader())
+                dispatch(showLoader());
                 const requestBody = {
-                    type: "donation",
+                    type: 'donation',
                     amount: Number(finalAmount),
                     vendorId: item.UserId,
                     postId: item.id,
-                    note: note
+                    note: note,
                 };
 
-                console.log('Purchase request body:', requestBody);
                 setTimeout(async () => {
                     try {
                         await runPaymentFlow(() => purchaseTokenWithUSD(requestBody));
@@ -242,7 +224,6 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                     }
                 }, 1000);
             } catch (error) {
-                console.error('Error creating payment session:', error);
                 showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
                 await InAppBrowser.close();
                 setIsButtonLoading(false);
@@ -250,23 +231,19 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             }
         }
     };
+
     const handleMissionDonation = async () => {
         const finalAmount = selectedAmount || customAmount;
-        console.log("Final Amount:", finalAmount);
-        console.log("Note:", note);
 
         try {
             dispatch(showLoader());
-
             const requestBody = {
-                type: "missionDonation",
+                type: 'missionDonation',
                 amount: Number(finalAmount),
                 vendorId: item.UserId,
                 postId: item.id,
-                note: note
+                note: note,
             };
-
-            console.log('Mission Donation Request:', requestBody);
 
             try {
                 await runPaymentFlow(() => addMissionDonation(requestBody));
@@ -276,7 +253,6 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                 dispatch(hideLoader());
             }
         } catch (error) {
-            console.error('Error creating mission donation session:', error);
             showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
             setIsButtonLoading(false);
             dispatch(hideLoader());
@@ -284,117 +260,129 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     };
 
     return (
-        <>
-            <Modal
-                visible={visible}
-                transparent
-                animationType="fade"
-                onRequestClose={onClose}
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={{ flex: 1 }}
-                >
-                    <View style={styles.overlay}>
-                        <View style={styles.modalBox}>
-                            <ScrollView contentContainerStyle={[styles.container, bgStyle]}>
+                <View style={styles.overlay}>
+                    <View style={styles.modalBox}>
+                        <ScrollView contentContainerStyle={[styles.container, bgStyle]}>
 
-                                <Text style={[styles.title, textStyle]}>💜 VALENS MISSION POST</Text>
+                            <Text style={[styles.title, textStyle]}>
+                                {t('missionSupportScreen.title')}
+                            </Text>
 
-                                <Text style={styles.heading}>Fund this Mission. Fuel their vision.</Text>
+                            <Text style={styles.heading}>
+                                {t('missionSupportScreen.heading')}
+                            </Text>
 
-                                <Text style={styles.description}>
-                                    Your contribution helps this creator complete a specific goal or project.
-                                </Text>
+                            <Text style={styles.description}>
+                                {t('missionSupportScreen.description')}
+                            </Text>
 
-                                <Text style={styles.label}>Leave a note (optional):</Text>
-                                <TextInput
-                                    style={styles.noteInput}
-                                    placeholder="Type a short message of support..."
-                                    placeholderTextColor="#999"
-                                    multiline
-                                    value={note}
-                                    onChangeText={setNote}
-                                />
+                            <Text style={styles.label}>
+                                {t('missionSupportScreen.noteLabel')}
+                            </Text>
+                            <TextInput
+                                style={styles.noteInput}
+                                placeholder={t('missionSupportScreen.notePlaceholder')}
+                                placeholderTextColor="#999"
+                                multiline
+                                value={note}
+                                onChangeText={setNote}
+                            />
 
-                                <Text style={styles.label}>Choose your support amount:</Text>
+                            <Text style={styles.label}>
+                                {t('missionSupportScreen.amountLabel')}
+                            </Text>
 
-                                <View style={styles.amountContainer}>
-                                    {amounts.map((amt) => (
-                                        <TouchableOpacity
-                                            key={amt}
-                                            style={[styles.amountBox, selectedAmount === amt && styles.amountSelected]}
-                                            onPress={() => {
-                                                setSelectedAmount(amt);
-                                                setCustomAmount('');
-                                            }}
-                                        >
-                                            <Text style={styles.amountText}>${amt}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-
-                                    <View style={[styles.customBox, customAmount && styles.amountSelected]}>
-                                        <TextInput
-                                            keyboardType="numeric"
-                                            style={styles.customInput}
-                                            value={customAmount}
-                                            onChangeText={(t) => {
-                                                setCustomAmount(t);
-                                                setSelectedAmount(null);
-                                            }}
-                                            placeholder='Enter amount'
-                                            placeholderTextColor="#000"
-                                            cursorColor="#000"
-                                            selectionColor="#000"
-                                        />
-                                    </View>
-                                </View>
-
-                                <Text style={styles.secureText}>
-                                    Your payment is processed securely. Standard Valens platform fees apply.
-                                </Text>
-
-                                <View style={styles.bottomButtons}>
+                            <View style={styles.amountContainer}>
+                                {amounts.map((amt) => (
                                     <TouchableOpacity
+                                        key={amt}
                                         style={[
-                                            styles.confirmBtn,
-                                            bg,
-                                            (isButtonLoading || !isAmountValid) && styles.confirmBtnDisabled
+                                            styles.amountBox,
+                                            selectedAmount === amt && styles.amountSelected,
                                         ]}
-                                        onPress={handleConfirm}
-                                        disabled={isButtonLoading || !isAmountValid}
-                                    >
-
-                                        {isButtonLoading ? (
-                                            <View style={styles.loadingContainer}>
-                                                <ActivityIndicator size="small" color="#fff" />
-                                                <Text style={[styles.confirmText, { marginLeft: 8 }]}>Processing...</Text>
-                                            </View>
-                                        ) : (
-                                            <Text style={styles.confirmText}>🚀 Confirm & Support</Text>
-                                        )}
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={styles.cancelBtn}
                                         onPress={() => {
-                                            setIsButtonLoading(false);
-                                            dispatch(hideLoader());
-                                            onClose();
+                                            setSelectedAmount(amt);
+                                            setCustomAmount('');
                                         }}
-                                    // disabled={isButtonLoading}
                                     >
-                                        <Text style={styles.cancelText}>Cancel</Text>
+                                        <Text style={styles.amountText}>${amt}</Text>
                                     </TouchableOpacity>
+                                ))}
+
+                                <View style={[styles.customBox, customAmount && styles.amountSelected]}>
+                                    <TextInput
+                                        keyboardType="numeric"
+                                        style={styles.customInput}
+                                        value={customAmount}
+                                        onChangeText={(val) => {
+                                            setCustomAmount(val);
+                                            setSelectedAmount(null);
+                                        }}
+                                        placeholder={t('missionSupportScreen.customAmountPlaceholder')}
+                                        placeholderTextColor="#000"
+                                        cursorColor="#000"
+                                        selectionColor="#000"
+                                    />
                                 </View>
+                            </View>
 
-                            </ScrollView>
-                        </View>
+                            <Text style={styles.secureText}>
+                                {t('missionSupportScreen.secureText')}
+                            </Text>
+
+                            <View style={styles.bottomButtons}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.confirmBtn,
+                                        bg,
+                                        (isButtonLoading || !isAmountValid) && styles.confirmBtnDisabled,
+                                    ]}
+                                    onPress={handleConfirm}
+                                    disabled={isButtonLoading || !isAmountValid}
+                                >
+                                    {isButtonLoading ? (
+                                        <View style={styles.loadingContainer}>
+                                            <ActivityIndicator size="small" color="#fff" />
+                                            <Text style={[styles.confirmText, { marginLeft: 8 }]}>
+                                                {t('missionSupportScreen.processingButton')}
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        <Text style={styles.confirmText}>
+                                            {t('missionSupportScreen.confirmButton')}
+                                        </Text>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.cancelBtn}
+                                    onPress={() => {
+                                        setIsButtonLoading(false);
+                                        dispatch(hideLoader());
+                                        onClose();
+                                    }}
+                                >
+                                    <Text style={styles.cancelText}>
+                                        {t('missionSupportScreen.cancelButton')}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                        </ScrollView>
                     </View>
-                </KeyboardAvoidingView>
-            </Modal>
-
-        </>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
     );
 }
 

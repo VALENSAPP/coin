@@ -8,20 +8,23 @@ import { createCheckoutSession } from '../../services/stirpe';
 import { useAppTheme } from '../../theme/useApptheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createOnboardingLink, getOnboardingStatus } from '../../services/profile';
-
+import { useLanguage } from '../../i18n';
 
 const BusinessSubscriptionPrompt = ({
   visible,
   subscriptionStatus,
-  // onActivate,
   onLater,
-  title = 'Unlock Business Features',
+  title,
 }) => {
   const [step, setStep] = useState(1);
   const [isActivating, setIsActivating] = useState(false);
   const [resolvedSubscriptionStatus, setResolvedSubscriptionStatus] = useState('');
   const toast = useToast();
   const { text } = useAppTheme();
+  const { t } = useLanguage();
+
+  // fall back to translation key if no prop title is provided
+  const resolvedTitle = title || t('businessSubscriptionPrompt.step2Title');
 
   useEffect(() => {
     if (visible) {
@@ -60,8 +63,6 @@ const BusinessSubscriptionPrompt = ({
       isMounted = false;
     };
   }, [visible, subscriptionStatus]);
-
-  const shouldShowModal = visible;
 
   const handleClose = () => {
     setStep(1);
@@ -174,7 +175,7 @@ const BusinessSubscriptionPrompt = ({
 
   return (
     <Modal
-      visible={shouldShowModal}
+      visible={visible}
       transparent
       animationType="fade"
       onRequestClose={handleClose}
@@ -184,14 +185,18 @@ const BusinessSubscriptionPrompt = ({
 
           {step === 1 ? (
             <>
-              {/* <Text style={styles.icon}>✨</Text> */}
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
                 <Icon name="close" size={28} color={text} />
               </TouchableOpacity>
-              <Text style={[styles.title, { color: text }]}>Subscribe Valens</Text>
-              <Text style={styles.bodyText}>
-                To continue with business tools, you need to subscribe to Valens.
+
+              <Text style={[styles.title, { color: text }]}>
+                {t('businessSubscriptionPrompt.step1Title')}
               </Text>
+
+              <Text style={styles.bodyText}>
+                {t('businessSubscriptionPrompt.step1Body')}
+              </Text>
+
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={[
@@ -201,34 +206,43 @@ const BusinessSubscriptionPrompt = ({
                   ]}
                   onPress={() => setStep(2)}
                 >
-                  <Text style={styles.primaryButtonText}>Subscribe Valens</Text>
+                  <Text style={styles.primaryButtonText}>
+                    {t('businessSubscriptionPrompt.step1Button')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </>
           ) : (
             <>
               <Text style={styles.icon}>🔓</Text>
-              <Text style={[styles.title, { color: text }]}>{title}</Text>
+
+              <Text style={[styles.title, { color: text }]}>{resolvedTitle}</Text>
 
               <Text style={styles.bodyText}>
-                To access Mission Posts and Marketing Placements, you'll need an active Business Subscription.
+                {t('businessSubscriptionPrompt.step2Body')}
               </Text>
 
-              <Text style={styles.sectionTitle}>With a Business Subscription, you can:</Text>
-              <Text style={styles.listItem}>✔ Launch Mission Posts (goal-based campaigns)</Text>
-              <Text style={styles.listItem}>✔ Promote your brand with marketing placements</Text>
-              <Text style={styles.listItem}>✔ Collaborate with creators</Text>
-              <Text style={styles.listItem}>✔ Access advanced analytics and campaign tools</Text>
+              <Text style={styles.sectionTitle}>
+                {t('businessSubscriptionPrompt.featuresTitle')}
+              </Text>
+              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature1')}</Text>
+              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature2')}</Text>
+              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature3')}</Text>
+              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature4')}</Text>
 
               <Text style={styles.bodyText}>
-                Your subscription grants access to platform tools and services within Valens.
+                {t('businessSubscriptionPrompt.step2BodyFooter')}
               </Text>
 
-              <Text style={styles.ctaText}>Activate your Business Subscription to continue.</Text>
+              <Text style={styles.ctaText}>
+                {t('businessSubscriptionPrompt.ctaText')}
+              </Text>
 
               <View style={styles.actions}>
                 <TouchableOpacity style={styles.secondaryButton} onPress={handleClose}>
-                  <Text style={styles.secondaryButtonText}>Maybe Later</Text>
+                  <Text style={styles.secondaryButtonText}>
+                    {t('businessSubscriptionPrompt.maybeLater')}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -239,7 +253,9 @@ const BusinessSubscriptionPrompt = ({
                   {isActivating ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>Activate Now</Text>
+                    <Text style={styles.primaryButtonText}>
+                      {t('businessSubscriptionPrompt.activateNow')}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>

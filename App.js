@@ -38,11 +38,11 @@ const App = () => {
                 <Provider store={store}>
                   <ThemeProvider>
                     <Loader>
-                    <WalletConnectSupportProvider>
-                        <LanguageProvider>
+                      <LanguageProvider>
+                        <WalletConnectSupportProvider>
                           <Main />
-                        </LanguageProvider>
-                      </WalletConnectSupportProvider>
+                        </WalletConnectSupportProvider>
+                      </LanguageProvider>
                     </Loader>
                   </ThemeProvider>
                 </Provider>

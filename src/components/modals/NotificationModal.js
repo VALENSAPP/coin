@@ -1,32 +1,40 @@
 import React from 'react';
 import { Modal, Text, View, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
- 
-const NotificationModal = ({ visible, message, closeModal }) => {
+import { useLanguage } from '../../i18n';
 
-    return (
-        <Modal
-            animationType="fade"
-            transparent={true}
-            visible={visible}
-            onRequestClose={closeModal}
-        >
-            <View style={styles.modal_mainView}>
-                <View
-                    style={styles.modal_innerView}>
-                        <View style={{marginVertical: 30}}>
-                    <Icon name="notifications-sharp" size={28} color={'#5a2d82'}/>
-                        </View>
-                    <View style={styles.width_80}>
-                        <Text style={styles.modal_msg}>{message}</Text>
-                    </View>
-                    <TouchableOpacity onPress={closeModal} style={[styles.modal_btnView, {backgroundColor: '#5a2d82'} ]}>
-                        <Text style={styles.btnTxt}>Close</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
-    );
+const NotificationModal = ({ visible, message, closeModal }) => {
+  const { t } = useLanguage();
+
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={closeModal}
+    >
+      <View style={styles.modal_mainView}>
+        <View style={styles.modal_innerView}>
+          <View style={{ marginVertical: 30 }}>
+            <Icon name="notifications-sharp" size={28} color={'#5a2d82'} />
+          </View>
+
+          <View style={styles.width_80}>
+            <Text style={styles.modal_msg}>{message}</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={closeModal}
+            style={[styles.modal_btnView, { backgroundColor: '#5a2d82' }]}
+          >
+            <Text style={styles.btnTxt}>
+              {t('notificationModal.closeButton')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 };
 
 const styles = StyleSheet.create({

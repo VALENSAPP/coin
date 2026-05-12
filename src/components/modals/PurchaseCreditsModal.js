@@ -17,6 +17,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useRoute } from '@react-navigation/native';
+import { useLanguage } from '../../i18n';
 
 const MAX_CREDITS = 5;
 
@@ -27,6 +28,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const toast = useToast();
   const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const safeCurrentCredits = useMemo(() => {
     const value = Number(currentCredits);
@@ -36,7 +38,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
   const maxPurchasable = useMemo(
     () => Math.max(0, MAX_CREDITS - safeCurrentCredits),
-    [safeCurrentCredits]
+    [safeCurrentCredits],
   );
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -46,9 +48,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const GetInbordingstatus = async () => {
     try {
       const response = await getOnboardingStatus();
-      if (response?.statusCode === 200) {
-        return response?.data ?? null;
-      }
+      if (response?.statusCode === 200) return response?.data ?? null;
       return null;
     } catch (_error) {
       return null;
@@ -61,9 +61,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
     if (!onboardingUrl) {
       const latestStatus = await GetInbordingstatus();
-      if (isOnboardingReady(latestStatus)) {
-        return { alreadyOnboarded: true };
-      }
+      if (isOnboardingReady(latestStatus)) return { alreadyOnboarded: true };
       throw new Error('Onboarding link not found');
     }
 
@@ -81,9 +79,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const waitForOnboardingCompletion = async () => {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const status = await GetInbordingstatus();
-      if (isOnboardingReady(status)) {
-        return status;
-      }
+      if (isOnboardingReady(status)) return status;
       await delay(2000);
     }
     return null;
@@ -92,108 +88,91 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   useEffect(() => {
     if (visible) {
       sheetRef.current?.open();
-      setCreditsToBuy(maxPurchasable > 0 ? 1 : 0); // Reset when modal opens
+      setCreditsToBuy(maxPurchasable > 0 ? 1 : 0);
     } else {
       sheetRef.current?.close();
     }
   }, [visible, maxPurchasable]);
 
   const increaseCredits = () => {
-    if (creditsToBuy < maxPurchasable) {
-      setCreditsToBuy(prev => prev + 1);
-    }
+    if (creditsToBuy < maxPurchasable) setCreditsToBuy(prev => prev + 1);
   };
 
   const decreaseCredits = () => {
-    if (creditsToBuy > 1) {
-      setCreditsToBuy(prev => prev - 1);
+    if (creditsToBuy > 1) setCreditsToBuy(prev => prev - 1);
+  };
+
+  // Returns the translated "up to N credit(s)" error string
+  const maxPurchasableErrorMsg = () =>
+    maxPurchasable === 1
+      ? t('creditPurchaseModal.maxPurchasableError_one', { count: maxPurchasable })
+      : t('creditPurchaseModal.maxPurchasableError_other', { count: maxPurchasable });
+
+  const runPaymentSession = async (dataToSend) => {
+    const response = await buyCreditHits(dataToSend);
+    const url = getPaymentSessionUrl(response);
+    if (!url) {
+      showToastMessage(
+        toast,
+        'danger',
+        response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED,
+      );
+      return false;
     }
+    await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
+    if (await InAppBrowser.isAvailable()) {
+      await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
+    } else {
+      await Linking.openURL(url);
+    }
+    if (onPurchaseComplete) onPurchaseComplete();
+    return true;
   };
 
   const createStripeSubscription = async () => {
     if (maxPurchasable <= 0) {
-      showToastMessage(toast, 'danger', 'You already have maximum credits.');
+      showToastMessage(toast, 'danger', t('creditPurchaseModal.maxCreditsError'));
       return;
     }
     if (creditsToBuy < 1 || creditsToBuy > maxPurchasable) {
-      showToastMessage(
-        toast,
-        'danger',
-        `You can buy up to ${maxPurchasable} credit${maxPurchasable === 1 ? '' : 's'}.`
-      );
+      showToastMessage(toast, 'danger', maxPurchasableErrorMsg());
       return;
     }
+
     dispatch(showLoader());
     try {
       const id = await AsyncStorage.getItem('userId');
       const pricePerCredit = 1.99;
       const amount = parseFloat((creditsToBuy * pricePerCredit).toFixed(2));
-      const dataToSend = {
-        amount: amount,
-        hitCount: creditsToBuy,
-        userId: id
-      };
+      const dataToSend = { amount, hitCount: creditsToBuy, userId: id };
+
       const onboardingStatus = await GetInbordingstatus();
       if (isOnboardingReady(onboardingStatus)) {
-        const response = await buyCreditHits(dataToSend);
-        const url = getPaymentSessionUrl(response);
-        if (!url) {
-          showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
-          return;
-        }
-        await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
-        if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
-        } else {
-          await Linking.openURL(url);
-        }
-        if (onPurchaseComplete) onPurchaseComplete();
+        await runPaymentSession(dataToSend);
         return;
       }
 
       const onboardingResult = await GetInbordingLink();
       if (onboardingResult?.alreadyOnboarded) {
-        const response = await buyCreditHits(dataToSend);
-        const url = getPaymentSessionUrl(response);
-        if (!url) {
-          showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
-          return;
-        }
-        await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
-        if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
-        } else {
-          await Linking.openURL(url);
-        }
-        if (onPurchaseComplete) onPurchaseComplete();
+        await runPaymentSession(dataToSend);
         return;
       }
 
-      if (isBrowserCancelled(onboardingResult)) {
-        return;
-      }
+      if (isBrowserCancelled(onboardingResult)) return;
 
       const updatedStatus = await waitForOnboardingCompletion();
       if (isOnboardingReady(updatedStatus)) {
-        const response = await buyCreditHits(dataToSend);
-        const url = getPaymentSessionUrl(response);
-        if (!url) {
-          showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
-          return;
-        }
-        await AsyncStorage.setItem('lastScreenBeforeBrowser', route.name);
-        if (await InAppBrowser.isAvailable()) {
-          await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
-        } else {
-          await Linking.openURL(url);
-        }
-        if (onPurchaseComplete) onPurchaseComplete();
+        await runPaymentSession(dataToSend);
         return;
       }
 
-      showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+      showToastMessage(toast, 'warning', t('creditPurchaseModal.onboardingIncomplete'));
     } catch (error) {
-      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR,
+      );
     } finally {
       dispatch(hideLoader());
     }
@@ -201,44 +180,41 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
   const handleConfirmPurchase = () => {
     if (maxPurchasable <= 0) {
-      showToastMessage(toast, 'danger', 'You already have maximum credits.');
+      showToastMessage(toast, 'danger', t('creditPurchaseModal.maxCreditsError'));
       sheetRef.current?.close();
       return;
     }
     if (creditsToBuy < 1 || creditsToBuy > maxPurchasable) {
-      showToastMessage(
-        toast,
-        'danger',
-        `You can buy up to ${maxPurchasable} credit${maxPurchasable === 1 ? '' : 's'}.`
-      );
+      showToastMessage(toast, 'danger', maxPurchasableErrorMsg());
       return;
     }
+
     sheetRef.current?.close();
     setTimeout(() => {
+      const confirmMsg =
+        creditsToBuy > 1
+          ? t('creditPurchaseModal.confirmPurchaseMessage_other', { count: creditsToBuy })
+          : t('creditPurchaseModal.confirmPurchaseMessage_one', { count: creditsToBuy });
+
       Alert.alert(
-        'Confirm Purchase',
-        `Purchase ${creditsToBuy} additional post credit${creditsToBuy > 1 ? 's' : ''}?`,
+        t('creditPurchaseModal.confirmPurchaseTitle'),
+        confirmMsg,
         [
           {
-            text: 'Cancel',
+            text: t('creditPurchaseModal.confirmCancel'),
             style: 'cancel',
-            onPress: () => {
-              if (onClose) onClose();
-            }
+            onPress: () => { if (onClose) onClose(); },
           },
           {
-            text: 'Purchase',
-            onPress: () => {
-              createStripeSubscription();
-            }
-          }
-        ]
+            text: t('creditPurchaseModal.confirmPurchase'),
+            onPress: () => createStripeSubscription(),
+          },
+        ],
       );
     }, 300);
   };
 
   return (
-    <>
     <RBSheet
       ref={sheetRef}
       height={360}
@@ -246,12 +222,15 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       closeOnPressMask={true}
       onClose={onClose}
       customStyles={{
-        container: [{
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          paddingVertical: 20,
-          paddingHorizontal: 25,
-        }, bgStyle],
+        container: [
+          {
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            paddingVertical: 20,
+            paddingHorizontal: 25,
+          },
+          bgStyle,
+        ],
         draggableIcon: {
           backgroundColor: '#ccc',
           width: 60,
@@ -259,14 +238,22 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       }}
     >
       <View style={styles.container}>
-        <Text style={[styles.title, textStyle]}>Buy Mint Credits</Text>
+        <Text style={[styles.title, textStyle]}>
+          {t('creditPurchaseModal.title')}
+        </Text>
 
         <View style={[styles.currentCreditsContainer, { shadowColor: text }]}>
-          <Text style={styles.currentCreditsLabel}>Current Credits:</Text>
-          <Text style={[styles.currentCreditsValue, textStyle]}>{safeCurrentCredits} / {MAX_CREDITS}</Text>
+          <Text style={styles.currentCreditsLabel}>
+            {t('creditPurchaseModal.currentCreditsLabel')}
+          </Text>
+          <Text style={[styles.currentCreditsValue, textStyle]}>
+            {safeCurrentCredits} / {MAX_CREDITS}
+          </Text>
         </View>
 
-        <Text style={styles.subtitle}>Select amount to purchase:</Text>
+        <Text style={styles.subtitle}>
+          {t('creditPurchaseModal.selectAmountLabel')}
+        </Text>
 
         <View style={styles.selectorContainer}>
           <TouchableOpacity
@@ -283,7 +270,11 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
 
           <View style={styles.amountContainer}>
             <Text style={[styles.amountText, textStyle]}>{creditsToBuy}</Text>
-            <Text style={styles.creditsLabel}>credit{creditsToBuy > 1 ? 's' : ''}</Text>
+            <Text style={styles.creditsLabel}>
+              {creditsToBuy > 1
+                ? t('creditPurchaseModal.creditPlural')
+                : t('creditPurchaseModal.creditSingular')}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -308,16 +299,18 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
           onPress={handleConfirmPurchase}
           disabled={maxPurchasable <= 0 || creditsToBuy < 1}
         >
-          <Text style={styles.buyBtnText}>Continue to Payment</Text>
+          <Text style={styles.buyBtnText}>
+            {t('creditPurchaseModal.continueToPayment')}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => sheetRef.current?.close()}>
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={styles.cancelText}>
+            {t('creditPurchaseModal.cancelButton')}
+          </Text>
         </TouchableOpacity>
       </View>
     </RBSheet>
-
-    </>
   );
 };
 

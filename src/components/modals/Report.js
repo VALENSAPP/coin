@@ -1,4 +1,4 @@
-import React, { useRef, useState, forwardRef } from "react";
+import React, { useRef, useState, forwardRef } from 'react';
 import {
   View,
   Text,
@@ -7,28 +7,31 @@ import {
   ScrollView,
   Dimensions,
   Alert,
-} from "react-native";
-import RBSheet from "react-native-raw-bottom-sheet";
-import Icon from "react-native-vector-icons/Ionicons";
-import { reportPost } from "../../services/post";
+} from 'react-native';
+import RBSheet from 'react-native-raw-bottom-sheet';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { reportPost } from '../../services/post';
+import { useLanguage } from '../../i18n';
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
+const ReportFlowScreen = forwardRef(({ postId = '', onReported }, ref) => {
   const reasonSheet = useRef(null);
   const confirmSheet = useRef(null);
+  const { t } = useLanguage();
 
   const [selectedReason, setSelectedReason] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Report reasons built from translation keys so they switch language automatically
   const reportReasons = [
-    { id: 1, title: "It's spam", icon: "alert-circle" },
-    { id: 2, title: "Nudity or sexual content", icon: "alert-circle" },
-    { id: 3, title: "Hate speech or symbols", icon: "alert-circle" },
-    { id: 4, title: "Violence or dangerous behaviour", icon: "alert-circle" },
-    { id: 5, title: "False information", icon: "alert-circle" },
-    { id: 6, title: "Bullying or harassment", icon: "alert-circle" },
-    { id: 7, title: "Scam or fraud", icon: "alert-circle" },
+    { id: 1, title: t('reportFlow.reason1'), icon: 'alert-circle' },
+    { id: 2, title: t('reportFlow.reason2'), icon: 'alert-circle' },
+    { id: 3, title: t('reportFlow.reason3'), icon: 'alert-circle' },
+    { id: 4, title: t('reportFlow.reason4'), icon: 'alert-circle' },
+    { id: 5, title: t('reportFlow.reason5'), icon: 'alert-circle' },
+    { id: 6, title: t('reportFlow.reason6'), icon: 'alert-circle' },
+    { id: 7, title: t('reportFlow.reason7'), icon: 'alert-circle' },
   ];
 
   const handleSelectReason = (reason) => {
@@ -39,57 +42,61 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
 
   const submitReport = async () => {
     if (!postId) {
-      Alert.alert("Unable to report", "Missing post id.");
+      Alert.alert(
+        t('reportFlow.missingPostIdTitle'),
+        t('reportFlow.missingPostIdMessage'),
+      );
       return;
     }
     if (!selectedReason) {
-      Alert.alert("Select a reason", "Please choose a reason for this report.");
+      Alert.alert(
+        t('reportFlow.noReasonTitle'),
+        t('reportFlow.noReasonMessage'),
+      );
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // ✅ Store response
       const response = await reportPost({
         postId: String(postId),
         reason: selectedReason,
       });
 
-      // ✅ Log full response
-      console.log("Report API Response:", response);
-
-      // ✅ If using axios, log data specifically
-      console.log("Response Data:", response?.data);
+      console.log('Report API Response:', response);
+      console.log('Response Data:', response?.data);
 
       confirmSheet.current?.close();
       setSelectedReason(null);
 
       onReported?.({ postId: String(postId), reason: selectedReason });
 
-      Alert.alert("Report submitted", "Thanks! Your report has been submitted.");
+      Alert.alert(
+        t('reportFlow.successTitle'),
+        t('reportFlow.successMessage'),
+      );
     } catch (err) {
-      console.log("Report API Error:", err);
-      console.log("Error Response:", err?.response);
+      console.log('Report API Error:', err);
+      console.log('Error Response:', err?.response);
 
       Alert.alert(
-        "Report failed",
-        err?.response?.data?.message || err?.message || "Something went wrong.",
+        t('reportFlow.failedTitle'),
+        err?.response?.data?.message || err?.message || 'Something went wrong.',
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-
-  // Expose the open method via ref
   React.useImperativeHandle(ref, () => ({
     open: () => reasonSheet.current?.open(),
     close: () => reasonSheet.current?.close(),
   }));
+
   return (
     <>
-      {/* 🔴 Sheet 1 - Select Reason */}
+      {/* Sheet 1 — Select Reason */}
       <RBSheet
         ref={reasonSheet}
         height={480}
@@ -97,7 +104,7 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
         closeOnDragDown={true}
         customStyles={{
           container: styles.sheetContainer,
-          overlay: { backgroundColor: "rgba(0,0,0,0.4)" },
+          overlay: { backgroundColor: 'rgba(0,0,0,0.4)' },
         }}
       >
         <View style={styles.dragHandle} />
@@ -106,10 +113,8 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
             <Icon name="flag" size={28} color="#5a2d82" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.sheetTitle}>Report This Content</Text>
-            <Text style={styles.sheetSubtitle}>
-              Help us understand why you're reporting this
-            </Text>
+            <Text style={styles.sheetTitle}>{t('reportFlow.sheetTitle')}</Text>
+            <Text style={styles.sheetSubtitle}>{t('reportFlow.sheetSubtitle')}</Text>
           </View>
         </View>
 
@@ -133,7 +138,7 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
         </ScrollView>
       </RBSheet>
 
-      {/* 🔵 Sheet 2 - Confirm Reason */}
+      {/* Sheet 2 — Confirm Reason */}
       <RBSheet
         ref={confirmSheet}
         height={400}
@@ -141,7 +146,7 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
         closeOnDragDown={true}
         customStyles={{
           container: styles.sheetContainer,
-          overlay: { backgroundColor: "rgba(0,0,0,0.4)" },
+          overlay: { backgroundColor: 'rgba(0,0,0,0.4)' },
         }}
       >
         <View style={styles.dragHandle} />
@@ -149,14 +154,12 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
           <View style={styles.checkIconWrapper}>
             <Icon name="checkmark-circle" size={50} color="#5a2d82" />
           </View>
-          <Text style={styles.confirmTitle}>Report This Content</Text>
-          <Text style={styles.confirmSubtitle}>
-            We take your feedback seriously
-          </Text>
+          <Text style={styles.confirmTitle}>{t('reportFlow.confirmTitle')}</Text>
+          <Text style={styles.confirmSubtitle}>{t('reportFlow.confirmSubtitle')}</Text>
         </View>
 
         <View style={styles.confirmContentBox}>
-          <Text style={styles.confirmLabel}>Reason for report:</Text>
+          <Text style={styles.confirmLabel}>{t('reportFlow.reasonLabel')}</Text>
           <Text style={styles.selectedReason}>{selectedReason}</Text>
         </View>
 
@@ -167,7 +170,9 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
         >
           <Icon name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.submitButtonText}>
-            {submitting ? "Submitting..." : "Submit Report"}
+            {submitting
+              ? t('reportFlow.submittingButton')
+              : t('reportFlow.submitButton')}
           </Text>
         </TouchableOpacity>
 
@@ -176,7 +181,7 @@ const ReportFlowScreen = forwardRef(({ postId = "", onReported }, ref) => {
           onPress={() => confirmSheet.current?.close()}
           disabled={submitting}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>{t('reportFlow.cancelButton')}</Text>
         </TouchableOpacity>
       </RBSheet>
     </>

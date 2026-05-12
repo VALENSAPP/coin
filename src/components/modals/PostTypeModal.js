@@ -19,6 +19,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import ActivateMissionPost from './ActivateMissionPost';
+import { useLanguage } from '../../i18n';
 
 const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const [creditsLeft, setCreditsLeft] = useState(null);
@@ -31,15 +32,13 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const toast = useToast();
   const navigation = useNavigation();
   const { bgStyle, textStyle, text, card } = useAppTheme();
+  const { t } = useLanguage();
 
   const resetNestedModals = useCallback(() => {
     setShowActivateMissionModal(false);
     setShowBuyCreditsModal(false);
   }, []);
 
-  // Drive the sheet only from `visible`. Do not combine with useIsFocused: during tab
-  // transitions focus can be false for a frame while visible is true; calling close()
-  // then fires onClose → setShowTypeModal(false) and the sheet vanishes immediately.
   useEffect(() => {
     let cancelled = false;
     let rafId;
@@ -48,8 +47,6 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
       fetchCreditsLeft();
       loadProfileType();
       resetNestedModals();
-      // iOS: opening RBSheet in the same frame as navigation can leave the Modal
-      // mounted but not painted above the stack; wait for transition + layout.
       const interactionHandle = InteractionManager.runAfterInteractions(() => {
         if (cancelled) return;
         rafId = requestAnimationFrame(() => {
@@ -61,9 +58,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
       return () => {
         cancelled = true;
-        if (rafId != null) {
-          cancelAnimationFrame(rafId);
-        }
+        if (rafId != null) cancelAnimationFrame(rafId);
         if (interactionHandle && typeof interactionHandle.cancel === 'function') {
           interactionHandle.cancel();
         }
@@ -75,15 +70,10 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     return undefined;
   }, [visible, resetNestedModals]);
 
-
-
   const loadProfileType = async () => {
     const type = await AsyncStorage.getItem('profile');
-    console.log('Loaded profile type:', type);
     setProfile(type);
   };
-
-
 
   const fetchCreditsLeft = async () => {
     try {
@@ -105,14 +95,9 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     }
   };
 
-
-
   const handleCrowdfundingSelect = () => {
-    if (creditsLeft === null) {
-      return;
-    }
+    if (creditsLeft === null) return;
 
-    // User has credits: pick mission/support type and continue without extra modal.
     if (creditsLeft > 0) {
       onSelect('crowdfunding');
       resetNestedModals();
@@ -120,8 +105,6 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
       return;
     }
 
-    // No credits: RBSheet uses its own RN Modal. On iOS a second Modal often
-    // does not present on top while the sheet is open — close sheet first.
     setShowBuyCreditsModal(false);
     setShowActivateMissionModal(false);
     pendingActivateMissionAfterSheetCloseRef.current = true;
@@ -153,16 +136,15 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   };
 
   const handleBuyCredits = () => {
-    // TODO: Navigate to buy credits screen or handle purchase flow
     setShowBuyCreditsModal(false);
     setShowTypeModal(false);
     navigation.navigate('MainApp', {
       screen: 'wallet',
-      params: { screen: 'WalletMain' }
+      params: { screen: 'WalletMain' },
     });
-    // Add your navigation logic here, for example:
-    // navigation.navigate('BuyCredits');
   };
+
+  const isCompany = profile === 'company';
 
   return (
     <>
@@ -177,13 +159,16 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
             : { statusBarTranslucent: true }
         }
         customStyles={{
-          container: [{
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            padding: 20,
-          }, bgStyle],
+          container: [
+            {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 20,
+            },
+            bgStyle,
+          ],
         }}
-        onRequestClose={() => { }}
+        onRequestClose={() => {}}
         closeOnPressMask={false}
         closeOnPressBack={false}
       >
@@ -193,9 +178,11 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
               <Icon name="close-outline" size={28} color={text} />
             </TouchableOpacity>
 
-            <Text style={[styles.title, textStyle]}>Choose Mint Type</Text>
+            <Text style={[styles.title, textStyle]}>
+              {t('postTypeModal.title')}
+            </Text>
 
-            {/* For spacing balance */}
+            {/* spacing balance */}
             <View style={{ width: 28 }} />
           </View>
 
@@ -203,17 +190,21 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
             style={[
               styles.optionBtn,
               { backgroundColor: card, borderColor: text },
-              creditsLeft === 0 && styles.disabledOption
+              creditsLeft === 0 && styles.disabledOption,
             ]}
             onPress={handleCrowdfundingSelect}
             disabled={creditsLeft === null}
           >
             <Text style={[styles.optionText, textStyle]}>
-              {profile === 'company' ? '💸 Support' : '💸 Mission Mint'}
-              (Credits Left - {creditsLeft ?? 0})
+              {isCompany
+                ? t('postTypeModal.supportLabel')
+                : t('postTypeModal.missionMintLabel')}
+              {' '}({t('postTypeModal.creditsLeft', { count: creditsLeft ?? 0 })})
             </Text>
-            {creditsLeft === 0 && profile !== 'company' && (
-              <Text style={styles.noCreditsText}>No credits available</Text>
+            {creditsLeft === 0 && !isCompany && (
+              <Text style={styles.noCreditsText}>
+                {t('postTypeModal.noCreditsAvailable')}
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -225,7 +216,9 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
               setShowTypeModal(false);
             }}
           >
-            <Text style={[styles.optionText, textStyle]}>📝 Regular Mint</Text>
+            <Text style={[styles.optionText, textStyle]}>
+              {t('postTypeModal.regularMintLabel')}
+            </Text>
           </TouchableOpacity>
         </View>
       </RBSheet>
@@ -236,32 +229,40 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         transparent={true}
         animationType="fade"
         presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-        onRequestClose={() => { }}
+        onRequestClose={() => {}}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => { }}
+          onPress={() => {}}
         >
           <View style={[styles.modalContent, bgStyle]}>
             <View style={styles.modalHeader}>
               <Icon name="wallet-outline" size={50} color={text} />
             </View>
 
-            <Text style={[styles.modalTitle, textStyle]}>No Credits Available</Text>
-              <Text style={[styles.modalMessage, textStyle]}>
-                You need credits to create a {profile === 'company' ? 'Support' : 'Mission Mint'}.
-                Purchase credits to continue.
-              </Text>
+            <Text style={[styles.modalTitle, textStyle]}>
+              {t('postTypeModal.buyCreditsTitle')}
+            </Text>
+
+            <Text style={[styles.modalMessage, textStyle]}>
+              {t('postTypeModal.buyCreditsMessage', {
+                type: isCompany
+                  ? t('postTypeModal.supportType')
+                  : t('postTypeModal.missionMintType'),
+              })}
+            </Text>
 
             <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.buyButton, {backgroundColor: text, shadowColor: text}]}
-                  onPress={handleBuyCredits}
-                >
-                  <Icon name="cart-outline" size={20} color="#fff" />
-                  <Text style={styles.buyButtonText}>Buy Credits</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.buyButton, { backgroundColor: text, shadowColor: text }]}
+                onPress={handleBuyCredits}
+              >
+                <Icon name="cart-outline" size={20} color="#fff" />
+                <Text style={styles.buyButtonText}>
+                  {t('postTypeModal.buyCreditsButton')}
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.cancelButton, bgStyle]}
@@ -270,7 +271,9 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
                   reopenMintTypeSheet();
                 }}
               >
-                <Text style={[styles.cancelButtonText, textStyle]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, textStyle]}>
+                  {t('postTypeModal.cancelButton')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

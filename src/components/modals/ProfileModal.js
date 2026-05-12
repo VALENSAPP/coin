@@ -28,6 +28,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import StoryComposer from '../home/story.js/StoryComposer';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -35,11 +36,11 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   const navigation = useNavigation();
   const toast = useToast();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const { bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
 
-  // Story composer state
   const [composerVisible, setComposerVisible] = useState(false);
   const [composerList, setComposerList] = useState([]);
-   const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     if (modalVisible) {
@@ -67,9 +68,6 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
     });
   };
 
-  /** Must unmount the RN Modal before pushing another screen on iOS; otherwise
-   *  `visible` stays true during the close animation and the transparent overlay
-   *  blocks all touches on the next screen (e.g. New Mint media picker). */
   const hideModalImmediate = () => {
     translateY.stopAnimation();
     translateY.setValue(SCREEN_HEIGHT);
@@ -82,11 +80,11 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.CAMERA,
         {
-          title: 'Camera Permission',
-          message: 'This app needs access to your camera to take photos.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
+          title: t('profileModal.cameraPermissionTitle'),
+          message: t('profileModal.cameraPermissionMessage'),
+          buttonNeutral: t('profileModal.cameraPermissionNeutral'),
+          buttonNegative: t('profileModal.cameraPermissionNegative'),
+          buttonPositive: t('profileModal.cameraPermissionPositive'),
         },
       );
       return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -100,8 +98,8 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
       Alert.alert(
-        'Permission Denied',
-        'Camera permission is required to take photos.',
+        t('profileModal.permissionDeniedTitle'),
+        t('profileModal.permissionDeniedMessage'),
       );
       return;
     }
@@ -117,7 +115,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       if (response?.didCancel) return;
       if (response?.errorCode) {
         Alert.alert(
-          'Camera error',
+          t('profileModal.cameraErrorTitle'),
           response.errorMessage || response.errorCode,
         );
         return;
@@ -152,13 +150,16 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   const handleMediaSelected = response => {
     const asset = response?.assets?.[0];
     if (!asset || !asset.uri) {
-      Alert.alert('Oops', 'Could not read the selected media.');
+      Alert.alert(
+        t('profileModal.mediaReadErrorTitle'),
+        t('profileModal.mediaReadErrorMessage'),
+      );
       return;
     }
     const type = asset.type?.startsWith('video') ? 'video' : 'image';
     const list = [{
       uri: asset.uri,
-      type: type,
+      type,
       duration: type === 'video'
         ? (asset.duration ? asset.duration * 1000 : 15000)
         : 5000,
@@ -168,66 +169,51 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
   };
 
   const handleAddStory = () => {
-    // Close the modal first
     hideModal();
-
-    // Small delay to ensure modal animation completes
     setTimeout(() => {
-      Alert.alert('Add Drops', 'Choose how to add your drops', [
-        { text: 'Camera', onPress: () => openCamera() },
-        { text: 'Gallery', onPress: () => openGallery() },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      Alert.alert(
+        t('profileModal.addDropsTitle'),
+        t('profileModal.addDropsMessage'),
+        [
+          { text: t('profileModal.cameraOption'), onPress: () => openCamera() },
+          { text: t('profileModal.galleryOption'), onPress: () => openGallery() },
+          { text: t('profileModal.cancelOption'), style: 'cancel' },
+        ],
+      );
     }, 300);
   };
 
   const handleComposerDone = async (processedArray) => {
     try {
       const clips = await prepareStoryClipsAudioForUpload(processedArray);
-
       setComposerVisible(false);
 
-      // Prepare FormData for API call
       const formData = new FormData();
-
-      // Add caption (optional)
       formData.append('caption', '');
 
-      // Add media files
       clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
         const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
-
-        formData.append('media', {
-          uri: fileUri,
-          type: fileType,
-          name: fileName,
-        });
+        formData.append('media', { uri: fileUri, type: fileType, name: fileName });
       });
 
-      formData.append(
-        'storyMeta',
-        JSON.stringify(buildStoryMetaPayload(clips)),
-      );
+      formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
       await appendStoryAudioFiles(formData, clips);
 
-      // Call API to upload story
       const response = await PostStory(formData);
 
       if (response?.success) {
-        showToastMessage(toast, 'success', 'Story Uploaded Successfully');
-
-        // Notify parent component to refresh stories
+        showToastMessage(toast, 'success', t('profileModal.storyUploadSuccess'));
         if (onStoryUploaded) {
           onStoryUploaded();
         }
       } else {
-        showToastMessage(toast, 'danger', 'Failed to upload story please try again');
+        showToastMessage(toast, 'danger', t('profileModal.storyUploadFailed'));
       }
     } catch (error) {
       console.error('Error uploading story:', error);
-      showToastMessage(toast, 'danger', 'Something Went Wrong! Please try again');
+      showToastMessage(toast, 'danger', t('profileModal.storyUploadError'));
     }
   };
 
@@ -242,29 +228,18 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
     };
 
     switch (type) {
-      case 'mint': // post
+      case 'mint':
         closeThenNavigate('Add', { screen: 'Add' });
         break;
-      case 'Flips': // reels
-        closeThenNavigate('Add', {
-          screen: 'Add',
-          params: { type: 'Flips' },
-        });
+      case 'Flips':
+        closeThenNavigate('Add', { screen: 'Add', params: { type: 'Flips' } });
         break;
-      // case 'ai':
-      //   navigation.navigate('');
-      //   hideModal();
-      //   break;
-      case 'drops': // Story
+      case 'drops':
         handleAddStory();
         break;
-      case 'drops highlights': // storyHighlight
+      case 'drops highlights':
         closeThenNavigate('HighlightsScreen');
         break;
-      // case 'live':
-      //   navigation.navigate('');
-      //   hideModal();
-      //   break;
       default:
         break;
     }
@@ -272,9 +247,7 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dy > 10;
-      },
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 10,
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
           translateY.setValue(gestureState.dy);
@@ -313,35 +286,49 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
           >
             <View style={styles.dragHandle} />
 
-            <Text style={styles.title}>Create</Text>
+            <Text style={styles.title}>{t('profileModal.createTitle')}</Text>
 
             <View style={styles.list}>
-              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('Flips')}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleNavigation('Flips')}
+              >
                 <Reels width={20} height={20} />
-                <Text style={styles.lText}>Flips</Text>
+                <Text style={styles.lText}>{t('profileModal.flipsLabel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('mint')}>
+
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleNavigation('mint')}
+              >
                 <Feather name="grid" size={20} color="#111100" />
-                <Text style={styles.lText}>New Mint</Text>
+                <Text style={styles.lText}>{t('profileModal.newMintLabel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops')}>
+
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleNavigation('drops')}
+              >
                 <Image
                   source={require('../../assets/icons/pngicons/user-interface_14983775.png')}
                   style={{ width: 20, height: 20 }}
                   resizeMode="contain"
                 />
-                <Text style={styles.lText}>drops</Text>
+                <Text style={styles.lText}>{t('profileModal.dropsLabel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleNavigation('drops highlights')}>
+
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleNavigation('drops highlights')}
+              >
                 <Feather name="circle" size={20} color="#111100" />
-                <Text style={styles.lText}>Drops Highlights</Text>
+                <Text style={styles.lText}>{t('profileModal.dropsHighlightsLabel')}</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
         </View>
       </Modal>
 
-      {/* Story Composer Modal */}
       <StoryComposer
         modalVisible={composerVisible}
         mediaList={composerList}
