@@ -1,17 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   Image,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  Keyboard,
+  findNodeHandle,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Video from 'react-native-video';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -32,6 +34,8 @@ import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
+const IMAGE_PREVIEW_MAX_HEIGHT =
+  Platform.OS === 'ios' ? Math.min(screenHeight * 0.48, 420) : screenHeight * 0.6;
 
 const PostEditorScreen = () => {
   const navigation = useNavigation();
@@ -78,6 +82,11 @@ const PostEditorScreen = () => {
   const [link, setLink] = useState('');
   const [profile, setProfile] = useState(null);
   const [openingTaggedProfile, setOpeningTaggedProfile] = useState(false);
+  const [iosKeyboardInset, setIosKeyboardInset] = useState(0);
+  const iosScrollRef = useRef(null);
+  const captionInputRef = useRef(null);
+  const linkInputRef = useRef(null);
+  const iosFocusedFieldRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
 console.log(taggedPeopleIds,'dtaatataatatin tah id')
   const toast = useToast();
@@ -127,6 +136,62 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
   useEffect(() => {
     setEditorImages(images);
   }, [images]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const onShow = (e) => {
+      setIosKeyboardInset(e?.endCoordinates?.height ?? 0);
+    };
+    const onHide = () => {
+      setIosKeyboardInset(0);
+      iosFocusedFieldRef.current = null;
+    };
+    const showSub = Keyboard.addListener('keyboardWillShow', onShow);
+    const hideSub = Keyboard.addListener('keyboardWillHide', onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollIosFieldIntoView = useCallback((fieldRef) => {
+    if (Platform.OS !== 'ios') return;
+    const scroll = iosScrollRef.current;
+    if (!scroll) return;
+    const scrollResponder =
+      typeof scroll.getScrollResponder === 'function'
+        ? scroll.getScrollResponder()
+        : null;
+    if (!scrollResponder?.scrollResponderScrollNativeHandleToKeyboard) {
+      return;
+    }
+    const run = () => {
+      const field = fieldRef?.current;
+      const nativeNode = field ? findNodeHandle(field) : null;
+      if (!nativeNode) return;
+      try {
+        scrollResponder.scrollResponderScrollNativeHandleToKeyboard(nativeNode, 160, true);
+      } catch {
+        // ignore (e.g. ref not yet attached to native layer)
+      }
+    };
+    requestAnimationFrame(() => {
+      setTimeout(run, 100);
+      setTimeout(run, 280);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      const r = iosFocusedFieldRef.current;
+      if (r) {
+        setTimeout(() => scrollIosFieldIntoView(r), 60);
+      }
+    });
+    return () => sub.remove();
+  }, [scrollIosFieldIntoView]);
+
   const handlePost = async () => {
     if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
@@ -263,151 +328,185 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
     }
   }, [navigation, resolveUserIdFromUsername, toast]);
 
-  return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? HEADER_HEIGHT : 0}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
-          <Text></Text>
-        </View>
-
-        <ScrollView
-          style={[styles.content, bgStyle]}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Images Card with horizontal scroll */}
-          {editorImages.length > 0 && (
-            <View style={[styles.imagesCard, bgStyle]}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.imagesContainer}
-                keyboardShouldPersistTaps="handled"
-              >
-                {editorImages.map((img, idx) => (
-                  <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
-                    {isMediaVideo(img) ? (
-                      <View style={styles.videoThumbContainer}>
-                        <Video
-                          source={{ uri: getMediaUri(img) }}
-                          style={styles.imageThumb}
-                          resizeMode="contain"
-                          paused={true}
-                          muted={true}
-                          controls={false}
-                          poster={getVideoPosterUri(img) || undefined}
-                        />
-                        <View style={styles.videoBadge}>
-                          <Icon name="play" size={14} color="#fff" />
-                        </View>
-                      </View>
-                    ) : (
-                      <Image
-                        source={{ uri: getMediaUri(img) }}
-                        style={styles.imageThumb}
-                        resizeMode="contain"
-                      />
-                    )}
-                    {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
-                      <TouchableOpacity
-                        style={styles.removeDrawingBtn}
-                        onPress={() => removeDrawingFromImage(idx)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
-                      </TouchableOpacity>
-                    )}
-                    {img.appliedFilter && img.appliedFilter !== 'none' && (
-                      <View style={styles.filterBadge}>
-                        <Text style={styles.filterBadgeText}>{img.filterName}</Text>
-                      </View>
-                    )}
+  const renderEditorBody = () => (
+    <>
+      {editorImages.length > 0 && (
+        <View style={[styles.imagesCard, bgStyle]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.imagesContainer}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
+            {editorImages.map((img, idx) => (
+              <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
+                {isMediaVideo(img) ? (
+                  <View style={styles.videoThumbContainer}>
+                    <Video
+                      source={{ uri: getMediaUri(img) }}
+                      style={styles.imageThumb}
+                      resizeMode="contain"
+                      paused={true}
+                      muted={true}
+                      controls={false}
+                      poster={getVideoPosterUri(img) || undefined}
+                    />
+                    <View style={styles.videoBadge}>
+                      <Icon name="play" size={14} color="#fff" />
+                    </View>
                   </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+                ) : (
+                  <Image
+                    source={{ uri: getMediaUri(img) }}
+                    style={styles.imageThumb}
+                    resizeMode="contain"
+                  />
+                )}
+                {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
+                  <TouchableOpacity
+                    style={styles.removeDrawingBtn}
+                    onPress={() => removeDrawingFromImage(idx)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
+                  </TouchableOpacity>
+                )}
+                {img.appliedFilter && img.appliedFilter !== 'none' && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{img.filterName}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
-          {/* Caption Input */}
-          {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
-            <View style={styles.captionSection}>
-              <Text style={styles.captionLabel}>Tagged people</Text>
-              <Text style={styles.taggedPeopleText}>
-                {taggedPeople.map((user, idx) => {
-                  const clean = String(user).replace(/^@+/, '');
-                  const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
-                  return (
-                    <Text
-                      key={`${clean || 'user'}_${idx}`}
-                      style={[styles.taggedPeopleLink, { color: text }]}
-                      onPress={() => openTaggedUserProfile(clean)}
-                      suppressHighlighting
-                    >
-                      {label}
-                    </Text>
-                  );
-                })}
-                {openingTaggedProfile ? (
-                  <Text style={styles.taggedPeopleLoading}></Text>
-                ) : null}
-              </Text>
-            </View>
-          )}
-          <View style={styles.captionSection}>
-            <Text style={styles.captionLabel}>Write a caption (optional)</Text>
-            <TextInput
-              style={[styles.captionInput, bgStyle]}
-              placeholder="Write a caption (optional)"
-              value={caption}
-              onChangeText={setCaption}
-              multiline
-              textAlignVertical="top"
-              placeholderTextColor={'#e0e0e0'}
-            />
-          </View>
+      {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
+        <View style={styles.captionSection}>
+          <Text style={styles.captionLabel}>Tagged people</Text>
+          <Text style={styles.taggedPeopleText}>
+            {taggedPeople.map((user, idx) => {
+              const clean = String(user).replace(/^@+/, '');
+              const label = `@${clean}${idx < taggedPeople.length - 1 ? ', ' : ''}`;
+              return (
+                <Text
+                  key={`${clean || 'user'}_${idx}`}
+                  style={[styles.taggedPeopleLink, { color: text }]}
+                  onPress={() => openTaggedUserProfile(clean)}
+                  suppressHighlighting
+                >
+                  {label}
+                </Text>
+              );
+            })}
+            {openingTaggedProfile ? (
+              <Text style={styles.taggedPeopleLoading}></Text>
+            ) : null}
+          </Text>
+        </View>
+      )}
+      <View style={styles.captionSection}>
+        <Text style={styles.captionLabel}>Write a caption (optional)</Text>
+        <TextInput
+          ref={captionInputRef}
+          style={[styles.captionInput, bgStyle]}
+          placeholder="Write a caption (optional)"
+          value={caption}
+          onChangeText={setCaption}
+          multiline
+          textAlignVertical="top"
+          placeholderTextColor={'#e0e0e0'}
+          onFocus={() => {
+            if (Platform.OS === 'ios') {
+              iosFocusedFieldRef.current = captionInputRef;
+              scrollIosFieldIntoView(captionInputRef);
+            }
+          }}
+        />
+      </View>
 
-          {/* Link Input */}
-          {postType == 'crowdfunding' && (
-            <View style={[styles.captionSection, { marginTop: -5 }]}>
-              <Text style={styles.captionLabel}>Add a link (optional)</Text>
-              <TextInput
-                style={[styles.linkInput, bgStyle]}
-                placeholder="https://example.com"
-                value={link}
-                onChangeText={setLink}
-                keyboardType="url"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor={'#e0e0e0'}
-              />
-            </View>
-          )}
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <CustomButton
-            title="Continue"
-            onPress={handlePost}
-            style={[
-              styles.socialBtn,
-              styles.instagramBtn,
-              { backgroundColor: text, bordercolor: text },
-            ]}
-            textStyle={styles.socialBtnText}
+      {postType == 'crowdfunding' && (
+        <View style={[styles.captionSection, { marginTop: -5 }]}>
+          <Text style={styles.captionLabel}>Add a link (optional)</Text>
+          <TextInput
+            ref={linkInputRef}
+            style={[styles.linkInput, bgStyle]}
+            placeholder="https://example.com"
+            value={link}
+            onChangeText={setLink}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholderTextColor={'#e0e0e0'}
+            onFocus={() => {
+              if (Platform.OS === 'ios') {
+                iosFocusedFieldRef.current = linkInputRef;
+                scrollIosFieldIntoView(linkInputRef);
+              }
+            }}
           />
         </View>
-      </KeyboardAvoidingView>
+      )}
+
+      <View style={styles.footer}>
+        <CustomButton
+          title="Continue"
+          onPress={handlePost}
+          style={[
+            styles.socialBtn,
+            styles.instagramBtn,
+            { backgroundColor: text, bordercolor: text },
+          ]}
+          textStyle={styles.socialBtnText}
+        />
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
+        <Text></Text>
+      </View>
+
+      {Platform.OS === 'ios' ? (
+        <ScrollView
+          ref={iosScrollRef}
+          style={[styles.content, bgStyle]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: Math.max(40, 32 + iosKeyboardInset) },
+          ]}
+          keyboardDismissMode="none"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+        >
+          {renderEditorBody()}
+        </ScrollView>
+      ) : (
+        <KeyboardAwareScrollView
+          style={[styles.content, bgStyle]}
+          contentContainerStyle={styles.contentContainer}
+          enableOnAndroid
+          enableAutomaticScroll
+          extraScrollHeight={24}
+          extraHeight={160}
+          keyboardOpeningTime={120}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          enableResetScrollToCoords={false}
+          showsVerticalScrollIndicator={false}
+        >
+          {renderEditorBody()}
+        </KeyboardAwareScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -428,17 +527,13 @@ const styles = StyleSheet.create({
   postBtn: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
   content: { flex: 1 },
   contentContainer: {
-    paddingBottom: 120,
+    flexGrow: 1,
+    paddingBottom: 32,
   },
   imagesCard: {
     margin: 16,
     borderRadius: 12,
-    // elevation: 3,
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 4,
-    height: screenHeight * 0.6
+    height: Platform.OS === 'ios' ? IMAGE_PREVIEW_MAX_HEIGHT : screenHeight * 0.6,
   },
   imagesContainer: {
     paddingVertical: 20,

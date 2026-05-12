@@ -541,12 +541,12 @@ export default function CreateProfile() {
       serverProfile?.data?.profile || storedProfileType || profileFromRoute || '',
     ).toLowerCase();
     if (profileType === 'company') {
-      navigation.navigate('BusinessSetup', { profileData, serverProfile, profile: profileFromRoute });
+      navigation.navigate('BusinessSetupAuth', { profileData, serverProfile, profile: profileFromRoute });
       return;
     }
 
     // Navigate to KYC verification for non-company users
-    navigation.navigate('kycverify', { profileData, serverProfile, profile: profileFromRoute });
+    navigation.navigate('KycVerifyAuth', { profileData, serverProfile, profile: profileFromRoute });
     //  navigation.navigate('Wallet', { profileData, serverProfile });
   };
 
