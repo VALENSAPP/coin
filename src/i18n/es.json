@@ -2904,15 +2904,6 @@
     "passwordRequired": "La contraseña es obligatoria",
     "passwordMinLength": "La contraseña debe tener al menos 6 caracteres"
   },
-  "stripe": {
-    "paymentCancelled": "Pago cancelado",
-    "sessionFailed": "No se pudo crear la sesión de pago. Inténtalo de nuevo.",
-    "networkError": "Error de red. Verifica tu conexión e inténtalo de nuevo.",
-    "onboardingFailed": "No se pudo abrir la configuración de Stripe",
-    "recipientNotReady": "El destinatario del pago aún no ha completado la configuración.",
-    "customerSetupRequired": "Completa la configuración de Stripe para agregar un método de pago.",
-    "customerSetupFailed": "No se pudo abrir la configuración de pago. Inténtalo de nuevo."
-  },
   "userChat": {
     "errorTitle": "Error",
     "userInfoMissing": "Falta información del usuario",

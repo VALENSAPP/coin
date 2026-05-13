@@ -2904,15 +2904,6 @@
     "passwordRequired": "Le mot de passe est requis",
     "passwordMinLength": "Le mot de passe doit contenir au moins 6 caractères"
   },
-  "stripe": {
-    "paymentCancelled": "Paiement annulé",
-    "sessionFailed": "Impossible de créer la session de paiement. Veuillez réessayer.",
-    "networkError": "Erreur réseau. Vérifiez votre connexion et réessayez.",
-    "onboardingFailed": "Impossible d’ouvrir la configuration Stripe",
-    "recipientNotReady": "Le destinataire du paiement n’a pas encore terminé la configuration.",
-    "customerSetupRequired": "Veuillez terminer la configuration Stripe pour ajouter un moyen de paiement.",
-    "customerSetupFailed": "Impossible d’ouvrir la configuration du paiement. Veuillez réessayer."
-  },
   "userChat": {
     "errorTitle": "Errore",
     "userInfoMissing": "Informazioni utente mancanti",

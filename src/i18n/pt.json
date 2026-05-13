@@ -2904,15 +2904,6 @@
     "passwordRequired": "A senha é obrigatória",
     "passwordMinLength": "A senha deve ter pelo menos 6 caracteres"
   },
-  "stripe": {
-    "paymentCancelled": "Pagamento cancelado",
-    "sessionFailed": "Não foi possível criar a sessão de pagamento. Tente novamente.",
-    "networkError": "Erro de rede. Verifique sua conexão e tente novamente.",
-    "onboardingFailed": "Falha ao abrir a configuração do Stripe",
-    "recipientNotReady": "O destinatário do pagamento ainda não concluiu a configuração.",
-    "customerSetupRequired": "Conclua a configuração do Stripe para adicionar um método de pagamento.",
-    "customerSetupFailed": "Não foi possível abrir a configuração de pagamento. Tente novamente."
-  },
   "userChat": {
     "errorTitle": "Erro",
     "userInfoMissing": "Informações do usuário ausentes",
