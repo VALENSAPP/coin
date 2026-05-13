@@ -604,7 +604,8 @@
     "supportUnavailableMessage": "Gorjetas não estão disponíveis para perfis empresariais.",
     "walletNotConnectedTitle": "Carteira não conectada",
     "walletNotConnectedMessage": "Este usuário ainda não conectou uma carteira. Seguir continua ativo.",
-    "creatorFallback": "Criador"
+    "creatorFallback": "Criador",
+    "followback": "Seguir de volta"
   },
   "invite": {
     "headerTitle": "Convide amigos, ganhe recompensas",

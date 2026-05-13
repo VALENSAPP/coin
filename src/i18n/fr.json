@@ -604,7 +604,8 @@
     "supportUnavailableMessage": "Les pourboires ne sont pas disponibles pour les profils professionnels.",
     "walletNotConnectedTitle": "Portefeuille non connecté",
     "walletNotConnectedMessage": "Cet utilisateur n'a pas encore connecté de portefeuille. Le suivi reste actif.",
-    "creatorFallback": "Créateur"
+    "creatorFallback": "Créateur",
+    "followback": "Suivre en retour"
   },
   "invite": {
     "headerTitle": "Invitez des amis, gagnez des récompenses",

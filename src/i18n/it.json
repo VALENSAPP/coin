@@ -604,7 +604,8 @@
     "supportUnavailableMessage": "Le mance non sono disponibili per i profili business.",
     "walletNotConnectedTitle": "Wallet non collegato",
     "walletNotConnectedMessage": "Questo utente non ha ancora collegato un wallet. Il follow è comunque attivo.",
-    "creatorFallback": "Creatore"
+    "creatorFallback": "Creatore",
+    "followback": "Segui a tua volta"
   },
   "invite": {
     "headerTitle": "Invita amici, guadagna ricompense",

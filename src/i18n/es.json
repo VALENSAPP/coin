@@ -604,7 +604,8 @@
     "supportUnavailableMessage": "Las propinas no están disponibles para perfiles comerciales.",
     "walletNotConnectedTitle": "Billetera no conectada",
     "walletNotConnectedMessage": "Este usuario aún no ha conectado una billetera. El seguimiento sigue activo.",
-    "creatorFallback": "Creador"
+    "creatorFallback": "Creador",
+    "followback": "Seguir de vuelta"
   },
   "invite": {
     "headerTitle": "Invita amigos, gana recompensas",

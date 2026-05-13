@@ -426,7 +426,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                   >
                     {isFollowingState
                       ? t('followersFollowing.following')
-                      : t('followersFollowing.follow')}
+                      : t('followersFollowing.followback')}
                   </Text>
                 )}
               </TouchableOpacity>

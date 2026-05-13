@@ -604,7 +604,8 @@
     "supportUnavailableMessage": "Tips are not available for business profiles.",
     "walletNotConnectedTitle": "Wallet not connected",
     "walletNotConnectedMessage": "This user has not connected a wallet yet. Follow is still active.",
-    "creatorFallback": "Creator"
+    "creatorFallback": "Creator",
+    "followback": "Follow back"
   },
   "invite": {
     "headerTitle": "Invite friends, earn Rewards",
