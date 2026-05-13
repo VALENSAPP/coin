@@ -23,7 +23,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import {
     getPaymentSessionUrl,
     STRIPE_BROWSER_OPTIONS,
-    STRIPE_ERROR_MESSAGES,
+    getStripeErrorMessages,
     createOnboardingLink,
     getOnboardingStatus,
 } from '../../utils/stripeOnboarding';
@@ -53,6 +53,7 @@ const SubscribeFlowModal = ({
     const navigation = useNavigation();
     const { bgStyle, textStyle, bg, text } = useAppTheme();
     const { t } = useLanguage();
+    const stripeErrorMessages = getStripeErrorMessages(t);
 
     const isCompanyProfile = userProfile === 'company';
 
@@ -148,7 +149,7 @@ const SubscribeFlowModal = ({
                         'danger',
                         response?.message ||
                         response?.data?.message ||
-                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                        stripeErrorMessages.RECIPIENT_NOT_READY
                     );
                     return false;
                 }
@@ -185,7 +186,7 @@ const SubscribeFlowModal = ({
             showToastMessage(
                 toast,
                 'danger',
-                error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR
+                error?.response?.data?.message || stripeErrorMessages.NETWORK_ERROR
             );
         } finally {
             dispatch(hideLoader());

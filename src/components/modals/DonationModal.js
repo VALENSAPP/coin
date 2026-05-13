@@ -24,7 +24,7 @@ import { useToast } from 'react-native-toast-notifications';
 import {
     getPaymentSessionUrl,
     STRIPE_BROWSER_OPTIONS,
-    STRIPE_ERROR_MESSAGES,
+    getStripeErrorMessages,
     createOnboardingLink,
     getOnboardingStatus,
 } from '../../utils/stripeOnboarding';
@@ -35,6 +35,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
     const dispatch = useDispatch();
     const toast = useToast();
     const { t } = useLanguage();
+    const stripeErrorMessages = getStripeErrorMessages(t);
 
     const [selectedAmount, setSelectedAmount] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
@@ -128,7 +129,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             const response = await createPaymentSession();
             const url = getPaymentSessionUrl(response);
             if (!url) {
-                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || stripeErrorMessages.RECIPIENT_NOT_READY);
                 return;
             }
             if (await InAppBrowser.isAvailable()) {
@@ -150,7 +151,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             const response = await createPaymentSession();
             const url = getPaymentSessionUrl(response);
             if (!url) {
-                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || stripeErrorMessages.RECIPIENT_NOT_READY);
                 return;
             }
             if (await InAppBrowser.isAvailable()) {
@@ -176,7 +177,7 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             const response = await createPaymentSession();
             const url = getPaymentSessionUrl(response);
             if (!url) {
-                showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                showToastMessage(toast, 'danger', response?.message || response?.data?.message || stripeErrorMessages.RECIPIENT_NOT_READY);
                 return;
             }
             if (await InAppBrowser.isAvailable()) {
@@ -220,11 +221,11 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
                         await InAppBrowser.close();
                         setIsButtonLoading(false);
                         dispatch(hideLoader());
-                        showToastMessage(toast, 'danger', err?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+                        showToastMessage(toast, 'danger', err?.message || stripeErrorMessages.SESSION_FAILED);
                     }
                 }, 1000);
             } catch (error) {
-                showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+                showToastMessage(toast, 'danger', error?.response?.data?.message || stripeErrorMessages.NETWORK_ERROR);
                 await InAppBrowser.close();
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
@@ -248,12 +249,12 @@ export default function MissionSupportScreen({ visible, onClose, item, onDonatio
             try {
                 await runPaymentFlow(() => addMissionDonation(requestBody));
             } catch (err) {
-                showToastMessage(toast, 'danger', err?.message || STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY);
+                showToastMessage(toast, 'danger', err?.message || stripeErrorMessages.RECIPIENT_NOT_READY);
                 setIsButtonLoading(false);
                 dispatch(hideLoader());
             }
         } catch (error) {
-            showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+            showToastMessage(toast, 'danger', error?.response?.data?.message || stripeErrorMessages.NETWORK_ERROR);
             setIsButtonLoading(false);
             dispatch(hideLoader());
         }

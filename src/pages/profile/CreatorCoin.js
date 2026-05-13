@@ -29,7 +29,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import WithdrawalModal from '../../components/modals/WithdrawModal';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { getOnboardingStatus, getWithdrawalHistory } from '../../services/profile';
-import { openStripeOnboarding, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { openStripeOnboarding, getStripeErrorMessages } from '../../utils/stripeOnboarding';
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useLanguage } from '../../i18n';
@@ -56,6 +56,7 @@ export default function CreatorCoin() {
   const withdrawSheetRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
   const { t } = useLanguage();
+  const stripeErrorMessages = getStripeErrorMessages(t);
 
   const copyToClipboard = () => {
     Clipboard.setString(data?.walletAddress);
@@ -212,9 +213,9 @@ export default function CreatorCoin() {
   const handleOnboardingClick = async () => {
     try {
       dispatch(showLoader());
-      await openStripeOnboarding({ onComplete: fetchAllData });
+      await openStripeOnboarding({ onComplete: fetchAllData, t });
     } catch (error) {
-      showToastMessage(toast, 'danger', error?.message ?? STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+      showToastMessage(toast, 'danger', error?.message ?? stripeErrorMessages.ONBOARDING_FAILED);
     } finally {
       dispatch(hideLoader());
     }

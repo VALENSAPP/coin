@@ -22,7 +22,7 @@ import { loggedOut } from '../../redux/actions/LoginAction';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { createCheckoutSession } from '../../services/stirpe';
-import { getPaymentSessionUrl, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { getPaymentSessionUrl, getStripeErrorMessages } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
 import StripePaymentMethodModal from '../../components/modals/StripePaymentMethodModal';
 import { useLanguage } from '../../i18n';
@@ -34,6 +34,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
   const { requireStripeCustomerForPayment, openPaymentConnectionAndRefresh } = useStripeCustomer();
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const { t } = useLanguage();
+  const stripeErrorMessages = getStripeErrorMessages(t);
 
   useEffect(() => {
     const handleDeepLink = (event) => {
@@ -137,7 +138,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
         showToastMessage(
           toast,
           'danger',
-          response?.error || response?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED,
+          response?.error || response?.message || stripeErrorMessages.SESSION_FAILED,
         );
       }
     } catch (error) {
@@ -406,7 +407,7 @@ const PaymentScreen = ({ onPaymentSuccess, onRetryCheck }) => {
           try {
             await openPaymentConnectionAndRefresh();
           } catch (e) {
-            showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+            showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
           }
         }}
       />
@@ -698,5 +699,4 @@ const styles = StyleSheet.create({
 });
 
 export default PaymentScreen;
-
 

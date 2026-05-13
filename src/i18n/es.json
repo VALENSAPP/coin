@@ -2886,6 +2886,15 @@
   "searchScreen": {
     "title": "Buscar"
   },
+  "stripe": {
+    "paymentCancelled": "Pago cancelado",
+    "sessionFailed": "No se pudo crear la sesión de pago. Inténtalo de nuevo.",
+    "networkError": "Error de red. Comprueba tu conexión e inténtalo de nuevo.",
+    "onboardingFailed": "No se pudo abrir la configuración de Stripe",
+    "recipientNotReady": "El destinatario del pago aún no ha completado la configuración.",
+    "customerSetupRequired": "Completa la configuración de Stripe para añadir un método de pago.",
+    "customerSetupFailed": "No se pudo abrir la configuración de pago. Inténtalo de nuevo."
+  },
   "main": {
     "unableToOpenProfileLink": "No se puede abrir este perfil desde el enlace."
   }

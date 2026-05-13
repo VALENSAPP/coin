@@ -33,6 +33,28 @@ const getValueByPath = (obj, path) => {
   return path.split('.').reduce((acc, part) => acc?.[part], obj);
 };
 
+const interpolate = (value, options = {}) => {
+  if (typeof value !== 'string') return value;
+
+  return value.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, name) => {
+    const replacement = options[name];
+    return replacement !== undefined && replacement !== null ? String(replacement) : match;
+  });
+};
+
+const getTranslationValue = (source, key, options = {}) => {
+  if (options.count !== undefined && options.count !== null) {
+    const pluralKey = Number(options.count) === 1 ? `${key}_one` : `${key}_other`;
+    const pluralValue = getValueByPath(source, pluralKey);
+
+    if (pluralValue !== undefined && pluralValue !== null && pluralValue !== '') {
+      return pluralValue;
+    }
+  }
+
+  return getValueByPath(source, key);
+};
+
 const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
@@ -77,26 +99,30 @@ export const LanguageProvider = ({ children }) => {
   };
 
   // ✅ Translation function (FINAL)
-  const t = (key, defaultValue = '') => {
+  const t = (key, optionsOrDefault = '', defaultValue = '') => {
+    const hasOptions = optionsOrDefault && typeof optionsOrDefault === 'object' && !Array.isArray(optionsOrDefault);
+    const options = hasOptions ? optionsOrDefault : {};
+    const resolvedDefaultValue = hasOptions ? defaultValue : optionsOrDefault;
+
     // 1. Try current language
-    const value = getValueByPath(translations, key);
+    const value = getTranslationValue(translations, key, options);
 
     if (value !== undefined && value !== null && value !== '') {
-      return value;
+      return interpolate(value, options);
     }
 
     // 2. Fallback to English
-    const fallbackValue = getValueByPath(en, key);
+    const fallbackValue = getTranslationValue(en, key, options);
 
     if (fallbackValue !== undefined && fallbackValue !== null) {
       console.warn(`Missing "${key}" in ${currentLanguage}, using EN fallback`);
-      return fallbackValue;
+      return interpolate(fallbackValue, options);
     }
 
     // 3. Final fallback
     console.warn(`Missing "${key}" in ALL languages`);
 
-    return defaultValue || key;
+    return interpolate(resolvedDefaultValue || key, options);
   };
 
   return (

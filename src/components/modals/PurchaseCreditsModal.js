@@ -10,7 +10,7 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import {
   getPaymentSessionUrl,
   STRIPE_BROWSER_OPTIONS,
-  STRIPE_ERROR_MESSAGES,
+  getStripeErrorMessages,
   createOnboardingLink,
   getOnboardingStatus,
 } from '../../utils/stripeOnboarding';
@@ -29,6 +29,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
   const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
   const { t } = useLanguage();
+  const stripeErrorMessages = getStripeErrorMessages(t);
 
   const safeCurrentCredits = useMemo(() => {
     const value = Number(currentCredits);
@@ -115,7 +116,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       showToastMessage(
         toast,
         'danger',
-        response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED,
+        response?.message || response?.data?.message || stripeErrorMessages.SESSION_FAILED,
       );
       return false;
     }
@@ -171,7 +172,7 @@ const CreditPurchaseModal = ({ visible, onClose, onPurchaseComplete, currentCred
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR,
+        error?.response?.data?.message || stripeErrorMessages.NETWORK_ERROR,
       );
     } finally {
       dispatch(hideLoader());

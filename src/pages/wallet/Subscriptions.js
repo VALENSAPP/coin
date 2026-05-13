@@ -34,7 +34,7 @@ import SubscriptionActivationPopup from '../../components/modals/SubscriptionAct
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import { BusinessPlanModal, BusinessReminderModal, BusinessSuccessModal } from '../../components/modals/BusinessPlanModals';
 import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
-import { createOnboardingLink, getOnboardingStatus, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { createOnboardingLink, getOnboardingStatus, getStripeErrorMessages } from '../../utils/stripeOnboarding';
 import { createCheckoutSession } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { getUserCredentials } from '../../services/post';
@@ -56,6 +56,7 @@ const SubventionSetupScreen = () => {
     const { bgStyle, textStyle, text } = useAppTheme();
     const [credential, setCredential] = useState(null);
     const { t } = useLanguage();
+    const stripeErrorMessages = getStripeErrorMessages(t);
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
@@ -225,7 +226,7 @@ const SubventionSetupScreen = () => {
             showToastMessage(toast, 'warning', t('subventionSetup.stripeIncomplete'));
         } catch (error) {
             console.log('Activation flow error:', error);
-            showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+            showToastMessage(toast, 'danger', error?.message || stripeErrorMessages.ONBOARDING_FAILED);
         }
     };
 
@@ -283,7 +284,7 @@ const SubventionSetupScreen = () => {
             showToastMessage(toast, 'warning', t('subventionSetup.stripeIncomplete'));
         } catch (error) {
             console.log('Business activation flow error:', error);
-            showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+            showToastMessage(toast, 'danger', error?.message || stripeErrorMessages.ONBOARDING_FAILED);
         } finally {
             dispatch(hideLoader());
         }
@@ -795,7 +796,7 @@ const SubventionSetupScreen = () => {
                         try {
                             await openOnboarding();
                         } catch (e) {
-                            showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+                            showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
                         }
                     }}
                 />

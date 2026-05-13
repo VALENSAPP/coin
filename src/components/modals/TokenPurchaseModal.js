@@ -9,7 +9,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
-import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { getPaymentSessionUrl, STRIPE_BROWSER_OPTIONS, getStripeErrorMessages } from '../../utils/stripeOnboarding';
 import { useStripeCustomer } from '../../hooks/useStripeCustomer';
 import StripePaymentMethodModal from './StripePaymentMethodModal';
 import { useLanguage } from '../../i18n';
@@ -34,6 +34,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const paymentCompletedRef = useRef(false);
   const { t } = useLanguage();
+  const stripeErrorMessages = getStripeErrorMessages(t);
 
   const calculateBreakdown = (inputAmount) => {
     const baseAmount = parseFloat(inputAmount) || 0;
@@ -191,7 +192,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
             if (!paymentCompletedRef.current) {
               setIsProcessingPurchase(false);
               dispatch(hideLoader());
-              showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.PAYMENT_CANCELLED);
+              showToastMessage(toast, 'danger', stripeErrorMessages.PAYMENT_CANCELLED);
             }
           } else {
             await Linking.openURL(url);
@@ -201,15 +202,15 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
         } catch (err) {
           setIsProcessingPurchase(false);
           dispatch(hideLoader());
-          showToastMessage(toast, 'danger', STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+          showToastMessage(toast, 'danger', stripeErrorMessages.SESSION_FAILED);
         }
       } else {
-        showToastMessage(toast, 'danger', response?.message || response?.data?.message || STRIPE_ERROR_MESSAGES.SESSION_FAILED);
+        showToastMessage(toast, 'danger', response?.message || response?.data?.message || stripeErrorMessages.SESSION_FAILED);
         setIsProcessingPurchase(false);
         dispatch(hideLoader());
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', error?.response?.data?.message || STRIPE_ERROR_MESSAGES.NETWORK_ERROR);
+      showToastMessage(toast, 'danger', error?.response?.data?.message || stripeErrorMessages.NETWORK_ERROR);
       setIsProcessingPurchase(false);
       dispatch(hideLoader());
     }
@@ -415,7 +416,7 @@ const TokenPurchaseModal = ({ onClose, onPurchase, hasFollowing = false, autoFoc
           try {
             await openPaymentConnectionAndRefresh();
           } catch (e) {
-            showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+            showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
           }
         }}
       />
