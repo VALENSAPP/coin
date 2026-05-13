@@ -12,11 +12,12 @@ import {
   ActivityIndicator,
   Keyboard,
   findNodeHandle,
+  DeviceEventEmitter,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Video from 'react-native-video';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../../components/customButton/customButton';
 import { useToast } from 'react-native-toast-notifications';
@@ -43,26 +44,34 @@ const PostEditorScreen = () => {
   const dispatch = useDispatch();
   const returnTo = route?.params?.returnTo || route?.params?.params?.returnTo;
 
+  const navigateAfterPostCreated = useCallback(() => {
+    // Always take the user to Home after successful post creation.
+    // Avoids returning to intermediate upload/editor screens.
+    navigation.dispatch(StackActions.popToTop());
+    navigation.navigate('HomeMain', { screen: 'Home' });
+    DeviceEventEmitter.emit('HOME_TAB_PRESS');
+  }, [navigation]);
+
   const navigateBackOrReturnTo = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
 
-    if (returnTo && typeof returnTo === 'object') {
-      const tab = returnTo?.tab;
-      const screen = returnTo?.screen;
-      const params = returnTo?.params;
-      if (tab) {
-        navigation.navigate(tab, screen ? { screen, params } : undefined);
-        return;
-      }
-    }
+    // if (returnTo && typeof returnTo === 'object') {
+    //   const tab = returnTo?.tab;
+    //   const screen = returnTo?.screen;
+    //   const params = returnTo?.params;
+    //   if (tab) {
+    //     navigation.navigate(tab, screen ? { screen, params } : undefined);
+    //     return;
+    //   }
+    // }
 
-    if (typeof returnTo === 'string' && returnTo.length) {
-      navigation.navigate(returnTo);
-      return;
-    }
+    // if (typeof returnTo === 'string' && returnTo.length) {
+    //   navigation.navigate(returnTo);
+    //   return;
+    // }
 
     navigation.navigate('HomeMain');
   }, [navigation, returnTo]);
@@ -250,7 +259,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
 
       if (response.statusCode == 200) {
         showToastMessage(toast, 'success', 'Post created successfully');
-        navigateBackOrReturnTo();
+        navigateAfterPostCreated();
       } else {
         showToastMessage(toast, 'danger', response.message || 'Please try again');
       }

@@ -198,7 +198,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet' },
-    { id: 'support', title: 'Subscription Earning', value: '-', icon: 'pie-chart' },
+    { id: 'support', title: 'Subscription\nEarning', value: '-', icon: 'pie-chart' },
     { id: 'followers', title: 'Followers', value: '-', icon: 'people' },
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', currentCredits: 5 },
     // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },

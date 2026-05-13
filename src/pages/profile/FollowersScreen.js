@@ -431,7 +431,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={isFollowingState ? [styles.followingText, { color: accentColor }] : styles.followText}>
-                      {isFollowingState ? 'Following' : 'Follow'}
+                      {isFollowingState ? 'Following' : 'Follow Back'}
                     </Text>
                   )}
                 </TouchableOpacity>
