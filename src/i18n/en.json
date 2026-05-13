@@ -2855,8 +2855,7 @@
   "shopComponent": {
     "ownTitle": "My Closet 🛍️",
     "ownTagline": "Turn your profile into your personal shop.",
-    "ownDescription":
-      "With My Closet, you can post items you own and let them go — directly to your followers or the Valens community.",
+    "ownDescription": "With My Closet, you can post items you own and let them go — directly to your followers or the Valens community.",
     "sellLabel": "Sell:",
     "bulletClothes": "clothes",
     "bulletAccessories": "accessories",
@@ -2868,8 +2867,7 @@
     "startNowButton": "Start it now",
     "guestTitle": "My Closet 🛍️",
     "guestIntro": "Here you'll find the pieces I've chosen to let go.",
-    "guestDescription":
-      "Items I've worn, loved, and now share — directly from me to you, made to be worn, loved, and lived in again."
+    "guestDescription": "Items I've worn, loved, and now share — directly from me to you, made to be worn, loved, and lived in again."
   },
   "battleCard": {
     "ended": "Ended",
@@ -2887,5 +2885,8 @@
   },
   "searchScreen": {
     "title": "Search"
+  },
+  "main": {
+    "unableToOpenProfileLink": "Unable to open this profile from link."
   }
 }
