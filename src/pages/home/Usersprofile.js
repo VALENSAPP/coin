@@ -3,10 +3,9 @@ import {
   View,
   StyleSheet,
   RefreshControl,
-  ScrollView,
   Keyboard,
-  Alert,
   DeviceEventEmitter,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -49,12 +48,23 @@ const Usersprofile = () => {
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
+  const [compactLocked, setCompactLocked] = useState(false);
+  const profileScrollY = useRef(new Animated.Value(0)).current;
+  const compactLockedRef = useRef(false);
+  const lastScrollYRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const touchLastYRef = useRef(0);
 
   const toast = useToast();
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme(userData?.profile);
+
+  useEffect(() => {
+    compactLockedRef.current = compactLocked;
+  }, [compactLocked]);
+
 
   const fetchLoggedInUserId = useCallback(async () => {
     try {
@@ -284,10 +294,57 @@ const Usersprofile = () => {
   );
 
   const onRefresh = async () => {
+    if (compactLockedRef.current) {
+      expandProfileHeader();
+      return;
+    }
     setRefreshing(true);
     await fetchAllData();
     setRefreshing(false);
   };
+
+  const expandProfileHeader = useCallback(() => {
+    if (!compactLockedRef.current) return;
+    compactLockedRef.current = false;
+    setCompactLocked(false);
+  }, []);
+
+  const handleProfileScroll = useCallback((event) => {
+    const rawY = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const y = Math.max(0, rawY);
+    profileScrollY.setValue(y);
+
+    const dy = y - lastScrollYRef.current;
+    lastScrollYRef.current = y;
+
+    if (dy > 0 && y > 30 && !compactLockedRef.current) {
+      compactLockedRef.current = true;
+      setCompactLocked(true);
+    }
+
+    if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
+      expandProfileHeader();
+    }
+  }, [expandProfileHeader, profileScrollY]);
+
+  const handleProfileTouchStart = useCallback((event) => {
+    const pageY = event?.nativeEvent?.pageY ?? 0;
+    touchStartYRef.current = pageY;
+    touchLastYRef.current = pageY;
+  }, []);
+
+  const handleProfileTouchMove = useCallback((event) => {
+    if (!compactLockedRef.current) return;
+
+    const pageY = event?.nativeEvent?.pageY ?? 0;
+    const totalDragY = pageY - touchStartYRef.current;
+    const frameDragY = pageY - touchLastYRef.current;
+    touchLastYRef.current = pageY;
+
+    if (totalDragY > 18 || frameDragY > 10) {
+      expandProfileHeader();
+    }
+  }, [expandProfileHeader]);
 
   const handlePostPinChanged = useCallback(async (postId, pinned) => {
     try {
@@ -321,8 +378,13 @@ const Usersprofile = () => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={styles.scrollContainer}
+        onScroll={handleProfileScroll}
+        onTouchStart={handleProfileTouchStart}
+        onTouchMove={handleProfileTouchMove}
+        scrollEventThrottle={16}
+        nestedScrollEnabled={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -349,6 +411,8 @@ const Usersprofile = () => {
           executeFollowAction={executeFollowAction}
           returnByTo={returnTo}
           screenParams={screenParams}
+          compactLocked={compactLocked}
+         
         />
 
         <View>
@@ -365,8 +429,9 @@ const Usersprofile = () => {
           isSubscribed={isSubscribed}
           loggedInUserId={loggedInUserId}
           onPostPinChanged={handlePostPinChanged}
+          scrollEnabled={false}
         />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Token Purchase Modal */}
       <RBSheet
