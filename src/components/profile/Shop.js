@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
@@ -26,12 +27,18 @@ const withAlpha = (hex, alpha = 0.12) => {
 
 const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
-useEffect(() => {
-  
-}, [userData]);
+  const { t } = useLanguage();
+
+  useEffect(() => {}, [userData]);
+
   const bullets = useMemo(
-    () => ['clothes', 'accessories', 'personal items', 'exclusive pieces'],
-    [],
+    () => [
+      t('shopComponent.bulletClothes'),
+      t('shopComponent.bulletAccessories'),
+      t('shopComponent.bulletPersonalItems'),
+      t('shopComponent.bulletExclusivePieces'),
+    ],
+    [t],
   );
 
   const handleStartPress = () => {
@@ -52,41 +59,37 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '200%' }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' }]}>
               <Ionicons name="bag-handle" size={34} color={text} />
             </View>
-            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
-              <Ionicons name="pricetag" size={18} color={text} />
-            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>My Closet 🛍️</Text>
+            <Text style={[styles.title, textStyle]}>{t('shopComponent.ownTitle')}</Text>
             <Text style={[styles.paragraph, textStyle]}>
-              Turn your profile into your personal shop.
+              {t('shopComponent.ownTagline')}
             </Text>
             <Text style={[styles.paragraph, textStyle]}>
-              With My Closet, you can post items you own and let them go — directly to your followers
-              or the Valens community.
+              {t('shopComponent.ownDescription')}
             </Text>
 
-            <Text style={[styles.sectionTitle, textStyle]}>Sell:</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('shopComponent.sellLabel')}</Text>
             {bullets.map((item) => (
               <Text key={item} style={[styles.bullet, textStyle]}>
                 • {item}
               </Text>
             ))}
 
-            <Text style={[styles.paragraph, textStyle]}>Simple, direct, and yours.</Text>
-            <Text style={[styles.paragraph, textStyle]}>List it. Share it. Sell it.</Text>
-            <Text style={[styles.paragraph, textStyle]}>Your style, your closet.</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('shopComponent.ownSimple')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('shopComponent.ownListIt')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('shopComponent.ownYourStyle')}</Text>
 
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleStartPress}
-              style={[styles.ctaButton, {backgroundColor: text}]}
+              style={[styles.ctaButton, { backgroundColor: text }]}
             >
-                <Text style={styles.ctaText}>Start it now</Text>
+              <Text style={styles.ctaText}>{t('shopComponent.startNowButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -98,22 +101,18 @@ useEffect(() => {
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '35%' }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '35%' }]}>
               <Ionicons name="bag-handle" size={34} color={text} />
             </View>
-            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
-              <Ionicons name="heart" size={18} color={text} />
-            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>My Closet 🛍️</Text>
+            <Text style={[styles.title, textStyle]}>{t('shopComponent.guestTitle')}</Text>
             <Text style={[styles.paragraph, textStyle]}>
-              Here you’ll find the pieces I’ve chosen to let go.
+              {t('shopComponent.guestIntro')}
             </Text>
             <Text style={[styles.paragraph, textStyle]}>
-              Items I’ve worn, loved, and now share — directly from me to you, made to be worn, loved,
-              and lived in again.
+              {t('shopComponent.guestDescription')}
             </Text>
           </View>
         </View>

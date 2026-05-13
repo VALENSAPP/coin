@@ -58,6 +58,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
 import ShareModal from '../../modals/ShareModal';
+import { useLanguage } from '../../../i18n';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -76,10 +77,6 @@ function parseStoryMeta(raw) {
   return typeof raw === 'object' ? raw : null;
 }
 
-/**
- * When `clips[idx].isVideo` is missing, infer from URL. CDN/signed URLs often have no
- * trailing extension, so we match known video substrings in the path (before `?`).
- */
 function inferStoryMediaTypeFromUrl(url) {
   if (typeof url !== 'string') return 'image';
   const lower = url.toLowerCase().trim();
@@ -104,7 +101,6 @@ function looksLikeImageUrl(url) {
   return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(pathPart);
 }
 
-/** Story upload meta stores duration in seconds; some APIs may send ms. */
 function clipDurationSuggestsVideo(clipMeta) {
   let d = Number(clipMeta?.duration);
   if (!Number.isFinite(d) || d <= 0) return false;
@@ -112,9 +108,6 @@ function clipDurationSuggestsVideo(clipMeta) {
   return d > 0.35 && d < 7200;
 }
 
-/**
- * Resolve image vs video: URL hints, `clips[].isVideo`, and duration from `storyMeta`
- */
 function resolveStoryClipType(url, clipMeta) {
   const inferred = inferStoryMediaTypeFromUrl(url);
   const strUrl = typeof url === 'string' ? url : '';
@@ -405,6 +398,7 @@ function resolveStoryVideoThumbnailSource(storyLike) {
 // ─────────────────────────────────────────────────────────────────────────────
 const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
   const [activeTab, setActiveTab] = useState('likes');
+  const { t } = useLanguage();
 
   const analyticsStyles = {
     backdrop: {
@@ -470,17 +464,23 @@ const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
   const renderEmptyState = (type) => (
     <View style={analyticsStyles.emptyState}>
       <Text style={analyticsStyles.emptyText}>
-        {type === 'likes' ? 'No likes yet' : 'No comments yet'}
+        {type === 'likes' ? t('stories.noLikesYet') : t('stories.noCommentsYet')}
       </Text>
     </View>
   );
 
+  // Tab labels keyed from translations
+  const TAB_KEYS = [
+    { key: 'likes',    label: t('stories.likesTab') },
+    { key: 'comments', label: t('stories.commentsTab') },
+  ];
+
   const getTabData = () => {
     if (!story) return [];
     switch (activeTab) {
-      case 'likes': return story.likes || [];
+      case 'likes':    return story.likes    || [];
       case 'comments': return story.comments || [];
-      default: return [];
+      default:         return [];
     }
   };
 
@@ -491,24 +491,24 @@ const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
       <View style={analyticsStyles.backdrop}>
         <View style={analyticsStyles.container}>
           <View style={analyticsStyles.header}>
-            <Text style={analyticsStyles.headerTitle}>Story Activity</Text>
+            <Text style={analyticsStyles.headerTitle}>{t('stories.storyActivityTitle')}</Text>
             <TouchableOpacity onPress={onClose} style={analyticsStyles.closeButton}>
               <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
 
           <View style={analyticsStyles.tabContainer}>
-            {['likes', 'comments'].map((tab) => {
-              const count = story[tab]?.length || 0;
-              const isActive = activeTab === tab;
+            {TAB_KEYS.map(({ key, label }) => {
+              const count = story[key]?.length || 0;
+              const isActive = activeTab === key;
               return (
                 <TouchableOpacity
-                  key={tab}
+                  key={key}
                   style={[analyticsStyles.tab, isActive && analyticsStyles.activeTab]}
-                  onPress={() => setActiveTab(tab)}
+                  onPress={() => setActiveTab(key)}
                 >
                   <Text style={[analyticsStyles.tabText, isActive && analyticsStyles.activeTabText]}>
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {label}
                   </Text>
                   <Text style={analyticsStyles.tabCount}>{count}</Text>
                 </TouchableOpacity>
@@ -534,30 +534,38 @@ const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // OptionsSheet
 // ─────────────────────────────────────────────────────────────────────────────
-const OptionsSheet = ({ visible, onClose, isMuted, onToggleMute, onReport, username }) => (
-  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-    <View style={optStyles.backdrop}>
-      <View style={optStyles.sheet}>
-        <View style={optStyles.handle} />
-        <Text style={optStyles.title}>{username}</Text>
+const OptionsSheet = ({ visible, onClose, isMuted, onToggleMute, onReport, username }) => {
+  const { t } = useLanguage();
 
-        <TouchableOpacity style={optStyles.row} onPress={onToggleMute}>
-          <Icon name={isMuted ? 'volume-high-outline' : 'volume-mute-outline'} size={22} color="#fff" />
-          <Text style={optStyles.rowText}>{isMuted ? 'Unmute' : 'Mute'} {username}</Text>
-        </TouchableOpacity>
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={optStyles.backdrop}>
+        <View style={optStyles.sheet}>
+          <View style={optStyles.handle} />
+          <Text style={optStyles.title}>{username}</Text>
 
-        <TouchableOpacity style={optStyles.row} onPress={onReport}>
-          <Icon name="flag-outline" size={22} color="#ff6969" />
-          <Text style={[optStyles.rowText, { color: '#ff8b8b' }]}>Report {username}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={optStyles.row} onPress={onToggleMute}>
+            <Icon name={isMuted ? 'volume-high-outline' : 'volume-mute-outline'} size={22} color="#fff" />
+            <Text style={optStyles.rowText}>
+              {isMuted ? t('stories.optionsUnmute') : t('stories.optionsMute')} {username}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={[optStyles.row, optStyles.cancel]} onPress={onClose}>
-          <Text style={optStyles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={optStyles.row} onPress={onReport}>
+            <Icon name="flag-outline" size={22} color="#ff6969" />
+            <Text style={[optStyles.rowText, { color: '#ff8b8b' }]}>
+              {t('stories.optionsReport')} {username}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[optStyles.row, optStyles.cancel]} onPress={onClose}>
+            <Text style={optStyles.cancelText}>{t('stories.optionsCancel')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -585,6 +593,7 @@ const StoryViewer = ({
 }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
+  const { t } = useLanguage();
   const [paused, setPaused] = useState(false);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
   const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -606,7 +615,6 @@ const StoryViewer = ({
 
   // ── Media state ──────────────────────────────────────────────────────────
   const [isMediaReady, setIsMediaReady] = useState(false);
-  // NEW: tracks whether the first real video frame has been rendered on screen
   const [isFirstFrameReady, setIsFirstFrameReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [videoLoadModalVisible, setVideoLoadModalVisible] = useState(false);
@@ -676,7 +684,6 @@ const StoryViewer = ({
       ? audioTrimEndSecRaw : null;
   const audioVolumePercent = Math.max(0, Math.min(100, Math.round((Number(currentStory?.volume) || 1) * 100)));
 
-  // ── THUMBNAIL: resolved once per story ───────────────────────────────────
   const currentStoryThumbnail = resolveStoryVideoThumbnailSource(currentStory);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -770,7 +777,6 @@ const StoryViewer = ({
     setIsMediaReady(false);
     setIsBuffering(false);
     setVideoLoadModalVisible(false);
-    // ── KEY RESET: hide thumbnail overlay for fresh story ──────────────────
     setIsFirstFrameReady(false);
     dispatch(hideLoader());
 
@@ -784,7 +790,6 @@ const StoryViewer = ({
       try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) {}
     }
 
-    // Fallback for images that never fire onLoadEnd
     const isVideo = currentStory.type === 'video';
     if (isVideo) startVideoLoadWatchdog();
     const fallbackDelay = isVideo ? 60000 : 5000;
@@ -808,13 +813,11 @@ const StoryViewer = ({
     };
   }, [visible, currentUserIndex, currentStoryIndex]);
 
-  // Progress animation → state
   useEffect(() => {
     const listener = progressAnimation.addListener(({ value }) => setCurrentProgress(value));
     return () => progressAnimation.removeListener(listener);
   }, [progressAnimation]);
 
-  // Clean up on close
   useEffect(() => {
     if (!visible) {
       if (tapTimerRef.current) { clearTimeout(tapTimerRef.current); tapTimerRef.current = null; }
@@ -832,7 +835,6 @@ const StoryViewer = ({
     }
   }, [visible]);
 
-  // Keyboard: pause/resume
   useEffect(() => {
     if (!visible) return;
     const show = Keyboard.addListener('keyboardDidShow', () => { keyboardVisibleRef.current = true; handlePause(); });
@@ -840,7 +842,6 @@ const StoryViewer = ({
     return () => { show?.remove(); hide?.remove(); };
   }, [visible]);
 
-  // YouTube retry
   useEffect(() => {
     if (!isYoutubeAudio || !visible || paused) return;
     let cancelled = false;
@@ -985,22 +986,21 @@ const StoryViewer = ({
   };
 
   const handleDeleteStory = () => {
-    Alert.alert('Delete Drop', 'Are you sure you want to delete this drop?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => { onDeleteStory(storyId); handleResume(); },
-      },
-    ]);
+    Alert.alert(
+      t('stories.deleteDropTitle'),
+      t('stories.deleteDropMessage'),
+      [
+        { text: t('stories.deleteDropCancel'), style: 'cancel' },
+        {
+          text: t('stories.deleteDropConfirm'),
+          style: 'destructive',
+          onPress: () => { onDeleteStory(storyId); handleResume(); },
+        },
+      ],
+    );
   };
 
   // ── Video media callbacks ─────────────────────────────────────────────────
-
-  /**
-   * Called when the video has rendered a real frame. `onLoad` only means metadata
-   * is ready, so hiding the thumbnail there can expose a black decoder surface.
-   */
   const markVideoFrameReady = () => {
     if (!visibleRef.current || pausedRef.current) return;
     clearVideoLoadWatchdog();
@@ -1070,7 +1070,6 @@ const StoryViewer = ({
     });
     mediaFullyLoadedRef.current = true;
     setIsMediaReady(true);
-    // On video error: don't auto-advance; user taps to skip.
     if (currentStory?.type === 'video') {
       showVideoLoadModal();
       return;
@@ -1086,7 +1085,6 @@ const StoryViewer = ({
     if (buffering && currentStory?.type === 'video' && !isFirstFrameReady) {
       startVideoLoadWatchdog();
     }
-    // Do NOT restart progress here — causes competing Animated.timing instances.
   };
 
   // ── User analytics bottom UI styles ──────────────────────────────────────
@@ -1258,8 +1256,6 @@ const StoryViewer = ({
           {/* VIDEO story ──────────────────────────────────────────────────── */}
           {currentStory.type !== 'image' && (
             <View style={modalStyles.storyVideoWrap} pointerEvents="box-none">
-
-              {/* 1. VideoPlayer: always rendered so buffering starts immediately */}
               <VideoPlayer
                 key={`${storyKey}:${videoRetryNonce}`}
                 ref={videoRef}
@@ -1283,16 +1279,11 @@ const StoryViewer = ({
                 {...(Platform.OS === 'android' ? { viewType: ViewType.TEXTURE } : {})}
                 onLoadStart={() => {
                   setIsMediaReady(false);
-                  // Reset first-frame flag so thumbnail shows while new video loads
                   setIsFirstFrameReady(false);
                   setIsBuffering(true);
                   startVideoLoadWatchdog();
                 }}
                 onLoad={onVideoLoaded}
-                /**
-                 * onReadyForDisplay fires when the first frame is rendered.
-                 * This is the ideal moment to hide the thumbnail.
-                 */
                 onReadyForDisplay={markVideoFrameReady}
                 onProgress={onMainVideoProgress}
                 progressUpdateInterval={200}
@@ -1317,11 +1308,6 @@ const StoryViewer = ({
                 pointerEvents="none"
               />
 
-              {/*
-                2. THUMBNAIL OVERLAY — shown on top of the video until the first real
-                   frame is rendered. Hides as soon as isFirstFrameReady = true.
-                   This prevents the black-flash between story transitions.
-              */}
               {!isFirstFrameReady && currentStoryThumbnail && (
                 <Image
                   source={currentStoryThumbnail}
@@ -1331,28 +1317,15 @@ const StoryViewer = ({
                 />
               )}
 
-              {/*
-                3. LOADING SPINNER — shown when no thumbnail is available and video
-                   isn't ready yet. Sits below thumbnail overlay in z-order.
-              */}
               {!isMediaReady && !currentStoryThumbnail && (
                 <View style={modalStyles.storyVideoLoadingOverlay} pointerEvents="none">
                   <ActivityIndicator size="large" color="#fff" />
                 </View>
               )}
 
-              {/*
-                4. SUBTLE SPINNER — when thumbnail IS showing, show a small spinner
-                   at the bottom so user knows content is loading.
-              */}
               {!isMediaReady && !!currentStoryThumbnail && (
                 <View
-                  style={{
-                    position: 'absolute',
-                    bottom: 80,
-                    alignSelf: 'center',
-                    zIndex: 10,
-                  }}
+                  style={{ position: 'absolute', bottom: 80, alignSelf: 'center', zIndex: 10 }}
                   pointerEvents="none"
                 >
                   <ActivityIndicator size="small" color="rgba(255,255,255,0.75)" />
@@ -1450,6 +1423,7 @@ const StoryViewer = ({
             delayLongPress={150}
           />
 
+          {/* Video load error modal */}
           {videoLoadModalVisible && currentStory?.type === 'video' && (
             <View
               style={storyVideoLoadModalStyles.backdrop}
@@ -1457,9 +1431,11 @@ const StoryViewer = ({
               onTouchStart={(e) => e.stopPropagation()}
             >
               <View style={storyVideoLoadModalStyles.card}>
-                <Text style={storyVideoLoadModalStyles.title}>Video could not play</Text>
+                <Text style={storyVideoLoadModalStyles.title}>
+                  {t('stories.videoCouldNotPlay')}
+                </Text>
                 <Text style={storyVideoLoadModalStyles.message}>
-                  This drop is taking too long to load. You can retry it or move to the next one.
+                  {t('stories.videoLoadMessage')}
                 </Text>
                 <View style={storyVideoLoadModalStyles.actions}>
                   <TouchableOpacity
@@ -1471,14 +1447,18 @@ const StoryViewer = ({
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={storyVideoLoadModalStyles.secondaryText}>Skip</Text>
+                    <Text style={storyVideoLoadModalStyles.secondaryText}>
+                      {t('stories.videoSkip')}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={storyVideoLoadModalStyles.primaryButton}
                     onPress={retryVideoPlayback}
                     activeOpacity={0.85}
                   >
-                    <Text style={storyVideoLoadModalStyles.primaryText}>Retry</Text>
+                    <Text style={storyVideoLoadModalStyles.primaryText}>
+                      {t('stories.videoRetryLabel')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
@@ -1490,7 +1470,9 @@ const StoryViewer = ({
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={storyVideoLoadModalStyles.closeText}>Close viewer</Text>
+                  <Text style={storyVideoLoadModalStyles.closeText}>
+                    {t('stories.videoCloseViewer')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1536,7 +1518,7 @@ const StoryViewer = ({
             <View style={userAnalyticsStyles.actionsRow}>
               <TouchableOpacity style={userAnalyticsStyles.deleteButton} onPress={handleDeleteStory}>
                 <Icon name="trash-outline" size={18} color="#fff" />
-                <Text style={userAnalyticsStyles.deleteText}>Delete</Text>
+                <Text style={userAnalyticsStyles.deleteText}>{t('stories.deleteStoryLabel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1553,7 +1535,7 @@ const StoryViewer = ({
                 }}
               >
                 <Feather name="send" size={18} color="#fff" />
-                <Text style={userAnalyticsStyles.shareText}>Share</Text>
+                <Text style={userAnalyticsStyles.shareText}>{t('stories.shareStoryLabel')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1615,7 +1597,7 @@ const StoryViewer = ({
 
                 <TextInput
                   ref={commentInputRef}
-                  placeholder="Send message"
+                  placeholder={t('stories.sendMessagePlaceholder')}
                   placeholderTextColor="#aaa"
                   style={inputStyles.input}
                   value={commentText}
@@ -1705,6 +1687,7 @@ const formatTime = timestamp => {
 export default function Stories({ refreshTick, sidebarMode = false, onDrawerClose }) {
   const styles = createStyles();
   const navigation = useNavigation();
+  const { t } = useLanguage();
   const [stories, setStories] = useState([]);
   const [likes, setLikes] = useState({});
   const [comments, setComments] = useState({});
@@ -1753,7 +1736,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
       const currentUserBucket = {
         id: 'current_user',
-        username: 'Your Drops',
+        username: t('stories.yourDrops'),
         image: profileImage || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
         isUser: true,
         hasUnseenStory: false,
@@ -1788,7 +1771,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       const userStoriesMap = new Map();
       followingStoriesRaw.forEach((userStory) => {
         const userId = userStory.userId || userStory.id;
-        const username = userStory.user?.displayName || userStory.user?.userName || userStory.user?.username || 'Unknown User';
+        const username =
+          userStory.user?.displayName ||
+          userStory.user?.userName ||
+          userStory.user?.username ||
+          t('stories.unknownUser');
         const userImage = userStory.user?.image || '';
         const ts = new Date(userStory.createdAt || userStory.updatedAt || Date.now()).getTime();
         const followingMeta = parseStoryMeta(userStory.storyMeta);
@@ -1838,7 +1825,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       console.error('Error fetching stories:', error);
       setStories([{
         id: 'current_user',
-        username: 'Your Drops',
+        username: t('stories.yourDrops'),
         image: 'https://via.placeholder.com/150',
         isUser: true,
         hasUnseenStory: false,
@@ -1903,10 +1890,10 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     if (Platform.OS !== 'android') return true;
     try {
       const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-        title: 'Camera Permission',
-        message: 'This app needs access to your camera to take photos.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
+        title: t('stories.cameraPermissionTitle'),
+        message: t('stories.cameraPermissionMessage'),
+        buttonNeutral: t('stories.cameraPermissionAskLater'),
+        buttonNegative: t('stories.cameraPermissionCancel'),
         buttonPositive: 'OK',
       });
       return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -1917,32 +1904,46 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   };
 
   const handleAddStory = () => {
-    Alert.alert('Add Drops', 'Choose how to add your drops', [
-      { text: 'Camera', onPress: () => openCamera() },
-      { text: 'Gallery', onPress: () => openGallery() },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    Alert.alert(
+      t('stories.addDropsTitle'),
+      t('stories.addDropsMessage'),
+      [
+        { text: t('stories.addDropsCamera'), onPress: () => openCamera() },
+        { text: t('stories.addDropsGallery'), onPress: () => openGallery() },
+        { text: t('stories.addDropsCancel'), style: 'cancel' },
+      ],
+    );
   };
 
   const handleAddNewStory = () => {
-    Alert.alert('Add New Drop', 'Choose how to add your new drop', [
-      { text: 'Camera', onPress: () => openCamera() },
-      { text: 'Gallery', onPress: () => openGallery() },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    Alert.alert(
+      t('stories.addNewDropTitle'),
+      t('stories.addNewDropMessage'),
+      [
+        { text: t('stories.addDropsCamera'), onPress: () => openCamera() },
+        { text: t('stories.addDropsGallery'), onPress: () => openGallery() },
+        { text: t('stories.addDropsCancel'), style: 'cancel' },
+      ],
+    );
   };
 
   const openCamera = async () => {
     const hasPermission = await requestCameraPermission();
-    if (!hasPermission) { Alert.alert('Permission Denied', 'Camera permission is required.'); return; }
+    if (!hasPermission) {
+      Alert.alert(t('stories.permissionDeniedTitle'), t('stories.permissionDeniedMessage'));
+      return;
+    }
     launchCamera({
       mediaType: 'mixed', includeBase64: false, maxHeight: 2000, maxWidth: 2000,
       includeExtra: true, presentationStyle: 'fullScreen',
     }, response => {
       if (response?.didCancel) { setComposerList([]); setComposerMedia(null); return; }
-      if (response?.errorCode) { Alert.alert('Camera Error', response.errorMessage || 'Unknown error'); return; }
+      if (response?.errorCode) {
+        Alert.alert(t('stories.cameraErrorTitle'), response.errorMessage || t('stories.somethingWentWrong'));
+        return;
+      }
       const asset = response?.assets?.[0];
-      if (!asset?.uri) { Alert.alert('Error', 'Failed to capture media.'); return; }
+      if (!asset?.uri) { Alert.alert(t('stories.cameraErrorTitle'), t('stories.mediaReadError')); return; }
       const mediaItem = {
         uri: asset.uri,
         type: asset.type?.startsWith('video') ? 'video' : 'image',
@@ -1973,7 +1974,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
 
   const handleMediaSelected = response => {
     const asset = response?.assets?.[0];
-    if (!asset || !asset.uri) { Alert.alert('Oops', 'Could not read the selected media.'); return; }
+    if (!asset || !asset.uri) { Alert.alert('Oops', t('stories.mediaReadError')); return; }
     const type = asset.type?.startsWith('video') ? 'video' : 'image';
     const duration = type === 'video' ? (asset.duration ? asset.duration * 1000 : 15000) : 5000;
     setComposerMedia({ type, uri: asset.uri, duration });
@@ -2010,7 +2011,6 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       } catch (error) {
         lastError = error;
         if (attempt === maxRetries - 1) throw error;
-        const errorMsg = error?.message || String(error);
         const delayMs = isNetworkOffline ? 0 : baseDelayMs * Math.pow(2, attempt);
         if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
       }
@@ -2059,7 +2059,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       if (pendingUpload?.clips?.length > 0) {
         setIsUploadingStory(true);
         await AsyncStorage.setItem('storyUploadInProgress', 'true');
-        showToastMessage(toast, 'info', 'Resuming drop upload...');
+        showToastMessage(toast, 'info', t('stories.resumingUpload'));
         await performStoryUpload(pendingUpload.clips);
         setIsUploadingStory(false);
         await AsyncStorage.removeItem('storyUploadInProgress');
@@ -2069,7 +2069,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       setIsUploadingStory(false);
       await AsyncStorage.removeItem('storyUploadInProgress');
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
@@ -2130,7 +2130,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           ],
         } : user
       ));
-      showToastMessage(toast, 'success', 'Drop Uploaded Successfully');
+      showToastMessage(toast, 'success', t('stories.dropUploadedSuccess'));
       setTimeout(() => setIsUploadingStory(false), 200);
       fetchStories();
     } else {
@@ -2146,7 +2146,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       setComposerVisible(false);
     } catch (error) {
       console.error('Error preparing story:', error);
-      showToastMessage(toast, 'danger', 'Failed to prepare drop. Please try again.');
+      showToastMessage(toast, 'danger', t('stories.failedToPrepare'));
     }
   };
 
@@ -2160,18 +2160,23 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
       console.error('Story upload failed after all retries:', error?.message || error);
       setIsUploadingStory(false);
       await AsyncStorage.removeItem('storyUploadInProgress');
-      showToastMessage(toast, 'danger', 'Drops upload failed - will retry automatically when connection improves.');
+      showToastMessage(toast, 'danger', t('stories.dropUploadFailed'));
     }
   };
 
   const handleOpenStory = (user, userIndex) => {
     if (user.isUser && user.stories.length === 0) { handleAddStory(); return; }
     if (user.isUser && user.stories.length > 0) {
-      Alert.alert('Your Drops', 'What would you like to do?', [
-        { text: 'View Your Drops', onPress: () => openStoryViewer(user, userIndex) },
-        { text: 'Add Another Drops', onPress: () => handleAddNewStory() },
-        { text: 'Cancel', style: 'cancel' },
-      ], { cancelable: true });
+      Alert.alert(
+        t('stories.viewDropsTitle'),
+        t('stories.viewDropsMessage'),
+        [
+          { text: t('stories.viewDropsView'), onPress: () => openStoryViewer(user, userIndex) },
+          { text: t('stories.viewDropsAdd'), onPress: () => handleAddNewStory() },
+          { text: t('stories.viewDropsCancel'), style: 'cancel' },
+        ],
+        { cancelable: true },
+      );
       return;
     }
     if (!user.stories?.length || user.muted) return;
@@ -2179,13 +2184,11 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   };
 
   const openStoryViewer = (user, userIndex) => {
-    // Prefetch first 4 stories
     const storiesToPrefetch = user.stories?.slice(0, 4) || [];
     storiesToPrefetch.forEach(story => {
       if (story?.uri && story.type === 'image') {
         try { Image.prefetch(story.uri); } catch (_e) {}
       }
-      // Also prefetch thumbnail for video stories
       if (story?.thumbnail) {
         try { Image.prefetch(story.thumbnail); } catch (_e) {}
       }
@@ -2296,7 +2299,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
             hasUnseenStory: user.stories.filter(story => story.id !== storyId).length > 0,
           } : user
         ));
-        showToastMessage(toast, 'success', 'Drop deleted successfully!');
+        showToastMessage(toast, 'success', t('stories.dropDeletedSuccess'));
         const currentUser = stories[currentUserIndex];
         if (!currentUser || currentUser.stories.length <= 1) {
           handleCloseViewer();
@@ -2305,10 +2308,10 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         }
         fetchStories();
       } else {
-        showToastMessage(toast, 'danger', 'Failed to delete drop. Please try again.');
+        showToastMessage(toast, 'danger', t('stories.dropDeleteFailed'));
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Failed to delete drop. Please try again.');
+      showToastMessage(toast, 'danger', t('stories.dropDeleteFailed'));
     }
   };
 
@@ -2325,10 +2328,10 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           return { ...prev, [key]: { liked: nextLiked, count } };
         });
       } else {
-        showToastMessage(toast, 'danger', 'Failed to like drop. Please try again.');
+        showToastMessage(toast, 'danger', t('stories.failedToLike'));
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Something went wrong. Please try again.');
+      showToastMessage(toast, 'danger', t('stories.somethingWentWrong'));
     }
   };
 
@@ -2348,25 +2351,30 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
           console.warn('Failed to deliver story reply to inbox:', chatError);
         }
       } else {
-        showToastMessage(toast, 'danger', 'Failed to send comment. Please try again.');
+        showToastMessage(toast, 'danger', t('stories.failedToComment'));
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Something went wrong. Please try again.');
+      showToastMessage(toast, 'danger', t('stories.somethingWentWrong'));
     }
   };
 
   const onMuteUser = (userId, mute) => {
     setStories(prev => prev.map(u => u.id === userId ? { ...u, muted: !!mute } : u));
-    Alert.alert(mute ? 'Muted' : 'Unmuted', mute ? 'You will no longer see their stories.' : 'You will see their stories again.');
+    Alert.alert(
+      mute ? t('stories.mutedTitle') : t('stories.unmutedTitle'),
+      mute ? t('stories.mutedMessage') : t('stories.unmutedMessage'),
+    );
   };
 
   const onReportUser = userId => {
     const u = stories.find(s => s.id === userId);
-    Alert.alert('Report', `Thanks for letting us know. We'll review ${u?.username}'s story.`);
+    Alert.alert(
+      t('stories.reportTitle'),
+      t('stories.reportMessage', { username: u?.username }),
+    );
   };
 
   const dataToShow = stories.filter(s => !s.muted);
-  const ITEM_W = 80;
 
   const renderStoryItem = ({ item }) => (
     <TouchableOpacity
@@ -2409,7 +2417,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         style={item.isUser ? (sidebarMode ? sidebarStyles.verticalDropsText : styles.dropsText) : styles.storyUsername}
         numberOfLines={1}
       >
-        {item.username || (item.isUser ? 'Drops' : '')}
+        {item.username || (item.isUser ? t('stories.drops') : '')}
       </Text>
     </TouchableOpacity>
   );
@@ -2464,7 +2472,9 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         <View style={{ backgroundColor: '#f5f5f5', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
             <ActivityIndicator size={16} color="#4da3ff" style={{ marginRight: 10 }} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a1a' }}>Uploading Drops...</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a1a' }}>
+              {t('stories.uploadingDrops')}
+            </Text>
           </View>
           <View style={{ height: 4, backgroundColor: '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
             <Animated.View

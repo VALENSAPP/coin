@@ -40,7 +40,7 @@ import WelcomeValensModal from '../modals/WelcomeValensModal';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch } from 'react-redux';
 import { EditProfile, getProfile } from '../../services/createProfile';
-import { PostStory } from '../../services/stories'; // Import PostStory API
+import { PostStory } from '../../services/stories';
 import { buildStoryMetaPayload } from '../../utils/buildStoryMeta';
 import {
   appendStoryAudioFiles,
@@ -71,6 +71,7 @@ import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSuppo
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
 import { isSupportAllowed, normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -78,27 +79,20 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PROFILE_IMAGE_PREVIEW_SIZE = Math.min(SCREEN_WIDTH * 0.9, 340);
 const TOTAL_SUPPORT_CARD_HEIGHT = 72;
 
-/** KYC required; KYB required only when API sends `kyb` as a boolean (company KYB may still map to `kyc` only). */
 function isProfileFullyIdentityVerified(user) {
   if (!user || user.kyc !== true) return false;
-  if (typeof user.kyb === 'boolean') {
-    return user.kyb === true;
-  }
+  if (typeof user.kyb === 'boolean') return user.kyb === true;
   return true;
 }
 
 export function getDragonflyIcon(followers) {
   const parsedFollowers = Number(followers);
-  const safeFollowers = Number.isFinite(parsedFollowers)
-    ? Math.max(0, parsedFollowers)
-    : 0;
-
+  const safeFollowers = Number.isFinite(parsedFollowers) ? Math.max(0, parsedFollowers) : 0;
   if (safeFollowers <= 50) return WhiteDragonfly;
   if (safeFollowers <= 10000) return SoftGrayDragonfly;
   if (safeFollowers <= 500000) return LilacDragonfly;
   if (safeFollowers <= 1000000) return GoldDragonfly;
   if (safeFollowers >= 10000000) return GoldLavenderDragonfly;
-
   return WhiteDragonfly;
 }
 
@@ -115,35 +109,27 @@ const ProfilePersonData = ({
   followBusy = false,
   targetUserId,
   purchaseSheetRef,
-  onStoryUploaded, // Callback to refresh stories after upload
+  onStoryUploaded,
   userData,
   executeFollowAction,
   returnByTo,
   screenParams,
   compactLocked = false,
 }) => {
-  // useEffect(() => {
-  //   console.log(
-  //     { userData },
-  //     'ProfilePersonData props'
-  //   );
-  // }, [displayName, username, profilepic, bio, dashboard, fromUsersProfile, isFollowing, followBusy, targetUserId]);
-
   const navigation = useNavigation();
+  const { t } = useLanguage();
   const [profileImage, setProfileImage] = useState(null);
 
   const collapseAnim = useRef(new Animated.Value(1)).current;
 
-  // useEffect add karo compactLocked ke liye
   useEffect(() => {
-  Animated.timing(collapseAnim, {
-    toValue: compactLocked ? 0 : 1,
-    duration: compactLocked ? 80 : 200,  // collapse fast, expand slightly slower
-    useNativeDriver: false,
-  }).start();
-}, [collapseAnim, compactLocked]);
+    Animated.timing(collapseAnim, {
+      toValue: compactLocked ? 0 : 1,
+      duration: compactLocked ? 80 : 200,
+      useNativeDriver: false,
+    }).start();
+  }, [collapseAnim, compactLocked]);
 
-  // maxHeight interpolate karo
   const animatedMaxHeight = collapseAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 260],
@@ -157,13 +143,7 @@ const ProfilePersonData = ({
   const fetchAllData = useCallback(async () => {
     try {
       dispatch(showLoader());
-
-      // Run both API calls in parallel
-      const [profileResponse] = await Promise.all([
-        getUserCredentials(userData?.id),
-      ]);
-
-      // Handle profile response
+      const [profileResponse] = await Promise.all([getUserCredentials(userData?.id)]);
       if (profileResponse?.statusCode === 200) {
         let userDataToSet;
         if (profileResponse.data && profileResponse.data.user) {
@@ -175,9 +155,6 @@ const ProfilePersonData = ({
         }
         setUserProfile(userDataToSet.profile || '');
         await AsyncStorage.setItem('profile', userDataToSet.profile);
-        // console.log('User profile:', userDataToSet.profile);
-      } else {
-        // showToastMessage(toast, 'danger', profileResponse.data.message);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -191,12 +168,9 @@ const ProfilePersonData = ({
     fetchAllData();
   }, [profilepic, fetchAllData]);
 
-  const PLACEHOLDER_AVATAR =
-    'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   const avatarUri =
-    typeof profileImage === 'string' && profileImage.length
-      ? profileImage
-      : PLACEHOLDER_AVATAR;
+    typeof profileImage === 'string' && profileImage.length ? profileImage : PLACEHOLDER_AVATAR;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
@@ -209,8 +183,7 @@ const ProfilePersonData = ({
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [supportDisclaimerVisible, setSupportDisclaimerVisible] =
-    useState(false);
+  const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [totalSupportOpen, setTotalSupportOpen] = useState(false);
   const [totalSupportLoading, setTotalSupportLoading] = useState(false);
@@ -224,15 +197,12 @@ const ProfilePersonData = ({
   const { startSupportPayment } = useWalletConnectSupport();
   const effectiveProfileType = userData?.profile ? userData?.profile : profileType;
   const normalizedProfileThemeType =
-    typeof effectiveProfileType === 'string'
-      ? effectiveProfileType.toLowerCase()
-      : '';
+    typeof effectiveProfileType === 'string' ? effectiveProfileType.toLowerCase() : '';
   const isCompanyProfile = normalizedProfileThemeType === 'company';
   const profileActionGradient = isCompanyProfile
     ? ['#D3B683', '#D3B683']
     : ['#513189bd', '#e54ba0'];
-  const { bgStyle, textStyle, text, card, bg } =
-    useAppTheme(effectiveProfileType);
+  const { bgStyle, textStyle, text, card, bg } = useAppTheme(effectiveProfileType);
   const route = useRoute();
   const showIdentityVerified = isProfileFullyIdentityVerified(userData);
   const isSubscriptionActive = userData?.subscriptionStatus == 'ACTIVE';
@@ -241,24 +211,19 @@ const ProfilePersonData = ({
   const viewedBattleUserId = useMemo(
     () =>
       String(
-        targetUserId ||
-          userData?.id ||
-          userData?._id ||
-          userData?.userId ||
-          userId ||
-          '',
+        targetUserId || userData?.id || userData?._id || userData?.userId || userId || '',
       ).trim(),
     [targetUserId, userData?.id, userData?._id, userData?.userId, userId],
   );
 
   const Userdata = {
-    Displayname: displayName || 'No Name',
-    Username: username || 'Unknown User',
+    Displayname: displayName || t('profilePersonData.noName'),
+    Username: username || t('profilePersonData.unknownUser'),
     profilePic: profileImage,
     Bio: bio,
-    totalPost: dashboard?.totalPosts ?? 'NA',
-    Followers: dashboard?.totalFollowers ?? 'NA',
-    Followings: dashboard?.totalFollowing ?? 'NA',
+    totalPost: dashboard?.totalPosts ?? t('profilePersonData.notAvailable'),
+    Followers: dashboard?.totalFollowers ?? t('profilePersonData.notAvailable'),
+    Followings: dashboard?.totalFollowing ?? t('profilePersonData.notAvailable'),
     userId: userId,
   };
 
@@ -268,11 +233,11 @@ const ProfilePersonData = ({
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.CAMERA,
         {
-          title: 'Camera Permission',
-          message: 'This app needs access to your camera to take photos.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
+          title: t('profilePersonData.cameraPermissionTitle'),
+          message: t('profilePersonData.cameraPermissionMessage'),
+          buttonNeutral: t('profilePersonData.cameraPermissionNeutral'),
+          buttonNegative: t('profilePersonData.cameraPermissionNegative'),
+          buttonPositive: t('profilePersonData.cameraPermissionPositive'),
         },
       );
       return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -288,44 +253,36 @@ const ProfilePersonData = ({
       return;
     }
     Alert.alert(
-      'Upload Image',
-      'What would you like to upload?',
+      t('profilePersonData.uploadImageTitle'),
+      t('profilePersonData.uploadImageMessage'),
       [
-        {
-          text: 'View Profile',
-          onPress: () => setImageViewerVisible(true),
-        },
-        {
-          text: 'Add Drops',
-          onPress: () => handleStoryUpload(),
-        },
-        {
-          text: 'Profile Image',
-          onPress: () => showImageSourceOptions(),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: t('profilePersonData.viewProfile'), onPress: () => setImageViewerVisible(true) },
+        { text: t('profilePersonData.addDrops'), onPress: () => handleStoryUpload() },
+        { text: t('profilePersonData.profileImage'), onPress: () => showImageSourceOptions() },
+        { text: t('profilePersonData.cancel'), style: 'cancel' },
       ],
       { cancelable: true },
     );
   };
 
   const handleStoryUpload = () => {
-    Alert.alert('Add Drops', 'Choose how to add your Drops', [
-      { text: 'Camera', onPress: () => openStoryCamera() },
-      { text: 'Gallery', onPress: () => openStoryGallery() },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    Alert.alert(
+      t('profilePersonData.addDropsTitle'),
+      t('profilePersonData.addDropsMessage'),
+      [
+        { text: t('profilePersonData.camera'), onPress: () => openStoryCamera() },
+        { text: t('profilePersonData.gallery'), onPress: () => openStoryGallery() },
+        { text: t('profilePersonData.cancel'), style: 'cancel' },
+      ],
+    );
   };
 
   const openStoryCamera = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
       Alert.alert(
-        'Permission Denied',
-        'Camera permission is required to take photos.',
+        t('profilePersonData.permissionDeniedTitle'),
+        t('profilePersonData.cameraPermissionDeniedMessage'),
       );
       return;
     }
@@ -341,7 +298,7 @@ const ProfilePersonData = ({
       if (response?.didCancel) return;
       if (response?.errorCode) {
         Alert.alert(
-          'Camera error',
+          t('profilePersonData.cameraErrorTitle'),
           response.errorMessage || response.errorCode,
         );
         return;
@@ -362,7 +319,6 @@ const ProfilePersonData = ({
       if (response?.didCancel || response?.errorCode) return;
       const assets = response?.assets || [];
       if (!assets.length) return;
-
       const list = assets.map(a => ({
         uri: a.uri,
         type: a.type?.startsWith('video') ? 'video' : 'image',
@@ -377,18 +333,12 @@ const ProfilePersonData = ({
   const handleStoryMediaSelected = response => {
     const asset = response?.assets?.[0];
     if (!asset || !asset.uri) {
-      Alert.alert('Oops', 'Could not read the selected media.');
+      Alert.alert(t('profilePersonData.oops'), t('profilePersonData.couldNotReadMedia'));
       return;
     }
     const type = asset.type?.startsWith('video') ? 'video' : 'image';
     const duration =
-      type === 'video'
-        ? asset.duration
-          ? asset.duration * 1000
-          : 15000
-        : 5000;
-
-    // If single item, set it directly
+      type === 'video' ? (asset.duration ? asset.duration * 1000 : 15000) : 5000;
     if (response?.assets?.length === 1) {
       setComposerList([{ type, uri: asset.uri, duration }]);
     }
@@ -398,79 +348,40 @@ const ProfilePersonData = ({
   const handleComposerDone = async processedArray => {
     try {
       const clips = await prepareStoryClipsAudioForUpload(processedArray);
-
       setComposerVisible(false);
 
-      // Prepare FormData for API call
       const formData = new FormData();
-
-      // Add caption (optional)
       formData.append('caption', '');
-
-      // Add media files
       clips.forEach((item, index) => {
         const fileUri = item.processedUri || item.original.uri;
-        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'
-          }`;
+        const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
         const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
-
-        formData.append('media', {
-          uri: fileUri,
-          type: fileType,
-          name: fileName,
-        });
+        formData.append('media', { uri: fileUri, type: fileType, name: fileName });
       });
-
-      formData.append(
-        'storyMeta',
-        JSON.stringify(buildStoryMetaPayload(clips)),
-      );
+      formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
       await appendStoryAudioFiles(formData, clips);
 
-      // Call API to upload story
       const response = await PostStory(formData);
-
       if (response?.success) {
-        showToastMessage(toast, 'success', 'Drops Uploaded Successfully');
-
-        // Call the callback to refresh stories if provided
-        if (onStoryUploaded) {
-          onStoryUploaded();
-        }
+        showToastMessage(toast, 'success', t('profilePersonData.dropsUploadedSuccess'));
+        if (onStoryUploaded) onStoryUploaded();
       } else {
-        showToastMessage(
-          toast,
-          'danger',
-          'Failed to upload Drops please try again',
-        );
+        showToastMessage(toast, 'danger', t('profilePersonData.dropsUploadFailed'));
       }
     } catch (error) {
       console.error('Error uploading Drops:', error);
-      showToastMessage(
-        toast,
-        'danger',
-        'Something Went Wrong ! please try again',
-      );
+      showToastMessage(toast, 'danger', t('profilePersonData.somethingWentWrong'));
     }
   };
 
   const showImageSourceOptions = () => {
     Alert.alert(
-      'Select Image Source',
-      'Choose where to pick your profile image from',
+      t('profilePersonData.selectImageSourceTitle'),
+      t('profilePersonData.selectImageSourceMessage'),
       [
-        {
-          text: 'Camera',
-          onPress: () => openCamera(),
-        },
-        {
-          text: 'Gallery',
-          onPress: () => openGallery(),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: t('profilePersonData.camera'), onPress: () => openCamera() },
+        { text: t('profilePersonData.gallery'), onPress: () => openGallery() },
+        { text: t('profilePersonData.cancel'), style: 'cancel' },
       ],
       { cancelable: true },
     );
@@ -480,8 +391,8 @@ const ProfilePersonData = ({
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
       Alert.alert(
-        'Permission Denied',
-        'Camera permission is required to take photos.',
+        t('profilePersonData.permissionDeniedTitle'),
+        t('profilePersonData.cameraPermissionDeniedMessage'),
       );
       return;
     }
@@ -491,7 +402,7 @@ const ProfilePersonData = ({
     } catch (e) {
       if (e?.code === 'E_PICKER_CANCELLED') return;
       console.error('Camera error:', e);
-      showToastMessage(toast, 'danger', e?.message || 'Failed to open camera');
+      showToastMessage(toast, 'danger', e?.message || t('profilePersonData.failedOpenCamera'));
     }
   };
 
@@ -502,85 +413,59 @@ const ProfilePersonData = ({
     } catch (e) {
       if (e?.code === 'E_PICKER_CANCELLED') return;
       console.error('Gallery error:', e);
-      showToastMessage(toast, 'danger', e?.message || 'Failed to open gallery');
+      showToastMessage(toast, 'danger', e?.message || t('profilePersonData.failedOpenGallery'));
     }
   };
 
   const uploadCroppedProfileImage = async image => {
     if (!image?.path) {
-      showToastMessage(toast, 'danger', 'No image to upload');
+      showToastMessage(toast, 'danger', t('profilePersonData.noImageToUpload'));
       return;
     }
     const pickedUri = uriFromCropPath(image.path);
     if (!pickedUri) {
-      showToastMessage(toast, 'danger', 'Invalid image path');
+      showToastMessage(toast, 'danger', t('profilePersonData.invalidImagePath'));
       return;
     }
-
     setProfileImage(pickedUri);
-
     const fileName = image.filename || `profile_${Date.now()}.jpg`;
     const mimeType = image.mime || 'image/jpeg';
-
     const formData = new FormData();
-    formData.append('image', {
-      uri: pickedUri,
-      type: mimeType,
-      name: fileName,
-    });
-
+    formData.append('image', { uri: pickedUri, type: mimeType, name: fileName });
     await handleSaveProfile(formData, pickedUri);
   };
 
   const handleSaveProfile = async (data, img) => {
     try {
       dispatch(showLoader());
-      console.log(data, 'data to be sent handleSaveProfile');
-
       const res = await EditProfile(data);
-      console.log(res, 'edit profile response');
-
       if (res.statusCode === 200) {
         dispatch(setProfileImg(img));
         showToastMessage(toast, 'success', res.data.message);
-      } else {
-        // showToastMessage(toast, 'danger', res.data.message);
       }
     } catch (err) {
-      // showToastMessage(toast, 'danger', err.response?.data?.message || 'Error saving profile');
+      // silent
     } finally {
       dispatch(hideLoader());
     }
   };
 
   const UserMessageNavigation = () => {
-    navigation.navigate('UserChat', {
-      userId: targetUserId,
-      user: userData,
-    });
+    navigation.navigate('UserChat', { userId: targetUserId, user: userData });
   };
 
   const openUserHighlights = useCallback(() => {
-    if (!targetUserId) {
-      return;
-    }
-
+    if (!targetUserId) return;
     navigation.navigate('ProfileMain', {
       screen: 'HighlightsScreen',
       params: {
         userId: targetUserId,
         readOnly: true,
         profileType: userData?.profile,
-        title: userData?.displayName || userData?.userName || 'Highlights',
+        title: userData?.displayName || userData?.userName || t('profilePersonData.highlights'),
       },
     });
-  }, [
-    navigation,
-    targetUserId,
-    userData?.displayName,
-    userData?.profile,
-    userData?.userName,
-  ]);
+  }, [navigation, targetUserId, userData?.displayName, userData?.profile, userData?.userName, t]);
 
   const recipientWalletAddress = useMemo(
     () => getSupportRecipientWalletAddress(userData),
@@ -591,31 +476,19 @@ const ProfilePersonData = ({
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
       Alert.alert(
-        'Wallet not connected',
-        'This user has not connected a wallet yet. Follow is still active.',
+        t('profilePersonData.walletNotConnectedTitle'),
+        t('profilePersonData.walletNotConnectedMessage'),
       );
       return;
     }
     setSupportDisclaimerVisible(false);
-    const receiverId =
-      targetUserId ??
-      userData?.userId ??
-      userData?.UserId ??
-      userData?.id ??
-      '';
+    const receiverId = targetUserId ?? userData?.userId ?? userData?.UserId ?? userData?.id ?? '';
     await startSupportPayment(recipientWalletAddress, {
       senderId: userId != null ? String(userId) : '',
       receiverId: receiverId !== '' ? String(receiverId) : '',
       chain: 'POLYGON',
     });
-  }, [
-    canSupport,
-    recipientWalletAddress,
-    startSupportPayment,
-    userId,
-    targetUserId,
-    userData,
-  ]);
+  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, targetUserId, userData, t]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     const supporterProfile = isBusinessProfile ? 'company' : 'user';
@@ -624,15 +497,15 @@ const ProfilePersonData = ({
     );
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
       Alert.alert(
-        'Support unavailable',
-        'Tips are not available for business profiles.',
+        t('profilePersonData.supportUnavailableTitle'),
+        t('profilePersonData.supportUnavailableMessage'),
       );
       setSupportModalVisible(false);
       return;
     }
     setSupportModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, [isBusinessProfile, effectiveProfileType, userProfile, userData?.profile]);
+  }, [isBusinessProfile, effectiveProfileType, userProfile, userData?.profile, t]);
 
   const handleFollowButtonPress = useCallback(async () => {
     const shouldFollow = !isFollowing;
@@ -640,7 +513,6 @@ const ProfilePersonData = ({
     const result = await followHandler?.();
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
-
     const supporterProfile = isBusinessProfile ? 'company' : 'user';
     const recipientProfile = normalizeProfileType(
       effectiveProfileType || userProfile || userData?.profile,
@@ -692,31 +564,23 @@ const ProfilePersonData = ({
     Animated.timing(totalSupportAnim, {
       toValue: totalSupportOpen ? 1 : 0,
       duration: totalSupportOpen ? 220 : 150,
-      easing: totalSupportOpen
-        ? Easing.out(Easing.cubic)
-        : Easing.in(Easing.cubic),
+      easing: totalSupportOpen ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [totalSupportAnim, totalSupportOpen]);
 
   useEffect(() => {
-    if (compactLocked && totalSupportOpen) {
-      setTotalSupportOpen(false);
-    }
+    if (compactLocked && totalSupportOpen) setTotalSupportOpen(false);
   }, [compactLocked, totalSupportOpen]);
 
   useFocusEffect(
     useCallback(() => {
-      // if (fromUsersProfile) return;
       let isActive = true;
-
       const fetchProfile = async () => {
         try {
           dispatch(showLoader());
           const id = await AsyncStorage.getItem('userId');
-          const storedWalletAddress = await AsyncStorage.getItem(
-            'walletAddress',
-          );
+          const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
           setUserId(id);
           setWalletAddress(storedWalletAddress || '');
           if (!id) return;
@@ -725,29 +589,20 @@ const ProfilePersonData = ({
           if (!isActive) return;
 
           if (response.statusCode === 200 && response.data) {
-            console.log('response in fetchProfile useFocusEffect:', response);
             if (!fromUsersProfile) {
               setData(response.data);
-              if (response.data.image) {
-                setProfileImage(response.data.image);
-              }
+              if (response.data.image) setProfileImage(response.data.image);
             }
             setIsBusinessProfile(response?.data?.profile === 'company');
 
-            // Check KYC approval status and show welcome modal
             if (!fromUsersProfile && response.data.kyc === true) {
-              const hasShownWelcome = await AsyncStorage.getItem(
-                KYC_WELCOME_SHOWN_KEY,
-              );
-              const hasShownLegacy = await AsyncStorage.getItem(
-                LEGACY_KYC_WELCOME_SHOWN_KEY,
-              );
+              const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
+              const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
               if (!hasShownWelcome) {
                 if (hasShownLegacy) {
                   await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
                   return;
                 }
-                // Show welcome modal after a short delay to ensure UI is ready
                 setTimeout(() => {
                   setWelcomeModalVisible(true);
                   AsyncStorage.multiSet([
@@ -759,56 +614,36 @@ const ProfilePersonData = ({
             }
           }
         } catch (err) {
-          if (isActive) {
-            // Handle error
-          }
+          // handled
         } finally {
-          if (isActive) {
-            dispatch(hideLoader());
-          }
+          if (isActive) dispatch(hideLoader());
         }
       };
-
       fetchProfile();
-
-      return () => {
-        isActive = false;
-      };
+      return () => { isActive = false; };
     }, [dispatch, fromUsersProfile]),
   );
 
   const fetchLiveBattleStatus = useCallback(async () => {
-    if (!viewedBattleUserId) {
-      setHasLiveBattle(false);
-      return;
-    }
+    if (!viewedBattleUserId) { setHasLiveBattle(false); return; }
     try {
       const response = await battleByUserId({ params: { userId: viewedBattleUserId } });
-      console.log(response,'dta in batatle bu user id dim this screenne ')
       const payload =
         response?.data?.data ?? response?.data?.battles ?? response?.data ?? response ?? [];
       const rawBattles = Array.isArray(payload)
         ? payload
-        : payload?.battles ||
-          payload?.data?.battles ||
-          payload?.data ||
-          response?.battles ||
-          [];
-      const liveBattleFound = (Array.isArray(rawBattles) ? rawBattles : []).some(
-        battle => {
-          const status = String(
-            battle?.status || battle?.battleStatus || '',
-          ).toLowerCase();
-          const isLiveFlag = Boolean(battle?.isLive || battle?.live);
-          return (
-            isLiveFlag ||
-            status.includes('live') ||
-            status.includes('progress') ||
-            status.includes('active') ||
-            status.includes('ongoing')
-          );
-        },
-      );
+        : payload?.battles || payload?.data?.battles || payload?.data || response?.battles || [];
+      const liveBattleFound = (Array.isArray(rawBattles) ? rawBattles : []).some(battle => {
+        const status = String(battle?.status || battle?.battleStatus || '').toLowerCase();
+        const isLiveFlag = Boolean(battle?.isLive || battle?.live);
+        return (
+          isLiveFlag ||
+          status.includes('live') ||
+          status.includes('progress') ||
+          status.includes('active') ||
+          status.includes('ongoing')
+        );
+      });
       setHasLiveBattle(liveBattleFound);
     } catch (_error) {
       setHasLiveBattle(false);
@@ -816,29 +651,15 @@ const ProfilePersonData = ({
   }, [viewedBattleUserId]);
 
   useFocusEffect(
-    useCallback(() => {
-      fetchLiveBattleStatus();
-    }, [fetchLiveBattleStatus]),
+    useCallback(() => { fetchLiveBattleStatus(); }, [fetchLiveBattleStatus]),
   );
 
   useEffect(() => {
-    if (!hasLiveBattle) {
-      battleStatusPulseAnim.setValue(1);
-      return undefined;
-    }
-
+    if (!hasLiveBattle) { battleStatusPulseAnim.setValue(1); return undefined; }
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(battleStatusPulseAnim, {
-          toValue: 0.35,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(battleStatusPulseAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
+        Animated.timing(battleStatusPulseAnim, { toValue: 0.35, duration: 500, useNativeDriver: true }),
+        Animated.timing(battleStatusPulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]),
     );
     pulse.start();
@@ -849,7 +670,7 @@ const ProfilePersonData = ({
     if (data) {
       navigation.navigate('EditProfile', { userdata: data });
     } else {
-      Alert.alert('Please wait', 'Profile data is still loading');
+      Alert.alert(t('profilePersonData.pleaseWait'), t('profilePersonData.profileStillLoading'));
     }
   };
 
@@ -857,14 +678,10 @@ const ProfilePersonData = ({
     if (fromUsersProfile) {
       navigation.navigate('ProfileMain', {
         screen: 'OpenBattle',
-        params: {
-          returnTo: 'UserProfile',
-          isCompanyProfile,
-        },
+        params: { returnTo: 'UserProfile', isCompanyProfile },
       });
       return;
     }
-
     navigation.navigate('OpenBattle', {
       returnTo: 'Home',
       isCompanyProfile,
@@ -874,14 +691,9 @@ const ProfilePersonData = ({
 
   const handleInviteBattlePress = useCallback(async () => {
     const storedMe = String((await AsyncStorage.getItem('userId')) || '').trim();
-    const profileUserId = String(
-      targetUserId || userData?.id || userData?._id || '',
-    ).trim();
+    const profileUserId = String(targetUserId || userData?.id || userData?._id || '').trim();
     const isOwnProfileInvite =
-      !fromUsersProfile &&
-      profileUserId &&
-      storedMe &&
-      profileUserId === storedMe;
+      !fromUsersProfile && profileUserId && storedMe && profileUserId === storedMe;
 
     if (isOwnProfileInvite) {
       navigation.navigate('OpenBattle', {
@@ -896,19 +708,10 @@ const ProfilePersonData = ({
     const invitedUser = {
       id: profileUserId,
       name:
-        userData?.displayName ||
-        userData?.name ||
-        userData?.fullName ||
-        userData?.userName ||
-        displayName ||
-        'User',
+        userData?.displayName || userData?.name || userData?.fullName ||
+        userData?.userName || displayName || t('profilePersonData.userFallback'),
       userName: userData?.userName || userData?.username || username || '',
-      avatar:
-        userData?.image ||
-        userData?.avatar ||
-        userData?.profilePicture ||
-        profileImage ||
-        '',
+      avatar: userData?.image || userData?.avatar || userData?.profilePicture || profileImage || '',
     };
 
     const params = {
@@ -921,36 +724,16 @@ const ProfilePersonData = ({
     if (fromUsersProfile) {
       navigation.navigate('ProfileMain', {
         screen: 'OpenBattle',
-        params: {
-          ...params,
-          isCompanyProfile,
-        },
+        params: { ...params, isCompanyProfile },
       });
       return;
     }
-
-    navigation.navigate('OpenBattle', {
-      ...params,
-      isCompanyProfile,
-    });
+    navigation.navigate('OpenBattle', { ...params, isCompanyProfile });
   }, [
-    displayName,
-    fromUsersProfile,
-    isCompanyProfile,
-    navigation,
-    profileImage,
-    targetUserId,
-    userData?.avatar,
-    userData?.displayName,
-    userData?.fullName,
-    userData?._id,
-    userData?.id,
-    userData?.image,
-    userData?.name,
-    userData?.profilePicture,
-    userData?.userName,
-    userData?.username,
-    username,
+    displayName, fromUsersProfile, isCompanyProfile, navigation, profileImage,
+    targetUserId, userData?.avatar, userData?.displayName, userData?.fullName,
+    userData?._id, userData?.id, userData?.image, userData?.name,
+    userData?.profilePicture, userData?.userName, userData?.username, username, t,
   ]);
 
   const handleBattleTabPress = useCallback(() => {
@@ -959,31 +742,22 @@ const ProfilePersonData = ({
       viewedUserId: String(targetUserId || userData?.id || userId || ''),
       isOwner: !fromUsersProfile,
       title: fromUsersProfile
-        ? `${displayName || 'User'} Battles`
-        : 'My Battles',
+        ? `${displayName || t('profilePersonData.userFallback')} ${t('profilePersonData.battlesLabel')}`
+        : t('profilePersonData.myBattles'),
       returnTo: fromUsersProfile ? 'UserProfile' : 'Home',
-      isCompanyProfile
+      isCompanyProfile,
     });
   }, [
-    navigation,
-    targetUserId,
-    userData?.id,
-    userData?.profile,
-    userId,
-    fromUsersProfile,
-    displayName,
-    effectiveProfileType,
-    userProfile,
+    navigation, targetUserId, userData?.id, userData?.profile, userId,
+    fromUsersProfile, displayName, effectiveProfileType, userProfile, t,
   ]);
 
   const redirect = () => {
     const source = data?.id ? data : userData?.id ? userData : null;
-
     if (!source) {
-      Alert.alert('Please wait', 'Profile data is still loading');
+      Alert.alert(t('profilePersonData.pleaseWait'), t('profilePersonData.profileStillLoading'));
       return;
     }
-
     const normalizedSource = {
       ...source,
       id: source?.id || source?.userId || targetUserId,
@@ -992,39 +766,17 @@ const ProfilePersonData = ({
       displayName: source?.displayName || displayName || source?.userName || '',
       image: source?.image || profileImage || '',
     };
-
-    const shareParams = {
-      userData: normalizedSource,
-      fromUsersProfile,
-      targetUserId,
-    };
-
+    const shareParams = { userData: normalizedSource, fromUsersProfile, targetUserId };
     if (fromUsersProfile) {
-      navigation.navigate('ProfileMain', {
-        screen: 'ShareProfile',
-        params: shareParams,
-      });
+      navigation.navigate('ProfileMain', { screen: 'ShareProfile', params: shareParams });
       return;
     }
-
     navigation.navigate('ShareProfile', shareParams);
   };
 
-  // const handleSupportPress = () => {
-  //   const email = 'info@valens.app';
-  //   const subject = 'App Support Request';
-  //   const body = 'Hi team,\n\nI need help with...';
-
-  //   const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-  //   Linking.openURL(url).catch(() => {
-  //     Alert.alert('Error', 'No mail app found');
-  //   });
-  // };
   const detectPlatformFromUrl = useCallback((url = '') => {
     const normalized = String(url).toLowerCase();
-    if (normalized.includes('twitter.com') || normalized.includes('x.com'))
-      return 'twitter';
+    if (normalized.includes('twitter.com') || normalized.includes('x.com')) return 'twitter';
     if (normalized.includes('tiktok.com')) return 'tiktok';
     if (normalized.includes('linkedin.com')) return 'linkedin';
     if (normalized.includes('instagram.com')) return 'instagram';
@@ -1033,9 +785,7 @@ const ProfilePersonData = ({
 
   const getSocialPlatform = useCallback(
     (platform = '', url = '') => {
-      const normalizedPlatform = String(platform || '')
-        .trim()
-        .toLowerCase();
+      const normalizedPlatform = String(platform || '').trim().toLowerCase();
       if (normalizedPlatform) return normalizedPlatform;
       return detectPlatformFromUrl(url);
     },
@@ -1044,50 +794,31 @@ const ProfilePersonData = ({
 
   const socialMediaLinks = useMemo(() => {
     const source =
-      data?.social_media_links ??
-      userData?.social_media_links ??
-      data?.socialLinks ??
-      userData?.socialLinks ??
-      data?.social_links ??
-      userData?.social_links;
+      data?.social_media_links ?? userData?.social_media_links ??
+      data?.socialLinks ?? userData?.socialLinks ??
+      data?.social_links ?? userData?.social_links;
     let list = [];
     try {
-      if (Array.isArray(source)) {
-        list = source;
-      } else if (typeof source === 'string') {
-        list = JSON.parse(source);
-      }
-    } catch (e) {
-      list = [];
-    }
+      if (Array.isArray(source)) list = source;
+      else if (typeof source === 'string') list = JSON.parse(source);
+    } catch (e) { list = []; }
 
     const knownPlatformKeys = ['twitter', 'tiktok', 'linkedin', 'instagram'];
-
     return list
       .map(item => {
         const objectItem = item && typeof item === 'object' ? item : {};
-        const directUrl = String(
-          objectItem?.url || objectItem?.link || objectItem?.value || '',
-        ).trim();
-        const keyedPlatformEntry = knownPlatformKeys.find(
-          key => objectItem?.[key],
-        );
-        const platform = String(
-          objectItem?.platform || keyedPlatformEntry || '',
-        ).toLowerCase();
-        const derivedUrl =
-          directUrl || String(objectItem?.[platform] || '').trim();
+        const directUrl = String(objectItem?.url || objectItem?.link || objectItem?.value || '').trim();
+        const keyedPlatformEntry = knownPlatformKeys.find(key => objectItem?.[key]);
+        const platform = String(objectItem?.platform || keyedPlatformEntry || '').toLowerCase();
+        const derivedUrl = directUrl || String(objectItem?.[platform] || '').trim();
         const normalizedPlatform = getSocialPlatform(platform, derivedUrl);
         return { platform: normalizedPlatform, url: derivedUrl };
       })
       .filter(item => item.url);
   }, [
-    data?.social_media_links,
-    userData?.social_media_links,
-    data?.socialLinks,
-    userData?.socialLinks,
-    data?.social_links,
-    userData?.social_links,
+    data?.social_media_links, userData?.social_media_links,
+    data?.socialLinks, userData?.socialLinks,
+    data?.social_links, userData?.social_links,
     getSocialPlatform,
   ]);
 
@@ -1095,105 +826,56 @@ const ProfilePersonData = ({
     if (platform === 'tiktok') return <Tiktok width={25} height={25} />;
     if (platform === 'linkedin') return <Linkedin width={25} height={25} />;
     if (platform === 'twitter') return <Twitter width={25} height={25} />;
-    if (platform === 'instagram')
-      return <FontAwesome name="instagram" size={23} color="#E1306C" />;
+    if (platform === 'instagram') return <FontAwesome name="instagram" size={23} color="#E1306C" />;
     return <Feather name="link-2" size={22} color="#374151" />;
   }, []);
 
-  const websiteLink = useMemo(() => {
-    return String(
-      userData?.website_link ??
-      data?.website_link ??
-      userData?.websiteLink ??
-      data?.websiteLink ??
-      '',
-    ).trim();
-  }, [
-    userData?.website_link,
-    data?.website_link,
-    userData?.websiteLink,
-    data?.websiteLink,
-  ]);
+  const websiteLink = useMemo(() => String(
+    userData?.website_link ?? data?.website_link ??
+    userData?.websiteLink ?? data?.websiteLink ?? '',
+  ).trim(), [userData?.website_link, data?.website_link, userData?.websiteLink, data?.websiteLink]);
 
   const handleOpenSocialUrl = async url => {
     const raw = String(url || '').trim();
-    if (!raw) {
-      Alert.alert('Error', 'Link is empty');
-      return;
-    }
-
+    if (!raw) { Alert.alert(t('profilePersonData.error'), t('profilePersonData.linkEmpty')); return; }
     const normalizedUrl = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-
     try {
       const supported = await Linking.canOpenURL(normalizedUrl);
-      if (!supported) {
-        Alert.alert('Error', 'Invalid link');
-        return;
-      }
+      if (!supported) { Alert.alert(t('profilePersonData.error'), t('profilePersonData.invalidLink')); return; }
       await Linking.openURL(normalizedUrl);
     } catch (e) {
-      Alert.alert('Error', 'Unable to open link');
+      Alert.alert(t('profilePersonData.error'), t('profilePersonData.unableToOpenLink'));
     }
   };
 
   const DragonflyIcon = getDragonflyIcon(Userdata.Followers, isCompanyProfile);
-  const middleCollapseStyle = compactLocked
-    ? styles.collapsibleProfileMiddleCollapsed
-    : styles.collapsibleProfileMiddleExpanded;
   const totalSupportCardHeight = totalSupportAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, TOTAL_SUPPORT_CARD_HEIGHT],
+    inputRange: [0, 1], outputRange: [0, TOTAL_SUPPORT_CARD_HEIGHT],
   });
   const totalSupportCardOpacity = totalSupportAnim.interpolate({
-    inputRange: [0, 0.35, 1],
-    outputRange: [0, 0, 1],
+    inputRange: [0, 0.35, 1], outputRange: [0, 0, 1],
   });
   const totalSupportCardTranslateY = totalSupportAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-8, 0],
+    inputRange: [0, 1], outputRange: [-8, 0],
   });
   const totalSupportCardScale = totalSupportAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.96, 1],
+    inputRange: [0, 1], outputRange: [0.96, 1],
   });
-  const usernameModalData = useMemo(() => {
-    return {
-      ...(userData || {}),
-      ...(data || {}),
-      id: data?.id || userData?.id || targetUserId || userId,
-      userId: data?.userId || userData?.userId || targetUserId || userId,
-      userName: data?.userName || userData?.userName || username || displayName,
-      displayName:
-        data?.displayName || userData?.displayName || displayName || username,
-      walletAddress:
-        data?.walletAddress ||
-        userData?.walletAddress ||
-        userData?.walletId ||
-        walletAddress ||
-        '',
-    };
-  }, [
-    data,
-    userData,
-    targetUserId,
-    userId,
-    username,
-    displayName,
-    walletAddress,
-  ]);
+  const usernameModalData = useMemo(() => ({
+    ...(userData || {}),
+    ...(data || {}),
+    id: data?.id || userData?.id || targetUserId || userId,
+    userId: data?.userId || userData?.userId || targetUserId || userId,
+    userName: data?.userName || userData?.userName || username || displayName,
+    displayName: data?.displayName || userData?.displayName || displayName || username,
+    walletAddress: data?.walletAddress || userData?.walletAddress || userData?.walletId || walletAddress || '',
+  }), [data, userData, targetUserId, userId, username, displayName, walletAddress]);
 
   const handleBackPress = useCallback(() => {
-    console.log('ProfilePersonalData handleBackPress, returnByTo:', returnByTo);
-
     const profileBattleReturnRoutes = new Set([
-      'BattleInProgress',
-      'BattleResults',
-      'BattleReward',
-      'ProfileBattleScreen',
-      'OpenBattle',
+      'BattleInProgress', 'BattleResults', 'BattleReward', 'ProfileBattleScreen', 'OpenBattle',
     ]);
 
-    // Support object-based return targets for nested navigators.
     if (returnByTo && typeof returnByTo === 'object') {
       const tab = returnByTo?.tab;
       const screen = returnByTo?.screen;
@@ -1202,9 +884,7 @@ const ProfilePersonData = ({
         const parentNav = navigation.getParent?.();
         if (parentNav?.jumpTo) {
           parentNav.jumpTo(tab);
-          if (screen) {
-            parentNav.navigate(tab, { screen, params });
-          }
+          if (screen) parentNav.navigate(tab, { screen, params });
         } else {
           navigation.navigate(tab, screen ? { screen, params } : undefined);
         }
@@ -1212,26 +892,18 @@ const ProfilePersonData = ({
       }
     }
 
-    // When this profile is opened from battle screens, we switch navigators.
-    // Use explicit return route so back goes to the exact originating battle screen.
     if (profileBattleReturnRoutes.has(returnByTo)) {
-      navigation.navigate('ProfileMain', {
-        screen: returnByTo,
-      });
+      navigation.navigate('ProfileMain', { screen: returnByTo });
       return;
-    }
-    else if (returnByTo == 'Search') {
+    } else if (returnByTo == 'Search') {
       navigation.navigate(returnByTo);
       return;
-    }
-    else if (returnByTo === 'Add') {
-      // Jump back to the Add tab (PostEditor remains in its stack state).
+    } else if (returnByTo === 'Add') {
       const parentNav = navigation.getParent?.();
       if (parentNav?.jumpTo) parentNav.jumpTo('Add');
       else navigation.navigate('Add');
       return;
     }
-
     navigation.goBack();
   }, [navigation, returnByTo]);
 
@@ -1248,78 +920,43 @@ const ProfilePersonData = ({
             >
               {fromUsersProfile && (
                 <TouchableOpacity onPress={handleBackPress}>
-                  <Ionicons
-                    name="arrow-back-outline"
-                    size={22}
-                    color="#111100"
-                    style={{ marginRight: 4 }}
-                  />
+                  <Ionicons name="arrow-back-outline" size={22} color="#111100" style={{ marginRight: 4 }} />
                 </TouchableOpacity>
               )}
               <View style={styles.userRow}>
-                <Text style={[styles.headerText, textStyle]}>
-                  {Userdata.Username}
-                </Text>
+                <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
                 {showIdentityVerified && (
                   <DragonflyIcon width={30} height={30} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
-                  <Ionicons
-                    name="chevron-down"
-                    size={18}
-                    color="#111100"
-                    style={{ marginLeft: 4 }}
-                  />
+                  <Ionicons name="chevron-down" size={18} color="#111100" style={{ marginLeft: 4 }} />
                 )}
               </View>
             </TouchableOpacity>
           </View>
+
           <View style={styles.iconContainer}>
-            {/* {!fromUsersProfile && (
-              <TouchableOpacity style={styles.iconButton} onPress={() => { navigation.navigate('wallet') }}>
-                <Ionicons name="wallet-outline" size={25} color="#111100" />
-              </TouchableOpacity>
-            )} */}
             {fromUsersProfile && (
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={openUserHighlights}
-              >
+              <TouchableOpacity style={styles.iconButton} onPress={openUserHighlights}>
                 <Feather name="circle" size={25} color="#111100" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => {
-                redirect();
-              }}
-            >
+            <TouchableOpacity style={styles.iconButton} onPress={() => redirect()}>
               <Ionicons name="share-outline" size={25} color="#111100" />
             </TouchableOpacity>
             {!fromUsersProfile && (
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => setModalVisible(true)}
-              >
+              <TouchableOpacity style={styles.iconButton} onPress={() => setModalVisible(true)}>
                 <FontAwesome name="plus-square-o" size={25} color="#111100" />
               </TouchableOpacity>
             )}
-
             {fromUsersProfile ? (
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => setUsernameModalVisible(true)}
-              >
-                <Ionicons
-                  name="ellipsis-horizontal-outline"
-                  size={25}
-                  color="#111100"
-                />
+              <TouchableOpacity style={styles.iconButton} onPress={() => setUsernameModalVisible(true)}>
+                <Ionicons name="ellipsis-horizontal-outline" size={25} color="#111100" />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={styles.iconButton}
-                onPress={() => { AsyncStorage.setItem('profile', userData?.profile); navigation.navigate('Settings') }}
+                onPress={() => { AsyncStorage.setItem('profile', userData?.profile); navigation.navigate('Settings'); }}
               >
                 <Feather name="menu" size={25} color="#111100" />
               </TouchableOpacity>
@@ -1330,7 +967,6 @@ const ProfilePersonData = ({
         {/* Profile Info */}
         <View style={styles.profile}>
           <View style={[styles.profileView, { position: 'relative' }]}>
-            {/* Top row: avatar left, buttons right */}
             <View style={styles.profileTopRow}>
               <View style={styles.profileWraper}>
                 <TouchableOpacity
@@ -1339,16 +975,11 @@ const ProfilePersonData = ({
                   style={{ marginBottom: 5 }}
                 >
                   <View style={styles.avatarWithBadge}>
-                    <HexAvatar
-                      uri={avatarUri}
-                      size={110}
-                      borderWidth={2}
-                      borderColor={text}
-                    />
+                    <HexAvatar uri={avatarUri} size={110} borderWidth={2} borderColor={text} />
                     {showIdentityVerified && (
                       <View
                         style={styles.verifiedAvatarBadge}
-                        accessibilityLabel="Verified account"
+                        accessibilityLabel={t('profilePersonData.verifiedAccount')}
                         pointerEvents="none"
                       >
                         <Ionicons name="checkmark" size={14} color="#FFFFFF" />
@@ -1369,24 +1000,6 @@ const ProfilePersonData = ({
               <View style={styles.edit}>
                 {fromUsersProfile ? (
                   <>
-                    {/* <TouchableOpacity disabled={followBusy} onPress={() => purchaseSheetRef.current?.open()}>
-                    {
-                      !isBusinessProfile && (
-                        userData?.profile !== 'company' && (
-                          isFollowing && (
-                            <LinearGradient
-                              colors={profileActionGradient}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 0 }}
-                              style={[styles.editbuttons, { shadowColor: text }]}
-                            >
-                              <Text style={styles.buttonText}>Buy</Text>
-                            </LinearGradient>
-                          )
-                        )
-                      )
-                    }
-                  </TouchableOpacity> */}
                     <TouchableOpacity
                       onPress={handleFollowButtonPress}
                       disabled={followBusy || isFollowing === null}
@@ -1398,11 +1011,14 @@ const ProfilePersonData = ({
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
                         <Text style={styles.buttonText}>
-                          {isFollowing ? 'Following' : 'Follow'}
+                          {isFollowing
+                            ? t('profilePersonData.following')
+                            : t('profilePersonData.follow')}
                           {followBusy ? '...' : ''}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
+
                     <TouchableOpacity onPress={() => UserMessageNavigation()}>
                       <LinearGradient
                         colors={profileActionGradient}
@@ -1410,9 +1026,10 @@ const ProfilePersonData = ({
                         end={{ x: 1, y: 0 }}
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
-                        <Text style={styles.buttonText}>Message</Text>
+                        <Text style={styles.buttonText}>{t('profilePersonData.message')}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
+
                     {normalizedProfileThemeType !== 'company' && (
                       <TouchableOpacity onPress={handleToggleTotalSupport}>
                         <LinearGradient
@@ -1422,12 +1039,8 @@ const ProfilePersonData = ({
                           style={[styles.editbuttons, { shadowColor: text }]}
                         >
                           <View style={styles.buttonContent}>
-                            <Ionicons
-                              name="trending-up-outline"
-                              size={28}
-                              color="#f2f8f2"
-                            />
-                            <Text style={styles.buttonText}>Total Support</Text>
+                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                            <Text style={styles.buttonText}>{t('profilePersonData.totalSupport')}</Text>
                           </View>
                         </LinearGradient>
                       </TouchableOpacity>
@@ -1442,9 +1055,10 @@ const ProfilePersonData = ({
                         end={{ x: 1, y: 0 }}
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
-                        <Text style={styles.buttonText}>Edit Profile</Text>
+                        <Text style={styles.buttonText}>{t('profilePersonData.editProfile')}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                       onPress={() =>
                         navigation.navigate('Invite', {
@@ -1459,14 +1073,11 @@ const ProfilePersonData = ({
                         end={{ x: 1, y: 0 }}
                         style={[styles.editbuttons, { shadowColor: text }]}
                       >
-                        <Ionicons
-                          name="person-add-sharp"
-                          size={15}
-                          color="white"
-                        />
-                        <Text style={styles.buttonText}> Invite</Text>
+                        <Ionicons name="person-add-sharp" size={15} color="white" />
+                        <Text style={styles.buttonText}> {t('profilePersonData.invite')}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
+
                     {!isBusinessProfile && (
                       <TouchableOpacity onPress={handleToggleTotalSupport}>
                         <LinearGradient
@@ -1476,12 +1087,8 @@ const ProfilePersonData = ({
                           style={[styles.editbuttons, { shadowColor: text }]}
                         >
                           <View style={styles.buttonContent}>
-                            <Ionicons
-                              name="trending-up-outline"
-                              size={28}
-                              color="#f2f8f2"
-                            />
-                            <Text style={styles.buttonText}>Total Support</Text>
+                            <Ionicons name="trending-up-outline" size={28} color="#f2f8f2" />
+                            <Text style={styles.buttonText}>{t('profilePersonData.totalSupport')}</Text>
                           </View>
                         </LinearGradient>
                       </TouchableOpacity>
@@ -1490,6 +1097,7 @@ const ProfilePersonData = ({
                 )}
               </View>
             </View>
+
             <Animated.View
               pointerEvents={totalSupportOpen ? 'auto' : 'none'}
               style={[
@@ -1509,7 +1117,7 @@ const ProfilePersonData = ({
               ) : (
                 <>
                   <Text style={styles.totalSupportPopoverLabel}>
-                    Total Support Received
+                    {t('profilePersonData.totalSupportReceived')}
                   </Text>
                   <Text style={styles.totalSupportPopoverAmount}>
                     $ {totalSupportAmount.toFixed(2)}
@@ -1517,19 +1125,14 @@ const ProfilePersonData = ({
                 </>
               )}
             </Animated.View>
+
             <Text style={styles.displaynamee} numberOfLines={2}>
               {Userdata.Displayname}
             </Text>
           </View>
 
           <Animated.View
-            style={[
-              styles.collapsibleProfileMiddle,
-              {
-                maxHeight: animatedMaxHeight,
-                opacity: animatedOpacity,
-              }
-            ]}
+            style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
           >
             <View style={styles.biobox}>
               <Text style={styles.biotext}>{Userdata.Bio}</Text>
@@ -1546,7 +1149,6 @@ const ProfilePersonData = ({
                 ))}
               </View>
             </View>
-
             {!!websiteLink && (
               <TouchableOpacity
                 style={styles.bioLinkWrap}
@@ -1560,24 +1162,13 @@ const ProfilePersonData = ({
         </View>
 
         <Animated.View
-          style={[
-            styles.collapsibleProfileMiddle,
-            {
-              maxHeight: animatedMaxHeight,
-              opacity: animatedOpacity,
-            }
-          ]}
+          style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
         >
+          {/* Battle buttons */}
           <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
-            {fromUsersProfile && (
+            {fromUsersProfile ? (
               <TouchableOpacity
-                style={[
-                  styles.battleBtnWrapper,
-                  {
-                    backgroundColor: text,
-                    borderColor: text,
-                  },
-                ]}
+                style={[styles.battleBtnWrapper, { backgroundColor: text, borderColor: text }]}
                 onPress={handleInviteBattlePress}
               >
                 <LinearGradient
@@ -1586,19 +1177,12 @@ const ProfilePersonData = ({
                   end={{ x: 1, y: 0 }}
                   style={styles.battleBtn}
                 >
-                  <Text style={styles.battleBtnText}>Invite to Battle</Text>
+                  <Text style={styles.battleBtnText}>{t('profilePersonData.inviteToBattle')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            )}
-            {!fromUsersProfile && (
+            ) : (
               <TouchableOpacity
-                style={[
-                  styles.battleBtnWrapper,
-                  {
-                    backgroundColor: text,
-                    borderColor: text,
-                  },
-                ]}
+                style={[styles.battleBtnWrapper, { backgroundColor: text, borderColor: text }]}
                 onPress={handleOpenBattlePress}
               >
                 <LinearGradient
@@ -1607,52 +1191,43 @@ const ProfilePersonData = ({
                   end={{ x: 1, y: 0 }}
                   style={styles.battleBtn}
                 >
-                  <Text style={styles.battleBtnText}>Open Battle</Text>
+                  <Text style={styles.battleBtnText}>{t('profilePersonData.openBattle')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
           </View>
 
+          {/* Battle tab */}
           <View style={[styles.tabContainer, { height: 50 }]}>
             <TouchableOpacity
-              style={[
-                styles.tab,
-                {
-                  backgroundColor: text,
-                  borderColor: text,
-                },
-              ]}
+              style={[styles.tab, { backgroundColor: text, borderColor: text }]}
               onPress={handleBattleTabPress}
             >
               <View style={styles.tabContentRow}>
-                <Text
-                  style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}
-                >
-                  Battle
+                <Text style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}>
+                  {t('profilePersonData.battle')}
                 </Text>
                 {hasLiveBattle && (
                   <View style={styles.liveBadge}>
                     <Animated.View
-                      style={[
-                        styles.liveBadgeDot,
-                        { opacity: battleStatusPulseAnim },
-                      ]}
+                      style={[styles.liveBadgeDot, { opacity: battleStatusPulseAnim }]}
                     />
-                    <Text style={styles.liveBadgeText}>LIVE</Text>
+                    <Text style={styles.liveBadgeText}>{t('profilePersonData.live')}</Text>
                   </View>
                 )}
               </View>
             </TouchableOpacity>
           </View>
+
           {/* Stats */}
           <View style={styles.statsRow}>
             <TouchableOpacity style={styles.statItem}>
               <Ionicons name="add-circle-outline" size={16} color="#444" />
               <Text style={[styles.statText, { color: text }]}>
-                {' '}
-                Mint: {Userdata.totalPost}
+                {' '}{t('profilePersonData.mint')}: {Userdata.totalPost}
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.statItem}
               activeOpacity={0.5}
@@ -1665,27 +1240,23 @@ const ProfilePersonData = ({
                       userName: Userdata.Username,
                       userId: fromUsersProfile ? targetUserId : userId,
                       returnTo: 'Home',
-                      screenParams: screenParams
+                      screenParams,
                     },
                   });
                 } else {
                   navigation.navigate('FollowersFollowingScreen', {
                     tab: 'followers',
-                    params: {
-                      userName: Userdata.Username,
-                      userId: userId,
-                      returnTo: 'UserProfile',
-                    },
+                    params: { userName: Userdata.Username, userId, returnTo: 'UserProfile' },
                   });
                 }
               }}
             >
               <FontAwesome name="user" size={16} color="#444" />
               <Text style={[styles.statText, { color: text }]}>
-                {' '}
-                Followers: {Userdata.Followers}
+                {' '}{t('profilePersonData.followers')}: {Userdata.Followers}
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.statItem}
               onPress={() => {
@@ -1697,50 +1268,33 @@ const ProfilePersonData = ({
                       userName: displayName,
                       userId: fromUsersProfile ? targetUserId : userId,
                       returnTo: 'Home',
-                      screenParams: screenParams
+                      screenParams,
                     },
                   });
                 } else {
                   navigation.navigate('FollowersFollowingScreen', {
                     tab: 'following',
-                    params: {
-                      userName: displayName,
-                      userId: userId,
-                      returnTo: 'UserProfile',
-                    },
+                    params: { userName: displayName, userId, returnTo: 'UserProfile' },
                   });
                 }
               }}
             >
               <Ionicons name="swap-horizontal-outline" size={16} color="#444" />
               <Text style={[styles.statText, { color: text }]}>
-                {' '}
-                Following: {Userdata.Followings}
+                {' '}{t('profilePersonData.following')}: {Userdata.Followings}
               </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
-        {/* <TouchableOpacity style={styles.infoButton}>
-  <Ionicons name="information-circle-outline" size={22} color="#144c9b" />
-</TouchableOpacity> */}
       </View>
 
       {/* Modals */}
-      <ProfileModal
-        modalVisible={modalVisible}
-        setModalVisible={setModalVisible}
-      />
+      <ProfileModal modalVisible={modalVisible} setModalVisible={setModalVisible} />
       <UsernameModal
         visible={usernameModalVisible}
         onClose={() => setUsernameModalVisible(false)}
         data={usernameModalData}
       />
-      {/* <TradeModal
-        visible={tradeModalVisible}
-        onClose={() => setTradeModalVisible(false)}
-      /> */}
-
-      {/* Story Composer Modal */}
       <StoryComposer
         modalVisible={composerVisible}
         mediaList={composerList}
@@ -1749,41 +1303,40 @@ const ProfilePersonData = ({
       />
       <SupportCreatorModal
         visible={supportModalVisible}
-        creatorName={username || userData?.userName || 'Creator'}
+        creatorName={username || userData?.userName || t('profilePersonData.creatorFallback')}
         onClose={() => setSupportModalVisible(false)}
         onSupport={handleOpenSupportDisclaimer}
       />
       <SupportCreatorModal
         visible={supportDisclaimerVisible}
-        creatorName={username || userData?.userName || 'Creator'}
+        creatorName={username || userData?.userName || t('profilePersonData.creatorFallback')}
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}
       />
-  
-    
-      {/* Profile Image Viewer Modal */}
-        <Modal
-          visible={imageViewerVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setImageViewerVisible(false)}
+
+      {/* Profile Image Viewer */}
+      <Modal
+        visible={imageViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageViewerVisible(false)}
+      >
+        <Pressable
+          style={styles.profileImagePreviewOverlay}
+          onPress={() => setImageViewerVisible(false)}
         >
-          <Pressable
-            style={styles.profileImagePreviewOverlay}
+          <TouchableOpacity
+            activeOpacity={0.85}
             onPress={() => setImageViewerVisible(false)}
+            style={styles.profileImagePreviewCloseBtn}
           >
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setImageViewerVisible(false)}
-              style={styles.profileImagePreviewCloseBtn}
-            >
-              <Ionicons name="close" size={26} color="#FFFFFF" />
-            </TouchableOpacity>
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
 
           <Pressable
             style={styles.profileImagePreviewZoomHost}
-            onPress={(e) => e?.stopPropagation?.()}
+            onPress={e => e?.stopPropagation?.()}
           >
             <ImageZoom
               cropWidth={SCREEN_WIDTH}
@@ -1800,18 +1353,6 @@ const ProfilePersonData = ({
                     borderWidth={2}
                     borderColor={text}
                   />
-                  {/* {showIdentityVerified && (
-                    <View
-                      style={[
-                        styles.verifiedAvatarBadge,
-                        styles.verifiedAvatarBadgeLarge,
-                      ]}
-                      accessibilityLabel="Verified account"
-                      pointerEvents="none"
-                    >
-                      <Ionicons name="checkmark" size={22} color="#FFFFFF" />
-                    </View>
-                  )} */}
                 </View>
               </View>
             </ImageZoom>

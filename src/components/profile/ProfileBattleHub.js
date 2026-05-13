@@ -14,16 +14,15 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const pickFirst = (...values) =>
-  values.find(value => value !== undefined && value !== null && value !== '');
+  values.find((value) => value !== undefined && value !== null && value !== '');
 
-const normalizeBattleItem = raw => {
+const normalizeBattleItem = (raw) => {
   const status = String(pickFirst(raw?.status, 'open')).toLowerCase();
   const options = Array.isArray(raw?.options) ? raw.options : [];
-  const votes = Number(
-    pickFirst(raw?._count?.participants, raw?.participantsCount, raw?.votes, 0),
-  );
+  const votes = Number(pickFirst(raw?._count?.participants, raw?.participantsCount, raw?.votes, 0));
   const stake = Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0));
   const endTime = pickFirst(
     raw?.endTime,
@@ -34,7 +33,6 @@ const normalizeBattleItem = raw => {
     raw?.end_date,
     raw?.expiryTime,
     raw?.expiresAt,
-    // raw?.resolvedAt,
     null,
   );
   const type = String(pickFirst(raw?.battleType, raw?.type, 'opinion')).toLowerCase();
@@ -73,34 +71,31 @@ const emptySummary = {
   points: 0,
 };
 
-const formatDate = value => {
-  if (!value) return 'No end date';
-
+const formatDate = (value) => {
+  if (!value) return null; // caller will use translation key
   const parsed =
     typeof value === 'number'
       ? new Date(value < 10_000_000_000 ? value * 1000 : value)
       : new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) return 'No end date';
-
+  if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toLocaleDateString();
 };
 
-const getStatusMeta = battle => {
+const getStatusMeta = (battle) => {
   if (battle.status.includes('live') || battle.status.includes('progress')) {
-    return { label: 'LIVE', tone: '#EF4444' };
+    return { labelKey: 'battleHub.statusLive', tone: '#EF4444' };
   }
   if (
     battle.status.includes('closed') ||
     battle.status.includes('finished') ||
     battle.status.includes('resolved')
   ) {
-    return { label: 'FINISHED', tone: '#6B7280' };
+    return { labelKey: 'battleHub.statusFinished', tone: '#6B7280' };
   }
   if (battle.status.includes('result')) {
-    return { label: 'RESULT', tone: '#8B5CF6' };
+    return { labelKey: 'battleHub.statusResult', tone: '#8B5CF6' };
   }
-  return { label: 'OPEN', tone: '#0F766E' };
+  return { labelKey: 'battleHub.statusOpen', tone: '#0F766E' };
 };
 
 export default function ProfileBattleHub({
@@ -109,10 +104,12 @@ export default function ProfileBattleHub({
   openBattleRoute = 'OpenBattle',
   profile,
   returnTo = 'Home',
-  isCompanyProfile
+  isCompanyProfile,
 }) {
   const navigation = useNavigation();
   const { text, bgStyle } = useAppTheme(profile);
+  const { t } = useLanguage();
+
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [battles, setBattles] = useState([]);
@@ -127,23 +124,16 @@ export default function ProfileBattleHub({
       setBattles([]);
       return;
     }
-
     setLoading(true);
     try {
       const response = await battleByUserId({ params: { userId: viewedUserId } });
       const payload = response?.data?.data ?? response?.data ?? response ?? {};
       const rawBattles = Array.isArray(payload)
         ? payload
-        : payload?.battles ||
-        payload?.data?.battles ||
-        payload?.data ||
-        response?.battles ||
-        [];
-
+        : payload?.battles || payload?.data?.battles || payload?.data || response?.battles || [];
       const normalized = Array.isArray(rawBattles)
-        ? rawBattles.map(normalizeBattleItem).filter(item => item.id)
+        ? rawBattles.map(normalizeBattleItem).filter((item) => item.id)
         : [];
-
       setBattles(normalized);
     } catch (_error) {
       setBattles([]);
@@ -151,22 +141,17 @@ export default function ProfileBattleHub({
       setLoading(false);
     }
   }, [viewedUserId]);
+
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {
       setBattlePointSummary(emptySummary);
       return;
     }
-
     try {
       const response = await battlePoint({ params: { userId: viewedUserId } });
-      const rawData =
-        response?.data?.data ||
-        response?.data ||
-        response ||
-        {};
+      const rawData = response?.data?.data || response?.data || response || {};
       const totals = rawData?.totals || {};
       const rawItems = Array.isArray(rawData?.items) ? rawData.items : [];
-
       setBattlePointSummary({
         level: String(rawData?.level || 'Rookie'),
         totals: {
@@ -178,7 +163,7 @@ export default function ProfileBattleHub({
         },
         predictionAccuracyPercent: Number(rawData?.predictionAccuracyPercent || 0),
         credibilityScore: Number(rawData?.credibilityScore || 0),
-        liveCount: rawItems.filter(item =>
+        liveCount: rawItems.filter((item) =>
           String(item?.status || '').toUpperCase().includes('LIVE'),
         ).length,
         points: Number(totals?.totalBattlePoints || 0),
@@ -202,59 +187,24 @@ export default function ProfileBattleHub({
 
   const stats = useMemo(
     () => [
-      {
-        key: 'level',
-        label: 'Level',
-        value: battlePointSummary.level,
-      },
-      {
-        key: 'joined',
-        label: 'Battle Joined',
-        value: battlePointSummary.totals.totalBattlesJoined,
-      },
-      {
-        key: 'won',
-        label: 'Battle Won',
-        value: battlePointSummary.totals.totalBattlesWon,
-      },
-      {
-        key: 'accuracy',
-        label: 'Accuracy',
-        value: `${battlePointSummary.predictionAccuracyPercent}%`,
-      },
-      {
-        key: 'points',
-        label: 'Points',
-        value: battlePointSummary.points,
-      },
-      {
-        key: 'credibility',
-        label: 'Credibility',
-        value: battlePointSummary.credibilityScore,
-      },
+      { key: 'level',      label: t('battleHub.statLevel'),        value: battlePointSummary.level },
+      { key: 'joined',     label: t('battleHub.statJoined'),       value: battlePointSummary.totals.totalBattlesJoined },
+      { key: 'won',        label: t('battleHub.statWon'),          value: battlePointSummary.totals.totalBattlesWon },
+      { key: 'accuracy',   label: t('battleHub.statAccuracy'),     value: `${battlePointSummary.predictionAccuracyPercent}%` },
+      { key: 'points',     label: t('battleHub.statPoints'),       value: battlePointSummary.points },
+      { key: 'credibility',label: t('battleHub.statCredibility'),  value: battlePointSummary.credibilityScore },
     ],
-    [battlePointSummary],
+    [battlePointSummary, t],
   );
 
   const openBattle = useCallback(
-    battle => {
-      const params = {
-        battleId: battle.id,
-        battle,
-        entryPoint: 'profile_battle_tab',
-        profile,
-      };
-
+    (battle) => {
+      const params = { battleId: battle.id, battle, entryPoint: 'profile_battle_tab', profile };
       const parentNavigation = navigation.getParent?.();
-
       if (parentNavigation) {
-        parentNavigation.navigate('ProfileMain', {
-          screen: 'BattleInProgress',
-          params,
-        });
+        parentNavigation.navigate('ProfileMain', { screen: 'BattleInProgress', params });
         return;
       }
-
       navigation.navigate('BattleInProgress', params);
     },
     [navigation, profile],
@@ -273,8 +223,7 @@ export default function ProfileBattleHub({
   const filteredBattles = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     if (!query) return battles;
-
-    return battles.filter(battle =>
+    return battles.filter((battle) =>
       String(battle?.title || '').toLowerCase().includes(query),
     );
   }, [battles, searchText]);
@@ -287,31 +236,28 @@ export default function ProfileBattleHub({
       enableOnAndroid
       extraScrollHeight={140}
       extraHeight={120}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={styles.contentContainer}
     >
-        <View style={[styles.heroCard, bgStyle]}>
+      {/* Hero card */}
+      <View style={[styles.heroCard, bgStyle]}>
         <Text style={[styles.heroEyebrow, { color: `${text}AA` }]}>
-          Battle Performance
+          {t('battleHub.heroEyebrow')}
         </Text>
-        <Text
-          style={[
-            styles.heroTitle,
-            { color: profile === 'user' ? '#5a2d82' : '#D3B683' },
-          ]}
-        >
-          Compete, predict, and build your Valens reputation.
+        <Text style={[styles.heroTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>
+          {t('battleHub.heroTitle')}
         </Text>
-        <Text style={styles.heroSubtitle}>
-          Opinion battles reward votes and engagement. Prediction battles reward
-          accuracy first.
-        </Text>
+        <Text style={styles.heroSubtitle}>{t('battleHub.heroSubtitle')}</Text>
 
         <View style={styles.statsGrid}>
-          {stats.map(item => (
-            <View key={item.key} style={[styles.statCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}>
+          {stats.map((item) => (
+            <View
+              key={item.key}
+              style={[
+                styles.statCard,
+                { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' },
+              ]}
+            >
               <Text style={styles.statValue}>{item.value}</Text>
               <Text style={styles.statLabel}>{item.label}</Text>
             </View>
@@ -321,7 +267,13 @@ export default function ProfileBattleHub({
         {isOwner && (
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={() => navigation.navigate(openBattleRoute, { returnTo, profile }, isCompanyProfile && isCompanyProfile)}
+            onPress={() =>
+              navigation.navigate(
+                openBattleRoute,
+                { returnTo, profile },
+                isCompanyProfile && isCompanyProfile,
+              )
+            }
           >
             <LinearGradient
               colors={PRIMARY_GRADIENT}
@@ -329,16 +281,18 @@ export default function ProfileBattleHub({
               end={{ x: 1, y: 0 }}
               style={styles.primaryButton}
             >
-              <Text style={styles.primaryButtonText}>Start a New Battle</Text>
+              <Text style={styles.primaryButtonText}>{t('battleHub.startNewBattle')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
-        </View>
-        <View style={[styles.searchContainer, bgStyle]}>
+      </View>
+
+      {/* Search */}
+      <View style={[styles.searchContainer, bgStyle]}>
         <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search battle question..."
+          placeholder={t('battleHub.searchPlaceholder')}
           placeholderTextColor="#999"
           value={searchText}
           onChangeText={setSearchText}
@@ -349,82 +303,84 @@ export default function ProfileBattleHub({
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
         )}
-        </View>
-        <View style={styles.sectionHeader}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: profile === 'user' ? '#5a2d82' : '#D3B683' },
-          ]}
-        >
-          Recent Battles
-        </Text>
-        <Text style={styles.sectionSubtitle}>
-          Open any battle to continue the flow.
-        </Text>
-        </View>
+      </View>
 
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="small" color={text} />
-          </View>
-        ) : filteredBattles.length > 0 ? (
-          filteredBattles.map(battle => {
-            const statusMeta = getStatusMeta(battle);
-            return (
-              <TouchableOpacity
-                key={battle.id}
-                activeOpacity={0.86}
-                style={[styles.battleCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}
-                onPress={() => openBattle(battle)}
-              >
-                <View style={styles.cardHeader}>
-                  <View
-                    style={[
-                      styles.statusPill,
-                      { backgroundColor: `${statusMeta.tone}18` },
-                    ]}
-                  >
-                    <Text style={[styles.statusText, { color: statusMeta.tone }]}>
-                      {statusMeta.label}
-                    </Text>
-                  </View>
-                  <Text style={styles.cardMeta}>
-                    {battle.battleType === 'prediction' ? 'Prediction' : 'Opinion'}
+      {/* Section header */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: profile === 'user' ? '#5a2d82' : '#D3B683' }]}>
+          {t('battleHub.recentBattles')}
+        </Text>
+        <Text style={styles.sectionSubtitle}>{t('battleHub.recentBattlesSubtitle')}</Text>
+      </View>
+
+      {/* Battle list */}
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="small" color={text} />
+        </View>
+      ) : filteredBattles.length > 0 ? (
+        filteredBattles.map((battle) => {
+          const statusMeta = getStatusMeta(battle);
+          const dateLabel = formatDate(battle.endTime) ?? t('battleHub.noEndDate');
+          return (
+            <TouchableOpacity
+              key={battle.id}
+              activeOpacity={0.86}
+              style={[
+                styles.battleCard,
+                { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' },
+              ]}
+              onPress={() => openBattle(battle)}
+            >
+              <View style={styles.cardHeader}>
+                <View style={[styles.statusPill, { backgroundColor: `${statusMeta.tone}18` }]}>
+                  <Text style={[styles.statusText, { color: statusMeta.tone }]}>
+                    {t(statusMeta.labelKey)}
                   </Text>
                 </View>
+                <Text style={styles.cardMeta}>
+                  {battle.battleType === 'prediction'
+                    ? t('battleHub.typePrediction')
+                    : t('battleHub.typeOpinion')}
+                </Text>
+              </View>
 
-                <Text style={styles.cardTitle}>{battle.title}</Text>
+              <Text style={styles.cardTitle}>{battle.title}</Text>
 
-                {!!battle.options.length && (
-                  <View style={styles.optionRow}>
-                    {battle.options.slice(0, 3).map(option => (
-                      <View key={`${battle.id}-${option.id}`} style={styles.optionChip}>
-                        <Text style={styles.optionText}>{option.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.footerText}>{formatDate(battle.endTime)}</Text>
+              {!!battle.options.length && (
+                <View style={styles.optionRow}>
+                  {battle.options.slice(0, 3).map((option) => (
+                    <View key={`${battle.id}-${option.id}`} style={styles.optionChip}>
+                      <Text style={styles.optionText}>{option.label}</Text>
+                    </View>
+                  ))}
                 </View>
-              </TouchableOpacity>
-            );
-          })
-        ) : (
-          <View style={[styles.emptyCard, { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' }]}>
-            <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
-            <Text style={[styles.emptyTitle, { color: text }]}>
-              {searchText.trim() ? 'No battles found' : 'No battles yet'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchText.trim()
-                ? 'Try a different battle question.'
-                : 'Start with an opinion battle or invite someone into a head-to-head duel.'}
-            </Text>
-          </View>
-        )}
+              )}
+
+              <View style={styles.cardFooter}>
+                <Text style={styles.footerText}>{dateLabel}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      ) : (
+        <View
+          style={[
+            styles.emptyCard,
+            { backgroundColor: profile === 'user' ? '#f4e9fd' : '#f6f1e8' },
+          ]}
+        >
+          <Ionicons name="trophy-outline" size={28} color="#9CA3AF" />
+          <Text style={[styles.emptyTitle, { color: text }]}>
+            {searchText.trim() ? t('battleHub.noResultsFound') : t('battleHub.noBattlesYet')}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {searchText.trim()
+              ? t('battleHub.noResultsSubtitle')
+              : t('battleHub.noBattlesSubtitle')}
+          </Text>
+        </View>
+      )}
     </KeyboardAwareScrollView>
   );
 }
