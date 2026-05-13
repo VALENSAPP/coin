@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     color: '#111',
   },
   dropdownList: {
-    marginTop: 8,
+    marginTop: -6,
     backgroundColor: '#fff',
     borderRadius: 12,
     elevation: 2,

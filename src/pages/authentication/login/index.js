@@ -425,7 +425,7 @@ export default function LoginScreen() {
               </View>
 
               {/* Language Selector */}
-              <View style={[styles.inputWrapper, { position: 'relative' }]}>
+              <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>{t('login.selectLanguage')}</Text>
                 <TouchableOpacity
                   style={[styles.inputGroup, styles.langDropdown]}
@@ -532,4 +532,3 @@ export default function LoginScreen() {
     // {/* </SafeAreaView> */}
   );
 }
-
