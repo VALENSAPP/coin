@@ -156,7 +156,7 @@ export default function SignupScreen() {
   const handleGoogleButtonPress = async () => {
     dispatch(showLoader());
     try {
-      await onGoogleButtonPress(dispatch, navigation, toast, profile);
+      await onGoogleButtonPress(dispatch, navigation, toast, profile, t);
     } finally {
       dispatch(hideLoader());
     }
@@ -165,7 +165,7 @@ export default function SignupScreen() {
   const handlAppleLogin = async () => {
     dispatch(showLoader());
     try {
-      await onAppleButtonPress(dispatch, navigation, toast, profile);
+      await onAppleButtonPress(dispatch, navigation, toast, profile, t);
     } catch (error) {
       // handled inside
     } finally {
@@ -175,7 +175,7 @@ export default function SignupScreen() {
 
   const handleTwitterButtonPress = async () => {
     dispatch(showLoader());
-    twitterOAuthLogin(dispatch, toast, navigation, profile);
+    twitterOAuthLogin(dispatch, toast, navigation, profile, t);
     dispatch(hideLoader());
   };
 

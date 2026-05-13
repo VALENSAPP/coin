@@ -179,7 +179,7 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     dispatch(showLoader());
     try {
-      await onGoogleButtonPress(dispatch, navigation, toast, 'user');
+      await onGoogleButtonPress(dispatch, navigation, toast, 'user', t);
     } catch (error) {
       // Error is handled in onGoogleButtonPress, but you can add more here
     } finally {
@@ -190,7 +190,7 @@ export default function LoginScreen() {
   const handlAppleLogin = async () => {
     dispatch(showLoader());
     try {
-      await onAppleButtonPress(dispatch, navigation, toast, 'user');
+      await onAppleButtonPress(dispatch, navigation, toast, 'user', t);
     } catch (error) {
       // Error is handled in onGoogleButtonPress, but you can add more here
     } finally {
@@ -230,7 +230,7 @@ export default function LoginScreen() {
 
   const handleTwitterButtonPress = () => {
     dispatch(showLoader());
-    twitterOAuthLogin(dispatch, toast, navigation, 'user');
+    twitterOAuthLogin(dispatch, toast, navigation, 'user', t);
     dispatch(hideLoader());
   };
 

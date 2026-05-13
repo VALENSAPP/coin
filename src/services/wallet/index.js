@@ -69,7 +69,6 @@ export const updateWallet = async (data) => {
 }
 
 export const verifyUsdtTransaction = async (data) => {
-  console.log("data in verify usdt transc", data)
   return axiosInstance.post('billing/verify-usdt-transaction', data);
 }
 

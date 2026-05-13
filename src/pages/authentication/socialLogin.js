@@ -25,8 +25,13 @@ import { requestUserPermission } from '../../services/NotificationService';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
 
-const codeVerifierRef = { current: null }; // simple ref object (no need for useRef here since not in component)
+// ─── NOTE ────────────────────────────────────────────────────────────────────
+// These are non-hook utility functions. They receive `t` as a parameter from
+// the calling screen (e.g. LoginScreen) so translation works without hooks.
+// Usage: onGoogleButtonPress(dispatch, navigation, toast, profile, t)
+// ─────────────────────────────────────────────────────────────────────────────
 
+const codeVerifierRef = { current: null };
 
 if (typeof global.TextDecoder === 'undefined') {
   global.TextDecoder = TextDecoder;
@@ -46,7 +51,7 @@ if (Platform.OS == 'ios') {
 }
 
 
-export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) => {
+export const onGoogleButtonPress = async (dispatch, navigation, toast, profile, t) => {
   try {
     await GoogleSignin.signOut();
 
@@ -54,7 +59,7 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) 
 
     const userInfo = await GoogleSignin.signIn();
 
-    const idToken = userInfo.idToken || userInfo.data?.idToken; // depends on your version
+    const idToken = userInfo.idToken || userInfo.data?.idToken;
 
     const googleCredential = auth.GoogleAuthProvider.credential(idToken);
     const userCredential = await auth().signInWithCredential(googleCredential);
@@ -67,28 +72,27 @@ export const onGoogleButtonPress = async (dispatch, navigation, toast, profile) 
         user?._user?.displayName ??
         user?.providerData?.[0]?.displayName ??
         'Unknown';
-      // await signInWithFirebase(idTokenFromUser);
       console.log("idTokenFromUser--------------", idTokenFromUser)
       if (idToken) {
-        signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation, profile, username)
+        signupReference('GOOGLE', idTokenFromUser, toast, dispatch, navigation, profile, username, t)
       }
     }
   } catch (error) {
     console.error('Google Sign-In Error:', error);
     if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-      Alert.alert('Cancelled', 'Google Sign-In was cancelled');
+      Alert.alert(t('socialLogin.cancelled'), t('socialLogin.googleCancelled'));
     } else if (error.code === statusCodes.IN_PROGRESS) {
-      Alert.alert('In Progress', 'Google Sign-In is already in progress');
+      Alert.alert(t('socialLogin.inProgress'), t('socialLogin.googleInProgress'));
     } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-      Alert.alert('Error', 'Play Services are not available');
+      Alert.alert(t('socialLogin.error'), t('socialLogin.playServicesUnavailable'));
     } else {
-      Alert.alert('Error', 'An error occurred during Google Sign-In');
+      Alert.alert(t('socialLogin.error'), t('socialLogin.googleError'));
     }
   } finally {
   }
 };
 
-export const onAppleButtonPress = async (dispatch, navigation, toast, profile) => {
+export const onAppleButtonPress = async (dispatch, navigation, toast, profile, t) => {
   try {
     dispatch(showLoader());
     const appleAuthRequestResponse = await appleAuth.performRequest({
@@ -98,7 +102,7 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
 
     const { identityToken, nonce } = appleAuthRequestResponse;
 
-    if (!identityToken) throw new Error('No identity token returned from Apple');
+    if (!identityToken) throw new Error(t('socialLogin.noAppleToken'));
 
     const appleCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
 
@@ -124,7 +128,7 @@ export const onAppleButtonPress = async (dispatch, navigation, toast, profile) =
       const idToken = await user.getIdToken();
       console.log('idtokennnnnnnn', idToken);
 
-      signupReference('APPLE', idToken, toast, dispatch, navigation, profile, username)
+      signupReference('APPLE', idToken, toast, dispatch, navigation, profile, username, t)
     }
   } catch (error) {
     console.error('Apple login error:', error);
@@ -150,11 +154,11 @@ export const signInWithFirebase = async idToken => {
     AsyncStorage.setItem('email', lookupResponse.users[0].email);
     dispatch(loggedIn());
   } catch (err) {
-    // showToastMessage(toast, 'danger', 'EMAIL_EXISTS');
+    // handled elsewhere
   }
 };
 
-export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
+export async function twitterOAuthLogin(dispatch, toast, navigation, profile, t) {
   console.log('enter', REDIRECT_URI)
   const state = uuidv4();
   const codeChallenge = state;
@@ -177,16 +181,14 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
         forceCloseOnRedirection: true,
       });
 
-      // `InAppBrowser.openAuth` returns result with `type === 'success'` and `url`
       if (result.type === 'success' && result.url) {
         const codeMatch = result.url.match(/code=([^&]+)/);
         if (codeMatch) {
           const code = codeMatch[1];
           console.log('Authorization code:', code);
-          await
-            exchangeCodeForToken(code, dispatch, toast, navigation, profile);
+          await exchangeCodeForToken(code, dispatch, toast, navigation, profile, t);
         } else {
-          showToastMessage(toast, 'danger', 'Authorization code not found');
+          showToastMessage(toast, 'danger', t('socialLogin.authCodeNotFound'));
         }
       }
     } else {
@@ -194,11 +196,11 @@ export async function twitterOAuthLogin(dispatch, toast, navigation, profile) {
     }
   } catch (error) {
     console.error('Twitter login error:', error);
-    showToastMessage(toast, 'danger', 'Twitter login failed');
+    showToastMessage(toast, 'danger', t('socialLogin.twitterLoginFailed'));
   }
 }
 
-const getProfileData = async (dispatch, navigation, toast, accessToken, refreshToken) => {
+const getProfileData = async (dispatch, navigation, toast, accessToken, refreshToken, t) => {
   console.log('profile status--------after toast---------')
   try {
     dispatch(showLoader());
@@ -216,15 +218,13 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
         dispatch(setIsAddAccount(false));
-        // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
         return;
       }
       else if (response.statusCode === 200 && (normalizedKycStatus === 'DECLINED' || normalizedKycStatus === 'REJECTED')) {
-        showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
+        showToastMessage(toast, 'danger', t('socialLogin.kycRejected'), 3500);
         navigation.navigate('CreateProfile', { profile: response.data.profile || 'user', accessToken, refreshToken, id });
       }
       else if (response.statusCode === 200 && response.data.kyc == false) {
-
         const profile = response.data.profile
         if (profile) {
           await AsyncStorage.setItem('profile', profile);
@@ -233,7 +233,6 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
         navigation.navigate('CreateProfile', { profile: profile || 'user', accessToken, refreshToken, id });
       }
       else if (response.statusCode === 200 && response.data.bio == null) {
-
         const profile = response.data.profile
         if (profile) {
           await AsyncStorage.setItem('profile', profile);
@@ -248,20 +247,20 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
           username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
           email: response?.data?.email || (await AsyncStorage.getItem('email')),
         });
-        showToastMessage(toast, 'success', 'User logged in successfully');
+        showToastMessage(toast, 'success', t('socialLogin.loginSuccess'));
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
         dispatch(setIsAddAccount(false));
       }
     }
   } catch (err) {
-    Alert.alert('Error', err.message || 'Failed to fetch profile status');
+    Alert.alert(t('socialLogin.error'), err.message || t('socialLogin.failedToFetchProfile'));
   } finally {
     dispatch(hideLoader());
   }
 }
 
-export const signupReference = async (type, idtoken, toast, dispatch, navigation, profile, userName) => {
+export const signupReference = async (type, idtoken, toast, dispatch, navigation, profile, userName, t) => {
   try {
     const payload = {
       registrationType: type,
@@ -295,7 +294,6 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
         if (response?.data?.email) {
           await AsyncStorage.setItem('email', response?.data?.email);
         }
-        // showToastMessage(toast, 'success', response.data.message);
         await handleLoginSuccess(
           response.data.access_token,
           dispatch,
@@ -303,7 +301,8 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
           getProfileData,
           toast,
           response.data.access_token,
-          response.data.refresh_token
+          response.data.refresh_token,
+          t,
         );
       }
     } else {
@@ -315,9 +314,9 @@ export const signupReference = async (type, idtoken, toast, dispatch, navigation
 };
 
 // Generic wallet connection function that works for all wallet types
-export const connectWalletLogin = async (toast, navigation, dispatch, options = {}) => {
+export const connectWalletLogin = async (toast, navigation, dispatch, t, options = {}) => {
   const returnAddressOnly = options?.returnAddressOnly === true;
-  const walletType = options?.walletType || null; // null means use universal WalletConnect URI
+  const walletType = options?.walletType || null;
   const projectId = '53707e25e6a88c4f83d2d0dba0904606';
 
   const walletConfigs = {
@@ -357,7 +356,6 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
     },
   };
 
-  // If walletType is null, use universal WalletConnect (works with all wallets)
   const walletConfig = walletType ? (walletConfigs[walletType] || walletConfigs.metamask) : { name: 'Wallet', storeUrl: null };
 
   dispatch(showLoader());
@@ -366,14 +364,12 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
     const { selectedWalletDeepLink, universalUri, approval, uri } = await connectWallet(projectId, walletType);
 
     if (!approval) {
-      showToastMessage(toast, 'danger', 'Wallet session could not be created');
+      showToastMessage(toast, 'danger', t('socialLogin.walletSessionFailed'));
       return;
     }
 
-    // If a URI is present, the wallet must be opened to approve the session.
     if (uri) {
       try {
-        // Try to open the selected wallet deep link first; fallback to universal WalletConnect URI.
         let deepLinkToOpen = selectedWalletDeepLink || universalUri;
 
         if (walletType && walletType !== 'walletconnect' && deepLinkToOpen) {
@@ -390,37 +386,36 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
         }
 
         if (!deepLinkToOpen) {
-          showToastMessage(toast, 'danger', 'Could not build wallet deep link');
+          showToastMessage(toast, 'danger', t('socialLogin.walletDeepLinkFailed'));
           return;
         }
 
         await Linking.openURL(deepLinkToOpen);
       } catch (openErr) {
-        // fallback if wallet can't open
         if (walletConfig.storeUrl) {
           Alert.alert(
-            `${walletConfig.name} Not Installed`,
-            `${walletConfig.name} is not installed or cannot be opened. Would you like to install it?`,
+            t('socialLogin.walletNotInstalled', { name: walletConfig.name }),
+            t('socialLogin.walletNotInstalledMessage', { name: walletConfig.name }),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Install', onPress: () => Linking.openURL(walletConfig.storeUrl) },
+              { text: t('socialLogin.cancel'), style: 'cancel' },
+              { text: t('socialLogin.install'), onPress: () => Linking.openURL(walletConfig.storeUrl) },
             ]
           );
         } else {
           Alert.alert(
-            'Open Wallet',
-            'Please open your wallet app and connect using WalletConnect.',
+            t('socialLogin.openWallet'),
+            t('socialLogin.openWalletMessage'),
             [
-              { text: 'Cancel', style: 'cancel' },
+              { text: t('socialLogin.cancel'), style: 'cancel' },
               {
-                text: 'Try Universal Link',
+                text: t('socialLogin.tryUniversalLink'),
                 onPress: async () => {
                   try {
                     if (universalUri) {
                       await Linking.openURL(universalUri);
                     }
                   } catch (err) {
-                    showToastMessage(toast, 'danger', 'Please install a WalletConnect-compatible wallet app');
+                    showToastMessage(toast, 'danger', t('socialLogin.installWalletHint'));
                   }
                 }
               },
@@ -442,8 +437,8 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
       '';
 
     const parts = accountOnPreferredChain.split(':');
-    const connectedChainId = parts[1]; // "1" or "137"
-    const address = parts[2];          // "0xABC..."
+    const connectedChainId = parts[1];
+    const address = parts[2];
 
     console.log('Connected Chain ID:', connectedChainId);
     console.log('Connected Address:', address);
@@ -453,17 +448,16 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
     }
     if (address) {
       await AsyncStorage.setItem('walletAddress', address);
-      // Store wallet type if specified, otherwise store as 'walletconnect' for universal connection
       await AsyncStorage.setItem('walletType', walletType || 'walletconnect');
     }
 
     if (address && !returnAddressOnly && navigation !== 'createProfile') {
-      await signupReference('WALLET', address, toast, dispatch, navigation);
+      await signupReference('WALLET', address, toast, dispatch, navigation, undefined, undefined, t);
     } else {
       return address;
     }
   } catch (err) {
-    const msg = err?.data?.message || err.message || 'Connection failed';
+    const msg = err?.data?.message || err.message || t('socialLogin.connectionFailed');
     showToastMessage(toast, 'danger', msg);
   } finally {
     dispatch(hideLoader());
@@ -471,11 +465,11 @@ export const connectWalletLogin = async (toast, navigation, dispatch, options = 
 };
 
 // Keep MetasmaskLogin for backward compatibility
-export const MetasmaskLogin = async (toast, navigation, dispatch, options = {}) => {
-  return connectWalletLogin(toast, navigation, dispatch, { ...options, walletType: 'metamask' });
+export const MetasmaskLogin = async (toast, navigation, dispatch, t, options = {}) => {
+  return connectWalletLogin(toast, navigation, dispatch, t, { ...options, walletType: 'metamask' });
 };
 
-export const exchangeCodeForToken = async (code, dispatch, toast, navigation, profile) => {
+export const exchangeCodeForToken = async (code, dispatch, toast, navigation, profile, t) => {
   try {
     const data = new URLSearchParams({
       client_id: TWITTER_CLIENT_ID,
@@ -499,12 +493,12 @@ export const exchangeCodeForToken = async (code, dispatch, toast, navigation, pr
     console.log('Access token:', accessToken);
 
     if (accessToken) {
-      await signupReference('TWITTER', accessToken, toast, dispatch, navigation, profile);
+      await signupReference('TWITTER', accessToken, toast, dispatch, navigation, profile, undefined, t);
     } else {
-      showToastMessage(toast, 'danger', 'Twitter access token not found');
+      showToastMessage(toast, 'danger', t('socialLogin.twitterTokenNotFound'));
     }
   } catch (error) {
     console.error('Token exchange error:', error.response?.data || error.message);
-    showToastMessage(toast, 'danger', 'Token exchange failed');
+    showToastMessage(toast, 'danger', t('socialLogin.tokenExchangeFailed'));
   }
 };
