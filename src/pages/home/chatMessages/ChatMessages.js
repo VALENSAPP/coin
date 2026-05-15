@@ -107,6 +107,8 @@ export default function ChatMessages() {
   
   // Track if we've already processed the shared content
   const hasProcessedShareRef = useRef(false);
+  // Locally hidden chats (survives socket refresh until server marks isHidden)
+  const hiddenChatIdsRef = useRef(new Set());
 
   const handleBackPress = useCallback(() => {
     const { returnTo, returnParams, returnToTab } = route?.params || {};
@@ -671,11 +673,10 @@ export default function ChatMessages() {
       if (hasLastMessage && hasUser) {
         console.log(`✅ Item ${index}: NEW FORMAT (conversation)`);
 
-        // ✅ CHECK isHidden FIRST - before processing
-        // if (item.isHidden === true) {
-        //   console.log(`🚫 Skipping hidden conversation: ${item.id}`);
-        //   return;
-        // }
+        if (item.isHidden === true) {
+          console.log(`🚫 Skipping hidden conversation: ${item.id}`);
+          return;
+        }
 
         conversation = item;
         message = item.lastMessage;
@@ -718,6 +719,11 @@ export default function ChatMessages() {
 
       if (!message) {
         console.log('⚠️ No message found');
+        return;
+      }
+
+      if (chatId && hiddenChatIdsRef.current.has(String(chatId))) {
+        console.log(`🚫 Skipping locally hidden conversation: ${chatId}`);
         return;
       }
 
@@ -881,7 +887,8 @@ export default function ChatMessages() {
       console.log('📡 Hide conversation response:', response);
 
       if (response.success) {
-        // Optimistically remove from local state
+        hiddenChatIdsRef.current.add(String(selectedConversation.chatId));
+
         setConversations(prev =>
           prev.filter(conv => conv.chatId !== selectedConversation.chatId)
         );
@@ -892,12 +899,6 @@ export default function ChatMessages() {
           'Conversation deleted successfully',
           2000
         );
-
-        // Request fresh data from socket to confirm
-        const socket = getSocket();
-        if (socket?.connected) {
-          socket.emit('getUserChatBox', { userId: currentUserId });
-        }
       } else {
         showToastMessage(
           toast,

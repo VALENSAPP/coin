@@ -820,12 +820,8 @@ export default function BattleInProgress() {
       style={[styles.replyCard, { backgroundColor: withAlpha(palette.primary, '08'), borderColor: palette.border }]}
     >
       <View style={styles.commentHeader}>
-        <View style={styles.commentAuthorRow}>
-          <TouchableOpacity
-            activeOpacity={0.75}
-            style={styles.commentAuthorIdentity}
-            onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
-          >
+        <View style={styles.commentAuthorIdentity}>
+          <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
             {reply.avatar ? (
               <Image source={{ uri: reply.avatar }} style={styles.commentAvatar} />
             ) : (
@@ -833,33 +829,43 @@ export default function BattleInProgress() {
                 <Ionicons name="person-outline" size={16} color="#FFFFFF" />
               </View>
             )}
-            <View style={styles.commentAuthorTextWrap}>
-              <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+          </TouchableOpacity>
+          <View style={styles.commentAuthorTextWrap}>
+            <View style={styles.commentAuthorTopRow}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                style={styles.commentAuthorNameRow}
+                onPress={() => handleOpenCommentAuthorProfile(reply.userId)}
+              >
                 <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
                   {reply.authorName}
                 </Text>
+              </TouchableOpacity>
+              <View style={styles.commentHeaderActions}>
+                <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
+                  <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
+                  {likingCommentId === reply.id ? (
+                    <ActivityIndicator size="small" color={palette.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
+                      <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
+                        {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
-              {!!reply.authorHandle && (
-                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
-              )}
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
-            <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
-          </TouchableOpacity>
+            {!!reply.authorHandle && (
+              <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(reply.userId)}>
+                <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{reply.authorHandle}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
-          {likingCommentId === reply.id ? (
-            <ActivityIndicator size="small" color={palette.primary} />
-          ) : (
-            <>
-              <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
-              <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
-                {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
       </View>
       <Text style={[styles.commentMessage, textStyle]}>{reply.message}</Text>
       {replyingToComment?.id === reply.id && (
@@ -900,12 +906,8 @@ export default function BattleInProgress() {
     return (
       <View key={comment.id} style={[styles.commentCard, { backgroundColor: palette.soft, borderColor: palette.border }]}>
         <View style={styles.commentHeader}>
-          <View style={styles.commentAuthorRow}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              style={styles.commentAuthorIdentity}
-              onPress={() => handleOpenCommentAuthorProfile(comment.userId)}
-            >
+          <View style={styles.commentAuthorIdentity}>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(comment.userId)}>
               {comment.avatar ? (
                 <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
               ) : (
@@ -913,8 +915,14 @@ export default function BattleInProgress() {
                   <Ionicons name="person-outline" size={16} color="#FFFFFF" />
                 </View>
               )}
-              <View style={styles.commentAuthorTextWrap}>
-                <View style={[styles.commentAuthorNameRow, { marginBottom: 2 }]}>
+            </TouchableOpacity>
+            <View style={styles.commentAuthorTextWrap}>
+              <View style={styles.commentAuthorTopRow}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={styles.commentAuthorNameRow}
+                  onPress={() => handleOpenCommentAuthorProfile(comment.userId)}
+                >
                   <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
                     {comment.authorName}
                   </Text>
@@ -923,28 +931,32 @@ export default function BattleInProgress() {
                       <Text style={styles.commentVoteSideBadgeText}>{comment.side}</Text>
                     </View>
                   )}
+                </TouchableOpacity>
+                <View style={styles.commentHeaderActions}>
+                  <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
+                    <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
+                    {likingCommentId === comment.id ? (
+                      <ActivityIndicator size="small" color={palette.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
+                        <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
+                          {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
-                {!!comment.authorHandle && (
-                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{comment.authorHandle}</Text>
-                )}
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
-              <Text style={[styles.replyTriggerText, { color: palette.primary }]}>Reply</Text>
-            </TouchableOpacity>
+              {!!comment.authorHandle && (
+                <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(comment.userId)}>
+                  <Text style={[styles.commentAuthorHandle, { color: palette.textMuted }]}>@{comment.authorHandle}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-          <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
-            {likingCommentId === comment.id ? (
-              <ActivityIndicator size="small" color={palette.primary} />
-            ) : (
-              <>
-                <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
-                <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
-                  {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
         <Text style={[styles.commentMessage, textStyle]}>{comment.message}</Text>
         {hasReplies && !isExpanded && (
@@ -1312,7 +1324,7 @@ export default function BattleInProgress() {
             <Text style={[styles.sectionTitle, { color: text }]}>
               {isPrediction ? 'Make Your Prediction' : 'Choose Your Side'}
             </Text>
-            <View style={[styles.optionGrid,{width:'100%'}]}>
+            <View style={[styles.optionGrid, { width: '100%' }]}>
               {battle.options.map((option, index) => {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
@@ -1630,21 +1642,23 @@ const styles = StyleSheet.create({
   commentCard: { borderRadius: 16, backgroundColor: '#F9FAFB', borderWidth: 1, padding: 14, marginBottom: 10 },
   replyCard: { borderRadius: 14, borderWidth: 1, padding: 12, marginTop: 10 },
   repliesSection: { marginTop: 10, marginLeft: 18 },
-  commentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  commentAuthorRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, marginRight: 10 },
+  commentHeader: { marginBottom: 8 },
+  commentAuthorIdentity: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, minWidth: 0 },
+  commentAuthorTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 18 },
+  commentHeaderActions: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
   commentAvatar: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },
   commentAvatarFallback: { backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center' },
   commentAuthorTextWrap: { flex: 1, minWidth: 0 },
   commentAuthorNameRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
   commentAuthorNameFlex: { flexShrink: 1, minWidth: 0 },
-  commentVoteSideBadge: { padding: 6, borderRadius: 6, marginLeft: 8, marginTop: 2, marginBottom: 2 },
-  commentVoteSideBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
-  commentAuthorName: { fontSize: 13, fontWeight: '800', color: '#111827' },
-  commentAuthorHandle: { fontSize: 11, fontWeight: '700', color: '#6B7280', marginTop: 2 },
-  replyTrigger: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  replyTriggerText: { fontSize: 12, fontWeight: '800' },
-  commentLikeButton: { flexDirection: 'row', alignItems: 'center', minWidth: 44, justifyContent: 'flex-end' },
-  commentLikeText: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginLeft: 6 },
+  commentVoteSideBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 6 },
+  commentVoteSideBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600', lineHeight: 14 },
+  commentAuthorName: { fontSize: 13, fontWeight: '800', color: '#111827', lineHeight: 16, includeFontPadding: false },
+  commentAuthorHandle: { fontSize: 11, fontWeight: '700', color: '#6B7280', marginTop: 0, lineHeight: 14, includeFontPadding: false },
+  replyTrigger: { paddingHorizontal: 6, paddingVertical: 0, borderRadius: 999, justifyContent: 'center' },
+  replyTriggerText: { fontSize: 12, fontWeight: '800', lineHeight: 16, includeFontPadding: false },
+  commentLikeButton: { flexDirection: 'row', alignItems: 'center', minWidth: 36, justifyContent: 'flex-end', paddingVertical: 0, marginLeft: 4 },
+  commentLikeText: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginLeft: 4, lineHeight: 16 },
   commentMessage: { fontSize: 14, lineHeight: 20, color: '#374151' },
   viewRepliesButton: { alignSelf: 'flex-start', marginTop: 10 },
   viewRepliesText: { fontSize: 12, fontWeight: '800' },
@@ -1659,7 +1673,10 @@ const styles = StyleSheet.create({
   emptyCommentText: { fontSize: 13, lineHeight: 19, color: '#6B7280' },
 
   // Bottom
-  bottomActions: { flexDirection: 'row', gap: 10, marginBottom: '10%' },
+  bottomActions: {
+    flexDirection: 'row', gap: 10,
+    marginBottom: Platform.OS === 'ios' ? '10%' : '20%'
+  },
   secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
 
