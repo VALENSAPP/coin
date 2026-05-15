@@ -19,8 +19,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { LineChart } from 'react-native-wagmi-charts';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import { format } from 'date-fns';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
@@ -28,7 +27,7 @@ import { getLatestTransactions, getRecentActivities, getTokenHistory, getTopCrea
 import { useFocusEffect } from '@react-navigation/native';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
-import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers } from '../../services/wallet';
+import { getCreditsLeft, totalMission, totalSupport, totalamount, referPoints, metaMaskRecived, totalPoints, getTotalFollowers, subscriptionEarningGraph } from '../../services/wallet';
 import { getUserCredentials, getUserDashboard } from '../../services/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -50,7 +49,7 @@ import {
   LavenderDragonfly,
   Metamask,
 } from '../../assets/icons';
-import Svg, { Polygon } from 'react-native-svg';
+import Svg, { Polygon, Path, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 const AVATAR_PREVIEW_SIZE = Math.min(width * 0.9, 340);
@@ -130,8 +129,8 @@ const HexStarIcon = ({ size = 36, starSize = 16, starColor = '#ffffff', bgColor 
     </View>
   );
 };
-/** Map `user/followers-graph` response into LineChart points `{ timestamp, value }`. */
-const mapFollowersGraphResponse = (response) => {
+/** Subscription / support earnings graph → `{ timestamp, value }[]` */
+const mapSubscriptionGraphPoints = (response) => {
   const root = response?.data?.data ?? response?.data ?? response;
   const raw = Array.isArray(root?.points)
     ? root.points
@@ -143,25 +142,19 @@ const mapFollowersGraphResponse = (response) => {
       root?.items ??
       (Array.isArray(root?.data) ? root.data : null);
 
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [];
-  }
+  if (!Array.isArray(raw) || raw.length === 0) return [];
 
   return raw
     .map((item, index) => {
       const dateStr =
-        item?.date ??
-        item?.label ??
-        item?.day ??
-        item?.time ??
-        item?.createdAt;
+        item?.date ?? item?.label ?? item?.day ?? item?.time ?? item?.createdAt;
       const val = Number(
-        item?.followers ??
-        item?.followerCount ??
-        item?.count ??
-        item?.newFollowers ??
-        item?.total ??
+        item?.amount ??
+        item?.earning ??
+        item?.revenue ??
+        item?.totalAmount ??
         item?.value ??
+        item?.count ??
         0,
       );
       let ts;
@@ -181,11 +174,289 @@ const mapFollowersGraphResponse = (response) => {
     .sort((a, b) => a.timestamp - b.timestamp);
 };
 
+/**
+ * Parse `user/followers-graph`: follower totals/counts plus optional unfollow series
+ * (`unfollowers`, `unfollowCount`, etc.) when the API provides them.
+ */
+const parseFollowersGraphSeries = (response) => {
+  const root = response?.data?.data ?? response?.data ?? response;
+  const raw = Array.isArray(root?.points)
+    ? root.points
+    : Array.isArray(root)
+      ? root
+      : root?.graph ??
+      root?.history ??
+      root?.series ??
+      root?.items ??
+      (Array.isArray(root?.data) ? root.data : null);
+
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { followers: [], unfollowers: [] };
+  }
+
+  const pair = raw
+    .map((item, index) => {
+      const dateStr =
+        item?.date ??
+        item?.label ??
+        item?.day ??
+        item?.time ??
+        item?.createdAt;
+      const fVal = Number(
+        item?.followers ??
+        item?.followerCount ??
+        item?.count ??
+        item?.newFollowers ??
+        item?.total ??
+        item?.value ??
+        0,
+      );
+      const uVal = Number(
+        item?.unfollowers ??
+        item?.unfollowCount ??
+        item?.unfollowed ??
+        item?.lostFollowers ??
+        item?.lost ??
+        item?.unfollows ??
+        0,
+      );
+      let ts;
+      if (dateStr != null && String(dateStr).length > 0) {
+        ts = new Date(dateStr).getTime();
+      } else if (typeof item?.timestamp === 'number') {
+        ts = item.timestamp;
+      } else {
+        ts = Date.now() - (raw.length - 1 - index) * 86400000;
+      }
+      return {
+        timestamp: ts,
+        follower: Number.isFinite(fVal) ? fVal : 0,
+        unfollow: Number.isFinite(uVal) ? uVal : 0,
+      };
+    })
+    .filter((p) => !isNaN(p.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  return {
+    followers: pair.map((p) => ({ timestamp: p.timestamp, value: p.follower })),
+    unfollowers: pair.map((p) => ({ timestamp: p.timestamp, value: p.unfollow })),
+  };
+};
+
+function alignThreeActivitySeries(followers, unfollowers, support) {
+  const allTs = [
+    ...new Set([
+      ...followers.map((p) => p.timestamp),
+      ...unfollowers.map((p) => p.timestamp),
+      ...support.map((p) => p.timestamp),
+    ]),
+  ].sort((a, b) => a - b);
+
+  if (allTs.length === 0) {
+    return { followers: [], unfollowers: [], support: [], timestamps: [] };
+  }
+
+  const align = (arr, carryForward) => {
+    const m = new Map(arr.map((p) => [p.timestamp, p.value]));
+    let carry = 0;
+    let seeded = false;
+    return allTs.map((ts) => {
+      if (m.has(ts)) {
+        carry = Number(m.get(ts)) || 0;
+        seeded = true;
+        return { timestamp: ts, value: carry };
+      }
+      return { timestamp: ts, value: carryForward && seeded ? carry : 0 };
+    });
+  };
+
+  return {
+    timestamps: allTs,
+    followers: align(followers, true),
+    unfollowers: align(unfollowers, true),
+    support: align(support, false),
+  };
+}
+
+const seriesEndpointValue = (points) => {
+  if (!points || points.length === 0) return 0;
+  return Number(points[points.length - 1].value) || 0;
+};
+
+const seriesDelta = (points) => {
+  if (!points || points.length < 2) return 0;
+  const a = Number(points[0].value) || 0;
+  const b = Number(points[points.length - 1].value) || 0;
+  return b - a;
+};
+
+const formatSupportUsd = (n) => {
+  const v = Number(n) || 0;
+  return v.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const ACTIVITY_UNFOLLOW_PINK = '#db2777';
+const ACTIVITY_SUPPORT_LINE = '#8b5cf6';
+/** Min horizontal space per segment; chart widens (scroll) when points would crowd */
+const ACTIVITY_CHART_POINT_GAP = 46;
+
+/** Multi-series trend (each line scaled to its own min/max so shapes are visible together). */
+function ActivityTrendSvg({
+  timestamps,
+  followersValues,
+  unfollowersValues,
+  supportValues,
+  chartWidth,
+  chartHeight,
+  colorFollowers,
+  colorUnfollowers,
+  colorSupport,
+}) {
+  const pairedSorted = useMemo(() => {
+    const len = Math.min(
+      timestamps.length,
+      followersValues.length,
+      unfollowersValues.length,
+      supportValues.length,
+    );
+    const rows = [];
+    for (let i = 0; i < len; i++) {
+      const t = Number(timestamps[i]);
+      if (!Number.isFinite(t)) continue;
+      rows.push({
+        t,
+        fv: Number(followersValues[i]) || 0,
+        uv: Number(unfollowersValues[i]) || 0,
+        sv: Number(supportValues[i]) || 0,
+      });
+    }
+    rows.sort((a, b) => a.t - b.t);
+    return rows;
+  }, [timestamps, followersValues, unfollowersValues, supportValues]);
+
+  const padL = 32;
+  const padR = 32;
+  const padT = 8;
+  const padB = 30;
+  const innerW = Math.max(chartWidth - padL - padR, 1);
+  const innerH = Math.max(chartHeight - padT - padB, 1);
+  const n = pairedSorted.length;
+
+  const followersValuesSorted = pairedSorted.map((r) => r.fv);
+  const unfollowersValuesSorted = pairedSorted.map((r) => r.uv);
+  const supportValuesSorted = pairedSorted.map((r) => r.sv);
+  const timestampsSorted = pairedSorted.map((r) => r.t);
+
+  const xs = Array.from({ length: n }, (_, i) =>
+    padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW),
+  );
+
+  const labelIndexes = useMemo(() => {
+    if (n <= 0) return [];
+    if (n === 1) return [0];
+    const maxLabels = Math.min(7, n);
+    const set = new Set([0, n - 1]);
+    for (let k = 1; k < maxLabels - 1; k++) {
+      set.add(Math.round((k / (maxLabels - 1)) * (n - 1)));
+    }
+    return [...set].sort((a, b) => a - b);
+  }, [n]);
+
+  const toYs = (vals) => {
+    const nums = vals.map((v) => Number(v) || 0);
+    let min = Math.min(...nums);
+    let max = Math.max(...nums);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return nums.map(() => padT + innerH / 2);
+    if (max === min) {
+      min -= 1;
+      max += 1;
+    }
+    return nums.map((v) => padT + innerH - ((v - min) / (max - min)) * innerH);
+  };
+
+  const yF = toYs(followersValuesSorted);
+  const yU = toYs(unfollowersValuesSorted);
+  const yS = toYs(supportValuesSorted);
+
+  const linePath = (ys) => {
+    if (n === 0) return '';
+    if (n === 1) return `M ${xs[0]} ${ys[0]} L ${xs[0] + 0.5} ${ys[0]}`;
+    return ys.map((y, i) => `${i === 0 ? 'M' : 'L'} ${xs[i]} ${y}`).join(' ');
+  };
+
+  const areaPath = (ys) => {
+    if (n === 0) return '';
+    const base = padT + innerH;
+    const lp = linePath(ys);
+    if (!lp) return '';
+    return `${lp} L ${xs[n - 1]} ${base} L ${xs[0]} ${base} Z`;
+  };
+
+  return (
+    <Svg width={chartWidth} height={chartHeight}>
+      <Defs>
+        <SvgLinearGradient id="gradF" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colorFollowers} stopOpacity={0.22} />
+          <Stop offset="1" stopColor={colorFollowers} stopOpacity={0.02} />
+        </SvgLinearGradient>
+        <SvgLinearGradient id="gradU" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colorUnfollowers} stopOpacity={0.2} />
+          <Stop offset="1" stopColor={colorUnfollowers} stopOpacity={0.02} />
+        </SvgLinearGradient>
+        <SvgLinearGradient id="gradS" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colorSupport} stopOpacity={0.2} />
+          <Stop offset="1" stopColor={colorSupport} stopOpacity={0.02} />
+        </SvgLinearGradient>
+      </Defs>
+
+      {n > 0 ? (
+        <>
+          <Path d={areaPath(yS)} fill="url(#gradS)" stroke="none" />
+          <Path d={areaPath(yU)} fill="url(#gradU)" stroke="none" />
+          <Path d={areaPath(yF)} fill="url(#gradF)" stroke="none" />
+
+          <Path d={linePath(yS)} stroke={colorSupport} strokeWidth={2} fill="none" />
+          <Path d={linePath(yU)} stroke={colorUnfollowers} strokeWidth={2} fill="none" />
+          <Path d={linePath(yF)} stroke={colorFollowers} strokeWidth={2.5} fill="none" />
+        </>
+      ) : null}
+
+      {labelIndexes.map((i) => {
+        const ts = timestampsSorted[i];
+        const isFirst = i === 0;
+        const isLast = n > 1 && i === n - 1;
+        const anchor = n === 1 ? 'middle' : isFirst ? 'start' : isLast ? 'end' : 'middle';
+        return (
+          <SvgText
+            key={`lb-${ts}-${i}`}
+            x={xs[i]}
+            y={chartHeight - 4}
+            fill="#888"
+            fontSize={9}
+            textAnchor={anchor}
+          >
+            {format(ts, 'MMM d')}
+          </SvgText>
+        );
+      })}
+    </Svg>
+  );
+}
+
 export const WalletDashboardScreen = ({ navigation }) => {
   const [activityPeriod, setActivityPeriod] = useState('Weekly'); // Daily | Weekly (matches API range)
   const [walletTransactions, setWalletTransactions] = useState(0);
-  const [selectedPrice, setSelectedPrice] = useState(0);
-  const [priceHistory, setPriceHistory] = useState([]);
+  const [activityTimestamps, setActivityTimestamps] = useState([]);
+  const [activityFollowersSeries, setActivityFollowersSeries] = useState([]);
+  const [activityUnfollowersSeries, setActivityUnfollowersSeries] = useState([]);
+  const [activitySupportSeries, setActivitySupportSeries] = useState([]);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [supportReceivedUsd, setSupportReceivedUsd] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [recentActivities, setRecentActivities] = useState(0);
   const [topCreators, setTopCreators] = useState([]);
@@ -225,6 +496,27 @@ export const WalletDashboardScreen = ({ navigation }) => {
     image: FALLBACK_AVATAR,
   });
   const [followersCount, setFollowersCount] = useState(0);
+
+  const activityChartW = width - 80;
+  const activityChartH = 200;
+  /** Fixed-width cards in a horizontal strip (~1.5 visible) so nothing clips on narrow phones. */
+  const activityCardWidth = Math.round(Math.min(Math.max(width * 0.42, 132), 158));
+  const activityPeriodDeltaLabel =
+    activityPeriod === 'Weekly' ? 'vs last week' : 'vs prior day';
+
+  const followersTrendDelta = seriesDelta(activityFollowersSeries);
+  const unfollowersTrendDelta = seriesDelta(activityUnfollowersSeries);
+  const supportTrendDelta = seriesDelta(activitySupportSeries);
+  const unfollowersDisplay = Math.round(seriesEndpointValue(activityUnfollowersSeries));
+
+  const hasActivityChartData = activityTimestamps.length > 0;
+
+  const activityChartScrollWidth = useMemo(() => {
+    const n = activityTimestamps.length;
+    if (n <= 1) return activityChartW;
+    return Math.round(Math.max(activityChartW, 16 + (n - 1) * ACTIVITY_CHART_POINT_GAP));
+  }, [activityChartW, activityTimestamps.length]);
+
   const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
   const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
@@ -370,11 +662,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
       dispatch(hideLoader()); // Add this
     }
   };
-  useFocusEffect(
-    React.useCallback(() => {
-      getUserDetail();
-    }, [])
-  );
   const stripeAccountId = 'Not connected';
   const walletAddress = 'Not available';
   const visibleKpiData = useMemo(() => {
@@ -473,7 +760,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
       return () => {
         // Cleanup if needed
       };
-    }, [dispatch]) // Add dispatch to dependency array
+      // Dashboard loaders are ordinary async functions; listing them here refetches every render.
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run once per focus + dispatch identity
+    }, [dispatch])
   );
 
   // Remove the separate useEffect for activityPeriod
@@ -506,7 +795,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         // fetchAllTransaction(),
         getUserDetail(),
         // fetchDashboardData(),
-        getGraph(),
+        fetchActivityOverviewCharts(),
         fetchCreditsLeft(),
         rewardPoints(),
         fetchFollowers(),
@@ -555,26 +844,6 @@ export const WalletDashboardScreen = ({ navigation }) => {
     }
     openWalletConnect();
   }, [handleDisconnectWallet, isMetaMaskConnected, openWalletConnect]);
-
-  const hapticFeedback = (type) => {
-    const options = {
-      enableVibrateFallback: true,
-      ignoreAndroidSystemSettings: false,
-    };
-    ReactNativeHapticFeedback.trigger(type, options);
-  };
-
-  const updatePriceTitle = (point) => {
-    if (point && point.value !== undefined) {
-      setSelectedPrice(point.value);
-    }
-  };
-
-  const resetPriceTitle = () => {
-    if (priceHistory.length > 0) {
-      setSelectedPrice(priceHistory[priceHistory.length - 1].value);
-    }
-  };
 
   // Helper function to format activity type
   const getActivityType = (activity) => {
@@ -684,36 +953,36 @@ export const WalletDashboardScreen = ({ navigation }) => {
       console.error('Error in fetchCreditsLeft:', error);
     }
   };
-  const getGraph = useCallback(async () => {
+  const fetchActivityOverviewCharts = useCallback(async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        console.log('User ID not found for followers graph');
-        setPriceHistory([]);
-        setSelectedPrice(0);
-        return;
-      }
-      const range =
-        FOLLOWERS_RANGE_BY_PERIOD[activityPeriod] ?? 'weekly';
-      const response = await getTotalFollowers({ userId, range });
-      const points = mapFollowersGraphResponse(response);
-      if (points.length > 0) {
-        setPriceHistory(points);
-        setSelectedPrice(points[points.length - 1].value);
-      } else {
-        setPriceHistory([]);
-        setSelectedPrice(0);
-      }
+      const range = FOLLOWERS_RANGE_BY_PERIOD[activityPeriod] ?? 'weekly';
+
+      const [followersRes, supportRes] = await Promise.all([
+        userId ? getTotalFollowers({ userId, range }) : Promise.resolve(null),
+        subscriptionEarningGraph({ range }),
+      ]);
+
+      const { followers: fp, unfollowers: up } = parseFollowersGraphSeries(followersRes);
+      const sp = mapSubscriptionGraphPoints(supportRes);
+      const aligned = alignThreeActivitySeries(fp, up, sp);
+
+      setActivityTimestamps(aligned.timestamps);
+      setActivityFollowersSeries(aligned.followers);
+      setActivityUnfollowersSeries(aligned.unfollowers);
+      setActivitySupportSeries(aligned.support);
     } catch (error) {
-      console.error('error in graph api', error);
-      setPriceHistory([]);
-      setSelectedPrice(0);
+      console.error('error in activity overview charts', error);
+      setActivityTimestamps([]);
+      setActivityFollowersSeries([]);
+      setActivityUnfollowersSeries([]);
+      setActivitySupportSeries([]);
     }
   }, [activityPeriod]);
 
   useEffect(() => {
-    getGraph();
-  }, [getGraph]);
+    fetchActivityOverviewCharts();
+  }, [fetchActivityOverviewCharts]);
 
   //   const fetchActivityOverview = async () => {
   //   const getTokenAddress = await AsyncStorage.getItem('PlatFormToken');
@@ -768,8 +1037,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
     try {
       const response = await getUserDashboard(id);
       if (response?.statusCode === 200) {
-        const totalFollowers = Number(response.data.dashboardData.totalFollowers) || 0;
+        const dash = response.data.dashboardData ?? {};
+        const totalFollowers = Number(dash.totalFollowers) || 0;
+        const totalFollowing = Number(dash.totalFollowing) || 0;
         setFollowersCount(totalFollowers);
+        setFollowingCount(totalFollowing);
         setKpiData(prevKpiData => {
           return prevKpiData.map(item => {
             if (item.id === 'followers') {
@@ -802,6 +1074,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         response?.data?.amount ??
         0;
       const supportAmount = Number(rawValue) || 0;
+      setSupportReceivedUsd(supportAmount);
 
       setKpiData(prevKpiData =>
         prevKpiData.map(item =>
@@ -1025,11 +1298,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
     // }
   }
 
-  const handleTokenSell = useCallback(() => {
+  const handleTokenSell = () => {
     // sellSheetRef.current?.close();
     showToastMessage(toast, 'success', 'Tokens sold successfully!');
     onRefresh();
-  }, []);
+  };
 
   const renderKPICard = ({ item }) => {
     if (item?.isPlaceholder) {
@@ -1423,48 +1696,171 @@ export const WalletDashboardScreen = ({ navigation }) => {
             ))}
           </View>
 
-          {/* Chart with LineGraph */}
+          {/* Chart — followers vs unfollowers vs subscription support */}
           <View style={[styles.chartContainer, { shadowColor: text }]}>
-            <Text style={[styles.chartPrice, textStyle]}>
-              {Number.isFinite(Number(selectedPrice))
-                ? Math.round(Number(selectedPrice)).toLocaleString()
-                : '0'}
-            </Text>
-            <Text style={styles.chartLabel}>Followers</Text>
-
-            {priceHistory.length > 0 ? (
-              <LineChart.Provider data={priceHistory}>
-                <LineChart height={200} width={width - 72}>
-                  <LineChart.Path color={text} width={3}>
-                    <LineChart.Gradient color={text} />
-                  </LineChart.Path>
-                  <LineChart.CursorCrosshair
-                    onActivated={() => hapticFeedback('impactLight')}
-                    onEnded={() => resetPriceTitle()}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              style={styles.activityMetricsScroller}
+              contentContainerStyle={styles.activityMetricsScrollContent}
+            >
+              <View style={[styles.activityMetricCard, { width: activityCardWidth, borderColor: `${text}22` }]}>
+                <View style={[styles.activityMetricIconWrap, { backgroundColor: `${text}18` }]}>
+                  <Ionicons name="people" size={18} color={text} />
+                </View>
+                <Text style={[styles.activityMetricValue, { color: text }]}>
+                  {Math.round(followersCount).toLocaleString()}
+                </Text>
+                <Text style={styles.activityMetricLabel}>Followers</Text>
+                <Text style={[styles.activityFollowingHint, { color: text }]}>
+                  Following {Math.round(followingCount).toLocaleString()}
+                </Text>
+                <View
+                  style={[
+                    styles.activityDeltaPill,
+                    {
+                      backgroundColor:
+                        followersTrendDelta >= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={followersTrendDelta >= 0 ? 'arrow-up' : 'arrow-down'}
+                    size={11}
+                    color={followersTrendDelta >= 0 ? '#059669' : '#dc2626'}
+                  />
+                  <Text
+                    style={[
+                      styles.activityDeltaText,
+                      { color: followersTrendDelta >= 0 ? '#059669' : '#dc2626' },
+                    ]}
                   >
-                    <LineChart.Tooltip>
-                      {({ value }) => {
-                        updatePriceTitle({ value });
-                        return (
-                          <View style={[styles.tooltipContainer, { backgroundColor: text }]}>
-                            <Text style={styles.tooltipText}>
-                              {Number.isFinite(Number(value))
-                                ? Math.round(Number(value)).toLocaleString()
-                                : '—'}
-                            </Text>
-                          </View>
-                        );
-                      }}
-                    </LineChart.Tooltip>
-                    <LineChart.HoverTrap />
-                  </LineChart.CursorCrosshair>
-                </LineChart>
-              </LineChart.Provider>
+                    {`${followersTrendDelta >= 0 ? '+' : ''}${Math.round(followersTrendDelta)} ${activityPeriodDeltaLabel}`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.activityMetricCard, { width: activityCardWidth, borderColor: `${ACTIVITY_SUPPORT_LINE}33` }]}>
+                <View
+                  style={[styles.activityMetricIconWrap, { backgroundColor: `${ACTIVITY_SUPPORT_LINE}22` }]}
+                >
+                  <Ionicons name="wallet" size={18} color={ACTIVITY_SUPPORT_LINE} />
+                </View>
+                <Text style={[styles.activityMetricValue, { color: ACTIVITY_SUPPORT_LINE }]}>
+                  {formatSupportUsd(supportReceivedUsd)}
+                </Text>
+                <Text style={styles.activityMetricLabel}>Total support</Text>
+                <Text style={styles.activityMetricSub}>Subscriptions & tips</Text>
+                <View
+                  style={[
+                    styles.activityDeltaPill,
+                    {
+                      backgroundColor:
+                        supportTrendDelta >= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={supportTrendDelta >= 0 ? 'arrow-up' : 'arrow-down'}
+                    size={11}
+                    color={supportTrendDelta >= 0 ? '#059669' : '#dc2626'}
+                  />
+                  <Text
+                    style={[
+                      styles.activityDeltaText,
+                      { color: supportTrendDelta >= 0 ? '#059669' : '#dc2626' },
+                    ]}
+                  >
+                    {`${supportTrendDelta >= 0 ? '+' : '-'}${formatSupportUsd(Math.abs(supportTrendDelta))} ${activityPeriodDeltaLabel}`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.activityMetricCard, { width: activityCardWidth, borderColor: `${ACTIVITY_UNFOLLOW_PINK}33` }]}>
+                <View
+                  style={[styles.activityMetricIconWrap, { backgroundColor: `${ACTIVITY_UNFOLLOW_PINK}18` }]}
+                >
+                  <Ionicons name="person-remove-outline" size={18} color={ACTIVITY_UNFOLLOW_PINK} />
+                </View>
+                <Text style={[styles.activityMetricValue, { color: ACTIVITY_UNFOLLOW_PINK }]}>
+                  {unfollowersDisplay.toLocaleString()}
+                </Text>
+                <Text style={styles.activityMetricLabel}>Unfollowers</Text>
+                <Text style={styles.activityMetricSub}>Lost over this range</Text>
+                <View
+                  style={[
+                    styles.activityDeltaPill,
+                    {
+                      backgroundColor:
+                        unfollowersTrendDelta <= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(219,39,119,0.14)',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={unfollowersTrendDelta <= 0 ? 'arrow-down' : 'arrow-up'}
+                    size={11}
+                    color={unfollowersTrendDelta <= 0 ? '#059669' : ACTIVITY_UNFOLLOW_PINK}
+                  />
+                  <Text
+                    style={[
+                      styles.activityDeltaText,
+                      { color: unfollowersTrendDelta <= 0 ? '#059669' : ACTIVITY_UNFOLLOW_PINK },
+                    ]}
+                  >
+                    {`${unfollowersTrendDelta >= 0 ? '+' : ''}${Math.round(unfollowersTrendDelta)} ${activityPeriodDeltaLabel}`}
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.activityLegend}>
+              <View style={styles.activityLegendItem}>
+                <View style={[styles.activityLegendDot, { backgroundColor: text }]} />
+                <Text style={styles.activityLegendText}>Followers</Text>
+              </View>
+              <View style={styles.activityLegendItem}>
+                <View style={[styles.activityLegendDot, { backgroundColor: ACTIVITY_SUPPORT_LINE }]} />
+                <Text style={styles.activityLegendText}>Support trend</Text>
+              </View>
+              <View style={styles.activityLegendItem}>
+                <View style={[styles.activityLegendDot, { backgroundColor: ACTIVITY_UNFOLLOW_PINK }]} />
+                <Text style={styles.activityLegendText}>Unfollowers</Text>
+              </View>
+            </View>
+
+            {hasActivityChartData ? (
+              <>
+                <ScrollView
+                  horizontal
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                  showsHorizontalScrollIndicator
+                  style={styles.activityChartScrollViewport}
+                  contentContainerStyle={styles.activityChartScrollContent}
+                >
+                  <ActivityTrendSvg
+                    timestamps={activityTimestamps}
+                    followersValues={activityFollowersSeries.map((p) => p.value)}
+                    unfollowersValues={activityUnfollowersSeries.map((p) => p.value)}
+                    supportValues={activitySupportSeries.map((p) => p.value)}
+                    chartWidth={activityChartScrollWidth}
+                    chartHeight={activityChartH}
+                    colorFollowers={text}
+                    colorUnfollowers={ACTIVITY_UNFOLLOW_PINK}
+                    colorSupport={ACTIVITY_SUPPORT_LINE}
+                  />
+                </ScrollView>
+                <Text style={styles.activityChartFootnote}>
+                  Lines use separate scales. Swipe the chart sideways when points are crowded.
+                </Text>
+              </>
             ) : (
               <View style={styles.emptyChart}>
                 <Ionicons name="bar-chart-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyChartText}>No data available</Text>
-                <Text style={styles.emptyChartSubtext}>Check back later for activity updates</Text>
+                <Text style={styles.emptyChartText}>No chart data yet</Text>
+                <Text style={styles.emptyChartSubtext}>Pull to refresh after activity builds up</Text>
               </View>
             )}
           </View>
@@ -2632,6 +3028,103 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#10b981',
     textAlign: 'right',
+  },
+  activityMetricsScroller: {
+    marginBottom: 14,
+    flexGrow: 0,
+  },
+  activityMetricsScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+    paddingRight: 4,
+  },
+  activityMetricCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    backgroundColor: '#fafafa',
+  },
+  activityMetricIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  activityMetricValue: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  activityMetricLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 2,
+  },
+  activityMetricSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginBottom: 2,
+  },
+  activityFollowingHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    opacity: 0.85,
+    marginBottom: 4,
+  },
+  activityDeltaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  activityDeltaText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  activityLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 14,
+    marginBottom: 10,
+  },
+  activityLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  activityLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  activityLegendText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  activityChartFootnote: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 10,
+    lineHeight: 15,
+  },
+  activityChartScrollViewport: {
+    marginTop: 4,
+    alignSelf: 'stretch',
+  },
+  activityChartScrollContent: {
+    alignItems: 'flex-start',
+    paddingLeft: 8,
+    paddingRight: 8,
   },
   // Chart Container
   chartContainer: {

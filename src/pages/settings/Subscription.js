@@ -53,7 +53,9 @@ const Subscription = () => {
   const handleCancelSubscription = () => {
     Alert.alert(
       'Cancel Subscription',
-      'Are you sure you want to cancel your subscription? You will still have access until the end of your current billing period.',
+      'Are you sure you want to cancel?\n\n' +
+        'You will keep access until the end of your current billing period. ' +
+        'Cancellations are final—you will not receive a refund for the current billing period.',
       [
         {
           text: 'No, Keep Subscription',
@@ -213,7 +215,8 @@ const Subscription = () => {
           <View style={[styles.warningContainer, { backgroundColor: themeColors.warningBg, borderLeftColor: themeColors.warning }]}>
               <Icon name="warning" size={20} color={themeColors.warning} />
             <Text style={styles.warningText}>
-                Your subscription has been cancelled but you can use subscription until the end of your billing period.
+              Your subscription is cancelled but you keep access until the end of your billing period.
+              Cancellation is final and does not refund the current period.
             </Text>
           </View>
         )}
@@ -294,7 +297,7 @@ const Subscription = () => {
                 <View style={styles.detailIconContainer}>
                   <Icon name="time" size={16} color={themeColors.text} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Subscription Ends:</Text>
+              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Period ends:</Text>
               <Text style={[styles.detailValue, textStyle]}>
                 {formatDateISO(subscription?.currentPeriodEnd)}
               </Text>
@@ -327,7 +330,7 @@ const Subscription = () => {
         <View style={styles.legalLinksRow}>
           <TouchableOpacity 
             style={styles.legalLink}
-            onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
+            onPress={() => Linking.openURL('https://valens.app/privacy-policy')}
           >
               <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
                 <Icon name="document-text" size={16} color={themeColors.text} />
@@ -347,7 +350,8 @@ const Subscription = () => {
         </View>
           
         <Text style={[styles.legalLinksNote, { color: themeColors.subText }]}>
-          Please review our terms and privacy policy before making changes to your subscription.
+          Cancelling stops renewal; the current period is non-refundable unless required by law. Review our terms and
+          privacy policy before changing your subscription.
         </Text>
       </View>
 
@@ -522,7 +526,7 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
@@ -533,14 +537,22 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 16,
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
     fontWeight: '500',
+    paddingRight: 8,
+    lineHeight: 22,
   },
   detailValue: {
     fontSize: 16,
     fontWeight: '600',
-    flex: 2,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
     textAlign: 'right',
+    lineHeight: 22,
   },
   highlightText: {
     fontWeight: 'bold',
