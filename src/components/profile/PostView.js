@@ -7,6 +7,7 @@ import {
   Alert,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -1035,7 +1036,8 @@ export default function PostView({ postData = [], userData = {} }) {
           contentContainerStyle={styles.feedContainer}
           onLayout={event => {
             const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
-            if (nextHeight > 0 && nextHeight !== listViewportHeight) {
+            // Ignore tiny height changes that destabilize snapping.
+            if (nextHeight > 0 && Math.abs(nextHeight - listViewportHeight) > 2) {
               setListViewportHeight(nextHeight);
             }
           }}
@@ -1046,14 +1048,12 @@ export default function PostView({ postData = [], userData = {} }) {
           onScrollToIndexFailed={onScrollToIndexFailed}
           viewabilityConfig={viewabilityConfig}
           onViewableItemsChanged={handleViewableItemsChanged}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={3}
-          windowSize={5}
-          pagingEnabled
-          snapToAlignment="start"
-          snapToInterval={listViewportHeight > 0 ? listViewportHeight : windowHeight}
-          decelerationRate="fast"
-          disableIntervalMomentum
+          scrollEventThrottle={16}
+          // For smooth finger-follow scrolling, avoid snap/paging settings here.
+          removeClippedSubviews={false}
+          initialNumToRender={4}
+          maxToRenderPerBatch={6}
+          windowSize={9}
           nestedScrollEnabled
         />
       </SafeAreaView>
@@ -1113,7 +1113,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedContainer: {
-    paddingBottom: 20,
+    // Avoid padding with snapping (can cause bounce/jitter).
+    paddingBottom: 0,
   },
   feedItemPage: {
     justifyContent: 'flex-start',

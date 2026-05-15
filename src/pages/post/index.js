@@ -21,6 +21,7 @@ export default function PostScreen({ navigation }) {
   const [postType, setPostType] = useState('normal');
   const [shared, setShared] = useState(false);
   const route = useRoute();
+  const returnTo = route?.params?.returnTo;
   const rawPostTypeParam = route?.params?.postType;
   const rawMediaTypeParam = route?.params?.type;
   const isPrivateEntry = String(rawPostTypeParam || '').toLowerCase() === 'private';
@@ -638,8 +639,21 @@ export default function PostScreen({ navigation }) {
         <TouchableOpacity
           onPress={() => {
             setShowTypeModal(false);
-            // Always navigate to HomeMain instead of goBack() to avoid
-            // landing on a recently-posted screen still in the stack.
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+              return;
+            }
+
+            if (returnTo && typeof returnTo === 'object' && returnTo?.tab) {
+              navigation.navigate(returnTo.tab);
+              return;
+            }
+
+            if (typeof returnTo === 'string' && returnTo.length) {
+              navigation.navigate(returnTo);
+              return;
+            }
+
             navigation.navigate('HomeMain');
           }}
           style={styles.headerIconBtn}
@@ -662,7 +676,25 @@ export default function PostScreen({ navigation }) {
       <PostTypeModal
         visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
         setShowTypeModal={setShowTypeModal}
-        onClose={() => { setShowTypeModal(false); navigation.navigate('HomeMain'); }}
+        onClose={() => {
+          setShowTypeModal(false);
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+            return;
+          }
+
+          if (returnTo && typeof returnTo === 'object' && returnTo?.tab) {
+            navigation.navigate(returnTo.tab);
+            return;
+          }
+
+          if (typeof returnTo === 'string' && returnTo.length) {
+            navigation.navigate(returnTo);
+            return;
+          }
+
+          navigation.navigate('HomeMain');
+        }}
         onSelect={handleSelectType}
       />
     </SafeAreaView>

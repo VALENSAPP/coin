@@ -37,3 +37,6 @@ export const postCommentStory = async (body) => {
 export const postLikeStory = async (body) => {
   return axiosInstance.post('story/likeStory',body);
 }
+export const viewStory = async (body) => {
+  return axiosInstance.post('story/view',body);
+}

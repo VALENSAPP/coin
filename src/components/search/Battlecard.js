@@ -319,28 +319,31 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 onPress={handleCardPress}
             >
                 <View style={styles.cardTopRow}>
-                    {onUserPress ? (
-                        <TouchableOpacity
-                            style={styles.pollCreatorRow}
-                            activeOpacity={0.75}
-                            onPressIn={suppressNextCardPress}
-                            onPress={event => handleUserPress(item.creator, event)}
-                        >
-                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
-                            <View style={styles.pollCreatorTextWrap}>
-                                <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
-                                <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                    <View style={styles.pollCreatorRowContainer}>
+                        {onUserPress ? (
+                            <TouchableOpacity
+                                style={styles.pollCreatorPressable}
+                                activeOpacity={0.75}
+                                onPressIn={suppressNextCardPress}
+                                onPress={event => handleUserPress(item.creator, event)}
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            >
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
+                                <View style={styles.pollCreatorTextWrap}>
+                                    <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
+                                    <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        ) : (
+                            <View style={styles.pollCreatorPressable}>
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
+                                <View style={styles.pollCreatorTextWrap}>
+                                    <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
+                                    <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
+                                </View>
                             </View>
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={styles.pollCreatorRow}>
-                            <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
-                            <View style={styles.pollCreatorTextWrap}>
-                                <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
-                                <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
-                            </View>
-                        </View>
-                    )}
+                        )}
+                    </View>
                     <ModeBadge format="POLL" ended={ended} isLive={item.isLive} />
                 </View>
 
@@ -387,27 +390,46 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
             <View style={styles.cardTopRow}>
-                <TouchableOpacity
-                    style={styles.pollCreatorRow}
-                    activeOpacity={0.75}
-                    onPressIn={suppressNextCardPress}
-                    onPress={event => handleUserPress(
-                        { id: item.creator?.id, userName: item.creator?.userName, image: item.creator?.avatar, displayName: item.creator?.name },
-                        event
+                <View style={styles.pollCreatorRowContainer}>
+                    {onUserPress ? (
+                        <TouchableOpacity
+                            style={styles.pollCreatorPressable}
+                            activeOpacity={0.75}
+                            onPressIn={suppressNextCardPress}
+                            onPress={event => handleUserPress(
+                                { id: item.creator?.id, userName: item.creator?.userName, image: item.creator?.avatar, displayName: item.creator?.name },
+                                event
+                            )}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                            <HexAvatar
+                                uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
+                                size={28}
+                                borderWidth={2}
+                                borderColor="#7F77DD"
+                            />
+                            <View style={styles.pollCreatorTextWrap}>
+                                <Text style={styles.pollCreatorName} numberOfLines={1}>
+                                    {item.creator?.name}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.pollCreatorPressable}>
+                            <HexAvatar
+                                uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
+                                size={28}
+                                borderWidth={2}
+                                borderColor="#7F77DD"
+                            />
+                            <View style={styles.pollCreatorTextWrap}>
+                                <Text style={styles.pollCreatorName} numberOfLines={1}>
+                                    {item.creator?.name}
+                                </Text>
+                            </View>
+                        </View>
                     )}
-                >
-                    <HexAvatar
-                        uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
-                        size={28}
-                        borderWidth={2}
-                        borderColor="#7F77DD"
-                    />
-                    <View style={styles.pollCreatorTextWrap}>
-                        <Text style={styles.pollCreatorName} numberOfLines={1}>
-                            {item.creator?.name}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
+                </View>
                 <ModeBadge format={item.format} ended={ended} isLive={item.isLive} />
             </View>
             <TimerBadge endTime={item.endTime} ended={ended} />
@@ -782,7 +804,8 @@ const styles = StyleSheet.create({
     acceptBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 
     // Poll creator
-    pollCreatorRow: { flexDirection: 'row', alignItems: 'center',   flex: 1, marginRight: 8,minWidth: 0,  },
+    pollCreatorRowContainer: { flex: 1, marginRight: 8, minWidth: 0 },
+    pollCreatorPressable: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', minWidth: 0 },
     pollCreatorTextWrap: { marginLeft: 6, flexShrink: 1, minWidth: 0 },
     pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT,flexShrink: 1,  },
     pollCreatorHandle: { fontSize: 10, color: GRAY_MID },

@@ -384,7 +384,7 @@ const GlobalDrawerNavigator = () => {
           name="Privatecircle"
           component={PrivateCircle}
           options={{
-            drawerLabel: 'Privatecircle',
+            drawerLabel: 'Private Circle',
             headerShown: false,
           }}
           listeners={({ navigation }) => ({

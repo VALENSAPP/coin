@@ -42,6 +42,7 @@ import { getAllUser } from '../../../services/users';
 import { parseProfileShareUrl } from '../../../utils/profileShare';
 import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
+import { viewStory } from '../../../services/stories';
 
 const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX = /((?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi;
@@ -1084,7 +1085,14 @@ const UserChat = ({ route, navigation }) => {
       } else if (sharedItem?.type === 'reel') {
         messageData.reelId = sharedItem.reelId;
       } else if (sharedItem?.type === 'story') {
-        messageData.storyId = cleanStoryId(sharedItem.storyId);
+        const storyIdToShare = cleanStoryId(
+          sharedItem.storyId || sharedItem.story?.storyId || sharedItem.story?.id || sharedItem.id
+        );
+        messageData.storyId = storyIdToShare;
+        // Track share action via view API (non-blocking)
+        if (storyIdToShare) {
+          viewStory({ storyId: storyIdToShare }).catch(() => {});
+        }
       }
       console.log('[UserChat] Sending message. Socket ready?', socketReady);
       const socket = getSocket();
@@ -1987,6 +1995,12 @@ const UserChat = ({ route, navigation }) => {
                     onPress={() => {
                       // ✅ UPDATED: Open story viewer modal
                       if (storyExists && mediaUri) {
+                        const storyIdToView = cleanStoryId(
+                          storyData.storyId || storyData.id || item.storyId || storyData?._id
+                        );
+                        if (storyIdToView) {
+                          viewStory({ storyId: storyIdToView }).catch(() => {});
+                        }
                         setSelectedStory({
                           ...storyData,
                           uri: mediaUri,

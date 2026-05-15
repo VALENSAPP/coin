@@ -398,7 +398,6 @@ export default function BattleInProgress() {
   const routeBattle = useMemo(() => route?.params?.battle || {}, [route?.params?.battle]);
   const hasInitialBattleData = Object.keys(routeBattle || {}).length > 0;
   const battleId = route?.params?.battleId || routeBattle.id || routeBattle._id || routeBattle.battleId || '';
-
   const [currentUserId, setCurrentUserId] = useState('');
   const [battle, setBattle] = useState(() => normalizeBattle(routeBattle, ''));
   const [selectedOption, setSelectedOption] = useState(() => String(route?.params?.selectedOption || ''));
@@ -1006,6 +1005,37 @@ export default function BattleInProgress() {
 
   const renderHeroCard = () => (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <View style={styles.heroTopRow}>
+        <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
+          <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
+          <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+        </View>
+        <View style={styles.timerPill}>
+          <Ionicons name="time-outline" size={12} color="#000" />
+          <Text style={[styles.timerPillText,{color:text}]}>{formatBattleTime(battle.endTime)}</Text>
+        </View>
+      </View>
+      <View>
+        <Text style={[styles.heroTitle,{color:text}]}>{battle.title}</Text>
+      </View>
+      <View>
+        <View style={styles.heroInfoRow}>
+          <View style={styles.heroInfoChip}>
+            <Ionicons name="people-outline" size={12} color="#000" />
+            <Text style={[styles.heroInfoText,{color:text}]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
+          </View>
+          <View style={styles.heroInfoChip}>
+            <Ionicons name="calendar-outline" size={12} color="#000" />
+            <Text style={[styles.heroInfoText,{color:text}]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+          </View>
+          <View style={styles.heroInfoChip}>
+            <Ionicons name="flash" size={12} color="#000" />
+            <Text style={[styles.heroInfoText,{color:text}]}>
+              Stakes: {formatStakeAmount(battle.stake)}
+            </Text>
+          </View>
+        </View>
+      </View>
       <TouchableOpacity activeOpacity={0.9} onPressIn={handleHeroCardPressIn} onPressOut={handleHeroCardPressOut}>
         <LinearGradient
           colors={[palette.secondary, palette.primary, palette.secondary]}
@@ -1037,7 +1067,7 @@ export default function BattleInProgress() {
             </View>
           </TouchableOpacity>
           {/* Top row */}
-          <View style={styles.heroTopRow}>
+          {/* <View style={styles.heroTopRow}>
             <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
               <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
               <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
@@ -1046,7 +1076,7 @@ export default function BattleInProgress() {
               <Ionicons name="time-outline" size={12} color="#fff" />
               <Text style={styles.timerPillText}>{formatBattleTime(battle.endTime)}</Text>
             </View>
-          </View>
+          </View> */}
 
           {/* Title + description */}
           {!!isHeadToHead && (() => {
@@ -1072,11 +1102,11 @@ export default function BattleInProgress() {
               </Text>
             );
           })()}
-          <Text style={styles.heroTitle}>{battle.title}</Text>
+          {/* <Text style={styles.heroTitle}>{battle.title}</Text> */}
           {!!battle.description && <Text style={styles.heroDescription}>{battle.description}</Text>}
 
           {/* Meta chips */}
-          <View style={styles.heroInfoRow}>
+          {/* <View style={styles.heroInfoRow}>
             <View style={styles.heroInfoChip}>
               <Ionicons name="people-outline" size={12} color="#fff" />
               <Text style={styles.heroInfoText}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
@@ -1091,7 +1121,7 @@ export default function BattleInProgress() {
                 Stakes: {formatStakeAmount(battle.stake)}
               </Text>
             </View>
-          </View>
+          </View> */}
 
           {/* Duel player cards */}
           {isHeadToHead && Array.isArray(battle.participants) && battle.participants.length >= 2 && (
@@ -1133,6 +1163,9 @@ export default function BattleInProgress() {
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p0?.side}</Text>
                         </View>
+                         <View>
+                          <Text  style={[styles.playerName,{color:'#fff'}]}>{d0?.name || 'User'} Says:</Text>
+                        </View>
                       </TouchableOpacity>
 
                       <View style={styles.duelVsWrapOverlay}>
@@ -1164,6 +1197,9 @@ export default function BattleInProgress() {
                         </Text>
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p1?.side}</Text>
+                        </View>
+                        <View>
+                          <Text  style={[styles.playerName,{color:'#fff'}]}>{d1?.name || 'User'} Says:</Text>
                         </View>
                       </TouchableOpacity>
                     </>
@@ -1545,14 +1581,14 @@ const styles = StyleSheet.create({
   statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#e84040' },
   statusPillText: { fontSize: 11, fontWeight: '700', color: '#e84040', letterSpacing: 0.4 },
   timerPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(107,95,166,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
-  timerPillText: { fontSize: 11, fontWeight: '600', color: "#fff" },
+  timerPillText: { fontSize: 11, fontWeight: '600', color: "#000" },
   heroChallengeLine: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', marginBottom: 6, marginHorizontal: 8 },
   heroChallengeStrong: { color: '#FFFFFF', fontWeight: '900' },
-  heroTitle: { color: "#fff", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
+  heroTitle: { color: "#000", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
   heroDescription: { color: "#fff", fontSize: 13, lineHeight: 19, marginBottom: 8 },
   heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   heroInfoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(107,95,166,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  heroInfoText: { color: "#fff", fontSize: 11, fontWeight: '600' },
+  heroInfoText: { color: "#000", fontSize: 11, fontWeight: '600' },
   heroMetaRight: { alignItems: 'flex-end' },
 
   // Duel
@@ -1576,7 +1612,7 @@ const styles = StyleSheet.create({
   duelPlayerCard: { flex: 1, maxWidth: '44%', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.32)', paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6, overflow: 'hidden' },
   duelPlayerCardBg: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
   avatarBadgeWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  playerBadge: { position: 'absolute', bottom: -6, right: -10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(17,24,39,0.12)' },
+  playerBadge: {flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(17,24,39,0.12)', },
   playerBadgeText: { fontSize: 10, fontWeight: '800', color: '#111827', maxWidth: 72 },
   playerName: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   playerPoints: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '700', marginTop: -2 },
@@ -1662,6 +1698,7 @@ const styles = StyleSheet.create({
   commentMessage: { fontSize: 14, lineHeight: 20, color: '#374151' },
   viewRepliesButton: { alignSelf: 'flex-start', marginTop: 10 },
   viewRepliesText: { fontSize: 12, fontWeight: '800' },
+  commentInlineActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 },
   replyComposer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
   replyComposerLabel: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
   replyInput: { minHeight: 88, borderRadius: 14, borderWidth: 1, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#111827', textAlignVertical: 'top' },

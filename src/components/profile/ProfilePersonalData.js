@@ -860,6 +860,7 @@ const ProfilePersonData = ({
         params: {
           returnTo: 'UserProfile',
           isCompanyProfile,
+          profile: effectiveProfileType || userProfile || userData?.profile || 'user',
         },
       });
       return;
@@ -870,7 +871,14 @@ const ProfilePersonData = ({
       isCompanyProfile,
       profile: effectiveProfileType || userProfile || userData?.profile || 'user',
     });
-  }, [fromUsersProfile, navigation, isCompanyProfile]);
+  }, [
+    effectiveProfileType,
+    fromUsersProfile,
+    isCompanyProfile,
+    navigation,
+    userData?.profile,
+    userProfile,
+  ]);
 
   const handleInviteBattlePress = useCallback(async () => {
     const storedMe = String((await AsyncStorage.getItem('userId')) || '').trim();
@@ -924,6 +932,7 @@ const ProfilePersonData = ({
         params: {
           ...params,
           isCompanyProfile,
+          profile: effectiveProfileType || userProfile || userData?.profile || 'user',
         },
       });
       return;
@@ -932,6 +941,7 @@ const ProfilePersonData = ({
     navigation.navigate('OpenBattle', {
       ...params,
       isCompanyProfile,
+      profile: effectiveProfileType || userProfile || userData?.profile || 'user',
     });
   }, [
     displayName,
@@ -951,6 +961,9 @@ const ProfilePersonData = ({
     userData?.userName,
     userData?.username,
     username,
+    userData?.profile,
+    userProfile,
+    effectiveProfileType,
   ]);
 
   const handleBattleTabPress = useCallback(() => {
@@ -1199,7 +1212,15 @@ const ProfilePersonData = ({
       const screen = returnByTo?.screen;
       const params = returnByTo?.params;
       if (tab) {
-        navigation.navigate(tab, screen ? { screen, params } : undefined);
+        const parentNav = navigation.getParent?.();
+        if (parentNav?.jumpTo) {
+          parentNav.jumpTo(tab);
+          if (screen) {
+            parentNav.navigate(tab, { screen, params });
+          }
+        } else {
+          navigation.navigate(tab, screen ? { screen, params } : undefined);
+        }
         return;
       }
     }
@@ -1218,7 +1239,9 @@ const ProfilePersonData = ({
     }
     else if (returnByTo === 'Add') {
       // Jump back to the Add tab (PostEditor remains in its stack state).
-      navigation.navigate('Add');
+      const parentNav = navigation.getParent?.();
+      if (parentNav?.jumpTo) parentNav.jumpTo('Add');
+      else navigation.navigate('Add');
       return;
     }
 

@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Modal,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { formatDistanceToNow } from 'date-fns';
@@ -25,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAppTheme } from '../../../theme/useApptheme';
 import HexAvatar from '../story.js/HexAvatar';
+import { useNavigation } from '@react-navigation/native';
 
 const mapCommentItem = comment => ({
   id: String(comment.id),
@@ -97,6 +97,7 @@ const CommentItem = memo(
     onThumbsDownPress,
     commentVotes,
   }) => {
+    const navigation = useNavigation();
     const normalizeId = id => (id != null ? String(id).trim() : '');
 
     const viewerId = normalizeId(currentUserId);
@@ -122,7 +123,17 @@ const CommentItem = memo(
           item.isOptimistic && styles.optimisticComment,
         ]}>
         <View style={styles.commentRow}>
-          <Image source={{ uri: item.avatar }} style={styles.avatar} />
+          <TouchableOpacity
+            onPress={() => {
+              if (!item?.userId) return;
+              navigation.navigate('UsersProfile', { userId: item.userId });
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.hexAvatarWrap}
+            accessibilityRole="button"
+          >
+            <HexAvatar uri={item.avatar} size={28} borderWidth={1} borderColor="#e5e5e5" />
+          </TouchableOpacity>
           <View style={styles.commentContent}>
             <View style={styles.commentHeader}>
               <Text style={styles.username}>{item.username}</Text>
@@ -252,7 +263,17 @@ const CommentItem = memo(
               const canModerateReply = isReplyAuthor || isPostOwner;
               return (
                 <View key={reply.id} style={styles.replyCard}>
-                  <Image source={{ uri: reply.avatar }} style={styles.avatar} />
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!reply?.userId) return;
+                      navigation.navigate('UsersProfile', { userId: reply.userId });
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.hexAvatarWrap}
+                    accessibilityRole="button"
+                  >
+                    <HexAvatar uri={reply.avatar} size={28} borderWidth={1} borderColor="#e5e5e5" />
+                  </TouchableOpacity>
                   <View style={styles.commentContent}>
                     <View style={styles.commentHeader}>
                       <Text style={styles.username}>{reply.username}</Text>
@@ -961,6 +982,13 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     marginRight: 10,
+  },
+  hexAvatarWrap: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   commentContent: {
     flex: 1,

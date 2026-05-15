@@ -671,6 +671,15 @@ export default function ChatMessages() {
 
       // FORMAT 1: Socket data (conversation with lastMessage)
       if (hasLastMessage && hasUser) {
+        const rawChatId = String(item?.id || '').trim();
+        const isHidden =
+          item?.isHidden === true ||
+          String(item?.isHidden || '').toLowerCase() === 'true' ||
+          String(item?.isHidden || '') === '1';
+        if (isHidden || (rawChatId && hiddenChatIdsRef.current.has(rawChatId))) {
+          console.log(`ðŸš« Skipping hidden conversation: ${rawChatId}`);
+          return;
+        }
         console.log(`✅ Item ${index}: NEW FORMAT (conversation)`);
 
         if (item.isHidden === true) {
@@ -690,7 +699,11 @@ export default function ChatMessages() {
         console.log(`✅ Item ${index}: OLD FORMAT (message)`);
 
         // ✅ CHECK isHidden for old format too
-        if (item.isHidden === true) {
+        if (
+          item.isHidden === true ||
+          String(item?.isHidden || '').toLowerCase() === 'true' ||
+          String(item?.isHidden || '') === '1'
+        ) {
           console.log(`🚫 Skipping hidden message: ${item.id}`);
           return;
         }
@@ -704,6 +717,11 @@ export default function ChatMessages() {
 
         chatId = [currentUserId, partnerId].sort().join('_');
         console.log(`  - Generated chatId: ${chatId}`);
+
+        if (chatId && hiddenChatIdsRef.current.has(String(chatId).trim())) {
+          console.log(`ðŸš« Skipping locally hidden conversation: ${chatId}`);
+          return;
+        }
 
         // Create conversation-like structure
         conversation = {

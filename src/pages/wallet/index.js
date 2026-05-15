@@ -198,11 +198,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: 'Total Earning', value: '-', icon: 'wallet' },
-    { id: 'support', title: 'Subscription Earning', value: '-', icon: 'pie-chart' },
+    { id: 'support', title: 'Subscription\nEarning', value: '-', icon: 'pie-chart' },
     { id: 'followers', title: 'Followers', value: '-', icon: 'people' },
     { id: 'credits', title: 'Credits Left', value: '-', icon: 'flash', currentCredits: 5 },
     // { id: 'Active battles', title: 'Active battles', value: '-', icon: 'trophy', color: '#3b82f6' },
-    { id: 'Mission Post', title: 'Mission Post', value: '-', icon:  'ribbon' },
+    { id: 'Mission Post', title: 'Mission Post', value: '-', icon: 'ribbon' },
     { id: 'referralPoints', title: 'Referral Points', value: '-', icon: 'gift' },
     { id: 'metamask', title: 'Metamask Wallet', value: '-', icon: 'logo-usd' },
   ]);
@@ -329,8 +329,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
       console.log('API Response: data in thi apiaiaaiaiaai', response);
       setIsBusinessProfile(response?.data?.profile !== 'user');
-      setKyc(response?.data?.kycStatus || null);
-      console.log(response,'data in this apiaia for resposne ')
+      setKyc(response?.data?.kyc || null);
+      console.log(response, 'data in this apiaia for resposne ')
       // 🔥 Adjust keys based on your API response
       const stripeCustomerId =
         response?.data?.stripeAccountId ||
@@ -1046,7 +1046,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     if (isMetaMaskCard) {
       return (
         <TouchableOpacity
-          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth,{minWidth:350}]}
+          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth, { minWidth: 350 }]}
           activeOpacity={0.86}
           onPress={handleMetaMaskCardPress}
         >
@@ -1294,31 +1294,31 @@ export const WalletDashboardScreen = ({ navigation }) => {
             end={{ x: 1, y: 1 }}
             style={styles.headerCard}
           >
-              <View style={styles.headerGlow} />
-              <View style={styles.headerRow}>
-                <View style={styles.headerAvatarWrap}>
-                  <TouchableOpacity activeOpacity={0.85} onPress={openAvatarPreview}>
-                    <HexAvatar
-                      uri={profileImage || userProfile.image || FALLBACK_AVATAR}
-                      size={100}
-                      borderWidth={3}
-                      borderColor={text}
-                    />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.headerText}>
-                  <Text
-                    style={[
-                      styles.headerName,
+            <View style={styles.headerGlow} />
+            <View style={styles.headerRow}>
+              <View style={styles.headerAvatarWrap}>
+                <TouchableOpacity activeOpacity={0.85} onPress={openAvatarPreview}>
+                  <HexAvatar
+                    uri={profileImage || userProfile.image || FALLBACK_AVATAR}
+                    size={100}
+                    borderWidth={3}
+                    borderColor={text}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.headerText}>
+                <Text
+                  style={[
+                    styles.headerName,
                     { color: text },
                   ]}
                   numberOfLines={1}
                 >
                   @{userProfile.name || 'User'}
                 </Text>
-                {kyc === "APPROVED" || kyc=== true && (
+                {kyc === true && (
                   <View style={styles.headerStatus}>
-                    <DragonflyIcon width={22} height={22} style={styles.headerStatusIcon} />
+                    <DragonflyIcon width={25} height={25} />
                     <Text
                       style={[
                         styles.headerStatusText,
@@ -1396,7 +1396,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Activity Overview */}
-        <View style={[styles.section, {marginTop: 17}]}>
+        <View style={[styles.section, { marginTop: 17 }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, textStyle]}>Activity Overview</Text>
           </View>
@@ -1570,11 +1570,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
             </Pressable>
           </Pressable>
         </Modal>
-  
-         <Modal
-            visible={dragonflyModalVisible}
-            transparent
-            animationType="fade"
+
+        <Modal
+          visible={dragonflyModalVisible}
+          transparent
+          animationType="fade"
           onRequestClose={closeDragonflyModal}
         >
           <View style={styles.modalOverlay}>
@@ -1809,9 +1809,10 @@ const styles = StyleSheet.create({
   },
   headerStatusText: {
     color: '#f9fafb',
-    marginLeft: 0,
+    marginLeft: 5,
     fontSize: 14,
     fontWeight: '500',
+    
   },
   headerBadge: {
     width: 36,
@@ -2032,7 +2033,7 @@ const styles = StyleSheet.create({
   pointsMainCol: {
     flexDirection: 'row',
     alignItems: 'center',
-     flex: 1.8,
+    flex: 1.8,
     minWidth: 0,
   },
   pointsMainIconWrap: {
@@ -2063,8 +2064,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft:4,
-    paddingLeft:4,
+    marginLeft: 4,
+    paddingLeft: 4,
   },
   pointsColValue: {
     marginTop: 6,
@@ -2206,7 +2207,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     // alignSelf: 'stretch',
     minHeight: 150,
-    alignItems:'center',
+    alignItems: 'center',
     // marginRight:'10%'
   },
   kpiCardFullWidth: {
@@ -2233,7 +2234,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginLeft:-5,
+    marginLeft: -5,
   },
   kpiIconWrap: {
     width: 30,
