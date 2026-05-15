@@ -25,7 +25,7 @@ const Splash = () => {
   return (
     <View style={[styles.container, bgStyle]}>
       <Video
-        source={require('../../assets/videos/newsplash.mp4')}
+        source={require('../../assets/videos/Splashnew.mp4')}
         style={styles.video}
         resizeMode="cover"
         muted={true}
