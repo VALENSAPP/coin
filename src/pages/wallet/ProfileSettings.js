@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   View,
@@ -12,8 +11,12 @@ import {
   StatusBar,
 } from 'react-native';
 import styles from './Style';
+import { useLanguage } from '../../i18n';
 
-const ProfileSettingsScreen = () => (
+const ProfileSettingsScreen = () => {
+  const { t } = useLanguage();
+
+  return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <ScrollView style={styles.content}>
@@ -23,15 +26,15 @@ const ProfileSettingsScreen = () => (
               <Text style={styles.avatarText}>TV</Text>
             </View>
             <TouchableOpacity style={styles.changePhotoButton}>
-              <Text style={styles.changePhotoText}>Change Photo</Text>
+              <Text style={styles.changePhotoText}>{t('profileSettings.changePhoto')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>{t('profileSettings.personalInformation')}</Text>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Display Name</Text>
+            <Text style={styles.inputLabel}>{t('profileSettings.displayName')}</Text>
             <TextInput
               style={styles.input}
             //   value={profileData.displayName}
@@ -39,7 +42,7 @@ const ProfileSettingsScreen = () => (
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Username</Text>
+            <Text style={styles.inputLabel}>{t('profileSettings.username')}</Text>
             <TextInput
               style={styles.input}
             //   value={profileData.username}
@@ -47,7 +50,7 @@ const ProfileSettingsScreen = () => (
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email</Text>
+            <Text style={styles.inputLabel}>{t('profileSettings.email')}</Text>
             <TextInput
               style={styles.input}
             //   value={profileData.email}
@@ -56,7 +59,7 @@ const ProfileSettingsScreen = () => (
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone Number</Text>
+            <Text style={styles.inputLabel}>{t('profileSettings.phoneNumber')}</Text>
             <TextInput
               style={styles.input}
             //   value={profileData.phone}
@@ -67,10 +70,11 @@ const ProfileSettingsScreen = () => (
         </View>
 
         <TouchableOpacity style={styles.saveButton}>
-          <Text style={styles.saveButtonText}>Save Changes</Text>
+          <Text style={styles.saveButtonText}>{t('profileSettings.saveChanges')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
+};
 
-  export default ProfileSettingsScreen;
+export default ProfileSettingsScreen;

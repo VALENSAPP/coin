@@ -9,16 +9,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useAppTheme } from "../../theme/useApptheme";
+import { useLanguage } from "../../i18n";
 
-const SubscriptionActivationPopup = ({
-  visible,
-  onClose,
-  onConfirm
-
-}) => {
+const SubscriptionActivationPopup = ({ visible, onClose, onConfirm }) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, card, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const handleAccept = async () => {
     setIsLoading(true);
@@ -47,35 +44,52 @@ const SubscriptionActivationPopup = ({
   }, [navigation]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} pointerEvents="auto">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      pointerEvents="auto"
+    >
       <View style={styles.overlay} pointerEvents="auto">
         <View style={[styles.box, bgStyle, { backgroundColor: card }]}>
 
-          <Text style={[styles.title, textStyle]}>Become a Private Subscriber</Text>
+          <Text style={[styles.title, textStyle]}>
+            {t('subscriptionActivation.title')}
+          </Text>
 
           <Text style={[styles.text, textStyle]}>
-            A monthly fee of <Text style={{ fontWeight: "bold" }}>$19.90 </Text>
-
-            will be charged to activate your private subscriber account.
+            {t('subscriptionActivation.chargeIntro')}{' '}
+            <Text style={{ fontWeight: 'bold' }}>
+              {t('subscriptionActivation.chargeAmount')}
+            </Text>{' '}
+            {t('subscriptionActivation.chargeSuffix')}
           </Text>
 
-          <Text style={[styles.sectionTitle, textStyle]}>Platform Fees</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>
+            {t('subscriptionActivation.platformFeesTitle')}
+          </Text>
 
-          <Text style={[styles.bullet, textStyle]}>• $19.90 Monthly Maintenance Fee</Text>
+          <Text style={[styles.bullet, textStyle]}>
+            {t('subscriptionActivation.maintenanceFee')}
+          </Text>
           <Text style={[styles.subText, textStyle]}>
-            For hosting and operating your private subscription channel.
+            {t('subscriptionActivation.maintenanceFeeDesc')}
           </Text>
 
-          <Text style={[styles.bullet, textStyle]}>• 5% Withdrawal Fee</Text>
+          <Text style={[styles.bullet, textStyle]}>
+            {t('subscriptionActivation.withdrawalFee')}
+          </Text>
           <Text style={[styles.subText, textStyle]}>
-            Applied to every payout request you make.
+            {t('subscriptionActivation.withdrawalFeeDesc')}
           </Text>
 
-          <Text style={[styles.sectionTitle, textStyle]}>Billing Authorization</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>
+            {t('subscriptionActivation.billingAuthTitle')}
+          </Text>
 
           <Text style={[styles.text, textStyle]}>
-            By continuing, you authorize Valens to automatically charge the monthly
-            maintenance fee and deduct the 5% withdrawal fee from your payouts.
+            {t('subscriptionActivation.billingAuthDesc')}
           </Text>
 
           <View style={styles.row}>
@@ -85,13 +99,14 @@ const SubscriptionActivationPopup = ({
                 onClose();
                 navigation.navigate('MainApp', {
                   screen: 'wallet',
-                  params: { screen: 'Dashboard' }
+                  params: { screen: 'Dashboard' },
                 });
-                // openGlobalDrawer();
               }}
               disabled={isLoading}
             >
-              <Text style={[styles.cancelTxt, { color: text }]}>Cancel</Text>
+              <Text style={[styles.cancelTxt, { color: text }]}>
+                {t('subscriptionActivation.cancelButton')}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -100,13 +115,14 @@ const SubscriptionActivationPopup = ({
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color={card || "#fff"} size="small" />
+                <ActivityIndicator color={card || '#fff'} size="small" />
               ) : (
-                <Text style={[styles.acceptTxt, { color: card || "#fff" }]}>Accept</Text>
+                <Text style={[styles.acceptTxt, { color: card || '#fff' }]}>
+                  {t('subscriptionActivation.acceptButton')}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
-
         </View>
       </View>
     </Modal>

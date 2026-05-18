@@ -16,6 +16,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { transationActivity } from '../../services/wallet';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { useLanguage } from '../../i18n';
 
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
@@ -43,7 +44,6 @@ const formatActivityDate = (value) => {
     minute: '2-digit',
     hour12: true,
   });
-  // "Apr 27, 2026, 10:22 AM" -> "Apr 27, 2026 • 10:22 AM"
   return parts.replace(', ', ' • ').replace(', ', ' • ');
 };
 
@@ -86,45 +86,19 @@ const mapTransactionsToActivity = (raw) => {
     const id = pickFirst(tx?.id, tx?._id, tx?.transactionId, tx?.txId, tx?.hash, `tx_${index}`);
     const typeLabel = resolveTypeLabel(tx);
     const status = pickFirst(tx?.status, tx?.paymentStatus, tx?.state, '');
-    const rawAmount = pickFirst(
-      tx?.amountUsd,
-      tx?.amountUSD,
-      tx?.amount_usd,
-      tx?.amount,
-      tx?.usdAmount,
-      tx?.value,
-      0,
-    );
+    const rawAmount = pickFirst(tx?.amountUsd, tx?.amountUSD, tx?.amount_usd, tx?.amount, tx?.usdAmount, tx?.value, 0);
     const amountNumber = toNumber(rawAmount);
     const amountTone = amountNumber < 0 ? 'negative' : 'positive';
 
-    const title =
-      pickFirst(
-        tx?.title,
-        tx?.label,
-        typeLabel,
-      ) || 'Transaction';
+    const title = pickFirst(tx?.title, tx?.label, typeLabel) || 'Transaction';
 
     const subtitle = pickFirst(
-      tx?.subtitle,
-      tx?.description,
-      tx?.note,
-      tx?.missionQuestion,
-      tx?.mission?.question,
-      tx?.mission?.title,
-      tx?.receiverName,
-      tx?.senderName,
-      '',
+      tx?.subtitle, tx?.description, tx?.note, tx?.missionQuestion,
+      tx?.mission?.question, tx?.mission?.title, tx?.receiverName, tx?.senderName, '',
     );
 
     const createdAt = pickFirst(
-      tx?.createdAt,
-      tx?.created_at,
-      tx?.timestamp,
-      tx?.date,
-      tx?.updatedAt,
-      tx?.updated_at,
-      null,
+      tx?.createdAt, tx?.created_at, tx?.timestamp, tx?.date, tx?.updatedAt, tx?.updated_at, null,
     );
 
     return {
@@ -145,6 +119,7 @@ export default function TransactionActivityScreen() {
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, text, cardStyle } = useAppTheme();
+  const { t } = useLanguage();
 
   const initialActivity = route?.params?.activity;
   const [activity, setActivity] = useState(Array.isArray(initialActivity) ? initialActivity : []);
@@ -155,7 +130,6 @@ export default function TransactionActivityScreen() {
       setLoading(true);
       dispatch(showLoader());
       const response = await transationActivity();
-      console.log(response,'data hree in thi transariooisjasah')
       const raw =
         response?.data?.transactions ||
         response?.data?.data?.transactions ||
@@ -164,12 +138,12 @@ export default function TransactionActivityScreen() {
         [];
       setActivity(mapTransactionsToActivity(raw));
     } catch (e) {
-      showToastMessage(toast, 'danger', e?.response?.data?.message || e?.message || 'Failed to load transactions');
+      showToastMessage(toast, 'danger', e?.response?.data?.message || e?.message || t('transactions.loadFailed'));
     } finally {
       dispatch(hideLoader());
       setLoading(false);
     }
-  }, [dispatch, toast]);
+  }, [dispatch, toast, t]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -189,29 +163,18 @@ export default function TransactionActivityScreen() {
 
     return (
       <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
-        <View
-          style={[
-            styles.activityIconWrap,
-            { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
-          ]}
-        >
+        <View style={[styles.activityIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
           <Ionicons name={item.icon} size={18} color={text} />
         </View>
         <View style={styles.activityTextWrap}>
-          <Text style={[styles.activityTitle, { color: text }]}>
-            {item.title}
-          </Text>
+          <Text style={[styles.activityTitle, { color: text }]}>{item.title}</Text>
           <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
             {item.subtitle}
           </Text>
         </View>
         <View style={styles.activityRight}>
-          <Text style={[styles.activityAmount, { color: amountColor }]}>
-            {item.amount}
-          </Text>
-          <Text style={[styles.activityDate, { color: `${text}80` }]}>
-            {item.date}
-          </Text>
+          <Text style={[styles.activityAmount, { color: amountColor }]}>{item.amount}</Text>
+          <Text style={[styles.activityDate, { color: `${text}80` }]}>{item.date}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={`${text}66`} style={styles.activityChevron} />
       </View>
@@ -230,42 +193,21 @@ export default function TransactionActivityScreen() {
     }
     return (
       <View style={[styles.activityRow, cardStyle, { borderColor: `${text}1a` }]}>
-        <View
-          style={[
-            styles.activityIconWrap,
-            { backgroundColor: `${text}0d`, borderColor: `${text}1a` },
-          ]}
-        >
+        <View style={[styles.activityIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
           <Ionicons name="time-outline" size={18} color={text} />
         </View>
         <View style={styles.activityTextWrap}>
-          <Text style={[styles.activityTitle, { color: text }]}>No transactions yet</Text>
+          <Text style={[styles.activityTitle, { color: text }]}>{t('transactions.noTransactionsTitle')}</Text>
           <Text style={[styles.activitySubtitle, { color: `${text}99` }]} numberOfLines={1}>
-            Your received transactions will appear here.
+            {t('transactions.noTransactionsSubtitle')}
           </Text>
         </View>
       </View>
     );
-  }, [cardStyle, loading, text]);
+  }, [cardStyle, loading, text, t]);
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {/* <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Ionicons name="chevron-back" size={24} color={text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: text }]}>Transactions</Text>
-        <TouchableOpacity
-          onPress={() => {
-            fetchAll();
-            showToastMessage(toast, 'success', 'Refreshing…');
-          }}
-          style={styles.headerBtn}
-        >
-          <Ionicons name="refresh" size={20} color={text} />
-        </TouchableOpacity>
-      </View> */}
-
       <FlatList
         data={data}
         keyExtractor={keyExtractor}

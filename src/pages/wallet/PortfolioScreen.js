@@ -18,6 +18,7 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 export const PortfolioScreen = ({ navigation }) => {
 
@@ -27,12 +28,14 @@ export const PortfolioScreen = ({ navigation }) => {
     const dispatch = useDispatch();
     const toast = useToast();
     const { bgStyle, textStyle, text } = useAppTheme();
+    const { t } = useLanguage();
 
     useFocusEffect(
         React.useCallback(() => {
             fetchDashboardData();
         }, [])
     );
+
     const fetchDashboardData = async () => {
         try {
             dispatch(showLoader());
@@ -51,7 +54,7 @@ export const PortfolioScreen = ({ navigation }) => {
             showToastMessage(
                 toast,
                 'danger',
-                error?.response?.message ?? 'Something went wrong',
+                error?.response?.message ?? t('portfolio.fetchError'),
             );
         } finally {
             dispatch(hideLoader());
@@ -59,9 +62,9 @@ export const PortfolioScreen = ({ navigation }) => {
     };
 
     const renderHolding = ({ item }) => (
-        <View style={[styles.holdingItem, {shadowColor: text}]}>
+        <View style={[styles.holdingItem, { shadowColor: text }]}>
             <View style={styles.holdingLeft}>
-                <View style={[styles.creatorAvatar, {backgroundColor: text}]}>
+                <View style={[styles.creatorAvatar, { backgroundColor: text }]}>
                     <Text style={styles.avatarText}>{item.vendorName.charAt(1).toUpperCase()}</Text>
                 </View>
                 <View>
@@ -69,15 +72,17 @@ export const PortfolioScreen = ({ navigation }) => {
                         <Text style={styles.creatorName}>{item.vendorName}</Text>
                         {item.verified && <Ionicons name="checkmark-circle" size={14} color={text} />}
                     </View>
-                    <Text style={styles.holdingAmount}>{item.tokenAmount} tokens</Text>
+                    <Text style={styles.holdingAmount}>{item.tokenAmount} {t('portfolio.tokens')}</Text>
                 </View>
             </View>
             <View style={styles.holdingRight}>
                 <Text style={styles.holdingValue}>{item.totalTokenAmount}</Text>
-                {/* <Text style={styles.holdingChange}>{item.change}</Text> */}
                 <View style={styles.holdingActions}>
-                    <TouchableOpacity style={[styles.buyButton, {backgroundColor: text}]} onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}>
-                        <Text style={styles.buyButtonText}>Support</Text>
+                    <TouchableOpacity
+                        style={[styles.buyButton, { backgroundColor: text }]}
+                        onPress={() => navigation.navigate('CreatorProfile', { userId: item.vendorId })}
+                    >
+                        <Text style={styles.buyButtonText}>{t('portfolio.support')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -87,34 +92,19 @@ export const PortfolioScreen = ({ navigation }) => {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Portfolio</Text>
-                    <Text style={styles.headerSubtitle}>Track the ones you fuel with your support</Text>
-                </View> */}
-
                 {/* Portfolio Summary */}
                 <View style={styles.portfolioSummary}>
-                    <View style={[styles.summaryCard, {backgroundColor: text}]}>
-                        <Text style={styles.summaryLabel}>Total Portfolio Value</Text>
+                    <View style={[styles.summaryCard, { backgroundColor: text }]}>
+                        <Text style={styles.summaryLabel}>{t('portfolio.totalPortfolioValue')}</Text>
                         <Text style={styles.summaryValue}>{portfolioValue}</Text>
-                        {/* <Text style={styles.summaryChange}>+5.2% this month</Text> */}
                     </View>
-
-                    {/* <View style={styles.summaryRow}>
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Supported</Text>
-                            <Text style={styles.summaryValue}>$10,269.50</Text>
-                        </View>
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Available</Text>
-                            <Text style={styles.summaryValue}>$2,180.50</Text>
-                        </View>
-                    </View> */}
                 </View>
 
                 {/* Holdings */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, textStyle]}>My Holdings ({holdingsData.length})</Text>
+                    <Text style={[styles.sectionTitle, textStyle]}>
+                        {t('portfolio.myHoldings')} ({holdingsData.length})
+                    </Text>
                     <FlatList
                         data={holdingsData}
                         renderItem={renderHolding}

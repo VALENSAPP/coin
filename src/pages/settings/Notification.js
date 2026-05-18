@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 // Fallback icon component to mirror ChatMessages UI reliability
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -51,8 +52,9 @@ const Notification = () => {
   const [notificationEnabled, setNotificationEnabled] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState('undetermined');
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const navigation = useNavigation()
+  const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text } = useAppTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     checkNotificationPermission();
@@ -61,33 +63,23 @@ const Notification = () => {
   const checkNotificationPermission = async () => {
     try {
       if (Platform.OS === 'android') {
-        // Android 13+ (API 33+) requires POST_NOTIFICATIONS permission
         if (Platform.Version >= 33) {
           const hasPermission = await PermissionsAndroid.check(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
           );
 
-          // If permission is denied, it could be:
-          // 1. Never been requested (first time)
-          // 2. Previously denied but can be requested again
-          // 3. Permanently denied (blocked)
-          // 4. Disabled in system settings
-
           if (hasPermission) {
             setPermissionStatus('granted');
             setNotificationEnabled(true);
           } else {
-            // Start with denied status - we'll determine if it's blocked later
             setPermissionStatus('denied');
             setNotificationEnabled(false);
           }
         } else {
-          // For older Android versions, notifications are enabled by default
           setPermissionStatus('granted');
           setNotificationEnabled(true);
         }
       } else if (Platform.OS === 'ios') {
-        // For iOS, we'll assume denied until user enables
         setPermissionStatus('undetermined');
         setNotificationEnabled(false);
       }
@@ -101,17 +93,16 @@ const Notification = () => {
     try {
       if (Platform.OS === 'android') {
         if (Platform.Version >= 33) {
-
           const result = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
             {
-              title: 'Notification Permission',
-              message: 'Valens would like to send you notifications to keep you updated with important information.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
+              title: t('notificationEnable.permissionTitle'),
+              message: t('notificationEnable.permissionMessage'),
+              buttonNeutral: t('notificationEnable.buttonNeutral'),
+              buttonNegative: t('notificationEnable.buttonNegative'),
+              buttonPositive: t('notificationEnable.buttonPositive'),
             }
-          )
+          );
 
           if (result === PermissionsAndroid.RESULTS.GRANTED) {
             setPermissionStatus('granted');
@@ -127,56 +118,53 @@ const Notification = () => {
             handlePermissionBlocked();
           }
         } else {
-          // For older Android versions
           setPermissionStatus('granted');
           setNotificationEnabled(true);
           showSuccessAlert();
         }
       } else if (Platform.OS === 'ios') {
-        // For iOS, you would use @react-native-async-storage/async-storage
-        // or a proper notification library like @react-native-firebase/messaging
         setPermissionStatus('granted');
         setNotificationEnabled(true);
         showSuccessAlert();
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to request notification permission. Please try again.');
+      Alert.alert(t('notificationEnable.error'), t('notificationEnable.failedToRequest'));
     }
   };
 
   const showSuccessAlert = () => {
     Alert.alert(
-      'Success!',
-      'Notifications have been enabled for Valens. You will now receive important updates and notifications.',
-      [{ text: 'OK' }]
+      t('notificationEnable.successTitle'),
+      t('notificationEnable.successMessage'),
+      [{ text: t('notificationEnable.ok') }]
     );
   };
 
   const handlePermissionDenied = () => {
     Alert.alert(
-      'Permission Denied',
-      'Notifications are currently disabled. You can enable them manually in your device settings or try again.',
+      t('notificationEnable.permissionDeniedTitle'),
+      t('notificationEnable.permissionDeniedMessage'),
       [
-        { text: 'Try Again', onPress: () => requestNotificationPermission() },
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('notificationEnable.tryAgain'), onPress: () => requestNotificationPermission() },
+        { text: t('notificationEnable.cancel'), style: 'cancel' },
         {
-          text: 'Open Settings',
-          onPress: () => openAppSettings()
-        }
+          text: t('notificationEnable.openSettings'),
+          onPress: () => openAppSettings(),
+        },
       ]
     );
   };
 
   const handlePermissionBlocked = () => {
     Alert.alert(
-      'Permission Blocked',
-      'Notification permission has been permanently denied. Please enable notifications manually in your device settings.',
+      t('notificationEnable.permissionBlockedTitle'),
+      t('notificationEnable.permissionBlockedMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('notificationEnable.cancel'), style: 'cancel' },
         {
-          text: 'Open Settings',
-          onPress: () => openAppSettings()
-        }
+          text: t('notificationEnable.openSettings'),
+          onPress: () => openAppSettings(),
+        },
       ]
     );
   };
@@ -185,41 +173,31 @@ const Notification = () => {
     if (Platform.OS === 'ios') {
       Linking.openURL('app-settings:');
     } else {
-      // For Android, open app-specific settings
       Linking.openSettings();
     }
   };
 
   const handleEnableNotifications = async () => {
-
     if (permissionStatus === 'granted' && notificationEnabled) {
-      // Already enabled
       Alert.alert(
-        'Already Enabled',
-        'Notifications are already enabled for Valens.',
-        [{ text: 'OK' }]
+        t('notificationEnable.alreadyEnabledTitle'),
+        t('notificationEnable.alreadyEnabledMessage'),
+        [{ text: t('notificationEnable.ok') }]
       );
       return;
     }
 
     if (permissionStatus === 'blocked') {
-      // Permission was permanently denied
       handlePermissionBlocked();
       return;
     }
 
-    // For denied or undetermined status, always try to request permission
-    // This will either:
-    // 1. Show the system permission dialog if it's the first time or previously denied but can ask again
-    // 2. Return NEVER_ASK_AGAIN if permanently denied
-    // 3. Direct user to settings if notifications are disabled in system settings
     if (permissionStatus === 'denied' || permissionStatus === 'undetermined') {
       await requestNotificationPermission();
       return;
     }
 
     if (permissionStatus === 'granted' && !notificationEnabled) {
-      // Permission granted but somehow disabled, re-enable
       setNotificationEnabled(true);
       showSuccessAlert();
     }
@@ -227,7 +205,6 @@ const Notification = () => {
 
   const handleAllowPermission = async () => {
     setShowPermissionModal(false);
-    // Add a small delay to ensure modal is closed before showing system dialog
     setTimeout(() => {
       requestNotificationPermission();
     }, 300);
@@ -241,22 +218,22 @@ const Notification = () => {
 
   const getStatusText = () => {
     if (permissionStatus === 'blocked') {
-      return 'Notifications are blocked. Please enable them in settings.';
+      return t('notificationEnable.statusBlocked');
     }
     if (notificationEnabled && permissionStatus === 'granted') {
-      return 'Valens push notifications are enabled';
+      return t('notificationEnable.statusEnabled');
     }
-    return 'Valens push notifications are disabled';
+    return t('notificationEnable.statusDisabled');
   };
 
   const getButtonText = () => {
     if (permissionStatus === 'blocked') {
-      return 'Open Settings';
+      return t('notificationEnable.openSettings');
     }
     if (notificationEnabled && permissionStatus === 'granted') {
-      return 'Notifications Enabled ✓';
+      return t('notificationEnable.notificationsEnabledButton');
     }
-    return 'Enable notifications';
+    return t('notificationEnable.enableButton');
   };
 
   const goBack = () => {
@@ -271,14 +248,14 @@ const Notification = () => {
         <TouchableOpacity style={styles.backButton} onPress={goBack}>
           <SafeIcon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Notifications</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{t('notificationEnable.headerTitle')}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <View style={styles.screenBody}>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Push notifications</Text>
-          <Text style={styles.mainTitle}>Enable push notifications</Text>
+          <Text style={styles.sectionTitle}>{t('notificationEnable.pushNotificationsSection')}</Text>
+          <Text style={styles.mainTitle}>{t('notificationEnable.mainTitle')}</Text>
           <Text style={styles.statusText}>{getStatusText()}</Text>
 
           <TouchableOpacity
@@ -286,14 +263,14 @@ const Notification = () => {
               styles.primaryButton,
               { backgroundColor: text, shadowColor: text },
               (notificationEnabled && permissionStatus === 'granted') && styles.primaryButtonActive,
-              permissionStatus === 'blocked' && styles.primaryButtonBlocked
+              permissionStatus === 'blocked' && styles.primaryButtonBlocked,
             ]}
             onPress={handleEnableNotifications}
           >
             <Text
               style={[
                 styles.primaryButtonText,
-                (notificationEnabled && permissionStatus === 'granted') && styles.primaryButtonTextActive
+                (notificationEnabled && permissionStatus === 'granted') && styles.primaryButtonTextActive,
               ]}
             >
               {getButtonText()}
@@ -301,21 +278,16 @@ const Notification = () => {
           </TouchableOpacity>
 
           <View style={styles.infoSection}>
-            <Text style={styles.infoTitle}>About Notifications</Text>
-            <Text style={styles.infoText}>
-              • Get notified about new messages and updates{`\n`}
-              • Receive important security alerts{`\n`}
-              • Stay updated with Valens features{`\n`}
-              • You can disable these anytime in settings
-            </Text>
+            <Text style={styles.infoTitle}>{t('notificationEnable.aboutTitle')}</Text>
+            <Text style={styles.infoText}>{t('notificationEnable.aboutText')}</Text>
           </View>
 
           {__DEV__ && (
             <View style={styles.debugInfo}>
-              <Text style={styles.debugText}>Debug Info:</Text>
-              <Text style={styles.debugText}>Permission: {permissionStatus}</Text>
-              <Text style={styles.debugText}>Enabled: {notificationEnabled ? 'Yes' : 'No'}</Text>
-              <Text style={styles.debugText}>Platform: {Platform.OS} {Platform.Version}</Text>
+              <Text style={styles.debugText}>{t('notificationEnable.debugInfo')}</Text>
+              <Text style={styles.debugText}>{t('notificationEnable.debugPermission')}: {permissionStatus}</Text>
+              <Text style={styles.debugText}>{t('notificationEnable.debugEnabled')}: {notificationEnabled ? t('notificationEnable.yes') : t('notificationEnable.no')}</Text>
+              <Text style={styles.debugText}>{t('notificationEnable.debugPlatform')}: {Platform.OS} {Platform.Version}</Text>
             </View>
           )}
         </View>
@@ -332,14 +304,20 @@ const Notification = () => {
             <View style={styles.modalIcon}>
               <Text style={styles.bellIcon}>🔔</Text>
             </View>
-            <Text style={styles.modalTitle}>Allow Valens to send you notifications?</Text>
-            <Text style={styles.modalDescription}>Stay updated with important messages and alerts from Valens.</Text>
+            <Text style={styles.modalTitle}>{t('notificationEnable.modalTitle')}</Text>
+            <Text style={styles.modalDescription}>{t('notificationEnable.modalDescription')}</Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, styles.modalButtonAllow]} onPress={handleAllowPermission}>
-                <Text style={styles.modalButtonTextAllow}>Allow</Text>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonAllow]}
+                onPress={handleAllowPermission}
+              >
+                <Text style={styles.modalButtonTextAllow}>{t('notificationEnable.allow')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.modalButtonDeny]} onPress={handleDenyPermission}>
-                <Text style={styles.modalButtonTextDeny}>Don't allow</Text>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonDeny]}
+                onPress={handleDenyPermission}
+              >
+                <Text style={styles.modalButtonTextDeny}>{t('notificationEnable.dontAllow')}</Text>
               </TouchableOpacity>
             </View>
           </View>

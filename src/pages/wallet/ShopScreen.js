@@ -10,6 +10,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
@@ -35,6 +36,7 @@ const ShopScreen = ({ navigation }) => {
   const [profileType, setProfileType] = useState('company');
   const [displayName, setDisplayName] = useState('');
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(profileType);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -69,12 +71,11 @@ const ShopScreen = ({ navigation }) => {
 
         <View style={styles.marketingBody}>
           <Text style={[styles.marketingTitle, textStyle]}>
-            {displayName ? `${displayName} SHOP` : 'SHOP'}
+            {displayName ? `${displayName} ${t('shop.title')}` : t('shop.title')}
           </Text>
-          <Text style={[styles.marketingText, textStyle]}>Welcome to shop.</Text>
+          <Text style={[styles.marketingText, textStyle]}>{t('shop.welcome')}</Text>
           <Text style={[styles.marketingText, textStyle]}>
-            A curated space where your brand comes to life through exclusive pieces and refined
-            selections. Build your collection and make it easy for people to discover what you offer.
+            {t('shop.description')}
           </Text>
 
           <TouchableOpacity
@@ -82,7 +83,7 @@ const ShopScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('ProfileMain', { screen: 'Profile' })}
             style={[styles.ctaButton, { backgroundColor: text }]}
           >
-            <Text style={styles.ctaText}>Start It Now</Text>
+            <Text style={styles.ctaText}>{t('shop.ctaButton')}</Text>
           </TouchableOpacity>
         </View>
       </View>

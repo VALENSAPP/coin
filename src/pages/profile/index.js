@@ -19,6 +19,7 @@ import { getPostByUser, getUserCredentials, getUserDashboard } from '../../servi
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
+import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
@@ -43,6 +44,7 @@ const ProfileScreen = () => {
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     compactLockedRef.current = compactLocked;
@@ -66,11 +68,10 @@ const ProfileScreen = () => {
   const fetchAllData = useCallback(async () => {
     const id = await AsyncStorage.getItem('userId');
     if (!id) {
-      showToastMessage(toast, 'danger', 'No userId in storage');
+      showToastMessage(toast, 'danger', t('profile.noUserIdError'));
       return;
     }
     setUserId(id);
-
 
     dispatch(showLoader());
     try {
@@ -84,18 +85,11 @@ const ProfileScreen = () => {
       if (postsRes.statusCode === 200) {
         setPosts(sortPostsByPinned(postsRes.data));
       } else {
-        showToastMessage(
-          toast,
-          'danger',
-          'Failed to fetch posts'
-        );
+        showToastMessage(toast, 'danger', t('profile.fetchPostsError'));
       }
 
       // Profile data
-
       if (userRes.statusCode === 200) {
-
-
         let userDataToSet;
         if (userRes.data && userRes.data.user) {
           userDataToSet = userRes.data.user;
@@ -105,27 +99,23 @@ const ProfileScreen = () => {
           userDataToSet = userRes;
         }
 
-
-
         // Ensure the image URL is properly formatted
         if (userDataToSet?.image) {
           let formattedImageUrl = userDataToSet.image;
 
-          // Remove any whitespace
           formattedImageUrl = formattedImageUrl.trim();
 
-          // If it's already a full URL, use as is
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
+            // already a full URL, use as-is
           } else if (formattedImageUrl.startsWith('/')) {
-            // If it's a relative URL starting with /
             formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
           } else {
-            // If it doesn't start with /, assume it's a relative path
             formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
           }
 
           userDataToSet.image = formattedImageUrl;
         }
+
         AsyncStorage.setItem('currentUsername', userDataToSet.displayName);
         setUserData(userDataToSet);
 
@@ -138,7 +128,6 @@ const ProfileScreen = () => {
               await AsyncStorage.setItem(KYC_WELCOME_SHOWN_KEY, 'true');
               return;
             }
-            // Show welcome modal after a short delay to ensure UI is ready
             setTimeout(() => {
               setWelcomeModalVisible(true);
               AsyncStorage.multiSet([
@@ -149,30 +138,22 @@ const ProfileScreen = () => {
           }
         }
       } else {
-        showToastMessage(
-          toast,
-          'danger',
-          'Failed to fetch profile'
-        );
+        showToastMessage(toast, 'danger', t('profile.fetchProfileError'));
       }
 
       // Dashboard
       if (dashRes.statusCode === 200) {
         setUserDashboard(dashRes.data.dashboardData);
       } else {
-        showToastMessage(
-          toast,
-          'danger',
-          'Failed to fetch dashboard'
-        );
+        showToastMessage(toast, 'danger', t('profile.fetchDashboardError'));
       }
     } catch (error) {
       console.error('Error fetching profile screen data:', error);
-      showToastMessage(toast, 'danger', 'Network error');
+      showToastMessage(toast, 'danger', t('profile.networkError'));
     } finally {
       dispatch(hideLoader());
     }
-  }, [dispatch, toast]);
+  }, [dispatch, toast, t]);
 
   // Run on screen focus
   useFocusEffect(

@@ -1,5 +1,5 @@
 // src/components/ShareModal.js
-import React, { Children, forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSocket, initializeSocket } from '../../services/socket';
+import { useLanguage } from '../../i18n';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const COLS = 3;
@@ -42,6 +43,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const navigation = useNavigation();
   const route = useRoute();
   const { text } = useAppTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     (async () => {
@@ -68,13 +70,15 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         .map(shapeUser);
       setFollowing(users);
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to load following list');
+      Alert.alert(
+        t('shareModal.shareErrorTitle'),
+        e?.response?.data?.message || t('shareModal.loadFollowingError'),
+      );
     } finally {
       setLoading(false);
     }
-  }, [selfUserId, shapeUser]);
+  }, [selfUserId, shapeUser, t]);
 
-  // Load the list when the sheet opens
   const onOpen = () => {
     setSelectedUsers([]);
     setSearch('');
@@ -84,20 +88,15 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return following;
-    return following.filter(
-      u => u.username.toLowerCase().includes(q)
-    );
+    return following.filter(u => u.username.toLowerCase().includes(q));
   }, [following, search]);
 
-  // const toggleSelectUser = (id) => {
-  //   setSelectedUsers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  // };
   const toggleSelectUser = (user) => {
     const userId = String(user.id);
     setSelectedUsers(prev =>
       prev.includes(userId)
         ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+        : [...prev, userId],
     );
   };
 
@@ -105,28 +104,20 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     if (postId) return String(postId);
     if (reelId) return String(reelId);
 
-    // If story object is passed
     if (story) {
-      if (typeof story === "string" || typeof story === "number")
-        return String(story);
-
+      if (typeof story === 'string' || typeof story === 'number') return String(story);
       if (story.id) return String(story.id);
       if (story._id) return String(story._id);
     }
 
-    // If Post object is passed
     if (post) {
-      if (typeof post === "string" || typeof post === "number")
-        return String(post);
-
+      if (typeof post === 'string' || typeof post === 'number') return String(post);
       if (post.id) return String(post.id);
       if (post.post?.id) return String(post.post.id);
     }
 
     if (reel) {
-      if (typeof reel === "string" || typeof reel === "number")
-        return String(reel);
-
+      if (typeof reel === 'string' || typeof reel === 'number') return String(reel);
       if (reel.id) return String(reel.id);
       if (reel.reel?.id) return String(reel.reel.id);
     }
@@ -136,41 +127,21 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
   const resolveStoryId = () => {
     if (!story) return null;
-
-    if (typeof story === "string" || typeof story === "number") {
-      return cleanStoryId(story);
-    }
-
+    if (typeof story === 'string' || typeof story === 'number') return cleanStoryId(story);
     return cleanStoryId(
-      story.storyId ||
-      story.id ||
-      story._id ||
-      story.story?.id ||
-      story.story?._id ||
-      ''
+      story.storyId || story.id || story._id || story.story?.id || story.story?._id || '',
     ) || null;
   };
 
   const resolveStoryLinkId = () => {
     if (!story) return null;
-
-    if (typeof story === "string" || typeof story === "number") {
-      return String(story);
-    }
-
+    if (typeof story === 'string' || typeof story === 'number') return String(story);
     return String(
-      story.storyId ||
-      story.id ||
-      story._id ||
-      story.story?.id ||
-      story.story?._id ||
-      ''
+      story.storyId || story.id || story._id || story.story?.id || story.story?._id || '',
     ) || null;
   };
 
   const directSendToInbox = useCallback(async (sharedContent) => {
-    // Send shared content directly to inbox without navigating to ChatMessages.
-    // Keeps behavior consistent for reels (share from Flips).
     try {
       let mediaType, mediaId;
       if (sharedContent.post) {
@@ -226,27 +197,35 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         if (socket?.connected) socket.emit('sendMessage', messageData);
       }
 
-      Alert.alert('Sent', `Shared with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}.`);
+      const count = selectedUsers.length;
+      Alert.alert(
+        t('shareModal.sentTitle'),
+        count > 1
+          ? t('shareModal.sentMessage_other', { count })
+          : t('shareModal.sentMessage_one', { count }),
+      );
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.message || 'Failed to share');
+      Alert.alert(
+        t('shareModal.shareErrorTitle'),
+        e?.response?.data?.message || t('shareModal.shareErrorMessage'),
+      );
     }
-  }, [selfUserId, selectedUsers]);
+  }, [selfUserId, selectedUsers, t]);
 
   const handleSend = async () => {
     if (selectedUsers.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one user.');
+      Alert.alert(t('shareModal.noSelectionTitle'), t('shareModal.noSelectionMessage'));
       return;
     }
 
     if (!selfUserId) {
-      Alert.alert('Not logged in', 'Please log in again.');
+      Alert.alert(t('shareModal.notLoggedInTitle'), t('shareModal.notLoggedInMessage'));
       return;
     }
 
     setSending(true);
 
     try {
-      // Prepare shared content
       const sharedContent = {
         post,
         postId: resolvePostId(),
@@ -256,7 +235,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         storyId: resolveStoryId(),
       };
 
-      // Reels: send directly to inbox (no ChatMessages navigation)
       if (reel || reelId) {
         if (ref?.current) ref.current.close();
         await directSendToInbox(sharedContent);
@@ -264,7 +242,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         return;
       }
 
-      // Navigate to ChatMessages with multi-selected users
       if (ref?.current) ref.current.close();
 
       setTimeout(() => {
@@ -284,9 +261,8 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         });
         setSelectedUsers([]);
       }, 300);
-
     } catch (e) {
-      Alert.alert('Error', 'Navigation failed.');
+      Alert.alert(t('shareModal.navigationErrorTitle'), t('shareModal.navigationErrorMessage'));
     } finally {
       setSending(false);
     }
@@ -294,53 +270,36 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
   const generateShareLink = () => {
     const id = story ? resolveStoryLinkId() : resolvePostId();
-
     if (!id) return null;
-
-    // --- Make link based on type ----
-    if (story) {
-      return `com.valens.app://?af=dd&storyId=${encodeURIComponent(String(id))}`;
-    }
-
-    if (reel || reelId) {
-      return `com.valens.app://?af=dd&reelId=${encodeURIComponent(String(id))}`;
-    }
-
+    if (story) return `com.valens.app://?af=dd&storyId=${encodeURIComponent(String(id))}`;
+    if (reel || reelId) return `com.valens.app://?af=dd&reelId=${encodeURIComponent(String(id))}`;
     return `com.valens.app://?af=dd&postId=${encodeURIComponent(String(id))}`;
   };
 
   const shareToWhatsApp = async () => {
     const url = generateShareLink();
-    if (!url) return Alert.alert("Error", "Invalid share link");
-
+    if (!url) return Alert.alert(t('shareModal.invalidLinkTitle'), t('shareModal.invalidLinkMessage'));
     try {
-      await Share.open({
-        message: url,
-        social: Share.Social.WHATSAPP,
-      });
+      await Share.open({ message: url, social: Share.Social.WHATSAPP });
     } catch (err) {
-      console.log("WhatsApp share error:", err);
+      console.log('WhatsApp share error:', err);
     }
   };
+
   const copyToClipboard = () => {
     const url = generateShareLink();
     if (!url) return;
-
     Clipboard.setString(url);
-    Alert.alert("Copied!", "Link copied to clipboard");
+    Alert.alert(t('shareModal.copiedTitle'), t('shareModal.copiedMessage'));
   };
-
 
   const shareToSystem = async () => {
     const url = generateShareLink();
-    if (!url) return Alert.alert("Error", "Invalid share link");
-
+    if (!url) return Alert.alert(t('shareModal.invalidLinkTitle'), t('shareModal.invalidLinkMessage'));
     try {
-      await Share.open({
-        message: url,
-      });
+      await Share.open({ message: url });
     } catch (err) {
-      console.log("System share error:", err);
+      console.log('System share error:', err);
     }
   };
 
@@ -360,7 +319,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
             </View>
           )}
         </View>
-
         <View style={styles.nameRow}>
           <Text numberOfLines={1} style={styles.usernameText}>
             {item.username}
@@ -369,6 +327,8 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       </TouchableOpacity>
     );
   };
+
+  const sendCount = selectedUsers.length;
 
   return (
     <RBSheet
@@ -398,7 +358,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color="#9a9a9a" />
           <TextInput
-            placeholder="Search"
+            placeholder={t('shareModal.searchPlaceholder')}
             placeholderTextColor="#9a9a9a"
             style={styles.searchInput}
             value={search}
@@ -419,14 +379,16 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         ) : (
           <FlatList
             data={filtered}
-            keyExtractor={(it) => it.id}
+            keyExtractor={it => it.id}
             renderItem={renderUserCell}
             numColumns={COLS}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingTop: 24 }}>
-                <Text style={{ color: '#777' }}>No following users found</Text>
+                <Text style={{ color: '#777' }}>
+                  {t('shareModal.noFollowingFound')}
+                </Text>
               </View>
             )}
           />
@@ -434,26 +396,30 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
       </View>
 
       {/* Bottom actions */}
-      {selectedUsers.length > 0 ? (
+      {sendCount > 0 ? (
         <View style={styles.sendBar}>
           <TouchableOpacity
             style={[styles.sendButton, { backgroundColor: text }, sending && { opacity: 0.7 }]}
             activeOpacity={0.85}
             onPress={handleSend}
-            disabled={sending || selectedUsers.length === 0}
+            disabled={sending || sendCount === 0}
           >
             {sending ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.sendButtonText}>Send to {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''}</Text>
+              <Text style={styles.sendButtonText}>
+                {sendCount > 1
+                  ? t('shareModal.sendButton_other', { count: sendCount })
+                  : t('shareModal.sendButton_one', { count: sendCount })}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.bottomBar}>
-          <Action icon="share-social-outline" label="Share to" onPress={shareToSystem} />
-          <Action icon="copy-outline" label="Copy link" onPress={copyToClipboard} />
-          <Action icon="logo-whatsapp" label="WhatsApp" onPress={shareToWhatsApp} />
+          <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} />
+          <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} />
+          <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} />
         </View>
       )}
     </RBSheet>

@@ -24,6 +24,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { addHighlight, getHighlightUserId } from '../../../services/highlightStory';
 import { getStoryByUser } from '../../../services/stories';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 const isVideoMedia = value => {
   if (!value || typeof value !== 'string') {
@@ -157,6 +158,8 @@ const ArchiveScreen = ({ navigation, route }) => {
 
   const toast = useToast();
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
+  const { t } = useLanguage();
+
   const isHighlightRouteMode = route?.params?.selectionMode === 'highlight';
   const isHighlightSelectionMode = isHighlightRouteMode || manualHighlightMode;
   const presetHighlightId = route?.params?.presetHighlightId;
@@ -219,17 +222,14 @@ const ArchiveScreen = ({ navigation, route }) => {
       navigation.goBack();
       return;
     }
-
     setManualHighlightMode(prev => !prev);
   }, [isHighlightRouteMode, navigation]);
 
   const filteredArchiveGroups = useMemo(() => {
     const query = searchText.trim().toLowerCase();
-
     if (!query) {
       return archiveGroups;
     }
-
     return archiveGroups.filter(group => group.searchIndex.includes(query));
   }, [archiveGroups, searchText]);
 
@@ -244,7 +244,6 @@ const ArchiveScreen = ({ navigation, route }) => {
       if (prevIndex < stories.length - 1) {
         return prevIndex + 1;
       }
-
       closeViewer();
       return prevIndex;
     });
@@ -272,7 +271,7 @@ const ArchiveScreen = ({ navigation, route }) => {
     }
 
     if (!targetStory.storyId) {
-      Alert.alert('Drop unavailable', 'This archived drop cannot be added right now.');
+      Alert.alert(t('archive.dropUnavailable'), t('archive.dropUnavailableMsg'));
       return;
     }
 
@@ -292,7 +291,7 @@ const ArchiveScreen = ({ navigation, route }) => {
       const success = response?.success || response?.data?.success;
 
       if (success) {
-        showToastMessage(toast, 'success', response?.data?.message || 'Drop added to highlight');
+        showToastMessage(toast, 'success', response?.data?.message || t('archive.dropAdded'));
         closeHighlightPicker();
         if (refreshTarget) {
           navigation.navigate(refreshTarget, { refreshOnFocus: true });
@@ -306,22 +305,18 @@ const ArchiveScreen = ({ navigation, route }) => {
         return;
       }
 
-      showToastMessage(
-        toast,
-        'danger',
-        'drop already added to the highlight',
-      );
+      showToastMessage(toast, 'danger', t('archive.alreadyAdded'));
     } catch (error) {
       console.error('Error adding Drops to highlight:', error);
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || 'Failed to add drop to highlight',
+        error?.response?.data?.message || t('archive.addFailed'),
       );
     } finally {
       setSubmittingHighlightId(null);
     }
-  }, [closeHighlightPicker, isHighlightRouteMode, navigation, refreshTarget, selectedStoryForHighlight, toast]);
+  }, [closeHighlightPicker, isHighlightRouteMode, navigation, refreshTarget, selectedStoryForHighlight, t, toast]);
 
   const handleStoryPress = useCallback((storiesArray, index, item) => {
     if (isHighlightSelectionMode) {
@@ -330,12 +325,10 @@ const ArchiveScreen = ({ navigation, route }) => {
         handleAddStoryToHighlight(presetHighlightId, item);
         return;
       }
-
       setSelectedStoryForHighlight(item);
       setHighlightPickerVisible(true);
       return;
     }
-
     setStories(storiesArray);
     setCurrentIndex(index);
     setViewerVisible(true);
@@ -352,7 +345,7 @@ const ArchiveScreen = ({ navigation, route }) => {
         {item.type === 'video' ? (
           <View style={styles.videoPreview}>
             <Icon name="play-circle" size={28} color="#fff" />
-            <Text style={styles.videoPreviewText}>Video drop</Text>
+            <Text style={styles.videoPreviewText}>{t('archive.videoDrop')}</Text>
           </View>
         ) : (
           <Image source={{ uri: item.uri }} style={styles.storyImage} />
@@ -369,7 +362,7 @@ const ArchiveScreen = ({ navigation, route }) => {
         ) : null}
       </TouchableOpacity>
     ),
-    [handleStoryPress, isHighlightSelectionMode]
+    [handleStoryPress, isHighlightSelectionMode, t]
   );
 
   const renderDateGroup = useCallback(
@@ -399,14 +392,11 @@ const ArchiveScreen = ({ navigation, route }) => {
           <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>
-          {isHighlightSelectionMode ? 'Select Drop' : 'Archive'}
+          {isHighlightSelectionMode ? t('archive.selectDropTitle') : t('archive.title')}
         </Text>
-        <TouchableOpacity
-          onPress={toggleHighlightMode}
-          style={styles.headerActionButton}
-        >
+        <TouchableOpacity onPress={toggleHighlightMode} style={styles.headerActionButton}>
           <Text style={[styles.headerActionText, { color: themeText || '#262626' }]}>
-            {isHighlightSelectionMode ? 'Done' : 'Select'}
+            {isHighlightSelectionMode ? t('archive.done') : t('archive.select')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -418,10 +408,8 @@ const ArchiveScreen = ({ navigation, route }) => {
               <Icon name="albums-outline" size={16} color="#fff" />
             </View>
             <View style={styles.selectionBannerTextWrap}>
-              <Text style={styles.selectionBannerTitle}>Add drop to highlight</Text>
-              <Text style={styles.selectionBannerText}>
-                Tap an archived drop, then choose the highlight where you want to save it.
-              </Text>
+              <Text style={styles.selectionBannerTitle}>{t('archive.addDropToHighlight')}</Text>
+              <Text style={styles.selectionBannerText}>{t('archive.addDropHint')}</Text>
             </View>
           </View>
         ) : null}
@@ -430,7 +418,7 @@ const ArchiveScreen = ({ navigation, route }) => {
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Search archive by date"
+            placeholder={t('archive.searchPlaceholder')}
             placeholderTextColor="#8e8e93"
             style={[styles.searchInput, { color: themeText || '#262626' }]}
             autoCapitalize="none"
@@ -443,15 +431,13 @@ const ArchiveScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           ) : null}
         </View>
-        <Text style={styles.searchHint}>Try `2026-03-24`, `24/03/2026`, or `24 Mar 2026`</Text>
+        <Text style={styles.searchHint}>{t('archive.searchHint')}</Text>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeText || '#262626'} />
-          <Text style={[styles.loadingText, textStyle]}>
-            Loading archive drops...
-          </Text>
+          <Text style={[styles.loadingText, textStyle]}>{t('archive.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -475,18 +461,17 @@ const ArchiveScreen = ({ navigation, route }) => {
                 color="#8e8e93"
               />
               <Text style={[styles.emptyTitle, textStyle]}>
-                {isSearching ? 'No matching dates' : 'No archived drops'}
+                {isSearching ? t('archive.noMatchingDates') : t('archive.noArchivedDrops')}
               </Text>
               <Text style={styles.emptySubtitle}>
-                {isSearching
-                  ? 'Try a different date format or clear the search.'
-                  : 'Drops you share will appear here once they are archived.'}
+                {isSearching ? t('archive.noMatchingSubtitle') : t('archive.emptySubtitle')}
               </Text>
             </View>
           }
         />
       )}
 
+      {/* Story viewer modal */}
       <Modal
         visible={viewerVisible}
         transparent={false}
@@ -498,7 +483,7 @@ const ArchiveScreen = ({ navigation, route }) => {
             <TouchableOpacity onPress={closeViewer} style={styles.modalBackButton}>
               <Icon name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Archived Drop</Text>
+            <Text style={styles.modalTitle}>{t('archive.archivedDropTitle')}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -521,6 +506,7 @@ const ArchiveScreen = ({ navigation, route }) => {
         </View>
       </Modal>
 
+      {/* Highlight picker modal */}
       <Modal
         visible={highlightPickerVisible}
         transparent
@@ -531,10 +517,8 @@ const ArchiveScreen = ({ navigation, route }) => {
           <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={closeHighlightPicker} />
           <View style={[styles.pickerSheet, cardStyle]}>
             <View style={styles.pickerHandle} />
-            <Text style={[styles.pickerTitle, textStyle]}>Choose Highlight</Text>
-            <Text style={styles.pickerSubtitle}>
-              Select the highlight where this archived drop should be saved.
-            </Text>
+            <Text style={[styles.pickerTitle, textStyle]}>{t('archive.chooseHighlight')}</Text>
+            <Text style={styles.pickerSubtitle}>{t('archive.chooseHighlightSubtitle')}</Text>
 
             {selectedStoryForHighlight ? (
               <View style={styles.selectedStoryRow}>
@@ -546,9 +530,11 @@ const ArchiveScreen = ({ navigation, route }) => {
                   <Image source={{ uri: selectedStoryForHighlight.uri }} style={styles.selectedStoryThumb} />
                 )}
                 <View style={styles.selectedStoryTextWrap}>
-                  <Text style={[styles.selectedStoryTitle, textStyle]}>Selected drop</Text>
+                  <Text style={[styles.selectedStoryTitle, textStyle]}>{t('archive.selectedDrop')}</Text>
                   <Text style={styles.selectedStoryMeta}>
-                    {selectedStoryForHighlight.type === 'video' ? 'Video drop' : 'Photo drop'}
+                    {selectedStoryForHighlight.type === 'video'
+                      ? t('archive.videoDrop')
+                      : t('archive.photoDrop')}
                   </Text>
                 </View>
               </View>
@@ -575,14 +561,12 @@ const ArchiveScreen = ({ navigation, route }) => {
                         <Icon name="images-outline" size={18} color="#fff" />
                       </View>
                     )}
-
                     <View style={styles.highlightOptionTextWrap}>
                       <Text style={[styles.highlightOptionTitle, textStyle]} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={styles.highlightOptionMeta}>Tap to add this drop</Text>
+                      <Text style={styles.highlightOptionMeta}>{t('archive.tapToAdd')}</Text>
                     </View>
-
                     {submittingHighlightId === item.id ? (
                       <ActivityIndicator size="small" color={themeText || '#262626'} />
                     ) : (
@@ -593,10 +577,8 @@ const ArchiveScreen = ({ navigation, route }) => {
               ) : (
                 <View style={styles.noHighlightsWrap}>
                   <Icon name="albums-outline" size={28} color="#8e8e93" />
-                  <Text style={[styles.noHighlightsTitle, textStyle]}>No highlights found</Text>
-                  <Text style={styles.noHighlightsText}>
-                    Create a highlight first, then come back and add archived drops to it.
-                  </Text>
+                  <Text style={[styles.noHighlightsTitle, textStyle]}>{t('archive.noHighlightsFound')}</Text>
+                  <Text style={styles.noHighlightsText}>{t('archive.noHighlightsText')}</Text>
                 </View>
               )}
             </ScrollView>
@@ -606,7 +588,7 @@ const ArchiveScreen = ({ navigation, route }) => {
               style={[styles.pickerCancelButton, { backgroundColor: themeText || '#262626' }]}
               onPress={closeHighlightPicker}
             >
-              <Text style={styles.pickerCancelText}>Cancel</Text>
+              <Text style={styles.pickerCancelText}>{t('archive.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

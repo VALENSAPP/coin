@@ -13,6 +13,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const Subscription = () => {
   const [subscriptionData, setSubscriptionData] = useState(null);
@@ -20,6 +21,8 @@ const Subscription = () => {
   const [cancelling, setCancelling] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text, card } = useAppTheme();
+  const { t } = useLanguage();
+
   const themeColors = {
     bg,
     text,
@@ -33,18 +36,18 @@ const Subscription = () => {
   useEffect(() => {
     loadSubscriptionData();
   }, []);
-  
+
   const loadSubscriptionData = async () => {
     try {
       setLoading(true);
       const response = await checkSubscription();
-      console.log(response,'checkSubscription');
+      console.log(response, 'checkSubscription');
       if (response.success) {
         setSubscriptionData(response.data);
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
-      Alert.alert('Error', 'Failed to load subscription data');
+      Alert.alert(t('subscription.error'), t('subscription.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -52,15 +55,15 @@ const Subscription = () => {
 
   const handleCancelSubscription = () => {
     Alert.alert(
-      'Cancel Subscription',
-      'Are you sure you want to cancel your subscription? You will still have access until the end of your current billing period.',
+      t('subscription.cancelTitle'),
+      t('subscription.cancelMessage'),
       [
         {
-          text: 'No, Keep Subscription',
+          text: t('subscription.keepSubscription'),
           style: 'cancel',
         },
         {
-          text: 'Yes, Cancel',
+          text: t('subscription.yesCancel'),
           style: 'destructive',
           onPress: confirmCancellation,
         },
@@ -73,21 +76,21 @@ const Subscription = () => {
       setCancelling(true);
       const response = await cancelSubscription();
       if (response.success) {
-        Alert.alert('Success', response.data.message);
+        Alert.alert(t('subscription.success'), response.data.message);
         await loadSubscriptionData();
       } else {
-        Alert.alert('Error', 'Failed to cancel subscription');
+        Alert.alert(t('subscription.error'), t('subscription.failedToCancel'));
       }
     } catch (error) {
       console.error('Error cancelling subscription:', error);
-      Alert.alert('Error', 'Failed to cancel subscription');
+      Alert.alert(t('subscription.error'), t('subscription.failedToCancel'));
     } finally {
       setCancelling(false);
     }
   };
 
   const formatDateISO = isoString => {
-    if (!isoString) return 'N/A';
+    if (!isoString) return t('subscription.notAvailable');
     const date = new Date(isoString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -99,7 +102,7 @@ const Subscription = () => {
   };
 
   const getTimeRemaining = endDate => {
-    if (!endDate) return 'N/A';
+    if (!endDate) return t('subscription.notAvailable');
 
     const now = new Date();
     const end = new Date(
@@ -107,16 +110,16 @@ const Subscription = () => {
     );
     const diff = end - now;
 
-    if (diff <= 0) return 'Expired';
+    if (diff <= 0) return t('subscription.expired');
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
     if (days > 0) {
-      return `${days} days, ${hours} hours remaining`;
+      return t('subscription.daysHoursRemaining', { days, hours });
     } else {
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      return `${hours} hours, ${minutes} minutes remaining`;
+      return t('subscription.hoursMinutesRemaining', { hours, minutes });
     }
   };
 
@@ -136,20 +139,20 @@ const Subscription = () => {
   };
 
   const getStatusText = subscription => {
-    if (subscription.subscription && subscription.subscription.status === "CANCELED") {
-      return 'CANCELLED - Active Until Period End';
+    if (subscription.subscription && subscription.subscription.status === 'CANCELED') {
+      return t('subscription.cancelledActiveUntilPeriodEnd');
     }
     if (subscription.subscription) {
       return subscription.subscription.status;
     }
-    return 'Unknown';
+    return t('subscription.unknown');
   };
 
   if (loading) {
     return (
       <View style={[styles.loadingContainer, bgStyle]}>
         <ActivityIndicator size="large" color={themeColors.text} />
-        <Text style={[styles.loadingText, textStyle]}>Loading subscription details...</Text>
+        <Text style={[styles.loadingText, textStyle]}>{t('subscription.loadingText')}</Text>
       </View>
     );
   }
@@ -159,20 +162,20 @@ const Subscription = () => {
       <View style={[styles.errorContainer, bgStyle]}>
         <View style={[styles.errorCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <Icon name="alert-circle-outline" size={64} color={themeColors.text} />
-        <Text style={[styles.errorText, textStyle]}>No subscription data found</Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: themeColors.text }]}
-          onPress={loadSubscriptionData}
-        >
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
+          <Text style={[styles.errorText, textStyle]}>{t('subscription.noDataFound')}</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: themeColors.text }]}
+            onPress={loadSubscriptionData}
+          >
+            <Text style={styles.retryButtonText}>{t('subscription.retry')}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  const isCancelledSubscription = 
-    subscriptionData.subscription && subscriptionData.subscription.status === "CANCELED";
+  const isCancelledSubscription =
+    subscriptionData.subscription && subscriptionData.subscription.status === 'CANCELED';
   const subscription = subscriptionData.subscription;
 
   const status = getStatusText(subscriptionData);
@@ -181,205 +184,200 @@ const Subscription = () => {
   return (
     <View style={[styles.container, bgStyle]}>
       <View style={[styles.headerGradient, { backgroundColor: themeColors.card, borderBottomColor: themeColors.border }]}>
-      <View style={styles.header}>
-          <TouchableOpacity 
+        <View style={styles.header}>
+          <TouchableOpacity
             style={[styles.backButton, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}
             onPress={() => navigation?.goBack()}
           >
             <Icon name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
-          <Text style={[styles.headerTitle, textStyle]}>Subscription Details</Text>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, textStyle]}>{t('subscription.headerTitle')}</Text>
           <View style={styles.headerPlaceholder} />
-      </View>
+        </View>
       </View>
 
       <ScrollView style={[styles.scrollContainer, bgStyle]} showsVerticalScrollIndicator={false}>
-      {/* Status Card */}
+
+        {/* Status Card */}
         <View style={[styles.statusCard, { shadowColor: themeColors.text }]}>
           <View style={[styles.statusGradient, { backgroundColor: statusColor }]}>
             <View style={styles.statusContent}>
               <View style={styles.statusIconContainer}>
-                <Icon 
-                  name={isCancelledSubscription ? "warning" : "checkmark-circle"} 
-                  size={32} 
-                  color="#fff" 
+                <Icon
+                  name={isCancelledSubscription ? 'warning' : 'checkmark-circle'}
+                  size={32}
+                  color="#fff"
                 />
               </View>
               <Text style={styles.statusText}>{status}</Text>
-        </View>
+            </View>
           </View>
 
-        {isCancelledSubscription && (
-          <View style={[styles.warningContainer, { backgroundColor: themeColors.warningBg, borderLeftColor: themeColors.warning }]}>
+          {isCancelledSubscription && (
+            <View style={[styles.warningContainer, { backgroundColor: themeColors.warningBg, borderLeftColor: themeColors.warning }]}>
               <Icon name="warning" size={20} color={themeColors.warning} />
-            <Text style={styles.warningText}>
-                Your subscription has been cancelled but you can use subscription until the end of your billing period.
-            </Text>
-          </View>
-        )}
-      </View>
+              <Text style={styles.warningText}>
+                {t('subscription.cancelledWarningText')}
+              </Text>
+            </View>
+          )}
+        </View>
 
-      {/* Plan Details Card */}
+        {/* Plan Details Card */}
         <View style={[styles.detailsCard, { backgroundColor: themeColors.card, shadowColor: themeColors.text }]}>
           <View style={styles.cardHeader}>
             <Icon name="card-outline" size={24} color={themeColors.text} />
-        <Text style={[styles.cardTitle, textStyle]}>Plan Details</Text>
+            <Text style={[styles.cardTitle, textStyle]}>{t('subscription.planDetails')}</Text>
           </View>
 
-        {isCancelledSubscription ? (
-          <>
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+          {isCancelledSubscription ? (
+            <>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="checkmark-circle" size={16} color={themeColors.warning} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Status:</Text>
-              <Text style={[styles.detailValue, textStyle]}>
-                {subscription?.status || 'N/A'}
-              </Text>
-            </View>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.statusLabel')}</Text>
+                <Text style={[styles.detailValue, textStyle]}>
+                  {subscription?.status || t('subscription.notAvailable')}
+                </Text>
+              </View>
 
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="calendar" size={16} color={themeColors.text} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Started:</Text>
-              <Text style={[styles.detailValue, textStyle]}>
-                {formatDateISO(subscription?.start)}
-              </Text>
-            </View>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.startedLabel')}</Text>
+                <Text style={[styles.detailValue, textStyle]}>
+                  {formatDateISO(subscription?.start)}
+                </Text>
+              </View>
 
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="time" size={16} color={themeColors.text} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Current Period Ends:</Text>
-              <Text style={[styles.detailValue, textStyle]}>
-                {formatDateISO(subscription?.currentPeriodEnd)}
-              </Text>
-            </View>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.currentPeriodEndsLabel')}</Text>
+                <Text style={[styles.detailValue, textStyle]}>
+                  {formatDateISO(subscription?.currentPeriodEnd)}
+                </Text>
+              </View>
 
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="stopwatch" size={16} color={themeColors.warning} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Access Until:</Text>
-              <Text style={[styles.detailValue, styles.highlightText, { color: themeColors.warning }]}>
-                {formatDateISO(subscription?.currentPeriodEnd)}
-              </Text>
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.accessUntilLabel')}</Text>
+                <Text style={[styles.detailValue, styles.highlightText, { color: themeColors.warning }]}>
+                  {formatDateISO(subscription?.currentPeriodEnd)}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="checkmark-circle" size={16} color="#4CAF50" />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Status:</Text>
-              <Text style={[styles.detailValue, textStyle]}>
-                {subscription?.status || 'N/A'}
-              </Text>
-            </View>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.statusLabel')}</Text>
+                <Text style={[styles.detailValue, textStyle]}>
+                  {subscription?.status || t('subscription.notAvailable')}
+                </Text>
+              </View>
 
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="calendar" size={16} color={themeColors.text} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Started:</Text>
-              <Text style={[styles.detailValue, textStyle]}>
-                {formatDateISO(subscription?.start)}
-              </Text>
-            </View>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.startedLabel')}</Text>
+                <Text style={[styles.detailValue, textStyle]}>
+                  {formatDateISO(subscription?.start)}
+                </Text>
+              </View>
 
-            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.detailIconContainer}>
                   <Icon name="time" size={16} color={themeColors.text} />
                 </View>
-              <Text style={[styles.detailLabel, { color: themeColors.subText }]}>Subscription Ends:</Text>
-              <Text style={[styles.detailValue, textStyle]}>
-                {formatDateISO(subscription?.currentPeriodEnd)}
-              </Text>
-            </View>
+                <Text style={[styles.detailLabel, { color: themeColors.subText }]}>{t('subscription.subscriptionEndsLabel')}</Text>
+                <Text style={[styles.detailValue, textStyle]}>
+                  {formatDateISO(subscription?.currentPeriodEnd)}
+                </Text>
+              </View>
             </>
           )}
 
-            <View style={[styles.timeRemainingContainer, { borderColor: themeColors.border }]}>
+          <View style={[styles.timeRemainingContainer, { borderColor: themeColors.border }]}>
             <View style={[styles.timeRemainingGradient, { backgroundColor: themeColors.bg }]}>
-              {/* <Icon name="clock" size={24} color={themeColors.text} /> */}
-              <Text style={[styles.timeRemainingLabel, { color: themeColors.subText }]}>Time Remaining</Text>
+              <Text style={[styles.timeRemainingLabel, { color: themeColors.subText }]}>{t('subscription.timeRemaining')}</Text>
               <Text style={[styles.timeRemainingValue, textStyle]}>
-                {getTimeRemaining(
-                  isCancelledSubscription 
-                    ? subscription?.currentPeriodEnd
-                    : subscription?.currentPeriodEnd
-                )}
+                {getTimeRemaining(subscription?.currentPeriodEnd)}
               </Text>
             </View>
-            </View>
-      </View>
+          </View>
+        </View>
 
-      {/* Legal Links */}
+        {/* Legal Links */}
         <View style={[styles.legalCard, { backgroundColor: themeColors.card, shadowColor: themeColors.text }]}>
           <View style={styles.cardHeader}>
             <Icon name="document-text" size={24} color={themeColors.text} />
-            <Text style={[styles.cardTitle, textStyle]}>Important Information</Text>
+            <Text style={[styles.cardTitle, textStyle]}>{t('subscription.importantInfo')}</Text>
           </View>
-          
-        <View style={styles.legalLinksRow}>
-          <TouchableOpacity 
-            style={styles.legalLink}
-            onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
-          >
+
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
+            >
               <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
                 <Icon name="document-text" size={16} color={themeColors.text} />
-            <Text style={[styles.legalLinkText, textStyle]}>Terms & Conditions</Text>
+                <Text style={[styles.legalLinkText, textStyle]}>{t('subscription.termsConditions')}</Text>
               </View>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.legalLink}
-            onPress={() => Linking.openURL('https://www.valens.app/privacy-policy')}
-          >
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://www.valens.app/privacy-policy')}
+            >
               <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
                 <Icon name="shield-checkmark" size={16} color={themeColors.text} />
-            <Text style={[styles.legalLinkText, textStyle]}>Privacy Policy</Text>
+                <Text style={[styles.legalLinkText, textStyle]}>{t('subscription.privacyPolicy')}</Text>
               </View>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.legalLinksNote, { color: themeColors.subText }]}>
+            {t('subscription.legalNote')}
+          </Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
+          {!isCancelledSubscription && subscription?.status === 'ACTIVE' && (
+            <TouchableOpacity
+              style={[styles.cancelButton, { backgroundColor: themeColors.warning }]}
+              onPress={handleCancelSubscription}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Icon name="close-circle" size={20} color="#fff" />
+                  <Text style={styles.cancelButtonText}>{t('subscription.cancelButton')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.refreshButton, { backgroundColor: themeColors.text }]}
+            onPress={loadSubscriptionData}
+          >
+            <Icon name="refresh" size={20} color="#fff" />
+            <Text style={styles.refreshButtonText}>{t('subscription.refreshButton')}</Text>
           </TouchableOpacity>
         </View>
-          
-        <Text style={[styles.legalLinksNote, { color: themeColors.subText }]}>
-          Please review our terms and privacy policy before making changes to your subscription.
-        </Text>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionContainer}>
-
-        {!isCancelledSubscription && subscription?.status === 'ACTIVE' && (
-          <TouchableOpacity
-            style={[styles.cancelButton, { backgroundColor: themeColors.warning }]}
-            onPress={handleCancelSubscription}
-            disabled={cancelling}
-            >
-            {cancelling ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-                  <>
-                    <Icon name="close-circle" size={20} color="#fff" />
-              <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
-                  </>
-            )}
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[styles.refreshButton, { backgroundColor: themeColors.text }]}
-          onPress={loadSubscriptionData}
-        >
-          <Icon name="refresh" size={20} color="#fff" />
-          <Text style={styles.refreshButtonText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
     </View>
   );
 };

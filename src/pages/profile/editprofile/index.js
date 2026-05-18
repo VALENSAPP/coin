@@ -34,6 +34,7 @@ import { useWalletConnectSupport } from '../../../context/WalletConnectSupportCo
 import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../../i18n';
 
 const ProfileEditScreen = () => {
   const navigation = useNavigation();
@@ -41,6 +42,7 @@ const ProfileEditScreen = () => {
   const userdata = route.params?.userdata;
   const returnTo = route.params?.returnTo;
   const returnScreen = route.params?.returnScreen;
+  const { t } = useLanguage();
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -57,12 +59,10 @@ const ProfileEditScreen = () => {
   const [displayNameStatus, setDisplayNameStatus] = useState(null); // 'approved', 'taken', 'checking', null
   const [displayNameSuggestions, setDisplayNameSuggestions] = useState([]);
   const [isCheckingDisplayName, setIsCheckingDisplayName] = useState(false);
-  const [originalDisplayName, setOriginalDisplayName] = useState(''); // To track if name changed
+  const [originalDisplayName, setOriginalDisplayName] = useState('');
   const [instagram, setInstagram] = useState('');
   const [twitter, setTwitter] = useState('');
   const [linkedin, setLinkedin] = useState('');
-
-
 
   const refRBSheet = useRef();
   const refRBSheet1 = useRef();
@@ -72,9 +72,9 @@ const ProfileEditScreen = () => {
   const { openWalletConnect, isConnected, address } = useWalletConnectSupport();
 
   const genderOptions = [
-    { label: 'Male', value: 'MALE', icon: '👨' },
-    { label: 'Female', value: 'FEMALE', icon: '👩' },
-    { label: 'Other', value: 'OTHER', icon: '⚧️' },
+    { label: t('profileEdit.genderMale'), value: 'MALE', icon: '👨' },
+    { label: t('profileEdit.genderFemale'), value: 'FEMALE', icon: '👩' },
+    { label: t('profileEdit.genderOther'), value: 'OTHER', icon: '⚧️' },
   ];
 
   const detectSocialPlatform = (url = '') => {
@@ -108,17 +108,14 @@ const ProfileEditScreen = () => {
         parsedSocialLinks = [];
       }
 
-      // ✅ Extract links safely
       const getLink = (platform) =>
         parsedSocialLinks.find(item => item?.platform === platform)?.url || '';
 
-      // ✅ Get generic/website link (not a specific social platform)
       const primarySocialLink =
         parsedSocialLinks.find(item =>
           item?.url && item?.platform === 'website'
         )?.url || '';
 
-      // ✅ Set states ONCE
       setName(displayName);
       setOriginalDisplayName(displayName);
       setUsername(u.userName || '');
@@ -146,26 +143,25 @@ const ProfileEditScreen = () => {
     setWallet('');
   }, [isConnected, address]);
 
-
   const validateField = (field, value) => {
     const newErrors = { ...errors };
     if (field === 'name') {
       if (!value.trim()) {
-        newErrors.name = 'Display name is required';
+        newErrors.name = t('profileEdit.displayNameRequired');
       } else {
         delete newErrors.name;
       }
     }
     if (field === 'username') {
       if (!value.trim()) {
-        newErrors.username = 'Username is required';
+        newErrors.username = t('profileEdit.usernameRequired');
       } else {
         delete newErrors.username;
       }
     }
     if (field === 'bio') {
       if (value.length > 200) {
-        newErrors.bio = 'Bio must be less than 200 characters';
+        newErrors.bio = t('profileEdit.bioMaxLength');
       } else {
         delete newErrors.bio;
       }
@@ -174,7 +170,6 @@ const ProfileEditScreen = () => {
   };
 
   const checkDisplayNameAvailability = async (displayName) => {
-    // If it's the same as original, no need to check
     if (displayName.trim() === originalDisplayName.trim()) {
       setDisplayNameStatus('approved');
       setDisplayNameSuggestions([]);
@@ -209,7 +204,7 @@ const ProfileEditScreen = () => {
           setDisplayNameSuggestions(suggestions);
           setErrors(prev => ({
             ...prev,
-            name: resp.data.message || 'Display name is already taken',
+            name: resp.data.message || t('profileEdit.displayNameTaken'),
           }));
         } else if (status === 'approved') {
           setErrors(prev => {
@@ -219,11 +214,10 @@ const ProfileEditScreen = () => {
           });
         }
       } else {
-        // Handle unexpected response format
         setDisplayNameStatus('taken');
         setErrors(prev => ({
           ...prev,
-          name: resp.message || 'Display name is already taken',
+          name: resp.message || t('profileEdit.displayNameTaken'),
         }));
       }
     } catch (err) {
@@ -231,7 +225,7 @@ const ProfileEditScreen = () => {
       setDisplayNameStatus('taken');
       setErrors(prev => ({
         ...prev,
-        name: 'Display name is already taken',
+        name: t('profileEdit.displayNameTaken'),
       }));
     } finally {
       setIsCheckingDisplayName(false);
@@ -242,11 +236,7 @@ const ProfileEditScreen = () => {
 
   const handleNameChange = (text) => {
     setName(text);
-
-    // Basic validation first
     validateField('name', text);
-
-    // If basic validation passes and length >= 2, check availability (debounced)
     if (text.trim() && text.trim().length >= 2 && !errors.name) {
       debouncedCheckDisplayName(text.trim());
     } else {
@@ -309,7 +299,7 @@ const ProfileEditScreen = () => {
           {loading ? (
             <ActivityIndicator size="small" color="#0095F6" />
           ) : (
-            <Text style={[styles.headerButtonText, textStyle]}>Save</Text>
+            <Text style={[styles.headerButtonText, textStyle]}>{t('profileEdit.saveButton')}</Text>
           )}
         </TouchableOpacity>
       ),
@@ -346,7 +336,7 @@ const ProfileEditScreen = () => {
     } catch (e) {
       refRBSheet1.current?.close();
       if (e?.code !== 'E_PICKER_CANCELLED') {
-        Alert.alert('Error', e?.message || 'Failed to pick image');
+        Alert.alert(t('profileEdit.errorTitle'), e?.message || t('profileEdit.pickImageFail'));
       }
     }
   };
@@ -357,11 +347,11 @@ const ProfileEditScreen = () => {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: 'Camera Permission',
-            message: 'This app needs access to your camera to take photos.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
+            title: t('profileEdit.cameraPermissionTitle'),
+            message: t('profileEdit.cameraPermissionMessage'),
+            buttonNeutral: t('profileEdit.askMeLater'),
+            buttonNegative: t('profileEdit.cancel'),
+            buttonPositive: t('profileEdit.ok'),
           },
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -377,7 +367,7 @@ const ProfileEditScreen = () => {
     const hasPermission = await requestCameraPermission();
 
     if (!hasPermission) {
-      Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
+      Alert.alert(t('profileEdit.permissionDenied'), t('profileEdit.cameraPermissionRequired'));
       return;
     }
     try {
@@ -388,7 +378,7 @@ const ProfileEditScreen = () => {
     } catch (e) {
       refRBSheet1.current?.close();
       if (e?.code !== 'E_PICKER_CANCELLED') {
-        Alert.alert('Camera Error', e?.message || 'Failed to capture image');
+        Alert.alert(t('profileEdit.cameraError'), e?.message || t('profileEdit.captureImageFail'));
       }
     }
   };
@@ -402,17 +392,16 @@ const ProfileEditScreen = () => {
 
   const getGenderDisplay = () => {
     const opt = genderOptions.find(o => o.value === gender);
-    return opt ? `${opt.icon} ${opt.label}` : 'Select Gender';
+    return opt ? `${opt.icon} ${opt.label}` : t('profileEdit.selectGender');
   };
 
   const handleSaveAll = async () => {
-    // Final validation
     validateField('name', name);
     validateField('username', username);
     validateField('bio', bio);
 
     if (!isFormValid()) {
-      showToastMessage(toast, 'danger', 'Please fix all errors before saving');
+      showToastMessage(toast, 'danger', t('profileEdit.fixErrorsBeforeSaving'));
       return;
     }
 
@@ -470,7 +459,6 @@ const ProfileEditScreen = () => {
       if (res.statusCode === 200) {
         dispatch(setProfileImg(profileImage));
         showToastMessage(toast, 'success', res.data.message);
-        // Update original display name after successful save
         setOriginalDisplayName(name.trim());
 
         setTimeout(() => {
@@ -481,25 +469,26 @@ const ProfileEditScreen = () => {
         showToastMessage(toast, 'danger', res.data.message);
       }
     } catch (err) {
-      showToastMessage(toast, 'danger', err.response?.data?.message || 'Error saving profile');
+      showToastMessage(toast, 'danger', err.response?.data?.message || t('profileEdit.saveError'));
     } finally {
       dispatch(hideLoader());
     }
   };
+
   const PLACEHOLDER_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+
   const renderDisplayNameInput = () => {
     return (
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>Display Name *</Text>
+        <Text style={styles.label}>{t('profileEdit.displayNameLabel')}</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             style={[
               styles.input,
               styles.inputWithStatus,
               errors.name && styles.inputError,
-              // displayNameStatus === 'approved' && styles.inputSuccess,
             ]}
-            placeholder="Enter your display name"
+            placeholder={t('profileEdit.displayNamePlaceholder')}
             value={name}
             onChangeText={handleNameChange}
             placeholderTextColor="#999"
@@ -530,10 +519,9 @@ const ProfileEditScreen = () => {
           <Text style={styles.errorText}>{errors.name}</Text>
         )}
 
-        {/* Display Name Suggestions */}
         {displayNameSuggestions.length > 0 && (
           <View style={styles.suggestionsContainer}>
-            <Text style={styles.suggestionsTitle}>Suggestions:</Text>
+            <Text style={styles.suggestionsTitle}>{t('profileEdit.suggestions')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -557,7 +545,9 @@ const ProfileEditScreen = () => {
 
   return (
     <>
-      <KeyboardAwareScrollView style={[styles.container, bgStyle]} contentContainerStyle={{ paddingBottom: 10 }}
+      <KeyboardAwareScrollView
+        style={[styles.container, bgStyle]}
+        contentContainerStyle={{ paddingBottom: 10 }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
         enableAutomaticScroll={true}
@@ -578,31 +568,22 @@ const ProfileEditScreen = () => {
                 borderWidth={3}
                 borderColor={text}
               />
-              {/* {!profileImage && (
-                  <MaterialCommunityIcons
-                    name="account-circle-outline"
-                    size={40}
-                    color="#999"
-                  />
-                )}
-              </HexAvatar> */}
-              <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]} >
+              <View style={[styles.cameraIcon, { backgroundColor: text, shadowColor: text }]}>
                 <Text style={styles.cameraText}>📷</Text>
               </View>
             </View>
-            <Text style={[styles.avatarText, textStyle]}>Change profile picture</Text>
+            <Text style={[styles.avatarText, textStyle]}>{t('profileEdit.changeProfilePicture')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.formSection}>
-          {/* Enhanced Display Name Input */}
           {renderDisplayNameInput()}
 
           <View style={[styles.inputContainer, bgStyle]}>
-            <Text style={styles.label}>Username *</Text>
+            <Text style={styles.label}>{t('profileEdit.usernameLabel')}</Text>
             <TextInput
               style={[styles.input, errors.username && styles.inputError, styles.inputDisabled, bgStyle]}
-              placeholder="Enter your username"
+              placeholder={t('profileEdit.usernamePlaceholder')}
               value={username}
               onChangeText={handleUsernameChange}
               placeholderTextColor="#999"
@@ -611,20 +592,18 @@ const ProfileEditScreen = () => {
             {errors.username && (
               <Text style={styles.errorText}>{errors.username}</Text>
             )}
-            <Text style={styles.helperText}>
-              Your username cannot be changed
-            </Text>
+            <Text style={styles.helperText}>{t('profileEdit.usernameCannotChange')}</Text>
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Bio</Text>
+            <Text style={styles.label}>{t('profileEdit.bioLabel')}</Text>
             <TextInput
               style={[
                 styles.input,
                 styles.bioInput,
                 errors.bio && styles.inputError,
               ]}
-              placeholder="Tell us about yourself..."
+              placeholder={t('profileEdit.bioPlaceholder')}
               value={bio}
               onChangeText={handleBioChange}
               placeholderTextColor="#999"
@@ -636,7 +615,7 @@ const ProfileEditScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Gender</Text>
+            <Text style={styles.label}>{t('profileEdit.genderLabel')}</Text>
             <TouchableOpacity
               style={styles.genderSelector}
               onPress={() => refRBSheet.current.open()}
@@ -647,7 +626,7 @@ const ProfileEditScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Wallet Address</Text>
+            <Text style={styles.label}>{t('profileEdit.walletAddressLabel')}</Text>
             <View style={styles.walletRow}>
               <TextInput
                 style={[
@@ -660,7 +639,7 @@ const ProfileEditScreen = () => {
                     ? `${String(wallet).slice(0, 6)}...${String(wallet).slice(-12)}`
                     : ''
                 }
-                placeholder="Not connected"
+                placeholder={t('profileEdit.notConnected')}
                 editable={false}
                 placeholderTextColor="#999"
               />
@@ -679,40 +658,36 @@ const ProfileEditScreen = () => {
                 activeOpacity={0.88}
               >
                 <Text style={styles.connectWalletBtnText}>
-                  {hasConnectedWallet ? 'Connected' : 'Connect'}
+                  {hasConnectedWallet ? t('profileEdit.walletConnected') : t('profileEdit.walletConnect')}
                 </Text>
               </TouchableOpacity>
             </View>
             {!hasConnectedWallet && (
-              <Text style={styles.helperText}>
-                Tap Connect to open your wallet. Address updates after you connect.
-              </Text>
+              <Text style={styles.helperText}>{t('profileEdit.walletHelperText')}</Text>
             )}
             <View style={{ marginTop: 12 }} />
             {hasConnectedWallet && (
-
               <TouchableOpacity
                 style={[
                   styles.connectWalletBtnInline,
                   { backgroundColor: text, shadowColor: text },
                 ]}
                 onPress={() => {
-
                   openWalletConnect();
-
                 }}
                 activeOpacity={0.88}
               >
                 <Text style={[styles.connectWalletBtnText, { textAlign: 'center' }]}>
-                  Add new wallet
+                  {t('profileEdit.addNewWallet')}
                 </Text>
               </TouchableOpacity>
             )}
           </View>
+
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Website</Text>
+            <Text style={styles.label}>{t('profileEdit.websiteLabel')}</Text>
             <TextInput
-              placeholder="Enter your website URL"
+              placeholder={t('profileEdit.websitePlaceholder')}
               placeholderTextColor="#9CA3AF"
               style={styles.input}
               keyboardType="url"
@@ -722,14 +697,14 @@ const ProfileEditScreen = () => {
               onChangeText={setWebsiteLink}
             />
           </View>
+
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Social Link</Text>
+            <Text style={styles.label}>{t('profileEdit.socialLinkLabel')}</Text>
 
             <View style={styles.socialRow}>
               <Icon name="link" size={20} color="#6B7280" style={styles.linkIcon} />
-
               <TextInput
-                placeholder="Enter any social or website URL"
+                placeholder={t('profileEdit.socialLinkPlaceholder')}
                 placeholderTextColor="#9CA3AF"
                 style={styles.socialInputField}
                 keyboardType="url"
@@ -739,10 +714,11 @@ const ProfileEditScreen = () => {
                 onChangeText={handleSocialLinkChange}
               />
             </View>
+
             <View style={styles.socialRow}>
               <Icon name="instagram" size={20} color="#E1306C" />
               <TextInput
-                placeholder="Instagram profile link"
+                placeholder={t('profileEdit.instagramPlaceholder')}
                 style={styles.socialInput}
                 value={instagram}
                 onChangeText={setInstagram}
@@ -751,11 +727,10 @@ const ProfileEditScreen = () => {
               />
             </View>
 
-            {/* Twitter */}
             <View style={styles.socialRow}>
               <Icon name="twitter" size={20} color="#1DA1F2" />
               <TextInput
-                placeholder="Twitter profile link"
+                placeholder={t('profileEdit.twitterPlaceholder')}
                 style={styles.socialInput}
                 value={twitter}
                 onChangeText={setTwitter}
@@ -764,11 +739,10 @@ const ProfileEditScreen = () => {
               />
             </View>
 
-            {/* LinkedIn */}
             <View style={styles.socialRow}>
               <Icon name="linkedin" size={20} color="#0077B5" />
               <TextInput
-                placeholder="LinkedIn profile link"
+                placeholder={t('profileEdit.linkedinPlaceholder')}
                 style={styles.socialInput}
                 value={linkedin}
                 onChangeText={setLinkedin}
@@ -784,28 +758,16 @@ const ProfileEditScreen = () => {
         ref={refRBSheet}
         draggable
         height={250}
-        customModalProps={{
-          statusBarTranslucent: true,
-        }}
+        customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: {
-            borderTopLeftRadius: 10,
-            borderTopRightRadius: 10,
-          },
-          draggableIcon: {
-            width: 80,
-          },
+          container: { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+          draggableIcon: { width: 80 },
         }}
       >
-        {/* Header */}
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Select Gender</Text>
-          {/* <TouchableOpacity onPress={() => refRBSheet.current.close()}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity> */}
+          <Text style={styles.modalTitle}>{t('profileEdit.selectGender')}</Text>
         </View>
 
-        {/* Options */}
         {genderOptions.map(opt => (
           <TouchableOpacity
             key={opt.value}
@@ -836,23 +798,15 @@ const ProfileEditScreen = () => {
         ref={refRBSheet1}
         draggable
         height={370}
-        // onClose={onClose} // Add this line - crucial for resetting state
-        customModalProps={{
-          statusBarTranslucent: true,
-        }}
+        customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: {
-            borderTopLeftRadius: 10,
-            borderTopRightRadius: 10,
-          },
-          draggableIcon: {
-            width: 80,
-          },
+          container: { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+          draggableIcon: { width: 80 },
         }}
       >
         <View style={styles.bottomSheetContent}>
-          <Text style={styles.bottomSheetTitle}>Select Image</Text>
-          <Text style={styles.bottomSheetSubtitle}>Choose how you want to add your profile picture</Text>
+          <Text style={styles.bottomSheetTitle}>{t('profileEdit.selectImageTitle')}</Text>
+          <Text style={styles.bottomSheetSubtitle}>{t('profileEdit.selectImageSubtitle')}</Text>
 
           <View style={styles.optionsContainer}>
             <TouchableOpacity
@@ -863,8 +817,8 @@ const ProfileEditScreen = () => {
                 <Icon name="image" size={24} color="#4F46E5" />
               </View>
               <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>Gallery</Text>
-                <Text style={styles.optionSubtitle}>Choose from your photos</Text>
+                <Text style={styles.optionTitle}>{t('profileEdit.gallery')}</Text>
+                <Text style={styles.optionSubtitle}>{t('profileEdit.gallerySubtitle')}</Text>
               </View>
               <Icon name="chevron-right" size={20} color="#9CA3AF" />
             </TouchableOpacity>
@@ -877,8 +831,8 @@ const ProfileEditScreen = () => {
                 <Icon name="camera" size={24} color="#059669" />
               </View>
               <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>Camera</Text>
-                <Text style={styles.optionSubtitle}>Take a new photo</Text>
+                <Text style={styles.optionTitle}>{t('profileEdit.camera')}</Text>
+                <Text style={styles.optionSubtitle}>{t('profileEdit.cameraSubtitle')}</Text>
               </View>
               <Icon name="chevron-right" size={20} color="#9CA3AF" />
             </TouchableOpacity>
@@ -886,9 +840,9 @@ const ProfileEditScreen = () => {
 
           <TouchableOpacity
             style={styles.cancelButton}
-            onPress={() => refRBSheet.current.close()}
+            onPress={() => refRBSheet1.current.close()}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>{t('profileEdit.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </RBSheet>

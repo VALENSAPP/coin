@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Keyboard } from 'react-native';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -8,6 +8,7 @@ import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
 import { requestWithdrawal } from '../../services/profile';
+import { useLanguage } from '../../i18n';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,13 +23,12 @@ const WithdrawalModal = ({ onWithdrawal }) => {
     const dispatch = useDispatch();
     const toast = useToast();
     const { textStyle, text } = useAppTheme();
+    const { t } = useLanguage();
 
-    // Calculate fee breakdown
     const calculateFeeBreakdown = (inputAmount) => {
         const numAmount = Number(inputAmount) || 0;
-        const withdrawalFee = numAmount * 0.05; // 5% fee
-        const finalAmount = numAmount - withdrawalFee; // Amount after deducting fee
-        
+        const withdrawalFee = numAmount * 0.05;
+        const finalAmount = numAmount - withdrawalFee;
         return {
             enteredAmount: numAmount,
             withdrawalFee: withdrawalFee,
@@ -63,20 +63,16 @@ const WithdrawalModal = ({ onWithdrawal }) => {
     };
 
     const handleWithdraw = async () => {
-        // Validate amount
         if (!amount || Number(amount) <= 0) {
-            showToastMessage(toast, 'danger', 'Please enter a valid amount');
+            showToastMessage(toast, 'danger', t('withdrawalModal.invalidAmountError'));
             return;
         }
 
         try {
             setIsProcessingWithdraw(true);
             dispatch(showLoader());
-            
-            // Send the final amount (after deducting 5% fee) to the API
             const response = await requestWithdrawal({ amount: Number(breakdown.finalAmount) });
             console.log('requestWithdrawal--------------', response);
-            
             if (response.statusCode === 200) {
                 onWithdrawal();
             } else {
@@ -84,7 +80,7 @@ const WithdrawalModal = ({ onWithdrawal }) => {
             }
         } catch (error) {
             console.error('Error creating payment session:', error);
-            showToastMessage(toast, 'danger', 'Failed to process withdrawal. Please try again.');
+            showToastMessage(toast, 'danger', t('withdrawalModal.failedError'));
         } finally {
             setIsProcessingWithdraw(false);
             dispatch(hideLoader());
@@ -93,9 +89,7 @@ const WithdrawalModal = ({ onWithdrawal }) => {
 
     const formatCurrency = (value) => {
         const num = Number(value);
-        if (num < 0.01) {
-            return `${parseFloat(num.toFixed(6))}`;
-        }
+        if (num < 0.01) return `${parseFloat(num.toFixed(6))}`;
         return `${parseFloat(num.toFixed(2))}`;
     };
 
@@ -108,14 +102,12 @@ const WithdrawalModal = ({ onWithdrawal }) => {
             extraScrollHeight={16}
         >
             <View style={styles.content}>
-                {/* Token Info */}
                 <View style={styles.tokenInfoSection}>
-                    <Text style={styles.tokenTitle}>Withdraw Amount</Text>
+                    <Text style={styles.tokenTitle}>{t('withdrawalModal.title')}</Text>
                 </View>
 
-                {/* Amount Input */}
                 <View style={styles.inputWrapper}>
-                    <Text style={styles.inputLabel}>Enter Amount</Text>
+                    <Text style={styles.inputLabel}>{t('withdrawalModal.enterAmount')}</Text>
                     <View style={[styles.inputGroup, activeInput === 'amount' && styles.inputGroupActive, { borderColor: text, shadowColor: text }]}>
                         <Text style={[styles.currencySymbol, textStyle]}>$</Text>
                         <TextInput
@@ -135,18 +127,17 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                     </View>
                 </View>
 
-                {/* Fee Structure - Always Visible */}
                 <View style={styles.calculationSection}>
-                    <Text style={styles.calculationTitle}>Fee Structure & Breakdown</Text>
+                    <Text style={styles.calculationTitle}>{t('withdrawalModal.feeBreakdownTitle')}</Text>
                     <View style={styles.calculationCard}>
                         <View style={styles.calculationRow}>
-                            <Text style={styles.calculationLabel}>Entered Amount</Text>
+                            <Text style={styles.calculationLabel}>{t('withdrawalModal.enteredAmount')}</Text>
                             <Text style={styles.calculationValue}>
                                 ${formatCurrency(breakdown.enteredAmount)}
                             </Text>
                         </View>
                         <View style={styles.calculationRow}>
-                            <Text style={styles.calculationLabel}>Withdrawal Fee (5%)</Text>
+                            <Text style={styles.calculationLabel}>{t('withdrawalModal.withdrawalFee')}</Text>
                             <Text style={[styles.calculationValue, styles.deduction]}>
                                 -${formatCurrency(breakdown.withdrawalFee)}
                             </Text>
@@ -154,7 +145,7 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                         <View style={styles.separator} />
                         <View style={styles.calculationRow}>
                             <Text style={[styles.calculationLabel, styles.totalLabel]}>
-                                Final Withdrawal Amount
+                                {t('withdrawalModal.finalAmount')}
                             </Text>
                             <Text style={[styles.calculationValue, styles.totalValue, textStyle]}>
                                 ${formatCurrency(breakdown.finalAmount)}
@@ -163,7 +154,6 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                     </View>
                 </View>
 
-                {/* Withdraw Button */}
                 <TouchableOpacity
                     style={[
                         styles.withdrawButton,
@@ -177,14 +167,12 @@ const WithdrawalModal = ({ onWithdrawal }) => {
                     {isProcessingWithdraw ? (
                         <>
                             <Icon name="hourglass" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                            <Text style={styles.withdrawButtonText}>Processing...</Text>
+                            <Text style={styles.withdrawButtonText}>{t('withdrawalModal.processing')}</Text>
                         </>
                     ) : (
-                        <>
-                            <Text style={styles.withdrawButtonText}>
-                                Withdraw ${formatCurrency(breakdown.finalAmount)}
-                            </Text>
-                        </>
+                        <Text style={styles.withdrawButtonText}>
+                            {t('withdrawalModal.withdrawButton', { amount: formatCurrency(breakdown.finalAmount) })}
+                        </Text>
                     )}
                 </TouchableOpacity>
             </View>

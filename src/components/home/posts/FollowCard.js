@@ -10,13 +10,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, ClipPath, Polygon } from 'react-native-svg';
-import HexAvatar from '../story.js/HexAvatar'; // Import your HexAvatar component
+import HexAvatar from '../story.js/HexAvatar';
 import { useAppTheme } from '../../../theme/useApptheme';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
 import { getUserCredentials } from '../../../services/post';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
+import { useLanguage } from '../../../i18n';
 
 export default function FollowCard({
   userId,
@@ -40,6 +41,7 @@ export default function FollowCard({
   const navigation = useNavigation();
   const { startSupportPayment } = useWalletConnectSupport();
   const { textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const handleUserProfile = userId => {
     navigation.navigate('UsersProfile', { userId });
@@ -96,7 +98,10 @@ export default function FollowCard({
 
   const handleSupportNow = async () => {
     if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      Alert.alert(
+        t('followCard.walletNotConnectedTitle'),
+        t('followCard.walletNotConnectedMessage'),
+      );
       return;
     }
     setSupportDisclaimerVisible(false);
@@ -111,8 +116,8 @@ export default function FollowCard({
   const handleOpenSupportDisclaimer = () => {
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
       Alert.alert(
-        'Support unavailable',
-        'Tips are not available for business profiles.',
+        t('followCard.supportUnavailableTitle'),
+        t('followCard.supportUnavailableMessage'),
       );
       setModalVisible(false);
       return;
@@ -121,14 +126,12 @@ export default function FollowCard({
     setSupportDisclaimerVisible(true);
   };
 
-  // Hexagon dimensions for the card
   const cardWidth = 200;
-  const cardHeight = 205; // Height adjusted for hexagon shape
+  const cardHeight = 205;
   const hexRadius = cardWidth / 2;
   const centerX = cardWidth / 2;
   const centerY = cardHeight / 2;
 
-  // Calculate hexagon points (flat-top orientation)
   const points = [
     `${centerX + hexRadius * Math.cos(0)},${centerY + hexRadius * Math.sin(0)}`,
     `${centerX + hexRadius * Math.cos(Math.PI / 3)},${centerY + hexRadius * Math.sin(Math.PI / 3)}`,
@@ -150,15 +153,12 @@ export default function FollowCard({
             <Polygon points={points} />
           </ClipPath>
         </Defs>
-
-        {/* Simulated shadow for hexagon */}
         <Polygon
           points={points}
           fill={text}
           opacity={0.2}
           transform={`translate(2,4)`}
         />
-        {/* Main hexagon */}
         <Polygon
           points={points}
           fill="#fff"
@@ -168,10 +168,7 @@ export default function FollowCard({
         />
       </Svg>
 
-      <View
-        style={styles.card}
-        pointerEvents="box-none"
-      >
+      <View style={styles.card} pointerEvents="box-none">
         {/* Close Button */}
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
           <Text style={[styles.closeText, textStyle]}>✕</Text>
@@ -186,8 +183,7 @@ export default function FollowCard({
             uri={avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}
             size={90}
             borderWidth={2}
-            borderColor={type ==
-              "company" ? '#D3B683' : '#5a2d82'}
+            borderColor={type === 'company' ? '#D3B683' : '#5a2d82'}
           />
         </TouchableOpacity>
 
@@ -198,10 +194,14 @@ export default function FollowCard({
 
         {/* Follow Button */}
         <TouchableOpacity
-          style={[styles.followButton, isFollowing && styles.unfollowButton, {
-            backgroundColor: type ==
-              "company" ? '#D3B683' : '#5a2d82', shadowColor: text
-          }]}
+          style={[
+            styles.followButton,
+            isFollowing && styles.unfollowButton,
+            {
+              backgroundColor: type === 'company' ? '#D3B683' : '#5a2d82',
+              shadowColor: text,
+            },
+          ]}
           onPress={async () => {
             if (item.id === currentUserId) return;
 
@@ -217,9 +217,7 @@ export default function FollowCard({
 
             if (!success || !shouldFollow) return;
 
-            if (
-              isSupportAllowed({ supporterProfile, recipientProfile })
-            ) {
+            if (isSupportAllowed({ supporterProfile, recipientProfile })) {
               setModalVisible(true);
             }
           }}
@@ -229,20 +227,21 @@ export default function FollowCard({
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.followText}>
-              {isFollowing ? 'Followed' : 'Follow'}
+              {isFollowing ? t('followCard.followed') : t('followCard.follow')}
             </Text>
           )}
         </TouchableOpacity>
       </View>
+
       <SupportCreatorModal
         visible={modalVisible}
-        creatorName={username || 'Creator'}
+        creatorName={username || t('followCard.defaultCreatorName')}
         onClose={() => setModalVisible(false)}
         onSupport={handleOpenSupportDisclaimer}
       />
       <SupportCreatorModal
         visible={supportDisclaimerVisible}
-        creatorName={username || 'Creator'}
+        creatorName={username || t('followCard.defaultCreatorName')}
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}

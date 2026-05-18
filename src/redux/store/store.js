@@ -7,6 +7,7 @@ import userProfileReducer from '../reducers/UserProfileReducer';
 import userReducer from '../reducers/UserReducer';
 import addAccountReducer from '../reducers/AddAccountReducer';
 import signupFormReducer from '../reducers/SignupFormReducer';
+import languageReducer from '../reducers/LanguageReducer';
 
 const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ const store = configureStore({
     user: userReducer,
     addAccount: addAccountReducer,
     signupForm: signupFormReducer,
+    language: languageReducer,
   },
 });
 

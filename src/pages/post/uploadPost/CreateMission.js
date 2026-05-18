@@ -22,7 +22,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
-import { current } from '@reduxjs/toolkit';
+import { useLanguage } from '../../../i18n';
 
 // Currency mapping by country code
 const CURRENCY_MAP = {
@@ -122,25 +122,6 @@ const CURRENCY_MAP = {
   BG: { code: 'BGN', symbol: 'лв' },
 };
 
-// Validation Schema
-const validationSchema = Yup.object().shape({
-  raiseAmount: Yup.string()
-    .required('Raise amount is required')
-    .test('is-valid-number', 'Please enter a valid amount', (value) => {
-      if (!value) return false;
-      const numericValue = parseFloat(value.replace(/,/g, ''));
-      return !isNaN(numericValue) && numericValue > 0;
-    }),
-  startTime: Yup.date()
-    .required('Start date is required')
-    .nullable(),
-  endTime: Yup.date()
-    .required('End date is required')
-    .nullable()
-    .min(Yup.ref('startTime'), 'End date must be after start date'),
-  currency: Yup.string().required('Currency is required'),
-});
-
 const CreateMission = () => {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState('start');
@@ -154,33 +135,50 @@ const CreateMission = () => {
   const route = useRoute();
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
-  // Get user profile from Redux store (adjust the selector based on your store structure)
   const userProfile = useSelector(state => state.user?.profile || state.auth?.user);
 
   const { images, caption, link } = route.params || {};
 
-  // Set initial currency based on user's country
+  // Validation Schema — built inside component so `t` is available
+  const validationSchema = Yup.object().shape({
+    raiseAmount: Yup.string()
+      .required(t('createMission.raiseAmountRequired'))
+      .test('is-valid-number', t('createMission.raiseAmountInvalid'), (value) => {
+        if (!value) return false;
+        const numericValue = parseFloat(value.replace(/,/g, ''));
+        return !isNaN(numericValue) && numericValue > 0;
+      }),
+    startTime: Yup.date()
+      .required(t('createMission.startDateRequired'))
+      .nullable(),
+    endTime: Yup.date()
+      .required(t('createMission.endDateRequired'))
+      .nullable()
+      .min(Yup.ref('startTime'), t('createMission.endDateAfterStart')),
+    currency: Yup.string().required(t('createMission.currencyRequired')),
+  });
+
   useEffect(() => {
     if (userProfile?.country && !selectedCountry) {
       const countryCode = userProfile.country.toUpperCase();
       const currency = CURRENCY_MAP[countryCode] || CURRENCY_MAP['US'];
       setSelectedCountry({ cca2: countryCode, currency: [currency.code] });
     } else if (!userProfile?.country && !selectedCountry) {
-      // Default to US if no country in profile
       setSelectedCountry({ cca2: 'US', currency: ['USD'] });
     }
   }, [userProfile, selectedCountry]);
 
   useEffect(() => {
-  if (userProfile?.country) {
-    const countryCode = userProfile.country.toUpperCase();
-    const currency = CURRENCY_MAP[countryCode] || CURRENCY_MAP['US'];
+    if (userProfile?.country) {
+      const countryCode = userProfile.country.toUpperCase();
+      const currency = CURRENCY_MAP[countryCode] || CURRENCY_MAP['US'];
+      setSelectedCountry({ cca2: countryCode });
+      setInitialCurrency(currency.code);
+    }
+  }, [userProfile]);
 
-    setSelectedCountry({ cca2: countryCode });
-    setInitialCurrency(currency.code);
-  }
-}, [userProfile]);
   const showDatePicker = (mode, setFieldValue, setFieldTouched) => {
     setPickerMode(mode);
     setActiveField({ setFieldValue, setFieldTouched });
@@ -211,33 +209,22 @@ const CreateMission = () => {
     if (!date) return null;
     const endDate = new Date(date);
     endDate.setHours(23, 59, 59, 0);
-    console.log('formatEndDateTime input:', date);
-    console.log('formatEndDateTime output:', endDate.toISOString());
     return endDate.toISOString();
   };
 
   const formatDateDisplay = (dateString) => {
     const date = dateString ? new Date(dateString) : new Date();
-
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
-
     return `${day}-${month}-${year}`;
   };
 
   const formatNumberWithCommas = (value) => {
     if (!value) return '';
-    // Remove non-numeric characters except decimal point
     const numericValue = value.replace(/[^0-9.]/g, '');
-
-    // Split into integer and decimal parts
     const parts = numericValue.split('.');
-
-    // Add commas to integer part
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-    // Return formatted value (limit to 2 decimal places)
     return parts.length > 1 ? `${parts[0]}.${parts[1].slice(0, 2)}` : parts[0];
   };
 
@@ -257,48 +244,44 @@ const CreateMission = () => {
     setShowCountryPicker(false);
   };
 
-const handlePost = async (values, { setFieldError, setFieldTouched, validateForm, resetForm }) => {
-    // Mark all fields as touched first
+  const handlePost = async (values, { setFieldError, setFieldTouched, validateForm, resetForm }) => {
     setFieldTouched('raiseAmount', true, false);
     setFieldTouched('startTime', true, false);
     setFieldTouched('endTime', true, false);
     setFieldTouched('currency', true, false);
 
-    // Manually validate and set errors for null dates
     let hasErrors = false;
 
     if (!values.raiseAmount) {
-      setFieldError('raiseAmount', 'Raise amount is required');
+      setFieldError('raiseAmount', t('createMission.raiseAmountRequired'));
       hasErrors = true;
     }
 
     if (!values.startTime) {
-      setFieldError('startTime', 'Start date is required');
+      setFieldError('startTime', t('createMission.startDateRequired'));
       hasErrors = true;
     }
 
     if (!values.endTime) {
-      setFieldError('endTime', 'End date is required');
+      setFieldError('endTime', t('createMission.endDateRequired'));
       hasErrors = true;
     } else if (values.startTime && values.endTime && values.endTime <= values.startTime) {
-      setFieldError('endTime', 'End date must be after start date');
+      setFieldError('endTime', t('createMission.endDateAfterStart'));
       hasErrors = true;
     }
 
     if (!values.currency) {
-      setFieldError('currency', 'Currency is required');
+      setFieldError('currency', t('createMission.currencyRequired'));
       hasErrors = true;
     }
 
-    // Stop here if there are any errors
     if (hasErrors) {
       return;
     }
 
-    // Validate amount format
     const numericValue = parseFloat(values.raiseAmount.replace(/,/g, ''));
     if (isNaN(numericValue) || numericValue <= 0) {
-      setFieldError('raiseAmount', 'Please enter a valid amount');
+      setFieldError('raiseAmount', t('createMission.raiseAmountInvalid'));
       return;
     }
 
@@ -319,14 +302,12 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
       start_time: formatDateTime(values.startTime),
       end_time: formatEndDateTime(values.endTime)
     };
-    console.log('Payload for post creation:', payload);
 
     try {
       const response = await createPost(payload);
-      console.log('create post response', response);
 
       if (response.statusCode == 200) {
-        showToastMessage(toast, 'success', 'Post created successfully');
+        showToastMessage(toast, 'success', t('createMission.postCreatedSuccess'));
         resetForm();
         setShowPicker(false);
         setPickerMode('start');
@@ -336,11 +317,11 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
         setInitialCurrency('USD');
         navigation.navigate('HomeMain');
       } else {
-        showToastMessage(toast, 'danger', response.message || 'Please try again');
+        showToastMessage(toast, 'danger', response.message || t('createMission.postCreatedFail'));
       }
     } catch (err) {
       console.error('Post creation error:', err);
-      showToastMessage(toast, 'danger', err.response?.message || 'An error occurred');
+      showToastMessage(toast, 'danger', err.response?.message || t('createMission.postCreatedError'));
     } finally {
       dispatch(hideLoader());
     }
@@ -353,7 +334,7 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.title}>Raise Form</Text>
+        <Text style={styles.title}>{t('createMission.screenTitle')}</Text>
         <Text></Text>
       </View>
 
@@ -368,52 +349,21 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
         validationSchema={validationSchema}
         validateOnChange={true}
         validateOnBlur={true}
-        onSubmit={handlePost}>
-{({ handleBlur, handleSubmit, setFieldValue, setFieldTouched, resetForm, values, errors, touched }) => (
+        onSubmit={handlePost}
+      >
+        {({ handleBlur, handleSubmit, setFieldValue, setFieldTouched, resetForm, values, errors, touched }) => (
           <>
             <ScrollView style={[styles.content, bgStyle]} showsVerticalScrollIndicator={false}>
-              {/* Currency Selection */}
-              {/* <View style={styles.inputContainer}>
-                <Text style={styles.label}>Currency</Text>
-                <TouchableOpacity
-                  style={[styles.currencyButton, touched.currency && errors.currency && styles.inputError]}
-                  onPress={() => setShowCountryPicker(true)}>
-                  <View style={styles.currencyContent}>
-                    {selectedCountry ? (
-                      <>
-                        <CountryPicker
-                          countryCode={selectedCountry.cca2}
-                          withFlag
-                          withEmoji={false}
-                          withFilter={false}
-                          withCountryNameButton={false}
-                          containerButtonStyle={styles.flagContainer}
-                        />
-                        <Text style={styles.currencyText}>
-                          {`${getCurrencyInfo(selectedCountry.cca2).symbol} ${getCurrencyInfo(selectedCountry.cca2).code}`}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.currencyText}>Select Currency</Text>
-                    )}
-                    <Icon name="chevron-down" size={20} color="#666" />
-                  </View>
-                </TouchableOpacity>
-                {touched.currency && errors.currency && (
-                  <Text style={styles.errorText}>{errors.currency}</Text>
-                )}
-              </View> */}
-
               {/* Raise Amount */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Raise Amount</Text>
+                <Text style={styles.label}>{t('createMission.raiseAmountLabel')}</Text>
                 <View style={styles.amountInputContainer}>
                   <Text style={styles.currencySymbol}>
                     {selectedCountry ? getCurrencyInfo(selectedCountry.cca2).symbol : '$'}
                   </Text>
                   <TextInput
                     style={[styles.amountInput, touched.raiseAmount && errors.raiseAmount && styles.inputError]}
-                    placeholder="0.00"
+                    placeholder={t('createMission.raiseAmountPlaceholder')}
                     keyboardType="numeric"
                     value={values.raiseAmount}
                     onChangeText={(text) => handleAmountChange(text, setFieldValue)}
@@ -428,15 +378,16 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
 
               {/* Start Time */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Start Date</Text>
+                <Text style={styles.label}>{t('createMission.startDateLabel')}</Text>
                 <TouchableOpacity
                   style={[
                     styles.dateButton,
                     touched.startTime && errors.startTime && styles.inputError
                   ]}
-                  onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}>
+                  onPress={() => showDatePicker('start', setFieldValue, setFieldTouched)}
+                >
                   <Text style={[styles.dateText, !values.startTime && styles.placeholderText]}>
-                    {values.startTime ? formatDateDisplay(values.startTime) : 'Select start date'}
+                    {values.startTime ? formatDateDisplay(values.startTime) : t('createMission.startDatePlaceholder')}
                   </Text>
                   <Icon name="calendar-outline" size={20} color="#666" />
                 </TouchableOpacity>
@@ -447,15 +398,16 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
 
               {/* End Time */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>End Date</Text>
+                <Text style={styles.label}>{t('createMission.endDateLabel')}</Text>
                 <TouchableOpacity
                   style={[
                     styles.dateButton,
                     touched.endTime && errors.endTime && styles.inputError
                   ]}
-                  onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}>
+                  onPress={() => showDatePicker('end', setFieldValue, setFieldTouched)}
+                >
                   <Text style={[styles.dateText, !values.endTime && styles.placeholderText]}>
-                    {values.endTime ? formatDateDisplay(values.endTime) : 'Select end date'}
+                    {values.endTime ? formatDateDisplay(values.endTime) : t('createMission.endDatePlaceholder')}
                   </Text>
                   <Icon name="calendar-outline" size={20} color="#666" />
                 </TouchableOpacity>
@@ -495,7 +447,7 @@ const handlePost = async (values, { setFieldError, setFieldTouched, validateForm
             </ScrollView>
 
             <CustomButton
-              title="Continue"
+              title={t('createMission.continueButton')}
               onPress={handleSubmit}
               style={[styles.socialBtn, styles.instagramBtn, { backgroundColor: text, borderColor: text }]}
               textStyle={styles.socialBtnText}

@@ -1,20 +1,16 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
-
-const MESSAGE = 'Please complete the Stripe setup to add a payment method.';
+import { useLanguage } from '../../i18n';
 
 /**
  * Modal shown when user must connect Stripe to add a payment method (payer flow).
  * "Connect to Stripe" calls the onboarding API (parent provides onConnectStripe).
  * Use on payment screens: Donation, Token Purchase, Credits, Subscription, Payment.
  */
-const StripePaymentMethodModal = ({
-  visible,
-  onClose,
-  onConnectStripe,
-}) => {
+const StripePaymentMethodModal = ({ visible, onClose, onConnectStripe }) => {
   const { text, card } = useAppTheme();
+  const { t } = useLanguage();
 
   const handleConnectStripe = () => {
     onClose?.();
@@ -32,21 +28,27 @@ const StripePaymentMethodModal = ({
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: card }]}>
-          <Text style={[styles.message, { color: text }]}>{MESSAGE}</Text>
+          <Text style={[styles.message, { color: text }]}>
+            {t('stripePaymentMethod.message')}
+          </Text>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.secondaryButton, { borderColor: text }]}
               onPress={onClose}
             >
-              <Text style={[styles.secondaryButtonText, { color: text }]}>Cancel</Text>
+              <Text style={[styles.secondaryButtonText, { color: text }]}>
+                {t('stripePaymentMethod.cancelButton')}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: text }]}
               onPress={handleConnectStripe}
             >
-              <Text style={styles.primaryButtonText}>Connect to Stripe</Text>
+              <Text style={styles.primaryButtonText}>
+                {t('stripePaymentMethod.connectButton')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -56,7 +58,9 @@ const StripePaymentMethodModal = ({
 };
 
 export default StripePaymentMethodModal;
-export { MESSAGE as STRIPE_PAYMENT_METHOD_MODAL_MESSAGE };
+
+export const STRIPE_PAYMENT_METHOD_MODAL_MESSAGE =
+  'Please complete the Stripe setup to add a payment method.';
 
 const styles = StyleSheet.create({
   overlay: {

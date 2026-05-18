@@ -63,6 +63,7 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import BattleCard, { AutoScrollBattleRow } from '../../components/search/Battlecard';
 import BattleExplore from './BattleExplore';
 import { getUserCredentials } from '../../services/post';
+import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_PROFILE_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -343,8 +344,6 @@ const MissionProgressBar = memo(({ progressPercent = 0, goalAmount = 0, currentR
 });
 
 // ─── OPTIMIZATION 1: MasonryItem as standalone React.memo component ──────────
-// This is the biggest win — each cell no longer re-renders when unrelated state
-// (searchText, playingVideoIndexes for OTHER items, donationTotals) changes.
 const MasonryItem = memo(
   ({ post, index, height, top, columnIndex, width, spacing, isPlaying, donationTotal, onPress, onLongPress }) => {
     const imageUrl = useMemo(
@@ -393,7 +392,6 @@ const MasonryItem = memo(
               repeat
               paused={!isPlaying}
               muted
-              // OPTIMIZATION: bufferConfig reduces initial load time
               bufferConfig={{
                 minBufferMs: 1500,
                 maxBufferMs: 5000,
@@ -410,7 +408,6 @@ const MasonryItem = memo(
             source={{ uri: imageUrl }}
             style={styles.media}
             resizeMode="cover"
-            // OPTIMIZATION: fadeDuration=0 removes the fade-in delay on each image
             fadeDuration={0}
           />
         )}
@@ -428,7 +425,6 @@ const MasonryItem = memo(
       </TouchableOpacity>
     );
   },
-  // OPTIMIZATION 2: Custom comparison — only re-render when playing state or donation changes
   (prev, next) =>
     prev.isPlaying === next.isPlaying &&
     prev.donationTotal === next.donationTotal &&
@@ -443,6 +439,7 @@ const SearchScreen = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
 
   const [userId, setUserId] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -460,10 +457,10 @@ const SearchScreen = () => {
   const [loadingLiveBattles, setLoadingLiveBattles] = useState(false);
   const [selectedBattleOptions, setSelectedBattleOptions] = useState({});
   const [showBattleExplore, setShowBattleExplore] = useState(false);
-  const [profile, setProfile] = useState('user')
+  const [profile, setProfile] = useState('user');
 
   const searchTimeoutRef = useRef(null);
-  const rafRef = useRef(null);           // replaces autoplayTimeoutRef
+  const rafRef = useRef(null);
   const scrollOffsetRef = useRef(0);
   const toastRef = useRef(toast);
   const activeSearchRequestIdRef = useRef(0);
@@ -512,7 +509,6 @@ const SearchScreen = () => {
     });
     const maxHeight = Math.max(...columnHeights);
     return { columns, maxHeight, itemSize: BASE_ITEM_SIZE, spacing: ITEM_SPACING };
-    // Only recalculate when post IDs change — not on every render
   }, [posts]);
 
   const masonryItems = useMemo(() => {
@@ -531,11 +527,10 @@ const SearchScreen = () => {
 
     try {
       const userRes = await getUserCredentials(id);
-      console.log(userRes, 'data in ueser profile efrafaha')
+      console.log(userRes, 'data in ueser profile efrafaha');
 
       if (userRes?.statusCode === 200) {
         console.log('userres for postres------->>>>>>>>>>>>>>>>>>', userRes.data.profile);
-
         setProfile(userRes.data?.profile);
       } else {
         showToastMessage(toast, 'danger', userRes?.data?.message || 'Failed to fetch profile');
@@ -549,7 +544,6 @@ const SearchScreen = () => {
     }
   }, [dispatch, toast]);
 
-  // Clear search bar when screen focused (tab selected)
   useEffect(() => {
     if (isScreenFocused) {
       setSearchText('');
@@ -652,8 +646,6 @@ const SearchScreen = () => {
   }, [searchUsers]);
 
   // ─── OPTIMIZATION 5: Fetch posts + donations IN PARALLEL ───────────────────
-  // Before: donations waited for posts to finish, then fetched one-by-one
-  // After: posts render immediately, donations load in background simultaneously
   const fetchPosts = useCallback(async () => {
     try {
       dispatch(showLoader());
@@ -680,11 +672,9 @@ const SearchScreen = () => {
           }
         });
 
-        // OPTIMIZATION: Show posts immediately — don't await donations
         setPosts(flattenedPosts);
         dispatch(hideLoader());
 
-        // Fetch donations in the background without blocking render
         const missionPostIds = [...new Set(
           flattenedPosts
             .filter(post => post?.id && (post?.isMission === true || post?.type === 'crowdfunding' || Number(post?.raiseAmount) > 0))
@@ -692,7 +682,6 @@ const SearchScreen = () => {
         )];
 
         if (missionPostIds.length > 0) {
-          // OPTIMIZATION: All donation requests fire in parallel
           Promise.allSettled(
             missionPostIds.map(postId => getTotalDonationAmount({ postId }))
           ).then(responses => {
@@ -731,7 +720,7 @@ const SearchScreen = () => {
             normalizedBattles.push(mappedBattle);
           });
         }
-        console.log(rawBattles, 'battles in search')
+        console.log(rawBattles, 'battles in search');
         setLiveBattles(normalizedBattles);
       } else {
         setLiveBattles([]);
@@ -745,11 +734,9 @@ const SearchScreen = () => {
 
   useEffect(() => {
     AsyncStorage.getItem('userId').then(id => setUserId(id));
-    // OPTIMIZATION 6: Fire both fetches in parallel instead of sequentially
     Promise.all([fetchPosts(), fetchExploreBattles()]);
   }, [fetchPosts, fetchExploreBattles]);
 
-  // Refetch data when screen comes back into focus
   useEffect(() => {
     if (isScreenFocused && !searchText.trim()) {
       Promise.all([fetchPosts(), fetchExploreBattles()]);
@@ -763,7 +750,7 @@ const SearchScreen = () => {
     };
   }, []);
 
-  // ─── OPTIMIZATION 7: rAF-based scroll handler (smoother than setTimeout) ───
+  // ─── OPTIMIZATION 7: rAF-based scroll handler ───────────────────────────
   const syncVisibleVideos = useCallback((offsetY = 0) => {
     if (!isScreenFocused || previewVisible || isSearchActive) {
       setPlayingVideoIndexes(prev => (prev.size === 0 ? prev : new Set()));
@@ -799,7 +786,6 @@ const SearchScreen = () => {
   const onMasonryScroll = useCallback(event => {
     const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
     scrollOffsetRef.current = offsetY;
-    // OPTIMIZATION: Use rAF instead of setTimeout for scroll-linked updates
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       syncVisibleVideos(offsetY);
@@ -832,9 +818,11 @@ const SearchScreen = () => {
   // ─── Stable callbacks passed down to memoized children ──────────────────
   const handleUserProfile = useCallback(user => {
     const targetId = user?.id || user?.userId || user?._id;
-    if (!targetId) { showToastMessage(toastRef.current, 'danger', 'Unable to open profile'); return; }
+    if (!targetId) {
+      showToastMessage(toastRef.current, 'danger', t('search.unableToOpenProfile'));
+      return;
+    }
 
-    // If user taps their own avatar/name, go to their Profile tab (not UsersProfile).
     if (String(targetId) === String(userId || '')) {
       navigation.navigate('ProfileMain', {
         screen: 'Profile',
@@ -851,7 +839,7 @@ const SearchScreen = () => {
         battleLive: Boolean(user?.battleLive || user?.isBattleLive) || Number(String(targetId).slice(-1)) % 3 === 0,
       },
     });
-  }, [navigation, route?.name, route?.params, userId]);
+  }, [navigation, route?.name, route?.params, userId, t]);
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
@@ -900,7 +888,7 @@ const SearchScreen = () => {
         selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
         returnTo: route.name,
         returnParams: route.params,
-        profile
+        profile,
       },
     });
   };
@@ -944,10 +932,9 @@ const SearchScreen = () => {
     />
   ), [isScreenFocused, previewVisible, isSearchActive, playingVideoIndexes, donationTotals, handlePostPress, openPreview]);
 
-  // OPTIMIZATION 9: Stable keyExtractor to prevent FlatList re-keying
   const masonryKeyExtractor = useCallback((item, idx) =>
     item?.post?.id ? `${item.post.id}-${idx}-${item.columnIndex}` : `masonry-${idx}`,
-    [], []);
+    []);
 
   const userKeyExtractor = useCallback((item, idx) => String(item.id ?? idx), []);
 
@@ -965,12 +952,12 @@ const SearchScreen = () => {
   ), [handleUserProfile, text]);
 
   const renderListHeader = useCallback(() => (
-    <Text style={styles.sectionTitle}>Search Results</Text>
-  ), []);
+    <Text style={styles.sectionTitle}>{t('search.searchResultsTitle')}</Text>
+  ), [t]);
 
   const renderSearchBattleFooter = useCallback(() => (
     <View style={styles.searchBattlesSection}>
-      <Text style={styles.sectionTitle}>Open battles</Text>
+      <Text style={styles.sectionTitle}>{t('search.openBattles')}</Text>
       {searchedUserBattles.length > 0 ? (
         searchedUserBattles.map(item => (
           <View key={`search-battle-${item.id}`} style={styles.searchBattleCardWrapper}>
@@ -987,7 +974,7 @@ const SearchScreen = () => {
       ) : (
         <View style={styles.searchBattlesEmpty}>
           <Icon name="shield-outline" size={24} color="#999" />
-          <Text style={styles.emptySubtitle}>No open battles found for these users</Text>
+          <Text style={styles.emptySubtitle}>{t('search.noBattlesFound')}</Text>
         </View>
       )}
     </View>
@@ -997,6 +984,7 @@ const SearchScreen = () => {
     handleBattleCardPress,
     updateSelectedBattleOption,
     handleUserProfile,
+    t,
   ]);
 
   const previewMediaUrl = useMemo(() => {
@@ -1036,7 +1024,7 @@ const SearchScreen = () => {
                 <Icon name="search" size={20} color="#999" style={{ marginRight: 8 }} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search users..."
+                  placeholder={t('search.searchPlaceholder')}
                   placeholderTextColor="#999"
                   value={searchText}
                   onChangeText={handleSearch}
@@ -1070,7 +1058,7 @@ const SearchScreen = () => {
                       ⚔️
                     </Text>
                     <Text style={{ fontSize: 13, fontWeight: '700', color: "#fff" }}>
-                      Battle Explore
+                      {t('search.battleExplore')}
                     </Text>
                     <Icon name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
@@ -1090,11 +1078,12 @@ const SearchScreen = () => {
                           onOptionSelect={updateSelectedBattleOption}
                           onUserPress={handleUserProfile}
                         />
-
                       ))
                     ) : (
                       <View style={[styles.card, { justifyContent: 'center' }]}>
-                        <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>No battles found</Text>
+                        <Text numberOfLines={2} style={[styles.title, { textAlign: 'center' }]}>
+                          {t('search.noBattlesFoundCard')}
+                        </Text>
                       </View>
                     )}
                   </AutoScrollBattleRow>
@@ -1107,7 +1096,7 @@ const SearchScreen = () => {
                   {isSearching ? (
                     <View style={styles.emptyContainer}>
                       <ActivityIndicator size="large" color="#999" />
-                      <Text style={styles.emptySubtitle}>Loading users...</Text>
+                      <Text style={styles.emptySubtitle}>{t('search.loadingUsers')}</Text>
                     </View>
                   ) : filteredUsers.length > 0 ? (
                     <FlatList
@@ -1129,8 +1118,8 @@ const SearchScreen = () => {
                   ) : hasSearched ? (
                     <View style={styles.emptyContainer}>
                       <Icon name="search-outline" size={60} color="#ddd" />
-                      <Text style={styles.emptyTitle}>No users found</Text>
-                      <Text style={styles.emptySubtitle}>Try searching for a different user</Text>
+                      <Text style={styles.emptyTitle}>{t('search.noUsersFoundTitle')}</Text>
+                      <Text style={styles.emptySubtitle}>{t('search.noUsersFoundSubtitle')}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -1149,19 +1138,17 @@ const SearchScreen = () => {
                       contentContainerStyle={[styles.masonryContainer, { height: masonryLayout.maxHeight }]}
                       removeClippedSubviews
                       initialNumToRender={12}
-                      // OPTIMIZATION 10: Larger batches = fewer JS thread interruptions
                       maxToRenderPerBatch={20}
                       windowSize={15}
                       onScroll={onMasonryScroll}
                       scrollEventThrottle={16}
-                      // OPTIMIZATION 11: Disable VirtualizedList warnings for absolute layout
                       getItemLayout={undefined}
                     />
                   </View>
                 ) : (
                   <View style={styles.emptyContainer}>
                     <Icon name="images-outline" size={60} color="#ddd" />
-                    <Text style={styles.emptyTitle}>No posts available</Text>
+                    <Text style={styles.emptyTitle}>{t('search.noPostsAvailable')}</Text>
                   </View>
                 )
               ) : null}

@@ -33,14 +33,12 @@ import TokenSellModal from "../../components/modals/TokenSellModal";
 import CreditPurchaseModal from "../../components/modals/PurchaseCreditsModal";
 import { useAppTheme } from "../../theme/useApptheme";
 import HexAvatar from "../../components/home/story.js/HexAvatar";
+import { Dragonfly } from "../../assets/icons";
+import { useLanguage } from "../../i18n";
 import { getDragonflyIcon } from "../../components/profile/ProfilePersonalData";
 
 const WalletAddress = '0xf8652b01';
 const userCredits = { current: 3, total: 5, renewal: "Oct 1" };
-
-const sharewallet = () => {
-    Alert.alert('Shared', 'Wallet details shared successfully');
-}
 
 export default function WalletComponent() {
     const [userData, setUserData] = useState();
@@ -50,29 +48,31 @@ export default function WalletComponent() {
     const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
     const [creditsLeft, setCreditsLeft] = useState(0);
     const [postCounts, setPostCounts] = useState(0);
-    const [topCreators, setTopCreators] = useState([]); // State for top creators
-    const [holdingsData, setHoldingsData] = useState([]); // State for holdings data
+    const [topCreators, setTopCreators] = useState([]);
+    const [holdingsData, setHoldingsData] = useState([]);
     const [tokenAddress, setTokenAddress] = useState(null);
     const [showCreditModal, setShowCreditModal] = useState(false);
     const [profile, setProfile] = useState(null);
+
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const toast = useToast();
     const purchaseSheetRef = useRef(null);
     const sellSheetRef = useRef(null);
     const profileImage = useSelector(state => state.profileImage?.profileImg);
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, bg, text } = useAppTheme();
+    const { t } = useLanguage();
+
     const MAX_CREDITS = 5;
     const maxPurchasable = MAX_CREDITS - creditsLeft;
-    const userVerificationStatus = useMemo(() => {
-        const verified =
-            userData?.kyc === true;
-            //  && userData?.
-            //     kycStatus === "APPROVED";
 
+    const userVerificationStatus = useMemo(() => {
+        const verified = userData?.kyc === true;
         return {
             verified,
-            level: verified ? 'Dragonfly Verified' : 'Profile Not Verified',
+            level: verified
+                ? t('walletScreen.dragonflyVerified')
+                : t('walletScreen.profileNotVerified'),
         };
     }, [userData?.kyc, userData?.subscriptionStatus]);
     const DragonflyIcon = useMemo(() => {
@@ -96,13 +96,11 @@ export default function WalletComponent() {
         setProfile(type);
     }, []);
 
-
     const fetchUserCreds = useCallback(async () => {
         const id = await AsyncStorage.getItem('userId');
         try {
             dispatch(showLoader());
             const response = await getUserCredentials(id);
-
             if (response?.statusCode === 200) {
                 let userDataToSet;
                 if (response.data && response.data.user) {
@@ -112,36 +110,21 @@ export default function WalletComponent() {
                 } else {
                     userDataToSet = response;
                 }
-
                 if (userDataToSet?.image) {
-                    let formattedImageUrl = userDataToSet.image;
-                    formattedImageUrl = formattedImageUrl.trim();
-
-                    if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
-                        console.log('Image URL is already absolute:', formattedImageUrl);
-                    } else if (formattedImageUrl.startsWith('/')) {
-                        formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
-                        console.log('Converted relative URL to absolute:', formattedImageUrl);
-                    } else {
-                        formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
-                        console.log('Converted path to absolute URL:', formattedImageUrl);
+                    let formattedImageUrl = userDataToSet.image.trim();
+                    if (!formattedImageUrl.startsWith('http://') && !formattedImageUrl.startsWith('https://')) {
+                        formattedImageUrl = formattedImageUrl.startsWith('/')
+                            ? `http://35.174.167.92:3002${formattedImageUrl}`
+                            : `http://35.174.167.92:3002/${formattedImageUrl}`;
                     }
-
                     userDataToSet.image = formattedImageUrl;
-                    console.log('Final formatted image URL:', formattedImageUrl);
                 }
-
-                console.log(userDataToSet, 'this is response from getUserDashboard in wallet');
                 setUserData(userDataToSet);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
             }
         } catch (error) {
-            // showToastMessage(
-            //     toast,
-            //     'danger',
-            //     error?.response?.message ?? 'Something went wrong',
-            // );
+            // silent
         } finally {
             dispatch(hideLoader());
         }
@@ -157,16 +140,12 @@ export default function WalletComponent() {
                     0
                 );
                 setPortfolioValue(`$ ${totalPortfolioValue.toFixed(4)}`);
-                setHoldingsData(response.data); // Set holdings data
+                setHoldingsData(response.data);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
             }
         } catch (error) {
-            // showToastMessage(
-            //     toast,
-            //     'danger',
-            //     error?.response?.message ?? 'Something went wrong',
-            // );
+            // silent
         } finally {
             dispatch(hideLoader());
         }
@@ -176,10 +155,8 @@ export default function WalletComponent() {
         try {
             dispatch(showLoader());
             const response = await getCreditsLeft();
-            console.log('Credits Left Response:', response);
             if (response?.statusCode === 200) {
-                const hitLeftRaw = response?.data?.hitLeft;
-                const hitLeft = Number(hitLeftRaw);
+                const hitLeft = Number(response?.data?.hitLeft);
                 const cappedHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
                 setCreditsLeft(cappedHitLeft);
                 setPostCounts(response.data.postCount);
@@ -187,32 +164,23 @@ export default function WalletComponent() {
                 showToastMessage(toast, 'danger', response.data.message);
             }
         } catch (error) {
-            // showToastMessage(
-            //     toast,
-            //     'danger',
-            //     error?.response?.message ?? 'Something went wrong',
-            // );
+            // silent
         } finally {
             dispatch(hideLoader());
         }
     }, [dispatch, toast]);
 
-    // New function to fetch top creators
     const fetchTopCreators = useCallback(async () => {
         try {
             dispatch(showLoader());
-            const response = await getTopCreators(); // Call your top creators API
+            const response = await getTopCreators();
             if (response?.statusCode === 200) {
                 setTopCreators(response.data || []);
             } else {
                 showToastMessage(toast, 'danger', response?.message || 'Failed to fetch creators');
             }
         } catch (error) {
-            // showToastMessage(
-            //     toast,
-            //     'danger',
-            //     error?.response?.message ?? 'Something went wrong',
-            // );
+            // silent
         } finally {
             dispatch(hideLoader());
         }
@@ -224,44 +192,35 @@ export default function WalletComponent() {
             fetchUserCreds();
             fetchDashboardData();
             fetchCreditsLeft();
-            fetchTopCreators(); // Fetch top creators
+            fetchTopCreators();
         }, [fetchCreditsLeft, fetchDashboardData, fetchTopCreators, fetchUserCreds, loadProfileType])
     );
 
     useEffect(() => {
         let timeout;
-
         const onKeyboardHide = () => {
             timeout = setTimeout(() => {
                 purchaseSheetRef.current?.updateLayout?.({ height: 500 });
             }, 300);
         };
-
-
         const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
-
         return () => {
             hideSub.remove();
             if (timeout) clearTimeout(timeout);
         };
     }, []);
 
-    const handleFollowUnfollow = (selectedCreator, currentlyFollowing) => {
-        console.log(selectedCreator, 'selectedCreator');
-
-        setTokenAddress(selectedCreator?.tokenAddress || null);
-        setSelectedCreator(selectedCreator?.vendorId || null);
-        if (!currentlyFollowing) {
-            // setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
-        }
-        else {
-            // setTimeout(() => sellSheetRef.current?.open?.(), 0)
-        }
+    const handleFollowUnfollow = (creator, currentlyFollowing) => {
+        setTokenAddress(creator?.tokenAddress || null);
+        setSelectedCreator(creator?.vendorId || null);
     };
 
     const copyToClipboard = () => {
         Clipboard.setString(userData?.walletAddress);
-        Alert.alert("Copied!", `Your wallet address is copied to clipboard.`);
+        Alert.alert(
+            t('walletScreen.copiedTitle'),
+            t('walletScreen.copiedMessage')
+        );
     };
 
     const handleTokenModalClose = () => {
@@ -270,7 +229,7 @@ export default function WalletComponent() {
 
     const handleTokenPurchase = async () => {
         purchaseSheetRef.current?.close?.();
-    }
+    };
 
     const handleTokenSell = useCallback(() => {
         sellSheetRef.current?.close();
@@ -280,6 +239,15 @@ export default function WalletComponent() {
         fetchCreditsLeft();
         fetchTopCreators();
     }, [fetchCreditsLeft, fetchDashboardData, fetchTopCreators, fetchUserCreds, toast]);
+
+    const handleBuyCredits = () => {
+        const safeCredits = Number(creditsLeft) || 0;
+        if (safeCredits >= MAX_CREDITS) {
+            showToastMessage(toast, 'danger', t('walletScreen.maxCreditsReached'));
+            return;
+        }
+        setShowCreditModal(true);
+    };
 
     const CreatorDashboard = ({ creator }) => (
         <View style={[styles.creatorDashboard, { shadowColor: text }]}>
@@ -308,19 +276,19 @@ export default function WalletComponent() {
                     <Text style={[styles.statValue, textStyle]}>
                         ${creator.tokenPrice?.toFixed(4) || '0.00'}
                     </Text>
-                    <Text style={styles.statLabel}>Current Price</Text>
+                    <Text style={styles.statLabel}>{t('walletScreen.currentPrice')}</Text>
                 </View>
                 <View style={styles.statItem}>
                     <Text style={[styles.statValue, textStyle]}>
                         ${creator.totalTokenAmount?.toFixed(2) || '0.00'}
                     </Text>
-                    <Text style={styles.statLabel}>Total Value</Text>
+                    <Text style={styles.statLabel}>{t('walletScreen.totalValue')}</Text>
                 </View>
                 <View style={styles.statItem}>
                     <Text style={[styles.statValue, textStyle]}>
                         {creator.tokenAmount || 0}
                     </Text>
-                    <Text style={styles.statLabel}>Tokens Held</Text>
+                    <Text style={styles.statLabel}>{t('walletScreen.tokensHeld')}</Text>
                 </View>
             </View>
 
@@ -329,13 +297,15 @@ export default function WalletComponent() {
                     style={[styles.tradeBtn, { backgroundColor: text }]}
                     onPress={() => handleFollowUnfollow(creator, false)}
                 >
-                    <Text style={styles.tradeBtnText}>Buy (Follow)</Text>
+                    <Text style={styles.tradeBtnText}>{t('walletScreen.buyFollow')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.tradeBtn, styles.sellBtn, { backgroundColor: text }]}
                     onPress={() => handleFollowUnfollow(creator, true)}
                 >
-                    <Text style={[styles.tradeBtnText, styles.sellBtnText]}>Sell (Unfollow)</Text>
+                    <Text style={[styles.tradeBtnText, styles.sellBtnText]}>
+                        {t('walletScreen.sellUnfollow')}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -349,8 +319,9 @@ export default function WalletComponent() {
 
         return (
             <View style={[{ flex: 1 }]}>
-                <Text style={[styles.subHeader, { shadowColor: text }]}>{filteredList.length} Top creators</Text>
-                {/* <Text style={styles.note}>Follow = Buy | Unfollow = Sell easily</Text> */}
+                <Text style={[styles.subHeader, { shadowColor: text }]}>
+                    {t('walletScreen.topCreatorsCount', { count: filteredList.length })}
+                </Text>
 
                 <FlatList
                     data={filteredList}
@@ -358,9 +329,7 @@ export default function WalletComponent() {
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             style={[styles.coinItem, { shadowColor: text }]}
-                            onPress={() => {
-                                setSelectedCreator(item);
-                            }}
+                            onPress={() => setSelectedCreator(item)}
                         >
                             <View style={[styles.coinAvatar, { backgroundColor: text }]}>
                                 <Text style={styles.avatarText}>
@@ -369,9 +338,7 @@ export default function WalletComponent() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <View style={styles.nameRow}>
-                                    <Text style={styles.coinName}>
-                                        {item.username || 'Unknown'}
-                                    </Text>
+                                    <Text style={styles.coinName}>{item.username || 'Unknown'}</Text>
                                 </View>
                                 <Text style={styles.creatorUsername}>
                                     {item.tokenAddress ? `${item.tokenAddress.slice(0, 15)}...` : ''}
@@ -380,26 +347,17 @@ export default function WalletComponent() {
                                     Tokens: {item.tokenAmount || 0}
                                 </Text>
                             </View>
-
                             <View style={styles.priceSection}>
                                 <Text style={[styles.price, textStyle]}>
                                     ${item.purchaseTokenPrice?.toFixed(4) || '0.00'}
                                 </Text>
-                                {/* <TouchableOpacity
-                                    style={[styles.followBtn, {bordercolor: text, backgroundColor: text}]}
-                                    // onPress={() => { setTimeout(() => purchaseSheetRef.current?.open?.(), 0); }}
-                                >
-                                    <Text style={[styles.followBtnText, styles.followBtnActiveText]}>
-                                        Buy
-                                    </Text>
-                                </TouchableOpacity> */}
                             </View>
                         </TouchableOpacity>
                     )}
                     ListEmptyComponent={() => (
                         <View style={{ padding: 20, alignItems: 'center' }}>
                             <Text style={{ color: '#666', fontSize: 16 }}>
-                                No creators found
+                                {t('walletScreen.noCreatorsFound')}
                             </Text>
                         </View>
                     )}
@@ -411,8 +369,10 @@ export default function WalletComponent() {
     const MyHoldings = () => {
         return (
             <View style={[{ flex: 1 }, bgStyle]}>
-                <Text style={[styles.subHeader, { shadowColor: text }]}>{holdingsData.length} holdings</Text>
-                <Text style={styles.note}>Your current creator investments</Text>
+                <Text style={[styles.subHeader, { shadowColor: text }]}>
+                    {t('walletScreen.holdingsCount', { count: holdingsData.length })}
+                </Text>
+                <Text style={styles.note}>{t('walletScreen.holdingsNote')}</Text>
 
                 <FlatList
                     data={holdingsData}
@@ -425,10 +385,10 @@ export default function WalletComponent() {
                     ListEmptyComponent={() => (
                         <View style={{ padding: 20, alignItems: 'center' }}>
                             <Text style={{ color: '#666', fontSize: 16 }}>
-                                You don't have any holdings yet
+                                {t('walletScreen.noHoldingsTitle')}
                             </Text>
                             <Text style={{ color: '#999', fontSize: 14, marginTop: 8 }}>
-                                Start following creators to build your portfolio
+                                {t('walletScreen.noHoldingsSub')}
                             </Text>
                         </View>
                     )}
@@ -437,45 +397,14 @@ export default function WalletComponent() {
         );
     };
 
-    // const handleBuyCredits = () => {
-    //     if (profile === 'company') {
-    //         if (postCounts >= 7) {
-    //             showToastMessage(toast, 'danger', 'You already have maximum credits.');
-    //         } else {
-    //             if (creditsLeft >= 5) {
-    //                 showToastMessage(toast, 'danger', 'You already have maximum credits.');
-    //             } else {
-    //                 setShowCreditModal(true);
-    //             }
-    //         }
-    //     } else {
-    //         if (postCounts >= 5) {
-    //             showToastMessage(toast, 'danger', 'You already have maximum credits.');
-    //         } else {
-    //             if (creditsLeft >= 5) {
-    //                 showToastMessage(toast, 'danger', 'You already have maximum credits.');
-    //             } else {
-    //                 setShowCreditModal(true);
-    //             }
-    //         }
-    //     }
-    // };
-    const handleBuyCredits = () => {
-        const safeCredits = Number(creditsLeft) || 0;
-
-        if (safeCredits >= MAX_CREDITS) {
-            showToastMessage(toast, 'danger', 'You already have maximum credits.');
-            return;
-        }
-
-        setShowCreditModal(true);
-    };
     const Tab = createMaterialTopTabNavigator();
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 10, marginTop: Platform.OS == "ios" ? 20 : 0 }}
-                showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={{ paddingBottom: 10, marginTop: Platform.OS === "ios" ? 20 : 0 }}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={{ paddingHorizontal: 15 }}>
                     {/* Profile Section */}
                     <View style={styles.profileSection}>
@@ -486,20 +415,7 @@ export default function WalletComponent() {
                                  <DragonflyIcon width={22} height={22} style={styles.icon} />
                                  )}
                             </View>
-                            {/* <Text style={[styles.verificationBadge, textStyle]}>{userVerificationStatus.level}</Text> */}
-                            {/* <View style={styles.idRow}>
-                                <Text style={[styles.walletAddress, textStyle]}>{(userData?.walletAddress || '').trim().slice(0, 10)}</Text>
-                                <TouchableOpacity onPress={copyToClipboard} style={styles.clipboardBtn}>
-                                    <Ionicons name="copy-outline" size={15} color="#000" />
-                                </TouchableOpacity>
-                            </View> */}
                         </View>
-                        {/* <Image
-                            source={{
-                                uri: profileImage ? profileImage : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                            }}
-                            style={styles.profileImage}
-                        /> */}
                         <HexAvatar
                             uri={profileImage || require('../../assets/icons/pngicons/user.png')}
                             size={100}
@@ -508,28 +424,28 @@ export default function WalletComponent() {
                         />
                     </View>
 
-                    {/* Holdings Box */}
-                    {/* <View style={[styles.holdingsBox, { shadowColor: text }]}>
-                        <Text style={styles.holdingsText}>Total value of holdings</Text>
-                        <Text style={[styles.holdingsAmount, textStyle]}>{portfolioValue || '$ 0.00'}</Text>
-                    </View> */}
-
                     {/* Credits Section */}
                     <View style={[styles.creditsBox, { shadowColor: text }]}>
                         <View style={styles.creditsInfo}>
                             <MaterialCommunityIcons name="credit-card-outline" size={24} color={text} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={styles.creditsTitle}>Post Credits</Text>
+                                <Text style={styles.creditsTitle}>
+                                    {t('walletScreen.postCredits')}
+                                </Text>
                                 <Text style={[styles.creditsCount, textStyle]}>
-                                    {creditsLeft} / 5 remaining
+                                    {t('walletScreen.creditsRemaining', { count: creditsLeft })}
                                 </Text>
                             </View>
                         </View>
-                        {/* {String(profile || '').toLowerCase() !== 'company' && ( */}
-                        <TouchableOpacity style={[styles.buyCreditsBtn, { backgroundColor: text }]} onPress={handleBuyCredits} disabled={creditsLeft >= 5}>
-                            <Text style={styles.buyCreditsText}>Buy Credits</Text>
+                        <TouchableOpacity
+                            style={[styles.buyCreditsBtn, { backgroundColor: text }]}
+                            onPress={handleBuyCredits}
+                            disabled={creditsLeft >= 5}
+                        >
+                            <Text style={styles.buyCreditsText}>
+                                {t('walletScreen.buyCredits')}
+                            </Text>
                         </TouchableOpacity>
-                        {/* )} */}
                         <View
                             style={[
                                 styles.creditsInfo,
@@ -544,37 +460,17 @@ export default function WalletComponent() {
                         >
                             <MaterialCommunityIcons name="gift-outline" size={24} color={text} />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={styles.creditsTitle}>Referral Points</Text>
-                                <Text style={[styles.creditsCount, textStyle]}>{referPoints} pts</Text>
+                                <Text style={styles.creditsTitle}>
+                                    {t('walletScreen.referralPoints')}
+                                </Text>
+                                <Text style={[styles.creditsCount, textStyle]}>
+                                    {t('walletScreen.referralPts', { count: referPoints })}
+                                </Text>
                             </View>
                         </View>
                     </View>
                 </View>
             </ScrollView>
-
-            {/* Tabs */}
-            {/* <View style={{ flex: 1, minHeight: 350 }}>
-                <Tab.Navigator
-                    screenOptions={{
-                        tabBarLabelStyle: { fontWeight: '700', fontSize: 14, color: text },
-                        tabBarStyle: bgStyle,
-                        tabBarIndicatorStyle: { backgroundColor: text, height: 3, borderRadius: 2 },
-                    }}
-                >
-                    <Tab.Screen
-                        name="Discover"
-                        children={() => (
-                            <CoinsList
-                                navigation={navigation}
-                            />
-                        )}
-                    />
-                    <Tab.Screen
-                        name="Holdings"
-                        component={MyHoldings}
-                    />
-                </Tab.Navigator>
-            </View> */}
 
             {/* Token Purchase Modal */}
             <RBSheet
@@ -591,15 +487,8 @@ export default function WalletComponent() {
                     setSelectedCreator(null);
                 }}
                 customStyles={{
-                    container: [{
-                        borderTopLeftRadius: 30,
-                        borderTopRightRadius: 30,
-                        bottom: -30,
-                    }, bgStyle],
-                    draggableIcon: {
-                        backgroundColor: '#ccc',
-                        width: 60,
-                    },
+                    container: [{ borderTopLeftRadius: 30, borderTopRightRadius: 30, bottom: -30 }, bgStyle],
+                    draggableIcon: { backgroundColor: '#ccc', width: 60 },
                 }}
             >
                 <TokenPurchaseModal
@@ -626,15 +515,8 @@ export default function WalletComponent() {
                     setSelectedCreator(null);
                 }}
                 customStyles={{
-                    container: [{
-                        borderTopLeftRadius: 30,
-                        borderTopRightRadius: 30,
-                        bottom: -30,
-                    }, bgStyle],
-                    draggableIcon: {
-                        backgroundColor: '#ccc',
-                        width: 60,
-                    },
+                    container: [{ borderTopLeftRadius: 30, borderTopRightRadius: 30, bottom: -30 }, bgStyle],
+                    draggableIcon: { backgroundColor: '#ccc', width: 60 },
                 }}
             >
                 <TokenSellModal
@@ -643,6 +525,7 @@ export default function WalletComponent() {
                     tokenAddress={tokenAddress}
                 />
             </RBSheet>
+
             <CreditPurchaseModal
                 visible={showCreditModal}
                 onClose={() => setShowCreditModal(false)}

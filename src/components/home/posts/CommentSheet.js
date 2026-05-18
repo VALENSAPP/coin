@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAppTheme } from '../../../theme/useApptheme';
 import HexAvatar from '../story.js/HexAvatar';
+import { useLanguage } from '../../../i18n';
 import { useNavigation } from '@react-navigation/native';
 
 const mapCommentItem = comment => ({
@@ -97,6 +98,8 @@ const CommentItem = memo(
     onThumbsDownPress,
     commentVotes,
   }) => {
+    const { t } = useLanguage();
+
     const navigation = useNavigation();
     const normalizeId = id => (id != null ? String(id).trim() : '');
 
@@ -142,7 +145,7 @@ const CommentItem = memo(
             <Text style={styles.commentText}>{item.text}</Text>
             <View style={styles.commentActionsRow}>
               <TouchableOpacity onPress={() => onReplyPress?.(item)}>
-                <Text style={styles.replyButtonText}>Reply</Text>
+                <Text style={styles.replyButtonText}>{t('commentSheet.reply')}</Text>
               </TouchableOpacity>
 
               <View style={styles.votingContainer}>
@@ -195,8 +198,8 @@ const CommentItem = memo(
                 <TouchableOpacity onPress={() => onToggleReplies?.(item.id)}>
                   <Text style={styles.replyButtonText}>
                     {isExpanded
-                      ? 'Hide replies'
-                      : `View replies (${item.replies.length})`}
+                      ? t('commentSheet.hideReplies')
+                      : t('commentSheet.viewReplies', { count: item.replies.length })}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -216,11 +219,11 @@ const CommentItem = memo(
         {replyingToThreadId === item.id && (
           <View style={styles.replyComposer}>
             <Text style={styles.replyingLabel}>
-              Replying to {replyingToUsername || item.username}
+              {t('commentSheet.replyingTo')} {replyingToUsername || item.username}
             </Text>
             <View style={styles.inlineReplyRow}>
               <TextInput
-                placeholder="Write a reply..."
+                placeholder={t('commentSheet.writeReplyPlaceholder')}
                 placeholderTextColor="#999"
                 style={styles.replyInput}
                 value={replyText}
@@ -228,7 +231,7 @@ const CommentItem = memo(
                 editable={!isPosting}
               />
               <TouchableOpacity onPress={onCancelReply}>
-                <Text style={styles.replyCancelText}>Cancel</Text>
+                <Text style={styles.replyCancelText}>{t('commentSheet.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onSubmitReply}
@@ -241,7 +244,7 @@ const CommentItem = memo(
                       styles.sendText,
                       !replyText.trim() && styles.sendTextDisabled,
                     ]}>
-                    Post
+                    {t('commentSheet.post')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -282,7 +285,7 @@ const CommentItem = memo(
                     <Text style={styles.commentText}>{reply.text}</Text>
                     <View style={styles.commentActionsRow}>
                       <TouchableOpacity onPress={() => onReplyPress?.(reply)}>
-                        <Text style={styles.replyButtonText}>Reply</Text>
+                        <Text style={styles.replyButtonText}>{t('commentSheet.reply')}</Text>
                       </TouchableOpacity>
                       <View style={styles.votingContainer}>
                         <TouchableOpacity
@@ -292,8 +295,7 @@ const CommentItem = memo(
                           <Text
                             style={[
                               styles.voteIcon,
-                              replyVotes.userVote === 'up' &&
-                                styles.voteIconActive,
+                              replyVotes.userVote === 'up' && styles.voteIconActive,
                             ]}>
                             👍
                           </Text>
@@ -301,8 +303,7 @@ const CommentItem = memo(
                             <Text
                               style={[
                                 styles.voteCount,
-                                replyVotes.userVote === 'up' &&
-                                  styles.voteCountActive,
+                                replyVotes.userVote === 'up' && styles.voteCountActive,
                               ]}>
                               {replyVotes.thumbsUp}
                             </Text>
@@ -315,8 +316,7 @@ const CommentItem = memo(
                           <Text
                             style={[
                               styles.voteIcon,
-                              replyVotes.userVote === 'down' &&
-                                styles.voteIconActive,
+                              replyVotes.userVote === 'down' && styles.voteIconActive,
                             ]}>
                             👎
                           </Text>
@@ -324,8 +324,7 @@ const CommentItem = memo(
                             <Text
                               style={[
                                 styles.voteCount,
-                                replyVotes.userVote === 'down' &&
-                                  styles.voteCountActive,
+                                replyVotes.userVote === 'down' && styles.voteCountActive,
                               ]}>
                               {replyVotes.thumbsDown}
                             </Text>
@@ -377,16 +376,15 @@ export default function CommentSheet({
   const [expandedReplies, setExpandedReplies] = useState({});
   const [commentVotes, setCommentVotes] = useState({});
 
-  // Track in-flight fetch so we never double-apply
   const isFetchingRef = useRef(false);
 
   const toast = useToast();
+  const { t } = useLanguage();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const { bgStyle, textStyle, text } = useAppTheme();
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
-  /** Build votesMap from a flat array of raw API comment objects */
   const buildVotesMap = rawList =>
     rawList.reduce((map, c) => {
       const userVote =
@@ -403,7 +401,6 @@ export default function CommentSheet({
       return map;
     }, {});
 
-  /** Flatten raw API comments (with nested replies) to a single array */
   const flattenRaw = rawComments =>
     (Array.isArray(rawComments) ? rawComments : []).reduce((acc, c) => {
       acc.push(c);
@@ -414,7 +411,6 @@ export default function CommentSheet({
   // ─── fetch ───────────────────────────────────────────────────────────────────
 
   const fetchComments = useCallback(async () => {
-    // Prevent overlapping fetches
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
 
@@ -432,10 +428,10 @@ export default function CommentSheet({
         setCommentVotes(votes);
         onCommentCountUpdate?.(postId, tree.length);
       } else {
-        showToastMessage(toast, 'danger', 'Failed to load comments');
+        showToastMessage(toast, 'danger', t('commentSheet.errorLoadFailed'));
       }
     } catch {
-      showToastMessage(toast, 'danger', 'Error fetching comments');
+      showToastMessage(toast, 'danger', t('commentSheet.errorFetch'));
     } finally {
       setInitialLoading(false);
       isFetchingRef.current = false;
@@ -452,7 +448,7 @@ export default function CommentSheet({
   const handleSendComment = useCallback(async () => {
     const activeText = replyingToComment ? replyText : commentText;
     if (!activeText.trim()) {
-      showToastMessage(toast, 'danger', 'Please enter a comment');
+      showToastMessage(toast, 'danger', t('commentSheet.errorEmptyComment'));
       return;
     }
     if (isPosting) return;
@@ -464,11 +460,10 @@ export default function CommentSheet({
       const oldText = editingComment.text;
       setIsPosting(true);
 
-      // Optimistic update
       setComments(prev =>
         prev.map(c =>
           c.id === editingComment.id
-            ? { ...c, text: trimmedComment, time: 'Edited just now' }
+            ? { ...c, text: trimmedComment, time: t('commentSheet.editedJustNow') }
             : c,
         ),
       );
@@ -478,17 +473,15 @@ export default function CommentSheet({
       try {
         const response = await editComment(editingComment.id, trimmedComment);
         if (response.success) {
-          // Refresh to get canonical server data
           await fetchComments();
-          showToastMessage(toast, 'success', 'Comment updated');
+          showToastMessage(toast, 'success', t('commentSheet.successCommentUpdated'));
         } else {
-          // Revert
           setComments(prev =>
             prev.map(c =>
               c.id === editingComment.id ? { ...c, text: oldText } : c,
             ),
           );
-          showToastMessage(toast, 'danger', 'Failed to update comment');
+          showToastMessage(toast, 'danger', t('commentSheet.errorUpdateFailed'));
         }
       } catch {
         setComments(prev =>
@@ -496,7 +489,7 @@ export default function CommentSheet({
             c.id === editingComment.id ? { ...c, text: oldText } : c,
           ),
         );
-        showToastMessage(toast, 'danger', 'Error updating comment');
+        showToastMessage(toast, 'danger', t('commentSheet.errorUpdate'));
       } finally {
         setIsPosting(false);
       }
@@ -506,26 +499,22 @@ export default function CommentSheet({
     // ── REPLY FLOW ─────────────────────────────────────────────────────────────
     if (replyingToComment?.id) {
       setIsPosting(true);
-      const threadId =
-        replyingToComment.threadId || replyingToComment.id;
+      const threadId = replyingToComment.threadId || replyingToComment.id;
 
-      // Clear input immediately for better UX
       setReplyText('');
       setReplyingToComment(null);
 
       try {
         const response = await postComment(postId, trimmedComment, threadId);
         if (response.success) {
-          // Expand the thread so the new reply is visible
           setExpandedReplies(prev => ({ ...prev, [threadId]: true }));
-          // Single authoritative fetch — no optimistic state to reconcile
           await fetchComments();
-          showToastMessage(toast, 'success', 'Reply posted successfully');
+          showToastMessage(toast, 'success', t('commentSheet.successReplyPosted'));
         } else {
-          showToastMessage(toast, 'danger', 'Failed to post reply');
+          showToastMessage(toast, 'danger', t('commentSheet.errorReplyFailed'));
         }
       } catch {
-        showToastMessage(toast, 'danger', 'Error posting reply');
+        showToastMessage(toast, 'danger', t('commentSheet.errorReply'));
       } finally {
         setIsPosting(false);
       }
@@ -537,17 +526,16 @@ export default function CommentSheet({
     const tempComment = {
       id: tempId,
       userId: currentUser?.id,
-      username: currentUser?.displayName || 'You',
+      username: currentUser?.displayName || t('commentSheet.you'),
       avatar:
         currentUser?.avatar ||
         'https://cdn-icons-png.flaticon.com/512/149/149071.png',
       text: trimmedComment,
-      time: 'Just now',
+      time: t('commentSheet.justNow'),
       replies: [],
       isOptimistic: true,
     };
 
-    // Optimistic add
     setComments(prev => [tempComment, ...prev]);
     setCommentText('');
     onCommentCountUpdate?.(postId, comments.length + 1);
@@ -556,19 +544,17 @@ export default function CommentSheet({
     try {
       const response = await postComment(postId, trimmedComment);
       if (response.success) {
-        // Replace optimistic item via a single fetch — avoids duplicate entries
         await fetchComments();
-        showToastMessage(toast, 'success', 'Comment posted successfully');
+        showToastMessage(toast, 'success', t('commentSheet.successCommentPosted'));
       } else {
-        // Revert
         setComments(prev => prev.filter(c => c.id !== tempId));
         onCommentCountUpdate?.(postId, comments.length);
-        showToastMessage(toast, 'danger', 'Failed to post comment');
+        showToastMessage(toast, 'danger', t('commentSheet.errorPostFailed'));
       }
     } catch {
       setComments(prev => prev.filter(c => c.id !== tempId));
       onCommentCountUpdate?.(postId, comments.length);
-      showToastMessage(toast, 'danger', 'Error posting comment');
+      showToastMessage(toast, 'danger', t('commentSheet.errorPost'));
     } finally {
       setIsPosting(false);
     }
@@ -584,6 +570,7 @@ export default function CommentSheet({
     fetchComments,
     onCommentCountUpdate,
     toast,
+    t,
   ]);
 
   // ─── moderation ──────────────────────────────────────────────────────────────
@@ -614,7 +601,7 @@ export default function CommentSheet({
 
   const handleDeleteComment = useCallback(async () => {
     if (!selectedComment?.id) {
-      showToastMessage(toast, 'danger', 'Invalid comment');
+      showToastMessage(toast, 'danger', t('commentSheet.errorInvalidComment'));
       return;
     }
 
@@ -625,18 +612,13 @@ export default function CommentSheet({
       viewerId && postOwnerId != null && String(postOwnerId) === viewerId;
 
     if (!(isCommentAuthor || isPostOwner)) {
-      showToastMessage(
-        toast,
-        'danger',
-        'You do not have permission to delete this comment',
-      );
+      showToastMessage(toast, 'danger', t('commentSheet.errorNoPermission'));
       return;
     }
 
     const commentId = selectedComment.id;
     if (isDeleting.has(commentId)) return;
 
-    // Optimistic remove
     setComments(prev => prev.filter(c => c.id !== commentId));
     onCommentCountUpdate?.(postId, Math.max(0, comments.length - 1));
     setIsDeleting(prev => new Set(prev).add(commentId));
@@ -648,24 +630,22 @@ export default function CommentSheet({
         showToastMessage(
           toast,
           'success',
-          response.data?.message || 'Comment deleted',
+          response.data?.message || t('commentSheet.successCommentDeleted'),
         );
-        // Refresh so reply counts / tree are accurate
         await fetchComments();
       } else {
-        // Revert
         setComments(prev => [selectedComment, ...prev]);
         onCommentCountUpdate?.(postId, comments.length);
         showToastMessage(
           toast,
           'danger',
-          response.data?.message || 'Failed to delete comment',
+          response.data?.message || t('commentSheet.errorDeleteFailed'),
         );
       }
     } catch {
       setComments(prev => [selectedComment, ...prev]);
       onCommentCountUpdate?.(postId, comments.length);
-      showToastMessage(toast, 'danger', 'Error deleting comment');
+      showToastMessage(toast, 'danger', t('commentSheet.errorDelete'));
     } finally {
       setIsDeleting(prev => {
         const next = new Set(prev);
@@ -685,6 +665,7 @@ export default function CommentSheet({
     fetchComments,
     onCommentCountUpdate,
     toast,
+    t,
   ]);
 
   const handleEditComment = useCallback(() => {
@@ -710,13 +691,9 @@ export default function CommentSheet({
       setCommentVotes(prev => ({
         ...prev,
         [commentId]: {
-          thumbsUp: isAlreadyVoted
-            ? current.thumbsUp - 1
-            : current.thumbsUp + 1,
+          thumbsUp: isAlreadyVoted ? current.thumbsUp - 1 : current.thumbsUp + 1,
           thumbsDown:
-            current.userVote === 'down'
-              ? current.thumbsDown - 1
-              : current.thumbsDown,
+            current.userVote === 'down' ? current.thumbsDown - 1 : current.thumbsDown,
           userVote: isAlreadyVoted ? null : 'up',
         },
       }));
@@ -724,13 +701,13 @@ export default function CommentSheet({
       try {
         const response = await postCommentReaction({ commentId, reaction });
         if (!response.success) {
-          showToastMessage(toast, 'danger', 'Failed to save reaction');
+          showToastMessage(toast, 'danger', t('commentSheet.errorReactionFailed'));
         }
       } catch {
-        showToastMessage(toast, 'danger', 'Error saving reaction');
+        showToastMessage(toast, 'danger', t('commentSheet.errorReaction'));
       }
     },
-    [commentVotes, toast],
+    [commentVotes, toast, t],
   );
 
   const handleThumbsDownPress = useCallback(
@@ -747,12 +724,8 @@ export default function CommentSheet({
         ...prev,
         [commentId]: {
           thumbsUp:
-            current.userVote === 'up'
-              ? current.thumbsUp - 1
-              : current.thumbsUp,
-          thumbsDown: isAlreadyVoted
-            ? current.thumbsDown - 1
-            : current.thumbsDown + 1,
+            current.userVote === 'up' ? current.thumbsUp - 1 : current.thumbsUp,
+          thumbsDown: isAlreadyVoted ? current.thumbsDown - 1 : current.thumbsDown + 1,
           userVote: isAlreadyVoted ? null : 'down',
         },
       }));
@@ -760,13 +733,13 @@ export default function CommentSheet({
       try {
         const response = await postCommentReaction({ commentId, reaction });
         if (!response.success) {
-          showToastMessage(toast, 'danger', 'Failed to save reaction');
+          showToastMessage(toast, 'danger', t('commentSheet.errorReactionFailed'));
         }
       } catch {
-        showToastMessage(toast, 'danger', 'Error saving reaction');
+        showToastMessage(toast, 'danger', t('commentSheet.errorReaction'));
       }
     },
-    [commentVotes, toast],
+    [commentVotes, toast, t],
   );
 
   // ─── list rendering ───────────────────────────────────────────────────────────
@@ -821,7 +794,9 @@ export default function CommentSheet({
 
   return (
     <View style={[styles.container, bgStyle]}>
-      <Text style={styles.title}>Comments ({comments.length})</Text>
+      <Text style={styles.title}>
+        {t('commentSheet.title', { count: comments.length })}
+      </Text>
 
       {initialLoading ? (
         <View style={styles.emptyContainer}>
@@ -829,7 +804,7 @@ export default function CommentSheet({
         </View>
       ) : comments.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No comments yet</Text>
+          <Text style={styles.emptyText}>{t('commentSheet.noComments')}</Text>
         </View>
       ) : (
         <FlatList
@@ -854,10 +829,10 @@ export default function CommentSheet({
         <TextInput
           placeholder={
             editingComment
-              ? 'Edit your comment...'
+              ? t('commentSheet.editPlaceholder')
               : replyingToComment
-              ? `Reply to ${replyingToComment.username}...`
-              : 'Add a comment...'
+              ? t('commentSheet.replyPlaceholder', { username: replyingToComment.username })
+              : t('commentSheet.addCommentPlaceholder')
           }
           placeholderTextColor="#999"
           style={styles.input}
@@ -881,12 +856,15 @@ export default function CommentSheet({
                   ? replyText.trim()
                   : commentText.trim()) && styles.sendTextDisabled,
               ]}>
-              {editingComment ? 'Update' : replyingToComment ? 'Reply' : 'Send'}
+              {editingComment
+                ? t('commentSheet.update')
+                : replyingToComment
+                ? t('commentSheet.reply')
+                : t('commentSheet.send')}
             </Text>
           )}
         </TouchableOpacity>
 
-        {/* Cancel button shown while editing or replying */}
         {(editingComment || replyingToComment) && (
           <TouchableOpacity
             style={{ marginLeft: 8 }}
@@ -918,8 +896,8 @@ export default function CommentSheet({
               disabled={selectedComment && isDeleting.has(selectedComment.id)}>
               <Text style={styles.modalButtonText}>
                 {selectedComment && isDeleting.has(selectedComment.id)
-                  ? 'Deleting...'
-                  : 'Delete Comment'}
+                  ? t('commentSheet.deleting')
+                  : t('commentSheet.deleteComment')}
               </Text>
             </TouchableOpacity>
 
@@ -927,7 +905,7 @@ export default function CommentSheet({
               <TouchableOpacity
                 style={styles.modalButton}
                 onPress={handleEditComment}>
-                <Text style={styles.modalButtonText}>Edit Comment</Text>
+                <Text style={styles.modalButtonText}>{t('commentSheet.editComment')}</Text>
               </TouchableOpacity>
             )}
 
@@ -937,7 +915,7 @@ export default function CommentSheet({
                 setIsModalVisible(false);
                 setSelectedComment(null);
               }}>
-              <Text style={styles.modalButtonText}>Cancel</Text>
+              <Text style={styles.modalButtonText}>{t('commentSheet.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

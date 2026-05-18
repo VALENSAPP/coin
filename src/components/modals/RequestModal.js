@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import Modal from 'react-native-modal';
+import { useLanguage } from '../../i18n';
 
 /**
  * Pending WalletConnect / RPC UI (matches the Reown sample: loading + JSON result).
@@ -18,6 +19,8 @@ export function RequestModal({
   isLoading,
   rpcResponse,
 }) {
+  const { t } = useLanguage();
+
   return (
     <Modal
       isVisible={isVisible}
@@ -27,27 +30,24 @@ export function RequestModal({
       backdropTransitionOutTiming={0}
       onBackdropPress={onClose}
       onBackButtonPress={onClose}
-      style={styles.modalRoot}>
+      style={styles.modalRoot}
+    >
       <View style={styles.innerContainer}>
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
           <Text style={styles.closeButtonText}>×</Text>
         </TouchableOpacity>
+
         {isLoading && (
           <View style={styles.section}>
-            <Text style={styles.title}>Pending request</Text>
-            <Text style={styles.subtitle}>
-              Approve or reject in your wallet if prompted.
-            </Text>
-            <ActivityIndicator
-              style={styles.loader}
-              size="large"
-              color="#3396FF"
-            />
+            <Text style={styles.title}>{t('requestModal.pendingTitle')}</Text>
+            <Text style={styles.subtitle}>{t('requestModal.pendingSubtitle')}</Text>
+            <ActivityIndicator style={styles.loader} size="large" color="#3396FF" />
           </View>
         )}
+
         {rpcResponse && !isLoading && (
           <ScrollView style={styles.scroll}>
-            <Text style={styles.title}>Result</Text>
+            <Text style={styles.title}>{t('requestModal.resultTitle')}</Text>
             <Text style={styles.responseText} selectable>
               {JSON.stringify(rpcResponse, null, 2)}
             </Text>

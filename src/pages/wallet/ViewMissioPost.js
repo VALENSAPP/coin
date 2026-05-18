@@ -6,10 +6,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLanguage } from '../../i18n';
 
 export default function ViewMissioPost({ navigation, route }) {
     const { isBusinessProfile } = route.params || {};
     const { bgStyle, text } = useAppTheme();
+    const { t } = useLanguage();
+
     const [missions, setMissions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -28,47 +31,26 @@ export default function ViewMissioPost({ navigation, route }) {
                 const raw = response.data?.data || response.data || [];
                 const data = Array.isArray(raw) ? raw.map(item => ({
                     id: item.id,
-
-                    // caption and text are both null in API; type = 'crowdfunding' — use type as fallback title
                     title: item.caption || item.text || item.type || 'Mission Post',
-
-                    // status is not returned directly — derive from end_time
                     status: item.end_time && new Date(item.end_time) < new Date()
                         ? 'Completed'
                         : item.start_time && new Date(item.start_time) > new Date()
                             ? 'Upcoming'
                             : 'Active',
-
                     period: item.start_time && item.end_time
                         ? `${new Date(item.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(item.end_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                        : 'No period set',
-
+                        : t('viewMissionPost.noPeriodSet'),
                     endTime: item.end_time,
                     startTime: item.start_time,
-
-                    // commentCount is the request count
                     requests: item.commentCount ?? 0,
-
-                    // earning.total is the total earned
                     earned: item.earning?.total ?? 0,
-
-                    // You (80%) of raiseAmount
                     split: item.earning?.total ? (item.earning.total * 0.8).toFixed(2) : '0.00',
-
-                    // Platform fee: earning.platformFees (already a value, not a ratio)
                     valensFee: item.earning?.platformFees ?? '0.00',
-
-                    // Stripe fee: 5% of raiseAmount
                     stripeFee: item.earning?.total ? (item.earning.total * 0.05).toFixed(2) : '0.00',
-
-                    // tokenBalance is the total
                     total: item.tokenBalance ?? 0,
-
-                    type: item.type,           // e.g. 'crowdfunding'
+                    type: item.type,
                     userImage: item.userImage,
                     userName: item.userName,
-
-                    // thumbnails[] preferred, fallback to images[]
                     thumbnail: item.thumbnails?.[0] || item.images?.[0] || null,
                 })) : [];
                 setMissions(data);
@@ -77,13 +59,13 @@ export default function ViewMissioPost({ navigation, route }) {
             }
         } catch (err) {
             console.error('Error fetching missions:', err);
-            setError('Failed to load missions');
+            setError(t('viewMissionPost.failedToLoad'));
             setMissions([]);
         } finally {
             setLoading(false);
             setFilterLoading(false);
         }
-    }, []);
+    }, [t]);
 
     const handleFilterChange = (tab) => {
         setStatusFilter(tab);
@@ -120,7 +102,9 @@ export default function ViewMissioPost({ navigation, route }) {
                 icon: 'checkmark-circle',
                 color: '#16a34a',
                 bg: '#dcfce7',
-                label: `Completed on ${new Date(item.endTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+                label: t('viewMissionPost.completedOn', {
+                    date: new Date(item.endTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                }),
             };
         }
         if (s === 'active' && item.endTime) {
@@ -131,7 +115,7 @@ export default function ViewMissioPost({ navigation, route }) {
                 icon: 'time-outline',
                 color: '#d97706',
                 bg: '#fef3c7',
-                label: `Ends in ${days}d ${hours}h`,
+                label: t('viewMissionPost.endsIn', { days, hours }),
             };
         }
         if (s === 'upcoming' && item.startTime) {
@@ -141,7 +125,7 @@ export default function ViewMissioPost({ navigation, route }) {
                 icon: 'time-outline',
                 color: '#2563eb',
                 bg: '#dbeafe',
-                label: `Starts in ${days}d`,
+                label: t('viewMissionPost.startsIn', { days }),
             };
         }
         return null;
@@ -152,12 +136,20 @@ export default function ViewMissioPost({ navigation, route }) {
         [isBusinessProfile]
     );
 
+    const filterTabs = [
+        { key: 'all',       label: t('viewMissionPost.filterAll') },
+        { key: 'active',    label: t('viewMissionPost.filterActive') },
+        { key: 'completed', label: t('viewMissionPost.filterCompleted') },
+    ];
+
     if (loading) {
         return (
             <SafeAreaView style={[{ flex: 1 }, bgStyle]}>
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={text} />
-                    <Text style={[styles.loadingText, { color: text }]}>Loading missions...</Text>
+                    <Text style={[styles.loadingText, { color: text }]}>
+                        {t('viewMissionPost.loadingMissions')}
+                    </Text>
                 </View>
             </SafeAreaView>
         );
@@ -170,7 +162,7 @@ export default function ViewMissioPost({ navigation, route }) {
                     <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
                     <Text style={[styles.errorText, { color: text }]}>{error}</Text>
                     <TouchableOpacity style={styles.retryBtn} onPress={() => fetchMissions(statusFilter)}>
-                        <Text style={styles.retryText}>Retry</Text>
+                        <Text style={styles.retryText}>{t('viewMissionPost.retry')}</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -183,12 +175,21 @@ export default function ViewMissioPost({ navigation, route }) {
 
                 {/* Header */}
                 <View style={styles.headerBox}>
-                    <LinearGradient colors={walletScreenGradient} start={{ x: -1, y: -1 }} end={{ x: 1, y: 1 }} style={styles.headerGradient}>
+                    <LinearGradient
+                        colors={walletScreenGradient}
+                        start={{ x: -1, y: -1 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.headerGradient}
+                    >
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                             <View>
-                                <Text style={[styles.headerTitle, { color: text }]}>Total Earned</Text>
+                                <Text style={[styles.headerTitle, { color: text }]}>
+                                    {t('viewMissionPost.totalEarned')}
+                                </Text>
                                 <Text style={[styles.headerAmount, { color: text }]}>${totalEarned}</Text>
-                                <Text style={[styles.headerActive, { color: text }]}>Active: {activeCount}</Text>
+                                <Text style={[styles.headerActive, { color: text }]}>
+                                    {t('viewMissionPost.active')}: {activeCount}
+                                </Text>
                             </View>
                             <Ionicons name="ribbon" size={48} color={text} style={{ marginRight: 10 }} />
                         </View>
@@ -196,18 +197,20 @@ export default function ViewMissioPost({ navigation, route }) {
                 </View>
 
                 {/* Section Title */}
-                <Text style={[styles.sectionTitle, { color: text }]}>Campaigns</Text>
+                <Text style={[styles.sectionTitle, { color: text }]}>
+                    {t('viewMissionPost.campaigns')}
+                </Text>
 
                 {/* Status Filter Tabs */}
                 <View style={styles.filterTabs}>
-                    {['all', 'active', 'completed'].map((tab) => (
+                    {filterTabs.map(({ key, label }) => (
                         <TouchableOpacity
-                            key={tab}
-                            style={[styles.filterTab, statusFilter === tab && styles.filterTabActive]}
-                            onPress={() => handleFilterChange(tab)}
+                            key={key}
+                            style={[styles.filterTab, statusFilter === key && styles.filterTabActive]}
+                            onPress={() => handleFilterChange(key)}
                         >
-                            <Text style={[styles.filterTabText, statusFilter === tab && { color: text }]}>
-                                {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            <Text style={[styles.filterTabText, statusFilter === key && { color: text }]}>
+                                {label}
                             </Text>
                         </TouchableOpacity>
                     ))}
@@ -217,16 +220,22 @@ export default function ViewMissioPost({ navigation, route }) {
                 {filterLoading && (
                     <View style={styles.filterLoaderContainer}>
                         <ActivityIndicator size="small" color={text} />
-                        <Text style={[styles.filterLoaderText, { color: text }]}>Updating...</Text>
+                        <Text style={[styles.filterLoaderText, { color: text }]}>
+                            {t('viewMissionPost.updating')}
+                        </Text>
                     </View>
                 )}
 
                 {!filterLoading && missions.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <Ionicons name="ribbon-outline" size={48} color="#aaa" />
-                        <Text style={[styles.emptyText, { color: text }]}>No missions found</Text>
+                        <Text style={[styles.emptyText, { color: text }]}>
+                            {t('viewMissionPost.noMissionsFound')}
+                        </Text>
                         <Text style={[styles.emptySubtext, { color: text }]}>
-                            {statusFilter !== 'all' ? `No ${statusFilter} missions at the moment` : 'No missions available yet'}
+                            {statusFilter !== 'all'
+                                ? t('viewMissionPost.noMissionsFilteredSub', { status: statusFilter })
+                                : t('viewMissionPost.noMissionsDefaultSub')}
                         </Text>
                     </View>
                 ) : !filterLoading ? (
@@ -265,7 +274,9 @@ export default function ViewMissioPost({ navigation, route }) {
                                                     {c.title?.charAt(0).toUpperCase() + c.title?.slice(1)}
                                                 </Text>
                                                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                                                    <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>{c.status}</Text>
+                                                    <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>
+                                                        {c.status}
+                                                    </Text>
                                                 </View>
                                             </View>
                                             <View style={styles.periodRow}>
@@ -275,41 +286,53 @@ export default function ViewMissioPost({ navigation, route }) {
                                             {timeLabel && (
                                                 <View style={[styles.timeLabelRow, { backgroundColor: timeLabel.bg }]}>
                                                     <Ionicons name={timeLabel.icon} size={13} color={timeLabel.color} />
-                                                    <Text style={[styles.timeLabelText, { color: timeLabel.color }]}> {timeLabel.label}</Text>
+                                                    <Text style={[styles.timeLabelText, { color: timeLabel.color }]}>
+                                                        {' '}{timeLabel.label}
+                                                    </Text>
                                                 </View>
                                             )}
                                         </View>
-
-                                        {/* <Ionicons name="chevron-forward" size={20} color="#bbb" style={{ marginLeft: 4 }} /> */}
                                     </View>
 
                                     {/* Stats Row */}
                                     <View style={styles.statsRow}>
                                         <View style={styles.statItem}>
-                                            <Text style={styles.statLabel}>Total Requests</Text>
+                                            <Text style={styles.statLabel}>
+                                                {t('viewMissionPost.totalRequests')}
+                                            </Text>
                                             <Text style={[styles.statValue, { color: text }]}>{c.requests}</Text>
                                         </View>
                                         <View style={styles.statDivider} />
                                         <View style={styles.statItem}>
-                                            <Text style={styles.statLabel}>Total Earned</Text>
+                                            <Text style={styles.statLabel}>
+                                                {t('viewMissionPost.totalEarnedLabel')}
+                                            </Text>
                                             <Text style={[styles.statValueAccent, { color: text }]}>${c.earned}.00</Text>
                                         </View>
                                     </View>
 
                                     {/* Earnings Split */}
                                     <View style={styles.splitContainer}>
-                                        <Text style={styles.splitLabel}>Earnings Split (per post total)</Text>
+                                        <Text style={styles.splitLabel}>
+                                            {t('viewMissionPost.earningsSplitLabel')}
+                                        </Text>
                                         <View style={styles.splitRow}>
                                             <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>You (80%)</Text>
+                                                <Text style={styles.splitItemLabel}>
+                                                    {t('viewMissionPost.youPercent')}
+                                                </Text>
                                                 <Text style={[styles.splitItemValue, { color: '#16a34a' }]}>${c.split}</Text>
                                             </View>
                                             <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>Platform Fee (5%)</Text>
+                                                <Text style={styles.splitItemLabel}>
+                                                    {t('viewMissionPost.platformFee')}
+                                                </Text>
                                                 <Text style={[styles.splitItemValue, { color: text }]}>${c.valensFee}</Text>
                                             </View>
                                             <View style={styles.splitItem}>
-                                                <Text style={styles.splitItemLabel}>Total</Text>
+                                                <Text style={styles.splitItemLabel}>
+                                                    {t('viewMissionPost.total')}
+                                                </Text>
                                                 <Text style={[styles.splitItemValue, { color: text }]}>${c.total}.00</Text>
                                             </View>
                                         </View>

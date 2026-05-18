@@ -15,13 +15,13 @@ import Video from 'react-native-video';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { pinPost, unpinPost } from '../../services/post';
 import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
+import { useLanguage } from '../../i18n';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
 const SPACING = 2;
 const IMAGE_SIZE = (screenWidth - SPACING * (numColumns + 1)) / numColumns;
 
-// URL normalization function
 const normalizeImageUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
@@ -30,7 +30,6 @@ const normalizeImageUrl = (url) => {
   return `http://35.174.167.92:3002/${trimmed}`;
 };
 
-// Check if URL is a video (mp4, mov, avi, etc.)
 const isVideoUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
@@ -44,7 +43,6 @@ const getVideoPosts = postList =>
     return firstImage && isVideoUrl(firstImage);
   });
 
-// Memoized image component for better performance
 const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
@@ -52,7 +50,6 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
 
-  // Show placeholder for videos (camera icon)
   if (isVideo) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
@@ -62,22 +59,18 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
           paused={true}
           muted={true}
           resizeMode="cover"
-          onLoad={() => setIsVideoLoading(false)} // Hide fallback when video loads
+          onLoad={() => setIsVideoLoading(false)}
           onError={() => {
             setVideoError(true);
             setIsVideoLoading(false);
           }}
           playInBackground={false}
         />
-
-        {/* FALLBACK / LOADING ICON: Shown while loading OR if error occurs */}
         {isVideoLoading && (
           <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
             <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
           </View>
         )}
-
-        {/* Play Icon Badge (only if loaded successfully) */}
         {!isVideoLoading && (
           <View style={styles.videoBadge}>
             <Text style={styles.videoBadgeText}>▶</Text>
@@ -87,7 +80,6 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
     );
   }
 
-  // 2. Final Fallback (if video error occurred OR it's a standard image)
   return (
     <View style={styles.image}>
       <Image
@@ -96,7 +88,6 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
         resizeMode="cover"
         onError={() => setVideoError(true)}
       />
-      {/* If there's an error loading the image or video fallback, show the placeholder */}
       {(videoError || !imageUrl) && (
         <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
           <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
@@ -113,9 +104,9 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
   const pinningPostIdRef = useRef('');
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
+  const { t } = useLanguage();
 
   useEffect(() => {
-    // Filter posts to only show those with MP4 videos
     setPosts(sortPostsByPinned(getVideoPosts(postCheck)));
   }, [postCheck]);
 
@@ -169,29 +160,29 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
       if (Array.isArray(refreshedPosts)) setPosts(sortPostsByPinned(getVideoPosts(refreshedPosts)));
     } catch (error) {
       Alert.alert(
-        nextPinned ? 'Unable to pin post' : 'Unable to unpin post',
-        error?.response?.data?.message || error?.message || 'Please try again.',
+        nextPinned ? t('reelsScreen.unableToPinTitle') : t('reelsScreen.unableToUnpinTitle'),
+        error?.response?.data?.message || error?.message || t('reelsScreen.tryAgain'),
       );
     } finally {
       pinningPostIdRef.current = '';
     }
-  }, [isOwnProfile, onPostPinChanged]);
+  }, [isOwnProfile, onPostPinChanged, t]);
 
   const confirmTogglePinPost = useCallback((post) => {
     if (!isOwnProfile) return;
     const pinned = isPostPinned(post);
     Alert.alert(
-      pinned ? 'Unpin post' : 'Pin post',
-      pinned ? 'Do you want to unpin this post?' : 'Do you want to pin this post?',
+      pinned ? t('reelsScreen.unpinPost') : t('reelsScreen.pinPost'),
+      pinned ? t('reelsScreen.unpinConfirm') : t('reelsScreen.pinConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('reelsScreen.cancel'), style: 'cancel' },
         {
-          text: pinned ? 'Unpin' : 'Pin',
+          text: pinned ? t('reelsScreen.unpin') : t('reelsScreen.pin'),
           onPress: () => handleTogglePinPost(post),
         },
       ],
     );
-  }, [handleTogglePinPost, isOwnProfile]);
+  }, [handleTogglePinPost, isOwnProfile, t]);
 
   const renderItem = useCallback(({ item, index }) => (
     <TouchableOpacity
@@ -209,11 +200,11 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
       {isPostPinned(item) && (
         <View style={styles.pinnedBadge}>
           <Ionicons name="pin" size={12} color="#FFFFFF" />
-          <Text style={styles.pinnedBadgeText}>Pinned</Text>
+          <Text style={styles.pinnedBadgeText}>{t('reelsScreen.pinned')}</Text>
         </View>
       )}
     </TouchableOpacity>
-  ), [confirmTogglePinPost, openPosts, text, textStyle]);
+  ), [confirmTogglePinPost, openPosts, text, textStyle, t]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
@@ -225,10 +216,10 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
 
   const renderEmptyComponent = useCallback(() => (
     <View style={styles.emptyContainer}>
-      <Text style={[styles.emptyTitle, textStyle]}>No video posts yet</Text>
-      <Text style={styles.emptySubtitle}>Share your first video moment</Text>
+      <Text style={[styles.emptyTitle, textStyle]}>{t('reelsScreen.noPostsTitle')}</Text>
+      <Text style={styles.emptySubtitle}>{t('reelsScreen.noPostsSubtitle')}</Text>
     </View>
-  ), [textStyle]);
+  ), [textStyle, t]);
 
   if (!posts || posts.length === 0) {
     return (
@@ -265,7 +256,6 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
 });
 
 ReelsScreen.displayName = 'ReelsScreen';
-
 export default ReelsScreen;
 
 const styles = StyleSheet.create({

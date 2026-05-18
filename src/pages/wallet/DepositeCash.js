@@ -1,60 +1,64 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
-import React, { useLayoutEffect } from 'react'
-import Clipboard from "@react-native-clipboard/clipboard";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useLayoutEffect } from 'react';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from "react-native-vector-icons/Ionicons";
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const DepositeCash = () => {
   const userId = '0xf8652b01';
   const { bgStyle, textStyle, text } = useAppTheme();
   const navigation = useNavigation();
+  const { t } = useLanguage();
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'Deposit Cash',
-      headerStyle: [{
-        elevation: 0,
-        shadowOpacity: 0,
-      }, bgStyle],
+      title: t('depositCash.headerTitle'),
+      headerStyle: [
+        {
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        bgStyle,
+      ],
       headerTitleStyle: {
         fontWeight: 'bold',
         color: '#111',
       },
     });
-  }, [navigation]);
+  }, [navigation, t]);
 
   const copyToClipboard = () => {
     Clipboard.setString(userId);
-    Alert.alert("Copied!", `User ID ${userId} copied to clipboard.`);
+    Alert.alert(
+      t('depositCash.copyAlertTitle'),
+      t('depositCash.copyAlertMessage').replace('{{userId}}', userId),
+    );
   };
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      <Text style={[styles.header, textStyle]}>Smart Wallet</Text>
-      <Text style={styles.subText}>
-        Use your wallet address to deposit or manage funds securely.
-      </Text>
+      <Text style={[styles.header, textStyle]}>{t('depositCash.smartWalletTitle')}</Text>
+      <Text style={styles.subText}>{t('depositCash.smartWalletSubtitle')}</Text>
 
-      <View style={[styles.clipboardBox, {shadowColor: text}]}>
+      <View style={[styles.clipboardBox, { shadowColor: text }]}>
         <Text style={styles.walletAddress}>{userId}</Text>
         <TouchableOpacity onPress={copyToClipboard} style={styles.copyBtn}>
-          <Ionicons
-            name="copy-outline"
-            size={20}
-            color="black"
-          />
+          <Ionicons name="copy-outline" size={20} color="black" />
         </TouchableOpacity>
       </View>
 
-      <Text style={[styles.header, textStyle, { marginTop: 30 }]}>Deposit ETH</Text>
-      <Text style={styles.subText}>
-        Connect your wallet to start depositing ETH quickly and securely.
+      <Text style={[styles.header, textStyle, { marginTop: 30 }]}>
+        {t('depositCash.depositEthTitle')}
       </Text>
+      <Text style={styles.subText}>{t('depositCash.depositEthSubtitle')}</Text>
 
-      <TouchableOpacity style={[styles.primaryBtn, {backgroundColor: text, shadowColor: text}]}>
-        <Text style={styles.primaryBtnText}>Connect Wallet</Text>
+      <TouchableOpacity
+        style={[styles.primaryBtn, { backgroundColor: text, shadowColor: text }]}
+      >
+        <Text style={styles.primaryBtnText}>{t('depositCash.connectWalletButton')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

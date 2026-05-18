@@ -18,6 +18,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { startVerification } from '../../services/companyProfile';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
+import { useLanguage } from '../../i18n';
 
 const VerificationStatusScreen = () => {
     const [data, setData] = useState(null);
@@ -32,6 +33,7 @@ const VerificationStatusScreen = () => {
     const toast = useToast();
     const allVerified = Object.values(verificationData).every(v => v === true);
     const { bgStyle, textStyle } = useAppTheme();
+    const { t } = useLanguage();
 
     const launchSumsub = async () => {
         if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
@@ -43,7 +45,7 @@ const VerificationStatusScreen = () => {
             const accessToken = response?.data?.token;
 
             if (!accessToken) {
-                showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
+                showToastMessage(toast, 'danger', t('verification.sumsubTokenError'));
                 return;
             }
 
@@ -60,9 +62,9 @@ const VerificationStatusScreen = () => {
         } catch (error) {
             const errorMessage = String(error?.message || error || '').toLowerCase();
             if (errorMessage.includes('another instance is in use')) {
-                showToastMessage(toast, 'warning', 'Verification is already open. Please complete it first.');
+                showToastMessage(toast, 'warning', t('verification.sumsubAlreadyOpen'));
             } else {
-                showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+                showToastMessage(toast, 'danger', t('verification.sumsubLaunchFailed'));
             }
             console.log(error, 'Sumsub launch error');
         } finally {
@@ -70,12 +72,13 @@ const VerificationStatusScreen = () => {
             setIsLaunchingSumsub(false);
         }
     };
+
     useFocusEffect(
         useCallback(() => {
             loadProfileData();
         }, [])
     );
-    console.log(data, 'dtaa in verifcation apiaipaaa')
+
     const loadProfileData = async () => {
         dispatch(showLoader());
         try {
@@ -88,14 +91,12 @@ const VerificationStatusScreen = () => {
                     emailVerified: resp.data?.verifyEmail == 1,
                     kycVerified: resp.data?.kyc,
                 });
-            }
-            else {
-                showToastMessage(toast, resp?.message || 'Failed to load profile data', 'danger');
+            } else {
+                showToastMessage(toast, resp?.message || t('verification.loadFailed'), 'danger');
             }
         } catch (e) {
-            // dispatch(hideLoader());
-        }
-        finally {
+            // handled silently
+        } finally {
             dispatch(hideLoader());
         }
     };
@@ -105,85 +106,91 @@ const VerificationStatusScreen = () => {
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
                 <View style={styles.verificationCard}>
-                    <View style={[
-                        styles.verificationBadge,
-                        !allVerified && styles.verificationBadgePartial
-                    ]}>
+                    <View style={[styles.verificationBadge, !allVerified && styles.verificationBadgePartial]}>
                         <Text style={styles.verificationIcon}>
                             {allVerified ? '✓' : '⚠'}
                         </Text>
                     </View>
                     <Text style={styles.verificationTitle}>
-                        {allVerified ? 'Account Verified' : 'Verification Incomplete'}
+                        {allVerified ? t('verification.accountVerified') : t('verification.verificationIncomplete')}
                     </Text>
                     <Text style={styles.verificationSubtitle}>
                         {allVerified
-                            ? 'Your account is fully verified'
-                            : 'Please complete your verification to keep your account secure'}
+                            ? t('verification.fullyVerifiedSubtitle')
+                            : t('verification.incompleteSubtitle')}
                     </Text>
                 </View>
 
                 <View style={styles.section}>
+                    {/* Email Verification Row */}
                     <View style={styles.verificationItem}>
                         <View style={styles.verificationItemLeft}>
                             <Text style={styles.verificationItemIcon}>📧</Text>
                             <View>
-                                <Text style={styles.verificationItemTitle}>Email Verification</Text>
+                                <Text style={styles.verificationItemTitle}>{t('verification.emailVerificationTitle')}</Text>
                                 <Text style={styles.verificationItemSubtitle}>{data?.email}</Text>
                             </View>
                         </View>
                         {verificationData.emailVerified ? (
                             <View style={styles.verifiedBadge}>
-                                <Text style={styles.verifiedText}>Verified</Text>
+                                <Text style={styles.verifiedText}>{t('verification.verified')}</Text>
                             </View>
                         ) : (
                             <View style={styles.unVerifiedBadge}>
-                                <Text style={styles.unVerifiedText}>Not Verified</Text>
+                                <Text style={styles.unVerifiedText}>{t('verification.notVerified')}</Text>
                             </View>
                         )}
                     </View>
 
+                    {/* KYC / KYB Verification Row */}
                     <View style={styles.verificationItem}>
-                        <TouchableOpacity onPress={() => {
-                            if (data?.profile === "company") {
-                                launchSumsub();
-                            } else if (!verificationData?.kycVerified) {
-                                navigation.navigate('kycverify');
-                            }
-                        }}
-                            style={styles.verificationItemLeft}>
-                            <Text style={styles.verificationItemIcon}>🆔</Text>
-                            <View>
-                                <Text style={styles.verificationItemTitle}>
-                                    {data?.profile === 'company' ? 'KYB Verification' : 'KYC Verification'}
-                                </Text>
-                                <Text style={styles.verificationItemSubtitle}>Government ID verified</Text>
-                            </View>
-                        </TouchableOpacity>
-                        {verificationData.kycVerified ? (
-                            <View style={styles.verifiedBadge}>
-                                <Text style={styles.verifiedText}>Verified</Text>
-                            </View>
-                        ) : (
-                            <TouchableOpacity onPress={() => {
-                                if (data?.profile === "company") {
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (data?.profile === 'company') {
                                     launchSumsub();
                                 } else if (!verificationData?.kycVerified) {
                                     navigation.navigate('kycverify');
                                 }
-                            }}>
+                            }}
+                            style={styles.verificationItemLeft}
+                        >
+                            <Text style={styles.verificationItemIcon}>🆔</Text>
+                            <View>
+                                <Text style={styles.verificationItemTitle}>
+                                    {data?.profile === 'company'
+                                        ? t('verification.kybTitle')
+                                        : t('verification.kycTitle')}
+                                </Text>
+                                <Text style={styles.verificationItemSubtitle}>
+                                    {t('verification.governmentIdSubtitle')}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
 
+                        {verificationData.kycVerified ? (
+                            <View style={styles.verifiedBadge}>
+                                <Text style={styles.verifiedText}>{t('verification.verified')}</Text>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (data?.profile === 'company') {
+                                        launchSumsub();
+                                    } else if (!verificationData?.kycVerified) {
+                                        navigation.navigate('kycverify');
+                                    }
+                                }}
+                            >
                                 <View style={styles.unVerifiedBadge}>
-                                    <Text style={styles.unVerifiedText}>Not Verified</Text>
+                                    <Text style={styles.unVerifiedText}>{t('verification.notVerified')}</Text>
                                 </View>
                             </TouchableOpacity>
                         )}
                     </View>
-
                 </View>
             </ScrollView>
         </SafeAreaView>
-    )
+    );
 };
 
 export default VerificationStatusScreen;

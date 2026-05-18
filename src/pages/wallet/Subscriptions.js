@@ -34,10 +34,11 @@ import SubscriptionActivationPopup from '../../components/modals/SubscriptionAct
 import ConnectStripeModal from '../../components/modals/ConnectStripeModal';
 import { BusinessPlanModal, BusinessReminderModal, BusinessSuccessModal } from '../../components/modals/BusinessPlanModals';
 import { useStripeOnboarding } from '../../hooks/useStripeOnboarding';
-import { createOnboardingLink, getOnboardingStatus, STRIPE_ERROR_MESSAGES } from '../../utils/stripeOnboarding';
+import { createOnboardingLink, getOnboardingStatus, getStripeErrorMessages } from '../../utils/stripeOnboarding';
 import { createCheckoutSession } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { getUserCredentials } from '../../services/post';
+import { useLanguage } from '../../i18n';
 
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 
@@ -54,6 +55,8 @@ const SubventionSetupScreen = () => {
     const dispatch = useDispatch();
     const { bgStyle, textStyle, text } = useAppTheme();
     const [credential, setCredential] = useState(null);
+    const { t } = useLanguage();
+    const stripeErrorMessages = getStripeErrorMessages(t);
 
     // Story composer state
     const [composerVisible, setComposerVisible] = useState(false);
@@ -71,10 +74,10 @@ const SubventionSetupScreen = () => {
     const { openOnboarding } = useStripeOnboarding({ fetchOnMount: true });
 
     const contentTabs = [
-        { id: 'posts', label: 'Mint', icon: '📝' },
-        { id: 'reels', label: 'Flips', icon: '🎬' },
-        { id: 'stories', label: 'Drops', icon: '⭐' },
-        { id: 'videos', label: 'Videos (10min)', icon: '🎥' }
+        { id: 'posts', label: t('subventionSetup.tabMint'), icon: '📝' },
+        { id: 'reels', label: t('subventionSetup.tabFlips'), icon: '🎬' },
+        { id: 'stories', label: t('subventionSetup.tabDrops'), icon: '⭐' },
+        { id: 'videos', label: t('subventionSetup.tabVideos'), icon: '🎥' }
     ];
 
     useFocusEffect(
@@ -89,19 +92,11 @@ const SubventionSetupScreen = () => {
 
     const formatPrice = (value) => {
         if (!value) return "";
-
         const stringValue = value.toString();
-        console.log('Formatting value:', stringValue);
-
-        if (stringValue.includes(".")) {
-            return stringValue;
-        }
-
+        if (stringValue.includes(".")) return stringValue;
         const cleaned = stringValue.replace(/\D/g, "");
         if (!cleaned) return "";
-
         const formatted = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
         return `${formatted},00`;
     };
 
@@ -111,14 +106,11 @@ const SubventionSetupScreen = () => {
             const supported = await Linking.canOpenURL(url);
             if (supported) {
                 await Linking.openURL(url);
-            } else {
-                console.log("Can't open URL:", url);
             }
         } catch (error) {
             console.error('Error opening terms link:', error);
         }
-    }
-
+    };
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const isBrowserCancelled = (result) => result?.type === 'cancel' || result?.type === 'dismiss';
@@ -156,15 +148,9 @@ const SubventionSetupScreen = () => {
 
         if (!onboardingUrl) {
             const latestStatus = await GetInbordingstatus();
-            if (isOnboardingReady(latestStatus)) {
-                return { alreadyOnboarded: true };
-            }
-
+            if (isOnboardingReady(latestStatus)) return { alreadyOnboarded: true };
             const cachedStatus = await getCachedOnboardingStatus();
-            if (isOnboardingReady(cachedStatus)) {
-                return { alreadyOnboarded: true };
-            }
-
+            if (isOnboardingReady(cachedStatus)) return { alreadyOnboarded: true };
             throw new Error('Onboarding link not found');
         }
 
@@ -187,9 +173,7 @@ const SubventionSetupScreen = () => {
     const waitForOnboardingCompletion = async () => {
         for (let attempt = 0; attempt < 10; attempt += 1) {
             const status = await GetInbordingstatus();
-            if (isOnboardingReady(status)) {
-                return status;
-            }
+            if (isOnboardingReady(status)) return status;
             await delay(2000);
         }
         return null;
@@ -209,9 +193,7 @@ const SubventionSetupScreen = () => {
                 const paymentResult = await getUserSubscription();
                 setShowActivationPopup(false);
                 navigateToWalletDashboard();
-                if (paymentResult?.cancelled) {
-                    return;
-                }
+                if (paymentResult?.cancelled) return;
                 return;
             }
 
@@ -220,9 +202,7 @@ const SubventionSetupScreen = () => {
                 const paymentResult = await getUserSubscription();
                 setShowActivationPopup(false);
                 navigateToWalletDashboard();
-                if (paymentResult?.cancelled) {
-                    return;
-                }
+                if (paymentResult?.cancelled) return;
                 return;
             }
 
@@ -237,19 +217,16 @@ const SubventionSetupScreen = () => {
                 const paymentResult = await getUserSubscription();
                 setShowActivationPopup(false);
                 navigateToWalletDashboard();
-                if (paymentResult?.cancelled) {
-                    return;
-                }
+                if (paymentResult?.cancelled) return;
                 return;
             }
 
             setShowActivationPopup(false);
             navigateToWalletDashboard();
-            showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+            showToastMessage(toast, 'warning', t('subventionSetup.stripeIncomplete'));
         } catch (error) {
             console.log('Activation flow error:', error);
-            showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
-        } finally {
+            showToastMessage(toast, 'danger', error?.message || stripeErrorMessages.ONBOARDING_FAILED);
         }
     };
 
@@ -275,11 +252,7 @@ const SubventionSetupScreen = () => {
             const onboardingStatus = await GetInbordingstatus();
             if (isOnboardingReady(onboardingStatus)) {
                 const paymentResult = await getUserSubscription();
-                if (paymentResult?.cancelled) {
-                    closeBusinessFlow();
-                    navigateToWalletDashboard();
-                    return;
-                }
+                if (paymentResult?.cancelled) { closeBusinessFlow(); navigateToWalletDashboard(); return; }
                 await handleBusinessActivatedSuccess();
                 return;
             }
@@ -287,11 +260,7 @@ const SubventionSetupScreen = () => {
             const onboardingResult = await GetInbordingLink();
             if (onboardingResult?.alreadyOnboarded) {
                 const paymentResult = await getUserSubscription();
-                if (paymentResult?.cancelled) {
-                    closeBusinessFlow();
-                    navigateToWalletDashboard();
-                    return;
-                }
+                if (paymentResult?.cancelled) { closeBusinessFlow(); navigateToWalletDashboard(); return; }
                 await handleBusinessActivatedSuccess();
                 return;
             }
@@ -305,78 +274,56 @@ const SubventionSetupScreen = () => {
             const updatedStatus = await waitForOnboardingCompletion();
             if (isOnboardingReady(updatedStatus)) {
                 const paymentResult = await getUserSubscription();
-                if (paymentResult?.cancelled) {
-                    closeBusinessFlow();
-                    navigateToWalletDashboard();
-                    return;
-                }
+                if (paymentResult?.cancelled) { closeBusinessFlow(); navigateToWalletDashboard(); return; }
                 await handleBusinessActivatedSuccess();
                 return;
             }
 
             closeBusinessFlow();
             navigateToWalletDashboard();
-            showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+            showToastMessage(toast, 'warning', t('subventionSetup.stripeIncomplete'));
         } catch (error) {
             console.log('Business activation flow error:', error);
-            showToastMessage(toast, 'danger', error?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+            showToastMessage(toast, 'danger', error?.message || stripeErrorMessages.ONBOARDING_FAILED);
         } finally {
             dispatch(hideLoader());
         }
     };
 
-    const handleBusinessContinueBasic = () => {
-        setShowBusinessReminderPopup(true);
-    };
+    const handleBusinessContinueBasic = () => setShowBusinessReminderPopup(true);
 
     const handleBusinessContinueLimited = async () => {
         await AsyncStorage.setItem('businessPlanMode', 'basic');
         closeBusinessFlow();
-        showToastMessage(
-            toast,
-            'warning',
-            'Your business profile is active in Basic Mode. You can upgrade anytime to unlock all business features.',
-        );
+        showToastMessage(toast, 'warning', t('subventionSetup.businessBasicMode'));
     };
 
     const getCredential = async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
-            if (!id) {
-                return;
-            }
-            const response = await getUserCredentials(id); // API call
-
-            console.log('User credentials:', response);
-
-            // Adjust according to API structure
+            if (!id) return;
+            const response = await getUserCredentials(id);
             const data = response?.data ?? response;
-
-            setCredential(data); // store in state
+            setCredential(data);
             const status = data?.subscriptionStatus?.toUpperCase();
             const endDate = new Date(data?.currentPeriodEnd);
             const apiProfileType = data?.profile || data?.user?.profile || '';
             const effectiveProfileType = String(apiProfileType).toLowerCase();
             setIsBusinessProfile(effectiveProfileType === 'company' || effectiveProfileType === 'business');
             const newDate = new Date();
-            console.log("dffeff", newDate, status, endDate)
-            // ✅ Hide popup if already ACTIVE
             if (status === "ACTIVE" || (status === "CANCELED" && endDate >= newDate)) {
                 setShowActivationPopup(false);
                 setShowBusinessReminderPopup(false);
             } else {
                 setShowBusinessReminderPopup(false);
-                setShowActivationPopup(true)
+                setShowActivationPopup(true);
             }
-
         } catch (error) {
             console.log('Get credential error:', error?.message);
-        } finally {
         }
     };
-    const fetchSubscriptionByUserId = async () => {
-        console.log('setShowModal setShowModalsetShowModalsetShowModal');
 
+    const fetchSubscriptionByUserId = async () => {
         try {
             const id = await AsyncStorage.getItem('userId');
             dispatch(showLoader());
@@ -386,33 +333,29 @@ const SubventionSetupScreen = () => {
                 if (subscriptions && subscriptions.length > 0) {
                     const amount = subscriptions[0].subscriptionAmount;
                     const subId = subscriptions[0].id;
-                    setComment(subscriptions[0].comment)
+                    setComment(subscriptions[0].comment);
                     setSubscriptionAmount(amount);
                     setSubscriptionId(subId);
                     setPrice(formatPrice(amount));
                     setRawAmount(amount.toString());
                     setHasExistingSubscription(true);
-                    setShowModal(false)
-                    setShowActivationPopup(false)
+                    setShowModal(false);
+                    setShowActivationPopup(false);
                 } else {
-                    console.log("No subscriptions found");
                     setSubscriptionAmount(null);
                     setSubscriptionId(null);
                     setHasExistingSubscription(false);
-                    setShowModal(true)
-                    setShowActivationPopup(false)
+                    setShowModal(true);
+                    setShowActivationPopup(false);
                 }
             } else {
                 showToastMessage(toast, 'danger', response.data.message);
                 setHasExistingSubscription(false);
             }
-
         } catch (error) {
             console.error('Error fetching subscription:', error);
-            // showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
             setHasExistingSubscription(false);
-        }
-        finally {
+        } finally {
             dispatch(hideLoader());
         }
     };
@@ -421,29 +364,16 @@ const SubventionSetupScreen = () => {
         const clean = text.replace(/[^0-9.]/g, "");
         setRawAmount(clean);
         setPrice(clean);
-
-        console.log('User typing, raw amount:', clean);
     };
-    const handlePriceBlur = () => {
-        if (!rawAmount) {
-            setPrice('');
-            setRawAmount('');
-            return;
-        }
 
+    const handlePriceBlur = () => {
+        if (!rawAmount) { setPrice(''); setRawAmount(''); return; }
         const hasDecimal = rawAmount.includes('.');
         const numValue = parseFloat(rawAmount);
-
-        // Apply min/max rules
         let finalValue = numValue;
         if (numValue < 9) finalValue = 9;
         if (numValue > 100) finalValue = 100;
-
-
         setRawAmount(finalValue.toString());
-
-        console.log('Final value after blur:', finalValue, 'Has decimal:', hasDecimal);
-
         if (hasDecimal) {
             setPrice(finalValue.toString());
         } else {
@@ -453,19 +383,10 @@ const SubventionSetupScreen = () => {
 
     const getUserSubscription = async () => {
         let response;
-
         try {
             response = await createCheckoutSession();
-            console.log('Stripe response >>>', response);
-
-            // ✅ FIX: correct path
             const checkoutUrl = response?.data?.url;
-
-            if (!checkoutUrl) {
-                throw new Error('Checkout URL not received');
-            }
-
-            // ✅ Open Stripe Checkout
+            if (!checkoutUrl) throw new Error('Checkout URL not received');
             if (await InAppBrowser.isAvailable()) {
                 const browserResult = await InAppBrowser.open(checkoutUrl, {
                     dismissButtonStyle: 'close',
@@ -476,23 +397,14 @@ const SubventionSetupScreen = () => {
                     enableUrlBarHiding: true,
                     enableDefaultShare: false,
                 });
-                return {
-                    response,
-                    cancelled: isBrowserCancelled(browserResult),
-                };
+                return { response, cancelled: isBrowserCancelled(browserResult) };
             } else {
                 await Linking.openURL(checkoutUrl);
                 return { response, cancelled: false };
             }
-
         } catch (error) {
             console.log('Subscription error:', error);
-
-            // ✅ Safe fallback
-            if (response?.data?.url) {
-                await Linking.openURL(response.data.url);
-            }
-
+            if (response?.data?.url) await Linking.openURL(response.data.url);
             throw error;
         }
     };
@@ -501,20 +413,16 @@ const SubventionSetupScreen = () => {
         if (!dateValue) return 'N/A';
         const parsed = new Date(dateValue);
         if (Number.isNaN(parsed.getTime())) return 'N/A';
-        return parsed.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-        });
+        return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
     };
+
     const handlePrintAttempt = () => {
         const newAttempts = printAttempts + 1;
         setPrintAttempts(newAttempts);
-
         if (newAttempts >= 3) {
             Alert.alert(
-                '🚫 Account Blocked',
-                'Your account has been temporarily blocked for security review due to multiple unauthorized attempts.',
+                t('subventionSetup.printBlockTitle'),
+                t('subventionSetup.printBlockMessage'),
                 [{ text: 'OK', style: 'destructive' }]
             );
         } else {
@@ -522,17 +430,16 @@ const SubventionSetupScreen = () => {
         }
     };
 
-    // Camera permission request
     const requestCameraPermission = async () => {
         if (Platform.OS !== 'android') return true;
         try {
             const granted = await PermissionsAndroid.request(
                 PermissionsAndroid.PERMISSIONS.CAMERA,
                 {
-                    title: 'Camera Permission',
-                    message: 'This app needs access to your camera to take photos.',
-                    buttonNeutral: 'Ask Me Later',
-                    buttonNegative: 'Cancel',
+                    title: t('subventionSetup.cameraPermissionTitle'),
+                    message: t('subventionSetup.cameraPermissionMessage'),
+                    buttonNeutral: t('subventionSetup.cameraPermissionAskLater'),
+                    buttonNegative: t('subventionSetup.cameraPermissionCancel'),
                     buttonPositive: 'OK',
                 },
             );
@@ -543,51 +450,26 @@ const SubventionSetupScreen = () => {
         }
     };
 
-    // Open camera
     const openCamera = async () => {
         const hasPermission = await requestCameraPermission();
         if (!hasPermission) {
-            Alert.alert(
-                'Permission Denied',
-                'Camera permission is required to take photos.',
-            );
+            Alert.alert(t('subventionSetup.permissionDeniedTitle'), t('subventionSetup.permissionDeniedMessage'));
             return;
         }
-        const options = {
-            mediaType: 'mixed',
-            includeBase64: false,
-            maxHeight: 2000,
-            maxWidth: 2000,
-            includeExtra: true,
-            presentationStyle: 'fullScreen',
-        };
+        const options = { mediaType: 'mixed', includeBase64: false, maxHeight: 2000, maxWidth: 2000, includeExtra: true, presentationStyle: 'fullScreen' };
         launchCamera(options, response => {
             if (response?.didCancel) return;
-            if (response?.errorCode) {
-                Alert.alert(
-                    'Camera error',
-                    response.errorMessage || response.errorCode,
-                );
-                return;
-            }
+            if (response?.errorCode) { Alert.alert(t('subventionSetup.cameraError'), response.errorMessage || response.errorCode); return; }
             handleMediaSelected(response);
         });
     };
 
-    // Open gallery
     const openGallery = () => {
-        const options = {
-            mediaType: 'mixed',
-            selectionLimit: 10,
-            includeBase64: false,
-            maxHeight: 2000,
-            maxWidth: 2000,
-        };
+        const options = { mediaType: 'mixed', selectionLimit: 10, includeBase64: false, maxHeight: 2000, maxWidth: 2000 };
         launchImageLibrary(options, response => {
             if (response?.didCancel || response?.errorCode) return;
             const assets = response?.assets || [];
             if (!assets.length) return;
-
             const list = assets.map(a => ({
                 uri: a.uri,
                 type: a.type?.startsWith('video') ? 'video' : 'image',
@@ -598,83 +480,50 @@ const SubventionSetupScreen = () => {
         });
     };
 
-    // Handle media selected from camera
     const handleMediaSelected = response => {
         const asset = response?.assets?.[0];
-        if (!asset || !asset.uri) {
-            Alert.alert('Oops', 'Could not read the selected media.');
-            return;
-        }
+        if (!asset || !asset.uri) { Alert.alert('Oops', t('subventionSetup.mediaReadError')); return; }
         const type = asset.type?.startsWith('video') ? 'video' : 'image';
-        const list = [{
-            uri: asset.uri,
-            type: type,
-            duration: type === 'video'
-                ? (asset.duration ? asset.duration * 1000 : 15000)
-                : 5000,
-        }];
+        const list = [{ uri: asset.uri, type, duration: type === 'video' ? (asset.duration ? asset.duration * 1000 : 15000) : 5000 }];
         setComposerList(list);
         setComposerVisible(true);
     };
 
-    // Handle add story
     const handleAddStory = () => {
-        Alert.alert('Add Drops', 'Choose how to add your drops', [
-            { text: 'Camera', onPress: () => openCamera() },
-            { text: 'Gallery', onPress: () => openGallery() },
-            { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('subventionSetup.addDropsTitle'), t('subventionSetup.addDropsMessage'), [
+            { text: t('subventionSetup.addDropsCamera'), onPress: () => openCamera() },
+            { text: t('subventionSetup.addDropsGallery'), onPress: () => openGallery() },
+            { text: t('subventionSetup.cancel'), style: 'cancel' },
         ]);
     };
 
-    // Handle composer done
     const handleComposerDone = async (processedArray) => {
         try {
             const clips = await prepareStoryClipsAudioForUpload(processedArray);
-
             setComposerVisible(false);
-
-            // Prepare FormData for API call
             const formData = new FormData();
-
-            // Add caption (optional)
             formData.append('caption', '');
-
-            // Add media files
             clips.forEach((item, index) => {
                 const fileUri = item.processedUri || item.original.uri;
                 const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
                 const fileType = item.isVideo ? 'video/mp4' : 'image/jpeg';
-
-                formData.append('media', {
-                    uri: fileUri,
-                    type: fileType,
-                    name: fileName,
-                });
+                formData.append('media', { uri: fileUri, type: fileType, name: fileName });
             });
-
-            formData.append(
-                'storyMeta',
-                JSON.stringify(buildStoryMetaPayload(clips)),
-            );
+            formData.append('storyMeta', JSON.stringify(buildStoryMetaPayload(clips)));
             await appendStoryAudioFiles(formData, clips);
-
-            // Call API to upload story
             const response = await PostStory(formData);
-
             if (response?.success) {
-                showToastMessage(toast, 'success', 'Story Uploaded Successfully');
+                showToastMessage(toast, 'success', t('subventionSetup.storyUploadSuccess'));
             } else {
-                showToastMessage(toast, 'danger', 'Failed to upload story please try again');
+                showToastMessage(toast, 'danger', t('subventionSetup.storyUploadFail'));
             }
         } catch (error) {
             console.error('Error uploading story:', error);
-            showToastMessage(toast, 'danger', 'Something Went Wrong! Please try again');
+            showToastMessage(toast, 'danger', t('subventionSetup.somethingWentWrong'));
         }
     };
 
     const handleCreateContent = (contentType) => {
-        console.log('contenttype----->>>>>>>>>>>', contentType);
-
         const findNavigatorWithRoute = (nav, routeName) => {
             let current = nav;
             while (current) {
@@ -696,63 +545,30 @@ const SubventionSetupScreen = () => {
         };
 
         switch (contentType) {
-            case 'posts':
-                navigateToCreate({ postType: 'private', type: 'post' });
-                break;
-            case 'reels':
-                navigateToCreate({ postType: 'private', type: 'Flips' });
-                break;
-            case 'videos':
-                navigateToCreate({ postType: 'private', type: 'video' });
-                break;
-            case 'stories':
-                handleAddStory();
-                break;
-
-            default:
-                break;
+            case 'posts': navigateToCreate({ postType: 'private', type: 'post' }); break;
+            case 'reels': navigateToCreate({ postType: 'private', type: 'Flips' }); break;
+            case 'videos': navigateToCreate({ postType: 'private', type: 'video' }); break;
+            case 'stories': handleAddStory(); break;
+            default: break;
         }
     };
 
     const PrintWarningModal = () => (
-        <Modal
-            visible={showPrintWarning}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowPrintWarning(false)}
-        >
+        <Modal visible={showPrintWarning} transparent={true} animationType="fade" onRequestClose={() => setShowPrintWarning(false)}>
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                     <Text style={styles.modalIcon}>🚫</Text>
-                    <Text style={styles.modalTitle}>No Print Allowed</Text>
-
-                    <Text style={styles.modalText}>
-                        This content is private and protected under Valens' Creator Rights.
-                        Screenshots, prints, or downloads are not permitted.
-                    </Text>
-
+                    <Text style={styles.modalTitle}>{t('subventionSetup.printWarningTitle')}</Text>
+                    <Text style={styles.modalText}>{t('subventionSetup.printWarningText')}</Text>
                     <View style={styles.warningBox}>
                         <Text style={styles.warningIcon}>⚠️</Text>
-                        <Text style={styles.warningText}>
-                            Warning: After 3 unauthorized attempts, your account will be
-                            temporarily blocked for security review.
-                        </Text>
+                        <Text style={styles.warningText}>{t('subventionSetup.printWarningSubText')}</Text>
                     </View>
-
-                    <Text style={styles.footerText}>
-                        Respect the creator. Respect the platform. 💜
-                    </Text>
-
-                    <TouchableOpacity
-                        style={styles.understandButton}
-                        onPress={() => setShowPrintWarning(false)}
-                    >
-                        <Text style={styles.understandButtonText}>I Understand</Text>
+                    <Text style={styles.footerText}>{t('subventionSetup.printWarningFooter')}</Text>
+                    <TouchableOpacity style={styles.understandButton} onPress={() => setShowPrintWarning(false)}>
+                        <Text style={styles.understandButtonText}>{t('subventionSetup.iUnderstand')}</Text>
                     </TouchableOpacity>
-
-                    <Text style={styles.attemptCounter}>
-                        Attempts: {printAttempts}/3
-                    </Text>
+                    <Text style={styles.attemptCounter}>{t('subventionSetup.attempts')}: {printAttempts}/3</Text>
                 </View>
             </View>
         </Modal>
@@ -761,80 +577,48 @@ const SubventionSetupScreen = () => {
     const handleSaveSubscription = async () => {
         try {
             const subscriptionAmount = parseFloat(rawAmount) || 0;
-
-            // if (subscriptionAmount < 9 || subscriptionAmount > 100) {
-            //     showToastMessage(toast, 'warning', 'Please enter a valid price between $9 and $100');
-            //     return;
-            // }
-
-            // const status = await refreshOnboarding();
-            // if (status?.canReceivePayments === false) {
-            //     setShowStripeSetupModal(true);
-            //     return;
-            // }
-
             dispatch(showLoader());
-
             let response;
-
-            // Check if there's existing subscription data
             if (hasExistingSubscription && subscriptionId) {
-                const dataToSend = {
-                    subscriptionAmount: subscriptionAmount,
-                    status: "ACTIVE",
-                    isDelete: 0,
-                    comment: comment || ''
-                };
+                const dataToSend = { subscriptionAmount, status: "ACTIVE", isDelete: 0, comment: comment || '' };
                 response = await setUserSubscription(dataToSend, subscriptionId);
-                console.log(response, 'checkreponse')
             } else {
-                const dataToSend = {
-                    subscriptionAmount: subscriptionAmount,
-                    status: "ACTIVE",
-                    comment: comment || ''
-                };
+                const dataToSend = { subscriptionAmount, status: "ACTIVE", comment: comment || '' };
                 response = await setPrivateSubscription(dataToSend);
                 setShowActivationPopup(false);
             }
-
-            console.log('Subscription response:', response);
-
             if (response?.statusCode === 200) {
                 setComment('');
-                showToastMessage(toast, 'success', hasExistingSubscription ? 'Subscription updated successfully' : 'Subscription created successfully');
-                // Refresh subscription data
+                showToastMessage(toast, 'success', hasExistingSubscription ? t('subventionSetup.updateSuccess') : t('subventionSetup.createSuccess'));
                 await fetchSubscriptionByUserId();
             } else {
-                showToastMessage(toast, 'danger', response?.data?.message || 'Failed to save subscription');
+                showToastMessage(toast, 'danger', response?.data?.message || t('subventionSetup.saveFail'));
             }
-
         } catch (error) {
             console.error('Error saving subscription:', error);
-            showToastMessage(toast, 'danger', 'Something went wrong! Please try again');
+            showToastMessage(toast, 'danger', t('subventionSetup.somethingWentWrong'));
         } finally {
             dispatch(hideLoader());
         }
     };
 
-    const subscriptionEndDate = formatSubscriptionDate(
-        credential?.subscriptionEnd || credential?.currentPeriodEnd
-    );
+    const subscriptionEndDate = formatSubscriptionDate(credential?.subscriptionEnd || credential?.currentPeriodEnd);
     const subscriptionStatus = credential?.subscriptionStatus || 'INACTIVE';
     const isSubscriptionActive = subscriptionStatus?.toUpperCase() === 'ACTIVE';
 
     return (
         <>
-            <View style={{ flex: 1, paddingBottom: 20, }}>
+            <View style={{ flex: 1, paddingBottom: 20 }}>
                 <ScrollView style={[styles.container, bgStyle]}>
                     {/* Price Setup Section */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>💰 Subscription Price</Text>
-                        <Text style={styles.sectionSubtitle}>Set your monthly rate per subscriber</Text>
+                        <Text style={styles.sectionTitle}>{t('subventionSetup.priceSectionTitle')}</Text>
+                        <Text style={styles.sectionSubtitle}>{t('subventionSetup.priceSectionSubtitle')}</Text>
 
                         <View style={styles.priceInputContainer}>
-                            <Text style={[styles.currencySymbol, {color: text}]}>$</Text>
+                            <Text style={[styles.currencySymbol, { color: text }]}>$</Text>
                             <TextInput
-                                style={[styles.priceInput, {borderBottomColor: text}]}
+                                style={[styles.priceInput, { borderBottomColor: text }]}
                                 value={price}
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
@@ -842,16 +626,17 @@ const SubventionSetupScreen = () => {
                                 numberOfLines={4}
                                 multiline
                             />
-                            <Text style={styles.perMonth}>/month</Text>
+                            <Text style={styles.perMonth}>{t('subventionSetup.perMonth')}</Text>
                         </View>
 
                         <View style={styles.priceRange}>
-                            <Text style={styles.rangeText}>Min: $9</Text>
-                            <Text style={styles.rangeText}>Max: $100</Text>
+                            <Text style={styles.rangeText}>{t('subventionSetup.minPrice')}: $9</Text>
+                            <Text style={styles.rangeText}>{t('subventionSetup.maxPrice')}: $100</Text>
                         </View>
+
                         <TextInput
                             style={styles.commentBox}
-                            placeholder="Add a comment..."
+                            placeholder={t('subventionSetup.commentPlaceholder')}
                             placeholderTextColor="#9ca3af"
                             multiline
                             value={comment}
@@ -859,205 +644,81 @@ const SubventionSetupScreen = () => {
                             numberOfLines={4}
                             textAlignVertical="top"
                         />
+
                         <View style={styles.subscriptionInfoCard}>
                             <View>
-                                <Text style={styles.subscriptionInfoLabel}>Subscription ends</Text>
+                                <Text style={styles.subscriptionInfoLabel}>{t('subventionSetup.subscriptionEnds')}</Text>
                                 <Text style={styles.subscriptionInfoValue}>{subscriptionEndDate}</Text>
                             </View>
-                            <View
-                                style={[
-                                    styles.subscriptionStatusBadge,
-                                    isSubscriptionActive
-                                        ? styles.subscriptionStatusBadgeActive
-                                        : styles.subscriptionStatusBadgeInactive,
-                                ]}
-                            >
-                                <Text style={styles.subscriptionStatusText}>
-                                    {subscriptionStatus}
-                                </Text>
+                            <View style={[styles.subscriptionStatusBadge, isSubscriptionActive ? styles.subscriptionStatusBadgeActive : styles.subscriptionStatusBadgeInactive]}>
+                                <Text style={styles.subscriptionStatusText}>{subscriptionStatus}</Text>
                             </View>
                         </View>
-
                     </View>
 
                     {/* Content Creation Section */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>📱 Create Content</Text>
-                        <Text style={styles.sectionSubtitle}>
-                            Full access to all content types
-                        </Text>
+                        <Text style={styles.sectionTitle}>{t('subventionSetup.contentSectionTitle')}</Text>
+                        <Text style={styles.sectionSubtitle}>{t('subventionSetup.contentSectionSubtitle')}</Text>
 
                         <View style={styles.tabContainer}>
                             {contentTabs.map(tab => (
                                 <TouchableOpacity
                                     key={tab.id}
-                                    style={[
-                                        styles.tab,
-                                        selectedTab === tab.id && [
-                                            bgStyle,
-                                            { borderColor: text }
-                                        ]
-                                    ]}
+                                    style={[styles.tab, selectedTab === tab.id && [bgStyle, { borderColor: text }]]}
                                     onPress={() => setSelectedTab(tab.id)}
                                 >
                                     <Text style={styles.tabIcon}>{tab.icon}</Text>
-                                    <Text style={[
-                                        styles.tabLabel,
-                                        selectedTab === tab.id && [{color: text}]
-                                    ]}>
+                                    <Text style={[styles.tabLabel, selectedTab === tab.id && [{ color: text }]]}>
                                         {tab.label}
                                     </Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
 
-                        {/* Content Creation Area */}
                         <View style={styles.contentArea}>
                             <Text style={styles.contentTitle}>
-                                Create {contentTabs.find(t => t.id === selectedTab)?.label}
+                                {t('subventionSetup.createLabel')} {contentTabs.find(t => t.id === selectedTab)?.label}
                             </Text>
                             <TouchableOpacity
-                                style={[styles.createButton, {backgroundColor: text}]}
+                                style={[styles.createButton, { backgroundColor: text }]}
                                 onPress={() => handleCreateContent(selectedTab)}
                             >
                                 <Text style={styles.createButtonText}>
-                                    + New {contentTabs.find(t => t.id === selectedTab)?.label}
+                                    + {t('subventionSetup.newLabel')} {contentTabs.find(t => t.id === selectedTab)?.label}
                                 </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
 
-                    {/* Subscriber Protection Info */}
+                    {/* Content Protection Section */}
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>🔒 Content Protection</Text>
+                        <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>{t('subventionSetup.protectionTitle')}</Text>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>🚫</Text>
-                            <Text style={styles.protectionText}>No prints allowed</Text>
+                            <Text style={styles.protectionText}>{t('subventionSetup.noPrints')}</Text>
                         </View>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>🚫</Text>
-                            <Text style={styles.protectionText}>No downloads allowed</Text>
+                            <Text style={styles.protectionText}>{t('subventionSetup.noDownloads')}</Text>
                         </View>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>🚫</Text>
-                            <Text style={styles.protectionText}>No screenshots allowed</Text>
+                            <Text style={styles.protectionText}>{t('subventionSetup.noScreenshots')}</Text>
                         </View>
                         <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>⚠️</Text>
-                            <Text style={styles.protectionText}>Auto-ban after 3 attempts</Text>
+                            <Text style={styles.protectionText}>{t('subventionSetup.autoBan')}</Text>
                         </View>
                     </View>
 
                     {/* Demo Button */}
-                    <TouchableOpacity
-                        style={styles.demoButton}
-                        onPress={handlePrintAttempt}
-                    >
-                        <Text style={styles.demoButtonText}>
-                            🧪 Demo: Trigger Print Warning
-                        </Text>
+                    <TouchableOpacity style={styles.demoButton} onPress={handlePrintAttempt}>
+                        <Text style={styles.demoButtonText}>{t('subventionSetup.demoPrintWarning')}</Text>
                     </TouchableOpacity>
 
                     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                        <Text style={[styles.heading, textStyle]}>VALENS MASTER SUBSCRIPTOR POLICY</Text>
-
-                        {/* <Text style={styles.sectionTitle}>1. Overview</Text> */}
-                        {/* <Text style={styles.text}>
-                            This Master Subscription Policy applies to all users participating in the Valens
-                            subscription ecosystem, including Plan Owners and Subscribers. By activating or subscribing,
-                            users agree to this policy, including Valens Terms of Use, Privacy Policy, and Payout Policy.
-                        </Text> */}
-
-                        {/* PART A */}
-                        {/* <Text style={styles.partTitle}>PART A — TERMS FOR PLAN OWNERS</Text>
-
-                        <Text style={styles.sectionTitle}>2. Subscription Plan Creation</Text>
-                        <Text style={styles.text}>
-                            When you activate a subscription plan, you become a Plan Owner. You may create private
-                            channels, define perks, and set monthly subscription prices between $9.99 USD and $100.00 USD.
-                        </Text> */}
-
-                        {/* <Text style={styles.sectionTitle}>3. Platform Fees</Text>
-                        <Text style={styles.subSection}>3.1 Monthly Maintenance Fee</Text>
-                        <Text style={styles.text}>
-                            Valens charges $19.99 USD/month for hosting and operating your subscription channel.
-                        </Text> */}
-
-                        {/* <Text style={styles.subSection}>3.2 Withdrawal Fee</Text>
-                        <Text style={styles.text}>A 5% withdrawal fee applies to every payout request.</Text>
-
-                        <Text style={styles.subSection}>3.3 Billing Authorization</Text>
-                        <Text style={styles.text}>
-                            By enabling your plan, you authorize Valens to charge maintenance fees and deduct payout
-                            withdrawal fees automatically.
-                        </Text> */}
-
-                        {/* <Text style={styles.sectionTitle}>4. Earnings & Payouts</Text>
-                        <Text style={styles.text}>
-                            Earnings are visible in the Creator Dashboard. Payouts follow the Payout Policy. KYC
-                            verification is required. You must report earnings to tax authorities.
-                        </Text>
-
-                        <Text style={styles.sectionTitle}>5. Content Responsibilities</Text>
-                        <Text style={styles.text}>
-                            All private content must follow Valens guidelines. Illegal, harmful, abusive, or fraudulent
-                            content is prohibited.
-                        </Text> */}
-
-                        {/* <Text style={styles.sectionTitle}>6. Account & Compliance Enforcement</Text>
-                        <Text style={styles.text}>
-                            Valens may restrict monetization, freeze payouts, remove content, or disable plans upon
-                            violations.
-                        </Text> */}
-
-                        {/* PART B */}
-                        {/* <Text style={styles.partTitle}>PART B — TERMS FOR SUBSCRIBERS</Text>
-
-                        <Text style={styles.sectionTitle}>7. Subscription Access</Text>
-                        <Text style={styles.text}>
-                            Subscribers gain access to exclusive private content and perks. Access is non-transferable.
-                        </Text>
-
-                        <Text style={styles.sectionTitle}>8. Monthly Billing & Auto-Renewal</Text>
-                        <Text style={styles.text}>
-                            By subscribing, you authorize Valens to bill you monthly until cancellation.
-                        </Text> */}
-
-                        {/* <Text style={styles.sectionTitle}>9. Cancellation</Text>
-                        <Text style={styles.text}>
-                            You may cancel anytime. Access remains until the end of the billing period. No partial refunds.
-                        </Text>
-
-                        <Text style={styles.sectionTitle}>10. No Refunds</Text>
-                        <Text style={styles.text}>
-                            All subscription payments are final and non-refundable, including unused periods.
-                        </Text>
-
-                        <Text style={styles.sectionTitle}>11. Content Protection</Text>
-                        <Text style={styles.text}>
-                            Subscribers may NOT screenshot, record, download, print, or share subscription content.
-                            Violations may result in a security block.
-                        </Text> */}
-
-                        {/* PART C */}
-                        {/* <Text style={styles.partTitle}>PART C — GENERAL TERMS</Text>
-
-                        <Text style={styles.sectionTitle}>12. Safety & Compliance</Text>
-                        <Text style={styles.text}>
-                            All interactions must comply with Valens Community Guidelines and legal requirements.
-                        </Text>
-
-                        <Text style={styles.sectionTitle}>13. Platform Rights</Text>
-                        <Text style={styles.text}>
-                            Valens may update fees, freeze suspicious activity, restrict payouts, or suspend programs.
-                        </Text>
-
-                        <Text style={styles.sectionTitle}>14. Agreement to Terms</Text>
-                        <Text style={styles.text}>
-                            By using subscription features, you agree to this policy and authorize Valens to manage
-                            charges and fees.
-                        </Text> */}
-                        {/* <Text style={styles.heading}>IN-APP CHECKBOX — CREATORS (Plan Owners)</Text> */}
+                        <Text style={[styles.heading, textStyle]}>{t('subventionSetup.policyHeading')}</Text>
 
                         <View style={{ marginTop: 15 }} />
 
@@ -1072,31 +733,29 @@ const SubventionSetupScreen = () => {
                                 color="#000"
                                 style={styles.checkboxIcon}
                             />
-
                             <Text style={styles.checkboxText}>
-                                I agree to the{' '}
+                                {t('subventionSetup.agreePrefix')}{' '}
                                 <Text style={styles.linkText} onPress={openTerms}>
-                                    Valens Creator Terms
+                                    {t('subventionSetup.creatorTermsLink')}
                                 </Text>
-                                , including fees, payout conditions, platform rules, and acknowledge
-                                that I am acting as an independent creator and not as an employee or
-                                agent of Valens. {'\n\n'}
-                                Subscriptions provide access to digital content only and do not create
-                                any ownership, partnership, or financial rights.
+                                {t('subventionSetup.agreeSuffix')}
                             </Text>
                         </TouchableOpacity>
                     </ScrollView>
 
-                    <TouchableOpacity style={[styles.saveButton, !isChecked && { opacity: 0.5, backgroundColor: text }]} onPress={handleSaveSubscription} disabled={!isChecked}>
+                    <TouchableOpacity
+                        style={[styles.saveButton, !isChecked && { opacity: 0.5, backgroundColor: text }]}
+                        onPress={handleSaveSubscription}
+                        disabled={!isChecked}
+                    >
                         <Text style={styles.saveButtonText}>
-                            {hasExistingSubscription ? 'Update Subscription' : 'Save & Activate Program'}
+                            {hasExistingSubscription ? t('subventionSetup.updateButton') : t('subventionSetup.saveButton')}
                         </Text>
                     </TouchableOpacity>
 
                     <PrintWarningModal />
                 </ScrollView>
 
-                {/* Story Composer Modal */}
                 <StoryComposer
                     modalVisible={composerVisible}
                     mediaList={composerList}
@@ -1104,14 +763,6 @@ const SubventionSetupScreen = () => {
                     onDone={handleComposerDone}
                 />
 
-                {/* <TermCondition
-                    showModal={showModal}
-                    setShowModal={setShowModal}
-                    onAccept={() => {
-                        setShowModal(false);
-                        setShowActivationPopup(true)
-                    }}
-                /> */}
                 {isBusinessProfile ? (
                     <>
                         <BusinessPlanModal
@@ -1131,10 +782,11 @@ const SubventionSetupScreen = () => {
                 ) : (
                     <SubscriptionActivationPopup
                         visible={showActivationPopup}
-                        onClose={() => { setShowModal(false), setShowActivationPopup(false) }}
+                        onClose={() => { setShowModal(false); setShowActivationPopup(false); }}
                         onConfirm={handleActivationConfirm}
                     />
                 )}
+
                 <ConnectStripeModal
                     visible={showStripeSetupModal}
                     onClose={() => setShowStripeSetupModal(false)}
@@ -1144,7 +796,7 @@ const SubventionSetupScreen = () => {
                         try {
                             await openOnboarding();
                         } catch (e) {
-                            showToastMessage(toast, 'danger', e?.message || STRIPE_ERROR_MESSAGES.ONBOARDING_FAILED);
+                            showToastMessage(toast, 'danger', e?.message || stripeErrorMessages.ONBOARDING_FAILED);
                         }
                     }}
                 />

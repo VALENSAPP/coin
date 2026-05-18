@@ -24,6 +24,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { polygon } from 'viem/chains';
 import { appKit } from '../config/AppKitConfig';
 import { verifyUsdtTransaction } from '../services/wallet';
+import { useLanguage } from '../i18n';
 
 const SUPPORT_NETWORK = polygon;
 const SUPPORT_CHAIN_ID = String(SUPPORT_NETWORK.id);
@@ -97,10 +98,7 @@ export function buildSupportPaymentResultModalPayload(txHash, options = {}) {
   };
 }
 
-function buildSupportPaymentVerificationPayload(
-  txHash,
-  options = {},
-) {
+function buildSupportPaymentVerificationPayload(txHash, options = {}) {
   const senderId =
     options.senderId != null ? String(options.senderId).trim() : '';
   const receiverId =
@@ -119,6 +117,7 @@ const LOG = '[WC-Support]';
 
 function WalletConnectSupportInner({ children }) {
   const toast = useToast();
+  const { t } = useLanguage();
   const { open, close: closeWalletModal } = useAppKit();
   const { isConnected, address } = useAccount();
   const { provider } = useProvider();
@@ -131,7 +130,6 @@ function WalletConnectSupportInner({ children }) {
   const [showWalletConnectedModal, setShowWalletConnectedModal] = useState(false);
   const [connectedSuccessAddress, setConnectedSuccessAddress] = useState(undefined);
   const pendingPaymentRef = useRef(null);
-  /** Set when opening AppKit for a support payment; cleared when success UI shows or flow errors/cancels. */
   const supportConnectIntentRef = useRef(null);
   const connectRevealInProgressRef = useRef(false);
   const continueToPayAfterHideRef = useRef(false);
@@ -154,59 +152,59 @@ function WalletConnectSupportInner({ children }) {
   }, [requestModalVisible]);
 
   // 🦊 Listen for MetaMask return from deep link handler in index.js
-useEffect(() => {
-  const subscription = DeviceEventEmitter.addListener('METAMASK_RETURN', async () => {
-    console.log(LOG, '🦊 METAMASK_RETURN received — attempting to resume session');
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('METAMASK_RETURN', async () => {
+      console.log(LOG, '🦊 METAMASK_RETURN received — attempting to resume session');
 
-    const intent = supportConnectIntentRef.current;
-    if (!intent?.recipientAddress) {
-      console.warn(LOG, 'METAMASK_RETURN: no pending intent, skipping');
-      return;
-    }
-
-    if (
-      showWalletConnectedModalRef.current ||
-      requestModalVisibleRef.current ||
-      connectRevealInProgressRef.current
-    ) {
-      console.log(LOG, 'METAMASK_RETURN: modal already showing, skipping');
-      return;
-    }
-
-    const wc = getProviderFromAppKit();
-    if (!wc?.request) {
-      console.warn(LOG, 'METAMASK_RETURN: no provider yet — AppState will retry');
-      return;
-    }
-
-    let addr;
-    try {
-      let accounts = await wc.request({ method: 'eth_accounts' });
-      addr = accounts?.[0];
-      if (!addr) {
-        accounts = await wc.request({ method: 'eth_requestAccounts' });
-        addr = accounts?.[0];
+      const intent = supportConnectIntentRef.current;
+      if (!intent?.recipientAddress) {
+        console.warn(LOG, 'METAMASK_RETURN: no pending intent, skipping');
+        return;
       }
-    } catch (e) {
-      console.warn(LOG, 'METAMASK_RETURN: account read failed — AppState will retry', e);
-      return;
-    }
 
-    if (!addr) {
-      console.warn(LOG, 'METAMASK_RETURN: no address yet — AppState will retry');
-      return;
-    }
+      if (
+        showWalletConnectedModalRef.current ||
+        requestModalVisibleRef.current ||
+        connectRevealInProgressRef.current
+      ) {
+        console.log(LOG, 'METAMASK_RETURN: modal already showing, skipping');
+        return;
+      }
 
-    try {
-      await persistConnectedWallet(addr);
-      await revealConnectedSuccessUi(addr, intent.recipientAddress, intent.options);
-    } catch (e) {
-      console.warn(LOG, 'METAMASK_RETURN: reveal failed', e);
-    }
-  });
+      const wc = getProviderFromAppKit();
+      if (!wc?.request) {
+        console.warn(LOG, 'METAMASK_RETURN: no provider yet — AppState will retry');
+        return;
+      }
 
-  return () => subscription.remove();
-}, [persistConnectedWallet, revealConnectedSuccessUi]);
+      let addr;
+      try {
+        let accounts = await wc.request({ method: 'eth_accounts' });
+        addr = accounts?.[0];
+        if (!addr) {
+          accounts = await wc.request({ method: 'eth_requestAccounts' });
+          addr = accounts?.[0];
+        }
+      } catch (e) {
+        console.warn(LOG, 'METAMASK_RETURN: account read failed — AppState will retry', e);
+        return;
+      }
+
+      if (!addr) {
+        console.warn(LOG, 'METAMASK_RETURN: no address yet — AppState will retry');
+        return;
+      }
+
+      try {
+        await persistConnectedWallet(addr);
+        await revealConnectedSuccessUi(addr, intent.recipientAddress, intent.options);
+      } catch (e) {
+        console.warn(LOG, 'METAMASK_RETURN: reveal failed', e);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [persistConnectedWallet, revealConnectedSuccessUi]);
 
   const openWalletConnectModal = useCallback(async () => {
     console.log(LOG, 'open() invoked → AppKit modal should open');
@@ -221,11 +219,6 @@ useEffect(() => {
     }
   }, [open]);
 
-  /**
-   * Do not rely only on useAccount/useProvider during async loops — they can lag
-   * one or more frames behind AppKit. Poll `appKit.getProvider` + `eth_accounts`
-   * like the native stack does internally.
-   */
   const waitForSessionAddressAndProvider = useCallback(async (timeoutMs = 90000) => {
     console.log(LOG, 'waitForSessionAddressAndProvider: polling AppKit provider + eth_accounts…');
     const start = Date.now();
@@ -277,8 +270,8 @@ useEffect(() => {
     }
 
     console.warn(LOG, 'waitForSessionAddressAndProvider: TIMEOUT');
-    throw new Error('Wallet connection timed out. Try again.');
-  }, []);
+    throw new Error(t('walletConnect.connectionTimedOut'));
+  }, [t]);
 
   const waitForProvider = useCallback(async (timeoutMs = 15000) => {
     console.log(LOG, 'waitForProvider: polling…');
@@ -301,12 +294,12 @@ useEffect(() => {
       await new Promise((r) => setTimeout(r, 100));
     }
     console.warn(LOG, 'waitForProvider: TIMEOUT');
-    throw new Error('Wallet provider not ready. Try again.');
-  }, []);
+    throw new Error(t('walletConnect.providerNotReady'));
+  }, [t]);
 
   const ensurePolygon = useCallback(async (wcProvider) => {
     if (!wcProvider?.request) {
-      throw new Error('Wallet provider is not ready');
+      throw new Error(t('walletConnect.providerNotReady'));
     }
     try {
       await wcProvider.request({
@@ -328,11 +321,9 @@ useEffect(() => {
 
     const chainId = await wcProvider.request({ method: 'eth_chainId' });
     if (normalizeChainIdHex(chainId) !== normalizeChainIdHex(SUPPORT_CHAIN_ID_HEX)) {
-      throw new Error(
-        'Please switch to Polygon in your wallet and try again.',
-      );
+      throw new Error(t('walletConnect.switchToPolygon'));
     }
-  }, []);
+  }, [t]);
 
   const persistConnectedWallet = useCallback(async (walletAddress) => {
     if (!walletAddress) return;
@@ -355,7 +346,7 @@ useEffect(() => {
 
       const wcProvider = await waitForProvider();
       if (!wcProvider?.request) {
-        throw new Error('Wallet is not connected.');
+        throw new Error(t('walletConnect.walletNotConnected'));
       }
 
       console.log(LOG, 'ensurePolygon…');
@@ -363,7 +354,7 @@ useEffect(() => {
 
       const chainId = await wcProvider.request({ method: 'eth_chainId' });
       if (normalizeChainIdHex(chainId) !== normalizeChainIdHex(SUPPORT_CHAIN_ID_HEX)) {
-        throw new Error('Please switch to Polygon network');
+        throw new Error(t('walletConnect.switchToPolygonNetwork'));
       }
 
       let userAddress = modalSnapshotRef.current.address;
@@ -372,7 +363,7 @@ useEffect(() => {
         userAddress = accounts?.[0];
       }
       if (!userAddress) {
-        throw new Error('No wallet account available');
+        throw new Error(t('walletConnect.noAccountAvailable'));
       }
 
       console.log(LOG, 'sender', userAddress);
@@ -399,13 +390,10 @@ useEffect(() => {
       );
 
       setRpcResponse(paymentResultPayload);
-      showToastMessage(toast, 'success', 'Support transaction submitted');
+      showToastMessage(toast, 'success', t('walletConnect.transactionSubmitted'));
 
       await verifyUsdtTransaction(
-        buildSupportPaymentVerificationPayload(
-          txHash,
-          options,
-        ),
+        buildSupportPaymentVerificationPayload(txHash, options),
       ).then((verificationResponse) => {
         console.log(
           LOG,
@@ -422,11 +410,11 @@ useEffect(() => {
         showToastMessage(
           toast,
           'warning',
-          'Payment was sent, but verification is still pending.',
+          t('walletConnect.verificationPending'),
         );
       });
     },
-    [waitForProvider, ensurePolygon, persistConnectedWallet, toast],
+    [waitForProvider, ensurePolygon, persistConnectedWallet, toast, t],
   );
 
   const revealConnectedSuccessUi = useCallback(
@@ -462,19 +450,15 @@ useEffect(() => {
         showToastMessage(
           toast,
           'success',
-          'Wallet connected — tap Continue to pay to confirm your tip.',
+          t('walletConnect.walletConnectedHint'),
         );
       } finally {
         connectRevealInProgressRef.current = false;
       }
     },
-    [closeWalletModal, toast],
+    [closeWalletModal, toast, t],
   );
 
-  /**
-   * After MetaMask / external wallet returns, hooks can lag. Retry so
-   * "Wallet connected" + Continue to pay still appears.
-   */
   useEffect(() => {
     let timeoutId;
 
@@ -554,7 +538,7 @@ useEffect(() => {
 
       if (!recipientAddress) {
         console.warn(LOG, 'startSupportPayment: abort — no recipientAddress');
-        showToastMessage(toast, 'danger', 'Creator wallet address is not available.');
+        showToastMessage(toast, 'danger', t('walletConnect.creatorWalletUnavailable'));
         return;
       }
 
@@ -570,7 +554,7 @@ useEffect(() => {
           await runPaymentSteps(recipientAddress, options);
         } catch (error) {
           const message =
-            error instanceof Error ? error.message : String(error ?? 'Unknown error');
+            error instanceof Error ? error.message : String(error ?? t('walletConnect.unknownError'));
           console.warn(LOG, 'startSupportPayment error', message, error);
           setRpcResponse({ error: message });
           showToastMessage(toast, 'danger', message);
@@ -590,24 +574,21 @@ useEffect(() => {
         const { address: userAddress } = await waitForSessionAddressAndProvider(15000);
 
         if (!userAddress) {
-          throw new Error('No wallet account available');
+          throw new Error(t('walletConnect.noAccountAvailable'));
         }
 
         await persistConnectedWallet(userAddress);
         await revealConnectedSuccessUi(userAddress, recipientAddress, options);
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : String(error ?? 'Unknown error');
+          error instanceof Error ? error.message : String(error ?? t('walletConnect.unknownError'));
         
-        // ✅ Only clear intent if it's NOT a timeout — timeout means user went to MetaMask
-        // and AppState/METAMASK_RETURN will recover it
         if (!message.includes('timed out')) {
           supportConnectIntentRef.current = null;
         }
         
         console.warn(LOG, 'startSupportPayment (connect) error', message, error);
         
-        // ✅ Don't show error toast for timeout — MetaMask return will handle it
         if (!message.includes('timed out')) {
           showToastMessage(toast, 'danger', message);
         }
@@ -620,6 +601,7 @@ useEffect(() => {
       revealConnectedSuccessUi,
       runPaymentSteps,
       toast,
+      t,
     ],
   );
 
@@ -644,7 +626,7 @@ useEffect(() => {
       await runPaymentSteps(pending.recipientAddress, pending.options);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : String(error ?? 'Unknown error');
+        error instanceof Error ? error.message : String(error ?? t('walletConnect.unknownError'));
       console.warn(LOG, 'continueToPayAfterConnect error', message, error);
       setRpcResponse({ error: message });
       showToastMessage(toast, 'danger', message);
@@ -653,7 +635,7 @@ useEffect(() => {
       pendingPaymentRef.current = null;
       console.log(LOG, 'openPendingPaymentRequest finished');
     }
-  }, [runPaymentSteps, toast]);
+  }, [runPaymentSteps, toast, t]);
 
   const continueToPayAfterConnect = useCallback(() => {
     if (!pendingPaymentRef.current?.recipientAddress) {

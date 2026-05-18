@@ -1,8 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
-
-const MESSAGE = 'You must complete Stripe setup to receive subscription payments.';
+import { useLanguage } from '../../i18n';
 
 /**
  * Reusable modal shown when user must connect Stripe to receive payments.
@@ -15,6 +14,7 @@ const ConnectStripeModal = ({
   onConnectStripe,
 }) => {
   const { text, card } = useAppTheme();
+  const { t } = useLanguage();
 
   const handleConnectStripe = () => {
     onClose?.();
@@ -30,21 +30,27 @@ const ConnectStripeModal = ({
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: card }]}>
-          <Text style={[styles.message, { color: text }]}>{MESSAGE}</Text>
+          <Text style={[styles.message, { color: text }]}>
+            {t('connectStripeModal.message')}
+          </Text>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.secondaryButton, { borderColor: text }]}
               onPress={onClose}
             >
-              <Text style={[styles.secondaryButtonText, { color: text }]}>Cancel</Text>
+              <Text style={[styles.secondaryButtonText, { color: text }]}>
+                {t('connectStripeModal.cancelButton')}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.primaryButton, { backgroundColor: text }]}
               onPress={handleConnectStripe}
             >
-              <Text style={styles.primaryButtonText}>Connect Stripe</Text>
+              <Text style={styles.primaryButtonText}>
+                {t('connectStripeModal.connectButton')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -54,7 +60,8 @@ const ConnectStripeModal = ({
 };
 
 export default ConnectStripeModal;
-export { MESSAGE as CONNECT_STRIPE_MODAL_MESSAGE };
+export const CONNECT_STRIPE_MODAL_MESSAGE =
+  'connectStripeModal.message';
 
 const styles = StyleSheet.create({
   overlay: {

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
 import Icon from 'react-native-vector-icons/Ionicons';
-
+import { useLanguage } from '../../i18n';
 
 export default function ActivateMissionPost({
   visible,
@@ -18,6 +18,7 @@ export default function ActivateMissionPost({
   onLaunch,
 }) {
   const { bgStyle, textStyle, text, card } = useAppTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal
@@ -29,41 +30,57 @@ export default function ActivateMissionPost({
     >
       <View style={styles.overlay}>
         <View style={[styles.container, bgStyle]}>
-            <View style={styles.modalHeader}>
-                          <Icon name="wallet-outline" size={50} color={text} />
-                        </View>
-            
-                        <Text style={[styles.modalTitle, textStyle]}>No Credits Available</Text>
+          <View style={styles.modalHeader}>
+            <Icon name="wallet-outline" size={50} color={text} />
+          </View>
+
+          <Text style={[styles.modalTitle, textStyle]}>
+            {t('activateMissionPost.noCreditsTitle')}
+          </Text>
+
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={[styles.body,]}>You’re about to create a Mission Post.</Text>
-            {/* <Text style={styles.subtitle}>5 posts monthly</Text> */}
-
-            <Text style={styles.body}>
-              Mission Posts let you share  something important with your community — whether it’s a goal, idea, or moment that matters — and invite others to support or participate.
+            <Text style={[styles.body]}>
+              {t('activateMissionPost.bodyIntro')}
             </Text>
 
             <Text style={styles.body}>
-              This credit unlocks one Mission Post, which you can use to:
+              {t('activateMissionPost.bodyDescription')}
             </Text>
-
-            <Text style={styles.bullet}>• Launch a personal project</Text>
-            <Text style={styles.bullet}>• Share a meaningful cause</Text>
-            <Text style={styles.bullet}>• Ask for support from your network</Text>
-            <Text style={styles.bullet}>• Create a moment around something you care about</Text>
 
             <Text style={styles.body}>
-              Your followers can engage and support your mission directly in a simple and transparent way.
+              {t('activateMissionPost.creditUnlocks')}
             </Text>
 
-            <Text style={styles.body}>Unlock Mission Post to continue</Text>
+            <Text style={styles.bullet}>• {t('activateMissionPost.bullet1')}</Text>
+            <Text style={styles.bullet}>• {t('activateMissionPost.bullet2')}</Text>
+            <Text style={styles.bullet}>• {t('activateMissionPost.bullet3')}</Text>
+            <Text style={styles.bullet}>• {t('activateMissionPost.bullet4')}</Text>
+
+            <Text style={styles.body}>
+              {t('activateMissionPost.bodyFollowers')}
+            </Text>
+
+            <Text style={styles.body}>
+              {t('activateMissionPost.unlockCta')}
+            </Text>
           </ScrollView>
 
-          <TouchableOpacity style={[styles.launchButton, { backgroundColor: text }]} onPress={onLaunch}>
-            <Text style={styles.launchButtonText}>Launch Mission</Text>
+          <TouchableOpacity
+            style={[styles.launchButton, { backgroundColor: text }]}
+            onPress={onLaunch}
+          >
+            <Text style={styles.launchButtonText}>
+              {t('activateMissionPost.launchButton')}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.notNowButton, { borderColor: text, backgroundColor: card }]} onPress={onClose}>
-            <Text style={[styles.notNowButtonText, textStyle]}>Not Now</Text>
+          <TouchableOpacity
+            style={[styles.notNowButton, { borderColor: text, backgroundColor: card }]}
+            onPress={onClose}
+          >
+            <Text style={[styles.notNowButtonText, textStyle]}>
+              {t('activateMissionPost.notNowButton')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

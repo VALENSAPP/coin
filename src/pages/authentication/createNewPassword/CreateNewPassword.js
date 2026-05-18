@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Dimensions,
   Keyboard,
   Platform,
@@ -17,13 +16,12 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
-import { forgotPassword, resetPassword } from '../../../services/authentication';
+import { resetPassword } from '../../../services/authentication';
 import { showToastMessage } from '../../../components/displaytoastmessage';
-import { LogoIcon } from '../../../assets/icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthHeader } from '../../../components/auth';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +36,7 @@ const NewPasswordScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage(); // i18n
 
   const { email, otp } = route.params || {};
 
@@ -45,23 +44,22 @@ const NewPasswordScreen = () => {
     const errs = {};
 
     if (!password) {
-      errs.password = 'Password is required';
+      errs.password = t('newPassword.passwordRequired');
     } else if (password.length < 8) {
-      errs.password = 'Password must be at least 8 characters';
+      errs.password = t('newPassword.passwordMinLength');
     } else if (
       !/(?=.*[A-Z])/.test(password) ||
       !/(?=.*[a-z])/.test(password) ||
       !/(?=.*\d)/.test(password) ||
       !/(?=.*[!@#$%^&*(),.?":{}|<>])/.test(password)
     ) {
-      errs.password =
-        'Password must include uppercase, lowercase, number & special character';
+      errs.password = t('newPassword.passwordRules');
     }
 
     if (!confirmPassword) {
-      errs.confirmPassword = 'Please confirm your password';
+      errs.confirmPassword = t('newPassword.confirmPasswordRequired');
     } else if (password !== confirmPassword) {
-      errs.confirmPassword = 'Passwords do not match';
+      errs.confirmPassword = t('newPassword.passwordMismatch');
     }
 
     setErrors(errs);
@@ -76,8 +74,8 @@ const NewPasswordScreen = () => {
     try {
       const newPassword = password;
       const response = await resetPassword({ email, newPassword });
-        console.log('response in reset password', response);
-        
+      console.log('response in reset password', response);
+
       if (response.statusCode == 200 && response) {
         showToastMessage(toast, 'success', response.data.message);
         navigation.navigate('Login');
@@ -96,7 +94,6 @@ const NewPasswordScreen = () => {
   };
 
   return (
-    // <SafeAreaView style={styles.safe} edges={['top', 'right', 'left']}>
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAwareScrollView
         style={[styles.container, bgStyle]}
@@ -105,12 +102,12 @@ const NewPasswordScreen = () => {
         keyboardShouldPersistTaps="handled"
         enableOnAndroid
         enableAutomaticScroll
-        extraScrollHeight={24} // adjust if needed
+        extraScrollHeight={24}
         extraHeight={Platform.OS === 'ios' ? 120 : 150}
         resetScrollToCoords={{ x: 0, y: 0 }}
       >
         <AuthHeader
-          subtitle="Create New Password"
+          subtitle={t('newPassword.screenTitle')}
           onBackPress={() => navigation.goBack()}
         />
 
@@ -118,17 +115,16 @@ const NewPasswordScreen = () => {
         <View style={styles.formWrapper}>
           <View style={styles.card}>
             <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeTitle}>Create New Password</Text>
+              <Text style={styles.welcomeTitle}>{t('newPassword.cardTitle')}</Text>
               <Text style={styles.welcomeSubtitle}>
-                Please choose a new password that's at least 8 characters long
-                and secure
+                {t('newPassword.cardSubtitle')}
               </Text>
             </View>
 
             <View style={styles.inputContainer}>
               {/* Password Requirements Info */}
               <View style={styles.infoSection}>
-                <View style={[styles.infoBox, {borderLeftColor: text}]}>
+                <View style={[styles.infoBox, { borderLeftColor: text }]}>
                   <Ionicons
                     name="shield-checkmark"
                     size={20}
@@ -136,15 +132,14 @@ const NewPasswordScreen = () => {
                     style={styles.infoIcon}
                   />
                   <Text style={styles.infoText}>
-                    Your password must include uppercase, lowercase, numbers and
-                    special characters
+                    {t('newPassword.infoBoxText')}
                   </Text>
                 </View>
               </View>
 
               {/* New Password Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>New Password</Text>
+                <Text style={styles.inputLabel}>{t('newPassword.newPasswordLabel')}</Text>
                 <View
                   style={[
                     styles.inputGroup,
@@ -153,7 +148,7 @@ const NewPasswordScreen = () => {
                 >
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Enter your new password"
+                    placeholder={t('newPassword.newPasswordPlaceholder')}
                     placeholderTextColor="#9CA3AF"
                     secureTextEntry={secureTextEntry}
                     autoCapitalize="none"
@@ -185,7 +180,7 @@ const NewPasswordScreen = () => {
 
               {/* Confirm Password Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Confirm Password</Text>
+                <Text style={styles.inputLabel}>{t('newPassword.confirmPasswordLabel')}</Text>
                 <View
                   style={[
                     styles.inputGroup,
@@ -194,7 +189,7 @@ const NewPasswordScreen = () => {
                 >
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Confirm your new password"
+                    placeholder={t('newPassword.confirmPasswordPlaceholder')}
                     placeholderTextColor="#9CA3AF"
                     secureTextEntry={secureTextEntryConfirm}
                     autoCapitalize="none"
@@ -227,20 +222,23 @@ const NewPasswordScreen = () => {
               </View>
 
               {/* Reset Password Button */}
-              <TouchableOpacity style={[styles.resetButton, {backgroundColor: text, shadowColor: text}]} onPress={onReset}>
-                <Text style={styles.resetButtonText}>Reset Password</Text>
+              <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: text, shadowColor: text }]}
+                onPress={onReset}
+              >
+                <Text style={styles.resetButtonText}>{t('newPassword.resetButton')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Back to Login */}
             <View style={styles.backToLoginSection}>
               <Text style={styles.backToLoginText}>
-                Remember your password?{' '}
+                {t('newPassword.rememberPassword')}{' '}
                 <Text
                   style={[styles.backToLoginLink, textStyle]}
                   onPress={() => navigation.navigate('Login')}
                 >
-                  Back to Login
+                  {t('newPassword.backToLogin')}
                 </Text>
               </Text>
             </View>
@@ -248,7 +246,6 @@ const NewPasswordScreen = () => {
         </View>
       </KeyboardAwareScrollView>
     </TouchableWithoutFeedback>
-    // </SafeAreaView>
   );
 };
 
@@ -260,15 +257,11 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
   },
-
-  // Form wrapper styles
   formWrapper: {
     flex: 1,
     marginTop: -30,
     paddingHorizontal: 7,
   },
-
-  // Enhanced Card Styles
   card: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
@@ -281,8 +274,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
-
-  // Welcome Section
   welcomeSection: {
     alignItems: 'center',
     marginBottom: 32,
@@ -302,8 +293,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 10,
   },
-
-  // Enhanced Input Styles
   inputContainer: {
     width: '100%',
   },
@@ -346,8 +335,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '500',
   },
-
-  // Info Section
   infoSection: {
     marginBottom: 24,
   },
@@ -368,8 +355,6 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 20,
   },
-
-  // Reset Password Button
   resetButton: {
     height: 52,
     borderRadius: 16,
@@ -387,8 +372,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
-  // Back to Login Section
   backToLoginSection: {
     alignItems: 'center',
     marginTop: 16,

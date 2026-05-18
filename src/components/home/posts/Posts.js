@@ -45,12 +45,13 @@ import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
 import { extractPostMusicPayloadFromApi } from '../../../utils/postSoundtracks';
+import { useLanguage } from '../../../i18n';
 
 const Posts = forwardRef(function Posts(
   { postData = [], onRefresh, isBusinessProfile, refreshing = false },
   ref,
 ) {
-  
+  const { t } = useLanguage();
 
   // All state hooks first - maintain consistent order
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
@@ -101,7 +102,7 @@ const Posts = forwardRef(function Posts(
   const sellSheetRef = useRef(null);
   const toast = useToast();
   const dispatch = useDispatch();
-   const { bgStyle, textStyle } = useAppTheme();
+  const { bgStyle, textStyle } = useAppTheme();
 
   useEffect(() => {
     let timeout;
@@ -139,7 +140,7 @@ const Posts = forwardRef(function Posts(
 
       // Extract unique user IDs to avoid duplicate API calls
       const uniqueUserIds = [...new Set(list.map(item => item?.userId).filter(Boolean))];
-      
+
       if (uniqueUserIds.length === 0) return;
 
       const followingPromises = uniqueUserIds.map(async (userId) => {
@@ -162,7 +163,7 @@ const Posts = forwardRef(function Posts(
             image: followingImage
           };
         } catch (e) {
-          console.log('Error checking follow status for user:', item.userId, e);
+          console.log('Error checking follow status for user:', userId, e);
           // Return safe default instead of throwing
           return {
             userId,
@@ -203,14 +204,14 @@ const Posts = forwardRef(function Posts(
     return () => clearTimeout(timer);
   }, [list]);
 
-  // -------- Fetch followers for each post (for "Vallowed by" section) - optimized --------
+  // -------- Fetch followers for each post (for "Followed by" section) - optimized --------
   useEffect(() => {
     const fetchPostFollowers = async () => {
       if (!list || list.length === 0) return;
 
       // Extract unique user IDs
       const uniqueUserIds = [...new Set(list.map(item => item?.userId).filter(Boolean))];
-      
+
       if (uniqueUserIds.length === 0) return;
 
       const followersPromises = uniqueUserIds.map(async (userId) => {
@@ -230,7 +231,7 @@ const Posts = forwardRef(function Posts(
               return {
                 id: follower?.id || f.followerId,
                 username: follower?.userName || follower?.displayName ||
-                  (follower?.email ? follower.email.split('@')[0] : 'User'),
+                  (follower?.email ? follower.email.split('@')[0] : t('posts.user')),
                 avatar: follower?.image || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
               };
             });
@@ -291,7 +292,7 @@ const Posts = forwardRef(function Posts(
         return {
           UserId: item.userId,
           id: item.id,
-          username: item.userName || 'Unknown User',
+          username: item.userName || t('posts.unknownUser'),
           avatar:
             followingImage ||
             item.userImage ||
@@ -307,12 +308,12 @@ const Posts = forwardRef(function Posts(
           start_time: item.start_time || null,
           end_time: item.end_time || null,
           tokenBalance: item.tokenBalance || 0,
-          shareCount:item.shareCount || 0,
+          shareCount: item.shareCount || 0,
           taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
           ...extractPostMusicPayloadFromApi(item),
         };
       });
-  }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId]);
+  }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId, t]);
 
   // Optimize canDelete calculation
   const canDelete = useMemo(() => {
@@ -356,19 +357,13 @@ const Posts = forwardRef(function Posts(
           if (serverCount !== undefined) {
             setPostLikesCount(prev => ({ ...prev, [postId]: serverCount }));
           }
-
-          // showToastMessage(
-          //   toast,
-          //   'success',
-          //   res?.data?.message || (serverLiked ? 'Post liked' : 'Post unliked'),
-          // );
         } else {
           setLiked(prev => ({ ...prev, [postId]: wasLiked }));
           setPostLikesCount(prev => ({ ...prev, [postId]: prevCount }));
           showToastMessage(
             toast,
             'danger',
-            res?.data?.message || 'Failed to toggle like',
+            res?.data?.message || t('posts.failedToToggleLike'),
           );
         }
       } catch (e) {
@@ -377,7 +372,7 @@ const Posts = forwardRef(function Posts(
         showToastMessage(
           toast,
           'danger',
-          e?.response?.data?.message || 'Something went wrong',
+          e?.response?.data?.message || t('posts.somethingWentWrong'),
         );
       } finally {
         setLikingIds(prev => {
@@ -387,7 +382,7 @@ const Posts = forwardRef(function Posts(
         });
       }
     },
-    [liked, postLikesCount, likingIds, toast],
+    [liked, postLikesCount, likingIds, toast, t],
   );
 
   const handleToggleSave = useCallback(
@@ -413,7 +408,7 @@ const Posts = forwardRef(function Posts(
         showToastMessage(
           toast,
           'danger',
-          err?.response?.message ?? 'Something went wrong',
+          err?.response?.message ?? t('posts.somethingWentWrong'),
         );
       } finally {
         setSavingIds(prev => {
@@ -423,7 +418,7 @@ const Posts = forwardRef(function Posts(
         });
       }
     },
-    [saved, savingIds, toast],
+    [saved, savingIds, toast, t],
   );
 
   const handleToggleHide = useCallback(
@@ -436,7 +431,6 @@ const Posts = forwardRef(function Posts(
       setHidingIds(prev => new Set(prev).add(postId));
 
       try {
-        // dispatch(showLoader());
         const resp = isHidden
           ? await apiUnhidePost(postId)
           : await apiHidePost(postId);
@@ -448,14 +442,14 @@ const Posts = forwardRef(function Posts(
             'danger',
             resp?.data?.message ||
             resp?.message ||
-            `Failed to ${isHidden ? 'unhide' : 'hide'} post`,
+            t(isHidden ? 'optionsModal.errorUnhideFailed' : 'optionsModal.errorHideFailed'),
           );
-          console.log(resp,'hide the post in homese')
+          console.log(resp, 'hide the post in homese');
         } else {
           showToastMessage(
             toast,
             'success',
-            resp?.data?.message || (isHidden ? 'Post unhidden' : 'Post hidden'),
+            resp?.data?.message || t(isHidden ? 'optionsModal.successUnhidden' : 'optionsModal.successHidden'),
           );
         }
       } catch (e) {
@@ -463,10 +457,9 @@ const Posts = forwardRef(function Posts(
         showToastMessage(
           toast,
           'danger',
-          e?.response?.data?.message || 'Something went wrong',
+          e?.response?.data?.message || t('posts.somethingWentWrong'),
         );
       } finally {
-        // dispatch(hideLoader());
         setHidingIds(prev => {
           const next = new Set(prev);
           next.delete(postId);
@@ -474,7 +467,7 @@ const Posts = forwardRef(function Posts(
         });
       }
     },
-    [hiddenById, hidingIds, toast, dispatch],
+    [hiddenById, hidingIds, toast, dispatch, t],
   );
 
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
@@ -516,9 +509,8 @@ const Posts = forwardRef(function Posts(
         setPendingFollowAction(shouldFollow);
         setTimeout(() => purchaseSheetRef.current?.open?.(), 0);
         return;
-      }
-      else {
-        await fetchToken(targetUserId)
+      } else {
+        await fetchToken(targetUserId);
         setTimeout(() => sellSheetRef.current?.open?.(), 0);
       }
     },
@@ -572,7 +564,7 @@ const Posts = forwardRef(function Posts(
         showToastMessage(
           toast,
           'danger',
-          res?.data?.message || res?.message || 'Unable to update follow',
+          res?.data?.message || res?.message || t('posts.ableToUpdateFollow'),
         );
         return false;
       } else {
@@ -586,11 +578,6 @@ const Posts = forwardRef(function Posts(
             isFollowing: resolvedFollowing,
           },
         }));
-        // showToastMessage(
-        //   toast,
-        //   'success',
-        //   shouldFollow ? 'Successfully Vallowed!' : 'Unfollowed',
-        // );
         return true;
       }
     } catch (e) {
@@ -605,7 +592,7 @@ const Posts = forwardRef(function Posts(
       showToastMessage(
         toast,
         'danger',
-        e?.response?.data?.message || 'Something went wrong',
+        e?.response?.data?.message || t('posts.somethingWentWrong'),
       );
       return false;
     } finally {
@@ -615,7 +602,7 @@ const Posts = forwardRef(function Posts(
         return next;
       });
     }
-  }
+  };
 
   const handleTokenPurchase = async () => {
     try {
@@ -625,7 +612,7 @@ const Posts = forwardRef(function Posts(
       showToastMessage(
         toast,
         'danger',
-        error?.message || 'Token purchase failed',
+        error?.message || t('posts.tokenPurchaseFailed'),
       );
     } finally {
       dispatch(hideLoader());
@@ -633,13 +620,13 @@ const Posts = forwardRef(function Posts(
       setPendingFollowAction(null);
       setIsExecutingPurchase(false);
     }
-  }
+  };
 
   const handleTokenSell = useCallback(() => {
     sellSheetRef.current?.close();
-    showToastMessage(toast, 'success', 'Tokens sold successfully!');
+    showToastMessage(toast, 'success', t('posts.tokensSoldSuccess'));
     onRefresh();
-  }, []);
+  }, [t]);
 
   const handleTokenModalClose = () => {
     purchaseSheetRef.current?.close?.();
@@ -663,78 +650,82 @@ const Posts = forwardRef(function Posts(
 
       if (action === 'copyAddress') {
         if (!modalPostId) {
-          showToastMessage(toast, 'danger', 'Post ID not found');
+          showToastMessage(toast, 'danger', t('posts.postIdNotFound'));
           closeOptionsModal();
           return;
         }
 
         const deepLink = `com.valens.app://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
         Clipboard.setString(deepLink);
-        showToastMessage(toast, 'success', 'Post copied');
+        showToastMessage(toast, 'success', t('posts.postCopied'));
         closeOptionsModal();
         return;
       }
 
       if (action === 'deletePost') {
         if (!canDelete) {
-          showToastMessage(toast, 'danger', "You can't delete this post.");
+          showToastMessage(toast, 'danger', t('posts.cannotDeletePost'));
           closeOptionsModal();
           return;
         }
 
-        Alert.alert('Delete post?', 'This action cannot be undone.', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                dispatch(showLoader());
-                let userId = currentUserId;
-                if (!userId) {
-                  const id = await AsyncStorage.getItem('userId');
-                  if (!id) {
+        Alert.alert(
+          t('posts.deletePostTitle'),
+          t('posts.deletePostMessage'),
+          [
+            { text: t('posts.deletePostCancel'), style: 'cancel' },
+            {
+              text: t('posts.deletePostConfirm'),
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  dispatch(showLoader());
+                  let userId = currentUserId;
+                  if (!userId) {
+                    const id = await AsyncStorage.getItem('userId');
+                    if (!id) {
+                      showToastMessage(
+                        toast,
+                        'danger',
+                        t('posts.noUserIdFound'),
+                      );
+                      return;
+                    }
+                    userId = String(id);
+                  }
+                  setList(prev =>
+                    prev.filter(p => String(p.id) !== String(modalPostId)),
+                  );
+                  const res = await deletePost(modalPostId, userId);
+                  closeOptionsModal();
+                  if (res?.statusCode === 200 && res?.success) {
+                    showToastMessage(
+                      toast,
+                      'success',
+                      res?.data?.message || t('posts.deletePostSuccess'),
+                    );
+                  } else {
                     showToastMessage(
                       toast,
                       'danger',
-                      'No user id found; cannot delete.',
+                      res?.data?.message || res?.message || t('posts.deletePostFailed'),
                     );
-                    return;
                   }
-                  userId = String(id);
-                }
-                setList(prev =>
-                  prev.filter(p => String(p.id) !== String(modalPostId)),
-                );
-                const res = await deletePost(modalPostId, userId);
-                closeOptionsModal();
-                if (res?.statusCode === 200 && res?.success) {
-                  showToastMessage(
-                    toast,
-                    'success',
-                    res?.data?.message || 'Post deleted',
-                  );
-                } else {
+                } catch (err) {
                   showToastMessage(
                     toast,
                     'danger',
-                    res?.data?.message || res?.message || 'Failed to delete',
+                    err?.response?.data?.message ||
+                    err?.message ||
+                    t('posts.errorDeletingPost'),
                   );
+                } finally {
+                  dispatch(hideLoader());
                 }
-              } catch (err) {
-                showToastMessage(
-                  toast,
-                  'danger',
-                  err?.response?.data?.message ||
-                  err?.message ||
-                  'Error deleting post',
-                );
-              } finally {
-                dispatch(hideLoader());
-              }
+              },
             },
-          },
-        ]);
+          ],
+        );
 
         return;
       }
@@ -756,6 +747,7 @@ const Posts = forwardRef(function Posts(
       currentUserId,
       dispatch,
       handleToggleHide,
+      t,
     ],
   );
 
@@ -814,19 +806,19 @@ const Posts = forwardRef(function Posts(
         username:
           u.userName ||
           u.displayName ||
-          (u.email ? u.email.split('@')[0] : 'User'),
+          (u.email ? u.email.split('@')[0] : t('posts.user')),
         avatar: u.image || u.avatar || null,
         isFollow: typeof u.isFollow === 'boolean' ? u.isFollow : false,
-        profile: u.profile
+        profile: u.profile,
       };
     },
-    [], // EMPTY DEPS
+    [t],
   );
 
   const loadSuggestions = useCallback(async (page = 1, isLoadMore = false) => {
     // Prevent duplicate calls
     if (isLoadingSuggestions) return;
-    
+
     try {
       setIsLoadingSuggestions(true);
       const limit = 15;
@@ -848,7 +840,7 @@ const Posts = forwardRef(function Posts(
         .filter(u => u && (!me || String(u.id) !== me))
         .map(normalizeUser)
         .filter(Boolean);
-      
+
       if (isLoadMore) {
         setSuggestAllUsers(prev => [...prev, ...cleansed]);
       } else {
@@ -1030,27 +1022,24 @@ const Posts = forwardRef(function Posts(
       item?.__type === 'suggestions' ? `suggestions-${index}` : item.id?.toString(),
     []
   );
- // REPLACE WITH:
-const viewabilityConfigRef = useRef({
-  // Only treat a post as "on screen" for tracking when a majority of the row is visible.
-  itemVisiblePercentThreshold: 50,
-  minimumViewTime: 200,
-  waitForInteraction: false,
-});
 
-// Must keep a ref to the latest callback — the pairs array cannot change
-// identity or React Native will throw a warning and ignore updates.
-const handleViewableItemsChangedRef = useRef(handleViewableItemsChanged);
-useEffect(() => {
-  handleViewableItemsChangedRef.current = handleViewableItemsChanged;
-}, [handleViewableItemsChanged]);
+  const viewabilityConfigRef = useRef({
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 200,
+    waitForInteraction: false,
+  });
 
-const viewabilityConfigCallbackPairs = useRef([
-  {
-    viewabilityConfig: viewabilityConfigRef.current,
-    onViewableItemsChanged: (info) => handleViewableItemsChangedRef.current(info),
-  },
-]);
+  const handleViewableItemsChangedRef = useRef(handleViewableItemsChanged);
+  useEffect(() => {
+    handleViewableItemsChangedRef.current = handleViewableItemsChanged;
+  }, [handleViewableItemsChanged]);
+
+  const viewabilityConfigCallbackPairs = useRef([
+    {
+      viewabilityConfig: viewabilityConfigRef.current,
+      onViewableItemsChanged: (info) => handleViewableItemsChangedRef.current(info),
+    },
+  ]);
 
   useImperativeHandle(
     ref,
@@ -1223,7 +1212,7 @@ const viewabilityConfigCallbackPairs = useRef([
       console.error('Render error in Posts:', error);
       return (
         <View style={styles.container}>
-          <Text>Error loading posts. Please refresh.</Text>
+          <Text>{t('posts.errorLoadingPosts')}</Text>
         </View>
       );
     }

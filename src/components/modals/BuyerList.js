@@ -16,6 +16,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getUserCredentials } from '../../services/post';
 import { getAllUser } from '../../services/users';
 import { normalizeProfileType } from '../../utils/supportEligibility';
+import { useLanguage } from '../../i18n';
 
 const normalizeString = (value) =>
   String(value ?? '')
@@ -39,7 +40,7 @@ export default function BuyersListModal({
   onUserPress,
   title,
   enableSearch = true,
-  searchPlaceholder = 'Search buyers',
+  searchPlaceholder,
   emptyTitle,
   emptyText,
   showChevron = true,
@@ -47,11 +48,15 @@ export default function BuyersListModal({
   const sheetRef = useRef(null);
   const navigation = useNavigation();
   const { bgStyle, textStyle, cardStyle } = useAppTheme();
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const listUsers = users || buyers;
   const userCacheRef = useRef(new Map());
   const pendingUserLookupRef = useRef(new Set());
   const [, forceRefresh] = useState(0);
+
+  // fall back to translated placeholder if none passed as prop
+  const resolvedSearchPlaceholder = searchPlaceholder || t('buyersList.searchPlaceholder');
 
   const getCacheKeys = useCallback((item) => {
     const idCandidate =
@@ -262,7 +267,11 @@ export default function BuyersListModal({
 
   const accentColor = normalizedProfileType === 'user' ? '#5a2d82' : '#D3B683';
 
-  const resolvedTitle = title || (normalizedProfileType === 'user' ? 'Followed by' : 'Supported by');
+  const resolvedTitle =
+    title ||
+    (normalizedProfileType === 'user'
+      ? t('buyersList.followedBy')
+      : t('buyersList.supportedBy'));
 
   const filteredUsers = useMemo(() => {
     const q = normalizeString(query);
@@ -353,7 +362,10 @@ export default function BuyersListModal({
         <View style={styles.header}>
           <Text style={[styles.title, { color: accentColor }]}>{resolvedTitle}</Text>
           <Text style={styles.countText}>
-            {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+            {filteredUsers.length}{' '}
+            {filteredUsers.length === 1
+              ? t('buyersList.userSingular')
+              : t('buyersList.userPlural')}
           </Text>
 
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
@@ -367,7 +379,7 @@ export default function BuyersListModal({
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder={searchPlaceholder}
+              placeholder={resolvedSearchPlaceholder}
               placeholderTextColor="#9ca3af"
               style={[styles.searchInput, textStyle]}
               returnKeyType="search"
@@ -391,10 +403,14 @@ export default function BuyersListModal({
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyTitle, textStyle]}>
-                {query ? 'No matches' : (emptyTitle || 'No users yet')}
+                {query
+                  ? t('buyersList.noMatches')
+                  : (emptyTitle || t('buyersList.noUsersYet'))}
               </Text>
               <Text style={styles.emptyText}>
-                {query ? 'Try a different search.' : (emptyText || 'Be the first to support this post.')}
+                {query
+                  ? t('buyersList.tryDifferentSearch')
+                  : (emptyText || t('buyersList.beFirst'))}
               </Text>
             </View>
           }

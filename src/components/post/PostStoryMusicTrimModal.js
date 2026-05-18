@@ -23,6 +23,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { filterSyncedLinesIntersectingTrim } from '../../utils/lyricsLrclib';
+import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -53,20 +54,24 @@ function getAudioPreviewUri(a) {
   return null;
 }
 
-function getAudioTitle(a) {
-  if (isOriginalAudio(a)) return 'Original sound';
+function getAudioTitle(a, t) {
+  if (isOriginalAudio(a)) return t('postStoryMusicTrim.originalSound');
   if (typeof a === 'object' && a?.title) return a.title;
   if (typeof a === 'string') {
-    const m = { chill: 'Chill Beat', energy: 'Energy Pop', vibe: 'Lo-Fi Dream' };
-    return m[a] || 'Music';
+    const m = {
+      chill: t('postStoryMusicTrim.chillBeat'),
+      energy: t('postStoryMusicTrim.energyPop'),
+      vibe: t('postStoryMusicTrim.loFiDream'),
+    };
+    return m[a] || t('postStoryMusicTrim.music');
   }
-  return 'Music';
+  return t('postStoryMusicTrim.music');
 }
 
 function getAudioSubtitle(a) {
   if (typeof a === 'object' && a?.artist) return a.artist;
   if (typeof a === 'object' && a?.channelTitle) return a.channelTitle;
-  if (typeof a === 'string' && a !== 'original') return 'Quick pick';
+  if (typeof a === 'string' && a !== 'original') return null; // removed hardcoded "Quick pick"
   return null;
 }
 
@@ -112,6 +117,8 @@ export default function PostStoryMusicTrimModal({
   onDone,
   onDelete,
 }) {
+  const { t } = useLanguage();
+
   const [audioTrimStartDraft, setAudioTrimStartDraft] = useState('0');
   const [audioTrimEndDraft, setAudioTrimEndDraft] = useState('');
   const [trimClipWindowSec, setSoundTrimClipSec] = useState(DEFAULT_STORY_CLIP_SEC);
@@ -155,14 +162,13 @@ export default function PostStoryMusicTrimModal({
     };
   }, [audioTrimStartDraft, audioTrimEndDraft]);
 
-  // Only re-seed drafts when opening or when track / saved trim values change — not on every parent
-  // re-render (audioSel is often a new object reference each time).
   const initialStart = initialTrim?.start ?? 0;
   const initialEnd = initialTrim?.end;
   const ytFullDurForInit =
     typeof audioSel === 'object' && audioSel?.fullDurationSec != null
       ? Number(audioSel.fullDurationSec)
       : null;
+
   useEffect(() => {
     if (!visible) return;
     const at = { start: initialStart, end: initialEnd };
@@ -196,17 +202,9 @@ export default function PostStoryMusicTrimModal({
           setMusicPreviewSec(cur);
           const dur = musicPreviewDurationRef.current || 180;
           const at = audioTrimRef.current || { start: 0, end: null };
-          const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(
-            at,
-            dur,
-          );
+          const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
           const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
-          if (
-            hasOverlap &&
-            dur > 0 &&
-            playEnd > playStart &&
-            cur >= playEnd - margin
-          ) {
+          if (hasOverlap && dur > 0 && playEnd > playStart && cur >= playEnd - margin) {
             youtubePreviewRef.current?.seekTo?.(playStart, true);
             setMusicPreviewSec(playStart);
           }
@@ -224,10 +222,7 @@ export default function PostStoryMusicTrimModal({
     return () => sub.remove();
   }, [visible]);
 
-  const waveformSegmentSec = Math.min(
-    trimClipWindowSec,
-    Math.max(0.1, musicTimelineDurationSec),
-  );
+  const waveformSegmentSec = Math.min(trimClipWindowSec, Math.max(0.1, musicTimelineDurationSec));
   const waveformContentW = Math.max(1, musicTimelineDurationSec * WAVEFORM_PX_PER_SEC);
   const waveformWindowPx = waveformSegmentSec * WAVEFORM_PX_PER_SEC;
   const waveDimSide = Math.max(0, (waveformViewportW - waveformWindowPx) / 2);
@@ -309,43 +304,30 @@ export default function PostStoryMusicTrimModal({
         );
   const igSegmentProgress =
     igSegEnd > igSegStart
-      ? Math.max(
-          0,
-          Math.min(1, (musicPreviewSec - igSegStart) / (igSegEnd - igSegStart)),
-        )
+      ? Math.max(0, Math.min(1, (musicPreviewSec - igSegStart) / (igSegEnd - igSegStart)))
       : 0;
 
   const clipLyricsTrimPreview = useMemo(() => {
     if (!lyricsBundle) {
-      return 'Open Lyrics (toolbar) and load lyrics for this track to see lines that match your trim.';
+      return t('postStoryMusicTrim.lyricsOpenHint');
     }
     const dur = musicTimelineDurationSec;
     const t0 = Math.max(0, Number(audioTrimStartDraft) || 0);
     const rawEnd = audioTrimEndDraft.trim();
-    const t1 =
-      rawEnd === '' ? dur : Math.min(Number(rawEnd) || dur, dur);
+    const t1 = rawEnd === '' ? dur : Math.min(Number(rawEnd) || dur, dur);
     if (lyricsBundle.syncedLines?.length) {
       const lines = filterSyncedLinesIntersectingTrim(lyricsBundle.syncedLines, t0, t1);
-      const text = lines
-        .map(l => l.text)
-        .filter(Boolean)
-        .join('\n')
-        .trim();
+      const text = lines.map(l => l.text).filter(Boolean).join('\n').trim();
       if (text) return text;
-      return 'No timed lines in this selection — widen the trim or reload lyrics.';
+      return t('postStoryMusicTrim.noTimedLines');
     }
     const plain = (lyricsBundle.plainText || '').trim();
     if (plain) {
       const short = plain.length > 450 ? `${plain.slice(0, 450)}…` : plain;
-      return `${short}\n\n(Plain lyrics — no line times; audio still follows your trim.)`;
+      return `${short}\n\n${t('postStoryMusicTrim.plainLyricsNote')}`;
     }
-    return 'No lyrics text.';
-  }, [
-    lyricsBundle,
-    musicTimelineDurationSec,
-    audioTrimStartDraft,
-    audioTrimEndDraft,
-  ]);
+    return t('postStoryMusicTrim.noLyricsText');
+  }, [t, lyricsBundle, musicTimelineDurationSec, audioTrimStartDraft, audioTrimEndDraft]);
 
   const trackArtworkUri =
     typeof audioSel === 'object' &&
@@ -362,7 +344,7 @@ export default function PostStoryMusicTrimModal({
           <View style={styles.igMusicHeader}>
             <View style={styles.igHeaderSideLeft}>
               <TouchableOpacity onPress={handleCancel} hitSlop={12}>
-                <Text style={styles.igHeaderBtn}>Cancel</Text>
+                <Text style={styles.igHeaderBtn}>{t('postStoryMusicTrim.cancel')}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.igMusicHeaderCenter}>
@@ -389,9 +371,9 @@ export default function PostStoryMusicTrimModal({
                 </TouchableOpacity>
               )}
             </View>
-              <TouchableOpacity onPress={handleDone} hitSlop={12}>
-                <Text style={styles.igHeaderBtnDone}>Done</Text>
-              </TouchableOpacity>
+            <TouchableOpacity onPress={handleDone} hitSlop={12}>
+              <Text style={styles.igHeaderBtnDone}>{t('postStoryMusicTrim.done')}</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.igTrimPreviewArea}>
@@ -411,7 +393,7 @@ export default function PostStoryMusicTrimModal({
                 )}
                 <View style={styles.igTrimPreviewTextCol}>
                   <Text style={styles.igTrimPreviewTitle} numberOfLines={2}>
-                    {getAudioTitle(audioSel)}
+                    {getAudioTitle(audioSel, t)}
                   </Text>
                   {getAudioSubtitle(audioSel) ? (
                     <Text style={styles.igTrimPreviewSub} numberOfLines={1}>
@@ -441,10 +423,7 @@ export default function PostStoryMusicTrimModal({
                 setMusicPreviewDur(loaded);
                 const at = audioTrimRef.current;
                 const dur = loaded;
-                const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(
-                  at,
-                  dur,
-                );
+                const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
                 if (!hasOverlap) {
                   setTimeout(() => {
                     musicPreviewRef.current?.seek(0);
@@ -465,17 +444,9 @@ export default function PostStoryMusicTrimModal({
                 setMusicPreviewSec(currentTime);
                 const dur = musicPreviewDurationRef.current || 30;
                 const at = audioTrimRef.current;
-                const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(
-                  at,
-                  dur,
-                );
+                const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
                 const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
-                if (
-                  hasOverlap &&
-                  dur > 0 &&
-                  playEnd > playStart &&
-                  currentTime >= playEnd - margin
-                ) {
+                if (hasOverlap && dur > 0 && playEnd > playStart && currentTime >= playEnd - margin) {
                   musicPreviewRef.current?.seek(playStart);
                   setMusicPreviewSec(playStart);
                 }
@@ -510,8 +481,7 @@ export default function PostStoryMusicTrimModal({
                     }
                     const at = audioTrimRef.current;
                     const dur = musicPreviewDurationRef.current || 180;
-                    const { start: playStart, end: playEnd, hasOverlap } =
-                      getPlaybackWindowInPreview(at, dur);
+                    const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
                     if (!hasOverlap) {
                       youtubePreviewRef.current?.seekTo?.(0, true);
                       setMusicPreviewSec(0);
@@ -535,9 +505,7 @@ export default function PostStoryMusicTrimModal({
               onPress={() => setMusicEditorPaused(p => !p)}
             >
               <LinearGradient
-                colors={
-                  musicEditorPaused ? ['#3a3a42', '#25252a'] : ['#4da3ff', '#6366f1']
-                }
+                colors={musicEditorPaused ? ['#3a3a42', '#25252a'] : ['#4da3ff', '#6366f1']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.igPlayBtnGradient}
@@ -546,7 +514,7 @@ export default function PostStoryMusicTrimModal({
               </LinearGradient>
             </Pressable>
             <View style={styles.igProgressCol}>
-              <Text style={styles.igProgressLabel}>Preview</Text>
+              <Text style={styles.igProgressLabel}>{t('postStoryMusicTrim.preview')}</Text>
               <View style={styles.igProgressWrap}>
                 <View style={styles.igProgressTrack}>
                   <LinearGradient
@@ -569,9 +537,9 @@ export default function PostStoryMusicTrimModal({
           </View>
 
           <View style={styles.igLyricsClipSection}>
-            <Text style={styles.igLyricsClipTitle}>Lyrics for this selection</Text>
+            <Text style={styles.igLyricsClipTitle}>{t('postStoryMusicTrim.lyricsTitle')}</Text>
             <Text style={styles.igLyricsClipHint}>
-              Matches the trim handles below (same as Lyrics preview when synced lines exist).
+              {t('postStoryMusicTrim.lyricsHint')}
             </Text>
             <ScrollView
               style={styles.igLyricsClipScroll}
@@ -583,7 +551,7 @@ export default function PostStoryMusicTrimModal({
           </View>
 
           <View style={styles.igClipLenRow}>
-            <Text style={styles.igClipLenLabel}>Clip length</Text>
+            <Text style={styles.igClipLenLabel}>{t('postStoryMusicTrim.clipLength')}</Text>
             <View style={styles.igClipSegmentTrack}>
               <Pressable
                 onPress={() => applySoundTrimClipLength(15)}
@@ -593,13 +561,8 @@ export default function PostStoryMusicTrimModal({
                   pressed && styles.igClipLenChipPressed,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.igClipSegChipText,
-                    trimClipWindowSec === 15 && styles.igClipSegChipTextOn,
-                  ]}
-                >
-                  15s
+                <Text style={[styles.igClipSegChipText, trimClipWindowSec === 15 && styles.igClipSegChipTextOn]}>
+                  {t('postStoryMusicTrim.15s')}
                 </Text>
               </Pressable>
               <Pressable
@@ -610,33 +573,32 @@ export default function PostStoryMusicTrimModal({
                   pressed && styles.igClipLenChipPressed,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.igClipSegChipText,
-                    trimClipWindowSec === 30 && styles.igClipSegChipTextOn,
-                  ]}
-                >
-                  30s
+                <Text style={[styles.igClipSegChipText, trimClipWindowSec === 30 && styles.igClipSegChipTextOn]}>
+                  {t('postStoryMusicTrim.30s')}
                 </Text>
               </Pressable>
             </View>
           </View>
 
           <View style={styles.igWaveSection}>
-            <Text style={styles.igWaveSectionTitle}>Trim</Text>
+            <Text style={styles.igWaveSectionTitle}>{t('postStoryMusicTrim.trimLabel')}</Text>
             <Text style={styles.igWaveHint}>
-              {`Scroll the waveform for the full track, then drag the window to pick a ${MIN_STORY_CLIP_SEC}–${MAX_STORY_CLIP_SEC}s clip (default ${DEFAULT_STORY_CLIP_SEC}s on long songs).`}
+              {t('postStoryMusicTrim.waveHint', {
+                min: MIN_STORY_CLIP_SEC,
+                max: MAX_STORY_CLIP_SEC,
+                default: DEFAULT_STORY_CLIP_SEC,
+              })}
             </Text>
             <View style={styles.igWaveMetaRow}>
               <View style={styles.igWaveMetaPill}>
-                <Text style={styles.igWaveMetaPillLabel}>Full</Text>
+                <Text style={styles.igWaveMetaPillLabel}>{t('postStoryMusicTrim.full')}</Text>
                 <Text style={styles.igWaveMetaPillValue}>
                   {formatTimeMmSs(musicTimelineDurationSec)}
                 </Text>
               </View>
               <Text style={styles.igWaveMetaDot}>·</Text>
               <View style={styles.igWaveMetaPill}>
-                <Text style={styles.igWaveMetaPillLabel}>Selection</Text>
+                <Text style={styles.igWaveMetaPillLabel}>{t('postStoryMusicTrim.selection')}</Text>
                 <Text style={styles.igWaveMetaPillValue}>
                   {formatTimeMmSs(Math.max(0, igSegEnd - igSegStart))}
                   <Text style={styles.igWaveMetaPillSec}>
@@ -664,10 +626,7 @@ export default function PostStoryMusicTrimModal({
                   const contentW = duration * pxPerSec;
                   const leftPx = startSec * pxPerSec;
                   const maxScroll = Math.max(0, contentW - viewportW);
-                  const scrollX = Math.max(
-                    0,
-                    Math.min(maxScroll, leftPx - viewportW / 2 + windowW / 2),
-                  );
+                  const scrollX = Math.max(0, Math.min(maxScroll, leftPx - viewportW / 2 + windowW / 2));
                   waveformScrollRef.current?.scrollTo({ x: scrollX, animated: false });
                   setWaveformScrollX(scrollX);
                   waveformSyncedRef.current = true;
@@ -684,12 +643,7 @@ export default function PostStoryMusicTrimModal({
               >
                 <View style={[styles.waveformBarsRowIg, { width: waveformContentW }]}>
                   {Array.from(
-                    {
-                      length: Math.min(
-                        240,
-                        Math.max(20, Math.floor(waveformContentW / WAVE_BAR_STEP)),
-                      ),
-                    },
+                    { length: Math.min(240, Math.max(20, Math.floor(waveformContentW / WAVE_BAR_STEP))) },
                     (_, i) => {
                       const h = 0.25 + ((i * 17) % 74) / 100;
                       const barLeft = i * WAVE_BAR_STEP;
@@ -698,8 +652,7 @@ export default function PostStoryMusicTrimModal({
                       const ww = Math.min(waveformWindowPx, vw);
                       const winLeft = vw / 2 - ww / 2;
                       const winRight = vw / 2 + ww / 2;
-                      const inWin =
-                        barScreenLeft + WAVE_BAR_STEP > winLeft && barScreenLeft < winRight;
+                      const inWin = barScreenLeft + WAVE_BAR_STEP > winLeft && barScreenLeft < winRight;
                       return (
                         <View
                           key={`wb_${i}`}
@@ -715,19 +668,14 @@ export default function PostStoryMusicTrimModal({
                 </View>
               </ScrollView>
               <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                <View
-                  style={[styles.waveDimSideIg, styles.waveDimLeft, { width: waveDimSide }]}
-                />
-                <View
-                  style={[styles.waveDimSideIg, styles.waveDimRight, { width: waveDimSide }]}
-                />
+                <View style={[styles.waveDimSideIg, styles.waveDimLeft, { width: waveDimSide }]} />
+                <View style={[styles.waveDimSideIg, styles.waveDimRight, { width: waveDimSide }]} />
                 <View
                   style={[
                     styles.waveWindowFrameIg,
                     {
                       width: Math.min(waveformWindowPx, waveformViewportW),
-                      left:
-                        (waveformViewportW - Math.min(waveformWindowPx, waveformViewportW)) / 2,
+                      left: (waveformViewportW - Math.min(waveformWindowPx, waveformViewportW)) / 2,
                     },
                   ]}
                 >
@@ -745,7 +693,9 @@ export default function PostStoryMusicTrimModal({
               onPress={() => setShowMusicTrimAdvanced(a => !a)}
             >
               <Text style={styles.igAdvancedBtnText}>
-                {showMusicTrimAdvanced ? 'Hide exact times' : 'Exact start / end (seconds)'}
+                {showMusicTrimAdvanced
+                  ? t('postStoryMusicTrim.hideExactTimes')
+                  : t('postStoryMusicTrim.showExactTimes')}
               </Text>
             </TouchableOpacity>
             {showMusicTrimAdvanced ? (
@@ -754,7 +704,7 @@ export default function PostStoryMusicTrimModal({
                   value={audioTrimStartDraft}
                   onChangeText={setAudioTrimStartDraft}
                   keyboardType="decimal-pad"
-                  placeholder="Start"
+                  placeholder={t('postStoryMusicTrim.startPlaceholder')}
                   placeholderTextColor="#666"
                   style={styles.igSheetInput}
                 />
@@ -762,7 +712,7 @@ export default function PostStoryMusicTrimModal({
                   value={audioTrimEndDraft}
                   onChangeText={setAudioTrimEndDraft}
                   keyboardType="decimal-pad"
-                  placeholder="End"
+                  placeholder={t('postStoryMusicTrim.endPlaceholder')}
                   placeholderTextColor="#666"
                   style={styles.igSheetInput}
                 />

@@ -17,6 +17,8 @@ import { getPostByUser } from '../../services/post';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useLanguage } from '../../i18n';
+
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
 const SPACING = 2;
@@ -69,7 +71,6 @@ const PostImage = memo(({ item, themeTextStyle }) => {
   const [videoError, setVideoError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
 
-
   if (!mediaUrl) {
     return (
       <View style={[styles.image, styles.placeholderImage]}>
@@ -94,13 +95,11 @@ const PostImage = memo(({ item, themeTextStyle }) => {
           }}
           playInBackground={false}
         />
-
         {(isVideoLoading || videoError) && (
           <View style={[StyleSheet.absoluteFill, styles.videoPlaceholderOverlay]}>
             <ActivityIndicator size="large" color="#5A2D82" />
           </View>
         )}
-
         {!isVideoLoading && !videoError && (
           <View style={styles.videoBadge}>
             <Text style={styles.videoBadgeText}>▶</Text>
@@ -141,7 +140,15 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 
 const ItemSeparator = memo(() => <View style={styles.itemSeparator} />);
 
-const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserId, onSubscribePress, isCompany, refreshKey }) => {
+const PrivateContentScreen = ({
+  postCheck,
+  userData,
+  isSubscribed,
+  loggedInUserId,
+  onSubscribePress,
+  isCompany,
+  refreshKey,
+}) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -149,6 +156,8 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { t } = useLanguage();
+
   const normalizedIsSubscribed =
     isSubscribed === true ||
     String(isSubscribed || '').toUpperCase() === 'ACTIVE' ||
@@ -161,38 +170,35 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
     return String(value || '').toUpperCase() === 'ACTIVE';
   }, []);
 
-  const getSubscriptionStatus = useCallback(async (id) => {
-    if (!id) return false;
-    try {
-      const response = await getFansubscriptionStatus(id);
-      const data = response?.data;
-
-      if (
-        isActiveStatus(response?.status) ||
-        isActiveStatus(data?.status) ||
-        isActiveStatus(data?.subscriptionStatus) ||
-        isActiveStatus(data?.subscription?.status) ||
-        isActiveStatus(data?.fanSubscription?.status)
-      ) {
-        return true;
+  const getSubscriptionStatus = useCallback(
+    async (id) => {
+      if (!id) return false;
+      try {
+        const response = await getFansubscriptionStatus(id);
+        const data = response?.data;
+        if (
+          isActiveStatus(response?.status) ||
+          isActiveStatus(data?.status) ||
+          isActiveStatus(data?.subscriptionStatus) ||
+          isActiveStatus(data?.subscription?.status) ||
+          isActiveStatus(data?.fanSubscription?.status)
+        ) {
+          return true;
+        }
+        if (typeof data?.isSubscribed === 'boolean') return data.isSubscribed;
+        if (Array.isArray(data?.subscriptions)) {
+          return data.subscriptions.some((sub) => isActiveStatus(sub?.status));
+        }
+        if (Array.isArray(data)) {
+          return data.some((sub) => isActiveStatus(sub?.status));
+        }
+      } catch (error) {
+        console.log('Private subscription status error:', error);
       }
-
-      if (typeof data?.isSubscribed === 'boolean') {
-        return data.isSubscribed;
-      }
-
-      if (Array.isArray(data?.subscriptions)) {
-        return data.subscriptions.some((sub) => isActiveStatus(sub?.status));
-      }
-
-      if (Array.isArray(data)) {
-        return data.some((sub) => isActiveStatus(sub?.status));
-      }
-    } catch (error) {
-      console.log('Private subscription status error:', error);
-    }
-    return false;
-  }, [isActiveStatus]);
+      return false;
+    },
+    [isActiveStatus],
+  );
 
   useEffect(() => {
     setResolvedIsSubscribed(normalizedIsSubscribed);
@@ -205,13 +211,11 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
       const formattedData = Array.isArray(response?.data)
         ? response.data
         : Array.isArray(response)
-          ? response
-          : [];
+        ? response
+        : [];
       setPosts(formattedData);
     } catch (error) {
-      // console.log('Fetch posts error:', error?.message);
       console.log(error);
-
       setPosts([]);
     } finally {
       setLoading(false);
@@ -219,10 +223,9 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
   }, []);
 
   useEffect(() => {
-    if (userData?.id) {
-      fetchPosts(userData.id); // 🔥 load posts instantly
-    }
+    if (userData?.id) fetchPosts(userData.id);
   }, [userData?.id]);
+
   const refreshStatusAndPosts = useCallback(async () => {
     if (!userData?.id) {
       setResolvedIsSubscribed(false);
@@ -230,86 +233,69 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
       setStatusLoading(false);
       return;
     }
-
     if (isOwnProfile) {
       setResolvedIsSubscribed(true);
       await fetchPosts(userData.id);
       setStatusLoading(false);
       return;
     }
-
     setStatusLoading(true);
     try {
       const active = await getSubscriptionStatus(userData.id);
       setResolvedIsSubscribed(active);
-
-      if (active) {
-        await fetchPosts(userData.id);
-      } else {
-        setPosts([]);
-      }
+      if (active) await fetchPosts(userData.id);
+      else setPosts([]);
     } finally {
       setStatusLoading(false);
     }
   }, [fetchPosts, getSubscriptionStatus, isOwnProfile, userData?.id]);
 
-  // Initial load + refresh when switching profiles
   useEffect(() => {
-    if (refreshKey !== undefined) {
-      refreshStatusAndPosts(); // 🔥 main refresh function
-    }
+    if (refreshKey !== undefined) refreshStatusAndPosts();
   }, [refreshKey]);
 
-  // Refresh when user returns to this tab/screen (e.g. after completing payment)
   useFocusEffect(
     useCallback(() => {
       refreshStatusAndPosts();
-    }, [refreshStatusAndPosts])
+    }, [refreshStatusAndPosts]),
   );
 
-  // Refresh when app resumes from background (e.g. coming back from payment webview/browser)
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && isFocused) {
-        refreshStatusAndPosts();
-      }
+      if (state === 'active' && isFocused) refreshStatusAndPosts();
     });
     return () => sub.remove();
   }, [isFocused, refreshStatusAndPosts]);
 
-  const openContent = useCallback(async (index) => {
-    const item = posts[index];
-    if (!item) return;
-
-    const isReel = isVideoUrl(item?.images?.[0]);
-    if (isReel) {
-      const parent = navigation.getParent?.();
-      if (parent?.navigate) {
-        parent.navigate('FlipsScreen', { item });
+  const openContent = useCallback(
+    async (index) => {
+      const item = posts[index];
+      if (!item) return;
+      const isReel = isVideoUrl(item?.images?.[0]);
+      if (isReel) {
+        const parent = navigation.getParent?.();
+        if (parent?.navigate) {
+          parent.navigate('FlipsScreen', { item });
+          return;
+        }
+        navigation.navigate('FlipsScreen', { item });
         return;
       }
-      navigation.navigate('FlipsScreen', { item });
-      return;
-    }
+      const imagePosts = posts.filter((p) => !isVideoUrl(p?.images?.[0]));
+      const nextIndex = Math.max(
+        0,
+        imagePosts.findIndex((p) => String(p?.id) === String(item?.id)),
+      );
+      navigation.getParent().navigate('ProfileMain', {
+        screen: 'PostView',
+        params: { postData: imagePosts, startIndex: nextIndex, hideTabBar: true },
+      });
+    },
+    [navigation, posts],
+  );
 
-    const imagePosts = posts.filter(p => !isVideoUrl(p?.images?.[0]));
-    const nextIndex = Math.max(
-      0,
-      imagePosts.findIndex(p => String(p?.id) === String(item?.id)),
-    );
-
-    navigation.getParent().navigate('ProfileMain', {
-      screen: 'PostView',
-      params: {
-        postData: imagePosts,
-        startIndex: nextIndex,
-        hideTabBar: true,
-      },
-    });
-  }, [navigation, posts]);
-
-  const renderItem = useCallback(({ item, index }) => {
-    return (
+  const renderItem = useCallback(
+    ({ item, index }) => (
       <TouchableOpacity
         style={[
           styles.imageContainer,
@@ -322,97 +308,101 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
         <PostImage item={item} themeTextStyle={textStyle} />
         <View style={styles.overlay} />
       </TouchableOpacity>
-    );
-  }, [openContent, text]);
+    ),
+    [openContent, text],
+  );
 
   const keyExtractor = useCallback(
     (item, index) => item?.id?.toString() || index.toString(),
-    []
+    [],
   );
 
-  const getItemLayout = useCallback((data, index) => ({
-    length: IMAGE_SIZE + SPACING,
-    offset: (IMAGE_SIZE + SPACING) * Math.floor(index / numColumns),
-    index,
-  }), []);
+  const getItemLayout = useCallback(
+    (data, index) => ({
+      length: IMAGE_SIZE + SPACING,
+      offset: (IMAGE_SIZE + SPACING) * Math.floor(index / numColumns),
+      index,
+    }),
+    [],
+  );
 
-  const renderEmptyComponent = useCallback(() => (
-    <>
-      {
-        isCompany ?
-          <View style={[styles.marketingContainer, bgStyle]}>
-            <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-              <LinearGradient
-                colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.leftRail}
-              >
-                <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '50%' }]}>
-                  <Ionicons name="bag-handle" size={34} color={text} />
-                </View>
-              </LinearGradient>
-
-              <View style={styles.marketingBody}>
-                {isOwnProfile ? (
-                  <>
-                    <Text style={[styles.marketingTitle, textStyle]}>SHOP 🛍️</Text>
-                    <Text style={[styles.marketingText, textStyle]}>Welcome to shop.</Text>
-                    <Text style={[styles.marketingText, textStyle]}>
-                      A curated space where our brand comes to life through exclusive pieces and
-                      refined selections. Enjoy it.
-                    </Text>
-
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={onSubscribePress}
-                      style={[styles.ctaButton, { backgroundColor: text }]}
-                    >
-                      <Text style={styles.ctaText}>  Start It Now</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={[styles.marketingTitle, textStyle]}>
-                      {(userData?.displayName || userData?.userName || 'Business')} SHOP
-                    </Text>
-                    <Text style={[styles.marketingText, textStyle]}>Welcome to this shop.</Text>
-                    <Text style={[styles.marketingText, textStyle]}>
-                      Explore the collection, discover new pieces, and experience the brand behind
-                      it.
-                    </Text>
-
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={onSubscribePress}
-                      style={[styles.ctaButton, { backgroundColor: text }]}
-                    >
-                      <Text style={styles.ctaText}>Shop now</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            </View>
-          </View>
-          :
-          <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={onSubscribePress}
-              style={styles.lockedCard}
+  // ── Shop card (empty state / no-access) ──────────────────────────────────
+  const ShopCard = useCallback(
+    ({ marginTopOverride } = {}) => (
+      <View style={[styles.marketingContainer, bgStyle, marginTopOverride && { marginTop: marginTopOverride }]}>
+        <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+          <LinearGradient
+            colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.leftRail}
+          >
+            <View
+              style={[
+                styles.railIconBubble,
+                { backgroundColor: mixWithWhite(text, 0.9), marginTop: marginTopOverride ? '80%' : '50%' },
+              ]}
             >
-              <Text style={styles.lockedIcon}>🔒</Text>
-              <Text style={[styles.lockedTitle, textStyle]}>
-                Subscribe to unlock private content
-              </Text>
-              <Text style={styles.lockedSubtitle}>
-                Exclusive posts are available only for active subscribers.
-              </Text>
-            </TouchableOpacity>
+              <Ionicons name="bag-handle" size={34} color={text} />
+            </View>
+          </LinearGradient>
+
+          <View style={styles.marketingBody}>
+            {isOwnProfile ? (
+              <>
+                <Text style={[styles.marketingTitle, textStyle]}>{t('privateContent.shopTitle')}</Text>
+                <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopWelcome')}</Text>
+                <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopOwnDescription')}</Text>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={onSubscribePress}
+                  style={[styles.ctaButton, { backgroundColor: text }]}
+                >
+                  <Text style={styles.ctaText}>{t('privateContent.startNowButton')}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.marketingTitle, textStyle]}>
+                  {(userData?.displayName || userData?.userName || t('privateContent.businessFallback'))}{' '}
+                  {t('privateContent.shopSuffix')}
+                </Text>
+                <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopGuestWelcome')}</Text>
+                <Text style={[styles.marketingText, textStyle]}>{t('privateContent.shopGuestDescription')}</Text>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={onSubscribePress}
+                  style={[styles.ctaButton, { backgroundColor: text }]}
+                >
+                  <Text style={styles.ctaText}>{t('privateContent.shopNowButton')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
-      }
-    </>
-  ), [textStyle]);
+        </View>
+      </View>
+    ),
+    [bgStyle, cardStyle, text, textStyle, isOwnProfile, onSubscribePress, userData, t],
+  );
+
+  // ── Locked card ───────────────────────────────────────────────────────────
+  const LockedCard = useCallback(
+    () => (
+      <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
+        <TouchableOpacity activeOpacity={0.9} onPress={onSubscribePress} style={styles.lockedCard}>
+          <Text style={styles.lockedIcon}>🔒</Text>
+          <Text style={[styles.lockedTitle, textStyle]}>{t('privateContent.lockedTitle')}</Text>
+          <Text style={styles.lockedSubtitle}>{t('privateContent.lockedSubtitle')}</Text>
+        </TouchableOpacity>
+      </View>
+    ),
+    [bgStyle, textStyle, onSubscribePress, t],
+  );
+
+  const renderEmptyComponent = useCallback(
+    () => (isCompany ? <ShopCard /> : <LockedCard />),
+    [isCompany, ShopCard, LockedCard],
+  );
 
   if (loading || statusLoading) {
     return (
@@ -424,83 +414,13 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
 
   return (
     <View style={[styles.screen, bgStyle]}>
-      {!canViewPrivateContent ?
-        <>
-          {
-            isCompany ?
-              <View style={[styles.marketingContainer, bgStyle, { marginTop: -50 }]}>
-                <View style={[styles.marketingCard, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-                  <LinearGradient
-                    colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.leftRail}
-                  >
-                    <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '80%' }]}>
-                      <Ionicons name="bag-handle" size={34} color={text} />
-                    </View>
-                  </LinearGradient>
-
-                  <View style={styles.marketingBody}>
-                    {isOwnProfile ? (
-                      <>
-                        <Text style={[styles.marketingTitle, textStyle]}>SHOP 🛍️</Text>
-                        <Text style={[styles.marketingText, textStyle]}>Welcome to shop.</Text>
-                        <Text style={[styles.marketingText, textStyle]}>
-                          A curated space where our brand comes to life through exclusive pieces and
-                          refined selections. Enjoy it.
-                        </Text>
-
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={onSubscribePress}
-                          style={[styles.ctaButton, { backgroundColor: text }]}
-                        >
-                          <Text style={styles.ctaText}> Start It Now</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={[styles.marketingTitle, textStyle]}>
-                          {(userData?.displayName || userData?.userName || 'Business')} SHOP
-                        </Text>
-                        <Text style={[styles.marketingText, textStyle]}>Welcome to this shop.</Text>
-                        <Text style={[styles.marketingText, textStyle]}>
-                          Explore the collection, discover new pieces, and experience the brand behind
-                          it.
-                        </Text>
-
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={onSubscribePress}
-                          style={[styles.ctaButton, { backgroundColor: text }]}
-                        >
-                          <Text style={styles.ctaText}>Shop now</Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-                </View>
-              </View>
-              :
-              <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={onSubscribePress}
-                  style={styles.lockedCard}
-                >
-                  <Text style={styles.lockedIcon}>🔒</Text>
-                  <Text style={[styles.lockedTitle, textStyle]}>
-                    Subscribe to unlock private content
-                  </Text>
-                  <Text style={styles.lockedSubtitle}>
-                    Exclusive posts are available only for active subscribers.
-                  </Text>
-                </TouchableOpacity>
-              </View>
-          }
-        </>
-        :
+      {!canViewPrivateContent ? (
+        isCompany ? (
+          <ShopCard marginTopOverride={-50} />
+        ) : (
+          <LockedCard />
+        )
+      ) : (
         <FlatList
           data={posts}
           keyExtractor={keyExtractor}
@@ -508,10 +428,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
           numColumns={numColumns}
           ListEmptyComponent={renderEmptyComponent}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            posts.length === 0 && styles.emptyListContent,
-          ]}
+          contentContainerStyle={[styles.listContent, posts.length === 0 && styles.emptyListContent]}
           ItemSeparatorComponent={ItemSeparator}
           removeClippedSubviews
           initialNumToRender={12}
@@ -521,7 +438,7 @@ const PrivateContentScreen = ({ postCheck, userData, isSubscribed, loggedInUserI
           updateCellsBatchingPeriod={50}
           disableVirtualization={false}
         />
-      }
+      )}
     </View>
   );
 };

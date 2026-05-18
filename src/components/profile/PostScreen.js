@@ -18,6 +18,7 @@ import { getTotalDonationAmount } from '../../services/tokens';
 import { pinPost, unpinPost } from '../../services/post';
 import { isPostPinned, setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useLanguage } from '../../i18n';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -60,6 +61,7 @@ const calculateMissionStats = (post, raisedAmountOverride = null) => {
 
   return { goalAmount, currentRaised, progressPercent, daysLeft };
 };
+
 const formatAmount = (value) =>
   parseNonNegativeNumber(value, 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -79,12 +81,12 @@ const MissionProgressBar = ({ progressPercent = 0, goalAmount = 0, currentRaised
           />
         </View>
 
-         <View style={styles.progressStatsContainer}>
+        <View style={styles.progressStatsContainer}>
           <View style={styles.statAtStart}>
-            <Text style={styles.statValueSmall } numberOfLines={2} ellipsizeMode="clip">{normalizedProgress.toFixed(1)}% FUNDED</Text>
+            <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{normalizedProgress.toFixed(1)}% FUNDED</Text>
           </View>
           <View style={styles.statAtCenter}>
-            <Text style={[styles.statValueSmall,]}  numberOfLines={2} ellipsizeMode="clip">${formatAmount(currentRaised)}/ ${formatAmount(goalAmount)} {'\n'}  RAISED</Text>
+            <Text style={[styles.statValueSmall,]} numberOfLines={2} ellipsizeMode="clip">${formatAmount(currentRaised)}/ ${formatAmount(goalAmount)} {'\n'}  RAISED</Text>
           </View>
           <View style={styles.statAtEnd}>
             <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="clip">{daysLeft} DAYS LEFT</Text>
@@ -235,16 +237,17 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
 
 PostImage.displayName = 'PostImage';
 
-const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {  
+const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserData, isOwnProfile = false, onPostPinChanged }) => {
   const [posts, setPosts] = useState([]);
   const [donationTotals, setDonationTotals] = useState({});
   const pinningPostIdRef = useRef('');
   const navigation = useNavigation();
   const route = useRoute();
-  
+  const { t } = useLanguage();
+
   // Merge userData from props and route params (route params take precedence)
   const userData = route?.params?.userData || propUserData;
-  
+
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
 
   useEffect(() => {
@@ -334,29 +337,29 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
       if (Array.isArray(refreshedPosts)) setPosts(sortPostsByPinned(getImagePosts(refreshedPosts)));
     } catch (error) {
       Alert.alert(
-        nextPinned ? 'Unable to pin post' : 'Unable to unpin post',
-        error?.response?.data?.message || error?.message || 'Please try again.',
+        nextPinned ? t('postScreen.unableToPinTitle') : t('postScreen.unableToUnpinTitle'),
+        error?.response?.data?.message || error?.message || t('postScreen.tryAgain'),
       );
     } finally {
       pinningPostIdRef.current = '';
     }
-  }, [isOwnProfile, onPostPinChanged]);
+  }, [isOwnProfile, onPostPinChanged, t]);
 
   const confirmTogglePinPost = useCallback((post) => {
     if (!isOwnProfile) return;
     const pinned = isPostPinned(post);
     Alert.alert(
-      pinned ? 'Unpin post' : 'Pin post',
-      pinned ? 'Do you want to unpin this post?' : 'Do you want to pin this post?',
+      pinned ? t('postScreen.unpinPost') : t('postScreen.pinPost'),
+      pinned ? t('postScreen.unpinConfirm') : t('postScreen.pinConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('postScreen.cancel'), style: 'cancel' },
         {
-          text: pinned ? 'Unpin' : 'Pin',
+          text: pinned ? t('postScreen.unpin') : t('postScreen.pin'),
           onPress: () => handleTogglePinPost(post),
         },
       ],
     );
-  }, [handleTogglePinPost, isOwnProfile]);
+  }, [handleTogglePinPost, isOwnProfile, t]);
 
   const renderItem = useCallback(({ item, index }) => {
     const isMissionPost =
@@ -382,7 +385,7 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
         {isPostPinned(item) && (
           <View style={styles.pinnedBadge}>
             <Ionicons name="pin" size={12} color="#FFFFFF" />
-            <Text style={styles.pinnedBadgeText}>Pinned</Text>
+            <Text style={styles.pinnedBadgeText}>{t('postScreen.pinned')}</Text>
           </View>
         )}
         {isMissionPost && stats && (
@@ -398,7 +401,7 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
         )}
       </TouchableOpacity>
     );
-  }, [confirmTogglePinPost, openPosts, text, textStyle, donationTotals]);
+  }, [confirmTogglePinPost, openPosts, text, textStyle, donationTotals, t]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
@@ -410,10 +413,10 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
 
   const renderEmptyComponent = useCallback(() => (
     <View style={styles.emptyContainer}>
-      <Text style={[styles.emptyTitle, textStyle]}>No posts yet</Text>
-      <Text style={styles.emptySubtitle}>Share your first moment</Text>
+      <Text style={[styles.emptyTitle, textStyle]}>{t('postScreen.noPostsTitle')}</Text>
+      <Text style={styles.emptySubtitle}>{t('postScreen.noPostsSubtitle')}</Text>
     </View>
-  ), [textStyle]);
+  ), [textStyle, t]);
 
   if (!posts || posts.length === 0) {
     return (
@@ -428,8 +431,8 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
       <FlatList
         data={posts}
         renderItem={renderItem}
-        scrollEnabled={scrollEnabled}        // ← disable internal scroll
-        nestedScrollEnabled={false}          
+        scrollEnabled={scrollEnabled}
+        nestedScrollEnabled={false}
         keyExtractor={keyExtractor}
         numColumns={numColumns}
         ListEmptyComponent={renderEmptyComponent}
@@ -440,12 +443,12 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
         ]}
         ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
         removeClippedSubviews={true}
-        maxToRenderPerBatch={12} // Reduced from 21 for better performance
-        windowSize={5} // Reduced from 10 for better performance
-        initialNumToRender={12} // Reduced from 21 for better performance
+        maxToRenderPerBatch={12}
+        windowSize={5}
+        initialNumToRender={12}
         getItemLayout={getItemLayout}
-        updateCellsBatchingPeriod={50} // Batch updates for better performance
-        disableVirtualization={false} // Keep virtualization enabled
+        updateCellsBatchingPeriod={50}
+        disableVirtualization={false}
       />
     </View>
   );

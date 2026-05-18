@@ -1,5 +1,6 @@
 import React from 'react';
 import CommonSupportModal from './CommonSupportModal';
+import { useLanguage } from '../../i18n';
 
 const SupportCreatorModal = ({
   visible,
@@ -7,26 +8,28 @@ const SupportCreatorModal = ({
   onSupport,
   creatorName = 'Creator',
   variant = 'intro',
-  canSupport
+  canSupport,
 }) => {
+  const { t } = useLanguage();
+
   if (variant === 'disclaimer') {
     return (
       <CommonSupportModal
         visible={visible}
         onClose={onClose}
-        title={`Support "${creatorName}" ?`}
-        description={"You’re about to send voluntary support to this profile.\nJust so you know:"}
+        title={t('supportCreator.disclaimerTitle', { creatorName })}
+        description={t('supportCreator.disclaimerDescription')}
         bullets={[
-          'This is a non-financial action and not an investment.',
-          'No profit, rewards, or financial benefits are expected or offered.',
-          'Your support is a voluntary contribution.',
-          'Any associated digital item (if applicable) is non-transferable and has no resale value.',
-          'Funds are sent directly from your wallet to the creator’s wallet.',
-          'Valens does not custody, hold, or manage user funds.'
+          t('supportCreator.bullet1'),
+          t('supportCreator.bullet2'),
+          t('supportCreator.bullet3'),
+          t('supportCreator.bullet4'),
+          t('supportCreator.bullet5'),
+          t('supportCreator.bullet6'),
         ]}
-        note="By continuing, you confirm that you understand this is a voluntary contribution with no financial expectation."
-        primaryLabel="Connect Wallet to Continue"
-        secondaryLabel="Maybe Later"
+        note={t('supportCreator.disclaimerNote')}
+        primaryLabel={t('supportCreator.connectWalletButton')}
+        secondaryLabel={t('supportCreator.maybeLater')}
         onPrimary={onSupport}
         onSecondary={onClose}
         canSupport={canSupport}
@@ -40,10 +43,10 @@ const SupportCreatorModal = ({
     <CommonSupportModal
       visible={visible}
       onClose={onClose}
-      title="Support this creator?"
-      description={`Your follow is free. If you want, you can financially support ${creatorName} now.`}
-      primaryLabel="Support now"
-      secondaryLabel="Nah, later"
+      title={t('supportCreator.introTitle')}
+      description={t('supportCreator.introDescription', { creatorName })}
+      primaryLabel={t('supportCreator.supportNowButton')}
+      secondaryLabel={t('supportCreator.nahLater')}
       onPrimary={onSupport}
       onSecondary={onClose}
     />
