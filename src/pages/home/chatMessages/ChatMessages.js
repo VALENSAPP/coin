@@ -107,6 +107,8 @@ export default function ChatMessages() {
   const [dataSource, setDataSource] = useState('none');
   
   const hasProcessedShareRef = useRef(false);
+  // Locally hidden chats (survives socket refresh until server marks isHidden)
+  const hiddenChatIdsRef = useRef(new Set());
 
   const handleBackPress = useCallback(() => {
     const { returnTo, returnParams, returnToTab } = route?.params || {};
@@ -630,7 +632,22 @@ export default function ChatMessages() {
       let conversation, message, chatId;
 
       if (hasLastMessage && hasUser) {
+        const rawChatId = String(item?.id || '').trim();
+        const isHidden =
+          item?.isHidden === true ||
+          String(item?.isHidden || '').toLowerCase() === 'true' ||
+          String(item?.isHidden || '') === '1';
+        if (isHidden || (rawChatId && hiddenChatIdsRef.current.has(rawChatId))) {
+          console.log(`ðŸš« Skipping hidden conversation: ${rawChatId}`);
+          return;
+        }
         console.log(`✅ Item ${index}: NEW FORMAT (conversation)`);
+
+        if (item.isHidden === true) {
+          console.log(`🚫 Skipping hidden conversation: ${item.id}`);
+          return;
+        }
+
         conversation = item;
         message = item.lastMessage;
         chatId = item.id;
@@ -641,7 +658,12 @@ export default function ChatMessages() {
       else if (hasSender && hasReceiver) {
         console.log(`✅ Item ${index}: OLD FORMAT (message)`);
 
-        if (item.isHidden === true) {
+        // ✅ CHECK isHidden for old format too
+        if (
+          item.isHidden === true ||
+          String(item?.isHidden || '').toLowerCase() === 'true' ||
+          String(item?.isHidden || '') === '1'
+        ) {
           console.log(`🚫 Skipping hidden message: ${item.id}`);
           return;
         }
@@ -655,6 +677,12 @@ export default function ChatMessages() {
         chatId = [currentUserId, partnerId].sort().join('_');
         console.log(`  - Generated chatId: ${chatId}`);
 
+        if (chatId && hiddenChatIdsRef.current.has(String(chatId).trim())) {
+          console.log(`ðŸš« Skipping locally hidden conversation: ${chatId}`);
+          return;
+        }
+
+        // Create conversation-like structure
         conversation = {
           id: chatId,
           user: chatPartner,
@@ -668,6 +696,11 @@ export default function ChatMessages() {
 
       if (!message) {
         console.log('⚠️ No message found');
+        return;
+      }
+
+      if (chatId && hiddenChatIdsRef.current.has(String(chatId))) {
+        console.log(`🚫 Skipping locally hidden conversation: ${chatId}`);
         return;
       }
 
@@ -827,6 +860,8 @@ export default function ChatMessages() {
       console.log('📡 Hide conversation response:', response);
 
       if (response.success) {
+        hiddenChatIdsRef.current.add(String(selectedConversation.chatId));
+
         setConversations(prev =>
           prev.filter(conv => conv.chatId !== selectedConversation.chatId)
         );
@@ -837,11 +872,6 @@ export default function ChatMessages() {
           t('chatMessages.deleteSuccess'),
           2000
         );
-
-        const socket = getSocket();
-        if (socket?.connected) {
-          socket.emit('getUserChatBox', { userId: currentUserId });
-        }
       } else {
         showToastMessage(
           toast,

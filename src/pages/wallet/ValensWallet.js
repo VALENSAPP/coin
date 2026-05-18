@@ -756,22 +756,24 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     statCard: {
-        width: '48%',
+        width: Platform.OS === 'ios' ? '47%' : '48%',
         borderRadius: 16,
         borderWidth: 1,
-        padding: 10,
+        padding: Platform.OS === 'ios' ? 8 : 10,
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
-        height: '110%'
+        height: '110%',
     },
     statIcon: {
         marginBottom: 10,
     },
     statTitle: {
-        fontSize: 13,
+        fontSize: Platform.OS === 'ios' ? 12 : 13,
         fontWeight: '800',
         marginBottom: 10,
+        flexShrink: 1,        // allows text to wrap instead of clipping
+        flexWrap: 'wrap',     // forces word wrap on iOS
     },
     statValue: {
         fontSize: 20,

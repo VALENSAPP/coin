@@ -678,7 +678,11 @@ const ProfilePersonData = ({
     if (fromUsersProfile) {
       navigation.navigate('ProfileMain', {
         screen: 'OpenBattle',
-        params: { returnTo: 'UserProfile', isCompanyProfile },
+        params: {
+          returnTo: 'UserProfile',
+          isCompanyProfile,
+          profile: effectiveProfileType || userProfile || userData?.profile || 'user',
+        },
       });
       return;
     }
@@ -687,7 +691,14 @@ const ProfilePersonData = ({
       isCompanyProfile,
       profile: effectiveProfileType || userProfile || userData?.profile || 'user',
     });
-  }, [fromUsersProfile, navigation, isCompanyProfile]);
+  }, [
+    effectiveProfileType,
+    fromUsersProfile,
+    isCompanyProfile,
+    navigation,
+    userData?.profile,
+    userProfile,
+  ]);
 
   const handleInviteBattlePress = useCallback(async () => {
     const storedMe = String((await AsyncStorage.getItem('userId')) || '').trim();
@@ -724,16 +735,41 @@ const ProfilePersonData = ({
     if (fromUsersProfile) {
       navigation.navigate('ProfileMain', {
         screen: 'OpenBattle',
-        params: { ...params, isCompanyProfile },
+        params: {
+          ...params,
+          isCompanyProfile,
+          profile: effectiveProfileType || userProfile || userData?.profile || 'user',
+        },
       });
       return;
     }
-    navigation.navigate('OpenBattle', { ...params, isCompanyProfile });
+
+    navigation.navigate('OpenBattle', {
+      ...params,
+      isCompanyProfile,
+      profile: effectiveProfileType || userProfile || userData?.profile || 'user',
+    });
   }, [
-    displayName, fromUsersProfile, isCompanyProfile, navigation, profileImage,
-    targetUserId, userData?.avatar, userData?.displayName, userData?.fullName,
-    userData?._id, userData?.id, userData?.image, userData?.name,
-    userData?.profilePicture, userData?.userName, userData?.username, username, t,
+    displayName,
+    fromUsersProfile,
+    isCompanyProfile,
+    navigation,
+    profileImage,
+    targetUserId,
+    userData?.avatar,
+    userData?.displayName,
+    userData?.fullName,
+    userData?._id,
+    userData?.id,
+    userData?.image,
+    userData?.name,
+    userData?.profilePicture,
+    userData?.userName,
+    userData?.username,
+    username,
+    userData?.profile,
+    userProfile,
+    effectiveProfileType,
   ]);
 
   const handleBattleTabPress = useCallback(() => {

@@ -39,7 +39,15 @@ import {
   optStyles,
   burstStyles,
 } from './Style';
-import { getStoryByUser, PostStory, DeleteStory, getFollowingUserStories } from '../../../services/stories';
+import {
+  getStoryByUser,
+  PostStory,
+  DeleteStory,
+  getFollowingUserStories,
+  postCommentStory,
+  postLikeStory,
+  viewStory,
+} from '../../../services/stories';
 import { buildStoryMetaPayload } from '../../../utils/buildStoryMeta';
 import {
   appendStoryAudioFiles,
@@ -53,7 +61,6 @@ import { getUserCredentials } from '../../../services/post';
 import Feather from 'react-native-vector-icons/Feather';
 import { sendMessage as sendChatMessage } from '../../../services/chatMessage';
 
-import { postCommentStory, postLikeStory } from '../../../services/stories';
 import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import { setProfileImg } from '../../../redux/actions/ProfileImgAction';
@@ -630,6 +637,7 @@ const StoryViewer = ({
   const prevUserCb = useRef(onPrevUser);
   const closeCb = useRef(onClose);
   const isViewingOwnStoryRef = useRef(false);
+  const lastViewedStoryKeyRef = useRef(null);
   useEffect(() => { nextUserCb.current = onNextUser; }, [onNextUser]);
   useEffect(() => { prevUserCb.current = onPrevUser; }, [onPrevUser]);
   useEffect(() => { closeCb.current = onClose; }, [onClose]);
@@ -669,6 +677,44 @@ const StoryViewer = ({
   const currentStory = currentUser?.stories[currentStoryIndex];
   const isViewingOwnStory = currentUser?.isUser;
   useEffect(() => { isViewingOwnStoryRef.current = !!isViewingOwnStory; }, [isViewingOwnStory]);
+
+  // Call view API once per active story (per viewer session)
+ useEffect(() => {
+  if (!visible) {
+    lastViewedStoryKeyRef.current = null;
+    return;
+  }
+
+  if (!currentStory || isViewingOwnStory) return;
+  if (!currentStory.storyId) return;
+
+  const viewKey = `${currentUser?.id || ''}:${String(currentStory.storyId)}:${currentStoryIndex}`;
+
+  if (lastViewedStoryKeyRef.current === viewKey) return;
+
+  lastViewedStoryKeyRef.current = viewKey;
+
+  (async () => {
+    try {
+      const response = await viewStory({
+        storyId: currentStory.storyId,
+      });
+
+      console.log('viewStory response =>', response);
+
+      // check response data here
+      if (response?.success) {
+        console.log('Story viewed successfully');
+      }
+
+    } catch (e) {
+      console.warn(
+        '[StoryViewer] viewStory failed:',
+        e?.message || e
+      );
+    }
+  })();
+}, [visible, currentUserIndex, currentStoryIndex]);
 
   const resolvedAudio = resolveStoryAudioPayload(currentStory);
   const youtubeVideoId = resolvedAudio.youtubeVideoId;
@@ -1756,6 +1802,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
               duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
               thumbnail: thumbnailUrl,
               id: `${story.id}_${idx}`,
+              storyId: story.id,
               type: mediaType,
               uri: String(url).trim(),
               timestamp: ts,
@@ -1792,6 +1839,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
             duration: resolveStoryDurationMs({ ...clipMeta, type: mediaType }),
             thumbnail: thumbnailUrl,
             id: `${userStory.id}_${idx}`,
+            storyId: userStory.id,
             type: mediaType,
             uri: String(url).trim(),
             timestamp: ts,

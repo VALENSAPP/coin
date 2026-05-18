@@ -50,6 +50,7 @@ import { parseProfileShareUrl } from '../../../utils/profileShare';
 import StoryViewerModal from '../../../components/modals/StoryViewerModal';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
+import { viewStory } from '../../../services/stories';
 
 const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX =
@@ -756,6 +757,22 @@ const UserChat = ({ route, navigation }) => {
       else if (sharedItem?.type === 'reel') messageData.reelId = sharedItem.reelId;
       else if (sharedItem?.type === 'story') messageData.storyId = cleanStoryId(sharedItem.storyId);
 
+      // Add shared content if present
+      if (sharedItem?.type === 'post') {
+        messageData.postId = sharedItem.postId;
+      } else if (sharedItem?.type === 'reel') {
+        messageData.reelId = sharedItem.reelId;
+      } else if (sharedItem?.type === 'story') {
+        const storyIdToShare = cleanStoryId(
+          sharedItem.storyId || sharedItem.story?.storyId || sharedItem.story?.id || sharedItem.id
+        );
+        messageData.storyId = storyIdToShare;
+        // Track share action via view API (non-blocking)
+        if (storyIdToShare) {
+          viewStory({ storyId: storyIdToShare }).catch(() => {});
+        }
+      }
+      console.log('[UserChat] Sending message. Socket ready?', socketReady);
       const socket = getSocket();
       if (socket?.connected && socketReady) sendSocketMessage(messageData);
 
