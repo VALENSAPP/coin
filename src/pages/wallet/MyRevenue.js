@@ -17,6 +17,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { subscriptionEarningGraph, totalSupport } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getUserCredentials } from '../../services/post';
+import { useLanguage } from '../../i18n';
 
 const { width } = Dimensions.get('window');
 
@@ -71,15 +72,12 @@ const mapGraphResponse = (response) => {
 
 // ── Enrich transactions with user profile (name + image) ─────────────────────
 const enrichTransactionsWithProfiles = async (transactions) => {
-    // Deduplicate userIds to avoid redundant API calls
     const uniqueUserIds = [...new Set(transactions.map((tx) => tx.userId).filter(Boolean))];
 
-    // Fetch all profiles in parallel
     const profileResults = await Promise.allSettled(
         uniqueUserIds.map((userId) => getUserCredentials(userId))
     );
 
-    // Build a userId → profile map
     const profileMap = {};
     uniqueUserIds.forEach((userId, index) => {
         const result = profileResults[index];
@@ -94,7 +92,6 @@ const enrichTransactionsWithProfiles = async (transactions) => {
         }
     });
 
-    // Merge profile info into each transaction
     return transactions.map((tx) => ({
         ...tx,
         _profile: profileMap[tx.userId] ?? null,
@@ -127,6 +124,7 @@ const TxAvatar = ({ imageUrl, text, size = 44 }) => {
 export default function RevenueFromSubscriptions({ navigation, route }) {
     const { isBusinessProfile } = route?.params || {};
     const { bgStyle, text } = useAppTheme();
+    const { t } = useLanguage();
 
     const [period] = useState('This Month');
     const [chartPeriod, setChartPeriod] = useState('Weekly');
@@ -183,7 +181,6 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                 ? data.transactions
                 : [];
 
-            // Enrich with user profiles in parallel
             const enriched = await enrichTransactionsWithProfiles(rawTransactions);
             setTransactions(enriched);
         } catch (error) {
@@ -231,7 +228,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         if (profile?.displayName) return profile.displayName;
         if (profile?.userName) return `@${profile.userName}`;
         if (tx.userId) return `@${tx.userId.slice(0, 8)}…`;
-        return 'Unknown';
+        return t('revenue.unknownUser');
     };
 
     return (
@@ -248,16 +245,6 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                     />
                 }
             >
-                {/* ── Period Selector ── */}
-                {/* <View style={styles.periodRow}>
-                    <TouchableOpacity style={[styles.periodPicker, bgStyle]}>
-                        <Ionicons name="calendar-outline" size={14} color={text} />
-                        <Text style={[styles.periodText, { color: text }]}> {period}</Text>
-                        <Ionicons name="chevron-down" size={14} color={text} />
-                    </TouchableOpacity>
-                    <Text style={[styles.periodRange, { color: text }]}>Apr 1 – Apr 21, 2026</Text>
-                </View> */}
-
                 {/* ── Total Revenue Card ── */}
                 <View style={styles.revenueCardWrap}>
                     <LinearGradient
@@ -267,21 +254,12 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                         style={styles.revenueCard}
                     >
                         <View style={styles.revenueContent}>
-                            <Text style={[styles.revenueLabel, { color: text }]}>Total Revenue</Text>
+                            <Text style={[styles.revenueLabel, { color: text }]}>{t('revenue.totalRevenue')}</Text>
                             <Text style={[styles.revenueAmount, { color: text }]}>
                                 {revenueLoading ? '…' : `$${Number(totalRevenue).toFixed(2)}`}
                             </Text>
-                            {/* <View style={styles.growthRow}>
-                                <View style={styles.growthBadge}>
-                                    <Ionicons name="arrow-up" size={12} color="#16a34a" />
-                                    <Text style={styles.growthText}>15.6%</Text>
-                                </View>
-                                <Text style={[styles.growthSub, { color: text }]}>
-                                    {' '}vs Mar 1 – Mar 31, 2026
-                                </Text>
-                            </View> */}
                             <View style={styles.stripeRow}>
-                                <Text style={[styles.poweredBy, { color: text }]}>Powered by </Text>
+                                <Text style={[styles.poweredBy, { color: text }]}>{t('revenue.poweredBy')} </Text>
                                 <Text style={[styles.stripeBrand, { color: text }]}>stripe</Text>
                             </View>
                         </View>
@@ -309,24 +287,24 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                 {/* ── How It Works ── */}
                 <View style={[styles.section, bgStyle]}>
                     <View style={styles.sectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: text }]}>How it works</Text>
+                        <Text style={[styles.sectionTitle, { color: text }]}>{t('revenue.howItWorks')}</Text>
                         <View style={styles.instantSplitBox}>
-                            <Text style={[styles.instantSplitLabel, { color: text }]}>Instant split</Text>
+                            <Text style={[styles.instantSplitLabel, { color: text }]}>{t('revenue.instantSplit')}</Text>
                             <View style={styles.splitPercentRow}>
                                 <Text style={[styles.splitPct, { color: text }]}>80%</Text>
-                                <Text style={[styles.splitPctLabel, { color: text }]}> To you</Text>
+                                <Text style={[styles.splitPctLabel, { color: text }]}> {t('revenue.toYou')}</Text>
                             </View>
                             <View style={styles.splitPercentRow}>
                                 <Text style={[styles.splitPct, { color: text, fontSize: 14 }]}>20%</Text>
-                                <Text style={[styles.splitPctLabel, { color: text }]}> Valens fee</Text>
+                                <Text style={[styles.splitPctLabel, { color: text }]}> {t('revenue.valensFee')}</Text>
                             </View>
                         </View>
                     </View>
                     <View style={styles.flowRow}>
                         {[
-                            { icon: 'person-outline', label: 'User subscribes', sub: '(Stripe)' },
-                            { icon: 'flash-outline', label: 'Instant split', sub: '80% / 20%' },
-                            { icon: 'business-outline', label: 'Payout to creator', sub: '(Stripe)' },
+                            { icon: 'person-outline', label: t('revenue.userSubscribes'), sub: '(Stripe)' },
+                            { icon: 'flash-outline', label: t('revenue.instantSplit'), sub: '80% / 20%' },
+                            { icon: 'business-outline', label: t('revenue.payoutToCreator'), sub: '(Stripe)' },
                         ].map((step, i) => (
                             <React.Fragment key={i}>
                                 {i > 0 && (
@@ -352,7 +330,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                 {/* ── Revenue Overview ── */}
                 <View style={[styles.section, bgStyle]}>
                     <Text style={[styles.sectionTitle, { color: text, marginBottom: 10 }]}>
-                        Revenue Overview
+                        {t('revenue.revenueOverview')}
                     </Text>
                     <View style={styles.periodSelector}>
                         {['Daily', 'Weekly', 'Monthly'].map((p) => (
@@ -377,7 +355,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                     </View>
                     <View style={styles.chartContainer}>
                         <Text style={[styles.chartPrice, { color: text }]}>{formattedSelected}</Text>
-                        <Text style={[styles.chartLabel, { color: text }]}>Subscription Earnings</Text>
+                        <Text style={[styles.chartLabel, { color: text }]}>{t('revenue.subscriptionEarnings')}</Text>
 
                         {graphData.length > 0 ? (
                             <LineChart.Provider data={graphData}>
@@ -410,14 +388,14 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                         ) : graphLoading ? (
                             <View style={styles.emptyChart}>
                                 <Ionicons name="hourglass-outline" size={48} color={text} />
-                                <Text style={[styles.emptyChartText, { color: text }]}>Loading chart…</Text>
+                                <Text style={[styles.emptyChartText, { color: text }]}>{t('revenue.loadingChart')}</Text>
                             </View>
                         ) : (
                             <View style={styles.emptyChart}>
                                 <Ionicons name="bar-chart-outline" size={48} color="#ccc" />
-                                <Text style={[styles.emptyChartText, { color: text }]}>No data available</Text>
+                                <Text style={[styles.emptyChartText, { color: text }]}>{t('revenue.noDataAvailable')}</Text>
                                 <Text style={[styles.emptyChartSubtext, { color: text }]}>
-                                    Check back later for earnings updates
+                                    {t('revenue.checkBackLater')}
                                 </Text>
                             </View>
                         )}
@@ -427,20 +405,17 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                 {/* ── Recent Transactions ── */}
                 <View style={[styles.section, bgStyle]}>
                     <View style={styles.txHeader}>
-                        <Text style={[styles.sectionTitle, { color: text }]}>Recent Transactions</Text>
-                        {/* <TouchableOpacity>
-                            <Text style={[styles.viewAll, { color: text }]}>View all</Text>
-                        </TouchableOpacity> */}
+                        <Text style={[styles.sectionTitle, { color: text }]}>{t('revenue.recentTransactions')}</Text>
                     </View>
 
                     {revenueLoading ? (
                         <View style={styles.emptyChart}>
                             <Ionicons name="hourglass-outline" size={32} color={text} />
-                            <Text style={[styles.emptyChartText, { color: text }]}>Loading…</Text>
+                            <Text style={[styles.emptyChartText, { color: text }]}>{t('revenue.loading')}</Text>
                         </View>
                     ) : transactions.length === 0 ? (
                         <Text style={[styles.txSub, { color: text, textAlign: 'center', paddingVertical: 16 }]}>
-                            No transactions yet
+                            {t('revenue.noTransactions')}
                         </Text>
                     ) : (
                         transactions.map((tx) => (
@@ -455,11 +430,9 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                 </View>
 
                                 <View style={{ flex: 1 }}>
-                                    {/* Display name: displayName → @userName → truncated userId */}
                                     <Text style={[styles.txName, { color: text }]}>
                                         {getDisplayName(tx)}
                                     </Text>
-                                    {/* Show @userName as subtitle when displayName is shown */}
                                     {tx._profile?.userName && tx._profile?.displayName && (
                                         <Text style={[styles.txSub, { color: text }]}>
                                             @{tx._profile.userName}
@@ -485,7 +458,6 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                                             : ''}
                                     </Text>
                                 </View>
-                                {/* <Ionicons name="chevron-forward" size={16} color={text} style={{ marginLeft: 6 }} /> */}
                             </View>
                         ))
                     )}

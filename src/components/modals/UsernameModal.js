@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Alert,
   Share,
-  Linking
+  Linking,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -16,11 +16,13 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { buildProfileSharePayload } from '../../utils/profileShare';
+import { useLanguage } from '../../i18n';
 
 const UsernameModal = ({ visible, onClose, data }) => {
   const sheetRef = useRef();
   const { bgStyle } = useAppTheme();
   const toast = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (visible) {
@@ -32,10 +34,7 @@ const UsernameModal = ({ visible, onClose, data }) => {
 
   const resolvedData = data?.user || data || {};
   const resolvedUserId =
-    resolvedData?.id ||
-    resolvedData?.userId ||
-    resolvedData?._id ||
-    null;
+    resolvedData?.id || resolvedData?.userId || resolvedData?._id || null;
   const resolvedWalletAddress = (
     resolvedData?.walletAddress ||
     resolvedData?.walletId ||
@@ -48,51 +47,37 @@ const UsernameModal = ({ visible, onClose, data }) => {
     resolvedData?.displayName ||
     '';
 
-  const {
-    deepLink,
-    webFallback,
-    primaryShareUrl,
-    shareMessage,
-  } = buildProfileSharePayload({
-    username: resolvedUsername,
-    userId: resolvedUserId,
-  });
+  const { deepLink, webFallback, primaryShareUrl, shareMessage } =
+    buildProfileSharePayload({ username: resolvedUsername, userId: resolvedUserId });
 
   const onShare = async () => {
-      try {
-        if (!resolvedUsername && !resolvedUserId) {
-          Alert.alert('Profile not available', 'Unable to share profile right now.');
-          return;
-        }
-        const finalShareMessage = (() => {
-          if (shareMessage && primaryShareUrl && !shareMessage.includes(primaryShareUrl)) {
-            return `${shareMessage}\n\n${primaryShareUrl}`;
-          }
-          return shareMessage || primaryShareUrl;
-        })();
-
-        const result = await Share.share({
-          url: primaryShareUrl,
-          message: finalShareMessage,
-        });
-  
-        if (result.action === Share.sharedAction) {
-          if (result.activityType) {
-            console.log('Shared with activity type:', result.activityType);
-          } else {
-            console.log('Shared successfully');
-          }
-        } else if (result.action === Share.dismissedAction) {
-          console.log('Share dismissed');
-        }
-      } catch (error) {
-        Alert.alert('Error', 'Error sharing content: ' + error.message);
+    try {
+      if (!resolvedUsername && !resolvedUserId) {
+        Alert.alert(
+          t('usernameModal.profileNotAvailableTitle'),
+          t('usernameModal.profileNotAvailableMessage')
+        );
+        return;
       }
-    };
+      const finalShareMessage = (() => {
+        if (shareMessage && primaryShareUrl && !shareMessage.includes(primaryShareUrl)) {
+          return `${shareMessage}\n\n${primaryShareUrl}`;
+        }
+        return shareMessage || primaryShareUrl;
+      })();
+
+      await Share.share({ url: primaryShareUrl, message: finalShareMessage });
+    } catch (error) {
+      Alert.alert(t('usernameModal.errorTitle'), t('usernameModal.shareError') + error.message);
+    }
+  };
 
   const openProfileLink = async () => {
     if (!resolvedUsername && !resolvedUserId) {
-      Alert.alert('Profile not available', 'Unable to open this profile right now.');
+      Alert.alert(
+        t('usernameModal.profileNotAvailableTitle'),
+        t('usernameModal.openProfileError')
+      );
       return;
     }
     try {
@@ -101,29 +86,33 @@ const UsernameModal = ({ visible, onClose, data }) => {
       try {
         await Linking.openURL(webFallback);
       } catch (fallbackError) {
-        Alert.alert('Error', 'Unable to open profile link.');
+        Alert.alert(t('usernameModal.errorTitle'), t('usernameModal.openLinkError'));
       }
     }
   };
 
   const copyProfileUrl = () => {
     if (!primaryShareUrl) {
-      Alert.alert('Profile not available', 'Unable to find profile link to copy.');
+      Alert.alert(
+        t('usernameModal.profileNotAvailableTitle'),
+        t('usernameModal.copyLinkError')
+      );
       return;
     }
-
     Clipboard.setString(String(primaryShareUrl));
-    showToastMessage(toast, 'success', 'Profile link copied successfully');
+    showToastMessage(toast, 'success', t('usernameModal.linkCopied'));
   };
 
   const copyWalletAddress = () => {
     if (!resolvedWalletAddress) {
-      Alert.alert('Wallet not connected', 'Please connect your wallet first.');
+      Alert.alert(
+        t('usernameModal.walletNotConnectedTitle'),
+        t('usernameModal.walletNotConnectedMessage')
+      );
       return;
     }
-
     Clipboard.setString(resolvedWalletAddress);
-    showToastMessage(toast, 'success', 'Wallet address copied successfully');
+    showToastMessage(toast, 'success', t('usernameModal.walletCopied'));
   };
 
   return (
@@ -131,59 +120,37 @@ const UsernameModal = ({ visible, onClose, data }) => {
       ref={sheetRef}
       draggable
       height={230}
-      onClose={onClose} // Add this line - crucial for resetting state
-      customModalProps={{
-        statusBarTranslucent: true,
-      }}
-      
+      onClose={onClose}
+      customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
-        container: [{
-          borderTopLeftRadius: 10,
-          borderTopRightRadius: 10,
-        }, bgStyle],
-        draggableIcon: {
-          width: 80,
-        },
-      }}>
+        container: [{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }, bgStyle],
+        draggableIcon: { width: 80 },
+      }}
+    >
       <TouchableOpacity
         style={styles.modalOverlay}
         activeOpacity={1}
         onPress={onClose}
       >
         <View style={[styles.modalContainer, bgStyle]}>
-          {/* Drag handle */}
-          {/* <View style={styles.dragHandle} /> */}
-
           {/* Top buttons */}
           <View style={styles.topButtonsRow}>
-            <TouchableOpacity
-              style={[styles.topButton, bgStyle]}
-              onPress={copyProfileUrl}
-            >
+            <TouchableOpacity style={[styles.topButton, bgStyle]} onPress={copyProfileUrl}>
               <Ionicons name="copy-outline" size={20} color="#111100" />
-              <Text style={styles.topButtonText}>Copy link</Text>
+              <Text style={styles.topButtonText}>{t('usernameModal.copyLinkButton')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.topButton, bgStyle]}
-              onPress={onShare}
-            >
+            <TouchableOpacity style={[styles.topButton, bgStyle]} onPress={onShare}>
               <Feather name="send" size={20} color="#111100" />
-              <Text style={styles.topButtonText}>Send</Text>
+              <Text style={styles.topButtonText}>{t('usernameModal.sendButton')}</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={copyWalletAddress}>
             <Ionicons name="wallet-outline" size={20} color="#111100" style={styles.optionIcon} />
-            <Text style={styles.optionText}>Base wallet address</Text>
+            <Text style={styles.optionText}>{t('usernameModal.walletAddressOption')}</Text>
             <Ionicons name="copy-outline" size={18} color="#788587" style={styles.optionRightIcon} />
           </TouchableOpacity>
-
-          {/* <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={openProfileLink}>
-            <Ionicons name="person-outline" size={20} color="#111100" style={styles.optionIcon} />
-            <Text style={styles.optionText}>Open profile</Text>
-            <Ionicons name="open-outline" size={18} color="#788587" style={styles.optionRightIcon} />
-          </TouchableOpacity> */}
         </View>
       </TouchableOpacity>
     </RBSheet>

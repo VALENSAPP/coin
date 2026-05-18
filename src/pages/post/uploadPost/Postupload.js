@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import CameraView from './CameraView';
 import Video from 'react-native-video';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -30,7 +31,7 @@ const GalleryPickerScreen = () => {
   const [selected, setSelected] = useState([]);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState('photo');
-  
+
   // Crop feature states
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
@@ -41,16 +42,16 @@ const GalleryPickerScreen = () => {
     height: SCREEN_WIDTH - 40,
   });
   const [imageData, setImageData] = useState({ width: 0, height: 0 });
-  
+
   // Animation values for crop area
   const pan = useRef(new Animated.ValueXY()).current;
   const cropScale = useRef(new Animated.Value(1)).current;
   const { bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (tab === 'gallery') {
       setTimeout(() => {
-        
         openGallery();
       }, 500);
       setShowCamera(false);
@@ -65,7 +66,7 @@ const GalleryPickerScreen = () => {
       const result = await ImagePicker.openPicker({
         multiple: true,
         mediaType: 'any',
-        cropping: false, // We'll handle cropping manually
+        cropping: false,
       });
       const files = Array.isArray(result) ? result : [result];
       const normalized = files.map(file => ({
@@ -111,18 +112,17 @@ const GalleryPickerScreen = () => {
   // Crop functionality
   const openCropModal = useCallback((item) => {
     if (isVideo(item)) {
-      Alert.alert('Info', 'Video cropping is not supported. Only images can be cropped.');
+      Alert.alert(t('galleryPicker.cropInfo'), t('galleryPicker.cropVideoUnsupported'));
       return;
     }
-    
+
     setImageToCrop(item);
     setShowCropModal(true);
-    
-    // Calculate initial crop area based on image dimensions
+
     const imageAspectRatio = item.width / item.height;
     const containerWidth = SCREEN_WIDTH - 40;
     const containerHeight = SCREEN_HEIGHT * 0.6;
-    
+
     let displayWidth, displayHeight;
     if (imageAspectRatio > containerWidth / containerHeight) {
       displayWidth = containerWidth;
@@ -131,7 +131,7 @@ const GalleryPickerScreen = () => {
       displayHeight = containerHeight;
       displayWidth = containerHeight * imageAspectRatio;
     }
-    
+
     setImageData({ width: displayWidth, height: displayHeight });
     setCropData({
       x: 0,
@@ -139,16 +139,15 @@ const GalleryPickerScreen = () => {
       width: Math.min(displayWidth, displayHeight),
       height: Math.min(displayWidth, displayHeight),
     });
-  }, []);
+  }, [t]);
 
   const cropImage = useCallback(async () => {
     if (!imageToCrop) return;
-    
+
     try {
-      // Calculate crop parameters relative to original image size
       const scaleX = imageToCrop.width / imageData.width;
       const scaleY = imageToCrop.height / imageData.height;
-      
+
       const cropParams = {
         path: imageToCrop.uri,
         width: Math.round(cropData.width * scaleX),
@@ -156,35 +155,30 @@ const GalleryPickerScreen = () => {
         cropX: Math.round(cropData.x * scaleX),
         cropY: Math.round(cropData.y * scaleY),
       };
-      
+
       const croppedImage = await ImagePicker.openCropper(cropParams);
-      
-      // Update the selected image with cropped version
+
       const updatedImage = {
         ...imageToCrop,
         uri: croppedImage.path,
         width: croppedImage.width,
         height: croppedImage.height,
       };
-      
-      // Update media array
-      const updatedMedia = media.map(item => 
+
+      const updatedMedia = media.map(item =>
         item.uri === imageToCrop.uri ? updatedImage : item
       );
       setMedia(updatedMedia);
-      
-      // Update selected array
       setSelected([updatedImage]);
-      
       setShowCropModal(false);
       setImageToCrop(null);
-      
-      Alert.alert('Success', 'Image cropped successfully!');
+
+      Alert.alert(t('galleryPicker.crop'), t('galleryPicker.cropSuccess'));
     } catch (error) {
       console.error('Crop error:', error);
-      Alert.alert('Error', 'Failed to crop image. Please try again.');
+      Alert.alert(t('galleryPicker.cropErrorTitle'), t('galleryPicker.cropError'));
     }
-  }, [imageToCrop, imageData, cropData, media]);
+  }, [imageToCrop, imageData, cropData, media, t]);
 
   // Pan responder for crop area
   const panResponder = useRef(
@@ -193,7 +187,7 @@ const GalleryPickerScreen = () => {
       onPanResponderMove: (evt, gestureState) => {
         const newX = Math.max(0, Math.min(cropData.x + gestureState.dx, imageData.width - cropData.width));
         const newY = Math.max(0, Math.min(cropData.y + gestureState.dy, imageData.height - cropData.height));
-        
+
         setCropData(prev => ({
           ...prev,
           x: newX,
@@ -201,7 +195,6 @@ const GalleryPickerScreen = () => {
         }));
       },
       onPanResponderRelease: () => {
-        // Reset pan animation
         pan.setValue({ x: 0, y: 0 });
       },
     })
@@ -219,14 +212,14 @@ const GalleryPickerScreen = () => {
             onPress={() => setShowCropModal(false)}
             style={styles.cropButton}
           >
-            <Text style={styles.cropButtonText}>Cancel</Text>
+            <Text style={styles.cropButtonText}>{t('galleryPicker.cropCancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.cropTitle}>Crop Image</Text>
+          <Text style={styles.cropTitle}>{t('galleryPicker.cropTitle')}</Text>
           <TouchableOpacity
             onPress={cropImage}
             style={styles.cropButton}
           >
-            <Text style={[styles.cropButtonText, styles.cropDoneText]}>Done</Text>
+            <Text style={[styles.cropButtonText, styles.cropDoneText]}>{t('galleryPicker.cropDone')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -244,10 +237,9 @@ const GalleryPickerScreen = () => {
                 ]}
                 resizeMode="cover"
               />
-              
+
               {/* Crop overlay */}
               <View style={styles.cropOverlay}>
-                {/* Dark overlay areas */}
                 <View style={[styles.overlayArea, { height: cropData.y }]} />
                 <View style={styles.cropRow}>
                   <View style={[styles.overlayArea, { width: cropData.x }]} />
@@ -268,7 +260,7 @@ const GalleryPickerScreen = () => {
                     <View style={[styles.cropHandle, styles.topRight]} />
                     <View style={[styles.cropHandle, styles.bottomLeft]} />
                     <View style={[styles.cropHandle, styles.bottomRight]} />
-                    
+
                     {/* Grid lines */}
                     <View style={[styles.gridLine, styles.gridLineVertical1]} />
                     <View style={[styles.gridLine, styles.gridLineVertical2]} />
@@ -285,9 +277,9 @@ const GalleryPickerScreen = () => {
 
         <View style={styles.cropControls}>
           <Text style={styles.cropInstructions}>
-            Drag the crop area to adjust. Tap Done to apply changes.
+            {t('galleryPicker.cropInstructions')}
           </Text>
-          
+
           {/* Aspect ratio buttons */}
           <View style={styles.aspectRatioContainer}>
             <TouchableOpacity
@@ -302,9 +294,9 @@ const GalleryPickerScreen = () => {
                 });
               }}
             >
-              <Text style={styles.aspectRatioText}>1:1</Text>
+              <Text style={styles.aspectRatioText}>{t('galleryPicker.aspectRatio11')}</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.aspectRatioButton}
               onPress={() => {
@@ -317,9 +309,9 @@ const GalleryPickerScreen = () => {
                 });
               }}
             >
-              <Text style={styles.aspectRatioText}>4:3</Text>
+              <Text style={styles.aspectRatioText}>{t('galleryPicker.aspectRatio43')}</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.aspectRatioButton}
               onPress={() => {
@@ -332,7 +324,7 @@ const GalleryPickerScreen = () => {
                 });
               }}
             >
-              <Text style={styles.aspectRatioText}>16:9</Text>
+              <Text style={styles.aspectRatioText}>{t('galleryPicker.aspectRatio169')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -356,7 +348,7 @@ const GalleryPickerScreen = () => {
             </View>
           )}
           {selectedItem && <View style={styles.selectedOverlay} />}
-          
+
           {/* Crop button for images */}
           {!isVideo(item) && (
             <TouchableOpacity
@@ -386,7 +378,7 @@ const GalleryPickerScreen = () => {
               <Icon name="close" size={24} color="#000" />
             </TouchableOpacity>
             <TouchableOpacity>
-              <Text style={styles.folderTitle}>Recents</Text>
+              <Text style={styles.folderTitle}>{t('galleryPicker.recents')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -401,7 +393,7 @@ const GalleryPickerScreen = () => {
                   { opacity: selected.length > 0 ? 1 : 0.3 },
                 ]}
               >
-                Next
+                {t('galleryPicker.next')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -429,7 +421,7 @@ const GalleryPickerScreen = () => {
                     onPress={() => openCropModal(selected[0])}
                   >
                     <Icon name="crop" size={20} color="#fff" />
-                    <Text style={styles.previewCropText}>Crop</Text>
+                    <Text style={styles.previewCropText}>{t('galleryPicker.crop')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -447,17 +439,21 @@ const GalleryPickerScreen = () => {
 
           {/* Tab Bar */}
           <View style={styles.tabBar}>
-            {['gallery', 'photo', 'video'].map(t => (
-              <TouchableOpacity key={t} onPress={() => setTab(t)}>
-                <Text style={[styles.tabLabel, tab === t && styles.activeTab]}>
-                  {t.toUpperCase()}
+            {[
+              { key: 'gallery', label: t('galleryPicker.gallery') },
+              { key: 'photo',   label: t('galleryPicker.photo') },
+              { key: 'video',   label: t('galleryPicker.video') },
+            ].map(({ key, label }) => (
+              <TouchableOpacity key={key} onPress={() => setTab(key)}>
+                <Text style={[styles.tabLabel, tab === key && styles.activeTab]}>
+                  {label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </>
       )}
-      
+
       {/* Crop Modal */}
       {renderCropModal()}
     </SafeAreaView>

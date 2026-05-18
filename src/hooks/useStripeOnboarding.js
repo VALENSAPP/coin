@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getOnboardingStatus } from '../services/profile';
 import { openStripeOnboarding } from '../utils/stripeOnboarding';
+import { useLanguage } from '../i18n';
 
 /**
  * @returns {{
@@ -19,6 +20,7 @@ import { openStripeOnboarding } from '../utils/stripeOnboarding';
  */
 export function useStripeOnboarding(options = {}) {
   const { fetchOnMount = true } = options;
+  const { t } = useLanguage();
   const [canReceivePayments, setCanReceivePayments] = useState(null);
   const [accountId, setAccountId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -54,12 +56,13 @@ export function useStripeOnboarding(options = {}) {
   const openOnboarding = useCallback(async (opts = {}) => {
     await openStripeOnboarding({
       ...opts,
+      t,
       onComplete: () => {
         opts.onComplete?.();
         refresh();
       },
     });
-  }, [refresh]);
+  }, [refresh, t]);
 
   useEffect(() => {
     if (fetchOnMount) refresh();

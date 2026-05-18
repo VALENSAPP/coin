@@ -13,6 +13,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
+import { useLanguage } from '../../i18n';
 
 const withAlpha = (hex, alpha) => {
   if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
@@ -24,7 +25,7 @@ const withAlpha = (hex, alpha) => {
 const pickFirst = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
 
-const buildRewardData = battle => {
+const buildRewardData = (battle, t) => {
   const stake = Number(pickFirst(battle?.stake, battle?.stakeAmount, 0));
   const battleType = String(
     pickFirst(battle?.battleType, 'OPINION'),
@@ -36,42 +37,46 @@ const buildRewardData = battle => {
   const totalReward = victoryBonus + engagementBonus + accuracyBonus;
 
   return {
-    title: pickFirst(battle?.title, battle?.question, 'Battle Reward'),
+    title: pickFirst(battle?.title, battle?.question, t('battleReward.headerTitle')),
     reward: `${totalReward} Points`,
     rank: '#1',
     status:
       battleType === 'PREDICTION'
-        ? 'Accuracy Reward Unlocked'
-        : 'Community Reward Unlocked',
+        ? t('battleReward.accuracyRewardUnlocked')
+        : t('battleReward.communityRewardUnlocked'),
     summary:
       battleType === 'PREDICTION'
-        ? 'You earned points for the winning prediction, with accuracy weighted ahead of social engagement.'
-        : 'You earned points for winning the community battle through votes and argument engagement.',
+        ? t('battleReward.predictionSummary')
+        : t('battleReward.opinionSummary'),
     breakdown: [
-      { label: 'Victory Bonus', value: `+${victoryBonus}` },
-      { label: 'Engagement Bonus', value: `+${engagementBonus}` },
+      { label: t('battleReward.victoryBonus'), value: `+${victoryBonus}` },
+      { label: t('battleReward.engagementBonus'), value: `+${engagementBonus}` },
       ...(accuracyBonus
-        ? [{ label: 'Accuracy Bonus', value: `+${accuracyBonus}` }]
+        ? [{ label: t('battleReward.accuracyBonus'), value: `+${accuracyBonus}` }]
         : []),
     ],
     perks: [
-      'Cred points have been added to your balance',
-      'Battle performance has been updated on your profile',
+      t('battleReward.perkCredPoints'),
+      t('battleReward.perkBattlePerformance'),
       battleType === 'PREDICTION'
-        ? 'Prediction accuracy score has been improved'
-        : 'Community battle reputation has been improved',
+        ? t('battleReward.perkPredictionAccuracy')
+        : t('battleReward.perkCommunityRep'),
     ],
   };
 };
 
 export default function BattleReward({ navigation }) {
   const route = useRoute();
+  const { t } = useLanguage();
   const resolvedProfileType = normalizeProfileType(route?.params?.profile);
   const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
+
   const rewardData = useMemo(
-    () => buildRewardData(route?.params?.battle),
-    [route?.params?.battle],
+    () => buildRewardData(route?.params?.battle, t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [route?.params?.battle, t],
   );
+
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
     const secondary =
@@ -95,6 +100,7 @@ export default function BattleReward({ navigation }) {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -103,7 +109,7 @@ export default function BattleReward({ navigation }) {
             <Icon name="arrow-back-ios-new" size={20} color={text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: text }]}>
-            Battle Reward
+            {t('battleReward.headerTitle')}
           </Text>
           <TouchableOpacity style={styles.headerIconBtn}>
             <Ionicons name="gift-outline" size={20} color={text} />
@@ -114,6 +120,7 @@ export default function BattleReward({ navigation }) {
           {rewardData.title}
         </Text>
 
+        {/* Hero Banner */}
         <LinearGradient
           colors={[palette.secondary, palette.primary, palette.secondary]}
           start={{ x: 0, y: 0 }}
@@ -139,10 +146,12 @@ export default function BattleReward({ navigation }) {
             <Ionicons name="trophy-outline" size={34} color={palette.warm} />
           </View>
           <Text style={styles.rewardBadgeText}>{rewardData.status}</Text>
-          {/* <Text style={styles.rewardMainValue}>{rewardData.reward}</Text> */}
-          <Text style={styles.rewardRank}>Battle Rank {rewardData.rank}</Text>
+          <Text style={styles.rewardRank}>
+            {t('battleReward.battleRank').replace('{{rank}}', rewardData.rank)}
+          </Text>
         </LinearGradient>
 
+        {/* Reward Summary Card */}
         <View
           style={[
             styles.infoCard,
@@ -150,13 +159,14 @@ export default function BattleReward({ navigation }) {
           ]}
         >
           <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
-            Reward Summary
+            {t('battleReward.rewardSummaryTitle')}
           </Text>
           <Text style={[styles.infoText, { color: palette.muted }]}>
             {rewardData.summary}
           </Text>
         </View>
 
+        {/* Points Breakdown Card */}
         <View
           style={[
             styles.infoCard,
@@ -164,7 +174,7 @@ export default function BattleReward({ navigation }) {
           ]}
         >
           <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
-            Points Breakdown
+            {t('battleReward.pointsBreakdownTitle')}
           </Text>
           {rewardData.breakdown.map(item => (
             <View key={item.label} style={styles.breakdownRow}>
@@ -178,6 +188,7 @@ export default function BattleReward({ navigation }) {
           ))}
         </View>
 
+        {/* Unlocked Perks Card */}
         <View
           style={[
             styles.infoCard,
@@ -185,7 +196,7 @@ export default function BattleReward({ navigation }) {
           ]}
         >
           <Text style={[styles.infoTitle, { color: withAlpha(text, 'D0') }]}>
-            Unlocked Perks
+            {t('battleReward.unlockedPerksTitle')}
           </Text>
           {rewardData.perks.map(item => (
             <View key={item} style={styles.perkRow}>
@@ -199,6 +210,7 @@ export default function BattleReward({ navigation }) {
           ))}
         </View>
 
+        {/* Collect Reward Button */}
         <TouchableOpacity activeOpacity={0.88} style={styles.claimButton}>
           <LinearGradient
             colors={[palette.primary, palette.secondary]}
@@ -206,7 +218,9 @@ export default function BattleReward({ navigation }) {
             end={{ x: 1, y: 0.5 }}
             style={styles.claimButton}
           >
-            <Text style={styles.claimButtonText}>Collect Reward</Text>
+            <Text style={styles.claimButtonText}>
+              {t('battleReward.collectReward')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

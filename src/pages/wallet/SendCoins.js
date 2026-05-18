@@ -11,6 +11,7 @@ import { useNavigation } from "@react-navigation/native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../../theme/useApptheme";
+import { useLanguage } from "../../i18n";
 
 const SendCoins = () => {
     const navigation = useNavigation();
@@ -18,21 +19,22 @@ const SendCoins = () => {
     const [amount, setAmount] = useState("");
     const [selectedRatio, setSelectedRatio] = useState(null);
     const { bgStyle, textStyle, text } = useAppTheme();
+    const { t } = useLanguage();
 
     const handleContinue = () => {
         if (!amount) {
-            Alert.alert("Error", "Please enter an amount");
+            Alert.alert(t('sendCoins.errorTitle'), t('sendCoins.amountRequired'));
             return;
         }
         Alert.alert(
-            "Continue",
-            `Recipient: ${search || 'Not specified'}\nAmount: ${amount}\nRatio: ${selectedRatio || "Custom"}%`
+            t('sendCoins.continueTitle'),
+            `${t('sendCoins.recipient')}: ${search || t('sendCoins.notSpecified')}\n${t('sendCoins.amount')}: ${amount}\n${t('sendCoins.ratio')}: ${selectedRatio || t('sendCoins.custom')}%`
         );
     };
 
     useLayoutEffect(() => {
         navigation.setOptions({
-            title: "Send",
+            title: t('sendCoins.screenTitle'),
             headerStyle: [{
                 elevation: 0,
                 shadowOpacity: 0,
@@ -58,18 +60,18 @@ const SendCoins = () => {
                     onPress={handleContinue}
                     style={styles.headerBtn}
                 >
-                    <Text style={styles.doneText}>Done</Text>
+                    <Text style={styles.doneText}>{t('sendCoins.done')}</Text>
                 </TouchableOpacity>
             ),
         });
-    }, [navigation, search, amount, selectedRatio]);
+    }, [navigation, search, amount, selectedRatio, t]);
 
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <View style={[styles.searchBar, { shadowColor: text }]}>
                 <MaterialCommunityIcons name="magnify" size={22} color="#555" />
                 <TextInput
-                    placeholder="Search recipient"
+                    placeholder={t('sendCoins.searchPlaceholder')}
                     value={search}
                     onChangeText={setSearch}
                     style={styles.searchInput}
@@ -120,8 +122,11 @@ const SendCoins = () => {
                 ))}
             </View>
 
-            <TouchableOpacity style={[styles.continueBtn, {backgroundColor: text, shadowColor: text}]} onPress={handleContinue}>
-                <Text style={styles.continueText}>Continue</Text>
+            <TouchableOpacity
+                style={[styles.continueBtn, { backgroundColor: text, shadowColor: text }]}
+                onPress={handleContinue}
+            >
+                <Text style={styles.continueText}>{t('sendCoins.continue')}</Text>
             </TouchableOpacity>
         </SafeAreaView>
     );

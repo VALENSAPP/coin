@@ -9,19 +9,21 @@ import {
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useLanguage } from '../../i18n';
 import ProfileBattleHub from '../../components/profile/ProfileBattleHub';
 import { useAppTheme } from '../../theme/useApptheme';
 
 export default function ProfileBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  console.log(route, 'data in route in thi screen')
+  const { t } = useLanguage();
+  console.log(route, 'data in route in thi screen');
   const returnTo = route?.params?.returnTo;
-  const { profile, } = route.params || {};
+  const { profile } = route.params || {};
   const { bgStyle, text } = useAppTheme(profile);
   const viewedUserId = route?.params?.viewedUserId || '';
   const isOwner = Boolean(route?.params?.isOwner);
-  const title = route?.params?.title || 'Battle';
+  const title = route?.params?.title || t('profileBattle.defaultTitle');
 
   const handleBack = () => {
     if (route?.params?.returnTo === 'UserProfile') {
@@ -34,6 +36,7 @@ export default function ProfileBattleScreen() {
       navigation.goBack();
     }
   };
+
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>
       <View style={styles.header}>

@@ -3,7 +3,6 @@ import {
     View,
     Text,
     TouchableOpacity,
-    TextInput,
     StyleSheet,
     ScrollView,
     Linking,
@@ -24,11 +23,12 @@ import { useAppTheme } from '../../theme/useApptheme';
 import {
     getPaymentSessionUrl,
     STRIPE_BROWSER_OPTIONS,
-    STRIPE_ERROR_MESSAGES,
+    getStripeErrorMessages,
     createOnboardingLink,
     getOnboardingStatus,
 } from '../../utils/stripeOnboarding';
 import { useNavigation } from '@react-navigation/native';
+import { useLanguage } from '../../i18n';
 
 const SubscribeFlowModal = ({
     visible,
@@ -40,7 +40,6 @@ const SubscribeFlowModal = ({
     dashboard,
     targetUserId,
 }) => {
-    
     const step1Ref = useRef(null);
     const step2Ref = useRef(null);
 
@@ -52,7 +51,9 @@ const SubscribeFlowModal = ({
     const toast = useToast();
     const dispatch = useDispatch();
     const navigation = useNavigation();
-    const { bgStyle, textStyle, text } = useAppTheme();
+    const { bgStyle, textStyle, bg, text } = useAppTheme();
+    const { t } = useLanguage();
+    const stripeErrorMessages = getStripeErrorMessages(t);
 
     const isCompanyProfile = userProfile === 'company';
 
@@ -63,9 +64,7 @@ const SubscribeFlowModal = ({
     const GetInbordingstatus = async () => {
         try {
             const response = await getOnboardingStatus();
-            if (response?.statusCode === 200) {
-                return response?.data ?? null;
-            }
+            if (response?.statusCode === 200) return response?.data ?? null;
             return null;
         } catch (_error) {
             return null;
@@ -78,9 +77,7 @@ const SubscribeFlowModal = ({
 
         if (!onboardingUrl) {
             const latestStatus = await GetInbordingstatus();
-            if (isOnboardingReady(latestStatus)) {
-                return { alreadyOnboarded: true };
-            }
+            if (isOnboardingReady(latestStatus)) return { alreadyOnboarded: true };
             throw new Error('Onboarding link not found');
         }
 
@@ -98,17 +95,12 @@ const SubscribeFlowModal = ({
     const waitForOnboardingCompletion = async () => {
         for (let attempt = 0; attempt < 10; attempt += 1) {
             const status = await GetInbordingstatus();
-            if (isOnboardingReady(status)) {
-                return status;
-            }
+            if (isOnboardingReady(status)) return status;
             await delay(2000);
         }
         return null;
     };
 
-    /* =========================
-       PROPER MODAL RESET
-    ========================== */
     const closeAllModals = () => {
         step1Ref.current?.close();
         step2Ref.current?.close();
@@ -116,17 +108,10 @@ const SubscribeFlowModal = ({
         onClose?.();
     };
 
-    /* =========================
-       HANDLE VISIBLE CHANGE
-    ========================== */
     useEffect(() => {
         if (visible) {
             setAcceptedTerms(false);
-
-            setTimeout(() => {
-                step1Ref.current?.open();
-            }, 300);
-
+            setTimeout(() => { step1Ref.current?.open(); }, 300);
             fetchAllData();
             fetchSubscriptionByUserId();
             fetchSubscriptionAmount();
@@ -135,40 +120,27 @@ const SubscribeFlowModal = ({
         }
     }, [visible]);
 
-    /* =========================
-       STEP FLOW
-    ========================== */
     const handleConfirm = () => {
         step1Ref.current?.close();
-
-        setTimeout(() => {
-            step2Ref.current?.open();
-        }, 350);
+        setTimeout(() => { step2Ref.current?.open(); }, 350);
     };
 
-    /* =========================
-       STRIPE SUBSCRIPTION FLOW
-    ========================== */
     const getSubscription = async () => {
         const amount = Number(subscriptionAmount);
 
         if (!amount || Number.isNaN(amount)) {
-            showToastMessage(toast, 'danger', 'Subscription amount is not available. Please try again.');
+            showToastMessage(toast, 'danger', t('subscribeFlow.amountUnavailable'));
             return;
         }
 
         dispatch(showLoader());
 
         try {
-            const payload = {
-                amount,
-                contentUserId: targetUserId,
-                // fanUserId: userId,
-            };
+            const payload = { amount, contentUserId: targetUserId };
 
             const onboardingStatus = await GetInbordingstatus();
-            console.log(onboardingStatus,'data in fanpage')
-            if (isOnboardingReady(onboardingStatus)) {
+
+            const openPayment = async () => {
                 const response = await FanPageSubscription(payload);
                 const url = getPaymentSessionUrl(response);
                 if (!url) {
@@ -177,102 +149,56 @@ const SubscribeFlowModal = ({
                         'danger',
                         response?.message ||
                         response?.data?.message ||
-                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
+                        stripeErrorMessages.RECIPIENT_NOT_READY
                     );
-                    return;
+                    return false;
                 }
                 if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(url, {
-                        ...STRIPE_BROWSER_OPTIONS,
-                        forceCloseOnRedirection: true,
-                    });
+                    await InAppBrowser.open(url, { ...STRIPE_BROWSER_OPTIONS, forceCloseOnRedirection: true });
                 } else {
                     await Linking.openURL(url);
                 }
-                closeAllModals();
+                return true;
+            };
+
+            if (isOnboardingReady(onboardingStatus)) {
+                if (await openPayment()) closeAllModals();
                 return;
             }
 
             const onboardingResult = await GetInbordingLink();
+
             if (onboardingResult?.alreadyOnboarded) {
-                const response = await FanPageSubscription(payload);
-                const url = getPaymentSessionUrl(response);
-                if (!url) {
-                    showToastMessage(
-                        toast,
-                        'danger',
-                        response?.message ||
-                        response?.data?.message ||
-                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
-                    );
-                    return;
-                }
-                if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(url, {
-                        ...STRIPE_BROWSER_OPTIONS,
-                        forceCloseOnRedirection: true,
-                    });
-                } else {
-                    await Linking.openURL(url);
-                }
-                closeAllModals();
+                if (await openPayment()) closeAllModals();
                 return;
             }
 
-            if (isBrowserCancelled(onboardingResult)) {
-                return;
-            }
+            if (isBrowserCancelled(onboardingResult)) return;
 
             const updatedStatus = await waitForOnboardingCompletion();
             if (isOnboardingReady(updatedStatus)) {
-                const response = await FanPageSubscription(payload);
-                const url = getPaymentSessionUrl(response);
-                if (!url) {
-                    showToastMessage(
-                        toast,
-                        'danger',
-                        response?.message ||
-                        response?.data?.message ||
-                        STRIPE_ERROR_MESSAGES.RECIPIENT_NOT_READY
-                    );
-                    return;
-                }
-                if (await InAppBrowser.isAvailable()) {
-                    await InAppBrowser.open(url, {
-                        ...STRIPE_BROWSER_OPTIONS,
-                        forceCloseOnRedirection: true,
-                    });
-                } else {
-                    await Linking.openURL(url);
-                }
-                closeAllModals();
+                if (await openPayment()) closeAllModals();
                 return;
             }
 
-            showToastMessage(toast, 'warning', 'Stripe onboarding is not complete yet.');
+            showToastMessage(toast, 'warning', t('subscribeFlow.onboardingIncomplete'));
         } catch (error) {
             showToastMessage(
                 toast,
                 'danger',
-                error?.response?.data?.message ||
-                STRIPE_ERROR_MESSAGES.NETWORK_ERROR
+                error?.response?.data?.message || stripeErrorMessages.NETWORK_ERROR
             );
         } finally {
             dispatch(hideLoader());
         }
     };
 
-    /* =========================
-       EXISTING API FUNCTIONS
-    ========================== */
     const fetchSubscriptionByUserId = async () => {
         try {
             dispatch(showLoader());
             const response = await getSubscriptionByUserID(targetUserId);
-
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
-
                 if (subscriptions?.length > 0) {
                     setSubscriptionAmount(subscriptions[0].subscriptionAmount || 9);
                     setComment(subscriptions[0].comment);
@@ -287,7 +213,6 @@ const SubscribeFlowModal = ({
         try {
             dispatch(showLoader());
             const profileResponse = await getUserCredentials(userData?.id);
-
             if (profileResponse?.statusCode === 200) {
                 const user = profileResponse?.data?.user || profileResponse?.data;
                 setUserProfile(user?.profile || '');
@@ -313,10 +238,7 @@ const SubscribeFlowModal = ({
         if (supported) await Linking.openURL(url);
     };
 
-    const DragonflyIcon = getDragonflyIcon(
-        dashboard?.totalFollowers,
-        isCompanyProfile
-    );
+    const DragonflyIcon = getDragonflyIcon(dashboard?.totalFollowers, isCompanyProfile);
 
     return (
         <>
@@ -334,25 +256,22 @@ const SubscribeFlowModal = ({
                     </View>
 
                     <Text style={[styles.subHeader, { color: text }]}>
-                        You’re about to Subscribe!
+                        {t('subscribeFlow.step1Subtitle')}
                     </Text>
 
                     <Text style={styles.bodyText}>
-                        Unlock exclusive posts, private drops, and direct access to this
-                        creator’s Valens world.{'\n\n'}
-                        Your support turns into real-time rewards — every subscription fuels
-                        their journey and yours.
+                        {t('subscribeFlow.step1Body')}
                     </Text>
 
                     <Text style={[styles.confirmText, textStyle]}>
-                        Confirm Subscription?
+                        {t('subscribeFlow.confirmQuestion')}
                     </Text>
 
                     <TouchableOpacity
                         style={[styles.btn, { backgroundColor: text }]}
                         onPress={handleConfirm}
                     >
-                        <Text style={styles.confirmTextBtn}>Yes, I’m In</Text>
+                        <Text style={styles.confirmTextBtn}>{t('subscribeFlow.yesButton')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -360,7 +279,7 @@ const SubscribeFlowModal = ({
                         onPress={closeAllModals}
                     >
                         <Text style={[styles.cancelTextBtn, textStyle]}>
-                            Not Now
+                            {t('subscribeFlow.notNow')}
                         </Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -373,19 +292,18 @@ const SubscribeFlowModal = ({
                 closeOnPressMask={false}
                 customStyles={{ container: styles.sheetContainer }}
             >
-                <ScrollView style={styles.container}
-                 showsVerticalScrollIndicator={false}>
-
+                <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
                     <View style={styles.priceBox}>
-                        <Text style={styles.priceLabel}>Membership</Text>
+                        <Text style={styles.priceLabel}>{t('subscribeFlow.membershipLabel')}</Text>
                         <Text style={[styles.priceValue, textStyle]}>
-                            ${subscriptionAmount} / month
+                            ${subscriptionAmount} {t('subscribeFlow.perMonth')}
                         </Text>
                     </View>
 
                     {comment ? (
                         <Text style={styles.comment}>
-                            Comment: <Text style={styles.comments}>{comment}</Text>
+                            {t('subscribeFlow.commentLabel')}{' '}
+                            <Text style={styles.comments}>{comment}</Text>
                         </Text>
                     ) : null}
 
@@ -400,12 +318,11 @@ const SubscribeFlowModal = ({
                             style={styles.checkboxIcon}
                         />
                         <Text style={styles.checkboxText}>
-                            I agree to the{' '}
+                            {t('subscribeFlow.termsPrefix')}{' '}
                             <Text style={styles.linkText} onPress={openTerms}>
-                                Valens Subscriber Terms
+                                {t('subscribeFlow.termsLink')}
                             </Text>{' '}
-                            and understand that subscriptions provide access to digital content only
-                            and are not investments or financial products.
+                            {t('subscribeFlow.termsSuffix')}
                         </Text>
                     </TouchableOpacity>
 
@@ -415,9 +332,10 @@ const SubscribeFlowModal = ({
                             { opacity: acceptedTerms ? 1 : 0.4, backgroundColor: text },
                         ]}
                         onPress={getSubscription}
+                        disabled={!acceptedTerms}
                     >
                         <Text style={styles.doneText}>
-                            ✅ Done — Complete Payment
+                            {t('subscribeFlow.completePaymentButton')}
                         </Text>
                     </TouchableOpacity>
 
@@ -425,11 +343,10 @@ const SubscribeFlowModal = ({
                         style={[styles.btn, styles.cancelBtn]}
                         onPress={closeAllModals}
                     >
-                        <Text style={styles.cancelTextBtn}>Not Now</Text>
+                        <Text style={styles.cancelTextBtn}>{t('subscribeFlow.notNow')}</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </RBSheet>
-
         </>
     );
 };

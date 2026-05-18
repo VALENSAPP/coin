@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
@@ -26,13 +27,20 @@ const withAlpha = (hex, alpha = 0.12) => {
 
 const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
+  const { t } = useLanguage();
+
   useEffect(() => {
-    // do something with userData
     console.log(userData);
   }, [userData]);
+
   const bullets = useMemo(
-    () => ['close friends', 'important moments', 'VIP or trusted followers', 'private updates'],
-    [],
+    () => [
+      t('privateCircle.bulletCloseFriends'),
+      t('privateCircle.bulletImportantMoments'),
+      t('privateCircle.bulletVipFollowers'),
+      t('privateCircle.bulletPrivateUpdates'),
+    ],
+    [t],
   );
 
   const handleStartPress = () => {
@@ -53,42 +61,33 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) =>
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '200%' }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' }]}>
               <Ionicons name="lock-closed" size={34} color={text} />
             </View>
-            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
-              <Ionicons name="sparkles" size={18} color={text} />
-            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>Private mint — What is it?</Text>
-            <Text style={[styles.paragraph, textStyle]}>Private mint is coming soon 🔒</Text>
-            <Text style={[styles.paragraph, textStyle]}>
-              Choose exactly who can see what you share.
-            </Text>
-            <Text style={[styles.paragraph, textStyle]}>
-              With Private Post, you’re in control — select specific followers, friends, or contacts
-              to view your content. No subscriptions, no open access. Just the people you choose.
-            </Text>
+            <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoon')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownChoose')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownDescription')}</Text>
 
-            <Text style={[styles.sectionTitle, textStyle]}>Perfect for:</Text>
+            <Text style={[styles.sectionTitle, textStyle]}>{t('privateCircle.perfectFor')}</Text>
             {bullets.map((item) => (
               <Text key={item} style={[styles.bullet, textStyle]}>
                 • {item}
               </Text>
             ))}
 
-            <Text style={[styles.paragraph, textStyle]}>This is your space, your rules.</Text>
-            <Text style={[styles.paragraph, textStyle]}>Coming soon to your profile.</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownYourSpace')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoonProfile')}</Text>
 
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleStartPress}
-              style={[styles.ctaButton, {backgroundColor: text}]}
+              style={[styles.ctaButton, { backgroundColor: text }]}
             >
-                <Text style={styles.ctaText}>Start It Now</Text>
-              {/* </LinearGradient> */}
+              <Text style={styles.ctaText}>{t('privateCircle.startNowButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -100,25 +99,18 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) =>
             end={{ x: 0, y: 1 }}
             style={styles.leftRail}
           >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9),  marginTop: '100%' }]}>
+            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '100%' }]}>
               <Ionicons name="lock-closed" size={34} color={text} />
             </View>
-            {/* <View style={[styles.railMiniBubble, { backgroundColor: mixWithWhite(text, 0.92) }]}>
-              <Ionicons name="people" size={18} color={text} />
-            </View> */}
           </LinearGradient>
 
           <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>Private Circle Access</Text>
-            <Text style={[styles.paragraph, textStyle]}>This content is not public.</Text>
-            <Text style={[styles.paragraph, textStyle]}>
-              You need to be invited to access this space.
-            </Text>
-            <Text style={[styles.paragraph, textStyle]}>friends, family, and trusted connections.</Text>
-            <Text style={[styles.paragraph, textStyle]}>Access is by invitation only.</Text>
-            <Text style={[styles.paragraph, textStyle]}>
-              Stay connected, engage, and build real trust to be part of it.
-            </Text>
+            <Text style={[styles.title, textStyle]}>{t('privateCircle.guestTitle')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestNotPublic')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestNeedInvite')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestAudience')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestInviteOnly')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestStayConnected')}</Text>
           </View>
         </View>
       )}

@@ -8,10 +8,12 @@ import {
   View,
 } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) => {
   const { bgStyle, textStyle, text } = useAppTheme();
-  const [isLoading, setIsLoading] = useState(false);  // ← local to modal
+  const { t } = useLanguage();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleActivate = async () => {
     setIsLoading(true);
@@ -26,16 +28,17 @@ export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) 
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.container, bgStyle]}>
-          <Text style={[styles.title, textStyle]}>Your Business Mission Starts Here</Text>
-
-          <Text style={[styles.message, textStyle, styles.messageMuted]}>
-            Valens was built for businesses that want more than followers.
-            {'\n\n'}
-            Activate your Business Plan to unlock mission posts, subscriber channels,
-            brand analytics, and tools designed to turn attention into real engagement.
+          <Text style={[styles.title, textStyle]}>
+            {t('businessPlanModal.planTitle')}
           </Text>
 
-          <Text style={[styles.price, { color: text }]}>Business Plan: $9.90/month</Text>
+          <Text style={[styles.message, textStyle, styles.messageMuted]}>
+            {t('businessPlanModal.planMessage')}
+          </Text>
+
+          <Text style={[styles.price, { color: text }]}>
+            {t('businessPlanModal.price')}
+          </Text>
 
           <TouchableOpacity
             style={[styles.primaryBtn, { backgroundColor: text }, isLoading && { opacity: 0.75 }]}
@@ -44,21 +47,19 @@ export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) 
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
               {isLoading && (
-                <ActivityIndicator
-                  size="small"
-                  color="#ffffff"
-                  style={{ marginRight: 8 }}
-                />
+                <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
               )}
               <Text style={styles.primaryText}>
-                {isLoading ? 'Activating...' : 'Activate Business Tools'}
+                {isLoading
+                  ? t('businessPlanModal.activating')
+                  : t('businessPlanModal.activateButton')}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue} disabled={isLoading}>
             <Text style={[styles.secondaryText, { color: text, opacity: isLoading ? 0.4 : 1 }]}>
-              Continue with Basic Profile
+              {t('businessPlanModal.continueBasic')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -69,7 +70,8 @@ export const BusinessPlanModal = ({ visible, onActivate, onContinue, onClose }) 
 
 export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose }) => {
   const { bgStyle, textStyle, text } = useAppTheme();
-  const [isLoading, setIsLoading] = useState(false);  // ← local to modal
+  const { t } = useLanguage();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleUpgrade = async () => {
     setIsLoading(true);
@@ -84,39 +86,35 @@ export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose 
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.container, bgStyle]}>
-          <Text style={[styles.title, textStyle]}>Business Plan - $9.90/month</Text>
-
-          <Text style={[styles.message, textStyle, styles.messageMuted]}>
-            You can continue with a basic business profile, but some features will remain locked until you activate the Business Plan.
-            {'\n\n'}
-            Without the Business Plan you will not have access to:
-            {'\n'}* Verification badge (Dragonfly)
-            {'\n'}* Mission Posts to engage your audience
-            {'\n'}* Private subscription content for followers
-            {'\n'}* Marketplace visibility
-            {'\n'}* Battle participation
-            {'\n'}* Advanced business analytics
-            {'\n\n'}
-            Activate the Business Plan to unlock the full Valens experience.
+          <Text style={[styles.title, textStyle]}>
+            {t('businessPlanModal.reminderTitle')}
           </Text>
 
-          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: text },isLoading && { opacity: 0.75 }]} onPress={handleUpgrade} disabled={isLoading}>
+          <Text style={[styles.message, textStyle, styles.messageMuted]}>
+            {t('businessPlanModal.reminderMessage')}
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: text }, isLoading && { opacity: 0.75 }]}
+            onPress={handleUpgrade}
+            disabled={isLoading}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
               {isLoading && (
-                <ActivityIndicator
-                  size="small"
-                  color="#ffffff"
-                  style={{ marginRight: 8 }}
-                />
+                <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
               )}
               <Text style={styles.primaryText}>
-                {isLoading ? 'Processing...' : 'Unlock Business Features'}
+                {isLoading
+                  ? t('businessPlanModal.processing')
+                  : t('businessPlanModal.unlockButton')}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onContinue}>
-            <Text style={[styles.secondaryText, { color: text }]}>Continue with Limited Profile</Text>
+            <Text style={[styles.secondaryText, { color: text }]}>
+              {t('businessPlanModal.continueBasicLimited')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -126,12 +124,15 @@ export const BusinessReminderModal = ({ visible, onUpgrade, onContinue, onClose 
 
 export const BusinessSuccessModal = ({ visible }) => {
   const { bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <View style={[styles.container, bgStyle]}>
-          <Text style={[styles.title, textStyle]}>Congratulations - Your Business Plan is Active</Text>
+          <Text style={[styles.title, textStyle]}>
+            {t('businessPlanModal.successTitle')}
+          </Text>
         </View>
       </View>
     </Modal>

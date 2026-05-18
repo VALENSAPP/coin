@@ -1,12 +1,7 @@
 import React from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
+import { useLanguage } from '../../i18n';
 
 function truncateAddress(addr) {
   if (!addr || typeof addr !== 'string') return '';
@@ -27,6 +22,7 @@ export function WalletConnectedSuccessModal({
   address,
 }) {
   const hasAddress = !!address && typeof address === 'string';
+  const { t } = useLanguage();
 
   return (
     <Modal
@@ -45,16 +41,15 @@ export function WalletConnectedSuccessModal({
           preview: hasAddress ? truncateAddress(address) : null,
         });
       }}
-      style={styles.modalRoot}>
+      style={styles.modalRoot}
+    >
       <View style={styles.innerContainer}>
-        <Text style={styles.title}>Wallet connected</Text>
-        <Text style={styles.subtitle}>
-          Next step: tap Continue to pay. You’ll see a pending request, then approve the small
-          Sepolia testnet tip in MetaMask (switch network if asked).
-        </Text>
+        <Text style={styles.title}>{t('walletConnectedSuccess.title')}</Text>
+        <Text style={styles.subtitle}>{t('walletConnectedSuccess.subtitle')}</Text>
+
         {hasAddress ? (
           <View style={styles.addressBlock}>
-            <Text style={styles.addressLabel}>Your wallet address</Text>
+            <Text style={styles.addressLabel}>{t('walletConnectedSuccess.addressLabel')}</Text>
             <ScrollView style={styles.addressScroll} nestedScrollEnabled>
               <Text style={styles.addressFull} selectable>
                 {address.trim()}
@@ -64,9 +59,10 @@ export function WalletConnectedSuccessModal({
           </View>
         ) : (
           <Text style={styles.missingAddress}>
-            Waiting for address… If this stays empty, try connecting again.
+            {t('walletConnectedSuccess.waitingForAddress')}
           </Text>
         )}
+
         <TouchableOpacity
           style={[styles.primaryButton, !hasAddress && styles.primaryButtonDisabled]}
           onPress={() => {
@@ -75,11 +71,13 @@ export function WalletConnectedSuccessModal({
             onContinueToPay();
           }}
           disabled={!hasAddress}
-          activeOpacity={0.85}>
-          <Text style={styles.primaryButtonText}>Continue to pay</Text>
+          activeOpacity={0.85}
+        >
+          <Text style={styles.primaryButtonText}>{t('walletConnectedSuccess.continueButton')}</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-          <Text style={styles.secondaryButtonText}>Not now</Text>
+          <Text style={styles.secondaryButtonText}>{t('walletConnectedSuccess.notNowButton')}</Text>
         </TouchableOpacity>
       </View>
     </Modal>

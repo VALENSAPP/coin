@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const NewCreatorsCard = ({ profileImage, name, username, time }) => {
     const { bgStyle, textStyle } = useAppTheme();
+    const { t } = useLanguage();
 
     return (
         <View style={[styles.cardContainer, bgStyle]}>
@@ -13,7 +15,7 @@ const NewCreatorsCard = ({ profileImage, name, username, time }) => {
             {/* Name, Unverified & Username */}
             <View style={styles.middleContainer}>
                 <View style={styles.nameRow}>
-                    <View style={{marginRight:10}}>
+                    <View style={{ marginRight: 10 }}>
                         <Text style={styles.nameText} numberOfLines={1}>
                             {name}
                         </Text>
@@ -21,7 +23,7 @@ const NewCreatorsCard = ({ profileImage, name, username, time }) => {
                     </View>
 
                     <View style={styles.unverifiedBadge}>
-                        <Text style={styles.unverifiedText}>Unverified</Text>
+                        <Text style={styles.unverifiedText}>{t('newCreatorsCard.unverified')}</Text>
                     </View>
                 </View>
             </View>
@@ -29,7 +31,7 @@ const NewCreatorsCard = ({ profileImage, name, username, time }) => {
             {/* Right: NEW + Time */}
             <View style={styles.rightContainer}>
                 <View style={styles.newBadge}>
-                    <Text style={styles.newText}>NEW</Text>
+                    <Text style={styles.newText}>{t('newCreatorsCard.newBadge')}</Text>
                 </View>
                 <Text style={styles.timeText}>{time}</Text>
             </View>

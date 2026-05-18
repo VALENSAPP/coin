@@ -1,5 +1,20 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, Animated, StyleSheet, Dimensions, Linking, ActivityIndicator, Modal, TouchableWithoutFeedback, AppState, Alert, Platform } from 'react-native';
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Animated,
+  StyleSheet,
+  Dimensions,
+  Linking,
+  ActivityIndicator,
+  Modal,
+  TouchableWithoutFeedback,
+  AppState,
+  Alert,
+  Platform,
+} from 'react-native';
 import {
   GestureHandlerRootView,
   PanGestureHandler,
@@ -26,7 +41,7 @@ import { getUserCredentials, getUserDashboard } from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
-import FastImage from 'react-native-fast-image'
+import FastImage from 'react-native-fast-image';
 import SupportCreatorModal from '../../modals/SupportCreatorModal';
 import { getSupportRecipientWalletAddress } from '../../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../../context/WalletConnectSupportContext';
@@ -36,10 +51,10 @@ import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEl
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { parsePostMeta, getPostMusicForSlide } from '../../../utils/postSoundtracks';
+import { useLanguage } from '../../../i18n';
 
 const { width } = Dimensions.get('window');
 
-/** Same window logic as post editor / Stories for looping feed soundtrack within trim. */
 function getFeedMusicPlaybackWindow(trim, durationSec) {
   const prev = Math.max(0.1, Number(durationSec) || 30);
   const a = Math.max(0, Number(trim?.start) || 0);
@@ -56,9 +71,8 @@ function getFeedMusicPlaybackWindow(trim, durationSec) {
   return { start: ovStart, end: ovEnd, hasOverlap: true };
 }
 
-/* ----------------------------------------- */
+/* ─── InstagramZoomableImage ─────────────────────────────────────────────── */
 function InstagramZoomableImage({ uri, onZoomChange }) {
-
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -66,50 +80,32 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const [imageHeight, setImageHeight] = useState(500);
-  const screenWidth = Dimensions.get("window").width;
+  const screenWidth = Dimensions.get('window').width;
+
   useEffect(() => {
     if (!uri) return;
-
     Image.getSize(uri, (w, h) => {
       const ratio = screenWidth / w;
       const newHeight = h * ratio;
-
       const maxHeight = screenWidth * 2.2;
       const minHeight = screenWidth * 0.56;
-
-      const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
-
-      setImageHeight(finalHeight);
+      setImageHeight(Math.max(minHeight, Math.min(newHeight, maxHeight)));
     });
   }, [uri]);
 
-
   const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
-
   const imageSource = useMemo(
-    () => ({
-      uri,
-      priority: FastImage.priority.high,
-      cache: FastImage.cacheControl.immutable,
-    }),
-    [uri]
+    () => ({ uri, priority: FastImage.priority.high, cache: FastImage.cacheControl.immutable }),
+    [uri],
   );
 
-  const width = Dimensions.get("window").width;
+  const width = Dimensions.get('window').width;
   const halfWidth = width / 2;
   const halfHeight = imageHeight / 2;
 
   const onPinchEvent = Animated.event(
-    [
-      {
-        nativeEvent: {
-          scale: scale,
-          focalX: translateX,
-          focalY: translateY,
-        },
-      },
-    ],
-    { useNativeDriver: true }
+    [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
+    { useNativeDriver: true },
   );
 
   const resetScale = () => {
@@ -117,36 +113,21 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
     setModalImageLoaded(false);
     onZoomChange?.(false);
     Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 18,
-        bounciness: 0,
-      }),
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-      }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
     ]).start();
   };
 
   const onPinchStateChange = ({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
-
     if (state === State.BEGAN) {
       setIsModalVisible(true);
       onZoomChange?.(true);
     }
-
     if (
       oldState === State.ACTIVE &&
-      (state === State.END ||
-        state === State.CANCELLED ||
-        state === State.FAILED)
+      (state === State.END || state === State.CANCELLED || state === State.FAILED)
     ) {
       resetScale();
     }
@@ -154,51 +135,34 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
 
   useEffect(() => {
     if (!uri) return;
-
     FastImage.preload([imageSource]);
-
     setTimeout(() => {
-      FastImage.preload([
-        { ...imageSource, priority: FastImage.priority.highest },
-      ]);
+      FastImage.preload([{ ...imageSource, priority: FastImage.priority.highest }]);
     }, 400);
   }, [uri, imageSource]);
 
   return (
     <GestureHandlerRootView style={styles.mediaContainer}>
-      {/* INLINE IMAGE */}
-      <PinchGestureHandler
-        onGestureEvent={onPinchEvent}
-        onHandlerStateChange={onPinchStateChange}
-      >
+      <PinchGestureHandler onGestureEvent={onPinchEvent} onHandlerStateChange={onPinchStateChange}>
         <Animated.Image
           source={imageSource}
           style={[
-            {
-              width: '100%',
-              height: imageHeight,
-              resizeMode: "contain",
-            },
+            { width: '100%', height: imageHeight, resizeMode: 'contain' },
             { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
           ]}
         />
       </PinchGestureHandler>
-
-      {/* FULLSCREEN MODAL */}
-
       <Modal
         visible={isModalVisible}
         transparent
         animationType="none"
         statusBarTranslucent
-        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-      >
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
         <GestureHandlerRootView style={styles.gestureModalRoot}>
           <View style={styles.modalBackground}>
             <PinchGestureHandler
               onGestureEvent={onPinchEvent}
-              onHandlerStateChange={onPinchStateChange}
-            >
+              onHandlerStateChange={onPinchStateChange}>
               <AnimatedFastImage
                 source={imageSource}
                 resizeMode="contain"
@@ -208,24 +172,14 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
                 style={[
                   styles.fullScreenImage,
                   {
-                    width: width,
+                    width,
                     height: imageHeight,
                     transform: [
                       { translateX: Animated.subtract(translateX, halfWidth) },
                       { translateY: Animated.subtract(translateY, halfHeight) },
                       { scale },
-                      {
-                        translateX: Animated.multiply(
-                          Animated.subtract(translateX, halfWidth),
-                          -1
-                        ),
-                      },
-                      {
-                        translateY: Animated.multiply(
-                          Animated.subtract(translateY, halfHeight),
-                          -1
-                        ),
-                      },
+                      { translateX: Animated.multiply(Animated.subtract(translateX, halfWidth), -1) },
+                      { translateY: Animated.multiply(Animated.subtract(translateY, halfHeight), -1) },
                     ],
                   },
                 ]}
@@ -240,7 +194,7 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
   );
 }
 
-/** Pinch-to-zoom for feed video — same gesture + modal pattern as `InstagramZoomableImage`. */
+/* ─── InstagramZoomableVideo ─────────────────────────────────────────────── */
 function InstagramZoomableVideo({
   uri,
   videoHeight,
@@ -268,13 +222,9 @@ function InstagramZoomableVideo({
   const modalVideoRef = useRef(null);
   const inlineVideoRef = useRef(null);
 
-  // Android: ExoPlayer SimpleCache is process-global — priming + inline decode populate cache
-  // so the modal’s second player can start from disk instead of re-fetching the whole asset.
   const resolvedBufferConfig = useMemo(() => {
     const base = { ...(bufferConfig || {}) };
-    if (Platform.OS === 'android' && base.cacheSizeMB == null) {
-      base.cacheSizeMB = 64;
-    }
+    if (Platform.OS === 'android' && base.cacheSizeMB == null) base.cacheSizeMB = 64;
     return base;
   }, [bufferConfig]);
 
@@ -295,23 +245,17 @@ function InstagramZoomableVideo({
     setModalVideoReady(false);
   }, [uri]);
 
-  const handleInlineLoad = useCallback(
-    (payload) => {
-      setHasInlineLoaded(true);
-      onLoad?.(payload);
-    },
-    [onLoad],
-  );
+  const handleInlineLoad = useCallback(payload => {
+    setHasInlineLoaded(true);
+    onLoad?.(payload);
+  }, [onLoad]);
 
   const screenW = Dimensions.get('window').width;
   const halfWidth = screenW / 2;
   const halfHeight = videoHeight / 2;
 
-  // KEY FIX 1: Only pause inline when modal video is actually ready and playing
-  // Before modalVideoReady=true, keep inline playing to avoid black screen
-  const inlinePaused = (isModalVisible && modalVideoReady) ? true : paused;
+  const inlinePaused = isModalVisible && modalVideoReady ? true : paused;
 
-  // KEY FIX 2: Stable callback — never recreated, never causes Video remount
   const onProgressStable = useCallback(({ currentTime }) => {
     currentTimeRef.current = currentTime;
   }, []);
@@ -334,18 +278,14 @@ function InstagramZoomableVideo({
 
   const onPinchStateChange = useCallback(({ nativeEvent }) => {
     const { state, oldState } = nativeEvent;
-
     if (state === State.BEGAN) {
       setModalVideoReady(false);
       setIsModalVisible(true);
       onZoomChange?.(true);
     }
-
     if (
       oldState === State.ACTIVE &&
-      (state === State.END ||
-        state === State.CANCELLED ||
-        state === State.FAILED)
+      (state === State.END || state === State.CANCELLED || state === State.FAILED)
     ) {
       resetScale();
     }
@@ -363,7 +303,6 @@ function InstagramZoomableVideo({
     ],
   };
 
-  // KEY FIX 3: Stable modal load handler
   const onModalLoad = useCallback(() => {
     const seekTo = currentTimeRef.current || 0;
     if (seekTo > 0.5 && modalVideoRef.current?.seek) {
@@ -377,25 +316,20 @@ function InstagramZoomableVideo({
 
   return (
     <GestureHandlerRootView style={styles.mediaContainer}>
-
-      {/* ── INLINE VIDEO ── */}
       <PinchGestureHandler
         onGestureEvent={onPinchEvent}
         onHandlerStateChange={onPinchStateChange}
         simultaneousHandlers={simultaneousHandlers}
-        minPointers={2}
-      >
+        minPointers={2}>
         <Animated.View
           style={{
             width: '100%',
             height: videoHeight,
-            // Hide inline only after modal video is confirmed ready
             opacity: isModalVisible && modalVideoReady ? 0 : 1,
           }}
-          collapsable={false}
-        >
+          collapsable={false}>
           <Video
-            ref={(ref) => {
+            ref={ref => {
               inlineVideoRef.current = ref;
               onVideoRef?.(ref);
             }}
@@ -420,16 +354,11 @@ function InstagramZoomableVideo({
         </Animated.View>
       </PinchGestureHandler>
 
-      {/*
-        Off-screen paused player: fills Android RNV cache / warms format while the feed clip plays,
-        so the modal instance can start much faster. Unmounted while the modal is open (2 decoders max).
-      */}
       {uri && hasInlineLoaded && !isModalVisible && (
         <View
           pointerEvents="none"
           collapsable={false}
-          style={styles.zoomVideoPrewarmHost}
-        >
+          style={styles.zoomVideoPrewarmHost}>
           <Video
             source={{ uri }}
             style={styles.zoomVideoPrewarmVideo}
@@ -445,33 +374,22 @@ function InstagramZoomableVideo({
         </View>
       )}
 
-      {/* ── ZOOM MODAL ── */}
       <Modal
         visible={isModalVisible}
         transparent
         animationType="none"
         statusBarTranslucent
         presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-        onRequestClose={resetScale}
-      >
+        onRequestClose={resetScale}>
         <GestureHandlerRootView style={styles.gestureModalRoot}>
           <View style={styles.modalBackground}>
             <PinchGestureHandler
               onGestureEvent={onPinchEvent}
               onHandlerStateChange={onPinchStateChange}
-              minPointers={2}
-            >
+              minPointers={2}>
               <Animated.View
                 collapsable={false}
-                style={[
-                  {
-                    width: screenW,
-                    height: videoHeight,
-                    backgroundColor: '#000',
-                  },
-                  modalTransformStyle,
-                ]}
-              >
+                style={[{ width: screenW, height: videoHeight, backgroundColor: '#000' }, modalTransformStyle]}>
                 <Video
                   ref={modalVideoRef}
                   source={{ uri }}
@@ -497,12 +415,11 @@ function InstagramZoomableVideo({
           </View>
         </GestureHandlerRootView>
       </Modal>
-
     </GestureHandlerRootView>
   );
 }
 
-
+/* ─── PostItem ───────────────────────────────────────────────────────────── */
 function PostItem({
   item,
   likesCount,
@@ -524,7 +441,7 @@ function PostItem({
   returnTo,
   shareCount,
   taggedPeople,
-  hideDonationButton = false, // Add this prop with default false
+  hideDonationButton = false,
 }) {
   const heartScale = useRef(new Animated.Value(1)).current;
   const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
@@ -548,14 +465,13 @@ function PostItem({
   const [modalVisible, setModalVisible] = useState(false);
   const [videoHeight, setVideoHeight] = useState(500);
   const [videoLoaded, setVideoLoaded] = useState({});
-
-
-  // New donation states
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
-  const getDaysLeftFromEndTime = (endTime) => {
-    if (!endTime) return 0;
 
+  const { t } = useLanguage();
+
+  const getDaysLeftFromEndTime = endTime => {
+    if (!endTime) return 0;
     try {
       const now = new Date();
       const endDate = new Date(endTime);
@@ -575,7 +491,8 @@ function PostItem({
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const usernameText = item?.username || 'Unknown User';
+
+  const usernameText = item?.username || t('postItem.unknownUser');
   const captionValue = item?.caption?.trim() || '';
   const previewCaptionLength = Math.max(18, 60 - usernameText.length);
   const hasExpandableCaption = captionValue.length > previewCaptionLength;
@@ -600,25 +517,24 @@ function PostItem({
   const isMountedRef = useRef(true);
   const route = useRoute();
   const [selectedPostId, setSelectedPostId] = useState(null);
-  const [dataFetched, setDataFetched] = useState(false); // To prevent redundant fetches
+  const [dataFetched, setDataFetched] = useState(false);
   const modalProfileType = normalizeProfileType(userProfile || item?.profile);
 
   if (!item || !item.id) {
     console.warn('PostItem received invalid item:', item);
     return null;
   }
-  const width = Dimensions.get("window").width;
+
+  const width = Dimensions.get('window').width;
+
   useEffect(() => {
     const firstVideo = item?.media?.find(m => m.thumbnail);
-
     if (!firstVideo?.thumbnail) return;
-
     Image.getSize(firstVideo.thumbnail, (w, h) => {
       const ratio = width / w;
       setVideoHeight(h * ratio);
     });
   }, [item]);
-
 
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
@@ -627,30 +543,23 @@ function PostItem({
 
   const postMusic = useMemo(
     () => getPostMusicForSlide(item, currentIndex, parsedPostMeta),
-    [
-      currentIndex,
-      parsedPostMeta,
-      item?.id,
-      item?.music,
-      item?.youtubeMusicMeta,
-      item?.postMeta,
-      item?.media,
-    ],
+    [currentIndex, parsedPostMeta, item?.id, item?.music, item?.youtubeMusicMeta, item?.postMeta, item?.media],
   );
+
   const taggedUsers = useMemo(
     () =>
-      (Array.isArray(taggedPeople || item?.taggedPeople) ? (taggedPeople || item?.taggedPeople) : [])
+      (Array.isArray(taggedPeople || item?.taggedPeople)
+        ? taggedPeople || item?.taggedPeople
+        : []
+      )
         .filter(Boolean)
         .map((person, index) => {
           if (typeof person === 'string') {
-            return {
-              id: `tagged-${index}-${person}`,
-              username: person,
-            };
+            return { id: `tagged-${index}-${person}`, username: person };
           }
           return {
             id: person?.id || `tagged-${index}`,
-            username: person?.username || person?.userName || 'Unknown User',
+            username: person?.username || person?.userName || t('postItem.unknownUser'),
             fullName: person?.fullName || person?.name || '',
             avatar: person?.avatar || person?.image || person?.userImage || null,
           };
@@ -658,35 +567,29 @@ function PostItem({
     [item?.taggedPeople, taggedPeople],
   );
 
-  // Calculate days left from current time to end_time
   const calculateDaysLeft = useCallback(() => {
     return getDaysLeftFromEndTime(item?.end_time);
   }, [item.end_time]);
 
   useEffect(() => {
     setDaysLeft(calculateDaysLeft());
-
     const timer = setInterval(() => {
       setDaysLeft(calculateDaysLeft());
     }, 60 * 1000);
-
     return () => clearInterval(timer);
   }, [calculateDaysLeft]);
+
   const handleDonationSuccess = useCallback(() => {
-    // Refresh donation total after successful donation
     fetchTotalDonation();
   }, [fetchTotalDonation]);
 
-  // Fetch total donation for this post
   const fetchTotalDonation = useCallback(async () => {
     if (!item.id) return;
     setIsLoadingDonation(true);
     try {
       const response = await getTotalDonationAmount({ postId: item.id });
-
       if (response.statusCode === 200) {
-        const donationAmount = response.data?.totalDonation || 0;
-        setTotalDonation(donationAmount);
+        setTotalDonation(response.data?.totalDonation || 0);
       }
     } catch (error) {
       console.error('Error fetching total donation:', error);
@@ -696,72 +599,50 @@ function PostItem({
     }
   }, [item.id]);
 
-  // Memoize fetchAllData
   const fetchAllData = useCallback(async () => {
-    if (!item?.UserId) {
-      console.warn('No UserId available for fetching data');
-      return;
-    }
-
+    if (!item?.UserId) return;
     try {
       const [dashboardResponse, profileResponse] = await Promise.allSettled([
         getUserDashboard(item.UserId),
-        getUserCredentials(item.UserId)
+        getUserCredentials(item.UserId),
       ]);
 
       if (dashboardResponse.status === 'fulfilled') {
         const data = dashboardResponse.value;
         if (data?.statusCode === 200) {
           setTotalFollowers(data.data?.dashboardData?.totalFollowers || 0);
-        } else {
-          console.warn('Dashboard fetch failed:', data?.data?.message);
         }
-      } else {
-        console.error('Dashboard fetch rejected:', dashboardResponse.reason);
       }
 
       if (profileResponse.status === 'fulfilled') {
         const data = profileResponse.value;
         if (data?.statusCode === 200) {
-          let userDataToSet;
-          if (data.data && data.data.user) {
-            userDataToSet = data.data.user;
-          } else if (data.data) {
-            userDataToSet = data.data;
-          } else {
-            userDataToSet = data;
-          }
+          const userDataToSet =
+            data.data?.user || data.data || data;
           setUserProfile(userDataToSet.profile || '');
           setTargetWalletAddress(getSupportRecipientWalletAddress(userDataToSet) || '');
           setIsKycVerified(userDataToSet?.kyc === true);
-          setIsSubscriptionActive(String(userDataToSet?.subscriptionStatus || '').toUpperCase() === 'ACTIVE');
-        } else {
-          console.warn('Profile fetch failed:', data?.data?.message);
+          setIsSubscriptionActive(
+            String(userDataToSet?.subscriptionStatus || '').toUpperCase() === 'ACTIVE',
+          );
         }
-      } else {
-        console.error('Profile fetch rejected:', profileResponse.reason);
       }
     } catch (error) {
       console.error('Error in fetchAllData:', error);
       showToastMessage(
         toast,
         'danger',
-        error?.response?.message ?? 'Failed to load user data',
+        error?.response?.message ?? t('postItem.errorLoadUserData'),
       );
-    } finally {
-      // dispatch(hideLoader());
     }
-  }, [item?.UserId, toast]);
+  }, [item?.UserId, toast, t]);
 
-  // Function to restore userId from AsyncStorage
   const restoreUserId = useCallback(async () => {
     try {
       const id = await AsyncStorage.getItem('userId');
       const currentUserId = userId ? String(userId) : null;
       const newUserId = id ? String(id) : null;
-      if (newUserId !== currentUserId) {
-        setUserId(newUserId);
-      }
+      if (newUserId !== currentUserId) setUserId(newUserId);
     } catch (error) {
       console.error('Error restoring userId:', error);
     }
@@ -778,15 +659,12 @@ function PostItem({
         // ignore; keep default
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
-
       const initializeData = async () => {
         try {
           const id = await AsyncStorage.getItem('userId');
@@ -802,38 +680,22 @@ function PostItem({
           const days = calculateDaysLeft();
           if (isActive) setDaysLeft(days);
 
-          if (!dataFetched) {
-            await fetchTotalDonation();
-          }
+          if (!dataFetched) await fetchTotalDonation();
         } catch (error) {
           console.error('Error initializing PostItem data:', error);
         }
       };
-
       initializeData();
-
-      return () => {
-        isActive = false;
-      };
-    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched])
+      return () => { isActive = false; };
+    }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched]),
   );
 
-  // Listen for app state changes to restore userId when returning from an external wallet app
-  // useEffect(() => {
-  //   const subscription = AppState.addEventListener('change', (nextAppState) => {
-  //     if (nextAppState === 'active') {
-  //       // App has come to the foreground, restore userId
-  //       restoreUserId();
-  //     }
-  //   });
-
-  //   // Also restore on mount
-  //   restoreUserId();
-
-  //   return () => {
-  //     subscription?.remove();
-  //   };
-  // }, [restoreUserId]);
+  useEffect(() => {
+    return () => {
+      Object.keys(videoRefsMap.current).forEach(idx => safeVideoPause(parseInt(idx)));
+      videoRefsMap.current = {};
+    };
+  }, [safeVideoPause]);
 
   const creatorWalletAddress = useMemo(
     () =>
@@ -858,7 +720,9 @@ function PostItem({
   const supporterProfile = useMemo(
     () =>
       typeof isBusinessProfile === 'boolean'
-        ? (isBusinessProfile ? 'company' : 'user')
+        ? isBusinessProfile
+          ? 'company'
+          : 'user'
         : currentUserProfileType,
     [isBusinessProfile, currentUserProfileType],
   );
@@ -869,45 +733,43 @@ function PostItem({
 
   const handleSupportNow = useCallback(async () => {
     if (!canSupport) {
-      Alert.alert('Wallet not connected', 'This user has not connected a wallet yet. Follow is still active.');
+      Alert.alert(
+        t('postItem.walletNotConnectedTitle'),
+        t('postItem.walletNotConnectedMessage'),
+      );
       return;
     }
     setSupportDisclaimerVisible(false);
-    const receiverId =
-      item?.UserId ?? item?.userId ?? item?.UserID ?? '';
+    const receiverId = item?.UserId ?? item?.userId ?? item?.UserID ?? '';
     await startSupportPayment(recipientWalletAddress, {
       senderId: userId != null ? String(userId) : '',
       receiverId: receiverId !== '' ? String(receiverId) : '',
       chain: 'POLYGON',
     });
-  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, item]);
+  }, [canSupport, recipientWalletAddress, startSupportPayment, userId, item, t]);
 
   const handleOpenSupportDisclaimer = useCallback(() => {
     if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
       Alert.alert(
-        'Support unavailable',
-        'Tips are not available for business profiles.',
+        t('postItem.supportUnavailableTitle'),
+        t('postItem.supportUnavailableMessage'),
       );
       setModalVisible(false);
       return;
     }
     setModalVisible(false);
     setSupportDisclaimerVisible(true);
-  }, [supporterProfile, recipientProfile]);
+  }, [supporterProfile, recipientProfile, t]);
 
-  const safeVideoPause = useCallback((index) => {
+  const safeVideoPause = useCallback(index => {
     try {
       const ref = videoRefsMap.current[index];
-      if (ref && typeof ref.pause === 'function') {
-        ref.pause();
-      }
+      if (ref && typeof ref.pause === 'function') ref.pause();
     } catch (error) {
       console.warn(`Error pausing video at index ${index}:`, error);
     }
   }, []);
 
-  // Auto-mute whenever this post comes into active focus.
-  // User can still unmute manually via speaker button.
   const wasPostActiveRef = useRef(false);
   useEffect(() => {
     const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
@@ -916,76 +778,36 @@ function PostItem({
       screenFocused &&
       (!hasPlayingTarget || String(playingPostId) === String(item.id));
 
-    if (isPostActive && !wasPostActiveRef.current) {
-      setIsMuted(true);
-    }
-
+    if (isPostActive && !wasPostActiveRef.current) setIsMuted(true);
     wasPostActiveRef.current = isPostActive;
   }, [isVisible, screenFocused, playingPostId, currentlyVisiblePostId, item.id]);
 
-  // useEffect(() => {
-  //   if (mediaLength <= 0) return;
+  useLayoutEffect(() => {
+    if (playbackEligible) return;
+    setIsMuted(true);
+    safeVideoPause(currentIndex);
+    try {
+      postFeedMp3Ref.current?.pause?.();
+      void postFeedYoutubeRef.current?.pauseVideo?.();
+    } catch (_) {}
+  }, [playbackEligible, currentIndex, safeVideoPause]);
 
-  //   const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
-  //   const nextStates = {};
-  //   for (let idx = 0; idx < mediaLength; idx++) {
-  //     const shouldPause = !(
-  //       idx === currentIndex &&
-  //       isVisible &&
-  //       screenFocused &&
-  //       (!hasPlayingTarget || String(playingPostId) === String(item.id))
-  //     );
-  //     nextStates[idx] = shouldPause;
-  //   }
+  const handleUserProfile = useCallback(
+    id => {
+      if (userId === id) {
+        navigation.navigate('ProfileMain', { screen: 'Profile' });
+      } else {
+        const currentRoute = route?.name || 'Home';
+        navigation.navigate('HomeMain', {
+          screen: 'UsersProfile',
+          params: { userId: id, returnTo: currentRoute },
+        });
+      }
+    },
+    [userId, navigation, route?.name],
+  );
 
-  //   setVideoStates(prev => {
-  //     const hasChanged = Object.keys(nextStates).some(
-  //       key => prev[key] !== nextStates[key]
-  //     );
-  //     return hasChanged ? nextStates : prev;
-  //   });
-
-  //   // Use requestAnimationFrame for better performance
-  //   const rafId = requestAnimationFrame(() => {
-  //     Object.entries(nextStates).forEach(([idx, shouldPause]) => {
-  //       if (shouldPause) {
-  //         safeVideoPause(parseInt(idx));
-  //       }
-  //     });
-  //   });
-
-  //   return () => cancelAnimationFrame(rafId);
-  // }, [currentIndex, isVisible, screenFocused, playingPostId, item.id, mediaLength, safeVideoPause]);
-
-  useEffect(() => {
-    return () => {
-      Object.keys(videoRefsMap.current).forEach(idx => {
-        safeVideoPause(parseInt(idx));
-      });
-      videoRefsMap.current = {};
-    };
-  }, [safeVideoPause]);
-
-  const handleUserProfile = useCallback((id) => {
-    console.log("handleUserProfile==>>>>>")
-    if (userId === id) {
-      navigation.navigate('ProfileMain', { screen: 'Profile' });
-    } else {
-      // Navigate to UsersProfile with proper returnTo context
-      // Return to the current route (e.g., PostView or ChatMessages)
-      const currentRoute = route?.name || 'Home';
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
-        params: {
-          userId: id,
-          returnTo: currentRoute
-        },
-      });
-      console.log(userId, 'can user id came heree')
-    }
-  }, [userId, navigation, route?.name]);
-
-  const formatNumber = useCallback((n) => {
+  const formatNumber = useCallback(n => {
     if (typeof n !== 'number') n = Number(n) || 0;
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }, []);
@@ -993,31 +815,18 @@ function PostItem({
   const currencyPrefix = useMemo(() => {
     const currencyCode = String(item?.currency || '').toUpperCase();
     const currencySymbols = {
-      USD: '$',
-      EUR: '€',
-      GBP: '£',
-      INR: '₹',
-      CAD: 'C$',
-      AUD: 'A$',
-      NZD: 'NZ$',
-      JPY: '¥',
-      CNY: '¥',
-      KRW: '₩',
-      SGD: 'S$',
-      HKD: 'HK$',
-      AED: 'د.إ',
-      SAR: 'ر.س',
+      USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'C$', AUD: 'A$', NZD: 'NZ$',
+      JPY: '¥', CNY: '¥', KRW: '₩', SGD: 'S$', HKD: 'HK$', AED: 'د.إ', SAR: 'ر.س',
     };
-
-    if (currencySymbols[currencyCode]) return currencySymbols[currencyCode];
-    return currencyCode ? `${currencyCode} ` : '$';
+    return currencySymbols[currencyCode] || (currencyCode ? `${currencyCode} ` : '$');
   }, [item?.currency]);
 
-  const isVideoUrl = useCallback((url) => {
+  const isVideoUrl = useCallback(url => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.toLowerCase().split('?')[0];
-    const exts = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'];
-    return exts.some((ext) => lower.endsWith(`.${ext}`));
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'].some(ext =>
+      lower.endsWith(`.${ext}`),
+    );
   }, []);
 
   const isCurrentSlideVideo = useMemo(() => {
@@ -1026,11 +835,6 @@ function PostItem({
     return m.type === 'video' || isVideoUrl(m.url);
   }, [safeMedia, currentIndex, isVideoUrl]);
 
-  /**
-   * Video + attached music may play only when this post is visible in the feed and (if the parent
-   * supplies playingPostId) this post is the designated one. Fixes: audio on all posts when
-   * playingPostId was null, and music continuing after scroll-away.
-   */
   const playbackEligible = useMemo(
     () =>
       screenFocused &&
@@ -1041,25 +845,25 @@ function PostItem({
     [screenFocused, isVisible, playingPostId, item.id],
   );
 
-  // Stop sound in the same frame focus is lost (avoids a frame or two of lag after scroll handoff).
-  useLayoutEffect(() => {
-    if (playbackEligible) return;
-    setIsMuted(true);
-    safeVideoPause(currentIndex);
-    try {
-      postFeedMp3Ref.current?.pause?.();
-      void postFeedYoutubeRef.current?.pauseVideo?.();
-    } catch (_) { }
-  }, [playbackEligible, currentIndex, safeVideoPause]);
+  const buyerList = useMemo(
+    () =>
+      Array.isArray(item.boughtBy)
+        ? item.boughtBy
+        : Array.isArray(item.buyers)
+        ? item.buyers
+        : [],
+    [item.boughtBy, item.buyers],
+  );
 
-  const buyerList = useMemo(() => Array.isArray(item.boughtBy) ? item.boughtBy : Array.isArray(item.buyers) ? item.buyers : [], [item.boughtBy, item.buyers]);
-
-  // Filter out the current logged-in user from buyer list for display
   const displayBuyerList = useMemo(() => {
     if (!buyerList || buyerList.length === 0 || !userId) return buyerList;
     const currentUserIdStr = String(userId);
     return buyerList.filter(buyer => {
-      const buyerIdStr = buyer?.id ? String(buyer.id) : buyer?.userId ? String(buyer.userId) : null;
+      const buyerIdStr = buyer?.id
+        ? String(buyer.id)
+        : buyer?.userId
+        ? String(buyer.userId)
+        : null;
       return buyerIdStr !== currentUserIdStr;
     });
   }, [buyerList, userId]);
@@ -1087,11 +891,7 @@ function PostItem({
         friction: 3,
       }),
       Animated.delay(400),
-      Animated.timing(doubleTapHeartScale, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
+      Animated.timing(doubleTapHeartScale, { toValue: 0, duration: 200, useNativeDriver: true }),
     ]).start(() => setShowDoubleTapHeart(false));
   }, [doubleTapHeartScale]);
 
@@ -1110,13 +910,10 @@ function PostItem({
         .numberOfTaps(2)
         .maxDuration(280)
         .maxDistance(20)
-        .onEnd(() => {
-          runOnJS(handleMediaDoubleTapLike)();
-        }),
+        .onEnd(() => { runOnJS(handleMediaDoubleTapLike)(); }),
     [handleMediaDoubleTapLike],
   );
 
-  // Use dynamic values for donation calculations
   const goalAmount = useMemo(() => {
     const parsedGoal = Number(item?.raiseAmount);
     return Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : 0;
@@ -1128,177 +925,161 @@ function PostItem({
   }, [totalDonation]);
 
   const progressPercent = useMemo(
-    () => goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0,
-    [goalAmount, currentRaised]
+    () => (goalAmount > 0 ? (currentRaised / goalAmount) * 100 : 0),
+    [goalAmount, currentRaised],
   );
 
   const progressBarColor = useMemo(
     () => getProgressBarColor(progressPercent, item?.profile),
-    [progressPercent, item?.profile]
+    [progressPercent, item?.profile],
   );
 
   const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
   const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
-  const progressStatusLabel = isGoalAmountRaised
-    ? 'GOAL AMOUNT RAISED'
-    : isCampaignDaysCompleted
-      ? 'DAYS COMPLETED'
-      : '';
 
-  const onMomentumEnd = useCallback((e) => {
+  // Translated progress status label
+  const progressStatusLabel = isGoalAmountRaised
+    ? t('postItem.goalAmountRaised')
+    : isCampaignDaysCompleted
+    ? t('postItem.daysCompleted')
+    : '';
+
+  const onMomentumEnd = useCallback(e => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
     const index = Math.round(x / width);
     if (index !== currentIndex) setCurrentIndex(index);
   }, [currentIndex]);
 
-  const handleOpenReel = useCallback((mediaItem) => {
-    const uniqueKey = Date.now().toString();
-    const allMediaUrls = Array.isArray(item?.media)
-      ? item.media.map((m) => m?.url).filter(Boolean)
-      : [];
-    navigation.navigate('ProfileMain', {
-      screen: 'FlipsScreen',
-      params: {
-        item: {
-          ...item,
-          image: mediaItem?.url,
-          images: allMediaUrls.length > 0 ? allMediaUrls : (mediaItem?.url ? [mediaItem.url] : []),
-          isVideo: true,
-          type: 'video',
-          mediaType: 'video',
-          // Normalize user fields for FlipsScreen
-          userName: item?.userName || item?.username || 'Unknown User',
-          userImage: item?.userImage || item?.avatar || null,
-          userId: item?.userId || item?.UserId || null,
+  const handleOpenReel = useCallback(
+    mediaItem => {
+      const uniqueKey = Date.now().toString();
+      const allMediaUrls = Array.isArray(item?.media)
+        ? item.media.map(m => m?.url).filter(Boolean)
+        : [];
+      navigation.navigate('ProfileMain', {
+        screen: 'FlipsScreen',
+        params: {
+          item: {
+            ...item,
+            image: mediaItem?.url,
+            images:
+              allMediaUrls.length > 0
+                ? allMediaUrls
+                : mediaItem?.url
+                ? [mediaItem.url]
+                : [],
+            isVideo: true,
+            type: 'video',
+            mediaType: 'video',
+            userName: item?.userName || item?.username || t('postItem.unknownUser'),
+            userImage: item?.userImage || item?.avatar || null,
+            userId: item?.userId || item?.UserId || null,
+          },
+          key: uniqueKey,
+          returnTo: route?.name || returnTo,
+          returnParams: route?.params || {},
         },
-        key: uniqueKey,
-        // Always return to the current screen context first (e.g. PostView/Home).
-        returnTo: route?.name || returnTo,
-        returnParams: route?.params || {},
-      },
-    });
-  }, [item, navigation, returnTo, route?.name, route?.params]);
+      });
+    },
+    [item, navigation, returnTo, route?.name, route?.params, t],
+  );
 
   const handleFollowPress = useCallback(async () => {
     if (!item?.UserId || item.UserId === userId || followingBusy) return;
-
     const shouldFollow = !item.follow;
     const followHandler = executeFollowAction || onToggleFollow;
     if (!followHandler) return;
-
     const result = await followHandler(item.UserId, shouldFollow, item.userTokenAddress);
     const success = typeof result === 'boolean' ? result : true;
     if (!success || !shouldFollow) return;
-
     if (isSupportAllowed({ supporterProfile, recipientProfile })) {
       setModalVisible(true);
     }
   }, [
-    item?.UserId,
-    item.follow,
-    item.userTokenAddress,
-    userId,
-    followingBusy,
-    executeFollowAction,
-    onToggleFollow,
-    supporterProfile,
-    recipientProfile,
+    item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy,
+    executeFollowAction, onToggleFollow, supporterProfile, recipientProfile,
   ]);
 
+  const renderMedia = useCallback(
+    ({ item: mediaItem, index }) => {
+      const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
+      const isPaused = videoStates[index] ?? false;
+      const isVideoReady = !!videoLoaded[index];
+      const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
-  const renderMedia = useCallback(({ item: mediaItem, index }) => {
-    const isVideo = mediaItem.type === 'video' || isVideoUrl(mediaItem.url);
-    const isPaused = videoStates[index] ?? false;
-    const isVideoReady = !!videoLoaded[index];
-
-    const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
-
-    return (
-      <View style={styles.mediaContainer}>
-        {isVideo ? (
-          <View style={{ width, height: videoHeight }}>
-            {!isVideoReady && mediaItem.thumbnail && (
-              <Image
-                source={{ uri: mediaItem.thumbnail }}
-                style={{
-                  width: width,
-                  height: videoHeight,
-                  position: "absolute",
+      return (
+        <View style={styles.mediaContainer}>
+          {isVideo ? (
+            <View style={{ width, height: videoHeight }}>
+              {!isVideoReady && mediaItem.thumbnail && (
+                <Image
+                  source={{ uri: mediaItem.thumbnail }}
+                  style={{ width, height: videoHeight, position: 'absolute' }}
+                  resizeMode="cover"
+                />
+              )}
+              <InstagramZoomableVideo
+                uri={mediaItem.url}
+                videoHeight={videoHeight}
+                paused={!shouldPlay}
+                muted={isMuted}
+                repeat
+                onVideoRef={ref => { if (ref) videoRefsMap.current[index] = ref; }}
+                onLoadStart={() => setVideoLoaded(prev => ({ ...prev, [index]: false }))}
+                onLoad={() => setVideoLoaded(prev => ({ ...prev, [index]: true }))}
+                onError={error => console.log('Video error:', error)}
+                bufferConfig={{
+                  minBufferMs: 2000,
+                  maxBufferMs: 10000,
+                  bufferForPlaybackMs: 1000,
+                  bufferForPlaybackAfterRebufferMs: 2000,
                 }}
-                resizeMode="cover"
+                maxBitRate={1200000}
+                onZoomChange={zoomed => {
+                  setIsZooming(zoomed);
+                  setScrollEnabled(!zoomed);
+                }}
+                simultaneousHandlers={listRef}
               />
-            )}
-            <InstagramZoomableVideo
+              {isPaused ? (
+                <TouchableOpacity
+                  style={styles.videoOverlay}
+                  activeOpacity={1}
+                  onPress={() => handleOpenReel(mediaItem)}>
+                  <View style={styles.playButtonContainer}>
+                    <Icon name="play" size={32} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View
+                  pointerEvents="none"
+                  style={[styles.videoOverlay, styles.videoOverlayTransparent]}
+                  collapsable={false}
+                />
+              )}
+              <TouchableOpacity
+                style={styles.speakerButton}
+                onPress={() => setIsMuted(prev => !prev)}>
+                <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <InstagramZoomableImage
               uri={mediaItem.url}
-              videoHeight={videoHeight}
-              paused={!shouldPlay}
-              muted={isMuted}
-              repeat
-              onVideoRef={(ref) => {
-                if (ref) videoRefsMap.current[index] = ref;
-              }}
-              onLoadStart={() => {
-                setVideoLoaded(prev => ({ ...prev, [index]: false }));
-              }}
-              onLoad={() => {
-                setVideoLoaded(prev => ({ ...prev, [index]: true }));
-              }}
-              onError={(error) => {
-                console.log('Video error:', error);
-              }}
-              bufferConfig={{
-                minBufferMs: 2000,
-                maxBufferMs: 10000,
-                bufferForPlaybackMs: 1000,
-                bufferForPlaybackAfterRebufferMs: 2000,
-              }}
-              maxBitRate={1200000}
-              onZoomChange={(zoomed) => {
+              onZoomChange={zoomed => {
                 setIsZooming(zoomed);
                 setScrollEnabled(!zoomed);
               }}
-              simultaneousHandlers={listRef}
             />
-            {isPaused ? (
-              <TouchableOpacity
-                style={styles.videoOverlay}
-                activeOpacity={1}
-                onPress={() => handleOpenReel(mediaItem)}
-              >
-                <View style={styles.playButtonContainer}>
-                  <Icon name="play" size={32} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <View
-                pointerEvents="none"
-                style={[styles.videoOverlay, styles.videoOverlayTransparent]}
-                collapsable={false}
-              />
-            )}
-            <TouchableOpacity
-              style={styles.speakerButton}
-              onPress={() => setIsMuted((prev) => !prev)}
-            >
-              <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <InstagramZoomableImage
-            uri={mediaItem.url}
-            onZoomChange={(zoomed) => {
-              setIsZooming(zoomed);
-              setScrollEnabled(!zoomed);
-            }}
-          />
-        )}
-      </View>
-    );
-  }, [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted, playbackEligible]);
+          )}
+        </View>
+      );
+    },
+    [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted, playbackEligible],
+  );
 
   const shouldPlayPostFeedMusic =
     Boolean(postMusic) && playbackEligible && !isZooming && !isCurrentSlideVideo;
-
   const shouldPlayAudio = shouldPlayPostFeedMusic && !isMuted;
 
   useEffect(() => {
@@ -1307,7 +1088,6 @@ function PostItem({
 
   useEffect(() => {
     if (postMusic?.kind !== 'youtube') return;
-    // Only unmute the player if it exists (rendered) and user has unmuted
     if (!isMuted && postFeedYoutubeRef.current?.unMute) {
       postFeedYoutubeRef.current?.unMute?.();
     }
@@ -1317,9 +1097,7 @@ function PostItem({
     if (postMusic?.kind !== 'youtube') return;
     if (shouldPlayAudio) return;
     (async () => {
-      try {
-        await postFeedYoutubeRef.current?.pauseVideo?.();
-      } catch (_) { }
+      try { await postFeedYoutubeRef.current?.pauseVideo?.(); } catch (_) {}
     })();
   }, [shouldPlayAudio, postMusic?.kind]);
 
@@ -1329,7 +1107,7 @@ function PostItem({
       try {
         postFeedYoutubeRef.current?.pauseVideo?.();
         postFeedMp3Ref.current?.pause?.();
-      } catch (_) { }
+      } catch (_) {}
     };
   }, [postMusic?.kind, postMusic?.videoId, postMusic?.audioUrl, item.id]);
 
@@ -1343,33 +1121,28 @@ function PostItem({
           const cur = await postFeedYoutubeRef.current?.getCurrentTime?.();
           if (typeof cur !== 'number' || Number.isNaN(cur)) return;
           const dur = postFeedMusicDurRef.current || 180;
-          const { start: playStart, end: playEnd, hasOverlap } = getFeedMusicPlaybackWindow(
-            trim,
-            dur,
-          );
+          const { start: playStart, end: playEnd, hasOverlap } = getFeedMusicPlaybackWindow(trim, dur);
           const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
           if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
             await postFeedYoutubeRef.current?.seekTo?.(playStart, true);
           }
-        } catch (_) { }
+        } catch (_) {}
       })();
     }, 320);
     return () => clearInterval(tick);
   }, [
-    postMusic?.kind,
-    postMusic?.videoId,
-    postMusic?.trim?.start,
-    postMusic?.trim?.end,
-    screenFocused,
-    item?.id,
+    postMusic?.kind, postMusic?.videoId, postMusic?.trim?.start,
+    postMusic?.trim?.end, screenFocused, item?.id,
   ]);
 
   return (
-
     <View style={styles.wrapper}>
       <View style={styles.postCard}>
+        {/* Header */}
         <View style={styles.postHeader}>
-          <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.avatarContainer}>
+          <TouchableOpacity
+            onPress={() => handleUserProfile(item.UserId)}
+            style={styles.avatarContainer}>
             <HexAvatar
               uri={item.avatar}
               size={42}
@@ -1378,9 +1151,17 @@ function PostItem({
             />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => handleUserProfile(item.UserId)} style={styles.userInfo}>
+          <TouchableOpacity
+            onPress={() => handleUserProfile(item.UserId)}
+            style={styles.userInfo}>
             <View style={styles.userRow}>
-              <Text style={[styles.username, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{item.username}</Text>
+              <Text
+                style={[
+                  styles.username,
+                  { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                ]}>
+                {item.username}
+              </Text>
               {isKycVerified && (
                 <View style={styles.dragonflyIcon}>
                   <DragonflyIcon width={18} height={18} />
@@ -1389,16 +1170,16 @@ function PostItem({
             </View>
           </TouchableOpacity>
 
-          <View style={styles.priceSection}>
-            {/* <WhiteDragonfly width={20} height={20} style={styles.triangleIcon} /> */}
-            {/* <Text style={[styles.priceText, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>${item.tokenBalance}</Text> */}
-          </View>
+          <View style={styles.priceSection} />
 
-          <TouchableOpacity onPress={() => onOptions?.(item.id)} style={styles.moreButton}>
+          <TouchableOpacity
+            onPress={() => onOptions?.(item.id)}
+            style={styles.moreButton}>
             <Feather name="more-vertical" size={20} color="#374151" />
           </TouchableOpacity>
         </View>
 
+        {/* Media */}
         <View style={styles.mediaWrapper}>
           {postMusic?.kind === 'mp3' ? (
             <Video
@@ -1424,8 +1205,7 @@ function PostItem({
               onProgress={({ currentTime }) => {
                 const dur = postFeedMusicDurRef.current || 180;
                 const { start: ps, end: pe, hasOverlap } = getFeedMusicPlaybackWindow(
-                  postMusic.trim,
-                  dur,
+                  postMusic.trim, dur,
                 );
                 const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
                 if (hasOverlap && pe > ps && currentTime >= pe - margin) {
@@ -1434,6 +1214,7 @@ function PostItem({
               }}
             />
           ) : null}
+
           {postMusic?.kind === 'youtube' && !isMuted ? (
             <View style={styles.hiddenPostYoutube} pointerEvents="none" collapsable={false}>
               <YoutubePlayer
@@ -1445,18 +1226,10 @@ function PostItem({
                 play={!isMuted}
                 mute={false}
                 volume={!isMuted ? 100 : 0}
-                initialPlayerParams={{
-                  controls: false,
-                  modestbranding: true,
-                  rel: false,
-                }}
+                initialPlayerParams={{ controls: false, modestbranding: true, rel: false }}
                 onReady={async () => {
                   try {
-                    // Ensure player is muted on load
-                    if (isMuted) {
-                      await postFeedYoutubeRef.current?.mute?.();
-                    }
-
+                    if (isMuted) await postFeedYoutubeRef.current?.mute?.();
                     const d = await postFeedYoutubeRef.current?.getDuration?.();
                     if (typeof d === 'number' && d > 0) {
                       postFeedMusicDurRef.current = d;
@@ -1467,38 +1240,24 @@ function PostItem({
                       postFeedMusicDurRef.current = Number(postMusic.durationSec);
                     }
                     const dur = postFeedMusicDurRef.current || 180;
-                    const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(
-                      postMusic.trim,
-                      dur,
-                    );
-                    const seekTo = hasOverlap ? ps : 0;
-                    await postFeedYoutubeRef.current?.seekTo?.(seekTo, true);
-                  } catch (_) { }
+                    const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(postMusic.trim, dur);
+                    await postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
+                  } catch (_) {}
                 }}
-                onChangeState={state => {
-                  // Don't auto-loop YouTube music - let it play once and stop
-                  // if (state === 'ended' && shouldPlayAudioRef.current) {
-                  //   const dur = postFeedMusicDurRef.current || 180;
-                  //   const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(
-                  //     postMusic.trim,
-                  //     dur,
-                  //   );
-                  //   postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
-                  //   postFeedYoutubeRef.current?.playVideo?.();
-                  // }
-                }}
+                onChangeState={state => {}}
               />
             </View>
           ) : null}
+
           {taggedUsers.length > 0 && (
             <TouchableOpacity
               style={styles.tagButton}
               onPress={() => setShowTaggedPeopleModal(true)}
-              activeOpacity={0.8}
-            >
+              activeOpacity={0.8}>
               <Feather name="tag" size={18} color="#fff" />
             </TouchableOpacity>
           )}
+
           <GestureDetector gesture={doubleTapLikeGesture}>
             <FlatList
               ref={listRef}
@@ -1515,17 +1274,13 @@ function PostItem({
               disableIntervalMomentum={true}
               directionalLockEnabled
               nestedScrollEnabled
-              getItemLayout={(_, index) => ({
-                length: width,
-                offset: width * index,
-                index
-              })}
+              getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
               renderItem={renderMedia}
               removeClippedSubviews={Platform.OS === 'android'}
               maxToRenderPerBatch={2}
               windowSize={2}
               initialNumToRender={2}
-               extraData={currentIndex}
+              extraData={currentIndex}
             />
           </GestureDetector>
 
@@ -1535,8 +1290,7 @@ function PostItem({
               style={[
                 styles.doubleTapHeartBurst,
                 { transform: [{ scale: doubleTapHeartScale }] },
-              ]}
-            >
+              ]}>
               <Icon name="heart" size={100} color="#ff3040" />
             </Animated.View>
           )}
@@ -1548,126 +1302,133 @@ function PostItem({
                   {currentIndex + 1}/{item.media.length}
                 </Text>
               </View>
-
               <View style={styles.dotsContainer}>
                 {item.media.map((_, idx) => (
                   <View
                     key={idx}
                     style={[
                       styles.dot,
-                      {
-                        backgroundColor: idx === currentIndex ? text : 'rgba(255,255,255,0.5)',
-                      },
+                      { backgroundColor: idx === currentIndex ? text : 'rgba(255,255,255,0.5)' },
                     ]}
                   />
                 ))}
               </View>
             </>
           )}
+
           {postMusic && !isCurrentSlideVideo && (
             <TouchableOpacity
               style={styles.speakerButton}
               onPress={() => setIsMuted(prev => !prev)}
-              accessibilityLabel={isMuted ? 'Unmute music' : 'Mute music'}
-            >
+              accessibilityLabel={
+                isMuted
+                  ? t('postItem.unmuteMusic')
+                  : t('postItem.muteMusic')
+              }>
               <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
             </TouchableOpacity>
           )}
         </View>
 
+        {/* Actions */}
         <View style={styles.actionsSection}>
           <View style={styles.leftActions}>
             <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
               <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                <Icon name={liked ? 'heart' : 'heart-outline'} size={26} color={liked ? '#ef4444' : '#374151'} />
+                <Icon
+                  name={liked ? 'heart' : 'heart-outline'}
+                  size={26}
+                  color={liked ? '#ef4444' : '#374151'}
+                />
               </Animated.View>
               <Text style={styles.actionCount}>{likesCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => onComment?.(item.id, item.UserId)} style={styles.actionButton}>
+            <TouchableOpacity
+              onPress={() => onComment?.(item.id, item.UserId)}
+              style={styles.actionButton}>
               <Feather name="message-circle" size={24} color="#374151" />
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => { shareRef.current?.open?.(), setSelectedPostId(item) }} style={styles.actionButton}>
+            <TouchableOpacity
+              onPress={() => { shareRef.current?.open?.(); setSelectedPostId(item); }}
+              style={styles.actionButton}>
               <Feather name="send" size={24} color="#374151" />
               <Text style={styles.actionCount}>{shareCount}</Text>
             </TouchableOpacity>
           </View>
 
           {item.UserId !== userId && (
-            // Convert both to strings for reliable comparison
-            // const itemUserIdStr = String(item.UserId);
-            // const currentUserIdStr = userId ? String(userId) : '';
-            // // Show button if post is from a different user (or if userId is not set yet)
-            // const isDifferentUser = !currentUserIdStr || itemUserIdStr !== currentUserIdStr;
-
-            // if (!isDifferentUser) return null;
-            // console.log(item,'item for follow ß')
-            // return (
             <TouchableOpacity
               onPress={handleFollowPress}
               disabled={followingBusy}
               style={[
                 styles.followButton,
                 item.follow && styles.followingButton,
-                { backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683' }
-              ]}
-            >
+                { backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+              ]}>
               {followingBusy ? (
                 <ActivityIndicator size="small" color={item.follow ? text : '#FFFFFF'} />
               ) : (
                 <Text style={[styles.followButtonText, item.follow && styles.followingButtonText]}>
-                  {item.follow ? 'Followed' : 'Follow'}
+                  {item.follow ? t('postItem.followed') : t('postItem.follow')}
                 </Text>
               )}
             </TouchableOpacity>
           )}
         </View>
 
+        {/* Buyers / followers row */}
         {(() => {
           const itemUserId = item?.UserId ? String(item.UserId) : null;
           const currentUserId = userId ? String(userId) : null;
           return itemUserId && itemUserId !== currentUserId;
         })() && (
-            <>
-              {displayBuyerList.length > 0 && (
-                <TouchableOpacity
-                  style={styles.buyersSection}
-                  activeOpacity={0.8}
-                  onPress={() => setShowBuyersModal(true)}
-                >
-                  <View style={styles.avatarsContainer}>
-                    {displayBuyerList.slice(0, 3).map((buyer, idx) => (
-                      <View
-                        key={idx}
-                        style={[
-                          styles.buyerAvatarWrapper,
-                          {
-                            marginLeft: idx > 0 ? -10 : 0,
-                            zIndex: 3 - idx,      // idx=0 → zIndex:3, idx=1 → zIndex:2, idx=2 → zIndex:1
-                            elevation: 3 - idx,   // Android fix
-                          }
-                        ]}
-                      >
-                        <HexAvatar
-                          uri={buyer.avatar}
-                          size={28}
-                          borderWidth={1.5}
-                          borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
-                        />
-                      </View>
-                    ))}
-                  </View>
-                  <Text style={styles.buyersText} numberOfLines={1}>
-                    Followed by <Text style={[styles.buyerName, { color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }]}>{displayBuyerList[0]?.username || '—'}</Text>
-                    {displayBuyerList.length > 1 && <Text style={{ color: item?.profile === "user" ? '#5a2d82' : '#D3B683' }}> and {formatNumber(displayBuyerList.length - 1)} others</Text>}
+          <>
+            {displayBuyerList.length > 0 && (
+              <TouchableOpacity
+                style={styles.buyersSection}
+                activeOpacity={0.8}
+                onPress={() => setShowBuyersModal(true)}>
+                <View style={styles.avatarsContainer}>
+                  {displayBuyerList.slice(0, 3).map((buyer, idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.buyerAvatarWrapper,
+                        { marginLeft: idx > 0 ? -10 : 0, zIndex: 3 - idx, elevation: 3 - idx },
+                      ]}>
+                      <HexAvatar
+                        uri={buyer.avatar}
+                        size={28}
+                        borderWidth={1.5}
+                        borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+                      />
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.buyersText} numberOfLines={1}>
+                  {t('postItem.followedBy')}{' '}
+                  <Text
+                    style={[
+                      styles.buyerName,
+                      { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                    ]}>
+                    {displayBuyerList[0]?.username || '—'}
                   </Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
+                  {displayBuyerList.length > 1 && (
+                    <Text style={{ color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' }}>
+                      {' '}{t('postItem.andOthers', { count: formatNumber(displayBuyerList.length - 1) })}
+                    </Text>
+                  )}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
 
+        {/* Caption */}
         <View style={styles.captionSection}>
           {!!captionValue && (
             <>
@@ -1677,9 +1438,8 @@ function PostItem({
                     onPress={() => handleUserProfile(item.UserId)}
                     style={[
                       styles.captionUsername,
-                      { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
-                    ]}
-                  >
+                      { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                    ]}>
                     {usernameText}{' '}
                   </Text>
                   <Text style={styles.captionText}>{captionValue}</Text>
@@ -1688,23 +1448,19 @@ function PostItem({
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={hasExpandableCaption ? () => setExpanded(true) : undefined}
-                  disabled={!hasExpandableCaption}
-                >
+                  disabled={!hasExpandableCaption}>
                   <Text style={styles.captionRow} numberOfLines={1} ellipsizeMode="tail">
                     <Text
                       onPress={() => handleUserProfile(item.UserId)}
                       style={[
                         styles.captionUsername,
-                        { color: item?.profile === "user" ? "#5a2d82" : "#D3B683" }
-                      ]}
-                    >
+                        { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
+                      ]}>
                       {usernameText}{' '}
                     </Text>
                     <Text style={styles.captionText}>{collapsedCaption}</Text>
                     {hasExpandableCaption ? (
-                      <Text style={styles.captionMoreText}>
-                        see more
-                      </Text>
+                      <Text style={styles.captionMoreText}>{t('postItem.seeMore')}</Text>
                     ) : null}
                   </Text>
                 </TouchableOpacity>
@@ -1713,20 +1469,21 @@ function PostItem({
           )}
 
           {hasExpandableCaption && expanded && (
-            <Text
-              style={styles.captionToggleText}
-              onPress={() => setExpanded(false)}
-            >
-              see less
+            <Text style={styles.captionToggleText} onPress={() => setExpanded(false)}>
+              {t('postItem.seeLess')}
             </Text>
           )}
+
           {item.link ? (
             <TouchableOpacity onPress={() => Linking.openURL(item.link)}>
-              <Text style={styles.linkText}>Link - {item.link}</Text>
+              <Text style={styles.linkText}>
+                {t('postItem.linkPrefix')} - {item.link}
+              </Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
+        {/* Donation / progress section */}
         {goalAmount > 0 && (
           <View style={styles.progressSection}>
             {progressStatusLabel ? (
@@ -1751,95 +1508,90 @@ function PostItem({
               <View style={styles.progressStatsContainer}>
                 <View style={styles.statAtStart}>
                   <Text style={styles.statValueSmall}>
-                    {isLoadingDonation ? '...' : `${Math.min(progressPercent, 100).toFixed(1)}% FUNDED`}
+                    {isLoadingDonation
+                      ? '...'
+                      : t('postItem.funded', {
+                          percent: Math.min(progressPercent, 100).toFixed(1),
+                        })}
                   </Text>
                 </View>
                 <View style={styles.statAtCenter}>
                   <Text style={styles.statValueSmall}>
                     {isLoadingDonation
-                      ? 'Loading...'
-                      : `${currencyPrefix}${formatNumber(currentRaised)} / ${currencyPrefix}${formatNumber(goalAmount)} RAISED`}
+                      ? t('postItem.loading')
+                      : t('postItem.raised', {
+                          current: `${currencyPrefix}${formatNumber(currentRaised)}`,
+                          goal: `${currencyPrefix}${formatNumber(goalAmount)}`,
+                        })}
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>
-                  <Text style={styles.statValueSmall}>{daysLeft || 0} DAYS LEFT</Text>
+                  <Text style={styles.statValueSmall}>
+                    {t('postItem.daysLeft', { count: daysLeft || 0 })}
+                  </Text>
                 </View>
               </View>
-              {!hideDonationButton && !isGoalAmountRaised && (item.UserId !== userId) && (daysLeft > 0) && item?.end_time && (
-                <>
-                  {console.log('=== DONATE BUTTON DEBUG ===', {
-                    hideDonationButton,
-                    isGoalAmountRaised,
-                    itemUserId: item?.UserId,
-                    currentUserId: userId,
-                    daysLeft,
-                    end_time: item?.end_time,
-                    goalAmount,
-                    currentRaised,
-                    raiseAmount: item?.raiseAmount,
-                  })}
+
+              {!hideDonationButton &&
+                !isGoalAmountRaised &&
+                item.UserId !== userId &&
+                daysLeft > 0 &&
+                item?.end_time && (
                   <TouchableOpacity
-                    onPress={() => {
-                      setDonation(true);
-                    }}
+                    onPress={() => setDonation(true)}
                     style={[{
-                      backgroundColor: item?.profile === "user" ? '#5a2d82' : '#D3B683',
+                      backgroundColor: item?.profile === 'user' ? '#5a2d82' : '#D3B683',
                       width: '25%',
                       left: '74%',
                       marginBottom: 5,
                       marginTop: -10,
                       paddingVertical: 8,
                       borderRadius: 8,
-                      alignItems: 'center'
-                    }]}
-                  >
+                      alignItems: 'center',
+                    }]}>
                     <Text style={styles.followButtonText}>
-                      Donate
+                      {t('postItem.donate')}
                     </Text>
                   </TouchableOpacity>
-                </>
-              )}
+                )}
             </View>
           </View>
         )}
       </View>
+
       <MissionSupportScreen
         visible={donation}
         onClose={() => setDonation(false)}
         item={item}
         onDonationSuccess={handleDonationSuccess}
       />
-
       <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
       <BuyersListModal
         visible={showBuyersModal}
         onClose={() => setShowBuyersModal(false)}
         buyers={displayBuyerList}
         profileType={modalProfileType}
-        onUserPress={(id) => {
-          setShowBuyersModal(false);
-          handleUserProfile(id);
-        }}
+        onUserPress={id => { setShowBuyersModal(false); handleUserProfile(id); }}
       />
       <BuyersListModal
         visible={showTaggedPeopleModal}
         onClose={() => setShowTaggedPeopleModal(false)}
         users={taggedUsers}
-        title="Tagged people"
+        title={t('postItem.taggedPeople')}
         enableSearch={false}
         showChevron={false}
-        emptyTitle="No tagged people"
-        emptyText="This post has no tagged people."
+        emptyTitle={t('postItem.noTaggedPeople')}
+        emptyText={t('postItem.noTaggedPeopleText')}
       />
       <SupportCreatorModal
         visible={modalVisible}
-        creatorName={item?.username || 'Creator'}
+        creatorName={item?.username || t('postItem.defaultCreatorName')}
         onClose={() => setModalVisible(false)}
         onSupport={handleOpenSupportDisclaimer}
       />
       <SupportCreatorModal
         visible={supportDisclaimerVisible}
-        creatorName={item?.username || 'Creator'}
+        creatorName={item?.username || t('postItem.defaultCreatorName')}
         variant="disclaimer"
         onClose={() => setSupportDisclaimerVisible(false)}
         onSupport={handleSupportNow}

@@ -45,6 +45,7 @@ import { requestUserPermission } from '../../../services/NotificationService';
 import { setIsAddAccount } from '../../../redux/actions/AddAccountAction';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useLanguage } from '../../../i18n';
 import { useAppTheme } from '../../../theme/useApptheme';
 
 const { width, height } = Dimensions.get('window');
@@ -60,8 +61,10 @@ export default function LoginScreen() {
   const styles = createStyles();
   const insets = useSafeAreaInsets();
   const [showPassword, setShowPassword] = useState(false);
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
   const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
   const { bgStyle, textStyle, bg, text } = useAppTheme();
+  const { t, currentLanguage, languageNames, languages, changeLanguage, isLoading: langLoading } = useLanguage();
 
   const safeTop =
     insets.top > 0
@@ -70,11 +73,11 @@ export default function LoginScreen() {
         ? StatusBar.currentHeight ?? 0
         : 0;
 
-    useFocusEffect(
-      useCallback(() => {
-         dispatch(setUserProfile('user'));
-      }, [dispatch])
-    );
+  useFocusEffect(
+    useCallback(() => {
+      dispatch(setUserProfile('user'));
+    }, [dispatch])
+  );
 
   const getProfileData = async (type, userid) => {
     try {
@@ -167,11 +170,16 @@ export default function LoginScreen() {
     loadDeviceId();
   }, []);
 
+  const handleLangSelect = (lang) => {
+    changeLanguage(lang);
+    setShowLangDropdown(false);
+    Keyboard.dismiss();
+  };
 
   const handleGoogleLogin = async () => {
     dispatch(showLoader());
     try {
-      await onGoogleButtonPress(dispatch, navigation, toast, 'user');
+      await onGoogleButtonPress(dispatch, navigation, toast, 'user', t);
     } catch (error) {
       // Error is handled in onGoogleButtonPress, but you can add more here
     } finally {
@@ -182,7 +190,7 @@ export default function LoginScreen() {
   const handlAppleLogin = async () => {
     dispatch(showLoader());
     try {
-      await onAppleButtonPress(dispatch, navigation, toast, 'user');
+      await onAppleButtonPress(dispatch, navigation, toast, 'user', t);
     } catch (error) {
       // Error is handled in onGoogleButtonPress, but you can add more here
     } finally {
@@ -198,23 +206,22 @@ export default function LoginScreen() {
     const errs = {};
 
     // Check for blank fields
-    if (!email.trim()) errs.email = 'Email/Username is required';
+    if (!email.trim()) errs.email = t('login.emailRequired');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errs.email = 'Enter a valid email address';
+      errs.email = t('login.emailInvalid');
     }
 
     if (!password) {
-      errs.password = 'Password is required';
+      errs.password = t('login.passwordRequired');
     } else if (password.length < 8) {
-      errs.password = 'Password must be at least 8 characters';
+      errs.password = t('login.passwordMinLength');
     } else if (
       !/(?=.*[A-Z])/.test(password) ||
       !/(?=.*[a-z])/.test(password) ||
       !/(?=.*\d)/.test(password) ||
       !/(?=.*[!@#$%^&*(),.?":{}|<>])/.test(password)
     ) {
-      errs.password =
-        'Password must include uppercase, lowercase, number & special character';
+      errs.password = t('login.passwordRules');
     }
 
     setErrors(errs);
@@ -223,7 +230,7 @@ export default function LoginScreen() {
 
   const handleTwitterButtonPress = () => {
     dispatch(showLoader());
-    twitterOAuthLogin(dispatch, toast, navigation, 'user');
+    twitterOAuthLogin(dispatch, toast, navigation, 'user', t);
     dispatch(hideLoader());
   };
 
@@ -324,14 +331,14 @@ export default function LoginScreen() {
               accessibilityLabel="Back to the app"
             >
               <Icon name="arrow-back" size={22} color="#374151" />
-              <Text style={styles.backToAppLabel}>Back to the app</Text>
+              <Text style={styles.backToAppLabel}>{t('login.backToApp')}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Enhanced Header */}
         <AuthHeader
-          subtitle="Social media just got an upgrade"
+          subtitle={t('login.socialMediaUpgrade')}
           showBackButton={false}
           headerHeight={height * 0.28}
         />
@@ -341,16 +348,16 @@ export default function LoginScreen() {
         <View style={styles.formWrapper}>
           <View style={styles.card}>
             <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeTitle}>Welcome Back</Text>
+              <Text style={styles.welcomeTitle}>{t('login.welcomeTitle')}</Text>
               <Text style={styles.welcomeSubtitle}>
-                Sign in to continue your journey
+                {t('login.welcomeSubtitle')}
               </Text>
             </View>
 
             <View style={styles.inputContainer}>
               {/* Email Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Email or Username</Text>
+                <Text style={styles.inputLabel}>{t('login.emailLabel')}</Text>
                 <View
                   style={[
                     styles.inputGroup,
@@ -362,7 +369,7 @@ export default function LoginScreen() {
                   </View>
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Enter your email or username"
+                    placeholder={t('login.emailPlaceholder')}
                     placeholderTextColor="#9CA3AF"
                     onChangeText={t => {
                       setEmail(t);
@@ -382,7 +389,7 @@ export default function LoginScreen() {
 
               {/* Password Input */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Password</Text>
+                <Text style={styles.inputLabel}>{t('login.passwordLabel')}</Text>
                 <View
                   style={[
                     styles.inputGroup,
@@ -394,7 +401,7 @@ export default function LoginScreen() {
                   </View>
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Enter your password"
+                    placeholder={t('login.passwordPlaceholder')}
                     placeholderTextColor="#9CA3AF"
                     onChangeText={t => {
                       setPassword(t);
@@ -417,12 +424,42 @@ export default function LoginScreen() {
                 )}
               </View>
 
+              {/* Language Selector */}
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>{t('login.selectLanguage')}</Text>
+                <TouchableOpacity
+                  style={[styles.inputGroup, styles.langDropdown]}
+                  onPress={() => setShowLangDropdown(!showLangDropdown)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.inputIconContainer, bgStyle]}>
+                    <Ionicons name="language" size={22} color={text} />
+                  </View>
+                  <Text style={styles.langText}>{languageNames[currentLanguage] || 'English'}</Text>
+                  <Ionicons name={showLangDropdown ? "chevron-up" : "chevron-down"} size={22} color="#6B7280" />
+                </TouchableOpacity>
+                {showLangDropdown && (
+                  <View style={styles.langDropdownList}>
+                    {languages.map(lang => (
+                      <TouchableOpacity
+                        key={lang}
+                        style={styles.langOption}
+                        onPress={() => handleLangSelect(lang)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.langOptionText}>{languageNames[lang]}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
               <TouchableOpacity
                 style={styles.forgotPasswordBtn}
                 onPress={forgotPassword}
               >
                 <Text style={styles.forgotPasswordText}>
-                  Forgot Password?
+                  {t('login.forgotPassword')}
                 </Text>
               </TouchableOpacity>
 
@@ -431,20 +468,20 @@ export default function LoginScreen() {
                 style={styles.loginButtonGradient}
                 onPress={handleLogin}
               >
-                <Text style={styles.loginButtonText}>Sign In</Text>
+                <Text style={styles.loginButtonText}>{t('login.signInButton')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Enhanced Divider */}
             <View style={styles.dividerSection}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
+              <Text style={styles.dividerText}>{t('login.dividerOrContinue')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
             {/* Social Section Header */}
             <View style={styles.socialSectionHeader}>
-              <Text style={styles.socialSectionTitle}>Social</Text>
+              <Text style={styles.socialSectionTitle}>{t('login.socialSection')}</Text>
             </View>
 
             {/* Enhanced Social Buttons */}
@@ -479,12 +516,12 @@ export default function LoginScreen() {
             {/* Sign Up Link */}
             <View style={styles.signupSection}>
               <Text style={styles.signupText}>
-                Don't have an account?{' '}
+                {t('login.noAccountText')} {' '}
                 <Text
                   style={styles.signupLink}
                   onPress={() => navigation.navigate('SelectAccountType')}
                 >
-                  Sign up
+                  {t('login.signUpLink')}
                 </Text>
               </Text>
             </View>

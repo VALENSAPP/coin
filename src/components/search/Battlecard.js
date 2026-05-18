@@ -1,12 +1,5 @@
 /**
- * BattleCard — React Native component
- *
- * Fixes in this version:
- * 1. Green pulsing dot when battle isLive, orange dot otherwise
- * 2. Solo battle (no opponent yet): creator on LEFT, dashed "Waiting" slot on RIGHT
- * 3. Auto-scroll handled by AutoScrollBattleRow (export at bottom) — drop it into
- *    SearchScreen in place of the plain <ScrollView> that wraps the battle cards.
- * 4. Compact UI — card width 220px, reduced padding/font sizes throughout
+ * BattleCard — React Native component (i18n updated)
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +14,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -43,24 +37,24 @@ const formatAmount = value => {
 };
 
 const formatBattleDate = value => {
-    if (!value) return 'No end date';
+    if (!value) return null; // caller uses t() for label
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'No end date';
+    if (Number.isNaN(date.getTime())) return null;
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
 };
 
-const formatBattleCountdown = value => {
-    if (!value) return 'Ended';
+const formatBattleCountdown = (value, t) => {
+    if (!value) return t('battleCard.ended');
     const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return 'Ended';
+    if (Number.isNaN(parsed.getTime())) return t('battleCard.ended');
     const diffMs = parsed.getTime() - Date.now();
-    if (diffMs <= 0) return 'Ended';
+    if (diffMs <= 0) return t('battleCard.ended');
     const diffDays = Math.floor(diffMs / 86400000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffDays > 0) return `Ends in ${diffDays}d`;
-    if (diffHours > 0) return `Ends in ${diffHours}h`;
-    return `Ends in ${diffMins}m`;
+    if (diffDays > 0) return t('battleCard.endsInDays', { days: diffDays });
+    if (diffHours > 0) return t('battleCard.endsInHours', { hours: diffHours });
+    return t('battleCard.endsInMins', { mins: diffMins });
 };
 
 const formatBattleCount = value => {
@@ -91,30 +85,22 @@ const computePercentages = (labels = [], rawCounts = {}) => {
         const value = normalizedCounts[key];
         return Number.isFinite(value) && value > 0 ? value : 0;
     });
-
     const total = counts.reduce((sum, value) => sum + value, 0);
-    if (!total) {
-        return labels.map(() => 0);
-    }
-
+    if (!total) return labels.map(() => 0);
     const exact = counts.map(value => (value / total) * 100);
     const floors = exact.map(value => Math.floor(value));
     let remainder = 100 - floors.reduce((sum, value) => sum + value, 0);
-
     const order = exact
         .map((value, index) => ({ index, frac: value - floors[index] }))
         .sort((a, b) => b.frac - a.frac);
-
     const result = [...floors];
     for (let i = 0; i < order.length && remainder > 0; i += 1) {
         result[order[i].index] += 1;
         remainder -= 1;
     }
-
     return result;
 };
 
-// Returns true when user2 has no real identity (battle waiting for opponent)
 const isEmptyOpponent = user2 => {
     if (!user2) return true;
     const name = (user2.name || '').trim().toLowerCase();
@@ -150,35 +136,34 @@ const LiveDot = () => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const TimerBadge = ({ endTime, ended }) => (
+const TimerBadge = ({ endTime, ended, t }) => (
     <View style={styles.timerBadge}>
         <Icon name="time-outline" size={10} color={ended ? '#A32D2D' : '#888780'} style={{ marginRight: 3 }} />
         <Text style={[styles.timerText, ended && styles.timerTextEnded]}>
-            {formatBattleCountdown(endTime)}
+            {formatBattleCountdown(endTime, t)}
         </Text>
     </View>
 );
 
-const ModeBadge = ({ format, ended, isLive }) => (
+const ModeBadge = ({ format, ended, isLive, t }) => (
     <View style={[styles.modeBadge, ended && styles.modeBadgeEnded]}>
         {!ended && (isLive ? <LiveDot /> : <View style={styles.modeBadgeDotOrange} />)}
         <Text style={[styles.modeBadgeText, ended && styles.modeBadgeTextEnded]} numberOfLines={2}>
-            {format === 'POLL' ? 'Poll' : 'Battle Mode 🔥'}
+            {format === 'POLL' ? t('battleCard.poll') : t('battleCard.battleMode')}
         </Text>
     </View>
 );
 
-const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressIn }) => {
+const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressIn, t }) => {
     if (isEmpty) {
         return (
             <View style={styles.participantSlot}>
-                
                 <View style={styles.participantContent}>
                     <View style={styles.emptySlot}>
                         <Icon name="person-add-outline" size={15} color="#A78BFA" />
                     </View>
-                    <Text style={styles.waitingLabel}>Waiting...</Text>
-                    <Text style={styles.waitingSub}>Open slot</Text>
+                    <Text style={styles.waitingLabel}>{t('battleCard.waiting')}</Text>
+                    <Text style={styles.waitingSub}>{t('battleCard.openSlot')}</Text>
                 </View>
             </View>
         );
@@ -205,11 +190,11 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
     );
 };
 
-const StakePill = ({ amount }) => (
+const StakePill = ({ amount, t }) => (
     <View style={styles.stakePill}>
         <Icon name="flash" size={11} color="#7F77DD" />
         <Text style={styles.stakeText}>
-            Stakes: <Text style={styles.stakeAmount}>{formatAmount(amount)}</Text>
+            {t('battleCard.stakes')} <Text style={styles.stakeAmount}>{formatAmount(amount)}</Text>
         </Text>
     </View>
 );
@@ -257,7 +242,8 @@ const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
 // ─── BattleCard ───────────────────────────────────────────────────────────────
 
 const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, onUserPress, fullWidth }) => {
-    const ended = formatBattleCountdown(item.endTime) === 'Ended';
+    const { t } = useLanguage();
+    const ended = formatBattleCountdown(item.endTime, t) === t('battleCard.ended');
     const isPoll = item.format === 'POLL';
     const soloOpponent = !isPoll && !item.opponent && isEmptyOpponent(item.user2);
 
@@ -309,7 +295,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         return computePercentages(optionLabels, countsSource || {});
     }, [isPoll, item?.predictionCounts, item?.voteCounts, optionLabels]);
 
-    console.log('Rendering BattleCard', { id: item, optionImages, opponent: item.opponent });
+    const formattedEndDate = formatBattleDate(item.endTime);
 
     if (isPoll) {
         return (
@@ -344,10 +330,10 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             </View>
                         )}
                     </View>
-                    <ModeBadge format="POLL" ended={ended} isLive={item.isLive} />
+                    <ModeBadge format="POLL" ended={ended} isLive={item.isLive} t={t}/>
                 </View>
 
-                <TimerBadge endTime={item.endTime} ended={ended} />
+                <TimerBadge endTime={item.endTime} ended={ended} t={t} />
                 <Text style={[styles.question, { marginTop: 4 }]} numberOfLines={3}>{item.title}</Text>
 
                 {item.options?.length > 0 && (
@@ -370,9 +356,14 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         })}
                     </View>
                 )}
+
                 <View style={styles.metaRow}>
-                    <StakePill amount={formatAmount(item.stakeAmount || 0)} />
-                    <Text style={styles.metaText}>Ends: {formatBattleDate(item.endTime)}</Text>
+                    <StakePill amount={formatAmount(item.stakeAmount || 0)} t={t} />
+                    <Text style={styles.metaText}>
+                        {formattedEndDate
+                            ? `${t('battleCard.ends')} ${formattedEndDate}`
+                            : t('battleCard.noEndDate')}
+                    </Text>
                 </View>
 
                 <View style={styles.divider} />
@@ -430,9 +421,9 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         </View>
                     )}
                 </View>
-                <ModeBadge format={item.format} ended={ended} isLive={item.isLive} />
+                <ModeBadge format={item.format} ended={ended} isLive={item.isLive} t={t}/>
             </View>
-            <TimerBadge endTime={item.endTime} ended={ended} />
+            <TimerBadge endTime={item.endTime} ended={ended} t={t} />
 
             <View style={styles.versusRow}>
                 <ParticipantAvatar
@@ -442,6 +433,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                     isEmpty={false}
                     onPressIn={suppressNextCardPress}
                     onPress={event => handleUserPress({ id: item.creator?.id, userName: item.user1.userName, image: item.user1.avatar, displayName: item.user1.name }, event)}
+                    t={t}
                 />
                 <Text style={styles.vsIcon}>⚔️</Text>
                 {item.opponent ? (
@@ -452,6 +444,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         isEmpty={false}
                         onPressIn={suppressNextCardPress}
                         onPress={event => handleUserPress({ id: item.opponent?.id, userName: item.opponent.userName, image: item.opponent.avatar, displayName: item.user2.name }, event)}
+                        t={t}
                     />
                 ) : (
                     <ParticipantAvatar
@@ -461,12 +454,13 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         isEmpty={soloOpponent}
                         onPressIn={soloOpponent ? undefined : suppressNextCardPress}
                         onPress={soloOpponent ? undefined : event => handleUserPress({ id: item.user2?.id, userName: item.user2?.userName, image: item.user2?.avatar, displayName: item.user2?.name }, event)}
+                        t={t}
                     />
                 )}
             </View>
 
             <Text style={styles.question} numberOfLines={2}>{item.title}</Text>
-            <StakePill amount={item.stakeAmount || 0} />
+            <StakePill amount={item.stakeAmount || 0} t={t} />
 
             {!soloOpponent && item.options?.length > 0 && (
                 <View style={styles.pollOptions}>
@@ -491,7 +485,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
             {soloOpponent && (
                 <TouchableOpacity style={styles.acceptBtn} onPress={() => onCardPress(item)} activeOpacity={0.85}>
                     <Icon name="add-circle-outline" size={13} color="#fff" style={{ marginRight: 4 }} />
-                    <Text style={styles.acceptBtnText}>Accept Challenge</Text>
+                    <Text style={styles.acceptBtnText}>{t('battleCard.acceptChallenge')}</Text>
                 </TouchableOpacity>
             )}
 
@@ -532,9 +526,7 @@ export const AutoScrollBattleRow = ({ children, style }) => {
     const offsetRef = useRef(0);
     const lastFrameTsRef = useRef(0);
     const halfWidthRef = useRef(0);
-
     const [contentWidth, setContentWidth] = useState(0);
-
     const allChildren = React.Children.toArray(children);
     const isCarouselEnabled = allChildren.length > 1;
 
@@ -565,19 +557,15 @@ export const AutoScrollBattleRow = ({ children, style }) => {
     const startAutoScroll = useCallback(() => {
         if (!isCarouselEnabled || pausedRef.current) return;
         stopAutoScroll();
-
         const tick = (timestamp) => {
             if (pausedRef.current || !isCarouselEnabled) {
                 stopAutoScroll();
                 return;
             }
-
             if (!lastFrameTsRef.current) lastFrameTsRef.current = timestamp;
             const deltaMs = timestamp - lastFrameTsRef.current;
             lastFrameTsRef.current = timestamp;
-
             let next = offsetRef.current + deltaMs * AUTO_SCROLL_SPEED_PX_PER_MS;
-
             const half = halfWidthRef.current;
             if (half > 0 && next >= half) {
                 next = next - half;
@@ -587,18 +575,16 @@ export const AutoScrollBattleRow = ({ children, style }) => {
                 scrollViewRef.current?.scrollTo({ x: next, animated: false });
                 offsetRef.current = next;
             }
-
             autoScrollFrameRef.current = requestAnimationFrame(tick);
         };
-
         autoScrollFrameRef.current = requestAnimationFrame(tick);
     }, [isCarouselEnabled, stopAutoScroll]);
 
     useEffect(() => {
         if (!isCarouselEnabled) return undefined;
-        const t = setTimeout(() => startAutoScroll(), START_DELAY_MS);
+        const timer = setTimeout(() => startAutoScroll(), START_DELAY_MS);
         return () => {
-            clearTimeout(t);
+            clearTimeout(timer);
             clearResumeTimer();
             stopAutoScroll();
         };
@@ -629,12 +615,7 @@ export const AutoScrollBattleRow = ({ children, style }) => {
 
     if (!isCarouselEnabled) {
         return (
-            <View
-                style={[
-                    { flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: ROW_PADDING_LEFT },
-                    style,
-                ]}
-            >
+            <View style={[{ flexDirection: 'row', gap: CARD_GAP, paddingHorizontal: ROW_PADDING_LEFT }, style]}>
                 {allChildren}
             </View>
         );

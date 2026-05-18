@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setStripeCustomerId } from '../redux/actions/UserAction';
 import { getUserCredentials } from '../services/post';
 import { openStripeOnboarding } from '../utils/stripeOnboarding';
+import { useLanguage } from '../i18n';
 
 const STRIPE_CUSTOMER_ID_KEY = 'stripeCustomerId';
 
@@ -34,6 +35,7 @@ export async function persistStripeCustomerId(stripeCustomerId, dispatch) {
  */
 export function useStripeCustomer() {
   const dispatch = useDispatch();
+  const { t } = useLanguage();
   const stripeCustomerId = useSelector((state) => state.user?.stripeCustomerId ?? null);
 
   const refreshStripeCustomer = useCallback(async () => {
@@ -51,9 +53,9 @@ export function useStripeCustomer() {
   }, [dispatch, stripeCustomerId]);
 
   const openPaymentConnectionAndRefresh = useCallback(async () => {
-    await openStripeOnboarding({ onComplete: refreshStripeCustomer });
+    await openStripeOnboarding({ onComplete: refreshStripeCustomer, t });
     await refreshStripeCustomer();
-  }, [refreshStripeCustomer]);
+  }, [refreshStripeCustomer, t]);
 
   /**
    * Call before starting any payment. Refreshes from server, then if no stripeCustomerId

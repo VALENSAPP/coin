@@ -3,33 +3,39 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const PRIMARY_GRADIENT = ['#513189bd', '#e54ba0'];
 
 export default function ProfileBattleTab({ isLive = false, battle: battleProp }) {
   const { text } = useAppTheme();
+  const { t } = useLanguage();
   const [selectedOption, setSelectedOption] = useState(null);
 
   const battle = useMemo(
     () =>
       battleProp ?? {
-        type: 'Poll',
-        title: 'Who wins this round?',
-        subtitle: 'Vote now to participate',
+        type: t('battleTab.defaultType'),
+        title: t('battleTab.defaultTitle'),
+        subtitle: t('battleTab.defaultSubtitle'),
         options: [
-          { key: 'a', label: 'Creator A' },
-          { key: 'b', label: 'Creator B' },
+          { key: 'a', label: t('battleTab.defaultOptionA') },
+          { key: 'b', label: t('battleTab.defaultOptionB') },
         ],
       },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [battleProp],
+    // Note: intentionally excluding `t` so the fallback labels only resolve
+    // once on mount, matching the original single-memo behaviour. If your app
+    // needs live language switching for the fallback, add `t` to the deps array.
   );
 
   if (!isLive) {
     return (
       <View style={styles.emptyWrap}>
         <Ionicons name="radio-outline" size={36} color="#9CA3AF" />
-        <Text style={[styles.emptyTitle, { color: text }]}>No live battle right now</Text>
-        <Text style={styles.emptySub}>Come back later to vote and participate.</Text>
+        <Text style={[styles.emptyTitle, { color: text }]}>{t('battleTab.noLiveTitle')}</Text>
+        <Text style={styles.emptySub}>{t('battleTab.noLiveSub')}</Text>
       </View>
     );
   }
@@ -37,17 +43,24 @@ export default function ProfileBattleTab({ isLive = false, battle: battleProp })
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <LinearGradient colors={PRIMARY_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.livePill}>
-          <Text style={styles.livePillText}>LIVE</Text>
+        <LinearGradient
+          colors={PRIMARY_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.livePill}
+        >
+          <Text style={styles.livePillText}>{t('battleTab.livePill')}</Text>
         </LinearGradient>
-        <Text style={[styles.typeText, { color: text }]}>{battle.type} Battle</Text>
+        <Text style={[styles.typeText, { color: text }]}>
+          {battle.type} {t('battleTab.battleLabel')}
+        </Text>
       </View>
 
       <Text style={[styles.title, { color: text }]}>{battle.title}</Text>
       {!!battle.subtitle && <Text style={styles.subtitle}>{battle.subtitle}</Text>}
 
       <View style={styles.options}>
-        {battle.options.map(option => {
+        {battle.options.map((option) => {
           const isSelected = selectedOption === option.key;
           return (
             <TouchableOpacity
@@ -56,7 +69,10 @@ export default function ProfileBattleTab({ isLive = false, battle: battleProp })
               onPress={() => setSelectedOption(option.key)}
               style={[styles.optionBtn, isSelected && styles.optionBtnSelected]}
             >
-              <Text style={[styles.optionText, isSelected && styles.optionTextSelected]} numberOfLines={1}>
+              <Text
+                style={[styles.optionText, isSelected && styles.optionTextSelected]}
+                numberOfLines={1}
+              >
                 {option.label}
               </Text>
               {isSelected && <Ionicons name="checkmark-circle" size={18} color="#22C55E" />}
@@ -69,14 +85,19 @@ export default function ProfileBattleTab({ isLive = false, battle: battleProp })
         activeOpacity={0.9}
         onPress={() => {
           if (!selectedOption) {
-            Alert.alert('Select an option', 'Choose one option to vote.');
+            Alert.alert(t('battleTab.selectOptionTitle'), t('battleTab.selectOptionMessage'));
             return;
           }
-          Alert.alert('Vote submitted', 'Thanks for participating!');
+          Alert.alert(t('battleTab.voteSuccessTitle'), t('battleTab.voteSuccessMessage'));
         }}
       >
-        <LinearGradient colors={PRIMARY_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.voteBtn}>
-          <Text style={styles.voteBtnText}>VOTE & PARTICIPATE</Text>
+        <LinearGradient
+          colors={PRIMARY_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.voteBtn}
+        >
+          <Text style={styles.voteBtnText}>{t('battleTab.voteButton')}</Text>
         </LinearGradient>
       </TouchableOpacity>
     </View>

@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -13,12 +14,14 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AuthHeader } from '../../components/auth';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const { height } = Dimensions.get('window');
 
 export default function QuickBuy({ navigation }) {
   const [amount, setAmount] = useState('');
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   // digits only + strip leading zeros
   const normalized = useMemo(
@@ -32,7 +35,7 @@ export default function QuickBuy({ navigation }) {
   const handleSave = () => {
     if (!canSave) return;
     const digits = normalized.length === 0 ? '111' : normalized;
-    Alert.alert('Saved', `Double tap amount set to ${digits} Sparks`);
+    Alert.alert(t('quickBuy.savedTitle'), `${t('quickBuy.savedMessage')} ${digits} ${t('quickBuy.sparks')}`);
   };
 
   return (
@@ -42,34 +45,34 @@ export default function QuickBuy({ navigation }) {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      {/* Header to match Forgot Password component */}
+      {/* Header */}
       <AuthHeader
-        title="Trade settings"
-        subtitle="Set a custom amount for double tap to buy. By default, it's 111 Sparks (0.000111 ETH)."
+        title={t('quickBuy.headerTitle')}
+        subtitle={t('quickBuy.headerSubtitle')}
         onBackPress={() => navigation?.goBack?.()}
       />
 
-      {/* Card wrapper (same look & feel) */}
+      {/* Card wrapper */}
       <View style={styles.formWrapper}>
         <View style={styles.card}>
           {/* Title area */}
           <View style={styles.welcomeSection}>
-            <Text style={styles.welcomeTitle}>Double tap amount</Text>
+            <Text style={styles.welcomeTitle}>{t('quickBuy.cardTitle')}</Text>
             <Text style={styles.welcomeSubtitle}>
-              Choose the Sparks you want to buy on double tap.
+              {t('quickBuy.cardSubtitle')}
             </Text>
           </View>
 
           {/* Input */}
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>Amount</Text>
+              <Text style={styles.inputLabel}>{t('quickBuy.amountLabel')}</Text>
 
               <View style={[styles.inputGroup, isTwoDigits && styles.inputError]}>
                 <TextInput
                   value={amount}
                   onChangeText={setAmount}
-                  placeholder="111"
+                  placeholder={t('quickBuy.amountPlaceholder')}
                   placeholderTextColor="#9CA3AF"
                   style={styles.textInput}
                   maxLength={7}
@@ -80,15 +83,15 @@ export default function QuickBuy({ navigation }) {
                   })}
                 />
 
-                {/* Unit pill (kept, but styled to blend in) */}
+                {/* Unit pill */}
                 <View style={styles.pill}>
                   <Ionicons name="sparkles-outline" size={16} color="#1F2937" />
-                  <Text style={styles.pillText}>Sparks</Text>
+                  <Text style={styles.pillText}>{t('quickBuy.sparks')}</Text>
                 </View>
               </View>
 
               {isTwoDigits && (
-                <Text style={styles.errorText}>Amount must be at least 100 Sparks</Text>
+                <Text style={styles.errorText}>{t('quickBuy.amountError')}</Text>
               )}
             </View>
 
@@ -102,18 +105,22 @@ export default function QuickBuy({ navigation }) {
                   style={styles.infoIcon}
                 />
                 <Text style={styles.infoText}>
-                  If you leave it empty, we’ll use 111 Sparks by default.
+                  {t('quickBuy.infoText')}
                 </Text>
               </View>
             </View>
 
-            {/* Save button (matches Continue button style) */}
+            {/* Save button */}
             <TouchableOpacity
               onPress={handleSave}
               disabled={!canSave}
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSave }}
-              style={[styles.primaryButton, !canSave && styles.primaryButtonDisabled, { backgroundColor: text, shadowColor: text }]}
+              style={[
+                styles.primaryButton,
+                !canSave && styles.primaryButtonDisabled,
+                { backgroundColor: text, shadowColor: text },
+              ]}
             >
               <Text
                 style={[
@@ -121,7 +128,7 @@ export default function QuickBuy({ navigation }) {
                   !canSave && styles.primaryButtonTextDisabled,
                 ]}
               >
-                Save
+                {t('quickBuy.saveButton')}
               </Text>
             </TouchableOpacity>
           </View>

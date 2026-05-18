@@ -5,11 +5,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const WalletConnectedModal = ({
   visible,
@@ -19,8 +19,8 @@ const WalletConnectedModal = ({
   onContinue,
 }) => {
   const { text, card, bg, bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
 
-  // Truncate wallet address for display
   const truncatedAddress = walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
     : '';
@@ -42,17 +42,17 @@ const WalletConnectedModal = ({
 
           {/* Title */}
           <Text style={[styles.title, textStyle]}>
-            Wallet Connected Successfully!
+            {t('walletConnected.title')}
           </Text>
 
           {/* Wallet Info */}
           <View style={[styles.walletInfo, { backgroundColor: bg }]}>
             <View style={styles.walletInfoRow}>
-              <Text style={[styles.label, textStyle]}>Wallet:</Text>
-              <Text style={[styles.value, textStyle]}>{walletName || 'Wallet'}</Text>
+              <Text style={[styles.label, textStyle]}>{t('walletConnected.walletLabel')}</Text>
+              <Text style={[styles.value, textStyle]}>{walletName || t('walletConnected.walletFallback')}</Text>
             </View>
             <View style={styles.walletInfoRow}>
-              <Text style={[styles.label, textStyle]}>Address:</Text>
+              <Text style={[styles.label, textStyle]}>{t('walletConnected.addressLabel')}</Text>
               <Text style={[styles.value, textStyle]} numberOfLines={1}>
                 {truncatedAddress || walletAddress}
               </Text>
@@ -60,28 +60,26 @@ const WalletConnectedModal = ({
           </View>
 
           {/* Description */}
-          <Text style={styles.description}>
-            Your wallet is now connected. You can now:
-          </Text>
+          <Text style={styles.description}>{t('walletConnected.description')}</Text>
 
           {/* Features List */}
           <View style={styles.featuresList}>
             <View style={styles.featureItem}>
               <Icon name="heart" size={20} color={text} />
               <Text style={[styles.featureText, textStyle]}>
-                Support creators with crypto payments
+                {t('walletConnected.feature1')}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Icon name="wallet" size={20} color={text} />
               <Text style={[styles.featureText, textStyle]}>
-                Manage your wallet and transactions
+                {t('walletConnected.feature2')}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Icon name="people" size={20} color={text} />
               <Text style={[styles.featureText, textStyle]}>
-                Connect with the Valens community
+                {t('walletConnected.feature3')}
               </Text>
             </View>
           </View>
@@ -94,7 +92,9 @@ const WalletConnectedModal = ({
                 onPress={onContinue}
                 activeOpacity={0.8}
               >
-                <Text style={styles.continueButtonText}>Continue</Text>
+                <Text style={styles.continueButtonText}>
+                  {t('walletConnected.continueButton')}
+                </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -103,7 +103,7 @@ const WalletConnectedModal = ({
               activeOpacity={0.8}
             >
               <Text style={[styles.closeButtonText, textStyle]}>
-                {onContinue ? 'Close' : 'Got it'}
+                {onContinue ? t('walletConnected.closeButton') : t('walletConnected.gotItButton')}
               </Text>
             </TouchableOpacity>
           </View>

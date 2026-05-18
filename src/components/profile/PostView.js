@@ -36,13 +36,13 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../services/tokens';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
+import { useLanguage } from '../../i18n';
 
 export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
   const route = useRoute();
   const navigation = useNavigation();
-
-
+  const { t } = useLanguage();
 
   // Extract params including the source screen info
   const routeParams = route.params || {};
@@ -58,7 +58,6 @@ export default function PostView({ postData = [], userData = {} }) {
   }, []);
 
   const [posts, setPosts] = useState(() => normalizePosts(navPostData, postData));
-
 
   const [liked, setLiked] = useState({});
   const [saved, setSaved] = useState({});
@@ -121,17 +120,14 @@ export default function PostView({ postData = [], userData = {} }) {
   useEffect(() => {
     const fetchPostFromUserChat = async () => {
       const chatPostId = posts[0]?.id;
-      // Check if we're coming from UserChat and have a postId
       if (userChat && chatPostId) {
         const postId = chatPostId;
 
         try {
           const response = await getPostById(postId);
           if (response?.statusCode === 200) {
-            // Update the list with fresh data from API
             setList([response.data]);
 
-            // Also update the state maps with fresh data
             const freshPost = response.data;
             setSaved(prev => ({ ...prev, [freshPost.id]: !!freshPost.isSaved }));
             setLiked(prev => ({ ...prev, [freshPost.id]: !!freshPost.isLike }));
@@ -143,22 +139,21 @@ export default function PostView({ postData = [], userData = {} }) {
               setFollowingByUserId(prev => ({ ...prev, [String(freshPost.userId)]: freshPost.isFollow }));
             }
           } else {
-            showToastMessage(toast, 'danger', 'Failed to load post details');
+            showToastMessage(toast, 'danger', t('postView.failedLoadPost'));
           }
         } catch (error) {
           console.error('Error fetching post from UserChat:', error);
           showToastMessage(
             toast,
             'danger',
-            error?.response?.data?.message || 'Failed to load post'
+            error?.response?.data?.message || t('postView.failedLoadPostGeneric'),
           );
-        } finally {
         }
       }
     };
 
     fetchPostFromUserChat();
-  }, [posts, toast, userChat]);
+  }, [posts, toast, userChat, t]);
 
   // ─── Refetch post data ──────────────────────────────────────
   const refetchPostData = useCallback(async (postId) => {
@@ -167,29 +162,23 @@ export default function PostView({ postData = [], userData = {} }) {
     try {
       const response = await getPostById(postId);
 
-      // Handle both response formats: direct data array or wrapped in data property
       let freshPost = null;
 
       if (response?.data?.statusCode === 200 && response?.data?.success && response?.data?.data) {
-        // Format: { data: { statusCode: 200, success: true, data: {...} } }
         freshPost = response.data.data;
       } else if (response?.statusCode === 200 && response?.success && response?.data) {
-        // Format: { statusCode: 200, success: true, data: {...} }
         freshPost = response.data;
       } else if (Array.isArray(response?.data) && response.data.length > 0) {
-        // Format: { data: [{...}] }
         freshPost = response.data[0];
       } else if (response?.data && typeof response.data === 'object' && response.data.id) {
-        // Format: { data: {...} } - direct post object
         freshPost = response.data;
       }
+
       if (freshPost && freshPost.id) {
-        // Update the list
         setList(prev => prev.map(p =>
-          String(p.id) === String(postId) ? freshPost : p
+          String(p.id) === String(postId) ? freshPost : p,
         ));
 
-        // Update state maps
         setSaved(prev => ({ ...prev, [freshPost.id]: !!freshPost.isSaved }));
         setLiked(prev => ({ ...prev, [freshPost.id]: !!freshPost.isLike }));
         setPostLikesCount(prev => ({ ...prev, [freshPost.id]: freshPost.likeCount ?? 0 }));
@@ -211,12 +200,9 @@ export default function PostView({ postData = [], userData = {} }) {
     const returnParams = route.params?.returnParams;
 
     if (backTarget) {
-      // Check if returnParams has nested screen navigation
       if (returnParams?.screen) {
-        // Navigate to the main stack and then to the nested screen
         navigation.navigate(backTarget, returnParams);
       } else {
-        // Simple navigation
         navigation.navigate(backTarget, returnParams);
       }
     }
@@ -228,8 +214,7 @@ export default function PostView({ postData = [], userData = {} }) {
           userId: routeUserData.id,
         },
       });
-    }
-    else {
+    } else {
       navigation.goBack();
     }
   }, [navigation, routeUserData]);
@@ -256,7 +241,7 @@ export default function PostView({ postData = [], userData = {} }) {
     return `http://35.174.167.92:3002/${trimmed}`;
   };
 
-  // ─── Seed maps from posts (saved, liked, counts, follow, hidden) ─────
+  // ─── Seed maps from posts ──────────────────────────────────
   useEffect(() => {
     if (Array.isArray(posts) && posts.length) {
       const seededSaved = {};
@@ -288,7 +273,6 @@ export default function PostView({ postData = [], userData = {} }) {
     }
   }, [posts]);
 
-  // Update list when posts change
   useEffect(() => {
     setList(posts || []);
   }, [posts]);
@@ -308,7 +292,7 @@ export default function PostView({ postData = [], userData = {} }) {
     }, [])
   );
 
-  // ─── Fetch latest raised amount for mission posts ───────────────────────
+  // ─── Fetch latest raised amount for mission posts ──────────
   useEffect(() => {
     let isActive = true;
 
@@ -358,7 +342,7 @@ export default function PostView({ postData = [], userData = {} }) {
     };
   }, [posts]);
 
-  // ─── Auto-scroll to startIndex when component mounts ────────
+  // ─── Auto-scroll to startIndex ──────────────────────────────
   const startPostId = useMemo(() => {
     if (
       startIndex !== undefined &&
@@ -413,7 +397,6 @@ export default function PostView({ postData = [], userData = {} }) {
     pendingInitialScrollRef.current = false;
   }, [resolvedInitialIndex, scrollToStartIndex, visiblePosts.length]);
 
-  // ─── Handle scroll to index errors ─────────────────────────
   const onScrollToIndexFailed = useCallback(info => {
     if (!flatListRef.current || visiblePosts.length === 0) {
       pendingInitialScrollRef.current = false;
@@ -451,7 +434,7 @@ export default function PostView({ postData = [], userData = {} }) {
     setLiked(prev => ({ ...prev, [postId]: !wasLiked }));
     setPostLikesCount(prev => ({
       ...prev,
-      [postId]: wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1
+      [postId]: wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1,
     }));
 
     setLikingIds(prev => new Set(prev).add(postId));
@@ -461,7 +444,6 @@ export default function PostView({ postData = [], userData = {} }) {
       const ok = res?.statusCode === 200 && res?.success;
 
       if (ok) {
-        // If coming from UserChat, refetch the post data
         if (userChat) {
           await refetchPostData(postId);
         } else {
@@ -476,12 +458,12 @@ export default function PostView({ postData = [], userData = {} }) {
       } else {
         setLiked(prev => ({ ...prev, [postId]: wasLiked }));
         setPostLikesCount(prev => ({ ...prev, [postId]: prevCount }));
-        showToastMessage(toast, 'danger', res?.data?.message || 'Failed to toggle like');
+        showToastMessage(toast, 'danger', res?.data?.message || t('postView.failedToggleLike'));
       }
     } catch (e) {
       setLiked(prev => ({ ...prev, [postId]: wasLiked }));
       setPostLikesCount(prev => ({ ...prev, [postId]: prevCount }));
-      showToastMessage(toast, 'danger', e?.response?.data?.message || 'Something went wrong');
+      showToastMessage(toast, 'danger', e?.response?.data?.message || t('postView.somethingWentWrong'));
     } finally {
       setLikingIds(prev => {
         const next = new Set(prev);
@@ -489,7 +471,7 @@ export default function PostView({ postData = [], userData = {} }) {
         return next;
       });
     }
-  }, [liked, likingIds, postLikesCount, refetchPostData, toast, userChat]);
+  }, [liked, likingIds, postLikesCount, refetchPostData, toast, userChat, t]);
 
   // ─── Save / Unsave ──────────────────────────────────────────
   const handleToggleSave = useCallback(async id => {
@@ -504,7 +486,6 @@ export default function PostView({ postData = [], userData = {} }) {
       if (resp && resp.statusCode === 200) {
         showToastMessage(toast, 'success', resp.data.message);
 
-        // If coming from UserChat, refetch the post data
         if (userChat) {
           await refetchPostData(id);
         } else {
@@ -517,7 +498,7 @@ export default function PostView({ postData = [], userData = {} }) {
       showToastMessage(
         toast,
         'danger',
-        err?.response?.message ?? 'Something went wrong',
+        err?.response?.message ?? t('postView.somethingWentWrong'),
       );
     } finally {
       setSavingIds(prev => {
@@ -526,7 +507,7 @@ export default function PostView({ postData = [], userData = {} }) {
         return next;
       });
     }
-  }, [refetchPostData, saved, savingIds, toast, userChat]);
+  }, [refetchPostData, saved, savingIds, toast, userChat, t]);
 
   // ─── Hide / Unhide ──────────────────────────────────────────
   const handleToggleHide = useCallback(
@@ -544,7 +525,7 @@ export default function PostView({ postData = [], userData = {} }) {
           ? await apiUnhidePost(postId)
           : await apiHidePost(postId);
         const ok = resp?.statusCode === 200 && (resp?.success ?? true);
-        console.log(ok, resp, 'ok respose in this ')
+        console.log(ok, resp, 'ok respose in this ');
         if (!ok) {
           setHiddenById(prev => ({ ...prev, [postId]: isHidden }));
           showToastMessage(
@@ -552,17 +533,16 @@ export default function PostView({ postData = [], userData = {} }) {
             'danger',
             resp?.data?.message ||
             resp?.message ||
-            `Failed to ${isHidden ? 'unhide' : 'hide'} post`,
+            t(isHidden ? 'postView.failedUnhidePost' : 'postView.failedHidePost'),
           );
-          console.log(ok, resp, 'hide post here chcek the data ')
+          console.log(ok, resp, 'hide post here chcek the data ');
         } else {
           showToastMessage(
             toast,
             'success',
-            resp?.data?.message || (isHidden ? 'Post unhidden' : 'Post hidden'),
+            resp?.data?.message || t(isHidden ? 'postView.postUnhidden' : 'postView.postHidden'),
           );
 
-          // If coming from UserChat, refetch the post data
           if (userChat) {
             await refetchPostData(postId);
           }
@@ -572,7 +552,7 @@ export default function PostView({ postData = [], userData = {} }) {
         showToastMessage(
           toast,
           'danger',
-          e?.response?.data?.message || 'Something went wrong',
+          e?.response?.data?.message || t('postView.somethingWentWrong'),
         );
       } finally {
         dispatch(hideLoader());
@@ -583,7 +563,7 @@ export default function PostView({ postData = [], userData = {} }) {
         });
       }
     },
-    [hiddenById, hidingIds, toast, dispatch, userChat, refetchPostData],
+    [hiddenById, hidingIds, toast, dispatch, userChat, refetchPostData, t],
   );
 
   const handleToggleFollow = useCallback(
@@ -603,11 +583,10 @@ export default function PostView({ postData = [], userData = {} }) {
           showToastMessage(
             toast,
             'danger',
-            res?.data?.message || res?.message || 'Unable to update follow'
+            res?.data?.message || res?.message || t('postView.unableToUpdateFollow'),
           );
           return false;
         } else {
-          // If coming from UserChat, refetch the post data
           if (userChat && list[0]?.id) {
             await refetchPostData(list[0].id);
           } else {
@@ -619,7 +598,7 @@ export default function PostView({ postData = [], userData = {} }) {
           showToastMessage(
             toast,
             'success',
-            shouldFollow ? 'Successfully Followed!' : 'Unfollowed',
+            shouldFollow ? t('postView.followSuccess') : t('postView.unfollowSuccess'),
           );
           return true;
         }
@@ -628,7 +607,7 @@ export default function PostView({ postData = [], userData = {} }) {
         showToastMessage(
           toast,
           'danger',
-          e?.response?.data?.message || 'Something went wrong'
+          e?.response?.data?.message || t('postView.somethingWentWrong'),
         );
         return false;
       } finally {
@@ -639,7 +618,7 @@ export default function PostView({ postData = [], userData = {} }) {
         });
       }
     },
-    [toast, followingBusy, userChat, list, refetchPostData]
+    [toast, followingBusy, userChat, list, refetchPostData, t],
   );
 
   // ─── Options ──────────────────────────────────────────
@@ -665,7 +644,6 @@ export default function PostView({ postData = [], userData = {} }) {
     );
   }, []);
 
-  // Optimize canDelete calculation
   const canDelete = useMemo(() => {
     if (!modalPostId || !currentUserId) return false;
     const post = list.find(x => String(x.id) === String(modalPostId));
@@ -685,21 +663,21 @@ export default function PostView({ postData = [], userData = {} }) {
 
       if (action === 'copyAddress') {
         if (!modalPostId) {
-          showToastMessage(toast, 'danger', 'Post ID not found');
+          showToastMessage(toast, 'danger', t('postView.postIdNotFound'));
           closeOptions();
           return;
         }
 
         const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
         Clipboard.setString(deepLink);
-        showToastMessage(toast, 'success', 'Post copied');
+        showToastMessage(toast, 'success', t('postView.postCopied'));
         closeOptions();
         return;
       }
 
       if (action === 'editPost') {
         if (!canDelete) {
-          showToastMessage(toast, 'danger', "You can't edit this post.");
+          showToastMessage(toast, 'danger', t('postView.cantEditPost'));
           closeOptions();
           return;
         }
@@ -708,7 +686,7 @@ export default function PostView({ postData = [], userData = {} }) {
         closeOptions();
 
         if (!postToEdit) {
-          showToastMessage(toast, 'danger', 'Post not found');
+          showToastMessage(toast, 'danger', t('postView.postNotFound'));
           return;
         }
 
@@ -721,15 +699,15 @@ export default function PostView({ postData = [], userData = {} }) {
 
       if (action === 'deletePost') {
         if (!canDelete) {
-          showToastMessage(toast, 'danger', "You can't delete this post.");
+          showToastMessage(toast, 'danger', t('postView.cantDeletePost'));
           closeOptions();
           return;
         }
 
-        Alert.alert('Delete post?', 'This action cannot be undone.', [
-          { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('postView.deletePostTitle'), t('postView.deletePostMessage'), [
+          { text: t('postView.cancel'), style: 'cancel' },
           {
-            text: 'Delete',
+            text: t('postView.delete'),
             style: 'destructive',
             onPress: async () => {
               const previousList = list;
@@ -748,7 +726,7 @@ export default function PostView({ postData = [], userData = {} }) {
                     showToastMessage(
                       toast,
                       'danger',
-                      'No user id found; cannot delete.',
+                      t('postView.noUserIdDelete'),
                     );
                     return;
                   }
@@ -761,7 +739,7 @@ export default function PostView({ postData = [], userData = {} }) {
                   showToastMessage(
                     toast,
                     'success',
-                    res?.data?.message || 'Post deleted',
+                    res?.data?.message || t('postView.postDeleted'),
                   );
                   if (nextVisiblePosts.length === 0) {
                     handleBackPress();
@@ -771,7 +749,7 @@ export default function PostView({ postData = [], userData = {} }) {
                   showToastMessage(
                     toast,
                     'danger',
-                    res?.data?.message || res?.message || 'Failed to delete',
+                    res?.data?.message || res?.message || t('postView.failedDelete'),
                   );
                 }
               } catch (err) {
@@ -781,7 +759,7 @@ export default function PostView({ postData = [], userData = {} }) {
                   'danger',
                   err?.response?.data?.message ||
                   err?.message ||
-                  'Error deleting post',
+                  t('postView.errorDeletingPost'),
                 );
               } finally {
                 dispatch(hideLoader());
@@ -815,6 +793,7 @@ export default function PostView({ postData = [], userData = {} }) {
       handleToggleHide,
       hiddenById,
       handleBackPress,
+      t,
     ],
   );
 
@@ -827,7 +806,7 @@ export default function PostView({ postData = [], userData = {} }) {
 
   const submitComment = () => {
     if (!commentText.trim()) return;
-    Alert.alert('Commented:', commentText.trim());
+    Alert.alert(t('postView.commentedLabel'), commentText.trim());
     setCommentText('');
     commentSheetRef.current?.close();
   };
@@ -840,10 +819,9 @@ export default function PostView({ postData = [], userData = {} }) {
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
     setPostCommentsCount(prev => ({
       ...prev,
-      [postId]: Math.max(0, newCount)
+      [postId]: Math.max(0, newCount),
     }));
 
-    // If coming from UserChat, refetch the post data for accuracy
     if (userChat) {
       refetchPostData(postId);
     }
@@ -918,7 +896,6 @@ export default function PostView({ postData = [], userData = {} }) {
             playingPostId={playingPostId}
             currentlyVisiblePostId={currentlyVisiblePostId}
           />
-
         </View>
       );
     },
@@ -941,7 +918,6 @@ export default function PostView({ postData = [], userData = {} }) {
     ],
   );
 
-  // ─── Get initial scroll index for FlatList ──────────────────
   const getInitialScrollIndex = () => {
     return resolvedInitialIndex >= 0 ? resolvedInitialIndex : 0;
   };
@@ -996,7 +972,7 @@ export default function PostView({ postData = [], userData = {} }) {
         }, 250);
       }
     },
-    [currentlyVisiblePostId, startPostId]
+    [currentlyVisiblePostId, startPostId],
   );
 
   const viewabilityConfigRef = useRef({
@@ -1024,7 +1000,7 @@ export default function PostView({ postData = [], userData = {} }) {
           >
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
-          <Text style={styles.userText}>{posts[0]?.userName || 'Posts'}</Text>
+          <Text style={styles.userText}>{posts[0]?.userName || t('postView.postsHeaderFallback')}</Text>
           <View style={styles.placeholder} />
         </View>
 

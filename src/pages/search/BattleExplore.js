@@ -25,14 +25,14 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
 import { exploretBattle } from '../../services/battle';
 import BattleCard from '../../components/search/Battlecard';
-import {
-  mapBattleCard,
-} from '../../utils/battleCardUtils';
+import { mapBattleCard } from '../../utils/battleCardUtils';
+import { useLanguage } from '../../i18n';
 
 export default function BattleExplore({ onClose, profile }) {
   const navigation = useNavigation();
   const toast = useToast();
   const { bgStyle, text } = useAppTheme(profile);
+  const { t } = useLanguage();
 
   const [battles, setBattles] = useState([]);
   const [filteredBattles, setFilteredBattles] = useState([]);
@@ -73,12 +73,12 @@ export default function BattleExplore({ onClose, profile }) {
       }
     } catch (error) {
       setBattles([]);
-      showToastMessage(toastRef.current, 'danger', 'Failed to load battles');
+      showToastMessage(toastRef.current, 'danger', t('battleExplore.fetchFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchBattles();
@@ -87,7 +87,6 @@ export default function BattleExplore({ onClose, profile }) {
   useEffect(() => {
     let result = [...battles];
 
-    // Search filter
     const query = searchText.trim().toLowerCase();
     if (query) {
       result = result.filter(b => {
@@ -128,7 +127,10 @@ export default function BattleExplore({ onClose, profile }) {
 
   const handleUserProfile = useCallback(user => {
     const targetId = user?.id || user?.userId || user?._id;
-    if (!targetId) { showToastMessage(toastRef.current, 'danger', 'Unable to open profile'); return; }
+    if (!targetId) {
+      showToastMessage(toastRef.current, 'danger', t('battleExplore.unableToOpenProfile'));
+      return;
+    }
     if (String(targetId) === String(userId || '')) {
       navigation.navigate('ProfileMain', { screen: 'Profile' });
       return;
@@ -141,7 +143,7 @@ export default function BattleExplore({ onClose, profile }) {
         returnTo: 'Search',
       },
     });
-  }, [navigation, userId]);
+  }, [navigation, userId, t]);
 
   const updateSelectedBattleOption = useCallback((battleId, optionLabel) => {
     if (!battleId || !optionLabel) return;
@@ -149,7 +151,9 @@ export default function BattleExplore({ onClose, profile }) {
   }, []);
 
   const selectedBattleOptionsRef = useRef(selectedBattleOptions);
-  useEffect(() => { selectedBattleOptionsRef.current = selectedBattleOptions; }, [selectedBattleOptions]);
+  useEffect(() => {
+    selectedBattleOptionsRef.current = selectedBattleOptions;
+  }, [selectedBattleOptions]);
 
   const handleBattleCardPress = useCallback((battleItem) => {
     navigation.navigate('ProfileMain', {
@@ -160,10 +164,10 @@ export default function BattleExplore({ onClose, profile }) {
         entryPoint: 'battleExplore',
         selectedOption: selectedBattleOptionsRef.current[battleItem?.id] || '',
         returnTo: 'Search',
-        profile
+        profile,
       },
     });
-  }, [navigation]);
+  }, [navigation, profile]);
 
   const renderItem = useCallback(({ item }) => (
     <View style={styles.cardWrapper}>
@@ -189,15 +193,18 @@ export default function BattleExplore({ onClose, profile }) {
         <TouchableOpacity onPress={() => onClose?.()} style={styles.backBtn}>
           <Icon name="arrow-back" size={24} color={text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: text }]}>Battle Explore</Text>
+        <Text style={[styles.headerTitle, { color: text }]}>
+          {t('battleExplore.headerTitle')}
+        </Text>
         <View style={styles.backBtn} />
       </View>
 
+      {/* Search */}
       <View style={styles.searchContainer}>
         <Icon name="search" size={20} color="#999" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search users or businesses..."
+          placeholder={t('battleExplore.searchPlaceholder')}
           placeholderTextColor="#999"
           value={searchText}
           onChangeText={handleSearch}
@@ -205,7 +212,9 @@ export default function BattleExplore({ onClose, profile }) {
           onSubmitEditing={Keyboard.dismiss}
         />
         {searchText.length > 0 && (
-          <TouchableOpacity onPress={() => handleSearch('')} style={styles.clearSearchBtn}>
+          <TouchableOpacity
+            onPress={() => handleSearch('')}
+            style={styles.clearSearchBtn}>
             <Icon name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
         )}
@@ -215,7 +224,7 @@ export default function BattleExplore({ onClose, profile }) {
       {loading && !refreshing ? (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#999" />
-          <Text style={styles.emptySubtitle}>Loading battles...</Text>
+          <Text style={styles.emptySubtitle}>{t('battleExplore.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -223,7 +232,9 @@ export default function BattleExplore({ onClose, profile }) {
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
           contentContainerStyle={styles.listContent}
           initialNumToRender={8}
           maxToRenderPerBatch={10}
@@ -232,10 +243,8 @@ export default function BattleExplore({ onClose, profile }) {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Icon name="shield-outline" size={60} color="#ddd" />
-              <Text style={styles.emptyTitle}>No battles found</Text>
-              <Text style={styles.emptySubtitle}>
-                Try a different search
-              </Text>
+              <Text style={styles.emptyTitle}>{t('battleExplore.emptyTitle')}</Text>
+              <Text style={styles.emptySubtitle}>{t('battleExplore.emptySubtitle')}</Text>
             </View>
           }
         />

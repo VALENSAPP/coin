@@ -37,9 +37,11 @@ import { useToast } from 'react-native-toast-notifications';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const HidePosts = ({ navigation }) => {
   const isScreenFocused = useIsFocused();
+  const { t } = useLanguage();
   const [feedVisiblePostId, setFeedVisiblePostId] = useState(null);
   const [feedPlayingPostId, setFeedPlayingPostId] = useState(null);
 
@@ -53,7 +55,7 @@ const HidePosts = ({ navigation }) => {
   const [postLikesCount, setPostLikesCount] = useState({});
   const [postCommentsCount, setPostCommentsCount] = useState({});
 
-  // Hidden map (we’ll use the same `saved` prop in PostItem, but it means “isHidden” here)
+  // Hidden map
   const [hidden, setHidden] = useState({});
   const [unhidingIds, setUnhidingIds] = useState(new Set());
 
@@ -132,11 +134,7 @@ const HidePosts = ({ navigation }) => {
       const res = await getUserCredentials(String(id));
       if (res?.statusCode !== 200) return;
 
-      const user =
-        res?.data?.user ||
-        res?.data ||
-        res ||
-        {};
+      const user = res?.data?.user || res?.data || res || {};
 
       if (user?.displayName || user?.userName || user?.username) {
         setCurrentUsername(user?.displayName || user?.userName || user?.username);
@@ -239,7 +237,7 @@ const HidePosts = ({ navigation }) => {
             ? formatUrl(p.avatar)
             : cachedUser?.image
               ? formatUrl(cachedUser.image)
-            : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+              : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
         media: (p.images || []).map((url) => ({ type: getMediaType(url), url: formatUrl(url) })),
         caption: p.caption || p.text || '',
         PostsProfile: p.PostsProfile ?? 'Vallow',
@@ -354,26 +352,29 @@ const HidePosts = ({ navigation }) => {
         seedMapsFromPosts(raw);
         ensureUserDetailsForPosts(raw);
       } else {
-        Alert.alert('Error', response?.message || 'Failed to fetch hidden posts');
+        Alert.alert(
+          t('hidePosts.errorTitle'),
+          response?.message || t('hidePosts.fetchError'),
+        );
       }
     } catch (err) {
       console.error('Error fetching hidden posts:', err);
-      Alert.alert('Error', 'Network error occurred while fetching posts');
+      Alert.alert(t('hidePosts.errorTitle'), t('hidePosts.networkError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshing, seedMapsFromPosts, ensureUserDetailsForPosts]);
+  }, [refreshing, seedMapsFromPosts, ensureUserDetailsForPosts, t]);
 
   useFocusEffect(
     useCallback(() => {
       loadCurrentUserThemeOverride();
       getCurrentUsername();
       fetchHiddenPosts();
-      return () => {
-      };
+      return () => {};
     }, [fetchHiddenPosts, loadCurrentUserThemeOverride])
   );
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchHiddenPosts();
@@ -386,7 +387,6 @@ const HidePosts = ({ navigation }) => {
       const key = String(targetUserId);
       if (followingBusy.has(key)) return;
 
-      // optimistic
       setFollowingByUserId((prev) => ({ ...prev, [key]: shouldFollow }));
       setFollowingBusy((prev) => new Set(prev).add(key));
 
@@ -398,14 +398,18 @@ const HidePosts = ({ navigation }) => {
           showToastMessage(
             toast,
             'danger',
-            res?.data?.message || res?.message || 'Unable to update follow'
+            res?.data?.message || res?.message || t('hidePosts.followUpdateError'),
           );
         } else if (typeof res?.data?.following === 'boolean') {
           setFollowingByUserId((prev) => ({ ...prev, [key]: res.data.following }));
         }
       } catch (e) {
         setFollowingByUserId((prev) => ({ ...prev, [key]: !shouldFollow }));
-        showToastMessage(toast, 'danger', e?.response?.data?.message || 'Something went wrong');
+        showToastMessage(
+          toast,
+          'danger',
+          e?.response?.data?.message || t('hidePosts.somethingWentWrong'),
+        );
       } finally {
         setFollowingBusy((prev) => {
           const next = new Set(prev);
@@ -414,7 +418,7 @@ const HidePosts = ({ navigation }) => {
         });
       }
     },
-    [toast, followingBusy]
+    [toast, followingBusy, t]
   );
 
   // --- like ---
@@ -425,7 +429,6 @@ const HidePosts = ({ navigation }) => {
       const wasLiked = !!liked[postId];
       const prevCount = postLikesCount[postId] ?? 0;
 
-      // optimistic
       setLiked((prev) => ({ ...prev, [postId]: !wasLiked }));
       setPostLikesCount((prev) => ({
         ...prev,
@@ -446,17 +449,25 @@ const HidePosts = ({ navigation }) => {
           showToastMessage(
             toast,
             'success',
-            res?.data?.message || (serverLiked ? 'Post liked' : 'Post unliked')
+            res?.data?.message || (serverLiked ? t('hidePosts.postLiked') : t('hidePosts.postUnliked')),
           );
         } else {
           setLiked((prev) => ({ ...prev, [postId]: wasLiked }));
           setPostLikesCount((prev) => ({ ...prev, [postId]: prevCount }));
-          showToastMessage(toast, 'danger', res?.data?.message || 'Failed to toggle like');
+          showToastMessage(
+            toast,
+            'danger',
+            res?.data?.message || t('hidePosts.likeToggleFailed'),
+          );
         }
       } catch (e) {
         setLiked((prev) => ({ ...prev, [postId]: wasLiked }));
         setPostLikesCount((prev) => ({ ...prev, [postId]: prevCount }));
-        showToastMessage(toast, 'danger', e?.response?.data?.message || 'Something went wrong');
+        showToastMessage(
+          toast,
+          'danger',
+          e?.response?.data?.message || t('hidePosts.somethingWentWrong'),
+        );
       } finally {
         setLikingIds((prev) => {
           const next = new Set(prev);
@@ -465,10 +476,10 @@ const HidePosts = ({ navigation }) => {
         });
       }
     },
-    [liked, postLikesCount, likingIds, toast]
+    [liked, postLikesCount, likingIds, toast, t]
   );
 
-  // --- UNHIDE (replaces save/unsave) ---
+  // --- UNHIDE ---
   const handleToggleHide = useCallback(
     async (id) => {
       if (!id || unhidingIds.has(id)) return;
@@ -477,14 +488,26 @@ const HidePosts = ({ navigation }) => {
       try {
         const resp = await unHidePost(id);
         if (resp && resp.statusCode === 200 && resp.success) {
-          showToastMessage(toast, 'success', resp?.data?.message || 'Post unhidden');
+          showToastMessage(
+            toast,
+            'success',
+            resp?.data?.message || t('hidePosts.postUnhidden'),
+          );
           setHidden((prev) => ({ ...prev, [id]: false }));
-          setPosts((prev) => prev.filter((p) => p.id !== id)); // remove from list
+          setPosts((prev) => prev.filter((p) => p.id !== id));
         } else {
-          showToastMessage(toast, 'danger', resp?.data?.message || 'Failed to unhide');
+          showToastMessage(
+            toast,
+            'danger',
+            resp?.data?.message || t('hidePosts.unhideFailed'),
+          );
         }
       } catch (err) {
-        showToastMessage(toast, 'danger', err?.response?.message ?? 'Something went wrong');
+        showToastMessage(
+          toast,
+          'danger',
+          err?.response?.message ?? t('hidePosts.somethingWentWrong'),
+        );
       } finally {
         setUnhidingIds((prev) => {
           const next = new Set(prev);
@@ -493,7 +516,7 @@ const HidePosts = ({ navigation }) => {
         });
       }
     },
-    [unhidingIds, toast]
+    [unhidingIds, toast, t]
   );
 
   // --- options modal ---
@@ -501,6 +524,7 @@ const HidePosts = ({ navigation }) => {
     setModalPostId(id);
     setModalVisible(true);
   }, []);
+
   const closeOptions = useCallback(() => {
     setModalVisible(false);
     setModalPostId(null);
@@ -532,19 +556,24 @@ const HidePosts = ({ navigation }) => {
           showToastMessage(
             toast,
             'success',
-            resp?.data?.message || (isCurrentlySaved ? 'Post unsaved' : 'Post saved'),
+            resp?.data?.message ||
+              (isCurrentlySaved ? t('hidePosts.postUnsaved') : t('hidePosts.postSaved')),
           );
         } else {
           setSavedById(prev => ({ ...prev, [id]: isCurrentlySaved }));
           showToastMessage(
             toast,
             'danger',
-            resp?.data?.message || resp?.message || 'Failed to update save',
+            resp?.data?.message || resp?.message || t('hidePosts.saveFailed'),
           );
         }
       } catch (e) {
         setSavedById(prev => ({ ...prev, [id]: isCurrentlySaved }));
-        showToastMessage(toast, 'danger', e?.response?.data?.message || 'Something went wrong');
+        showToastMessage(
+          toast,
+          'danger',
+          e?.response?.data?.message || t('hidePosts.somethingWentWrong'),
+        );
       } finally {
         setSavingIds(prev => {
           const next = new Set(prev);
@@ -553,7 +582,7 @@ const HidePosts = ({ navigation }) => {
         });
       }
     },
-    [savedById, savingIds, toast],
+    [savedById, savingIds, toast, t],
   );
 
   const handlePostEdited = useCallback((updatedPost) => {
@@ -564,10 +593,11 @@ const HidePosts = ({ navigation }) => {
       ),
     );
   }, []);
+
   const onOptionsSelect = useCallback(
     async (action) => {
       if (!modalPostId) return;
-      // Reuse Saved’s action key; treat toggleSave/toggleHide as “unhide”
+
       if (action === 'toggleSave') {
         await handleToggleSave(String(modalPostId));
         closeOptions();
@@ -577,14 +607,14 @@ const HidePosts = ({ navigation }) => {
       if (action === 'copyAddress') {
         const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
         Clipboard.setString(deepLink);
-        showToastMessage(toast, 'success', 'Post copied');
+        showToastMessage(toast, 'success', t('hidePosts.postCopied'));
         closeOptions();
         return;
       }
 
       if (action === 'editPost') {
         if (!modalCanDelete) {
-          showToastMessage(toast, 'danger', "You can't edit this post.");
+          showToastMessage(toast, 'danger', t('hidePosts.cannotEditPost'));
           closeOptions();
           return;
         }
@@ -592,7 +622,7 @@ const HidePosts = ({ navigation }) => {
         const postToEdit = modalPost;
         closeOptions();
         if (!postToEdit) {
-          showToastMessage(toast, 'danger', 'Post not found');
+          showToastMessage(toast, 'danger', t('hidePosts.postNotFound'));
           return;
         }
 
@@ -605,54 +635,61 @@ const HidePosts = ({ navigation }) => {
 
       if (action === 'deletePost') {
         if (!modalCanDelete) {
-          showToastMessage(toast, 'danger', "You can't delete this post.");
+          showToastMessage(toast, 'danger', t('hidePosts.cannotDeletePost'));
           closeOptions();
           return;
         }
 
-        Alert.alert('Delete post?', 'This action cannot be undone.', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const userId = currentUserId || (await AsyncStorage.getItem('userId'));
-                if (!userId) {
-                  showToastMessage(toast, 'danger', 'No user id found; cannot delete.');
-                  return;
-                }
+        Alert.alert(
+          t('hidePosts.deletePostTitle'),
+          t('hidePosts.deletePostMessage'),
+          [
+            { text: t('hidePosts.cancel'), style: 'cancel' },
+            {
+              text: t('hidePosts.delete'),
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  const userId = currentUserId || (await AsyncStorage.getItem('userId'));
+                  if (!userId) {
+                    showToastMessage(toast, 'danger', t('hidePosts.noUserIdError'));
+                    return;
+                  }
 
-                setPosts(prev =>
-                  prev.filter(p => String(p?.id || p?._id) !== String(modalPostId)),
-                );
-                closeOptions();
+                  setPosts(prev =>
+                    prev.filter(p => String(p?.id || p?._id) !== String(modalPostId)),
+                  );
+                  closeOptions();
 
-                const res = await deletePost(String(modalPostId), String(userId));
-                if (res?.statusCode === 200 && res?.success) {
-                  showToastMessage(toast, 'success', res?.data?.message || 'Post deleted');
-                } else {
+                  const res = await deletePost(String(modalPostId), String(userId));
+                  if (res?.statusCode === 200 && res?.success) {
+                    showToastMessage(
+                      toast,
+                      'success',
+                      res?.data?.message || t('hidePosts.postDeleted'),
+                    );
+                  } else {
+                    showToastMessage(
+                      toast,
+                      'danger',
+                      res?.data?.message || res?.message || t('hidePosts.deleteFailed'),
+                    );
+                  }
+                } catch (e) {
                   showToastMessage(
                     toast,
                     'danger',
-                    res?.data?.message || res?.message || 'Failed to delete',
+                    e?.response?.data?.message || e?.message || t('hidePosts.deleteError'),
                   );
                 }
-              } catch (e) {
-                showToastMessage(
-                  toast,
-                  'danger',
-                  e?.response?.data?.message || e?.message || 'Error deleting post',
-                );
-              }
+              },
             },
-          },
-        ]);
+          ],
+        );
 
         return;
       }
 
-      // Hide/unhide is handled inside OptionsModal now, but keep for backward compatibility
       if (action === 'hidePost') {
         await handleToggleHide(String(modalPostId));
         closeOptions();
@@ -672,6 +709,7 @@ const HidePosts = ({ navigation }) => {
       navigation,
       handlePostEdited,
       currentUserId,
+      t,
     ]
   );
 
@@ -681,26 +719,28 @@ const HidePosts = ({ navigation }) => {
     setCommentPostOwnerId(ownerId);
     commentSheetRef.current?.open();
   }, []);
+
   const handleCommentClose = useCallback(() => {
     commentSheetRef.current?.close();
     setCommentPostId(null);
   }, []);
+
   const handleCommentCountUpdate = useCallback((postId, newCount) => {
     setPostCommentsCount((prev) => ({ ...prev, [postId]: Math.max(0, newCount) }));
   }, []);
+
   const submitComment = useCallback(() => {
     if (!commentText.trim()) return;
-    Alert.alert('Commented:', commentText.trim());
+    Alert.alert(t('hidePosts.commentedAlert'), commentText.trim());
     setCommentText('');
     commentSheetRef.current?.close();
-  }, [commentText]);
+  }, [commentText, t]);
 
   // --- render ---
   const renderPostItem = useCallback(
     ({ item }) => {
       const mapped = mapApiPostToPostItem(item);
       const postId = item.id ?? item._id;
-      // Pass "saved" to keep PostItem UI identical; here it means "isHidden"
       return (
         <PostItem
           item={mapped}
@@ -708,7 +748,7 @@ const HidePosts = ({ navigation }) => {
           likesCount={postLikesCount[item.id] || 0}
           commentsCount={postCommentsCount[item.id] || 0}
           saved={!!hidden[item.id]}
-          onToggleSave={() => handleToggleHide(item.id)} // UNHIDE
+          onToggleSave={() => handleToggleHide(item.id)}
           onToggleLike={() => toggleLike(item.id)}
           onToggleFollow={handleToggleFollow}
           followingBusy={followingBusy.has(String(mapped.UserId))}
@@ -740,7 +780,10 @@ const HidePosts = ({ navigation }) => {
     ]
   );
 
-  const keyExtractor = useCallback((item) => item.id?.toString() || item._id?.toString(), []);
+  const keyExtractor = useCallback(
+    (item) => item.id?.toString() || item._id?.toString(),
+    [],
+  );
 
   const EmptyState = useCallback(
     () => (
@@ -754,23 +797,29 @@ const HidePosts = ({ navigation }) => {
               : '#C7C7CC'
           }
         />
-        <Text style={[styles.emptyTitle, textStyle]}>No Hidden Posts</Text>
+        <Text style={[styles.emptyTitle, textStyle]}>{t('hidePosts.emptyTitle')}</Text>
         <Text style={[styles.emptySubtitle, textStyle, { opacity: 0.7 }]}>
-          You haven't hidden any posts yet.{'\n'}Hide a post to see it here.
+          {t('hidePosts.emptySubtitle')}
         </Text>
       </View>
     ),
-    [textStyle, themeText]
+    [textStyle, themeText, t]
   );
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor={cardStyle?.backgroundColor || '#fff'} />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={cardStyle?.backgroundColor || '#fff'}
+      />
       <View style={[styles.header, cardStyle]}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation?.goBack()}
+          style={styles.backButton}
+        >
           <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Hidden Posts</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{t('hidePosts.headerTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -778,7 +827,7 @@ const HidePosts = ({ navigation }) => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeText || '#4d2a88'} />
           <Text style={[styles.loadingText, textStyle, { opacity: 0.7 }]}>
-            Loading hidden posts...
+            {t('hidePosts.loadingText')}
           </Text>
         </View>
       ) : (
@@ -812,7 +861,9 @@ const HidePosts = ({ navigation }) => {
           const key = String(id);
           setHidden(prev => ({ ...prev, [key]: nextHidden }));
           if (!nextHidden) {
-            setPosts(prev => prev.filter(item => String(item?.id || item?._id) !== key));
+            setPosts(prev =>
+              prev.filter(item => String(item?.id || item?._id) !== key),
+            );
           }
         }}
       />
@@ -825,10 +876,13 @@ const HidePosts = ({ navigation }) => {
         closeOnPressMask
         customModalProps={{ statusBarTranslucent: true }}
         customStyles={{
-          container: [{
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
-          }, bgStyle],
+          container: [
+            {
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+            },
+            bgStyle,
+          ],
           draggableIcon: { backgroundColor: '#ccc', width: 60 },
         }}
       >

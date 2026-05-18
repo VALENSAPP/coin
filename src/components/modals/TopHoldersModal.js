@@ -10,19 +10,20 @@ import {
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const { width } = Dimensions.get('window');
 
 const TopHoldersModal = ({ visible, onClose }) => {
-  const [activeTab, setActiveTab] = useState(0); // Initialize with 0
-  const sheetRef = useRef(null); // Separate ref for RBSheet
-  const scrollViewRef = useRef(null); // Separate ref for ScrollView
+  const [activeTab, setActiveTab] = useState(0);
+  const sheetRef = useRef(null);
+  const scrollViewRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (visible && sheetRef.current) {
       sheetRef.current?.open();
-      // Reset to first tab when modal opens
       setTimeout(() => {
         if (scrollViewRef.current) {
           scrollViewRef.current.scrollTo({ x: 0, animated: false });
@@ -47,7 +48,6 @@ const TopHoldersModal = ({ visible, onClose }) => {
   };
 
   const handleClose = () => {
-    // Reset state when closing
     setActiveTab(0);
     onClose();
   };
@@ -58,31 +58,25 @@ const TopHoldersModal = ({ visible, onClose }) => {
       draggable
       height={330}
       onClose={handleClose}
-      customModalProps={{
-        statusBarTranslucent: true,
-      }}
+      customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
-        container: [{
-          borderTopLeftRadius: 10,
-          borderTopRightRadius: 10,
-        }, bgStyle],
-        draggableIcon: {
-          width: 80,
-        },
-      }}>
+        container: [{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }, bgStyle],
+        draggableIcon: { width: 80 },
+      }}
+    >
       <View style={styles.overlay}>
         <View style={bgStyle}>
           {/* Tabs */}
           <View style={styles.tabRow}>
             <TouchableOpacity style={styles.tab} onPress={() => handleTabPress(0)}>
               <Text style={[styles.tabText, activeTab === 0 && styles.activeTabText]}>
-                Activity
+                {t('topHolders.activityTab')}
               </Text>
               {activeTab === 0 && <View style={styles.activeUnderline} />}
             </TouchableOpacity>
             <TouchableOpacity style={styles.tab} onPress={() => handleTabPress(1)}>
               <Text style={[styles.tabText, activeTab === 1 && styles.activeTabText]}>
-                Holders
+                {t('topHolders.holdersTab')}
               </Text>
               {activeTab === 1 && <View style={styles.activeUnderline} />}
             </TouchableOpacity>
@@ -100,10 +94,10 @@ const TopHoldersModal = ({ visible, onClose }) => {
             {/* Activity Page */}
             <View style={[styles.page, { width }]}>
               <View style={styles.centerContent}>
-                <Text style={styles.noActivityText}>✨ No activity yet</Text>
-                <Text style={styles.subText}>Buy to get the market started</Text>
+                <Text style={styles.noActivityText}>{t('topHolders.noActivity')}</Text>
+                <Text style={styles.subText}>{t('topHolders.noActivitySub')}</Text>
                 <TouchableOpacity style={styles.buyButton}>
-                  <Text style={styles.buyButtonText}>Buy</Text>
+                  <Text style={styles.buyButtonText}>{t('topHolders.buyButton')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -114,11 +108,11 @@ const TopHoldersModal = ({ visible, onClose }) => {
                 {/* Top two boxes */}
                 <View style={styles.topBoxes}>
                   <View style={[styles.box, bgStyle]}>
-                    <Text style={styles.boxTitle}>Market</Text>
+                    <Text style={styles.boxTitle}>{t('topHolders.marketLabel')}</Text>
                     <Text style={styles.boxPercent}>50%</Text>
                   </View>
                   <View style={[styles.box, bgStyle]}>
-                    <Text style={styles.boxTitle}>User</Text>
+                    <Text style={styles.boxTitle}>{t('topHolders.userLabel')}</Text>
                     <Text style={styles.boxPercent}>50%</Text>
                   </View>
                 </View>
@@ -129,7 +123,7 @@ const TopHoldersModal = ({ visible, onClose }) => {
                     source={{ uri: 'https://placehold.co/40x40' }}
                     style={styles.avatar}
                   />
-                  <Text style={styles.holderName}>User (you)</Text>
+                  <Text style={styles.holderName}>{t('topHolders.youLabel')}</Text>
                   <View style={styles.percentBadge}>
                     <Text style={styles.percentText}>0.191%</Text>
                   </View>

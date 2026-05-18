@@ -24,6 +24,7 @@ import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
 import { updatLoginModal } from './services/kycverification';
+import { useLanguage } from './i18n';
 // import { getUserCountry } from './hooks/countryLocation';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
@@ -60,6 +61,7 @@ export default function Main() {
   const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
   const dispatch = useDispatch();
   const toast = useToast();
+  const { t } = useLanguage();
   const navigationRef = useRef(null);
   const pendingNotificationNavigation = useRef(false);
   const isNavigationReadyRef = useRef(false);
@@ -133,7 +135,7 @@ export default function Main() {
       }
 
       const response = await getUserCredentials(id);
-      console.log(response, 'fdATA')
+      console.log(response, 'fdATA');
       if (response?.statusCode !== 200) {
         return;
       }
@@ -148,9 +150,6 @@ export default function Main() {
       const firstLog = firstLogRaw === true || String(firstLogRaw || '').toLowerCase() === 'true';
 
       const isKycApproved = kycApproved && firstLog;
-      // const isKycApproved =
-      //   canAccessPlatform === true ||
-      //   String(canAccessPlatform || '').toLowerCase() === 'true';
 
       setWelcomeModalVisible(isKycApproved);
     } catch (error) {
@@ -265,10 +264,10 @@ export default function Main() {
 
       // At the top of handleDeepLink, after receiving com.valens.app://
       const isMetaMaskReturn = url === 'com.valens.app://' || url === 'com.valens.app';
-      console.log("isMetaMaskReturn-------------", isMetaMaskReturn)
+      console.log("isMetaMaskReturn-------------", isMetaMaskReturn);
       if (isMetaMaskReturn) {
         const pendingMetamask = await AsyncStorage.getItem('pending_metamask_connect');
-        console.log("pendingMetamask-------------", pendingMetamask)
+        console.log("pendingMetamask-------------", pendingMetamask);
 
         if (pendingMetamask === 'true') {
           await AsyncStorage.removeItem('pending_metamask_connect');
@@ -436,7 +435,7 @@ export default function Main() {
                         screen: 'Profile',
                       },
                     });
-                    showToastMessage(toast, 'danger', 'Unable to open this profile from link.');
+                    showToastMessage(toast, 'danger', t('main.unableToOpenProfileLink'));
                   }
                 });
               } else {
@@ -500,28 +499,25 @@ export default function Main() {
 
   const getNotification = async () => {
     messaging().onMessage(async remoteMessage => {
-      console.log("onMessage data------------------------", remoteMessage)
+      console.log("onMessage data------------------------", remoteMessage);
     });
 
     messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log("onNotificationOpenedApp data------------------------", remoteMessage)
+      console.log("onNotificationOpenedApp data------------------------", remoteMessage);
       setMessage(remoteMessage?.notification?.body || '');
       navigateToHeartNotification();
-      // setModalVisible(true);
-
     });
 
     messaging()
       .getInitialNotification()
       .then(remoteMessage => {
         if (remoteMessage) {
-          console.log("getInitialNotification data------------------------", remoteMessage)
+          console.log("getInitialNotification data------------------------", remoteMessage);
           setMessage(remoteMessage?.notification?.body || '');
           navigateToHeartNotification();
-          // setModalVisible(true);
         }
       });
-  }
+  };
 
   const handleNavigationReady = () => {
     console.log('Navigation is ready');
@@ -562,7 +558,6 @@ export default function Main() {
         }
         <WelcomeValensModal
           visible={welcomeModalVisible}
-
           onClose={handleWelcomeModalClose}
         />
       </ThemeProvider>

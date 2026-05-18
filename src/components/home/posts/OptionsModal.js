@@ -10,6 +10,8 @@ import ReportFlowScreen from '../../modals/Report';
 import { HidePost as apiHidePost, unHidePost as apiUnhidePost } from '../../../services/post';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../displaytoastmessage';
+import { useLanguage } from '../../../i18n';
+
 export default function OptionsModal({
   visible,
   onClose,
@@ -28,12 +30,16 @@ export default function OptionsModal({
   const { bgStyle, textStyle } = useAppTheme();
   const reportRef = useRef(null);
   const toast = useToast();
+  const { t } = useLanguage();
   const [localHidden, setLocalHidden] = useState(!!isHidden);
   const [localHideBusy, setLocalHideBusy] = useState(false);
   const [reportPostId, setReportPostId] = useState('');
 
   const effectiveHidden = useMemo(() => localHidden, [localHidden]);
-  const effectiveHideBusy = useMemo(() => Boolean(hideBusy || localHideBusy), [hideBusy, localHideBusy]);
+  const effectiveHideBusy = useMemo(
+    () => Boolean(hideBusy || localHideBusy),
+    [hideBusy, localHideBusy],
+  );
 
   useEffect(() => {
     if (visible) sheetRef.current?.open();
@@ -50,29 +56,27 @@ export default function OptionsModal({
     }
   }, [postId]);
 
-  const tap = (action) => {
+  const tap = action => {
     onSelect?.(action, { postId });
-    // sheetRef.current?.close();
   };
-  // console.log(postId,'post it sgreaag');
-  
+
   const report = () => {
     if (postId) {
       setReportPostId(String(postId));
     }
     sheetRef.current?.close();
-
     setTimeout(() => {
       reportRef.current?.open();
     }, 300);
   };
+
   const muteUser = () => {
-  sheetRef.current?.close();
-  Alert.alert(
-    'User Muted',
-    'You will no longer receive notifications from this user.'
-  );
-};
+    sheetRef.current?.close();
+    Alert.alert(
+      t('optionsModal.mutedTitle'),
+      t('optionsModal.mutedMessage'),
+    );
+  };
 
   const handleToggleHide = useCallback(async () => {
     if (!postId) return;
@@ -83,22 +87,29 @@ export default function OptionsModal({
     setLocalHidden(nextHidden);
 
     try {
-      const resp = nextHidden ? await apiHidePost(postId) : await apiUnhidePost(postId);
+      const resp = nextHidden
+        ? await apiHidePost(postId)
+        : await apiUnhidePost(postId);
       const ok = resp?.statusCode === 200 && (resp?.success ?? true);
+
       if (!ok) {
         setLocalHidden(effectiveHidden);
         showToastMessage(
           toast,
           'danger',
-          resp?.data?.message || resp?.message || `Failed to ${nextHidden ? 'hide' : 'unhide'} post`,
+          resp?.data?.message ||
+            resp?.message ||
+            t(nextHidden ? 'optionsModal.errorHideFailed' : 'optionsModal.errorUnhideFailed'),
         );
         return;
       }
-console.log(resp,'repone in hide post')
+
+      console.log(resp, 'response in hide post');
       showToastMessage(
         toast,
         'success',
-        resp?.data?.message || (nextHidden ? 'Post hidden' : 'Post unhidden'),
+        resp?.data?.message ||
+          t(nextHidden ? 'optionsModal.successHidden' : 'optionsModal.successUnhidden'),
       );
 
       onHiddenChange?.(postId, nextHidden);
@@ -108,12 +119,14 @@ console.log(resp,'repone in hide post')
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Something went wrong',
+        error?.response?.data?.message ||
+          error?.message ||
+          t('optionsModal.errorGeneric'),
       );
     } finally {
       setLocalHideBusy(false);
     }
-  }, [effectiveHidden, effectiveHideBusy, onHiddenChange, postId, toast]);
+  }, [effectiveHidden, effectiveHideBusy, onHiddenChange, postId, toast, t]);
 
   return (
     <>
@@ -122,62 +135,116 @@ console.log(resp,'repone in hide post')
         draggable
         height={canEdit ? 300 : 250}
         onClose={onClose}
-        customModalProps={{ statusBarTranslucent: true, presentationStyle: 'overFullScreen' }}
+        customModalProps={{
+          statusBarTranslucent: true,
+          presentationStyle: 'overFullScreen',
+        }}
         customStyles={{
           container: [
             { borderTopLeftRadius: 10, borderTopRightRadius: 10 },
-            bgStyle
+            bgStyle,
           ],
           draggableIcon: { width: 80 },
         }}>
         <ScrollView>
           <View style={[styles.mainContainer, bgStyle]}>
             <View style={[styles.innerContainer, bgStyle]}>
-              <TouchableOpacity style={styles.innerRow} onPress={() => tap('copyAddress')}>
+              {/* Copy address */}
+              <TouchableOpacity
+                style={styles.innerRow}
+                onPress={() => tap('copyAddress')}>
                 <FontAwesomeIcon name="copy" size={20} color="#262626" />
-                <Text style={styles.innerText}>Copy address</Text>
+                <Text style={styles.innerText}>
+                  {t('optionsModal.copyAddress')}
+                </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.innerRow} onPress={() => tap('toggleSave')}>
-                <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color="#262626" />
-                <Text style={styles.innerText}>{isSaved ? 'Unsave Post' : 'Save Post'}</Text>
+              {/* Save / Unsave */}
+              <TouchableOpacity
+                style={styles.innerRow}
+                onPress={() => tap('toggleSave')}>
+                <Ionicons
+                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                  size={20}
+                  color="#262626"
+                />
+                <Text style={styles.innerText}>
+                  {isSaved
+                    ? t('optionsModal.unsavePost')
+                    : t('optionsModal.savePost')}
+                </Text>
               </TouchableOpacity>
 
+              {/* Edit (owner only) */}
               {canEdit ? (
-                <TouchableOpacity style={styles.innerRow} onPress={() => tap('editPost')}>
+                <TouchableOpacity
+                  style={styles.innerRow}
+                  onPress={() => tap('editPost')}>
                   <MaterialIcons name="edit" size={20} color="#262626" />
-                  <Text style={styles.innerText}>Edit Post</Text>
+                  <Text style={styles.innerText}>
+                    {t('optionsModal.editPost')}
+                  </Text>
                 </TouchableOpacity>
               ) : null}
             </View>
 
             <View style={styles.innerContainer}>
-              {
-                canHide ? (
-                <TouchableOpacity style={styles.innerRow} onPress={handleToggleHide} disabled={effectiveHideBusy}>
-                  <MaterialIcons name={effectiveHidden ? 'visibility' : 'visibility-off'} size={20} color="#262626" />
+              {/* Hide / Unhide */}
+              {canHide ? (
+                <TouchableOpacity
+                  style={styles.innerRow}
+                  onPress={handleToggleHide}
+                  disabled={effectiveHideBusy}>
+                  <MaterialIcons
+                    name={
+                      effectiveHidden ? 'visibility' : 'visibility-off'
+                    }
+                    size={20}
+                    color="#262626"
+                  />
                   <Text style={styles.innerText}>
-                    {effectiveHideBusy ? 'Please wait...' : effectiveHidden ? 'Unhide post' : 'Hide post'}
+                    {effectiveHideBusy
+                      ? t('optionsModal.pleaseWait')
+                      : effectiveHidden
+                      ? t('optionsModal.unhidePost')
+                      : t('optionsModal.hidePost')}
                   </Text>
                 </TouchableOpacity>
-                ) : null
-              }
+              ) : null}
 
               {fromHome && !canDelete ? (
                 <>
+                  {/* Mute (commented out in original, kept translated) */}
                   {/* <TouchableOpacity style={styles.innerRow} onPress={muteUser}>
                     <FontAwesome5Icon name="volume-mute" size={20} color="red" />
-                    <Text style={[styles.innerText, { color: 'red' }]}>Mute (username)</Text>
+                    <Text style={[styles.innerText, { color: 'red' }]}>
+                      {t('optionsModal.muteUser')}
+                    </Text>
                   </TouchableOpacity> */}
-                  <TouchableOpacity style={styles.innerRow} onPress={report}>
-                    <MaterialIcons name="report-gmailerrorred" size={20} color="red" />
-                    <Text style={[styles.innerText, { color: 'red' }]}>Report</Text>
+
+                  {/* Report */}
+                  <TouchableOpacity
+                    style={styles.innerRow}
+                    onPress={report}>
+                    <MaterialIcons
+                      name="report-gmailerrorred"
+                      size={20}
+                      color="red"
+                    />
+                    <Text style={[styles.innerText, { color: 'red' }]}>
+                      {t('optionsModal.report')}
+                    </Text>
                   </TouchableOpacity>
                 </>
               ) : (
-                <TouchableOpacity style={styles.innerRow} onPress={() => tap('deletePost')}>
+                /* Delete */
+                <TouchableOpacity
+                  style={styles.innerRow}
+                  onPress={() => tap('deletePost')}>
                   <MaterialIcons name="delete" size={20} color="red" />
-                  <Text style={[styles.innerText, { color: 'red' }]}>Delete Post</Text>
+                  <Text style={[styles.innerText, { color: 'red' }]}>
+                    {t('optionsModal.deletePost')}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>

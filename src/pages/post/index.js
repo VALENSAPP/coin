@@ -9,10 +9,23 @@ import PostTypeModal from '../../components/modals/PostTypeModal';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
+import { useLanguage } from '../../i18n';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const gridItemSize = (width - 48) / 3;
 const selectedGridItemSize = (width - 64) / 2;
+const selectedPreviewWidth = width * 0.92;
+const maxSelectedPreviewHeight = screenHeight * 0.5;
+
+const getPreviewHeightForMedia = (media) => {
+  const mediaWidth = Number(media?.width);
+  const mediaHeight = Number(media?.height);
+  if (!mediaWidth || !mediaHeight) {
+    return maxSelectedPreviewHeight;
+  }
+  const aspectHeight = (selectedPreviewWidth * mediaHeight) / mediaWidth;
+  return Math.min(maxSelectedPreviewHeight, Math.max(selectedPreviewWidth * 0.35, aspectHeight));
+};
 
 export default function PostScreen({ navigation }) {
   const [selectedMedia, setSelectedMedia] = useState([]);
@@ -30,6 +43,7 @@ export default function PostScreen({ navigation }) {
 
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
+  const { t } = useLanguage();
 
   // Track if we're coming back from EditPostSelected
   const fromEditPostSelectedRef = useRef(false);
@@ -51,8 +65,6 @@ export default function PostScreen({ navigation }) {
   const cropImage = (imageUri, index) => {
     ImagePicker.openCropper({
       path: imageUri,
-      width: 800,
-      height: 800,
       cropping: true,
       cropperActiveWidgetColor: '#0095f6',
       cropperStatusBarColor: '#0095f6',
@@ -81,7 +93,7 @@ export default function PostScreen({ navigation }) {
       })
       .catch((error) => {
         if (error.code !== 'E_PICKER_CANCELLED') {
-          Alert.alert('Crop Error', 'Could not crop the image. Please try again.');
+          Alert.alert(t('post.cropError'), t('post.cropErrorMessage'));
         }
       });
   };
@@ -95,21 +107,23 @@ export default function PostScreen({ navigation }) {
   };
 
   const showPermissionDeniedAlert = (type = 'gallery') => {
-    const title = type === 'gallery' ? 'Photo Library Permission Required' : 'Camera Permission Required';
+    const title = type === 'gallery'
+      ? t('post.permissionGalleryTitle')
+      : t('post.permissionCameraTitle');
     const message = type === 'gallery'
-      ? 'Please grant photo library access in Settings to select photos and videos.'
-      : 'Please grant camera access in Settings to take photos and videos.';
+      ? t('post.permissionGalleryMessage')
+      : t('post.permissionCameraMessage');
 
     Alert.alert(
       title,
       message,
       [
         {
-          text: 'Cancel',
+          text: t('post.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Open Settings',
+          text: t('post.openSettings'),
           onPress: openSettings,
         },
       ]
@@ -121,7 +135,7 @@ export default function PostScreen({ navigation }) {
     dispatch(showLoader());
     ImagePicker.openPicker({
       mediaType: postType === 'flip' ? 'video' : 'any',
-      multiple: postType !== 'flip', // single video in flip mode
+      multiple: postType !== 'flip',
       maxFiles: postType === 'flip' ? 1 : remainingSlots > 0 ? remainingSlots : 1,
       includeBase64: false,
       compressImageQuality: 0.6,
@@ -135,7 +149,6 @@ export default function PostScreen({ navigation }) {
         dispatch(hideLoader());
         const assets = Array.isArray(response) ? response : [response];
 
-        // 🧠 Validate duration for videos (Flip 15-60s, regular max 10 min)
         let validAssets = assets;
         validAssets = assets.filter((asset) => {
           const isVideo = asset?.mime?.includes('video');
@@ -146,18 +159,18 @@ export default function PostScreen({ navigation }) {
 
           if (postType === 'flip') {
             if (durationSec < 14) {
-              Alert.alert('Short Video', 'Please select a video of at least 15 seconds.');
+              Alert.alert(t('post.shortVideoTitle'), t('post.shortVideoFlipMessage'));
               return false;
             }
             if (durationSec > 60) {
-              Alert.alert('Long Video', 'Please select a video shorter than 60 seconds.');
+              Alert.alert(t('post.longVideoTitle'), t('post.longVideoFlipMessage'));
               return false;
             }
             return true;
           }
 
           if (durationSec > 600) {
-            Alert.alert('Long Video', 'Please select a video shorter than 10 minutes.');
+            Alert.alert(t('post.longVideoTitle'), t('post.longVideoMessage'));
             return false;
           }
 
@@ -169,7 +182,6 @@ export default function PostScreen({ navigation }) {
           return;
         }
 
-        // ✅ Create new asset objects
         const newAssets = validAssets.map((asset) => ({
           uri: asset.path,
           type: asset.mime,
@@ -181,24 +193,21 @@ export default function PostScreen({ navigation }) {
           isCropped: false,
         }));
 
-        // ✅ Merge with existing selection
         const currentSelection = selectedMedia || [];
         const filteredNewAssets = newAssets.filter(
           (newAsset) => !currentSelection.some((existing) => existing.uri === newAsset.uri)
         );
 
-        // Flip: only one video allowed; picking again replaces old selection
         const totalSelection =
           postType === 'flip' ? filteredNewAssets.slice(0, 1) : [...currentSelection, ...filteredNewAssets];
 
         if (postType !== 'flip' && totalSelection.length > 10) {
           setSelectedMedia(totalSelection.slice(0, 10));
-          Alert.alert('Selection Limit', 'Only first 10 items were selected due to limit.');
+          Alert.alert(t('post.selectionLimitTitle'), t('post.selectionLimitMessage'));
         } else {
           setSelectedMedia(totalSelection);
         }
 
-        // ✅ Update gallery
         const updatedGalleryImages =
           postType === 'flip'
             ? mergeGalleryImages(newAssets, galleryImages, totalSelection)
@@ -215,17 +224,14 @@ export default function PostScreen({ navigation }) {
               totalSelection.length <= 10 ? totalSelection : totalSelection.slice(0, 10)
             );
 
-        setGalleryImages(updatedGalleryImages); 
+        setGalleryImages(updatedGalleryImages);
         dispatch(hideLoader());
       })
       .catch((error) => {
         console.log('Gallery error:', error);
         dispatch(hideLoader());
 
-
         if (error.code === 'E_PICKER_CANCELLED') {
-          // Keep user on the composer when picker is cancelled; auto-goBack here
-          // can race with tab/profile navigation and feel like a freeze.
           return;
         } else if (
           error.code === 'E_NO_LIBRARY_PERMISSION' ||
@@ -233,7 +239,7 @@ export default function PostScreen({ navigation }) {
         ) {
           showPermissionDeniedAlert('gallery');
         } else {
-          Alert.alert('Error', error.message || 'Could not open gallery.');
+          Alert.alert(t('post.errorTitle'), error.message || t('post.galleryOpenError'));
         }
       });
   };
@@ -242,29 +248,28 @@ export default function PostScreen({ navigation }) {
     const remainingSlots = 10 - (selectedMedia?.length || 0);
 
     if (remainingSlots <= 0) {
-      Alert.alert('Selection Limit', 'You have already selected the maximum number of items (10).');
+      Alert.alert(t('post.selectionLimitTitle'), t('post.selectionLimitReachedMessage'));
       return;
     }
     if (postType === 'flip') {
-      // Only allow video capture in Flip mode
       captureMedia('video');
       return;
     }
 
     Alert.alert(
-      'Camera Options',
-      'What would you like to capture?',
+      t('post.cameraOptionsTitle'),
+      t('post.cameraOptionsMessage'),
       [
         {
-          text: 'Cancel',
+          text: t('post.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Photo',
+          text: t('post.photo'),
           onPress: () => captureMedia('photo'),
         },
         {
-          text: 'Video',
+          text: t('post.video'),
           onPress: () => captureMedia('video'),
         },
       ],
@@ -281,9 +286,8 @@ export default function PostScreen({ navigation }) {
       cropping: false,
     };
 
-    // Optional upper recording time limit
     if (mediaType === 'video') {
-      options.durationLimit = postType === 'flip' ? 60 : 600; // 60s for flips, 10min otherwise
+      options.durationLimit = postType === 'flip' ? 60 : 600;
     }
 
     ImagePicker.openCamera(options)
@@ -294,59 +298,52 @@ export default function PostScreen({ navigation }) {
         }
         dispatch(hideLoader());
 
-        // 🧠 Duration validation for captured videos (Flip 15-60s, regular max 10 min)
         if (mediaType === 'video') {
-          const duration = response?.duration || 0; // milliseconds or seconds depending on platform
-
-          // Sometimes ImagePicker returns duration in seconds — normalize to seconds
+          const duration = response?.duration || 0;
           const durationSec = duration > 1000 ? duration / 1000 : duration;
 
           if (postType === 'flip') {
             if (durationSec < 15) {
               dispatch(hideLoader());
-              Alert.alert('Short Video', 'Please record at least 15 seconds.');
+              Alert.alert(t('post.shortVideoTitle'), t('post.shortVideoRecordMessage'));
               return;
             }
 
             if (durationSec > 60) {
               dispatch(hideLoader());
-              Alert.alert('Long Video', 'Please record less than 60 seconds.');
+              Alert.alert(t('post.longVideoTitle'), t('post.longVideoRecordFlipMessage'));
               return;
             }
           } else if (durationSec > 600) {
             dispatch(hideLoader());
-            Alert.alert('Long Video', 'Please record less than 10 minutes.');
+            Alert.alert(t('post.longVideoTitle'), t('post.longVideoRecordMessage'));
             return;
           }
         }
 
-        // ✅ Create new asset object
         const newAsset = {
           uri: response.path,
           type: response.mime,
           fileName:
             response.filename ||
-            `${mediaType}_${Date.now()}.${mediaType === 'photo' ? 'jpg' : 'mp4'
-            }`,
+            `${mediaType}_${Date.now()}.${mediaType === 'photo' ? 'jpg' : 'mp4'}`,
           duration: response.duration || 0,
           width: response.width,
           height: response.height,
           isCropped: false,
         };
 
-        // ✅ Handle selection logic
         const currentSelection = selectedMedia || [];
         const totalSelection = postType === 'flip' ? [newAsset] : [...currentSelection, newAsset];
 
         if (postType !== 'flip' && totalSelection.length > 10) {
           dispatch(hideLoader());
-          Alert.alert('Selection Limit', 'Cannot add more items. Maximum limit is 10.');
+          Alert.alert(t('post.selectionLimitTitle'), t('post.selectionLimitAddMessage'));
           return;
         }
 
         setSelectedMedia(totalSelection);
 
-        // ✅ Gallery preview: do not add fake samples for Flip
         if (postType === 'flip') {
           const updatedGalleryImages = mergeGalleryImages([newAsset], galleryImages, totalSelection);
           setGalleryImages(updatedGalleryImages);
@@ -367,23 +364,19 @@ export default function PostScreen({ navigation }) {
       .catch((err) => {
         console.log('Camera cancelled or error:', err);
         dispatch(hideLoader());
-
       });
   };
 
-  // Show modal on screen focus if not coming back from EditPostSelected
   useFocusEffect(
     useCallback(() => {
-      // If returning from EditPostSelected, preserve selection and skip modal
       if (fromEditPostSelectedRef.current) {
         fromEditPostSelectedRef.current = false;
         return;
       }
 
-      // Coming from any other screen - reset everything and show modal
       setSelectedMedia([]);
       setGalleryImages([]);
-      setShared(false)
+      setShared(false);
 
       if (isPrivateEntry) {
         setPostType('private');
@@ -404,12 +397,10 @@ export default function PostScreen({ navigation }) {
 
   const galleryImagesRef = useRef([]);
 
-  // Keep the ref in sync whenever galleryImages changes
   useEffect(() => {
     galleryImagesRef.current = galleryImages;
   }, [galleryImages]);
 
-  // Sync selection state without galleryImages in the dep array
   useEffect(() => {
     if (galleryImagesRef.current.length === 0) return;
 
@@ -419,13 +410,12 @@ export default function PostScreen({ navigation }) {
       isSelected: selectedUris.has(image.uri)
     }));
     setGalleryImages(updatedGalleryImages);
-  }, [selectedMedia]); // ✅ only reruns when selectedMedia changes
+  }, [selectedMedia]);
 
   const handleImageSelect = (asset) => {
     const isFlip = postType === 'flip';
 
     if (isFlip) {
-      // ✅ Only one item allowed
       const newMedia = {
         uri: asset.uri,
         type: asset.type,
@@ -433,8 +423,7 @@ export default function PostScreen({ navigation }) {
         duration: asset.duration,
         isCropped: false,
       };
-
-      setSelectedMedia([newMedia]); // 🔥 replace previous
+      setSelectedMedia([newMedia]);
       return;
     }
     const currentSelection = selectedMedia || [];
@@ -453,7 +442,7 @@ export default function PostScreen({ navigation }) {
         };
         setSelectedMedia(prev => [...(prev || []), newMedia]);
       } else {
-        Alert.alert('Selection Limit', 'You can select up to 10 items only.');
+        Alert.alert(t('post.selectionLimitTitle'), t('post.selectionLimitTenMessage'));
       }
     }
   };
@@ -461,10 +450,9 @@ export default function PostScreen({ navigation }) {
   const handleShare = () => {
     const currentSelection = selectedMedia || [];
     if (currentSelection.length === 0) {
-      Alert.alert('No media selected', 'Please select at least one photo or video to share.');
+      Alert.alert(t('post.noMediaTitle'), t('post.noMediaMessage'));
       return;
     }
-    // Set flag to indicate we're navigating to EditPostSelected
     fromEditPostSelectedRef.current = true;
     navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: mediaType });
   };
@@ -519,26 +507,31 @@ export default function PostScreen({ navigation }) {
 
     return (
       <View style={[styles.selectedMediaSection, bgStyle]}>
-        <Text style={styles.selectedMediaTitle}>Selected Media</Text>
+        <Text style={styles.selectedMediaTitle}>{t('post.selectedMedia')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.selectedMediaScrollContainer}
           style={styles.selectedMediaScroll}
         >
-          {currentSelection.map((media, index) => (
-            <View key={`selected_${media.uri}_${index}`} style={styles.selectedGridItemHorizontal}>
+          {currentSelection.map((media, index) => {
+            const previewHeight =
+              postType === 'flip' ? screenHeight * 0.9 : getPreviewHeightForMedia(media);
+            return (
+            <View
+              key={`selected_${media.uri}_${index}`}
+              style={[styles.selectedGridItemHorizontal, { height: previewHeight }]}
+            >
               {media.type && media.type.startsWith('video') ? (
                 <View style={styles.selectedVideoItem}>
                   <Video
                     source={{ uri: media.uri }}
-                    style={[styles.selectedGridImageHorizontal,{height:postType ==='flip'? screenHeight * 0.9:screenHeight * 0.5}]}
+                    style={[styles.selectedGridImageHorizontal, { height: previewHeight }]}
                     paused={true}
                     muted={true}
                     repeat={false}
                     resizeMode="cover"
                   />
-
                   <View style={styles.selectedVideoPlay}>
                     <Icon name="play" size={20} color="#fff" />
                   </View>
@@ -551,7 +544,11 @@ export default function PostScreen({ navigation }) {
                 </View>
               ) : (
                 <View style={styles.selectedImageContainer}>
-                  <Image source={{ uri: media.uri }} style={styles.selectedGridImageHorizontal} />
+                  <Image
+                    source={{ uri: media.uri }}
+                    style={[styles.selectedGridImageHorizontal, { height: previewHeight }]}
+                    resizeMode="contain"
+                  />
                   <TouchableOpacity
                     style={styles.cropButton}
                     onPress={() => cropImage(media.uri, index)}
@@ -575,7 +572,8 @@ export default function PostScreen({ navigation }) {
                 <Text style={styles.selectedOrderText}>{index + 1}</Text>
               </View>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       </View>
     );
@@ -585,24 +583,24 @@ export default function PostScreen({ navigation }) {
     <View style={styles.galleryPrompt}>
       <TouchableOpacity style={styles.galleryButton} onPress={openGallery}>
         <Icon name="images" size={60} color={text} />
-        <Text style={[styles.galleryButtonText, textStyle]}>Select from Gallery</Text>
-        <Text style={styles.galleryButtonSubtext}>Choose photos and videos (up to 10)</Text>
+        <Text style={[styles.galleryButtonText, textStyle]}>{t('post.selectFromGallery')}</Text>
+        <Text style={styles.galleryButtonSubtext}>{t('post.gallerySubtext')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.galleryButton} onPress={openCamera}>
         <Icon name="camera" size={60} color={text} />
-        <Text style={[styles.galleryButtonText, textStyle]}>Capture with Camera</Text>
-        <Text style={styles.galleryButtonSubtext}>Take photos or record videos (up to 10)</Text>
+        <Text style={[styles.galleryButtonText, textStyle]}>{t('post.captureWithCamera')}</Text>
+        <Text style={styles.galleryButtonSubtext}>{t('post.cameraSubtext')}</Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderMainContent = () => (
     <>
-      {selectedMedia && selectedMedia.length > 0 && postType !== 'flip' &&(
+      {selectedMedia && selectedMedia.length > 0 && postType !== 'flip' && (
         <View style={[styles.selectionCounter, { shadowColor: text }]}>
           <Text style={[styles.selectionCounterText, textStyle]}>
-            {selectedMedia.length} item{selectedMedia.length > 1 ? 's' : ''} selected
-            {selectedMedia.length < 10 && ` (${10 - selectedMedia.length} more available)`}
+            {t('post.itemsSelected', { count: selectedMedia.length })}
+            {selectedMedia.length < 10 && ` (${10 - selectedMedia.length} ${t('post.moreAvailable')})`}
           </Text>
         </View>
       )}
@@ -610,17 +608,17 @@ export default function PostScreen({ navigation }) {
       {renderSelectedMediaGrid()}
 
       {selectedMedia && selectedMedia.length < 10 && (
-        <View style={[styles.addMoreSection,{ marginTop: postType ==='flip'? '10%': 0 }]}>
+        <View style={[styles.addMoreSection, { marginTop: postType === 'flip' ? '10%' : 0 }]}>
           <TouchableOpacity style={[styles.addMoreButton, { shadowColor: text, marginTop: 10 }]} onPress={openGallery}>
             <Icon name="images" size={24} color={text} />
             <Text style={[styles.addMoreText, textStyle]}>
-              Add from Gallery
+              {t('post.addFromGallery')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={[[styles.addMoreButton, { shadowColor: text }], { marginBottom: '20%', marginTop: 10 }]} onPress={openCamera}>
             <Icon name="camera" size={24} color={text} />
             <Text style={[styles.addMoreText, textStyle]}>
-              Capture with Camera
+              {t('post.captureWithCamera')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -660,13 +658,15 @@ export default function PostScreen({ navigation }) {
         >
           <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>{mediaType === 'Flips' ? 'New Flip' : 'New Mint'}</Text>
+        <Text style={[styles.headerTitle, textStyle]}>
+          {mediaType === 'Flips' ? t('post.newFlip') : t('post.newMint')}
+        </Text>
         <TouchableOpacity
           onPress={handleShare}
           style={[styles.headerShareBtn, { backgroundColor: text, shadowColor: text, opacity: (selectedMedia && selectedMedia.length > 0) && !shared ? 1 : 0.5 }]}
           disabled={!selectedMedia || selectedMedia.length === 0 || shared}
         >
-          <Text style={styles.headerShareText}>Next</Text>
+          <Text style={styles.headerShareText}>{t('post.next')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1018,8 +1018,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   selectedGridItemHorizontal: {
-    width: width * .92,
-    height: screenHeight * 0.5,
+    width: selectedPreviewWidth,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
@@ -1033,8 +1032,7 @@ const styles = StyleSheet.create({
   },
   selectedGridImageHorizontal: {
     width: '100%',
-    height: screenHeight * 0.5,
-    resizeMode: 'cover',
+    height: maxSelectedPreviewHeight,
   },
   selectedVideoPlay: {
     position: 'absolute',

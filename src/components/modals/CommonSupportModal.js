@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const CommonSupportModal = ({
   visible,
@@ -9,15 +10,19 @@ const CommonSupportModal = ({
   description,
   bullets = [],
   note,
-  primaryLabel = 'Support Now',
-  secondaryLabel = 'Maybe Later',
+  primaryLabel,
+  secondaryLabel,
   onPrimary,
   onSecondary,
   canSupport,
   variant,
-  creatorName
+  creatorName,
 }) => {
   const { text, card } = useAppTheme();
+  const { t } = useLanguage();
+
+  const resolvedPrimaryLabel = primaryLabel || t('commonSupportModal.defaultPrimaryLabel');
+  const resolvedSecondaryLabel = secondaryLabel || t('commonSupportModal.defaultSecondaryLabel');
 
   return (
     <Modal
@@ -28,7 +33,9 @@ const CommonSupportModal = ({
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: card }]}>
-          {!!title && <Text style={[styles.title, { color: text }]}>{title}</Text>}
+          {!!title && (
+            <Text style={[styles.title, { color: text }]}>{title}</Text>
+          )}
 
           {!!description && (
             <View>
@@ -38,16 +45,14 @@ const CommonSupportModal = ({
                     key={`desc-${idx}`}
                     style={[
                       styles.description,
-                      { textAlign: idx === 0 ? 'center' : 'left' }
+                      { textAlign: idx === 0 ? 'center' : 'left' },
                     ]}
                   >
                     {line}
                   </Text>
                 ))
               ) : (
-                <Text style={styles.description}>
-                  {description}
-                </Text>
+                <Text style={styles.description}>{description}</Text>
               )}
             </View>
           )}
@@ -66,25 +71,32 @@ const CommonSupportModal = ({
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: (variant === 'disclaimer' && !canSupport)? '#9d9b9b' : text }]}
+              style={[
+                styles.primaryButton,
+                {
+                  backgroundColor:
+                    variant === 'disclaimer' && !canSupport ? '#9d9b9b' : text,
+                },
+              ]}
               onPress={onPrimary}
               disabled={variant === 'disclaimer' && !canSupport}
             >
-              <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
+              <Text style={styles.primaryButtonText}>{resolvedPrimaryLabel}</Text>
             </TouchableOpacity>
-            {variant === 'disclaimer' && !canSupport &&
+
+            {variant === 'disclaimer' && !canSupport && (
               <Text style={styles.texterror}>
-                Wallet is not connected for{' '}
-                <Text style={{ fontWeight: 'bold' }}>{creatorName}</Text>.
-                {' '}Once connected, you can support.
+                {t('commonSupportModal.walletNotConnected')}{' '}
+                <Text style={{ fontWeight: 'bold' }}>{creatorName}</Text>
+                {t('commonSupportModal.onceConnected')}
               </Text>
-            }
+            )}
 
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={onSecondary || onClose}
             >
-              <Text style={styles.secondaryButtonText}>{secondaryLabel}</Text>
+              <Text style={styles.secondaryButtonText}>{resolvedSecondaryLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -28,6 +28,7 @@ import { useDispatch } from 'react-redux';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { enableTwoFactorAuth, verifyTwoFactorAuth, disableTwoFactorAuth } from '../../services/wallet';
+import { useLanguage } from '../../i18n';
 
 const { height } = Dimensions.get('window');
 
@@ -50,24 +51,23 @@ const TwoFactorAuthScreen = () => {
   const { bgStyle, textStyle, text } = useAppTheme();
   const toast = useToast();
   const dispatch = useDispatch();
+  const { t } = useLanguage();
 
   const handleEnable2FA = async () => {
     setLoading(true);
     dispatch(showLoader());
-
     try {
       const response = await enableTwoFactorAuth();
-
       if (response && response.statusCode === 200) {
         const { qrCodeUrl, otpauthUrl, secret } = response.data;
         setQrCodeUrl(qrCodeUrl);
         setOtpAuthUrl(otpauthUrl);
         setShowVerifyModal(true);
       } else {
-        showToastMessage(toast, 'danger', response.data?.data?.message || 'Failed to enable 2FA');
+        showToastMessage(toast, 'danger', response.data?.data?.message || t('twoFactor.enableFailed'));
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', error?.response?.data?.data?.message || 'Error enabling 2FA');
+      showToastMessage(toast, 'danger', error?.response?.data?.data?.message || t('twoFactor.enableError'));
     } finally {
       setLoading(false);
       dispatch(hideLoader());
@@ -76,33 +76,29 @@ const TwoFactorAuthScreen = () => {
 
   const handleVerify2FA = async () => {
     setErrorMessage('');
-    
     if (verifyOtp.length !== 6) {
-      setErrorMessage('Please enter a 6-digit code');
+      setErrorMessage(t('twoFactor.enterSixDigit'));
       return;
     }
-
     setVerifyLoading(true);
     dispatch(showLoader());
-
     try {
       const response = await verifyTwoFactorAuth({ token: verifyOtp });
-
       if (response && response.data?.statusCode === 200) {
         setTwoFactorEnabled(true);
         setShowVerifyModal(false);
         setVerifyOtp('');
         otpInput.current?.clear();
         setTimeout(() => {
-          showToastMessage(toast, 'success', response.data?.data?.message || '2FA enabled successfully');
+          showToastMessage(toast, 'success', response.data?.data?.message || t('twoFactor.enableSuccess'));
         }, 300);
       } else {
-        setErrorMessage(response.data?.data?.message || 'Invalid OTP');
+        setErrorMessage(response.data?.data?.message || t('twoFactor.invalidOtp'));
         setVerifyOtp('');
         otpInput.current?.clear();
       }
     } catch (error) {
-      setErrorMessage(error?.response?.data?.data?.message || 'Verification failed');
+      setErrorMessage(error?.response?.data?.data?.message || t('twoFactor.verifyFailed'));
       setVerifyOtp('');
       otpInput.current?.clear();
     } finally {
@@ -113,33 +109,29 @@ const TwoFactorAuthScreen = () => {
 
   const handleDisable2FA = async () => {
     setDisableErrorMessage('');
-    
     if (disableOtp.length !== 6) {
-      setDisableErrorMessage('Please enter a 6-digit code');
+      setDisableErrorMessage(t('twoFactor.enterSixDigit'));
       return;
     }
-
     setDisableLoading(true);
     dispatch(showLoader());
-
     try {
       const response = await disableTwoFactorAuth({ token: disableOtp });
-
       if (response && response.data?.statusCode === 200) {
         setTwoFactorEnabled(false);
         setShowDisableModal(false);
         setDisableOtp('');
         disableOtpInput.current?.clear();
         setTimeout(() => {
-          showToastMessage(toast, 'success', response.data?.data?.message || '2FA disabled successfully');
+          showToastMessage(toast, 'success', response.data?.data?.message || t('twoFactor.disableSuccess'));
         }, 300);
       } else {
-        setDisableErrorMessage(response.data?.data?.message || 'Invalid OTP');
+        setDisableErrorMessage(response.data?.data?.message || t('twoFactor.invalidOtp'));
         setDisableOtp('');
         disableOtpInput.current?.clear();
       }
     } catch (error) {
-      setDisableErrorMessage(error?.response?.data?.data?.message || 'Verification failed');
+      setDisableErrorMessage(error?.response?.data?.data?.message || t('twoFactor.verifyFailed'));
       setDisableOtp('');
       disableOtpInput.current?.clear();
     } finally {
@@ -151,73 +143,45 @@ const TwoFactorAuthScreen = () => {
   const openInAuthenticator = async () => {
     try {
       if (!otpAuthUrl) {
-        setErrorMessage('Authentication URL not available');
+        setErrorMessage(t('twoFactor.authUrlUnavailable'));
         return;
       }
 
       if (Platform.OS === 'android') {
         const canOpen = await Linking.canOpenURL(otpAuthUrl);
-        
         if (canOpen) {
           await Linking.openURL(otpAuthUrl);
         } else {
           Alert.alert(
-            'Install Authenticator App',
-            'No authenticator app found. Please install one to continue.',
+            t('twoFactor.installAuthTitle'),
+            t('twoFactor.installAuthMessage'),
             [
-              {
-                text: 'Google Authenticator',
-                onPress: () => {
-                  Linking.openURL('https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2');
-                }
-              },
-              {
-                text: 'Microsoft Authenticator',
-                onPress: () => {
-                  Linking.openURL('https://play.google.com/store/apps/details?id=com.azure.authenticator');
-                }
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel'
-              }
+              { text: 'Google Authenticator', onPress: () => Linking.openURL('https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2') },
+              { text: 'Microsoft Authenticator', onPress: () => Linking.openURL('https://play.google.com/store/apps/details?id=com.azure.authenticator') },
+              { text: t('twoFactor.cancel'), style: 'cancel' },
             ]
           );
         }
       } else {
         const googleAuthUrl = 'google-authenticator://';
         const canOpenGoogleAuth = await Linking.canOpenURL(googleAuthUrl);
-        
         if (canOpenGoogleAuth) {
           await Linking.openURL(googleAuthUrl);
         } else {
           Alert.alert(
-            'Install Authenticator App',
-            'No authenticator app found. Please install Google Authenticator or Microsoft Authenticator to continue.',
+            t('twoFactor.installAuthTitle'),
+            t('twoFactor.installAuthMessageIos'),
             [
-              {
-                text: 'Get Google Authenticator',
-                onPress: () => {
-                  Linking.openURL('https://apps.apple.com/app/google-authenticator/id388497605');
-                }
-              },
-              {
-                text: 'Get Microsoft Authenticator',
-                onPress: () => {
-                  Linking.openURL('https://apps.apple.com/app/microsoft-authenticator/id983156458');
-                }
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel'
-              }
+              { text: t('twoFactor.getGoogleAuth'), onPress: () => Linking.openURL('https://apps.apple.com/app/google-authenticator/id388497605') },
+              { text: t('twoFactor.getMicrosoftAuth'), onPress: () => Linking.openURL('https://apps.apple.com/app/microsoft-authenticator/id983156458') },
+              { text: t('twoFactor.cancel'), style: 'cancel' },
             ]
           );
         }
       }
     } catch (error) {
       console.log('Error opening authenticator:', error);
-      setErrorMessage('Could not open authenticator app');
+      setErrorMessage(t('twoFactor.openAuthError'));
     }
   };
 
@@ -228,17 +192,15 @@ const TwoFactorAuthScreen = () => {
         <ScrollView style={styles.content}>
           <View style={styles.infoCard}>
             <Text style={styles.infoIcon}>🔐</Text>
-            <Text style={styles.infoTitle}>Secure Your Account</Text>
-            <Text style={styles.infoDescription}>
-              Two-factor authentication adds an extra layer of security to your account
-            </Text>
+            <Text style={styles.infoTitle}>{t('twoFactor.infoTitle')}</Text>
+            <Text style={styles.infoDescription}>{t('twoFactor.infoDescription')}</Text>
           </View>
 
           <View style={styles.section}>
             <View style={styles.toggleItem}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.toggleTitle}>Enable 2FA</Text>
-                <Text style={styles.toggleSubtitle}>Require code with password</Text>
+                <Text style={styles.toggleTitle}>{t('twoFactor.enable2FALabel')}</Text>
+                <Text style={styles.toggleSubtitle}>{t('twoFactor.enable2FASubtitle')}</Text>
               </View>
               <Switch
                 value={twoFactorEnabled}
@@ -258,17 +220,13 @@ const TwoFactorAuthScreen = () => {
 
           {twoFactorEnabled && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Authentication Methods</Text>
-              <TouchableOpacity
-                style={styles.methodItem}
-                onPress={openInAuthenticator}
-                disabled={loading}
-              >
+              <Text style={styles.sectionTitle}>{t('twoFactor.authMethodsTitle')}</Text>
+              <TouchableOpacity style={styles.methodItem} onPress={openInAuthenticator} disabled={loading}>
                 <View style={styles.methodLeft}>
                   <Text style={styles.methodIcon}>📱</Text>
                   <View>
-                    <Text style={styles.methodTitle}>Authenticator App</Text>
-                    <Text style={styles.methodSubtitle}>Use Google Authenticator or similar</Text>
+                    <Text style={styles.methodTitle}>{t('twoFactor.authAppTitle')}</Text>
+                    <Text style={styles.methodSubtitle}>{t('twoFactor.authAppSubtitle')}</Text>
                   </View>
                 </View>
                 <Text style={styles.arrow}>›</Text>
@@ -323,10 +281,8 @@ const TwoFactorAuthScreen = () => {
                   </TouchableOpacity>
 
                   <View style={modalStyles.welcomeSection}>
-                    <Text style={modalStyles.welcomeTitle}>Verify 2FA Setup</Text>
-                    <Text style={modalStyles.welcomeSubtitle}>
-                      Enter the 6-digit code from your authenticator app
-                    </Text>
+                    <Text style={modalStyles.welcomeTitle}>{t('twoFactor.verifyModalTitle')}</Text>
+                    <Text style={modalStyles.welcomeSubtitle}>{t('twoFactor.verifyModalSubtitle')}</Text>
                   </View>
 
                   {errorMessage ? (
@@ -343,27 +299,20 @@ const TwoFactorAuthScreen = () => {
                       disabled={verifyLoading}
                     >
                       <Text style={modalStyles.openAuthenticatorText}>
-                        {Platform.OS === 'ios' ? '📱 Get Authenticator App' : '📱 Open Authenticator'}
+                        {Platform.OS === 'ios' ? t('twoFactor.getAuthAppIos') : t('twoFactor.openAuthApp')}
                       </Text>
                     </TouchableOpacity>
                   </View>
 
                   <View style={modalStyles.infoSection}>
                     <View style={modalStyles.infoBox}>
-                      <Icon
-                        name="information-circle"
-                        size={20}
-                        color="#3B82F6"
-                        style={modalStyles.infoIcon}
-                      />
-                      <Text style={modalStyles.infoText}>
-                        Open your authenticator app and enter the code displayed
-                      </Text>
+                      <Icon name="information-circle" size={20} color="#3B82F6" style={modalStyles.infoIcon} />
+                      <Text style={modalStyles.infoText}>{t('twoFactor.verifyInfoText')}</Text>
                     </View>
                   </View>
 
                   <View style={modalStyles.otpSection}>
-                    <Text style={modalStyles.otpLabel}>Verification Code</Text>
+                    <Text style={modalStyles.otpLabel}>{t('twoFactor.verificationCodeLabel')}</Text>
                     <OTPTextInput
                       ref={otpInput}
                       handleTextChange={(text) => {
@@ -389,7 +338,7 @@ const TwoFactorAuthScreen = () => {
                     {verifyLoading ? (
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
-                      <Text style={modalStyles.confirmButtonText}>Verify & Enable 2FA</Text>
+                      <Text style={modalStyles.confirmButtonText}>{t('twoFactor.verifyEnableButton')}</Text>
                     )}
                   </TouchableOpacity>
 
@@ -405,7 +354,7 @@ const TwoFactorAuthScreen = () => {
                     disabled={verifyLoading}
                     style={modalStyles.cancelButton}
                   >
-                    <Text style={modalStyles.cancelButtonText}>Cancel</Text>
+                    <Text style={modalStyles.cancelButtonText}>{t('twoFactor.cancel')}</Text>
                   </TouchableOpacity>
                 </View>
               </KeyboardAwareScrollView>
@@ -459,10 +408,8 @@ const TwoFactorAuthScreen = () => {
                   </TouchableOpacity>
 
                   <View style={modalStyles.welcomeSection}>
-                    <Text style={modalStyles.welcomeTitle}>Disable 2FA</Text>
-                    <Text style={modalStyles.welcomeSubtitle}>
-                      Enter the 6-digit code from your authenticator app to confirm
-                    </Text>
+                    <Text style={modalStyles.welcomeTitle}>{t('twoFactor.disableModalTitle')}</Text>
+                    <Text style={modalStyles.welcomeSubtitle}>{t('twoFactor.disableModalSubtitle')}</Text>
                   </View>
 
                   {disableErrorMessage ? (
@@ -474,20 +421,13 @@ const TwoFactorAuthScreen = () => {
 
                   <View style={modalStyles.infoSection}>
                     <View style={[modalStyles.infoBox, { backgroundColor: '#FEF3C7', borderLeftColor: '#F59E0B' }]}>
-                      <Icon
-                        name="warning"
-                        size={20}
-                        color="#F59E0B"
-                        style={modalStyles.infoIcon}
-                      />
-                      <Text style={modalStyles.infoText}>
-                        Disabling 2FA will make your account less secure
-                      </Text>
+                      <Icon name="warning" size={20} color="#F59E0B" style={modalStyles.infoIcon} />
+                      <Text style={modalStyles.infoText}>{t('twoFactor.disableWarning')}</Text>
                     </View>
                   </View>
 
                   <View style={modalStyles.otpSection}>
-                    <Text style={modalStyles.otpLabel}>Verification Code</Text>
+                    <Text style={modalStyles.otpLabel}>{t('twoFactor.verificationCodeLabel')}</Text>
                     <OTPTextInput
                       ref={disableOtpInput}
                       handleTextChange={(text) => {
@@ -514,7 +454,7 @@ const TwoFactorAuthScreen = () => {
                     {disableLoading ? (
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
-                      <Text style={modalStyles.confirmButtonText}>Disable 2FA</Text>
+                      <Text style={modalStyles.confirmButtonText}>{t('twoFactor.disableButton')}</Text>
                     )}
                   </TouchableOpacity>
 
@@ -530,7 +470,7 @@ const TwoFactorAuthScreen = () => {
                     disabled={disableLoading}
                     style={modalStyles.cancelButton}
                   >
-                    <Text style={modalStyles.cancelButtonText}>Cancel</Text>
+                    <Text style={modalStyles.cancelButtonText}>{t('twoFactor.cancel')}</Text>
                   </TouchableOpacity>
                 </View>
               </KeyboardAwareScrollView>

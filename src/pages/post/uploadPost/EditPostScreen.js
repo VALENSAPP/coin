@@ -23,6 +23,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { getAllUser } from '../../../services/users';
 import { getposts } from '../../../services/home';
+import { useLanguage } from '../../../i18n';
 
 const { width } = Dimensions.get('window');
 
@@ -55,6 +56,7 @@ export default function EditPostScreen() {
   const route = useRoute();
   const toast = useToast();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const post = useMemo(() => route?.params?.post || {}, [route?.params?.post]);
   const onSave = route?.params?.onSave;
@@ -105,7 +107,6 @@ export default function EditPostScreen() {
     if (!query) {
       return knownLocations.slice(0, 6);
     }
-
     return knownLocations
       .filter(item => item.toLowerCase().includes(query))
       .slice(0, 6);
@@ -225,7 +226,7 @@ export default function EditPostScreen() {
         taggedPeople: taggedPeopleSummary,
       });
       if (response?.statusCode && response.statusCode >= 400) {
-        throw new Error(response?.message || 'Failed to update post');
+        throw new Error(response?.message || t('editPost.updateFailed'));
       }
 
       const updatedFromApi =
@@ -246,7 +247,7 @@ export default function EditPostScreen() {
       showToastMessage(
         toast,
         'success',
-        response?.data?.message || response?.message || 'Post updated',
+        response?.data?.message || response?.message || t('editPost.postUpdated'),
       );
       navigation.goBack();
 
@@ -254,7 +255,7 @@ export default function EditPostScreen() {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.data?.message || error?.message || 'Failed to update post',
+        error?.response?.data?.message || error?.message || t('editPost.updateFailed'),
       );
     } finally {
       setIsSubmitting(false);
@@ -266,6 +267,7 @@ export default function EditPostScreen() {
     navigation,
     onSave,
     post,
+    t,
     taggedPeopleList,
     taggedPeopleSummary,
     toast,
@@ -307,22 +309,6 @@ export default function EditPostScreen() {
                 color="#fff"
               />
             </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={styles.bottomMuteButton}
-              activeOpacity={0.9}
-              onPress={() =>
-                setMutedById(prev => ({
-                  ...prev,
-                  [item.id]: !(prev[item.id] ?? true),
-                }))
-              }
-            >
-              <Icon
-                name={(mutedById[item.id] ?? true) ? 'volume-mute' : 'volume-high'}
-                size={18}
-                color="#fff"
-              />
-            </TouchableOpacity> */}
           </View>
         ) : (
           <Image source={{ uri: item.url }} style={styles.media} resizeMode="contain" />
@@ -333,7 +319,7 @@ export default function EditPostScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right',]}>
+    <SafeAreaView style={[styles.container, bgStyle]} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -342,7 +328,7 @@ export default function EditPostScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
             <Icon name="close" size={26} color="#111" />
           </TouchableOpacity>
-          <Text style={[styles.title, textStyle]}>Edit Post</Text>
+          <Text style={[styles.title, textStyle]}>{t('editPost.screenTitle')}</Text>
           <TouchableOpacity
             onPress={handleSave}
             disabled={isSubmitting}
@@ -357,7 +343,7 @@ export default function EditPostScreen() {
                   hasChanges ? { color: text } : styles.saveTextDisabled,
                 ]}
               >
-                Done
+                {t('editPost.doneButton')}
               </Text>
             )}
           </TouchableOpacity>
@@ -382,11 +368,11 @@ export default function EditPostScreen() {
           </View>
 
           <View style={styles.editorSection}>
-            <Text style={[styles.label, textStyle]}>Caption</Text>
+            <Text style={[styles.label, textStyle]}>{t('editPost.captionLabel')}</Text>
             <TextInput
               value={caption}
               onChangeText={setCaption}
-              placeholder="Write a caption..."
+              placeholder={t('editPost.captionPlaceholder')}
               placeholderTextColor="#9ca3af"
               multiline
               textAlignVertical="top"
@@ -395,153 +381,94 @@ export default function EditPostScreen() {
               maxLength={2200}
             />
 
-            {/* <View style={styles.metaCard}>
-              {/* <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.metaRow}
-                onPress={() => setShowLocationEditor(prev => !prev)}
-              >
-                <View style={styles.metaRowLeft}>
-                  <Icon name="location-outline" size={20} color="#111827" />
-                  <Text style={[styles.metaLabel, textStyle]}>Add location</Text>
-                </View>
-                <View style={styles.metaRowRight}>
-                  {!!locationSummary && (
-                    <Text style={styles.metaValue} numberOfLines={1}>
-                      {locationSummary}
-                    </Text>
-                  )}
-                  <Icon
-                    name={showLocationEditor ? 'chevron-up' : 'chevron-forward'}
-                    size={18}
-                    color="#6b7280"
-                  />
-                </View>
-              </TouchableOpacity> */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.metaRow}
+              onPress={() => setShowTaggedPeopleEditor(prev => !prev)}
+            >
+              <View style={styles.metaRowLeft}>
+                <Icon name="person-add-outline" size={20} color="#111827" />
+                <Text style={[styles.metaLabel, textStyle]}>{t('editPost.tagPeople')}</Text>
+              </View>
+              <View style={styles.metaRowRight}>
+                {!!taggedPeopleList.length && (
+                  <Text style={styles.metaValue} numberOfLines={1}>
+                    {t('editPost.taggedCount', { count: taggedPeopleList.length })}
+                  </Text>
+                )}
+                <Icon
+                  name={showTaggedPeopleEditor ? 'chevron-up' : 'chevron-forward'}
+                  size={18}
+                  color="#6b7280"
+                />
+              </View>
+            </TouchableOpacity>
 
-              {/* {showLocationEditor ? (
-                <View style={styles.editorInputWrap}>
-                  <TextInput
-                    value={location}
-                    onChangeText={setLocation}
-                    placeholder="Search location"
-                    placeholderTextColor="#9ca3af"
-                    style={[styles.metaInput, textStyle]}
-                    editable={!isSubmitting}
-                    maxLength={120}
-                  />
-                  {isLoadingLocations ? (
-                    <ActivityIndicator size="small" color={text} style={styles.metaLoader} />
-                  ) : null}
-                  {locationSuggestions.length ? (
-                    <View style={styles.suggestionList}>
-                      {locationSuggestions.map(item => (
+            {showTaggedPeopleEditor ? (
+              <View style={styles.editorInputWrap}>
+                <TextInput
+                  value={tagSearch}
+                  onChangeText={setTagSearch}
+                  placeholder={t('editPost.searchPeoplePlaceholder')}
+                  placeholderTextColor="#9ca3af"
+                  style={[styles.metaInput, styles.tagInput, textStyle]}
+                  editable={!isSubmitting}
+                  autoCapitalize="none"
+                  maxLength={250}
+                />
+                {isSearchingUsers ? (
+                  <ActivityIndicator size="small" color={text} style={styles.metaLoader} />
+                ) : null}
+                {userSuggestions.length ? (
+                  <View style={styles.suggestionList}>
+                    {userSuggestions.map(user => {
+                      const username = String(user?.userName || user?.username || '').trim();
+                      const displayName = String(user?.name || user?.fullName || '').trim();
+                      return (
                         <TouchableOpacity
-                          key={item}
-                          style={styles.suggestionRow}
+                          key={String(user?.id || username)}
+                          style={styles.userSuggestionRow}
                           activeOpacity={0.8}
-                          onPress={() => setLocation(item)}
+                          onPress={() => handleSelectUser(user)}
                         >
-                          <Icon name="location-outline" size={18} color="#111827" />
-                          <Text style={styles.suggestionText}>{item}</Text>
+                          <View style={styles.userAvatar}>
+                            {user?.image ? (
+                              <Image
+                                source={{ uri: user.image }}
+                                style={styles.userAvatarImage}
+                              />
+                            ) : (
+                              <Icon name="person-outline" size={16} color="#6b7280" />
+                            )}
+                          </View>
+                          <View style={styles.userCopy}>
+                            <Text style={styles.userTitle}>{`@${username}`}</Text>
+                            {!!displayName && (
+                              <Text style={styles.userSubtitle}>{displayName}</Text>
+                            )}
+                          </View>
                         </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null} */}
-
-              {/* <View style={styles.metaDivider} /> */}
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.metaRow}
-                onPress={() => setShowTaggedPeopleEditor(prev => !prev)}
-              >
-                <View style={styles.metaRowLeft}>
-                  <Icon name="person-add-outline" size={20} color="#111827" />
-                  <Text style={[styles.metaLabel, textStyle]}>Tag people</Text>
-                </View>
-                <View style={styles.metaRowRight}>
-                  {!!taggedPeopleList.length && (
-                    <Text style={styles.metaValue} numberOfLines={1}>
-                      {`${taggedPeopleList.length} tagged`}
-                    </Text>
-                  )}
-                  <Icon
-                    name={showTaggedPeopleEditor ? 'chevron-up' : 'chevron-forward'}
-                    size={18}
-                    color="#6b7280"
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {showTaggedPeopleEditor ? (
-                <View style={styles.editorInputWrap}>
-                  <TextInput
-                    value={tagSearch}
-                    onChangeText={setTagSearch}
-                    placeholder="Search people"
-                    placeholderTextColor="#9ca3af"
-                    style={[styles.metaInput, styles.tagInput, textStyle]}
-                    editable={!isSubmitting}
-                    autoCapitalize="none"
-                    maxLength={250}
-                  />
-                  {isSearchingUsers ? (
-                    <ActivityIndicator size="small" color={text} style={styles.metaLoader} />
-                  ) : null}
-                  {userSuggestions.length ? (
-                    <View style={styles.suggestionList}>
-                      {userSuggestions.map(user => {
-                        const username = String(user?.userName || user?.username || '').trim();
-                        const displayName = String(user?.name || user?.fullName || '').trim();
-                        return (
-                          <TouchableOpacity
-                            key={String(user?.id || username)}
-                            style={styles.userSuggestionRow}
-                            activeOpacity={0.8}
-                            onPress={() => handleSelectUser(user)}
-                          >
-                            <View style={styles.userAvatar}>
-                              {user?.image ? (
-                                <Image
-                                  source={{ uri: user.image }}
-                                  style={styles.userAvatarImage}
-                                />
-                              ) : (
-                                <Icon name="person-outline" size={16} color="#6b7280" />
-                              )}
-                            </View>
-                            <View style={styles.userCopy}>
-                              <Text style={styles.userTitle}>{`@${username}`}</Text>
-                              {!!displayName && (
-                                <Text style={styles.userSubtitle}>{displayName}</Text>
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-                  {taggedPeopleList.length ? (
-                    <View style={styles.tagChipWrap}>
-                      {taggedPeopleList.map(person => (
-                        <TouchableOpacity
-                          key={person}
-                          style={styles.tagChip}
-                          activeOpacity={0.8}
-                          onPress={() => handleRemoveTaggedPerson(person)}
-                        >
-                          <Text style={styles.tagChipText}>{`@${person}`}</Text>
-                          <Icon name="close" size={14} color="#1f2937" />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-            {/* </View>  */}
+                      );
+                    })}
+                  </View>
+                ) : null}
+                {taggedPeopleList.length ? (
+                  <View style={styles.tagChipWrap}>
+                    {taggedPeopleList.map(person => (
+                      <TouchableOpacity
+                        key={person}
+                        style={styles.tagChip}
+                        activeOpacity={0.8}
+                        onPress={() => handleRemoveTaggedPerson(person)}
+                      >
+                        <Text style={styles.tagChipText}>{`@${person}`}</Text>
+                        <Icon name="close" size={14} color="#1f2937" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

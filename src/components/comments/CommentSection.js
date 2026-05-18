@@ -1,18 +1,31 @@
 import React, { useState, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity, Text } from 'react-native';
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  Text,
+} from 'react-native';
 import CommentList from './CommentList';
 import CommentInput from './CommentInput';
 import { useAppTheme } from '../../theme/useApptheme';
-
-const initialComments = [/* ...mock data as before... */];
-
-export default function CommentSection({ caption, onClose, initialComments: initial = initialComments }) {
+import { useLanguage } from '../../i18n';
+ 
+const initialComments = [/* ...mock data... */];
+ 
+export default function CommentSection({
+  caption,
+  onClose,
+  initialComments: initial = initialComments,
+}) {
   const [comments, setComments] = useState(initial);
   const [replyTo, setReplyTo] = useState(null); // {commentId, username}
   const flatListRef = useRef();
   const { bgStyle, textStyle } = useAppTheme();
-
-  // Add new comment or reply
+  const { t } = useLanguage();
+ 
   const handleAddComment = (text) => {
     if (!text.trim()) return;
     if (replyTo) {
@@ -20,20 +33,24 @@ export default function CommentSection({ caption, onClose, initialComments: init
         prev.map(c =>
           c.id === replyTo.commentId
             ? {
-              ...c,
-              replies: [
-                ...c.replies,
-                {
-                  id: 'r' + Date.now(),
-                  user: { id: 'me', name: 'You', avatar: 'https://randomuser.me/api/portraits/men/7.jpg' },
-                  text,
-                  timestamp: Date.now(),
-                  likes: 0,
-                  liked: false,
-                },
-              ],
-              replyCount: c.replyCount + 1,
-            }
+                ...c,
+                replies: [
+                  ...c.replies,
+                  {
+                    id: 'r' + Date.now(),
+                    user: {
+                      id: 'me',
+                      name: 'You',
+                      avatar: 'https://randomuser.me/api/portraits/men/7.jpg',
+                    },
+                    text,
+                    timestamp: Date.now(),
+                    likes: 0,
+                    liked: false,
+                  },
+                ],
+                replyCount: c.replyCount + 1,
+              }
             : c
         )
       );
@@ -41,7 +58,11 @@ export default function CommentSection({ caption, onClose, initialComments: init
       setComments(prev => [
         {
           id: Date.now().toString(),
-          user: { id: 'me', name: 'You', avatar: 'https://randomuser.me/api/portraits/men/7.jpg' },
+          user: {
+            id: 'me',
+            name: 'You',
+            avatar: 'https://randomuser.me/api/portraits/men/7.jpg',
+          },
           text,
           timestamp: Date.now(),
           likes: 0,
@@ -53,10 +74,8 @@ export default function CommentSection({ caption, onClose, initialComments: init
       ]);
     }
     setReplyTo(null);
-    // Optionally scroll to bottom or new comment
   };
-
-  // Like/unlike comment or reply
+ 
   const handleLike = (commentId, replyId = null) => {
     setComments(prev =>
       prev.map(c => {
@@ -78,8 +97,7 @@ export default function CommentSection({ caption, onClose, initialComments: init
       })
     );
   };
-
-  // Toggle replies
+ 
   const handleToggleReplies = (commentId) => {
     setComments(prev =>
       prev.map(c =>
@@ -87,21 +105,23 @@ export default function CommentSection({ caption, onClose, initialComments: init
       )
     );
   };
-
+ 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={[styles.container, bgStyle]}>
-        {/* Close button for modal */}
         {onClose && (
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         )}
-        {/* Caption at the top if provided */}
-
+ 
         <View style={[styles.captionRow, bgStyle]}>
-          <Text style={styles.captionUser}>Comments</Text>
+          <Text style={styles.captionUser}>{t('comments.sectionTitle')}</Text>
         </View>
+ 
         <FlatList
           ref={flatListRef}
           data={comments}
@@ -115,7 +135,11 @@ export default function CommentSection({ caption, onClose, initialComments: init
               replyTo={replyTo}
             />
           )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>{t('comments.noComments')}</Text>
+          }
         />
+ 
         <CommentInput
           onSend={handleAddComment}
           replyTo={replyTo}

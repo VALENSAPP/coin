@@ -29,6 +29,7 @@ import { useAppTheme } from '../../../theme/useApptheme';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import { ensureCurrentAccountSaved } from '../../../utils/accountSession';
 import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
+import { useLanguage } from '../../../i18n';
 
 const { height } = Dimensions.get('window');
 
@@ -43,6 +44,7 @@ export default function OTPScreen() {
   const dispatch = useDispatch();
   const { email, password, type, profile } = route.params || {};
   const { bgStyle, textStyle, text } = useAppTheme(profile);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (type === 'signup') {
@@ -88,7 +90,7 @@ export default function OTPScreen() {
       showToastMessage(
         toast,
         'danger',
-        error?.data?.message || 'Verification failed',
+        error?.data?.message || t('otp.verificationFailed')
       );
     } finally {
       setLoading(false);
@@ -112,7 +114,7 @@ export default function OTPScreen() {
       showToastMessage(
         toast,
         'danger',
-        error?.message || 'Failed to resend code',
+        error?.message || t('otp.resendFailed')
       );
     } finally {
       setResendLoading(false);
@@ -171,7 +173,7 @@ export default function OTPScreen() {
         showToastMessage(toast, 'danger', response.message);
       }
     } catch (error) {
-      showToastMessage(toast, 'success', error.response.message);
+      showToastMessage(toast, 'danger', error?.response?.message);
     } finally {
       dispatch(hideLoader());
     }
@@ -185,22 +187,25 @@ export default function OTPScreen() {
 
       if (id) {
         const response = await getProfile(id);
-        if ((response.statusCode === 200 && (response.data.kycStatus == "pending" || response.data.kycStatus == "PENDING")) || (response.statusCode === 200 && response.data.kycStatus == "submitted")) {
-          showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
+
+        if (
+          response.statusCode === 200 &&
+          (response.data.kycStatus === 'pending' ||
+            response.data.kycStatus === 'PENDING' ||
+            response.data.kycStatus === 'submitted')
+        ) {
+          showToastMessage(toast, 'danger', t('kyc.progressMessage'));
           return;
-        }
-        else if (response.statusCode === 200 && response.data.kycStatus == "DECLINED") {
-          showToastMessage(toast, 'danger', 'KYC Verificaion is rejected. Please try again.', 3500);
+        } else if (response.statusCode === 200 && response.data.kycStatus === 'DECLINED') {
+          showToastMessage(toast, 'danger', t('kyc.kycRejectedMessage'));
           navigation.navigate('CreateProfile', { profile, id });
-        }
-        else if (response.statusCode === 200 && response.data.kyc == false) {
+        } else if (response.statusCode === 200 && response.data.kyc == false) {
           navigation.navigate('CreateProfile', { profile, id });
-        }
-        else if (response.statusCode === 200 && response.data.bio == null) {
+        } else if (response.statusCode === 200 && response.data.bio == null) {
           navigation.navigate('CreateProfile', { profile, id });
-        }
-        else {
+        } else {
           await persistStripeCustomerId(response?.data?.stripeCustomerId ?? null, dispatch);
+
           await ensureCurrentAccountSaved({
             profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
             username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
@@ -208,13 +213,11 @@ export default function OTPScreen() {
           });
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
-          // Clear signup form data after successful login
           dispatch(clearSignupFormData());
         }
       }
     } catch (err) {
-      console.log(err);
-      Alert.alert('Error', err.message || 'Failed to fetch profile status');
+      Alert.alert('Error', err.message);
     } finally {
       dispatch(hideLoader());
     }
@@ -238,21 +241,26 @@ export default function OTPScreen() {
         >
           {/* Header */}
           <AuthHeader
-            subtitle="Verification Code"
+            subtitle={t('otp.headerSubtitle')}
             profileType={profile}
             onBackPress={() => navigation.goBack()}
           />
 
-          {/* Card */}
           <View style={styles.formWrapper}>
             <View style={styles.card}>
+
+              {/* Title */}
               <View style={styles.welcomeSection}>
-                <Text style={styles.welcomeTitle}>Enter Confirmation Code</Text>
+                <Text style={styles.welcomeTitle}>
+                  {t('otp.title')}
+                </Text>
+
                 <Text style={styles.welcomeSubtitle}>
-                  Enter the 6-digit code sent to {email || 'your email'}
+                  {t('otp.subtitle').replace('{{email}}', email || 'your email')}
                 </Text>
               </View>
 
+              {/* Info */}
               <View style={styles.infoSection}>
                 <View style={[styles.infoBox, { borderLeftColor: text }]}>
                   <Icon
@@ -262,15 +270,17 @@ export default function OTPScreen() {
                     style={styles.infoIcon}
                   />
                   <Text style={styles.infoText}>
-                    Check your email inbox and spam folder for the verification
-                    code
+                    {t('otp.infoText')}
                   </Text>
                 </View>
               </View>
 
               {/* OTP */}
               <View style={styles.otpSection}>
-                <Text style={styles.otpLabel}>Verification Code</Text>
+                <Text style={styles.otpLabel}>
+                  {t('otp.otpLabel')}
+                </Text>
+
                 <OTPTextInput
                   ref={otpInput}
                   handleTextChange={setOtp}
@@ -283,7 +293,7 @@ export default function OTPScreen() {
                 />
               </View>
 
-              {/* Confirm */}
+              {/* Verify */}
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
@@ -292,7 +302,7 @@ export default function OTPScreen() {
                 ]}
                 onPress={() => {
                   if (otp.length !== 6) {
-                    showToastMessage(toast, 'danger', 'Please enter a 6-digit code.');
+                    showToastMessage(toast, 'danger', t('otp.invalidOtp'));
                     return;
                   }
                   handleConfirm();
@@ -301,16 +311,18 @@ export default function OTPScreen() {
                 disabled={loading || otp.length !== 6}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>Verify Code</Text>
+                  <Text style={styles.confirmButtonText}>
+                    {t('otp.verifyButton')}
+                  </Text>
                 )}
               </TouchableOpacity>
 
               {/* Resend */}
               <View style={styles.resendSection}>
                 <Text style={styles.resendPromptText}>
-                  Didn't receive the code?
+                  {t('otp.resendPrompt')}
                 </Text>
                 <TouchableOpacity
                   onPress={handleResend}
@@ -320,26 +332,27 @@ export default function OTPScreen() {
                   {resendLoading ? (
                     <View style={styles.resendLoadingContainer}>
                       <ActivityIndicator color={text} size="small" />
-                      <Text style={[styles.resendLoadingText, textStyle]}>Sending...</Text>
+                      <Text style={[styles.resendLoadingText, textStyle]}>{t('otp.sending')}</Text>
                     </View>
                   ) : (
-                    <Text style={[styles.resendText, textStyle]}>Resend Code</Text>
+                    <Text style={[styles.resendText, textStyle]}>{t('otp.resend')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
 
-              {/* Back to Login */}
+              {/* Back */}
               <View style={styles.backToLoginSection}>
                 <Text style={styles.backToLoginText}>
-                  Having trouble?{' '}
+                  {t('otp.backToLoginText')}{' '}
                   <Text
                     style={[styles.backToLoginLink, textStyle]}
                     onPress={() => navigation.navigate('Login')}
                   >
-                    Back to Login
+                    {t('otp.backToLoginLink')}
                   </Text>
                 </Text>
               </View>
+
             </View>
           </View>
         </KeyboardAwareScrollView>

@@ -1,7 +1,7 @@
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, Platform } from "react-native";
-import React from "react";
-import { useAppTheme } from "../../theme/useApptheme";
-import { Linking, Alert } from "react-native";
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, Platform, Linking, Alert } from 'react-native';
+import React from 'react';
+import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const WALLETS = [
   {
@@ -17,117 +17,74 @@ const WALLETS = [
   {
     id: 'coinbase',
     name: 'Coinbase Wallet',
-    icon: require('../../assets/icons/pngicons/coin.png'), // Placeholder - add Coinbase icon
+    icon: require('../../assets/icons/pngicons/coin.png'),
     deepLinkScheme: 'cbwallet://',
     storeUrl: {
       ios: 'https://apps.apple.com/app/coinbase-wallet/id1278383455',
       android: 'https://play.google.com/store/apps/details?id=org.toshi',
     },
   },
-  // {
-  //   id: 'trust',
-  //   name: 'Trust Wallet',
-  //   icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Trust Wallet icon
-  //   deepLinkScheme: 'trust://',
-  //   storeUrl: {
-  //     ios: 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409',
-  //     android: 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp',
-  //   },
-  // },
-  // {
-  //   id: 'rainbow',
-  //   name: 'Rainbow',
-  //   icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Rainbow icon
-  //   deepLinkScheme: 'rainbow://',
-  //   storeUrl: {
-  //     ios: 'https://apps.apple.com/app/rainbow-ethereum-wallet/id1457119021',
-  //     android: 'https://play.google.com/store/apps/details?id=me.rainbow',
-  //   },
-  // },
-  // {
-  //   id: 'zerion',
-  //   name: 'Zerion',
-  //   icon: require('../../assets/icons/pngicons/metamask.png'), // Placeholder - add Zerion icon
-  //   deepLinkScheme: 'zerion://',
-  //   storeUrl: {
-  //     ios: 'https://apps.apple.com/app/zerion-defi-wallet/id1456732568',
-  //     android: 'https://play.google.com/store/apps/details?id=io.zerion.android',
-  //   },
-  // },
   {
     id: 'walletconnect',
     name: 'Other Wallet (WalletConnect)',
-    icon: require('../../assets/icons/pngicons/EWallet.png'), // Placeholder - add WalletConnect icon
+    icon: require('../../assets/icons/pngicons/EWallet.png'),
     deepLinkScheme: 'wc://',
-    storeUrl: null, // WalletConnect opens a browser/modal - works with ALL WalletConnect-compatible wallets
+    storeUrl: null,
   },
 ];
 
 export default function WalletSelectionModal({ visible, onClose, onSelectWallet }) {
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const handleWalletSelect = async (wallet) => {
-    // Check if wallet app is installed by trying to open it
     try {
-      // For WalletConnect, we'll use the walletConnectDeepLink from the connection
       if (wallet.id === 'walletconnect') {
         onSelectWallet(wallet);
         return;
       }
 
-      // For other wallets, check if app is installed
       const canOpen = await Linking.canOpenURL(wallet.deepLinkScheme);
-      
+
       if (canOpen) {
-        // Show confirmation to open external wallet
         Alert.alert(
-          `"Valens" wants to open "${wallet.name}"`,
+          t('walletSelection.openWalletTitle', { walletName: wallet.name }),
           '',
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: t('walletSelection.cancelButton'), style: 'cancel' },
             {
-              text: 'Open',
-              onPress: () => {
-                onSelectWallet(wallet);
-              },
+              text: t('walletSelection.openButton'),
+              onPress: () => onSelectWallet(wallet),
             },
           ],
           { cancelable: true }
         );
       } else {
-        // Wallet not installed, offer to install
         Alert.alert(
-          `${wallet.name} Not Installed`,
-          `${wallet.name} is not installed. Would you like to install it?`,
+          t('walletSelection.notInstalledTitle', { walletName: wallet.name }),
+          t('walletSelection.notInstalledMessage', { walletName: wallet.name }),
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: t('walletSelection.cancelButton'), style: 'cancel' },
             {
-              text: 'Install',
+              text: t('walletSelection.installButton'),
               onPress: () => {
-                const storeUrl = Platform.OS === 'ios' 
-                  ? wallet.storeUrl.ios 
-                  : wallet.storeUrl.android;
-                if (storeUrl) {
-                  Linking.openURL(storeUrl);
-                }
+                const storeUrl =
+                  Platform.OS === 'ios' ? wallet.storeUrl?.ios : wallet.storeUrl?.android;
+                if (storeUrl) Linking.openURL(storeUrl);
               },
             },
           ]
         );
       }
     } catch (error) {
-      // If canOpenURL fails, still allow selection (might work anyway)
-      // Show confirmation dialog anyway
       Alert.alert(
-        `"Valens" wants to open "${wallet.name}"`,
+        t('walletSelection.openWalletTitle', { walletName: wallet.name }),
         '',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('walletSelection.cancelButton'), style: 'cancel' },
           {
-            text: 'Open',
-            onPress: () => {
-              onSelectWallet(wallet);
-            },
+            text: t('walletSelection.openButton'),
+            onPress: () => onSelectWallet(wallet),
           },
         ],
         { cancelable: true }
@@ -145,10 +102,8 @@ export default function WalletSelectionModal({ visible, onClose, onSelectWallet 
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContent, bgStyle]}>
-          <Text style={[styles.title, textStyle]}>Connect Wallet</Text>
-          <Text style={styles.description}>
-            Choose a wallet to connect. All wallets use WalletConnect protocol for secure connection.
-          </Text>
+          <Text style={[styles.title, textStyle]}>{t('walletSelection.title')}</Text>
+          <Text style={styles.description}>{t('walletSelection.description')}</Text>
 
           <View style={styles.walletList}>
             {WALLETS.map((wallet) => (
@@ -158,11 +113,7 @@ export default function WalletSelectionModal({ visible, onClose, onSelectWallet 
                 onPress={() => handleWalletSelect(wallet)}
               >
                 <View style={styles.walletIconContainer}>
-                  <Image 
-                    source={wallet.icon} 
-                    style={styles.walletIcon}
-                    resizeMode="contain"
-                  />
+                  <Image source={wallet.icon} style={styles.walletIcon} resizeMode="contain" />
                 </View>
                 <Text style={[styles.walletName, textStyle]}>{wallet.name}</Text>
               </TouchableOpacity>
@@ -173,7 +124,9 @@ export default function WalletSelectionModal({ visible, onClose, onSelectWallet 
             style={[styles.cancelButton, { borderColor: text }]}
             onPress={onClose}
           >
-            <Text style={[styles.cancelButtonText, textStyle]}>Cancel</Text>
+            <Text style={[styles.cancelButtonText, textStyle]}>
+              {t('walletSelection.cancelButton')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

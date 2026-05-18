@@ -48,6 +48,7 @@ import {
 import { logoutDeviecAll } from '../../services/wallet';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
+import { useLanguage } from '../../i18n';
 
 /** __DEV__ only: set to '' to use real tokens from resolveRefreshTokenForAccountSwitch. */
 const DEBUG_STATIC_REFRESH_TOKEN_FOR_SWITCH_TEST = __DEV__
@@ -66,11 +67,11 @@ const Settings = () => {
   const [switchInFlight, setSwitchInFlight] = useState(false);
   const [removeAccountConfirm, setRemoveAccountConfirm] = useState(null);
   const { bgStyle, textStyle, bg, text, card } = useAppTheme();
+  const { t } = useLanguage();
 
   // Handler functions for all menu items
   const handleAccountsCentrePress = () => {
     refRBSheet.current.open();
-    // Alert.alert("Accounts Centre", "Navigate to Accounts Centre");
   };
 
   const handleKYCVerificationPress = () => {
@@ -79,7 +80,6 @@ const Settings = () => {
 
   const handleSavedPress = () => {
     navigation.navigate('SavedPost');
-    // Alert.alert("Saved", "Navigate to Saved items");
   };
 
   const handleQuickBuy = () => {
@@ -95,12 +95,11 @@ const Settings = () => {
   };
 
   const handleArchivePress = () => {
-
     navigation.navigate('ArchiveScreen');
   };
 
   const handleActivityPress = () => {
-    Alert.alert('Your activity', 'Navigate to Your activity');
+    Alert.alert(t('settings.yourActivity'), t('settings.navigateYourActivity'));
   };
 
   const handleNotificationsPress = () => {
@@ -108,23 +107,23 @@ const Settings = () => {
   };
 
   const handleTimeManagementPress = () => {
-    Alert.alert('Time management', 'Navigate to Time management settings');
+    Alert.alert(t('settings.timeManagement'), t('settings.navigateTimeManagement'));
   };
 
   const handleAccountPrivacyPress = () => {
-    Alert.alert('Account privacy', 'Navigate to Account privacy settings');
+    Alert.alert(t('settings.accountPrivacy'), t('settings.navigateAccountPrivacy'));
   };
 
   const handleCloseFriendsPress = () => {
-    Alert.alert('Top Valens', 'Navigate to Close Friends settings');
+    Alert.alert(t('settings.topValens'), t('settings.navigateCloseFriends'));
   };
 
   const handleCrosspostingPress = () => {
-    Alert.alert('Crossposting', 'Navigate to Crossposting settings');
+    Alert.alert(t('settings.crossposting'), t('settings.navigateCrossposting'));
   };
 
   const handleBlockedPress = () => {
-    Alert.alert('Blocked', 'Navigate to Blocked accounts');
+    Alert.alert(t('settings.blocked'), t('settings.navigateBlocked'));
   };
 
   const handleHideStoryPress = () => {
@@ -144,173 +143,151 @@ const Settings = () => {
   };
 
   const handleMessagesPress = () => {
-    Alert.alert('Messages and story replies', 'Navigate to Messages settings');
+    Alert.alert(t('settings.messagesReplies'), t('settings.navigateMessages'));
   };
 
   const handleTagsPress = () => {
-    Alert.alert('Tags and mentions', 'Navigate to Tags settings');
+    Alert.alert(t('settings.tagsMentions'), t('settings.navigateTags'));
   };
 
   const handleCommentsPress = () => {
-    Alert.alert('Comments', 'Navigate to Comments settings');
+    Alert.alert(t('settings.comments'), t('settings.navigateComments'));
   };
 
   const handleSharingPress = () => {
-    Alert.alert('Sharing', 'Navigate to Sharing settings');
+    Alert.alert(t('settings.sharing'), t('settings.navigateSharing'));
   };
 
   const handleRestrictedPress = () => {
-    Alert.alert('Restricted', 'Navigate to Restricted accounts');
+    Alert.alert(t('settings.restricted'), t('settings.navigateRestricted'));
   };
 
   const handleLimitInteractionsPress = () => {
-    Alert.alert(
-      'Limit interactions',
-      'Navigate to Limit interactions settings',
-    );
+    Alert.alert(t('settings.limitInteractions'), t('settings.navigateLimitInteractions'));
   };
 
   const handleHiddenWordsPress = () => {
-    Alert.alert('Hidden words', 'Navigate to Hidden words settings');
+    Alert.alert(t('settings.hiddenWords'), t('settings.navigateHiddenWords'));
   };
 
   const handleFollowInvitePress = () => {
-    Alert.alert(
-      'Follow and invite friends',
-      'Navigate to Follow and invite friends',
-    );
+    Alert.alert(t('settings.followInvite'), t('settings.navigateFollowInvite'));
   };
 
   const handleFavouritesPress = () => {
-    Alert.alert('Favourites', 'Navigate to Favourites');
+    Alert.alert(t('settings.favourites'), t('settings.navigateFavourites'));
   };
 
   const handleMutedAccountsPress = () => {
-    Alert.alert('Muted accounts', 'Navigate to Muted accounts');
+    Alert.alert(t('settings.mutedAccounts'), t('settings.navigateMutedAccounts'));
   };
 
   const handleContentPreferencesPress = () => {
-    Alert.alert('Content preferences', 'Navigate to Content preferences');
+    Alert.alert(t('settings.contentPreferences'), t('settings.navigateContentPreferences'));
   };
 
   const handleLikeShareCountsPress = () => {
-    Alert.alert(
-      'Like and share counts',
-      'Navigate to Like and share counts settings',
-    );
+    Alert.alert(t('settings.likeShareCounts'), t('settings.navigateLikeShareCounts'));
   };
 
   const handleSubscriptionsPress = () => {
-    Alert.alert('Subscriptions', 'Navigate to Subscriptions');
+    Alert.alert(t('settings.subscriptions'), t('settings.navigateSubscriptions'));
   };
 
   const handleDevicePermissionsPress = () => {
-    Alert.alert('Device permissions', 'Navigate to Device permissions');
+    Alert.alert(t('settings.devicePermissions'), t('settings.navigateDevicePermissions'));
   };
 
   const handleArchivingDownloadingPress = () => {
-    Alert.alert(
-      'Archiving and downloading',
-      'Navigate to Archiving and downloading',
-    );
+    Alert.alert(t('settings.archivingDownloading'), t('settings.navigateArchivingDownloading'));
   };
 
   const handleAccessibilityPress = () => {
-    Alert.alert('Accessibility', 'Navigate to Accessibility settings');
+    Alert.alert(t('settings.accessibility'), t('settings.navigateAccessibility'));
   };
 
   const handleLanguagePress = () => {
-    Alert.alert('Language and translations', 'Navigate to Language settings');
+    Alert.alert(t('settings.languageTranslations'), t('settings.navigateLanguage'));
   };
 
   const handleDataUsagePress = () => {
-    Alert.alert(
-      'Data usage and media quality',
-      'Navigate to Data usage settings',
-    );
+    Alert.alert(t('settings.dataUsage'), t('settings.navigateDataUsage'));
   };
 
   const handleAppWebsitePress = () => {
-    Alert.alert(
-      'App website permissions',
-      'Navigate to App website permissions',
-    );
+    Alert.alert(t('settings.appWebsitePermissions'), t('settings.navigateAppWebsite'));
   };
 
   const handleEarlyAccessPress = () => {
-    Alert.alert(
-      'Early access to features',
-      'Navigate to Early access settings',
-    );
+    Alert.alert(t('settings.earlyAccess'), t('settings.navigateEarlyAccess'));
   };
 
   const handleAccountTypePress = () => {
-    Alert.alert('Account type and tools', 'Navigate to Account type and tools');
+    Alert.alert(t('settings.accountTypeTools'), t('settings.navigateAccountType'));
   };
 
   const handleMetaVerifiedPress = () => {
-    Alert.alert('Meta Verified', 'Navigate to Meta Verified');
+    Alert.alert(t('settings.metaVerified'), t('settings.navigateMetaVerified'));
   };
 
   const handleOrdersPaymentsPress = () => {
-    Alert.alert('Orders and payments', 'Navigate to Orders and payments');
+    Alert.alert(t('settings.ordersPayments'), t('settings.navigateOrdersPayments'));
   };
 
   const handleHelpPress = () => {
     const email = 'Support@valens.app';
-    const subject = 'App Support Request';
-    const body = 'Hi team,\n\nI need help with...';
+    const subject = t('settings.helpEmailSubject');
+    const body = t('settings.helpEmailBody');
 
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'No mail app found');
+      Alert.alert(t('settings.error'), t('settings.noMailApp'));
     });
   };
 
   const handlePrivacyCentrePress = () => {
-    Alert.alert('Privacy Centre', 'Navigate to Privacy Centre');
+    Alert.alert(t('settings.privacyCentre'), t('settings.navigatePrivacyCentre'));
   };
 
   const handleAccountStatusPress = () => {
-    Alert.alert('Account Status', 'Navigate to Account Status');
+    Alert.alert(t('settings.accountStatus'), t('settings.navigateAccountStatus'));
   };
 
   const handleAboutPress = () => {
-    Alert.alert('About', 'App version 1.0.0');
+    Alert.alert(t('settings.about'), t('settings.appVersion'));
   };
 
   const handleWhatsAppPress = () => {
-    Alert.alert('WhatsApp', 'Navigate to WhatsApp');
+    Alert.alert(t('settings.whatsApp'), t('settings.navigateWhatsApp'));
   };
 
   const handleEditsPress = () => {
-    Alert.alert('Edits', 'Navigate to Edits');
+    Alert.alert(t('settings.edits'), t('settings.navigateEdits'));
   };
 
   const handleThreadsPress = () => {
-    Alert.alert('Threads', 'Navigate to Threads');
+    Alert.alert(t('settings.threads'), t('settings.navigateThreads'));
   };
 
   const handleFacebookPress = () => {
-    Alert.alert('Facebook', 'Navigate to Facebook');
+    Alert.alert(t('settings.facebook'), t('settings.navigateFacebook'));
   };
 
   const handleMessengerPress = () => {
-    Alert.alert('Messenger', 'Navigate to Messenger');
+    Alert.alert(t('settings.messenger'), t('settings.navigateMessenger'));
   };
 
   const handleMetaAIPress = () => {
-    Alert.alert('Meta AI', 'Navigate to Meta AI');
+    Alert.alert(t('settings.metaAI'), t('settings.navigateMetaAI'));
   };
 
   const handleRayBanPress = () => {
-    Alert.alert('Ray-Ban Meta', 'Navigate to Ray-Ban Meta');
+    Alert.alert(t('settings.rayBanMeta'), t('settings.navigateRayBan'));
   };
 
   const moveToLoginForAddingAccount = async () => {
     await AsyncStorage.setItem(ADDING_ACCOUNT_FLAG_KEY, 'true');
-    // await AsyncStorage.setItem('isLoggedIn', 'true');
     dispatch(setIsAddAccount(true));
   };
 
@@ -347,7 +324,7 @@ const Settings = () => {
           toast,
           'danger',
           res?.message ||
-          'Session expired for this account. Remove it from this device, then sign in again.',
+          t('settings.switchSessionExpired'),
           4000,
         );
         return;
@@ -362,12 +339,12 @@ const Settings = () => {
         setTimeout(() => {
           dispatch(loggedIn());
         }, 50);
-        showToastMessage(toast, 'success', 'Switched account', 1500);
+        showToastMessage(toast, 'success', t('settings.switchedAccount'), 1500);
         return;
       }
     } catch (e) {
       console.warn('switchAccount', e);
-      showToastMessage(toast, 'danger', e?.message || 'Switch failed');
+      showToastMessage(toast, 'danger', e?.message || t('settings.switchFailed'));
     } finally {
       setSwitchInFlight(false);
     }
@@ -390,7 +367,6 @@ const Settings = () => {
     if (!userId) return;
     closeRemoveAccountConfirm();
     try {
-      // Fetch current device accounts to check count
       let accountCount = 0;
       try {
         const apiRes = await fetchDeviceAccounts();
@@ -404,7 +380,7 @@ const Settings = () => {
         showToastMessage(
           toast,
           'danger',
-          'Cannot remove the only account on this device. Please log out instead.',
+          t('settings.cannotRemoveOnlyAccount'),
           3000,
         );
         return;
@@ -417,12 +393,12 @@ const Settings = () => {
         setSwitchableAccounts(prev =>
           prev.filter(a => String(resolveAccountUserId(a)) !== String(userId)),
         );
-        showToastMessage(toast, 'success', 'Account removed from device', 2000);
+        showToastMessage(toast, 'success', t('settings.accountRemovedFromDevice'), 2000);
       } else {
-        showToastMessage(toast, 'danger', res?.message || 'Could not remove account');
+        showToastMessage(toast, 'danger', res?.message || t('settings.couldNotRemoveAccount'));
       }
     } catch (err) {
-      showToastMessage(toast, 'danger', err?.message || 'Remove failed');
+      showToastMessage(toast, 'danger', err?.message || t('settings.removeFailed'));
     }
   };
 
@@ -445,18 +421,16 @@ const Settings = () => {
       } finally {
         setLoadingAccounts(false);
       }
-
-
     } catch (error) {
-      Alert.alert('Error', 'Unable to open account switcher right now.');
+      Alert.alert(t('settings.error'), t('settings.unableToOpenAccountSwitcher'));
     }
   };
 
   const handleLogoutPress = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('settings.logOut'), t('settings.logOutConfirmMessage'), [
+      { text: t('settings.cancel'), style: 'cancel' },
       {
-        text: 'Log Out',
+        text: t('settings.logOut'),
         style: 'destructive',
         onPress: () => {
           (async () => {
@@ -465,7 +439,6 @@ const Settings = () => {
 
             const currentUserId = await AsyncStorage.getItem('userId');
 
-            // Fetch other accounts BEFORE logout (while token is still valid)
             let otherAccounts = [];
             try {
               const apiRes = await fetchDeviceAccounts();
@@ -475,7 +448,6 @@ const Settings = () => {
               console.warn('fetchDeviceAccounts before logout failed:', e?.message);
             }
 
-            // Now logout
             try {
               const token = await AsyncStorage.getItem('token');
               const refreshToken = await AsyncStorage.getItem('refreshToken');
@@ -484,11 +456,9 @@ const Settings = () => {
               // Ignore logout API failure; proceed with local logout.
             }
 
-            // Try to switch to another account if available (BEFORE removing current account)
             let switchSuccess = false;
             try {
               if (otherAccounts && otherAccounts.length > 1) {
-                // Switch to the second account (first is current user)
                 const topAccount = otherAccounts[1];
                 const targetUserId = resolveAccountUserId(topAccount);
                 console.log('Switching to account:', targetUserId, topAccount);
@@ -499,7 +469,6 @@ const Settings = () => {
                   const ok = switchRes?.statusCode === 200 || switchRes?.statusCode === 201;
 
                   if (ok) {
-                    // Auto-switch to account
                     const resData = switchRes.data || switchRes;
                     console.log('resData to persist:', resData);
 
@@ -515,7 +484,12 @@ const Settings = () => {
                       dispatch(loggedIn());
                     }, 100);
 
-                    showToastMessage(toast, 'success', `Switched to ${topAccount.displayName || 'another account'}`, 2000);
+                    showToastMessage(
+                      toast,
+                      'success',
+                      `${t('settings.switchedTo')} ${topAccount.displayName || t('settings.anotherAccount')}`,
+                      2000,
+                    );
                     switchSuccess = true;
                   } else {
                     console.warn('Switch failed with status:', switchRes?.statusCode, switchRes?.message);
@@ -528,8 +502,6 @@ const Settings = () => {
               console.warn('Error during account switch:', e?.message, e);
             }
 
-            // Remove current account AFTER switch attempt
-            // Remove current account AFTER switch attempt
             if (switchSuccess && currentUserId) {
               try {
                 await removeDeviceAccountRequest({ userId: currentUserId });
@@ -540,7 +512,6 @@ const Settings = () => {
               return;
             }
 
-            // If switch failed OR only one account — always remove from device before full logout
             if (currentUserId) {
               try {
                 await removeDeviceAccountRequest({ userId: currentUserId });
@@ -568,7 +539,7 @@ const Settings = () => {
 
             dispatch(hideLoader());
             dispatch(loggedOut());
-            showToastMessage(toast, 'success', 'Logged out', 1500);
+            showToastMessage(toast, 'success', t('settings.loggedOut'), 1500);
           })();
         },
       },
@@ -606,9 +577,7 @@ const Settings = () => {
         ]);
 
         await AsyncStorage.setItem('isLoggedIn', 'false');
-
         await clearSavedAccounts();
-
         dispatch(loggedOut());
       } else {
         console.log('Logout all failed:', response);
@@ -622,12 +591,12 @@ const Settings = () => {
 
   const handleLogoutAllPress = () => {
     Alert.alert(
-      'Log Out of All Accounts',
-      'Are you sure you want to log out of all accounts?',
+      t('settings.logOutAllAccounts'),
+      t('settings.logOutAllConfirmMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('settings.cancel'), style: 'cancel' },
         {
-          text: 'Log Out All',
+          text: t('settings.logOutAll'),
           style: 'destructive',
           onPress: () => {
             void performLogoutAllAccounts();
@@ -703,7 +672,7 @@ const Settings = () => {
         >
           <Icon name="arrow-back" size={24} color="#262626" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings and activity</Text>
+        <Text style={styles.headerTitle}>{t('settings.headerTitle')}</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -714,121 +683,87 @@ const Settings = () => {
         {/* Your account section */}
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
-            <Text style={styles.sectionTitle}>Your account</Text>
-            {/* <Text style={styles.metaText}>Meta</Text> */}
+            <Text style={styles.sectionTitle}>{t('settings.yourAccount')}</Text>
           </View>
-
-          {/* <SettingsItem
-            icon="account-circle"
-            title="Accounts Center"
-            subtitle="Password, security, personal details, ad preferences"
-            onPress={handleAccountsCentrePress}
-          /> */}
-          {/* <SettingsItem
-            icon="account-circle"
-            title="KYC Verification"
-            onPress={handleKYCVerificationPress}
-          /> */}
 
           <SettingsItem
             icon="subscriptions"
-            title="Subscription"
+            title={t('settings.subscription')}
             onPress={handleSubscription}
           />
 
           <Text style={styles.sectionDescription}>
-            Manage your connected experiences and account settings across Valens
-            technologies App.
-            {/* <Text style={styles.learnMore}> Learn more</Text> */}
+            {t('settings.accountSectionDescription')}
           </Text>
         </View>
 
         {/* How you use Instagram section */}
         <View style={styles.section}>
-          <SectionHeader title=" Using Valens" />
+          <SectionHeader title={t('settings.usingValens')} />
 
           <SettingsItem
             icon="bookmark"
-            title="Saved"
+            title={t('settings.saved')}
             onPress={handleSavedPress}
           />
           <SettingsItem
             icon="archive"
-            title="Archive"
+            title={t('settings.archive')}
             onPress={handleArchivePress}
           />
-
-
         </View>
 
         {/* Who can see your content section */}
         <View style={styles.section}>
-          <SectionHeader title="Who can see your content" />
+          <SectionHeader title={t('settings.whoCanSeeContent')} />
 
           <SettingsItem
             icon="privacy-tip"
-            title="Account privacy"
-            rightText="Private"
-          // onPress={handleAccountPrivacyPress}
+            title={t('settings.accountPrivacy')}
+            rightText={t('settings.private')}
           />
           <SettingsItem
             icon="visibility-off"
-            title="Hide Posts"
+            title={t('settings.hidePosts')}
             onPress={handleHideStoryPress}
           />
-          {/* <SettingsItem
-            icon="visibility-off"
-            title="Battle in progress"
-            onPress={handleBattleInProgressPress}
-          />
-            <SettingsItem
-            icon="visibility-off"
-            title="Battle result "
-            onPress={handleBattleResultsPress}
-          />
-            <SettingsItem
-            icon="visibility-off"
-            title="Battle Reward"
-            onPress={handleBattleRewardPress}
-          /> */}
         </View>
 
         {/* More info and support section */}
         <View style={styles.section}>
-          <SectionHeader title="More info and support" />
+          <SectionHeader title={t('settings.moreInfoSupport')} />
 
           <SettingsItem
             icon="help-outline"
-            title="Help"
+            title={t('settings.help')}
             onPress={handleHelpPress}
           />
-          <SettingsItem icon="info" title="About" onPress={handleAboutPress} />
+          <SettingsItem
+            icon="info"
+            title={t('settings.about')}
+            onPress={handleAboutPress}
+          />
         </View>
 
         {/* Login section */}
         <View style={styles.section}>
-          <SectionHeader title="Login" />
+          <SectionHeader title={t('settings.loginSection')} />
           <ActionItem
-            title={loadingAccounts ? 'Loading accounts…' : 'Add accounts'}
+            title={loadingAccounts ? t('settings.loadingAccounts') : t('settings.addAccounts')}
             onPress={handleAddAccountPress}
             isDestructive={true}
           />
           <ActionItem
-            title="Log out"
+            title={t('settings.logOut')}
             onPress={handleLogoutPress}
             isDestructive={true}
           />
-          {/* <ActionItem
-            title="Log out all accounts"
-            onPress={handleLogoutAllPress}
-            isDestructive={true}
-          /> */}
         </View>
+
         <RBSheet
           ref={refRBSheet}
           draggable
           customModalProps={{
-            // animationType: 'slide',
             statusBarTranslucent: true,
           }}
           customStyles={{
@@ -857,6 +792,7 @@ const Settings = () => {
         </RBSheet>
       </ScrollView>
 
+      {/* Account Switcher Modal */}
       <Modal
         visible={accountSwitcherVisible}
         transparent
@@ -865,15 +801,17 @@ const Settings = () => {
       >
         <View style={switcherStyles.overlay}>
           <View style={[switcherStyles.card, { backgroundColor: card }]}>
-            <Text style={[switcherStyles.title, { color: text }]}>Switch account</Text>
+            <Text style={[switcherStyles.title, { color: text }]}>{t('settings.switchAccount')}</Text>
             <Text style={[switcherStyles.subtitle, { color: text }]}>
-              Select an account, remove one from this device, or add another.
+              {t('settings.switchAccountSubtitle')}
             </Text>
 
             {switchInFlight ? (
               <View style={switcherStyles.inlineLoading}>
                 <ActivityIndicator style={switcherStyles.inlineSpinner} color={text} />
-                <Text style={[switcherStyles.inlineLoadingText, { color: text }]}>Switching…</Text>
+                <Text style={[switcherStyles.inlineLoadingText, { color: text }]}>
+                  {t('settings.switching')}
+                </Text>
               </View>
             ) : null}
 
@@ -889,7 +827,7 @@ const Settings = () => {
                     account.displayName ||
                     account.username ||
                     account.email ||
-                    `Account ${account.id}`;
+                    `${t('settings.account')} ${account.id}`;
 
                   const avatarUri =
                     account.image || account.userImage || account.profileImage;
@@ -925,15 +863,15 @@ const Settings = () => {
 
                       <TouchableOpacity
                         onPress={() => {
-                          setAccountSwitcherVisible(false);   // CLOSE FIRST MODAL
+                          setAccountSwitcherVisible(false);
                           setTimeout(() => {
-                            openRemoveAccountConfirm(account); // THEN OPEN SECOND
+                            openRemoveAccountConfirm(account);
                           }, 300);
                         }}
                         disabled={switchInFlight}
                         style={switcherStyles.removeBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        accessibilityLabel="Remove account from this device"
+                        accessibilityLabel={t('settings.removeAccountFromDevice')}
                       >
                         <Icon name="delete-outline" size={22} color="#c62828" />
                       </TouchableOpacity>
@@ -950,19 +888,20 @@ const Settings = () => {
                 await moveToLoginForAddingAccount();
               }}
             >
-              <Text style={switcherStyles.addBtnText}>Add another account</Text>
+              <Text style={switcherStyles.addBtnText}>{t('settings.addAnotherAccount')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[switcherStyles.cancelBtn, { borderColor: text }]}
               onPress={() => setAccountSwitcherVisible(false)}
             >
-              <Text style={[switcherStyles.cancelBtnText, { color: text }]}>Cancel</Text>
+              <Text style={[switcherStyles.cancelBtnText, { color: text }]}>{t('settings.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
+      {/* Remove Account Confirm Modal */}
       <Modal
         visible={!!removeAccountConfirm}
         transparent
@@ -971,31 +910,23 @@ const Settings = () => {
       >
         <View style={switcherStyles.overlay}>
           <View style={[switcherStyles.card, { backgroundColor: card }]}>
-            <Text style={[switcherStyles.title, { color: text }]}>Log out</Text>
+            <Text style={[switcherStyles.title, { color: text }]}>{t('settings.logOut')}</Text>
             <Text style={[switcherStyles.confirmBody, { color: text }]}>
-              {/* Do you want to log out this account from this device only, or from all devices? */}
-              Do you want to log out this account from this device
+              {t('settings.logoutFromDeviceConfirm')}
             </Text>
             <TouchableOpacity
               style={[switcherStyles.addBtn, { backgroundColor: text }]}
               onPress={confirmRemoveAccountFromDevice}
               disabled={switchInFlight}
             >
-              <Text style={switcherStyles.addBtnText}>Logout</Text>
+              <Text style={switcherStyles.addBtnText}>{t('settings.logout')}</Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={[switcherStyles.dangerBtn, switcherStyles.choiceBtnSpacing]}
-              onPress={handleRemoveModalLogoutAllDevices}
-              disabled={switchInFlight}
-            >
-              <Text style={switcherStyles.dangerBtnText}>From all devices</Text>
-            </TouchableOpacity> */}
             <TouchableOpacity
               style={[switcherStyles.cancelBtn, { borderColor: text }]}
               onPress={closeRemoveAccountConfirm}
               disabled={switchInFlight}
             >
-              <Text style={[switcherStyles.cancelBtnText, { color: text }]}>Cancel</Text>
+              <Text style={[switcherStyles.cancelBtnText, { color: text }]}>{t('settings.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

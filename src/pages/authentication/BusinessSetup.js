@@ -37,6 +37,7 @@ import CountryPicker, { getAllCountries } from 'react-native-country-picker-moda
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedIn } from '../../redux/actions/LoginAction';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
+import { useLanguage } from '../../i18n';
 
 const { height } = Dimensions.get('window');
 
@@ -49,9 +50,9 @@ const BusinessProfileForm = () => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { bgStyle, text } = useAppTheme(profileFromRoute);
+  const { t } = useLanguage();
 
   useEffect(() => {
-    // Update Redux with selected profile so theme context picks it up for loader
     dispatch(setUserProfile(profileFromRoute));
   }, [profileFromRoute, dispatch]);
 
@@ -69,16 +70,26 @@ const BusinessProfileForm = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExistingCompanyProfile, setHasExistingCompanyProfile] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState({
-    cca2: 'US',
-    callingCode: ['1'],
-  });
+  const [selectedCountry, setSelectedCountry] = useState({ cca2: 'US', callingCode: ['1'] });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
-  const [isUploadingDocument, setIsUploadingDocument] = useState(false); 
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
   const sumsubLaunchLockRef = useRef(false);
+
+  // Build field definitions inside component so t() is in scope
+  const fields = [
+    { key: 'businessName', label: t('businessProfile.fields.businessName'),        placeholder: t('businessProfile.fields.businessNamePlaceholder') },
+    { key: 'ownerName',    label: t('businessProfile.fields.ownerName'),            placeholder: t('businessProfile.fields.ownerNamePlaceholder') },
+    { key: 'email',        label: t('businessProfile.fields.email'),                placeholder: t('businessProfile.fields.emailPlaceholder'),        keyboardType: 'email-address', autoCapitalize: 'none' },
+    { key: 'phone',        label: t('businessProfile.fields.phone'),                placeholder: t('businessProfile.fields.phonePlaceholder'),         keyboardType: 'phone-pad' },
+    { key: 'category',     label: t('businessProfile.fields.category'),             placeholder: t('businessProfile.fields.categoryPlaceholder') },
+    { key: 'address',      label: t('businessProfile.fields.address'),              placeholder: t('businessProfile.fields.addressPlaceholder'),       multiline: true, numberOfLines: 3, autoCapitalize: 'words' },
+    { key: 'description',  label: t('businessProfile.fields.description'),          placeholder: t('businessProfile.fields.descriptionPlaceholder'),   multiline: true, numberOfLines: 4 },
+    { key: 'website',      label: t('businessProfile.fields.website'),              placeholder: t('businessProfile.fields.websitePlaceholder'),       autoCapitalize: 'none' },
+    { key: 'gstNumber',    label: t('businessProfile.fields.gstNumber'),            placeholder: t('businessProfile.fields.gstNumberPlaceholder') },
+  ];
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -99,11 +110,9 @@ const BusinessProfileForm = () => {
       const value = String(rawPhone || '').trim();
       const digits = value.replace(/\D/g, '');
       const dialCodeDigits = getDialCode().replace(/\D/g, '');
-
       if (!digits) return '';
       if (value.startsWith('+')) return `+${digits}`;
       if (digits.startsWith(dialCodeDigits)) return `+${digits}`;
-
       return `+${dialCodeDigits}${digits}`;
     },
     [getDialCode],
@@ -113,21 +122,16 @@ const BusinessProfileForm = () => {
     const phoneValue = String(form.phone || '');
     const dialCodeDigits = getDialCode().replace(/\D/g, '');
     const phoneDigits = phoneValue.replace(/\D/g, '');
-
-    if (phoneDigits.startsWith(dialCodeDigits)) {
-      return phoneDigits.slice(dialCodeDigits.length);
-    }
-
+    if (phoneDigits.startsWith(dialCodeDigits)) return phoneDigits.slice(dialCodeDigits.length);
     return phoneValue.replace(/[^\d\s\-()]/g, '');
   }, [form.phone, getDialCode]);
 
   const handlePhoneChange = value => {
-    const sanitizedLocalNumber = String(value || '').replace(/[^\d\s\-()]/g, '');
-    const localDigits = sanitizedLocalNumber.replace(/\D/g, '');
+    const sanitized = String(value || '').replace(/[^\d\s\-()]/g, '');
+    const localDigits = sanitized.replace(/\D/g, '');
     const dialCodeDigits = getDialCode().replace(/\D/g, '');
-    const combinedDigits = `${dialCodeDigits}${localDigits}`;
-
-    handleChange('phone', combinedDigits ? `+${combinedDigits}` : '');
+    const combined = `${dialCodeDigits}${localDigits}`;
+    handleChange('phone', combined ? `+${combined}` : '');
   };
 
   const handleCountrySelect = country => {
@@ -135,31 +139,26 @@ const BusinessProfileForm = () => {
       cca2: country?.cca2 || 'US',
       callingCode: country?.callingCode?.length ? country.callingCode : ['1'],
     };
-
-    const currentPhoneDigits = String(form.phone || '').replace(/\D/g, '');
-    const currentDialCodeDigits = getDialCode().replace(/\D/g, '');
-    const localDigits = currentPhoneDigits.startsWith(currentDialCodeDigits)
-      ? currentPhoneDigits.slice(currentDialCodeDigits.length)
-      : currentPhoneDigits;
-    const nextDialCodeDigits = nextCountry.callingCode[0];
-
+    const currentDigits = String(form.phone || '').replace(/\D/g, '');
+    const currentDial = getDialCode().replace(/\D/g, '');
+    const localDigits = currentDigits.startsWith(currentDial)
+      ? currentDigits.slice(currentDial.length)
+      : currentDigits;
+    const nextDial = nextCountry.callingCode[0];
     setSelectedCountry(nextCountry);
-    handleChange('phone', localDigits ? `+${nextDialCodeDigits}${localDigits}` : `+${nextDialCodeDigits}`);
+    handleChange('phone', localDigits ? `+${nextDial}${localDigits}` : `+${nextDial}`);
   };
 
-  const proceedToKyc = async() => {
+  const proceedToKyc = async () => {
     await AsyncStorage.setItem('isLoggedIn', 'true');
     dispatch(loggedIn());
     dispatch(setIsAddAccount(false));
-    if (navigation.canGoBack()) {
-        navigation.goBack();
-        return;
-    }
+    if (navigation.canGoBack()) { navigation.goBack(); return; }
   };
 
   const isAlreadyCreatedResponse = response => {
-    const message = String(response?.message || '').toLowerCase();
-    return message.includes('already created') || message.includes('use update');
+    const msg = String(response?.message || '').toLowerCase();
+    return msg.includes('already created') || msg.includes('use update');
   };
 
   const isImageType = (type = '', uri = '') => {
@@ -183,22 +182,16 @@ const BusinessProfileForm = () => {
   );
 
   const syncCountryCodeFromPhone = useCallback(async phoneValue => {
-    const normalizedPhone = String(phoneValue || '').trim();
-    if (!normalizedPhone.startsWith('+')) return;
-
-    const digits = normalizedPhone.replace(/\D/g, '');
+    const normalized = String(phoneValue || '').trim();
+    if (!normalized.startsWith('+')) return;
+    const digits = normalized.replace(/\D/g, '');
     const countries = await getAllCountries();
-
-    for (let length = 4; length >= 1; length -= 1) {
-      const candidate = digits.slice(0, length);
+    for (let len = 4; len >= 1; len -= 1) {
+      const candidate = digits.slice(0, len);
       if (!candidate) continue;
-
       const country = countries.find(item => item?.callingCode?.includes(candidate));
       if (country?.cca2) {
-        setSelectedCountry({
-          cca2: country.cca2,
-          callingCode: [candidate],
-        });
+        setSelectedCountry({ cca2: country.cca2, callingCode: [candidate] });
         return;
       }
     }
@@ -212,73 +205,52 @@ const BusinessProfileForm = () => {
     }
   };
 
-  const isValidEmail = value =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
-
-  const isValidWebsite = value => {
-    const raw = String(value || '').trim();
+  const isValidEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+  const isValidWebsite = v => {
+    const raw = String(v || '').trim();
     if (!raw) return true;
     const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
     return /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(normalized);
   };
-
-  const normalizeWebsite = value => {
-    const raw = String(value || '').trim();
+  const normalizeWebsite = v => {
+    const raw = String(v || '').trim();
     if (!raw) return '';
     return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
   };
 
   const validateForm = () => {
-    const nextErrors = {};
+    const next = {};
     const businessName = form.businessName.trim();
     const phoneDigits = form.phone.replace(/\D/g, '');
     const email = form.email.trim();
     const website = form.website.trim();
 
-    if (!businessName) {
-      nextErrors.businessName = 'Business name is required';
-    } else if (businessName.length < 2) {
-      nextErrors.businessName = 'Business name is too short';
-    }
+    if (!businessName) next.businessName = t('businessProfile.businessNameRequired');
+    else if (businessName.length < 2) next.businessName = t('businessProfile.businessNameTooShort');
 
-    if (!phoneDigits) {
-      nextErrors.phone = 'Phone number is required';
-    } else if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-      nextErrors.phone = 'Enter a valid phone number';
-    }
+    if (!phoneDigits) next.phone = t('businessProfile.phoneRequired');
+    else if (phoneDigits.length < 7 || phoneDigits.length > 15) next.phone = t('businessProfile.phoneInvalid');
 
-    if (email && !isValidEmail(email)) {
-      nextErrors.email = 'Enter a valid email address';
-    }
+    if (email && !isValidEmail(email)) next.email = t('businessProfile.emailInvalid');
+    if (website && !isValidWebsite(website)) next.website = t('businessProfile.websiteInvalid');
 
-    if (website && !isValidWebsite(website)) {
-      nextErrors.website = 'Enter a valid website URL';
-    }
+    if (!selectedDocument) next.document = t('businessProfile.documentRequired');
+    else if (!isDocumentUploaded) next.document = t('businessProfile.documentNotUploaded');
 
-    if (!selectedDocument) {
-      nextErrors.document = 'Document is required';
-    } else if (!isDocumentUploaded) {
-      nextErrors.document = 'Please upload document before continuing';
-    }
-
-    return nextErrors;
+    return next;
   };
 
   const uploadDocumentNow = async file => {
     if (!file?.uri) {
-      showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
+      showToastMessage(toast, 'danger', t('businessProfile.validFileError'));
       return false;
     }
-
     const documentFormData = new FormData();
-    const fileUri =
-      Platform.OS === 'android' ? file.uri : file.uri?.replace('file://', '');
-
+    const fileUri = Platform.OS === 'android' ? file.uri : file.uri?.replace('file://', '');
     if (!fileUri) {
-      showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
+      showToastMessage(toast, 'danger', t('businessProfile.validFileError'));
       return false;
     }
-
     documentFormData.append('documents', {
       uri: fileUri,
       name: file.name || `document-${Date.now()}`,
@@ -289,28 +261,18 @@ const BusinessProfileForm = () => {
     dispatch(showLoader());
     try {
       const uploadResponse = await UploadDocument(documentFormData);
-      console.log(uploadResponse, 'upload response');
-
       const uploadCode = uploadResponse?.statusCode;
       if (uploadCode === 200 || uploadCode === 201) {
         setIsDocumentUploaded(true);
-        showToastMessage(
-          toast,
-          'success',
-          uploadResponse?.message || 'Document uploaded successfully.',
-        );
+        showToastMessage(toast, 'success', uploadResponse?.message || t('businessProfile.documentUploadSuccess'));
         return true;
       }
       setIsDocumentUploaded(false);
-      showToastMessage(
-        toast,
-        'danger',
-        uploadResponse?.message || 'Failed to upload document.',
-      );
+      showToastMessage(toast, 'danger', uploadResponse?.message || t('businessProfile.documentUploadFail'));
       return false;
     } catch (error) {
       setIsDocumentUploaded(false);
-      showToastMessage(toast, 'danger', 'Failed to upload document.');
+      showToastMessage(toast, 'danger', t('businessProfile.documentUploadFail'));
       return false;
     } finally {
       setIsUploadingDocument(false);
@@ -320,82 +282,60 @@ const BusinessProfileForm = () => {
 
   const handlePickImage = async () => {
     try {
-      const result = await launchImageLibrary({
-        mediaType: 'photo',
-        selectionLimit: 1,
-        includeBase64: false,
-        quality: 0.8,
-      });
-
+      const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1, includeBase64: false, quality: 0.8 });
       if (result?.didCancel) return;
       if (result?.errorCode) {
-        showToastMessage(toast, 'danger', result?.errorMessage || 'Failed to pick image.');
+        showToastMessage(toast, 'danger', result?.errorMessage || t('businessProfile.pickImageFail'));
         return;
       }
-
       const image = result?.assets?.[0];
       if (image?.uri) {
-        const file = {
-          name: image?.fileName || `image-${Date.now()}.jpg`,
-          uri: image.uri,
-          type: image?.type || 'image/jpeg',
-          isImage: true,
-        };
+        const file = { name: image?.fileName || `image-${Date.now()}.jpg`, uri: image.uri, type: image?.type || 'image/jpeg', isImage: true };
         setSelectedDocument(file);
         setIsDocumentUploaded(false);
         clearDocumentError();
         await uploadDocumentNow(file);
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Failed to pick image.');
+      showToastMessage(toast, 'danger', t('businessProfile.pickImageFail'));
     }
   };
 
   const launchSumsub = async () => {
     const nextErrors = validateForm();
-
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
-      Alert.alert('Validation error', 'Please fix the highlighted fields.');
+      Alert.alert(t('businessProfile.validationError'), t('businessProfile.validationMessage'));
       return;
     }
-    
     if (sumsubLaunchLockRef.current || isLaunchingSumsub) return;
     sumsubLaunchLockRef.current = true;
     setIsLaunchingSumsub(true);
     try {
       const response = await startVerification();
       const accessToken = response?.data?.token;
-
       if (!accessToken) {
-        showToastMessage(toast, 'danger', 'Unable to start verification. Please try again.');
+        showToastMessage(toast, 'danger', t('businessProfile.sumsubUnavailable'));
         return;
       }
-
       const snsMobileSDK = SNSMobileSDK.init(accessToken, () => accessToken)
-        .withHandlers({
-          onStatusChanged: event => {
-            console.log('Sumsub status:', event);
-          },
-        })
+        .withHandlers({ onStatusChanged: event => console.log('Sumsub status:', event) })
         .withDebug(true)
         .build();
-
       await snsMobileSDK.launch();
-    }
-    catch (error) {
+    } catch (error) {
       const errorMessage = String(error?.message || error || '').toLowerCase();
       if (errorMessage.includes('another instance is in use')) {
-        showToastMessage(toast, 'warning', 'Verification is already open. Please complete it first.');
+        showToastMessage(toast, 'warning', t('businessProfile.sumsubAlreadyOpen'));
       } else {
-        showToastMessage(toast, 'danger', 'Failed to open Sumsub verification.');
+        showToastMessage(toast, 'danger', t('businessProfile.sumsubFail'));
       }
-      console.log(error, 'Sumsub launch error');
     } finally {
       sumsubLaunchLockRef.current = false;
       setIsLaunchingSumsub(false);
     }
   };
+
   const getVerificationStatus = useCallback(async () => {
     try {
       const response = await CheckVerificationStatus();
@@ -404,27 +344,15 @@ const BusinessProfileForm = () => {
       console.log(err, 'error in get status');
     }
   }, []);
+
   const handlePickFile = async () => {
     try {
       const [file] = await pick({
-        type: [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'text/plain',
-          'image/jpeg',
-          'image/png',
-          'image/jpg',
-        ],
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'image/jpeg', 'image/png', 'image/jpg'],
       });
       if (file) {
         const uri = file?.uri || file?.fileCopyUri;
-        const selectedFile = {
-          name: file?.name || `document-${Date.now()}`,
-          uri,
-          type: file?.type || 'application/octet-stream',
-          isImage: String(file?.type || '').startsWith('image/'),
-        };
+        const selectedFile = { name: file?.name || `document-${Date.now()}`, uri, type: file?.type || 'application/octet-stream', isImage: String(file?.type || '').startsWith('image/') };
         setSelectedDocument(selectedFile);
         setIsDocumentUploaded(false);
         clearDocumentError();
@@ -433,16 +361,20 @@ const BusinessProfileForm = () => {
     } catch (error) {
       const errorCode = String(error?.code || '').toUpperCase();
       if (errorCode.includes('CANCEL')) return;
-      showToastMessage(toast, 'danger', 'Failed to pick document.');
+      showToastMessage(toast, 'danger', t('businessProfile.pickDocumentFail'));
     }
   };
 
   const handlePickDocument = () => {
-    Alert.alert('Upload Document', 'Choose upload source', [
-      { text: 'Gallery Image', onPress: handlePickImage },
-      { text: 'PDF/Document', onPress: handlePickFile },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    Alert.alert(
+      t('businessProfile.uploadDocumentTitle'),
+      t('businessProfile.uploadDocumentMessage'),
+      [
+        { text: t('businessProfile.galleryOption'), onPress: handlePickImage },
+        { text: t('businessProfile.pdfOption'),     onPress: handlePickFile },
+        { text: t('businessProfile.cancel'),         style: 'cancel' },
+      ],
+    );
   };
 
   const fetchCompanyProfile = useCallback(async () => {
@@ -450,10 +382,7 @@ const BusinessProfileForm = () => {
       const response = await GetCompanyProfile();
       const code = response?.statusCode;
       const companyData = response?.data || {};
-      const existingDocument =
-        companyData?.document ||
-        companyData?.documents?.[0] ||
-        companyData?.documents;
+      const existingDocument = companyData?.document || companyData?.documents?.[0] || companyData?.documents;
 
       if ((code === 200 || code === 201) && Object.keys(companyData).length > 0) {
         const mappedForm = mapCompanyProfileToForm(companyData);
@@ -461,26 +390,10 @@ const BusinessProfileForm = () => {
         await syncCountryCodeFromPhone(mappedForm.phone);
         setHasExistingCompanyProfile(true);
         if (existingDocument) {
-          const existingUri =
-            typeof existingDocument === 'string'
-              ? existingDocument
-              : existingDocument?.url || existingDocument?.uri || '';
-          const documentName =
-            (typeof existingDocument === 'string'
-              ? existingDocument.split('/').pop()
-              : existingDocument?.name ||
-              existingDocument?.originalName ||
-              existingDocument?.fileName) || 'Uploaded document';
-          const existingType =
-            typeof existingDocument === 'string'
-              ? ''
-              : existingDocument?.type || 'application/octet-stream';
-          setSelectedDocument({
-            name: documentName,
-            uri: existingUri,
-            type: existingType,
-            isImage: isImageType(existingType, existingUri),
-          });
+          const existingUri = typeof existingDocument === 'string' ? existingDocument : existingDocument?.url || existingDocument?.uri || '';
+          const documentName = (typeof existingDocument === 'string' ? existingDocument.split('/').pop() : existingDocument?.name || existingDocument?.originalName || existingDocument?.fileName) || 'Uploaded document';
+          const existingType = typeof existingDocument === 'string' ? '' : existingDocument?.type || 'application/octet-stream';
+          setSelectedDocument({ name: documentName, uri: existingUri, type: existingType, isImage: isImageType(existingType, existingUri) });
           setIsDocumentUploaded(true);
         }
       } else {
@@ -504,15 +417,13 @@ const BusinessProfileForm = () => {
 
   const handleSubmit = async () => {
     const nextErrors = validateForm();
-
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
-      Alert.alert('Validation error', 'Please fix the highlighted fields.');
+      Alert.alert(t('businessProfile.validationError'), t('businessProfile.validationMessage'));
       return;
     }
 
     const normalizedPhone = normalizePhoneWithCountryCode(form.phone);
-
     const payload = {
       businessName: form.businessName.trim(),
       ownerName: form.ownerName.trim(),
@@ -531,29 +442,16 @@ const BusinessProfileForm = () => {
     try {
       if (!isDocumentUploaded) {
         const documentFormData = new FormData();
-        const fileUri =
-          Platform.OS === 'android'
-            ? selectedDocument.uri
-            : selectedDocument.uri?.replace('file://', '');
+        const fileUri = Platform.OS === 'android' ? selectedDocument.uri : selectedDocument.uri?.replace('file://', '');
         if (!fileUri) {
-          showToastMessage(toast, 'danger', 'Please choose a valid file to upload.');
+          showToastMessage(toast, 'danger', t('businessProfile.validFileError'));
           return;
         }
-
-        documentFormData.append('documents', {
-          uri: fileUri,
-          name: selectedDocument.name || `document-${Date.now()}`,
-          type: selectedDocument.type || 'application/octet-stream',
-        });
-
+        documentFormData.append('documents', { uri: fileUri, name: selectedDocument.name || `document-${Date.now()}`, type: selectedDocument.type || 'application/octet-stream' });
         const uploadResponse = await UploadDocument(documentFormData);
         const uploadCode = uploadResponse?.statusCode;
         if (!(uploadCode === 200 || uploadCode === 201)) {
-          showToastMessage(
-            toast,
-            'danger',
-            uploadResponse?.message || 'Failed to upload document.',
-          );
+          showToastMessage(toast, 'danger', uploadResponse?.message || t('businessProfile.documentUploadFail'));
           return;
         }
         setIsDocumentUploaded(true);
@@ -562,111 +460,42 @@ const BusinessProfileForm = () => {
       if (hasExistingCompanyProfile) {
         const updateResponse = await UpdateCompanyProfile(payload);
         const updateCode = updateResponse?.statusCode;
-
         if (updateCode === 200 || updateCode === 201) {
-          showToastMessage(
-            toast,
-            'success',
-            updateResponse?.message || 'Business profile updated successfully.',
-          );
+          showToastMessage(toast, 'success', updateResponse?.message || t('businessProfile.updateSuccess'));
           proceedToKyc();
         } else {
-          showToastMessage(
-            toast,
-            'danger',
-            updateResponse?.message || 'Failed to update business profile.',
-          );
+          showToastMessage(toast, 'danger', updateResponse?.message || t('businessProfile.updateFail'));
         }
       } else {
         const response = await CreateCompanyProfile(payload);
         const code = response?.statusCode;
-
         if (code === 200 || code === 201) {
-          showToastMessage(
-            toast,
-            'success',
-            response?.message || 'Business profile saved successfully.',
-          );
+          showToastMessage(toast, 'success', response?.message || t('businessProfile.saveSuccess'));
           setHasExistingCompanyProfile(true);
           proceedToKyc();
           return;
         }
-
         if (isAlreadyCreatedResponse(response)) {
           const updateResponse = await UpdateCompanyProfile(payload);
           const updateCode = updateResponse?.statusCode;
-
           if (updateCode === 200 || updateCode === 201) {
-            showToastMessage(
-              toast,
-              'success',
-              updateResponse?.message || 'Business profile updated successfully.',
-            );
+            showToastMessage(toast, 'success', updateResponse?.message || t('businessProfile.updateSuccess'));
             setHasExistingCompanyProfile(true);
             proceedToKyc();
           } else {
-            showToastMessage(
-              toast,
-              'danger',
-              updateResponse?.message || 'Failed to update business profile.',
-            );
+            showToastMessage(toast, 'danger', updateResponse?.message || t('businessProfile.updateFail'));
           }
         } else {
-          showToastMessage(
-            toast,
-            'danger',
-            response?.message || 'Failed to save business profile.',
-          );
+          showToastMessage(toast, 'danger', response?.message || t('businessProfile.saveFail'));
         }
       }
     } catch (error) {
-      showToastMessage(toast, 'danger', 'Unable to save business profile.');
+      showToastMessage(toast, 'danger', t('businessProfile.saveError'));
     } finally {
       setIsSubmitting(false);
       dispatch(hideLoader());
     }
   };
-
-  const fields = [
-    { key: 'businessName', label: 'Business Name *', placeholder: 'Enter your business name' },
-    { key: 'ownerName', label: 'Owner Name', placeholder: 'Enter owner name' },
-    {
-      key: 'email',
-      label: 'Business Email',
-      placeholder: 'Enter business email',
-      keyboardType: 'email-address',
-      autoCapitalize: 'none',
-    },
-    {
-      key: 'phone',
-      label: 'Phone Number *',
-      placeholder: 'Enter contact number',
-      keyboardType: 'phone-pad',
-    },
-    { key: 'category', label: 'Business Category', placeholder: 'Ex: Retail, Services, Food' },
-    {
-      key: 'address',
-      label: 'Business Address',
-      placeholder: 'Street, city, state, postal code, country',
-      multiline: true,
-      numberOfLines: 3,
-      autoCapitalize: 'words',
-    },
-    {
-      key: 'description',
-      label: 'Business Description',
-      placeholder: 'Tell us about your business',
-      multiline: true,
-      numberOfLines: 4,
-    },
-    {
-      key: 'website',
-      label: 'Website',
-      placeholder: 'https://yourdomain.com',
-      autoCapitalize: 'none',
-    },
-    { key: 'gstNumber', label: 'GST / Tax ID', placeholder: 'Enter GST or tax ID' },
-  ];
 
   return (
     <SafeAreaView style={[styles.safe, bgStyle]} edges={['top', 'right', 'left']}>
@@ -682,15 +511,17 @@ const BusinessProfileForm = () => {
           extraHeight={Platform.OS === 'ios' ? 120 : 150}
           resetScrollToCoords={{ x: 0, y: 0 }}
         >
-          <AuthHeader subtitle="Business Setup" profileType={profileFromRoute} onBackPress={() => navigation.goBack()} />
+          <AuthHeader
+            subtitle={t('businessProfile.headerSubtitle')}
+            profileType={profileFromRoute}
+            onBackPress={() => navigation.goBack()}
+          />
 
           <View style={styles.formWrapper}>
             <View style={styles.card}>
               <View style={styles.welcomeSection}>
-                <Text style={styles.welcomeTitle}>Set Up Business Profile</Text>
-                <Text style={styles.welcomeSubtitle}>
-                  Add your business details to continue KYC verification
-                </Text>
+                <Text style={styles.welcomeTitle}>{t('businessProfile.welcomeTitle')}</Text>
+                <Text style={styles.welcomeSubtitle}>{t('businessProfile.welcomeSubtitle')}</Text>
               </View>
 
               <View style={styles.inputContainer}>
@@ -743,60 +574,61 @@ const BusinessProfileForm = () => {
                         />
                       )}
                     </View>
-                    {errors[field.key] ? (
-                      <Text style={styles.errorText}>{errors[field.key]}</Text>
-                    ) : null}
+                    {errors[field.key] ? <Text style={styles.errorText}>{errors[field.key]}</Text> : null}
                   </View>
                 ))}
 
+                {/* Document Upload */}
                 <View style={styles.inputWrapper}>
-                  <Text style={styles.inputLabel}>Upload Document (Image/PDF) *</Text>
+                  <Text style={styles.inputLabel}>{t('businessProfile.documentLabel')}</Text>
                   <TouchableOpacity
                     style={[styles.inputGroup, errors.document && styles.inputError]}
                     onPress={handlePickDocument}
                     activeOpacity={0.8}
                   >
                     <Text
-                      style={[
-                        styles.uploadText,
-                        !selectedDocument && styles.uploadPlaceholder,
-                      ]}
+                      style={[styles.uploadText, !selectedDocument && styles.uploadPlaceholder]}
                       numberOfLines={1}
                     >
-                      {selectedDocument?.name || 'Tap to upload image or PDF'}
+                      {selectedDocument?.name || t('businessProfile.documentPlaceholder')}
                     </Text>
                   </TouchableOpacity>
                   {selectedDocument?.isImage && selectedDocument?.uri ? (
-                    <Image
-                      source={{ uri: selectedDocument.uri }}
-                      style={styles.documentPreview}
-                      resizeMode="cover"
-                    />
+                    <Image source={{ uri: selectedDocument.uri }} style={styles.documentPreview} resizeMode="cover" />
                   ) : null}
-                  {errors.document ? (
-                    <Text style={styles.errorText}>{errors.document}</Text>
-                  ) : null}
+                  {errors.document ? <Text style={styles.errorText}>{errors.document}</Text> : null}
                 </View>
               </View>
+
               <View />
+
+              {/* Verify (Sumsub) Button */}
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor:'#D3B683', shadowColor: '#D3B683'}]}
+                style={[styles.submitButton, { backgroundColor: '#D3B683', shadowColor: '#D3B683' }]}
                 onPress={launchSumsub}
                 disabled={isLaunchingSumsub}
               >
                 <Text style={styles.submitButtonText}>
-                  {isLaunchingSumsub ? 'Opening...' : 'Verify your Busines Profile'}
+                  {isLaunchingSumsub
+                    ? t('businessProfile.verifyingButton')
+                    : t('businessProfile.verifyButton')}
                 </Text>
               </TouchableOpacity>
+
               <View />
 
+              {/* Continue (Save) Button */}
               <TouchableOpacity
                 style={[styles.submitButton, { backgroundColor: '#D3B683', shadowColor: '#D3B683' }]}
                 onPress={handleSubmit}
                 disabled={isSubmitting || isUploadingDocument}
               >
                 <Text style={styles.submitButtonText}>
-                  {isSubmitting ? 'Saving...' : isUploadingDocument ? 'Uploading...' : 'Continue'}
+                  {isSubmitting
+                    ? t('businessProfile.savingButton')
+                    : isUploadingDocument
+                    ? t('businessProfile.uploadingButton')
+                    : t('businessProfile.continueButton')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -811,17 +643,9 @@ export default BusinessProfileForm;
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexGrow: 1,
-  },
-  formWrapper: {
-    flex: 1,
-    marginTop: -30,
-    paddingHorizontal: 7,
-  },
+  container: { flex: 1 },
+  contentContainer: { flexGrow: 1 },
+  formWrapper: { flex: 1, marginTop: -30, paddingHorizontal: 7 },
   card: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
@@ -834,35 +658,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
-  welcomeSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  welcomeSubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  inputContainer: {
-    width: '100%',
-  },
-  inputWrapper: {
-    marginBottom: 14,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
+  welcomeSection: { alignItems: 'center', marginBottom: 24 },
+  welcomeTitle: { fontSize: 24, fontWeight: '700', color: '#1F2937', marginBottom: 10, textAlign: 'center' },
+  welcomeSubtitle: { fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+  inputContainer: { width: '100%' },
+  inputWrapper: { marginBottom: 14 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
   inputGroup: {
     minHeight: 52,
     backgroundColor: '#F9FAFB',
@@ -872,20 +673,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     justifyContent: 'center',
   },
-  inputError: {
-    borderColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
-  },
-  textInput: {
-    flex: 1,
-    color: '#1F2937',
-    fontSize: 16,
-    paddingVertical: 0,
-  },
-  phoneInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
+  textInput: { flex: 1, color: '#1F2937', fontSize: 16, paddingVertical: 0 },
+  phoneInputRow: { flexDirection: 'row', alignItems: 'center' },
   countryCodeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -894,27 +684,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#E5E7EB',
   },
-  countryCodeText: {
-    marginLeft: 8,
-    color: '#1F2937',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  phoneTextInput: {
-    paddingVertical: 14,
-  },
-  textArea: {
-    minHeight: 100,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 5,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
+  countryCodeText: { marginLeft: 8, color: '#1F2937', fontSize: 16, fontWeight: '600' },
+  phoneTextInput: { paddingVertical: 14 },
+  textArea: { minHeight: 100, paddingTop: 12, paddingBottom: 12 },
+  errorText: { color: '#EF4444', fontSize: 12, marginTop: 5, marginLeft: 4, fontWeight: '500' },
   submitButton: {
     height: 52,
     borderRadius: 16,
@@ -927,23 +700,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 17,
-  },
-  uploadText: {
-    color: '#1F2937',
-    fontSize: 15,
-  },
-  uploadPlaceholder: {
-    color: '#9CA3AF',
-  },
-  documentPreview: {
-    marginTop: 10,
-    width: 92,
-    height: 92,
-    borderRadius: 10,
-    backgroundColor: '#E5E7EB',
-  },
+  submitButtonText: { color: '#fff', fontWeight: '700', fontSize: 17 },
+  uploadText: { color: '#1F2937', fontSize: 15 },
+  uploadPlaceholder: { color: '#9CA3AF' },
+  documentPreview: { marginTop: 10, width: 92, height: 92, borderRadius: 10, backgroundColor: '#E5E7EB' },
 });

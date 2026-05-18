@@ -33,9 +33,9 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { unReadNotification, updateFcmToken } from '../../services/notifications';
 import { getSocket, initializeSocket } from '../../services/socket';
 import useSocket from '../../hooks/useSocket';
-import { clampRGBA } from 'react-native-reanimated/lib/typescript/Colors';
 import { checkSubscription } from '../../services/stirpe';
 import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
+import { useLanguage } from '../../i18n';
 import StoryViewerModal from '../../components/modals/StoryViewerModal';
 import { getFollowingUserStories, getStoryByUser } from '../../services/stories';
 
@@ -121,6 +121,7 @@ const findStoryBySharedId = (storyRows, sharedStoryId, fallbackUserId = '') => {
 export default function HomeScreen({ route }) {
   const styles = createStyles();
   const navigation = useNavigation();
+  const { t } = useLanguage();
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [storyRefreshTick, setStoryRefreshTick] = useState(0);
@@ -137,10 +138,7 @@ export default function HomeScreen({ route }) {
   const sidebarAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const postsRef = useRef(null);
 
-  // Track if this is the first mount to prevent unnecessary refetches on navigation back
   const isInitialMountRef = useRef(true);
-
-  // Track conversations to calculate unread properly
   const conversationsRef = useRef([]);
 
   const toast = useToast();
@@ -149,10 +147,9 @@ export default function HomeScreen({ route }) {
   const { bgStyle, text } = useAppTheme();
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(null);
 
-
   const appState = useRef(AppState.currentState);
 
-  const formatBadgeCount = (count) => (count > 9 ? '9+' : count);
+  const formatBadgeCount = (count) => (count > 9 ? t('home.unreadBadgeOverflow') : count);
 
   const extractNotificationUnreadCount = useCallback((response) => {
     if (response == null) return null;
@@ -178,7 +175,6 @@ export default function HomeScreen({ route }) {
         return;
       }
 
-      // Some backends omit statusCode but still return the count (axios already unwraps to body).
       if (typeof count === 'number') {
         setNotificationUnreadCount(count);
         return;
@@ -195,7 +191,6 @@ export default function HomeScreen({ route }) {
     }
   }, [extractNotificationUnreadCount]);
 
-  // Refresh bell badge when notifications are marked read elsewhere (e.g. HeartNotification).
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener(
       'NOTIFICATION_BADGE_REFRESH',
@@ -206,7 +201,6 @@ export default function HomeScreen({ route }) {
     return () => subscription.remove();
   }, [unreadNotification]);
 
-  // ✅ Get current user ID on mount and initialize socket
   useEffect(() => {
     const initializeUserAndSocket = async () => {
       try {
@@ -215,7 +209,6 @@ export default function HomeScreen({ route }) {
           setCurrentUserId(userId);
           console.log('📱 HomeScreen: Current user ID set:', userId);
 
-          // Initialize socket with userId
           const socket = getSocket();
           if (!socket || !socket.connected) {
             console.log('🔌 HomeScreen: Initializing socket...');
@@ -234,7 +227,6 @@ export default function HomeScreen({ route }) {
     initializeUserAndSocket();
   }, []);
 
-  // ✅ Handle socket reconnection
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -243,7 +235,6 @@ export default function HomeScreen({ route }) {
       console.log('🔌 HomeScreen: Socket connected');
       setSocketReady(true);
 
-      // Request chat box data on connection
       if (currentUserId) {
         console.log('📡 HomeScreen: Requesting chat box on connect');
         socket.emit('getUserChatBox', { userId: currentUserId });
@@ -269,7 +260,6 @@ export default function HomeScreen({ route }) {
     socket.on('disconnect', handleDisconnect);
     socket.on('reconnect', handleReconnect);
 
-    // Check if already connected
     if (socket.connected) {
       handleConnect();
     }
@@ -281,7 +271,6 @@ export default function HomeScreen({ route }) {
     };
   }, [currentUserId]);
 
-  // ✅ Request chat box data when screen is focused and socket is ready
   useEffect(() => {
     if (currentUserId && socketReady && isFocused) {
       const socket = getSocket();
@@ -294,13 +283,10 @@ export default function HomeScreen({ route }) {
 
   useFocusEffect(
     useCallback(() => {
-      // Refresh only the unread notification badge when screen comes into focus
-      // without refetching all posts
       unreadNotification();
     }, [unreadNotification]),
   );
 
-  // Update unread chat badge when screen is focused
   useFocusEffect(
     useCallback(() => {
       if (currentUserId && socketReady) {
@@ -313,7 +299,6 @@ export default function HomeScreen({ route }) {
     }, [currentUserId, socketReady]),
   );
 
-  // ✅ Listen for chat box updates (similar to userConversation in UserChat)
   useSocket('userChatBox', (data) => {
     console.log('📨 HomeScreen: Received userChatBox data');
 
@@ -324,7 +309,6 @@ export default function HomeScreen({ route }) {
 
     let conversations = [];
 
-    // Handle different data structures
     if (data.success && Array.isArray(data.data)) {
       conversations = data.data;
     } else if (Array.isArray(data)) {
@@ -333,16 +317,12 @@ export default function HomeScreen({ route }) {
 
     console.log(`📊 HomeScreen: Processing ${conversations.length} conversations`);
 
-    // Store conversations for reference
     conversationsRef.current = conversations;
 
-    // Calculate total unread messages (excluding hidden conversations)
     const totalUnread = conversations.reduce((acc, conversation) => {
-      // Skip hidden conversations
       if (conversation.isHidden === true) {
         return acc;
       }
-
       const unread = conversation.unreadCount || 0;
       return acc + unread;
     }, 0);
@@ -351,45 +331,27 @@ export default function HomeScreen({ route }) {
     setUnreadCount(totalUnread);
   }, [currentUserId]);
 
-  // ✅ Listen for new messages in real-time (like in UserChat)
   useSocket('newMessage', (message) => {
     console.log('🔔 HomeScreen: New message received');
-    console.log('📨 Message data:', {
-      sender: message.sender?.id || message.senderId,
-      receiver: message.receiver?.id || message.receiverId,
-      type: message.type
-    });
 
     if (!message || !currentUserId) {
       console.log('⚠️ HomeScreen: Missing message or currentUserId');
       return;
     }
 
-    // Extract sender and receiver IDs (handle different payload structures)
     const senderId = String(message.sender?.id || message.senderId || '');
     const receiverId = String(message.receiver?.id || message.receiverId || '');
     const me = String(currentUserId);
 
-    console.log('🔍 HomeScreen: ID Check:', {
-      senderId,
-      receiverId,
-      currentUserId: me,
-      isForMe: receiverId === me,
-      isFromMe: senderId === me
-    });
-
-    // Only increment unread if message is FOR current user and NOT from them
     if (receiverId === me && senderId !== me) {
       console.log('✅ HomeScreen: Message is for me, incrementing unread count');
 
-      // Optimistically increment unread count
       setUnreadCount(prev => {
         const newCount = prev + 1;
         console.log(`📈 HomeScreen: Unread count updated: ${prev} → ${newCount}`);
         return newCount;
       });
 
-      // Also request fresh data from server for accuracy
       const socket = getSocket();
       if (socket?.connected) {
         console.log('📡 HomeScreen: Requesting fresh chat box data');
@@ -400,7 +362,6 @@ export default function HomeScreen({ route }) {
     }
   }, [currentUserId]);
 
-  // ✅ Listen for messageSent to refresh unread count
   useSocket('messageSent', (message) => {
     console.log('📤 HomeScreen: Message sent event received');
 
@@ -409,7 +370,6 @@ export default function HomeScreen({ route }) {
     const senderId = String(message.sender?.id || message.senderId || '');
     const me = String(currentUserId);
 
-    // If current user sent the message, refresh chat box
     if (senderId === me) {
       console.log('📤 HomeScreen: Current user sent message, refreshing chat box');
       const socket = getSocket();
@@ -419,7 +379,6 @@ export default function HomeScreen({ route }) {
     }
   }, [currentUserId]);
 
-  // ✅ Periodic refresh to catch any missed messages
   useEffect(() => {
     if (!currentUserId || !socketReady) {
       console.log('⏸️ HomeScreen: Skipping periodic refresh - not ready');
@@ -471,10 +430,10 @@ export default function HomeScreen({ route }) {
       showToastMessage(
         toast,
         'danger',
-        error?.response?.message ?? 'Something went wrong',
+        error?.response?.message ??  t('home.somethingWentWrong'),
       );
     }
-  }, [toast]);
+  }, [toast, t]);
 
   const fetchProfileData = useCallback(async () => {
     try {
@@ -502,7 +461,7 @@ export default function HomeScreen({ route }) {
   }, [dispatch]);
 
   const addFcmToken = useCallback(async () => {
-    let fcmToken = await AsyncStorage.getItem('fcmToken')
+    let fcmToken = await AsyncStorage.getItem('fcmToken');
     if (fcmToken) {
       try {
         const response = await updateFcmToken({ fcmToken: fcmToken });
@@ -515,11 +474,11 @@ export default function HomeScreen({ route }) {
         showToastMessage(
           toast,
           'danger',
-          error?.response?.message ?? 'Something went wrong',
+          error?.response?.message ?? t('home.somethingWentWrong'),
         );
       }
     }
-  }, [toast]);
+  }, [toast, t]);
 
   const checkBusinessSubscriptionStatus = useCallback(async () => {
     if (hasCheckedBusinessSubscription || !isBusinessProfile) return;
@@ -538,20 +497,17 @@ export default function HomeScreen({ route }) {
     }
   }, [hasCheckedBusinessSubscription, isBusinessProfile]);
 
-  // Initial load on mount only - not on every focus to preserve scroll position
   useEffect(() => {
     if (isInitialMountRef.current) {
       console.log('👁️ HomeScreen initial mount - fetching data');
       isInitialMountRef.current = false;
       setStoryRefreshTick(t => t + 1);
 
-      // Batch data fetching
       Promise.all([
         fetchData(),
         fetchProfileData()
       ]).catch(err => console.error('Error fetching initial data:', err));
 
-      // Request unread count when screen becomes focused
       if (currentUserId && socketReady) {
         const socket = getSocket();
         if (socket?.connected) {
@@ -562,7 +518,6 @@ export default function HomeScreen({ route }) {
     }
   }, []);
 
-  // AppState listener - only refresh when app comes from background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       console.log('📱 AppState changed:', appState.current, '→', nextAppState);
@@ -574,7 +529,6 @@ export default function HomeScreen({ route }) {
       ) {
         console.log('🔄 App resumed while HomeScreen focused - refreshing');
 
-        // Batch operations
         Promise.all([
           fetchData(),
           fetchProfileData()
@@ -582,7 +536,6 @@ export default function HomeScreen({ route }) {
 
         setStoryRefreshTick(t => t + 1);
 
-        // Refresh unread count on app resume
         if (currentUserId && socketReady) {
           const socket = getSocket();
           if (socket?.connected) {
@@ -673,7 +626,6 @@ export default function HomeScreen({ route }) {
 
   useFocusEffect(
     useCallback(() => {
-      // Reset sidebar when screen loses focus
       setSidebarVisible(false);
       Animated.spring(sidebarAnim, {
         toValue: SIDEBAR_WIDTH,
@@ -743,16 +695,13 @@ export default function HomeScreen({ route }) {
       },
     }),
   ).current;
+
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener(
       'HOME_TAB_PRESS',
       () => {
         console.log('🏠 Home tab pressed again');
-
-        // ⬆️ Scroll to top
         postsRef.current?.scrollToTop?.();
-
-        // 🔄 Refresh posts + stories
         onRefresh();
       }
     );
@@ -789,12 +738,13 @@ export default function HomeScreen({ route }) {
             colors={['#513189bd', '#e54ba0']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            text="VALENS"
+            text={t('home.appTitle')}
           />
         </TouchableOpacity>
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={headerBadgeStyles.iconButton}
+            accessibilityLabel={t('home.notificationsLabel')}
             onPress={() => {
               navigation.navigate('HeartNotification');
             }}
@@ -807,16 +757,14 @@ export default function HomeScreen({ route }) {
                 </Text>
               </View>
             )}
-
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.navigate('ChatMessages')}
+            accessibilityLabel={t('home.chatLabel')}
             style={headerBadgeStyles.iconButton}
           >
             <Chat width={24} height={24} />
-
-            {/* Enhanced badge with animation */}
             {unreadCount > 0 && (
               <View style={headerBadgeStyles.badgeContainer}>
                 <Text style={headerBadgeStyles.badgeText}>
@@ -826,9 +774,9 @@ export default function HomeScreen({ route }) {
             )}
           </TouchableOpacity>
 
-          {/* Story toggle button */}
           <TouchableOpacity
             onPress={toggleSidebar}
+            accessibilityLabel={sidebarVisible ? t('home.storiesCloseLabel') : t('home.storiesOpenLabel')}
             style={sidebarStyles.toggleButton}
           >
             <Icon
@@ -839,6 +787,7 @@ export default function HomeScreen({ route }) {
           </TouchableOpacity>
         </View>
       </View>
+
       <BusinessSubscriptionPrompt
         visible={showBusinessSubscriptionPrompt}
         onActivate={() => {
@@ -860,7 +809,6 @@ export default function HomeScreen({ route }) {
         }}
       />
 
-      {/* Main Content with Pan Responder */}
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>
         <Posts
           ref={postsRef}
@@ -871,7 +819,6 @@ export default function HomeScreen({ route }) {
         />
       </View>
 
-      {/* Modal-based Sidebar */}
       <Modal
         visible={sidebarVisible}
         transparent={true}
@@ -899,7 +846,6 @@ export default function HomeScreen({ route }) {
               refreshTick={storyRefreshTick}
               sidebarMode={true}
               onDrawerClose={() => {
-                // Close the drawer when story is shared and chat opens
                 setSidebarVisible(false);
                 Animated.spring(sidebarAnim, {
                   toValue: SIDEBAR_WIDTH,
@@ -932,7 +878,6 @@ const sidebarStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 1000,
     borderTopLeftRadius: 60,
-    // borderBottomLeftRadius: 60,      
     overflow: 'hidden',
   },
   overlay: {

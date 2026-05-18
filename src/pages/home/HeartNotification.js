@@ -23,6 +23,8 @@ import {
   battleNotification,
 } from '../../services/notifications';
 import { acceptBattle, declinetBattle } from '../../services/battle';
+import { useLanguage } from '../../i18n';
+
 const { width } = Dimensions.get('window');
 
 const normalizeNotificationType = type =>
@@ -164,7 +166,7 @@ const extractBattleActionPayload = item => {
   return payload;
 };
 
-const normalizeBattleNotification = item => {
+const normalizeBattleNotification = (item, t) => {
   const data = item?.data || {};
   const battle = data?.battle || item?.battle || {};
   const actionPayload = extractBattleActionPayload(item);
@@ -193,13 +195,13 @@ const normalizeBattleNotification = item => {
       actionPayload.invitationId ??
       `${Date.now()}-${Math.random()}`,
     type: data?.type ?? item?.type ?? 'battle',
-    title: item?.title ?? data?.title ?? battle?.title ?? 'Battle invitation',
+    title: item?.title ?? data?.title ?? battle?.title ?? t('notifications.battleInvitationTitle'),
     message:
       item?.body ??
       item?.message ??
       data?.message ??
       data?.body ??
-      'You have a new battle request.',
+      t('notifications.battleInvitationMessage'),
     time: formatRelativeTime(
       item?.createdAt ?? item?.updatedAt ?? data?.createdAt,
     ),
@@ -224,6 +226,7 @@ const normalizeBattleNotification = item => {
 };
 
 export default function Notifications() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('all');
   const scrollViewRef = useRef(null);
   const tabScrollRef = useRef(null);
@@ -232,7 +235,7 @@ export default function Notifications() {
 
   const [notifications, setNotifications] = useState([]);
   const [battleNotifications, setBattleNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // Track loading state
+  const [isLoading, setIsLoading] = useState(true);
   const [battleLoading, setBattleLoading] = useState(false);
   const markAllOnFocusRef = useRef(false);
   const [popupVisible, setPopupVisible] = useState(false);
@@ -247,12 +250,10 @@ export default function Notifications() {
 
   const tabs = useMemo(
     () => [
-      { key: 'all', label: 'All' },
-      { key: 'Battle', label: 'Battles' },
-      // { key: 'comments', label: 'Comments' },
-      // { key: 'follows', label: 'Follows' }
+      { key: 'all', label: t('notifications.tabs.all') },
+      { key: 'Battle', label: t('notifications.tabs.battles') },
     ],
-    [],
+    [t],
   );
 
   const getNotificationIcon = type => {
@@ -338,7 +339,6 @@ export default function Notifications() {
     try {
       setBattleLoading(true);
       const response = await battleNotification();
-      console.log(response, 'battle notificartiopmm')
       const rawPayload =
         response?.notifications ??
         response?.data?.notifications ??
@@ -348,7 +348,7 @@ export default function Notifications() {
         [];
       const raw = Array.isArray(rawPayload) ? rawPayload : [];
 
-      setBattleNotifications(raw.map(normalizeBattleNotification));
+      setBattleNotifications(raw.map(item => normalizeBattleNotification(item, t)));
     } catch (err) {
       console.log(err, 'error getting battle notifications');
       setBattleNotifications([]);
@@ -364,21 +364,16 @@ export default function Notifications() {
         ? notificationIds
         : [notificationIds];
 
-      const payload = {
-        notificationIds: idsArray,
-      };
+      const payload = { notificationIds: idsArray };
 
       console.log(payload, 'payload being sent');
       const response = await readNotification(payload);
-
       console.log(response, 'response received');
 
       const ok =
         response?.status === 200 ||
         response?.statusCode === 200 ||
         response?.success === true;
-
-      // Many APIs return 200 with only a message body (no status field); still treat as success.
       const notExplicitError = response?.error !== true;
 
       if (ok || notExplicitError) {
@@ -395,16 +390,13 @@ export default function Notifications() {
     setNotifications(prev =>
       prev.map(notif => (notif.id === id ? { ...notif, isRead: true } : notif)),
     );
-
     await read(id);
   };
 
   const markAllAsRead = async () => {
     const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-
     if (unreadIds.length > 0) {
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
-
       await read(unreadIds);
     }
   };
@@ -526,8 +518,8 @@ export default function Notifications() {
 
     if (!payload?.battleId && !payload?.invitationId) {
       Alert.alert(
-        'Action unavailable',
-        'Battle details are missing for this request.',
+        t('notifications.battleActionUnavailableTitle'),
+        t('notifications.battleActionUnavailableMessage'),
       );
       return;
     }
@@ -552,8 +544,8 @@ export default function Notifications() {
 
       if (!success) {
         Alert.alert(
-          'Unable to update battle',
-          response?.message || 'Please try again.',
+          t('notifications.battleUpdateErrorTitle'),
+          response?.message || t('notifications.battleUpdateErrorDefault'),
         );
         return;
       }
@@ -574,14 +566,14 @@ export default function Notifications() {
         openBattleFlow(item);
       } else {
         Alert.alert(
-          'Battle declined',
-          response?.message || 'The battle request was declined.',
+          t('notifications.battleDeclinedTitle'),
+          response?.message || t('notifications.battleDeclinedDefault'),
         );
       }
     } catch (err) {
       Alert.alert(
-        'Unable to update battle',
-        err?.response?.data?.message || err?.message || 'Please try again.',
+        t('notifications.battleUpdateErrorTitle'),
+        err?.response?.data?.message || err?.message || t('notifications.battleUpdateErrorDefault'),
       );
     } finally {
       setProcessingBattleId(null);
@@ -651,29 +643,29 @@ export default function Notifications() {
         case 'comments':
           return {
             icon: '💬',
-            title: 'No post activity yet',
-            subtitle: 'Likes and comments will show up here',
+            title: t('notifications.empty.commentsTitle'),
+            subtitle: t('notifications.empty.commentsSubtitle'),
             showCreatePost: false,
           };
         case 'follows':
           return {
             icon: '👥',
-            title: 'No new follows',
-            subtitle: "When people follow you, you'll see it here",
+            title: t('notifications.empty.followsTitle'),
+            subtitle: t('notifications.empty.followsSubtitle'),
             showCreatePost: false,
           };
         case 'Battle':
           return {
             icon: '⚔️',
-            title: 'No battle requests',
-            subtitle: 'Battle invitations will show up here',
+            title: t('notifications.empty.battlesTitle'),
+            subtitle: t('notifications.empty.battlesSubtitle'),
             showCreatePost: false,
           };
         default:
           return {
             icon: '🔔',
-            title: 'No notifications yet',
-            subtitle: "When you get notifications, they'll show up here",
+            title: t('notifications.empty.allTitle'),
+            subtitle: t('notifications.empty.allSubtitle'),
             showCreatePost: true,
           };
       }
@@ -696,7 +688,9 @@ export default function Notifications() {
             activeOpacity={0.8}
             onPress={() => navigation.navigate('Add')}
           >
-            <Text style={styles.createPostText}>Create your first post</Text>
+            <Text style={styles.createPostText}>
+              {t('notifications.empty.allCreatePost')}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -744,7 +738,9 @@ export default function Notifications() {
               style={styles.popupCloseButton}
               onPress={() => setPopupVisible(false)}
             >
-              <Text style={styles.popupCloseText}>Close</Text>
+              <Text style={styles.popupCloseText}>
+                {t('notifications.popupClose')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -769,7 +765,7 @@ export default function Notifications() {
         ].includes(item?.status);
       const stakeText =
         item?.stake !== undefined && item?.stake !== null && item?.stake !== ''
-          ? `Stake: ${item.stake}`
+          ? t('notifications.battleStakeLabel').replace('{{value}}', item.stake)
           : null;
 
       return (
@@ -821,7 +817,7 @@ export default function Notifications() {
                       ? option
                       : option?.label ||
                       option?.text ||
-                      `Option ${optionIndex + 1}`;
+                      t('notifications.battleOptionFallback').replace('{{index}}', optionIndex + 1);
 
                   return (
                     <View
@@ -846,7 +842,9 @@ export default function Notifications() {
                   {processingBattle.id === item.id && processingBattle.action === 'decline' ? (
                     <ActivityIndicator size="small" color="#B91C1C" />
                   ) : (
-                    <Text style={styles.battleDeclineText}>Decline</Text>
+                    <Text style={styles.battleDeclineText}>
+                      {t('notifications.battleDecline')}
+                    </Text>
                   )}
                 </TouchableOpacity>
 
@@ -863,7 +861,9 @@ export default function Notifications() {
                   {processingBattle.id === item.id && processingBattle.action === 'accept' ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.battleAcceptText}>Accept</Text>
+                    <Text style={styles.battleAcceptText}>
+                      {t('notifications.battleAccept')}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -939,7 +939,6 @@ export default function Notifications() {
               {item.price && (
                 <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
               )}
-              {/* {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: text }]} />} */}
             </View>
           </View>
 
@@ -957,8 +956,8 @@ export default function Notifications() {
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, textStyle]}>
               {tabKey === 'Battle'
-                ? 'Loading battle requests...'
-                : 'Loading notifications...'}
+                ? t('notifications.loadingBattles')
+                : t('notifications.loadingNotifications')}
             </Text>
           </View>
         ) : (
@@ -985,14 +984,18 @@ export default function Notifications() {
           >
             <Icon name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, textStyle]}>Notifications</Text>
+          <Text style={[styles.headerTitle, textStyle]}>
+            {t('notifications.headerTitle')}
+          </Text>
         </View>
         {unreadCount > 0 && (
           <TouchableOpacity
             onPress={markAllAsRead}
             style={[styles.markAllButton, { shadowColor: text }]}
           >
-            <Text style={[styles.markAllText, textStyle]}>Mark all read</Text>
+            <Text style={[styles.markAllText, textStyle]}>
+              {t('notifications.markAllRead')}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1319,10 +1322,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 6,
   },
-  // notificationMessageHighlight: {
-  //   color: '#3c0fdd',
-  //   fontWeight: '700',
-  // },
   timeText: {
     fontSize: 11,
     color: '#555555',
@@ -1448,7 +1447,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-
   popupBell: {
     backgroundColor: '#fff',
     width: 40,
@@ -1462,7 +1460,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     marginBottom: 20,
   },
-
   popupBellIcon: {
     fontSize: 30,
   },

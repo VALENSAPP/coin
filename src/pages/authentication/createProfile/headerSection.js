@@ -1,15 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { useLanguage } from '../../../i18n';
 
 const { width } = Dimensions.get('window');
-const steps = ['Email', 'Profile', 'KYC', 'Wallet'];
 
 export default function StepHeader({ currentStep }) {
+  const { t } = useLanguage(); // i18n
+
+  // Steps array now uses translation keys
+  const steps = [
+    t('stepHeader.email'),
+    t('stepHeader.profile'),
+    t('stepHeader.kyc'),
+    t('stepHeader.wallet'),
+  ];
+
   return (
     <View style={styles.stepsRow}>
       {steps.map((label, index) => {
-        const status = index < currentStep ? 'complete' : index === currentStep ? 'current' : 'upcoming';
+        const status =
+          index < currentStep ? 'complete' : index === currentStep ? 'current' : 'upcoming';
         return (
           <View key={index} style={styles.stepItemWrapper}>
             <View style={styles.stepContainer}>

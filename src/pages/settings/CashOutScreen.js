@@ -10,15 +10,16 @@ import {
   Dimensions,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import TextGradient from '../../assets/textgradient/TextGradient';
 import { AuthHeader } from '../../components/auth';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const { height } = Dimensions.get('window');
 
 export default function CashOutScreen({ navigation }) {
   const [address, setAddress] = useState('');
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   const isValidAddress = useMemo(() => {
     const v = address.trim();
@@ -30,10 +31,16 @@ export default function CashOutScreen({ navigation }) {
 
   const handleDone = () => {
     if (!isValidAddress) {
-      Alert.alert('Invalid Address', 'Enter a valid Ethereum address (0x + 40 hex characters).');
+      Alert.alert(
+        t('cashOut.alertInvalidTitle'),
+        t('cashOut.alertInvalidMessage'),
+      );
       return;
     }
-    Alert.alert('Success', `Address linked: ${address.trim()}`);
+    Alert.alert(
+      t('cashOut.alertSuccessTitle'),
+      t('cashOut.alertSuccessMessage').replace('{{address}}', address.trim()),
+    );
   };
 
   return (
@@ -43,42 +50,33 @@ export default function CashOutScreen({ navigation }) {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      {/* Header to match theme */}
+      {/* Header — matches login/signup AuthHeader pattern */}
       <AuthHeader
-        title="Cash out"
-        subtitle="Link your wallet to convert the Sparks you've earned to Ethereum."
+        title={t('cashOut.headerTitle')}
+        subtitle={t('cashOut.headerSubtitle')}
         onBackPress={() => navigation?.goBack?.()}
       />
 
-      {/* Card wrapper (same look & feel) */}
+      {/* Card wrapper */}
       <View style={styles.formWrapper}>
         <View style={styles.card}>
-          {/* Top section with brand */}
+          {/* Welcome section */}
           <View style={styles.welcomeSection}>
-            {/* <TextGradient
-              style={{ fontWeight: 'bold', fontSize: 30 }}
-              locations={[0, 1]}
-              colors={['#513189bd', '#e54ba0']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              text="VALENS"
-            /> */}
-            {/* <Text style={styles.welcomeTitle}>Cash out your Sparks instantly</Text> */}
             <Text style={styles.welcomeSubtitle}>
-              Link your wallet to withdraw your Sparks as ETH.
+              {t('cashOut.welcomeSubtitle')}
             </Text>
           </View>
 
-          {/* Input */}
+          {/* Input section */}
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>Address</Text>
+              <Text style={styles.inputLabel}>{t('cashOut.addressLabel')}</Text>
 
               <View style={[styles.inputGroup, hasError && styles.inputError]}>
                 <TextInput
                   value={address}
                   onChangeText={setAddress}
-                  placeholder="Enter an address (starts with 0x)"
+                  placeholder={t('cashOut.addressPlaceholder')}
                   placeholderTextColor="#9CA3AF"
                   style={styles.textInput}
                   autoCapitalize="none"
@@ -91,38 +89,39 @@ export default function CashOutScreen({ navigation }) {
                   onPress={() => setAddress('0x123...mock')}
                 >
                   <Ionicons name="clipboard-outline" size={16} color="#1F2937" />
-                  <Text style={styles.pillText}>Paste</Text>
+                  <Text style={styles.pillText}>{t('cashOut.pasteButton')}</Text>
                 </TouchableOpacity>
               </View>
 
               {hasError && (
                 <Text style={styles.errorText}>
-                  Enter a valid Ethereum address (0x + 40 hex characters)
+                  {t('cashOut.addressErrorInvalid')}
                 </Text>
               )}
             </View>
 
             {/* Info box */}
             <View style={styles.infoSection}>
-              <View style={[styles.infoBox, {borderLeftColor: text}]}>
+              <View style={[styles.infoBox, { borderLeftColor: text }]}>
                 <Ionicons
                   name="information-circle"
                   size={20}
                   color={text}
                   style={styles.infoIcon}
                 />
-                <Text style={styles.infoText}>
-                  We’ll only use this address to send your ETH when you cash out.
-                </Text>
+                <Text style={styles.infoText}>{t('cashOut.infoText')}</Text>
               </View>
             </View>
 
-            {/* Primary action (matches theme) */}
+            {/* Primary action button */}
             <TouchableOpacity
               onPress={handleDone}
-              style={[styles.primaryButton, {backgroundColor: text, shadowColor: text}]}
+              style={[
+                styles.primaryButton,
+                { backgroundColor: text, shadowColor: text },
+              ]}
             >
-              <Text style={styles.primaryButtonText}>Done</Text>
+              <Text style={styles.primaryButtonText}>{t('cashOut.doneButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>

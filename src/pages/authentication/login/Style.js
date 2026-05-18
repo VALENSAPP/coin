@@ -131,6 +131,42 @@ const createStyles = () => {
       fontWeight: '500',
     },
 
+    // Language Selector Styles
+    langDropdown: {
+      justifyContent: 'space-between',
+    },
+    langText: {
+      flex: 1,
+      fontSize: 16,
+      color: '#1F2937',
+      marginLeft: 12,
+      fontWeight: '400',
+    },
+    langDropdownList: {
+      marginTop: -1,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 5,
+      zIndex: 10,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+    },
+    langOption: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+    },
+    langOptionText: {
+      fontSize: 16,
+      color: '#374151',
+      fontWeight: '500',
+    },
+
     // Enhanced Button Styles
     forgotPasswordBtn: {
       alignSelf: 'flex-end',
@@ -139,12 +175,12 @@ const createStyles = () => {
     },
     forgotPasswordText: {
       fontSize: 14,
-      color: text, // Using the darker purple for consistency
+      color: text,
       fontWeight: '600',
     },
     loginButtonGradient: {
       height: 52,
-      backgroundColor: text, // Using the darker purple for the button
+      backgroundColor: text,
       borderRadius: 16,
       marginBottom: 24,
       alignItems: 'center',
@@ -257,7 +293,7 @@ const createStyles = () => {
       fontWeight: '400',
     },
     signupLink: {
-      color: text, // Using consistent purple color
+      color: text,
       fontWeight: '700',
     },
 

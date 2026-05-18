@@ -32,6 +32,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { useLanguage } from '../../../i18n';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
@@ -97,7 +98,8 @@ const PostEditorScreen = () => {
   const linkInputRef = useRef(null);
   const iosFocusedFieldRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
-console.log(taggedPeopleIds,'dtaatataatatin tah id')
+  const { t } = useLanguage();
+
   const toast = useToast();
   console.log('PostEditor received data:', { images, currentFilter, metadata, imageEdits, postType });
 
@@ -204,7 +206,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
   const handlePost = async () => {
     if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
-        showToastMessage(toast, 'danger', 'Please enter a valid link starting with http:// or https://');
+        showToastMessage(toast, 'danger', t('postEditor.invalidLink'));
         return;
       }
 
@@ -220,9 +222,9 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
     }
 
     dispatch(showLoader());
-    const payload = { 
+    const payload = {
       caption: caption.trim(),
-      taggedPeople:taggedPeopleIds ,
+      taggedPeople: taggedPeopleIds,
       // Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length ? { taggedPeopleIds } : {}),
       // ...(Array.isArray(taggedPeopleMeta) && taggedPeopleMeta.length ? { taggedPeopleMeta } : {}),
@@ -230,19 +232,14 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
         uri: getMediaUri(img),
         type: img.type,
         name: getMediaUri(img).split('/').pop()
-
       })),
       type:
-        //  fromIcon === 'Flips'
-        //   ? 'reel'
-        //   : 
         postType === 'private'
           ? 'private'
-          : 'normal' 
-          ||fromIcon === 'Flips'
-           ? 'reel'
-           : 'normal'
-          ,
+          : 'normal'
+            || fromIcon === 'Flips'
+            ? 'reel'
+            : 'normal',
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
@@ -258,19 +255,18 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
       console.log('Post creation response:', response);
 
       if (response.statusCode == 200) {
-        showToastMessage(toast, 'success', 'Post created successfully');
+        showToastMessage(toast, 'success', t('postEditor.postSuccess'));
         navigateAfterPostCreated();
       } else {
-        showToastMessage(toast, 'danger', response.message || 'Please try again');
+        showToastMessage(toast, 'danger', response.message || t('postEditor.postFail'));
       }
     } catch (err) {
       console.error('Post creation error:', err);
-      showToastMessage(toast, 'danger', err?.response?.message || 'Something went wrong');
+      showToastMessage(toast, 'danger', err?.response?.message || t('postEditor.postError'));
     } finally {
       dispatch(hideLoader());
     }
   };
-
 
   const isValidLink = (text) => {
     const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})([\/\w .-]*)*\/?$/i;
@@ -318,11 +314,10 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
     try {
       const resolvedUserId = await resolveUserIdFromUsername(cleanUsername);
       if (!resolvedUserId) {
-        showToastMessage(toast, 'danger', 'Unable to open this user profile.');
+        showToastMessage(toast, 'danger', t('postEditor.openProfileError'));
         return;
       }
 
-      // UsersProfile is inside HomeMain stack. Pass returnTo so the back arrow can return here.
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
         params: {
@@ -335,7 +330,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
     } finally {
       setOpeningTaggedProfile(false);
     }
-  }, [navigation, resolveUserIdFromUsername, toast]);
+  }, [navigation, resolveUserIdFromUsername, toast, t]);
 
   const renderEditorBody = () => (
     <>
@@ -378,7 +373,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
                     onPress={() => removeDrawingFromImage(idx)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.removeDrawingText, { color: text }]}>Remove drawing</Text>
+                    <Text style={[styles.removeDrawingText, { color: text }]}> {t('postEditor.removeDrawing')}</Text>
                   </TouchableOpacity>
                 )}
                 {img.appliedFilter && img.appliedFilter !== 'none' && (
@@ -394,7 +389,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
 
       {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
         <View style={styles.captionSection}>
-          <Text style={styles.captionLabel}>Tagged people</Text>
+              <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
           <Text style={styles.taggedPeopleText}>
             {taggedPeople.map((user, idx) => {
               const clean = String(user).replace(/^@+/, '');
@@ -417,11 +412,11 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
         </View>
       )}
       <View style={styles.captionSection}>
-        <Text style={styles.captionLabel}>Write a caption (optional)</Text>
+            <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
         <TextInput
           ref={captionInputRef}
           style={[styles.captionInput, bgStyle]}
-          placeholder="Write a caption (optional)"
+          placeholder={t('postEditor.captionPlaceholder')}
           value={caption}
           onChangeText={setCaption}
           multiline
@@ -438,11 +433,11 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
 
       {postType == 'crowdfunding' && (
         <View style={[styles.captionSection, { marginTop: -5 }]}>
-          <Text style={styles.captionLabel}>Add a link (optional)</Text>
+              <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
           <TextInput
             ref={linkInputRef}
             style={[styles.linkInput, bgStyle]}
-            placeholder="https://example.com"
+            placeholder={t('postEditor.linkPlaceholder')}
             value={link}
             onChangeText={setLink}
             keyboardType="url"
@@ -461,7 +456,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
 
       <View style={styles.footer}>
         <CustomButton
-          title="Continue"
+          title={t('postEditor.continueButton')}
           onPress={handlePost}
           style={[
             styles.socialBtn,
@@ -480,7 +475,7 @@ console.log(taggedPeopleIds,'dtaatataatatin tah id')
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.title}>{fromIcon == 'Flips' ? 'New Flip' : 'New Post'}</Text>
+        <Text style={styles.title}>{fromIcon == 'Flips' ? t('postEditor.newFlip') : t('postEditor.newPost')}</Text>
         <Text></Text>
       </View>
 

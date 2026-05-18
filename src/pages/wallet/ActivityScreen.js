@@ -15,16 +15,21 @@ import { getRecentActivities } from '../../services/tokens';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useRoute } from '@react-navigation/native';
+import { useLanguage } from '../../i18n';
 
 export const ActivityScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const route = useRoute();
-  const [activeFilter, setActiveFilter] = useState('All');
+  const [activeFilter, setActiveFilter] = useState('all');
   const [activities, setActivities] = useState([]);
   const { bgStyle, textStyle, text } = useAppTheme();
-  const filters = ['All', 'Following'];
-  // const filters = ['All', 'Supporters', '
+  const { t } = useLanguage();
 
+  // Filters use translation keys; filter values are stable internal keys
+  const filters = [
+    { key: 'all', label: t('activity.filters.all') },
+    { key: 'following', label: t('activity.filters.following') },
+  ];
 
   const formatTime = (timestamp) => {
     const now = new Date();
@@ -32,16 +37,25 @@ export const ActivityScreen = ({ navigation }) => {
     const diffInSeconds = Math.floor((now - date) / 1000);
 
     if (diffInSeconds < 60) {
-      return `${diffInSeconds} second${diffInSeconds === 1 ? '' : 's'} ago`;
+      const count = diffInSeconds;
+      return count === 1
+        ? t('activity.time.secondAgo').replace('{{count}}', count)
+        : t('activity.time.secondsAgo').replace('{{count}}', count);
     } else if (diffInSeconds < 3600) {
-      const minutes = Math.floor(diffInSeconds / 60);
-      return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+      const count = Math.floor(diffInSeconds / 60);
+      return count === 1
+        ? t('activity.time.minuteAgo').replace('{{count}}', count)
+        : t('activity.time.minutesAgo').replace('{{count}}', count);
     } else if (diffInSeconds < 86400) {
-      const hours = Math.floor(diffInSeconds / 3600);
-      return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+      const count = Math.floor(diffInSeconds / 3600);
+      return count === 1
+        ? t('activity.time.hourAgo').replace('{{count}}', count)
+        : t('activity.time.hoursAgo').replace('{{count}}', count);
     } else {
-      const days = Math.floor(diffInSeconds / 86400);
-      return `${days} day${days === 1 ? '' : 's'} ago`;
+      const count = Math.floor(diffInSeconds / 86400);
+      return count === 1
+        ? t('activity.time.dayAgo').replace('{{count}}', count)
+        : t('activity.time.daysAgo').replace('{{count}}', count);
     }
   };
 
@@ -49,45 +63,19 @@ export const ActivityScreen = ({ navigation }) => {
     try {
       dispatch(showLoader());
       const response = await getRecentActivities(type);
-      console.log(response, 'data in activity')
+      console.log(response, 'data in activity');
       if (response?.statusCode === 200) {
         const formattedActivities = [];
         let activityId = 1;
 
         const data = response.data.activities;
 
-        // Purchase activities
-        // if (data.purchase?.length) {
-        //   data.purchase.forEach(purchase => {
-        //     formattedActivities.push({
-        //       id: activityId++,
-        //       action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
-        //       time: formatTime(purchase.createdAt),
-        //       type: 'buy',
-        //       createdAt: new Date(purchase.createdAt).getTime(),
-        //     });
-        //   });
-        // }
-
-        // Sell activities
-        // if (data.sell?.length) {
-        //   data.sell.forEach(sell => {
-        //     formattedActivities.push({
-        //       id: activityId++,
-        //       action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
-        //       time: formatTime(sell.createdAt),
-        //       type: 'sell',
-        //       createdAt: new Date(sell.createdAt).getTime(),
-        //     });
-        //   });
-        // }
-
         // Following activities
         if (data.following?.length) {
           data.following.forEach(follow => {
             formattedActivities.push({
               id: activityId++,
-              action: `${follow.followerName || 'Someone'} followed you`,
+              action: `${follow.followerName || 'Someone'} ${t('activity.actions.followedYou')}`,
               userId: follow.followerId,
               time: formatTime(follow.createdAt),
               type: 'follow',
@@ -98,7 +86,7 @@ export const ActivityScreen = ({ navigation }) => {
 
         // Sort by most recent
         formattedActivities.sort((a, b) => b.createdAt - a.createdAt);
-        setActivities(formattedActivities); // show latest 6
+        setActivities(formattedActivities);
       }
     } catch (error) {
       console.log('Error fetching activities', error);
@@ -111,8 +99,7 @@ export const ActivityScreen = ({ navigation }) => {
     const fetchByFilter = async () => {
       dispatch(showLoader());
 
-      if (activeFilter === 'Supporters') {
-        // Fetch purchase and sell separately
+      if (activeFilter === 'supporters') {
         const [purchaseRes, sellRes] = await Promise.all([
           getRecentActivities('purchase'),
           getRecentActivities('sell'),
@@ -124,22 +111,20 @@ export const ActivityScreen = ({ navigation }) => {
         const formattedActivities = [];
         let activityId = 1;
 
-        // Format purchase activities
         purchaseData.forEach((purchase) => {
           formattedActivities.push({
             id: activityId++,
-            action: `@${purchase.username || 'Unknown'} bought ${purchase.tokensReceived || 0} tokens`,
+            action: `@${purchase.username || 'Unknown'} ${t('activity.actions.boughtTokens').replace('{{count}}', purchase.tokensReceived || 0)}`,
             time: formatTime(purchase.createdAt),
             type: 'buy',
             createdAt: new Date(purchase.createdAt).getTime(),
           });
         });
 
-        // Format sell activities
         sellData.forEach((sell) => {
           formattedActivities.push({
             id: activityId++,
-            action: `@${sell.username || 'Unknown'} sold ${sell.amountTokens || 0} tokens`,
+            action: `@${sell.username || 'Unknown'} ${t('activity.actions.soldTokens').replace('{{count}}', sell.amountTokens || 0)}`,
             time: formatTime(sell.createdAt),
             type: 'sell',
             createdAt: new Date(sell.createdAt).getTime(),
@@ -152,10 +137,9 @@ export const ActivityScreen = ({ navigation }) => {
         return;
       }
 
-      // Other filters
       const typeMap = {
-        All: null,
-        Following: 'following',
+        all: null,
+        following: 'following',
       };
 
       await fetchActivities(typeMap[activeFilter]);
@@ -164,16 +148,13 @@ export const ActivityScreen = ({ navigation }) => {
     fetchByFilter();
   }, [activeFilter]);
 
-
-
   const navigateToActivityUser = (activity) => {
     if (activity?.type !== 'follow') return;
     if (!activity?.userId) return;
     navigation.navigate('HomeMain', {
       screen: 'UsersProfile',
-      params: { userId: activity.userId,  returnTo: route?.name, },
+      params: { userId: activity.userId, returnTo: route?.name },
     });
-
   };
 
   const renderActivity = ({ item }) => (
@@ -181,17 +162,32 @@ export const ActivityScreen = ({ navigation }) => {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => navigateToActivityUser(item)}
-        style={[styles.activityIcon, {
-          backgroundColor: item.type === 'buy' ? '#10b981' :
-            item.type === 'sell' ? '#ef4444' :
-              item.type === 'follow' ? '#3b82f6' : '#8b5cf6'
-        }]}
+        style={[
+          styles.activityIcon,
+          {
+            backgroundColor:
+              item.type === 'buy'
+                ? '#10b981'
+                : item.type === 'sell'
+                ? '#ef4444'
+                : item.type === 'follow'
+                ? '#3b82f6'
+                : '#8b5cf6',
+          },
+        ]}
       >
         <Ionicons
-          name={item.type === 'buy' ? 'add' :
-            item.type === 'sell' ? 'remove' :
-              item.type === 'follow' ? 'people' : 'flash'}
-          size={20} color="#fff"
+          name={
+            item.type === 'buy'
+              ? 'add'
+              : item.type === 'sell'
+              ? 'remove'
+              : item.type === 'follow'
+              ? 'people'
+              : 'flash'
+          }
+          size={20}
+          color="#fff"
         />
       </TouchableOpacity>
       <View style={styles.activityDetailContent}>
@@ -206,27 +202,30 @@ export const ActivityScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* <View style={styles.header}>
-          <Text style={styles.headerTitle}>Activity</Text>
-          <Text style={styles.headerSubtitle}>Your complete transaction history</Text>
-        </View> */}
-
         <View style={styles.filtersContainer}>
           {filters.map(filter => (
             <TouchableOpacity
-              key={filter}
-              style={[styles.filterButton, activeFilter === filter && { backgroundColor: text, borderColor: text }]}
-              onPress={() => setActiveFilter(filter)}
+              key={filter.key}
+              style={[
+                styles.filterButton,
+                activeFilter === filter.key && { backgroundColor: text, borderColor: text },
+              ]}
+              onPress={() => setActiveFilter(filter.key)}
             >
-              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-                {filter}
+              <Text
+                style={[
+                  styles.filterText,
+                  activeFilter === filter.key && styles.filterTextActive,
+                ]}
+              >
+                {filter.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, textStyle]}>Recent Activity</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{t('activity.recentActivity')}</Text>
           <FlatList
             data={activities}
             renderItem={renderActivity}

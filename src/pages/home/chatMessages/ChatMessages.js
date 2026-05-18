@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState, useEffect, useCallback, useRef, Children } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { getHideChatConversation, chatStatusUpdate, sharePost } from '../../../services/post';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../../i18n';
 
 // Fallback icon component
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -78,7 +79,6 @@ const SafeIcon = ({ name, size = 24, color = '#000', style }) => {
   return <FallbackIcon name={name} size={size} color={color} style={style} />;
 };
 
-const USERNAME = 'Messages';
 const ONLINE_PLACEHOLDER = 'https://ui-avatars.com/api/?name=User&background=e0e0e0&color=888&size=128';
 const AVATAR_SIZE = 50;
 const AVATAR_BORDER = 68;
@@ -97,15 +97,15 @@ export default function ChatMessages() {
   const inputRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
   const toast = useToast();
+  const { t } = useLanguage();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [dataSource, setDataSource] = useState('none'); // Track data source: 'socket', 'api', or 'none'
+  const [dataSource, setDataSource] = useState('none');
   
-  // Track if we've already processed the shared content
   const hasProcessedShareRef = useRef(false);
   // Locally hidden chats (survives socket refresh until server marks isHidden)
   const hiddenChatIdsRef = useRef(new Set());
@@ -153,7 +153,6 @@ export default function ChatMessages() {
           setCurrentUserId(userId);
           console.log('📱 ChatMessages: Current user ID set:', userId);
           
-          // Initialize socket with userId
           const socket = getSocket();
           if (!socket || !socket.connected) {
             console.log('🔌 ChatMessages: Initializing socket...');
@@ -164,11 +163,11 @@ export default function ChatMessages() {
             setSocketReady(true);
           }
         } else {
-          Alert.alert('Error', 'Please log in to view messages');
+          Alert.alert(t('chatMessages.errorTitle'), t('chatMessages.loginRequired'));
         }
       } catch (error) {
         console.error('❌ Error initializing user and socket:', error);
-        Alert.alert('Error', 'Failed to load user information');
+        Alert.alert(t('chatMessages.errorTitle'), t('chatMessages.failedToLoadUser'));
       }
     };
 
@@ -184,7 +183,6 @@ export default function ChatMessages() {
       console.log('🔌 ChatMessages: Socket connected');
       setSocketReady(true);
       
-      // Request chat box data on connection
       if (currentUserId) {
         console.log('📡 ChatMessages: Requesting chat box on connect');
         socket.emit('getUserChatBox', { userId: currentUserId });
@@ -210,7 +208,6 @@ export default function ChatMessages() {
     socket.on('disconnect', handleDisconnect);
     socket.on('reconnect', handleReconnect);
 
-    // Check if already connected
     if (socket.connected) {
       handleConnect();
     }
@@ -236,20 +233,17 @@ export default function ChatMessages() {
   // ✅ Handle shared content from ShareModal
   useEffect(() => {
     const handleSharedContent = async () => {
-      // Check if this screen received shared content from ShareModal
       const { selectedUserIds, sharedContent, fromShareModal } = route?.params || {};
       
       if (!fromShareModal || !sharedContent || !selectedUserIds || selectedUserIds.length === 0) {
         return;
       }
 
-      // Prevent duplicate processing
       if (hasProcessedShareRef.current) {
         console.log('🚫 Shared content already processed, skipping');
         return;
       }
       
-      // Ensure we have the current user ID
       if (!currentUserId) {
         console.log('⏳ Waiting for currentUserId to be set...');
         return;
@@ -267,18 +261,16 @@ export default function ChatMessages() {
       try {
         console.log('📬 Sending shared content to', selectedUserIds.length, 'user(s)');
         
-        // Show loading toast
         showToastMessage(
           toast,
           'success',
-          `Sharing with ${selectedUserIds.length} user${selectedUserIds.length > 1 ? 's' : ''}...`,
+          t('chatMessages.sharingWith', { count: selectedUserIds.length }),
           2000
         );
 
         let successCount = 0;
         let failCount = 0;
 
-        // Step 1: Call sharePost API ONCE with all receiver user IDs
         console.log('📋 Starting Step 1: sharePost API call (ONCE with all users)');
         try {
           let mediaType, mediaId;
@@ -291,7 +283,6 @@ export default function ChatMessages() {
           } else if (sharedContent.story) {
             mediaType = 'STORY';
             mediaId = sharedContent.storyId;
-            // Clean story ID (remove _0 suffix if present)
             if (mediaId) {
               mediaId = String(mediaId).replace(/_\d+$/, '');
             }
@@ -305,7 +296,7 @@ export default function ChatMessages() {
               mediaType: mediaType,
               conversationType: 'MEDIA',
               sharedUserId: currentUserId,
-              receiverUserId: selectedUserIds  // Send ALL user IDs in array!
+              receiverUserId: selectedUserIds
             };
             console.log('📡 Calling sharePost API ONCE with', selectedUserIds.length, 'users:', sharePayload);
             const shareResponse = await sharePost(sharePayload);
@@ -313,15 +304,12 @@ export default function ChatMessages() {
           }
         } catch (shareError) {
           console.error('❌ SharePost API error:', shareError.message);
-          // Continue anyway - try to send messages
         }
 
-        // Step 2: Send message to each user sequentially
         console.log('📋 Starting Step 2: Send messages to', selectedUserIds.length, 'users');
         for (let i = 0; i < selectedUserIds.length; i++) {
           const userId = selectedUserIds[i];
           
-          // Add delay between sends to avoid overwhelming the server
           if (i > 0) {
             await new Promise(resolve => setTimeout(resolve, 300));
           }
@@ -333,16 +321,10 @@ export default function ChatMessages() {
               : sharedContent.reel ? 'REEL_SHARE'
                 : sharedContent.story ? 'STORY_SHARE'
                   : 'MEDIA';
-            
-            const messageText = sharedContent.post ? 'Shared a post'
-              : sharedContent.reel ? 'Shared a reel'
-                : sharedContent.story ? 'Shared a story'
-                  : '';
-            
+
             const messageData = {
               senderId: String(currentUserId),
               receiverId: String(userId),
-              // message: messageText,
               type: messageType,
             };
 
@@ -355,14 +337,12 @@ export default function ChatMessages() {
 
             console.log('📤 Sending message data to user', userId, ':', messageData);
 
-            // Socket FIRST
             const socket = getSocket();
             if (socket?.connected) {
               socket.emit('sendMessage', messageData);
               console.log('📡 Socket sent for', userId);
             }
 
-            // API backup
             try {
               const response = await sendMessageAPI(messageData);
               if (response?.success) {
@@ -382,19 +362,17 @@ export default function ChatMessages() {
 
         console.log('✅ Completed sending to all users:', { successCount, failCount });
 
-        // Refresh chat list immediately after sharing
         const socket = getSocket();
         if (socket?.connected) {
           console.log('📡 Refreshing chat box after multi-share');
           socket.emit('getUserChatBox', { userId: currentUserId });
         }
 
-        // Show final result
         if (successCount > 0) {
           showToastMessage(
             toast,
             'success',
-            `Shared to ${successCount} user${successCount > 1 ? 's' : ''}`,
+            t('chatMessages.sharedToCount', { count: successCount }),
             2000
           );
         }
@@ -403,12 +381,11 @@ export default function ChatMessages() {
           showToastMessage(
             toast,
             'error',
-            `Failed to share with ${failCount} user${failCount > 1 ? 's' : ''}`,
+            t('chatMessages.shareFailedCount', { count: failCount }),
             2000
           );
         }
 
-        // Clear params after short delay (let refresh complete)
         setTimeout(() => {
           navigation.setParams({
             selectedUserIds: undefined,
@@ -419,13 +396,13 @@ export default function ChatMessages() {
 
       } catch (error) {
         console.error('❌ Error processing shared content:', error);
-        Alert.alert('Error', 'Failed to share content. Please try again.');
+        Alert.alert(t('chatMessages.errorTitle'), t('chatMessages.shareError'));
         hasProcessedShareRef.current = false;
       }
     };
 
     handleSharedContent();
-  }, [route?.params, conversations, navigation, currentUserId, toast]);
+  }, [route?.params, conversations, navigation, currentUserId, toast, t]);
 
   // ✅ Reset shared content processing flag when shared content is cleared
   useEffect(() => {
@@ -446,7 +423,6 @@ export default function ChatMessages() {
 
     let conversationsData = [];
     
-    // Handle different data structures
     if (Array.isArray(data)) {
       conversationsData = data;
     } else if (data.success && Array.isArray(data.data)) {
@@ -489,29 +465,20 @@ export default function ChatMessages() {
     const senderId = String(message.sender?.id || message.senderId || '');
     const me = String(currentUserId);
 
-    console.log('🔍 ChatMessages: Message IDs:', {
-      senderId,
-      receiverId,
-      currentUserId: me,
-      isForMe: receiverId === me,
-      isFromMe: senderId === me
-    });
-
-    // Show toast notification if message is for current user and not from them
     if (receiverId === me && senderId !== me && !isScreenFocused) {
-      const senderName = message.sender?.displayName || message.sender?.username || 'Someone';
+      const senderName = message.sender?.displayName || message.sender?.username || t('chatMessages.someone');
 
       let messagePreview = '';
       if (message.type === 'MEDIA') {
-        messagePreview = 'Shared a media';
+        messagePreview = t('chatMessages.sharedMedia');
       } else if (message.type === 'POST_SHARE') {
-        messagePreview = 'Shared a post';
+        messagePreview = t('chatMessages.sharedPost');
       } else if (message.type === 'REEL_SHARE') {
-        messagePreview = 'Shared a reel';
+        messagePreview = t('chatMessages.sharedReel');
       } else if (message.type === 'STORY_SHARE') {
-        messagePreview = 'Shared a story';
+        messagePreview = t('chatMessages.sharedStory');
       } else {
-        messagePreview = message.content || message.message || 'New message';
+        messagePreview = message.content || message.message || t('chatMessages.newMessage');
       }
 
       showToastMessage(
@@ -522,13 +489,12 @@ export default function ChatMessages() {
       );
     }
 
-    // Request fresh conversation list from server
     const socket = getSocket();
     if (socket?.connected) {
       console.log('📡 ChatMessages: Requesting fresh chat box after new message');
       socket.emit('getUserChatBox', { userId: currentUserId });
     }
-  }, [currentUserId, toast, isScreenFocused]);
+  }, [currentUserId, toast, isScreenFocused, t]);
 
   // ✅ Listen for messageSent event to update conversation list
   useSocket('messageSent', (message) => {
@@ -539,7 +505,6 @@ export default function ChatMessages() {
     const senderId = String(message.sender?.id || message.senderId || '');
     const me = String(currentUserId);
 
-    // If current user sent the message, refresh chat box
     if (senderId === me) {
       console.log('📤 ChatMessages: Current user sent message, refreshing');
       const socket = getSocket();
@@ -564,7 +529,7 @@ export default function ChatMessages() {
         console.log('🔄 ChatMessages: Periodic refresh - requesting chat box');
         socket.emit('getUserChatBox', { userId: currentUserId });
       }
-    }, 10000); // Every 10 seconds
+    }, 10000);
 
     return () => {
       console.log('⏰ ChatMessages: Clearing periodic refresh');
@@ -597,7 +562,6 @@ export default function ChatMessages() {
   const fetchConversations = async () => {
     if (!currentUserId) return;
 
-    // Don't use API if we already have socket data
     if (dataSource === 'socket') {
       console.log('✅ Already have socket data, skipping API call');
       return;
@@ -616,17 +580,17 @@ export default function ChatMessages() {
         setDataSource('api');
         setError(null);
       } else {
-        setError(response.message || 'Failed to load conversations');
+        setError(response.message || t('chatMessages.failedToLoad'));
       }
     } catch (error) {
       console.error('❌ Error fetching conversations:', error);
-      setError('Failed to load conversations');
+      setError(t('chatMessages.failedToLoad'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ Pull-to-refresh handler (event-driven, no interval)
+  // ✅ Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
     if (!currentUserId || !socketReady) return;
     
@@ -638,7 +602,6 @@ export default function ChatMessages() {
       socket.emit('getUserChatBox', { userId: currentUserId });
     }
     
-    // Give socket a moment to respond
     setTimeout(() => {
       setRefreshing(false);
     }, 500);
@@ -661,7 +624,6 @@ export default function ChatMessages() {
     console.log('👤 Current user ID:', currentUserId);
 
     conversationsData.forEach((item, index) => {
-      // ✅ DETECT FORMAT: Check if this is a conversation object or a message object
       const hasLastMessage = !!item.lastMessage;
       const hasUser = !!item.user;
       const hasSender = !!item.sender;
@@ -669,7 +631,6 @@ export default function ChatMessages() {
 
       let conversation, message, chatId;
 
-      // FORMAT 1: Socket data (conversation with lastMessage)
       if (hasLastMessage && hasUser) {
         const rawChatId = String(item?.id || '').trim();
         const isHidden =
@@ -689,12 +650,11 @@ export default function ChatMessages() {
 
         conversation = item;
         message = item.lastMessage;
-        chatId = item.id; // conversation.id is the chatId
+        chatId = item.id;
 
         console.log(`  - conversation.id (chatId): ${chatId}`);
         console.log(`  - isHidden: ${item.isHidden}`);
       }
-      // FORMAT 2: API data (individual messages)
       else if (hasSender && hasReceiver) {
         console.log(`✅ Item ${index}: OLD FORMAT (message)`);
 
@@ -710,7 +670,6 @@ export default function ChatMessages() {
 
         message = item;
 
-        // Generate stable conversation ID from user pair
         const isCurrentUserSender = message.sender.id === currentUserId;
         const chatPartner = isCurrentUserSender ? message.receiver : message.sender;
         const partnerId = chatPartner.id;
@@ -757,33 +716,31 @@ export default function ChatMessages() {
       const partnerId = chatPartner.id;
       const messageTime = new Date(message.createdAt);
 
-      // Last message preview logic
       let previewMessage = "";
 
       if (message.type === "MEDIA") {
         previewMessage = isCurrentUserSender
-          ? "You shared a Media"
-          : "Shared a Media";
+          ? t('chatMessages.youSharedMedia')
+          : t('chatMessages.sharedMedia');
       } else if (message.type === "CHAT") {
         const content = message.content || "";
         previewMessage = isCurrentUserSender
-          ? `You: ${content}`
+          ? `${t('chatMessages.you')}: ${content}`
           : content;
       } else if (message.type === "POST_SHARE") {
         previewMessage = isCurrentUserSender
-          ? "You shared a post"
-          : "Shared a post";
+          ? t('chatMessages.youSharedPost')
+          : t('chatMessages.sharedPost');
       } else if (message.type === "REEL_SHARE") {
         previewMessage = isCurrentUserSender
-          ? "You shared a reel"
-          : "Shared a reel";
+          ? t('chatMessages.youSharedReel')
+          : t('chatMessages.sharedReel');
       } else if (message.type === "STORY_SHARE") {
         previewMessage = isCurrentUserSender
-          ? "You shared a story"
-          : "Shared a story";
+          ? t('chatMessages.youSharedStory')
+          : t('chatMessages.sharedStory');
       }
 
-      // Only keep the most recent message for each conversation
       if (
         !conversationMap.has(partnerId) ||
         messageTime > new Date(conversationMap.get(partnerId).lastMessageTime)
@@ -794,7 +751,7 @@ export default function ChatMessages() {
           userId: partnerId,
           chatId: chatId,
           lastMessageId: message.id,
-          username: chatPartner.displayName || chatPartner.username || "Unknown User",
+          username: chatPartner.displayName || chatPartner.username || t('chatMessages.unknownUser'),
           displayName: chatPartner.displayName,
           avatar: chatPartner.image || ONLINE_PLACEHOLDER,
           lastMessage: previewMessage,
@@ -832,17 +789,17 @@ export default function ChatMessages() {
     const diffInMinutes = Math.floor((now - messageDate) / (1000 * 60));
 
     if (diffInMinutes < 1) {
-      return 'Now';
+      return t('chatMessages.timestampNow');
     } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}m`;
+      return t('chatMessages.timestampMinutes', { count: diffInMinutes });
     } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}h`;
+      return t('chatMessages.timestampHours', { count: Math.floor(diffInMinutes / 60) });
     } else {
       const diffInDays = Math.floor(diffInMinutes / 1440);
       if (diffInDays === 1) {
-        return '1d';
+        return t('chatMessages.timestampOneDay');
       } else if (diffInDays < 7) {
-        return `${diffInDays}d`;
+        return t('chatMessages.timestampDays', { count: diffInDays });
       } else {
         return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
       }
@@ -851,18 +808,16 @@ export default function ChatMessages() {
 
   const handleUserChat = async (item) => {
     if (!item.userId || !item.user) {
-      Alert.alert('Error', 'Unable to open chat');
+      Alert.alert(t('chatMessages.errorTitle'), t('chatMessages.unableToOpenChat'));
       return;
     }
     
-    // Mark conversation as read if it has unread messages
     if (item.unreadCount > 0) {
       try {
         chatStatusUpdate(item.chatId)
           .then((response) => {
             console.log('✅ Chat marked as read:', response);
             
-            // Request fresh chat box to update unread counts
             const socket = getSocket();
             if (socket?.connected) {
               socket.emit('getUserChatBox', { userId: currentUserId });
@@ -891,7 +846,7 @@ export default function ChatMessages() {
     console.log('🗑️ Attempting to delete conversation:', selectedConversation);
 
     if (!selectedConversation || !selectedConversation.chatId) {
-      showToastMessage(toast, 'error', 'Unable to delete conversation', 2000);
+      showToastMessage(toast, 'error', t('chatMessages.unableToDelete'), 2000);
       setShowDeleteModal(false);
       return;
     }
@@ -914,14 +869,14 @@ export default function ChatMessages() {
         showToastMessage(
           toast,
           'success',
-          'Conversation deleted successfully',
+          t('chatMessages.deleteSuccess'),
           2000
         );
       } else {
         showToastMessage(
           toast,
           'error',
-          response.message || 'Failed to delete conversation',
+          response.message || t('chatMessages.deleteFailed'),
           2000
         );
       }
@@ -930,7 +885,7 @@ export default function ChatMessages() {
       showToastMessage(
         toast,
         'error',
-        'Failed to delete conversation',
+        t('chatMessages.deleteFailed'),
         2000
       );
     } finally {
@@ -978,7 +933,7 @@ export default function ChatMessages() {
           </Text>
         ) : (
           <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
-            Start a conversation
+            {t('chatMessages.startConversation')}
           </Text>
         )}
 
@@ -1012,19 +967,8 @@ export default function ChatMessages() {
         <TouchableOpacity onPress={handleBackPress}>
           <SafeIcon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>{USERNAME}</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{t('chatMessages.title')}</Text>
         <View style={{ flex: 1 }} />
-        
-        {/* Socket status indicator (for debugging - remove in production) */}
-        {/* {__DEV__ && (
-          <View style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: socketReady ? '#10b981' : '#ef4444',
-            marginLeft: 8,
-          }} />
-        )} */}
       </View>
 
       {/* Search Bar */}
@@ -1038,7 +982,7 @@ export default function ChatMessages() {
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
-            placeholder="Search messages..."
+            placeholder={t('chatMessages.searchPlaceholder')}
             value={search}
             onChangeText={setSearch}
             placeholderTextColor="#9ca3af"
@@ -1046,9 +990,9 @@ export default function ChatMessages() {
         </View>
       </TouchableOpacity>
 
-      {/* Messages/Requests Row */}
+      {/* Messages Row */}
       <View style={styles.messagesRow}>
-        <Text style={[styles.messagesTitle, textStyle]}>Messages</Text>
+        <Text style={[styles.messagesTitle, textStyle]}>{t('chatMessages.messagesLabel')}</Text>
         <TouchableOpacity>
           {/* <Text style={styles.requestsLink}>Requests</Text> */}
         </TouchableOpacity>
@@ -1065,14 +1009,14 @@ export default function ChatMessages() {
             onRefresh={onRefresh}
             colors={[text]}
             tintColor={text}
-            title="Pull to refresh"
+            title={t('chatMessages.pullToRefresh')}
             titleColor={text}
           />
         }
       >
         {isLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
-            <Text style={[styles.loadingText, textStyle]}>Loading conversations...</Text>
+            <Text style={[styles.loadingText, textStyle]}>{t('chatMessages.loadingConversations')}</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
@@ -1088,16 +1032,16 @@ export default function ChatMessages() {
                 }
               }}
             >
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t('chatMessages.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : filteredConversations.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {search ? 'No conversations found' : 'No conversations yet'}
+              {search ? t('chatMessages.noConversationsFound') : t('chatMessages.noConversationsYet')}
             </Text>
             {!search && (
-              <Text style={styles.emptySubtext}>Start a conversation with someone</Text>
+              <Text style={styles.emptySubtext}>{t('chatMessages.startConversationHint')}</Text>
             )}
           </View>
         ) : (
@@ -1121,16 +1065,16 @@ export default function ChatMessages() {
           <View style={[styles.modalContent, bgStyle]}>
             <View style={styles.modalHeader}>
               <SafeIcon name="trash-outline" size={32} color="#ff6b6b" />
-              <Text style={[styles.modalTitle, textStyle]}>Delete Conversation</Text>
+              <Text style={[styles.modalTitle, textStyle]}>{t('chatMessages.deleteTitle')}</Text>
             </View>
 
             <Text style={[styles.modalMessage, textStyle]}>
-              Are you sure you want to delete this conversation with{' '}
+              {t('chatMessages.deleteConfirm')}{' '}
               <Text style={styles.modalUsername}>{selectedConversation?.username}</Text>?
             </Text>
 
             <Text style={styles.modalWarning}>
-              This action cannot be undone.
+              {t('chatMessages.deleteWarning')}
             </Text>
 
             <View style={styles.modalButtons}>
@@ -1139,7 +1083,7 @@ export default function ChatMessages() {
                 onPress={handleCancelDelete}
                 disabled={isDeleting}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{t('chatMessages.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1148,7 +1092,7 @@ export default function ChatMessages() {
                 disabled={isDeleting}
               >
                 <Text style={styles.deleteButtonText}>
-                  {isDeleting ? 'Deleting...' : 'Delete'}
+                  {isDeleting ? t('chatMessages.deleting') : t('chatMessages.delete')}
                 </Text>
               </TouchableOpacity>
             </View>

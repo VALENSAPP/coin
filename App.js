@@ -14,6 +14,7 @@ import { AppKitProvider } from '@reown/appkit-react-native';
 import { appKit, wagmiAdapter } from './src/config/AppKitConfig';
 import { WalletConnectSupportProvider } from './src/context/WalletConnectSupportContext';
 import { ThemeProvider } from './src/theme/ThemeContext';
+import { LanguageProvider } from './src/i18n';
 
 const queryClient = new QueryClient();
 
@@ -37,9 +38,11 @@ const App = () => {
                 <Provider store={store}>
                   <ThemeProvider>
                     <Loader>
-                      <WalletConnectSupportProvider>
-                        <Main />
-                      </WalletConnectSupportProvider>
+                      <LanguageProvider>
+                        <WalletConnectSupportProvider>
+                          <Main />
+                        </WalletConnectSupportProvider>
+                      </LanguageProvider>
                     </Loader>
                   </ThemeProvider>
                 </Provider>

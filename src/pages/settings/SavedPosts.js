@@ -29,9 +29,11 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
 import Video from 'react-native-video';
+import { useLanguage } from '../../i18n';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_SIZE = (width - 6) / 3;
+
 const SavedPostsScreen = ({ navigation }) => {
   // Data
   const [posts, setPosts] = useState([]);
@@ -78,6 +80,7 @@ const SavedPostsScreen = ({ navigation }) => {
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
   const insets = useSafeAreaInsets();
   const viewerHeaderPaddingTop = Math.max(insets.top, 12);
+  const { t } = useLanguage();
 
   const formatUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return '';
@@ -105,23 +108,17 @@ const SavedPostsScreen = ({ navigation }) => {
   }) => {
     return {
       id: item.id,
-
       username: item.userName ?? 'Unknown',
-
       avatar: item.userImage
         ? formatUrl(item.userImage)
         : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-
       media: (item.images || item.media || []).map(m =>
         typeof m === 'string'
           ? { type: getMediaType(m), url: formatUrl(m) }
           : { type: m.type, url: formatUrl(m.url) }
       ),
-
       caption: item.caption ?? '',
-
       PostsProfile: item.PostsProfile ?? 'Support',
-
       link: item.link,
       raiseAmount: item.raiseAmount ?? 0,
       goalAmount: item.goalAmount ?? 100000,
@@ -133,7 +130,6 @@ const SavedPostsScreen = ({ navigation }) => {
       boughtBy: item.boughtBy || [],
       returnTo: route?.params?.returnTo,
       tokenBalance: item.tokenBalance || 0,
-
       follow:
         typeof followingMapByUserId[String(item.userId)] === 'boolean'
           ? followingMapByUserId[String(item.userId)]
@@ -164,16 +160,16 @@ const SavedPostsScreen = ({ navigation }) => {
         setPosts(raw);
         seedMapsFromPosts(raw);
       } else {
-        Alert.alert('Error', response?.message || 'Failed to fetch saved posts');
+        Alert.alert(t('savedPosts.error'), response?.message || t('savedPosts.fetchError'));
       }
     } catch (err) {
       console.error('Error fetching saved posts:', err);
-      Alert.alert('Error', 'Network error occurred while fetching posts');
+      Alert.alert(t('savedPosts.error'), t('savedPosts.networkError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshing, seedMapsFromPosts]);
+  }, [refreshing, seedMapsFromPosts, t]);
 
   useEffect(() => {
     fetchSavedPosts();
@@ -202,7 +198,7 @@ const SavedPostsScreen = ({ navigation }) => {
           showToastMessage(
             toast,
             'danger',
-            res?.data?.message || res?.message || 'Unable to update follow'
+            res?.data?.message || res?.message || t('savedPosts.unableToUpdateFollow')
           );
         } else {
           const serverVal = res?.data?.following;
@@ -215,7 +211,7 @@ const SavedPostsScreen = ({ navigation }) => {
         showToastMessage(
           toast,
           'danger',
-          e?.response?.data?.message || 'Something went wrong'
+          e?.response?.data?.message || t('savedPosts.somethingWentWrong')
         );
       } finally {
         setFollowingBusy((prev) => {
@@ -225,7 +221,7 @@ const SavedPostsScreen = ({ navigation }) => {
         });
       }
     },
-    [toast, followingBusy]
+    [toast, followingBusy, t]
   );
 
   const toggleLike = useCallback(
@@ -257,17 +253,17 @@ const SavedPostsScreen = ({ navigation }) => {
           showToastMessage(
             toast,
             'success',
-            res?.data?.message || (serverLiked ? 'Post liked' : 'Post unliked')
+            res?.data?.message || (serverLiked ? t('savedPosts.postLiked') : t('savedPosts.postUnliked'))
           );
         } else {
           setLiked((prev) => ({ ...prev, [postId]: wasLiked }));
           setPostLikesCount((prev) => ({ ...prev, [postId]: prevCount }));
-          showToastMessage(toast, 'danger', res?.data?.message || 'Failed to toggle like');
+          showToastMessage(toast, 'danger', res?.data?.message || t('savedPosts.likeToggleFailed'));
         }
       } catch (e) {
         setLiked((prev) => ({ ...prev, [postId]: wasLiked }));
         setPostLikesCount((prev) => ({ ...prev, [postId]: prevCount }));
-        showToastMessage(toast, 'danger', e?.response?.data?.message || 'Something went wrong');
+        showToastMessage(toast, 'danger', e?.response?.data?.message || t('savedPosts.somethingWentWrong'));
       } finally {
         setLikingIds((prev) => {
           const next = new Set(prev);
@@ -276,7 +272,7 @@ const SavedPostsScreen = ({ navigation }) => {
         });
       }
     },
-    [liked, postLikesCount, likingIds, toast]
+    [liked, postLikesCount, likingIds, toast, t]
   );
 
   const handleToggleSave = useCallback(
@@ -294,7 +290,7 @@ const SavedPostsScreen = ({ navigation }) => {
         const resp = isCurrentlySaved ? await unSavePost(resolvedId) : await savePost(resolvedId);
         const ok = resp && resp.statusCode === 200 && (resp.success ?? true);
         if (ok) {
-          showToastMessage(toast, 'success', resp?.data?.message || 'Updated');
+          showToastMessage(toast, 'success', resp?.data?.message || t('savedPosts.updated'));
           setSaved((prev) => ({ ...prev, [resolvedId]: !isCurrentlySaved }));
 
           if (isCurrentlySaved) {
@@ -318,10 +314,10 @@ const SavedPostsScreen = ({ navigation }) => {
             }
           }
         } else {
-          showToastMessage(toast, 'danger', resp?.data?.message || 'Failed');
+          showToastMessage(toast, 'danger', resp?.data?.message || t('savedPosts.saveFailed'));
         }
       } catch (err) {
-        showToastMessage(toast, 'danger', err?.response?.message ?? 'Something went wrong');
+        showToastMessage(toast, 'danger', err?.response?.message ?? t('savedPosts.somethingWentWrong'));
       } finally {
         setSavingIds((prev) => {
           const next = new Set(prev);
@@ -337,6 +333,7 @@ const SavedPostsScreen = ({ navigation }) => {
       viewerVisible,
       posts,
       closePostViewer,
+      t,
     ]
   );
 
@@ -362,15 +359,14 @@ const SavedPostsScreen = ({ navigation }) => {
       if (action === 'copyAddress') {
         const deepLink = `com.valens.app://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
         Clipboard.setString(deepLink);
-        showToastMessage(toast, 'success', 'Post copied');
+        showToastMessage(toast, 'success', t('savedPosts.postCopied'));
         closeOptions();
         return;
       }
 
-      // Other actions (report/hide) are handled inside OptionsModal.
       closeOptions();
     },
-    [closeOptions, handleToggleSave, modalPostId, toast]
+    [closeOptions, handleToggleSave, modalPostId, toast, t]
   );
 
   const handleComment = useCallback((postId, ownerId) => {
@@ -465,7 +461,6 @@ const SavedPostsScreen = ({ navigation }) => {
           : true;
       const formattedFirstMedia = firstMedia ? formatUrl(firstMedia) : '';
 
-      // Fallback if no media
       if (!firstMedia) {
         return (
           <TouchableOpacity style={styles.gridItem} activeOpacity={0.7} onPress={() => openPostViewer(index)}>
@@ -479,11 +474,10 @@ const SavedPostsScreen = ({ navigation }) => {
 
       return (
         <TouchableOpacity
-          style={[styles.gridItem,{marginBottom:2}]}
+          style={[styles.gridItem, { marginBottom: 2 }]}
           activeOpacity={0.7}
           onPress={() => openPostViewer(index)}
         >
-          {/* Video: Show first frame as static thumbnail */}
           {isVideo ? (
             <Video
               source={{ uri: formattedFirstMedia }}
@@ -500,7 +494,6 @@ const SavedPostsScreen = ({ navigation }) => {
               onError={(e) => console.log('Video thumbnail error:', e)}
             />
           ) : (
-            /* Image: Normal fast loading */
             <Image
               source={{ uri: formattedFirstMedia }}
               style={styles.gridImage}
@@ -509,7 +502,6 @@ const SavedPostsScreen = ({ navigation }) => {
             />
           )}
 
-          {/* Play Button for Videos */}
           {isVideo && !isGridVideoPlaying && (
             <TouchableOpacity
               style={styles.videoOverlay}
@@ -520,7 +512,6 @@ const SavedPostsScreen = ({ navigation }) => {
             </TouchableOpacity>
           )}
 
-          {/* Mute/Unmute for Videos */}
           {isVideo && (
             <TouchableOpacity
               style={styles.gridMuteButton}
@@ -535,20 +526,16 @@ const SavedPostsScreen = ({ navigation }) => {
             </TouchableOpacity>
           )}
 
-          {/* Multiple Media Indicator */}
           {hasMultiple && (
             <View style={styles.multiOverlay}>
               <Icon name="copy-outline" size={20} color="#fff" />
             </View>
           )}
-
-          {/* Token Price Overlay */}
         </TouchableOpacity>
       );
     },
     [formatUrl, getMediaType, gridMutedByPostId, gridPlayingPostId, openPostViewer]
   );
-
 
   // Full-screen post renderer
   const renderFullPost = useCallback(
@@ -577,7 +564,6 @@ const SavedPostsScreen = ({ navigation }) => {
             onSuggest={[]}
             shareCount={mapped.shareCount}
             hideDonationButton={true}
-            // Autoplay only the visible post, start muted, user can unmute in PostItem
             isVisible={isThisPostVisible}
             screenFocused={viewerVisible}
             playingPostId={viewerPlayingPostId}
@@ -605,7 +591,6 @@ const SavedPostsScreen = ({ navigation }) => {
     ]
   );
 
-
   const keyExtractor = useCallback((item, index) => {
     return item.id?.toString() || item._id?.toString() || `post-${index}`;
   }, []);
@@ -622,16 +607,16 @@ const SavedPostsScreen = ({ navigation }) => {
               : '#C7C7CC'
           }
         />
-        <Text style={[styles.emptyTitle, textStyle]}>No Saved Posts</Text>
+        <Text style={[styles.emptyTitle, textStyle]}>{t('savedPosts.emptyTitle')}</Text>
         <Text style={[styles.emptySubtitle, textStyle, { opacity: 0.7 }]}>
-          When you save posts, you'll see them here{'\n'}Start exploring and save posts you love!
+          {t('savedPosts.emptySubtitle')}
         </Text>
       </View>
     ),
-    [textStyle, themeText]
+    [textStyle, themeText, t]
   );
 
-  // Viewer viewability (pick the most visible post id to autoplay)
+  // Viewer viewability
   const viewerViewabilityConfigRef = useRef({
     viewAreaCoveragePercentThreshold: 50,
     minimumViewTime: 50,
@@ -688,7 +673,7 @@ const SavedPostsScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Saved Posts</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{t('savedPosts.headerTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -697,7 +682,7 @@ const SavedPostsScreen = ({ navigation }) => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeText || '#4d2a88'} />
           <Text style={[styles.loadingText, textStyle, { opacity: 0.7 }]}>
-            Loading saved posts...
+            {t('savedPosts.loadingText')}
           </Text>
         </View>
       ) : (
@@ -745,7 +730,7 @@ const SavedPostsScreen = ({ navigation }) => {
             <TouchableOpacity onPress={closePostViewer} style={styles.closeButton}>
               <Icon name="arrow-back" size={24} color={themeText || '#262626'} />
             </TouchableOpacity>
-            <Text style={[styles.viewerHeaderTitle, textStyle]}>All Posts</Text>
+            <Text style={[styles.viewerHeaderTitle, textStyle]}>{t('savedPosts.allPostsTitle')}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -772,7 +757,7 @@ const SavedPostsScreen = ({ navigation }) => {
             initialNumToRender={2}
           />
 
-          {/* Options Modal (render inside modal for iOS) */}
+          {/* Options Modal */}
           <OptionsModal
             visible={modalVisible}
             onClose={closeOptions}
@@ -787,7 +772,7 @@ const SavedPostsScreen = ({ navigation }) => {
             }
           />
 
-          {/* Comment Sheet (render inside modal for iOS) */}
+          {/* Comment Sheet */}
           <RBSheet
             ref={commentSheetRef}
             height={500}
