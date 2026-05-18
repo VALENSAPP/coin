@@ -45,6 +45,7 @@ import { useAppTheme } from '../theme/useApptheme';
 import SelectAccountType from '../pages/authentication/setAccountType';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import PrivateCircle from '../components/profile/PrivateCircle';
+import { useLanguage } from '../i18n';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -53,6 +54,7 @@ const Drawer = createDrawerNavigator();
 const CustomDrawerContent = (props) => {
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
 
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
@@ -84,7 +86,7 @@ const CustomDrawerContent = (props) => {
           marginVertical: 5,
           marginTop: 8
         }}>
-          Wallet Panel
+          {t('drawerNav.walletPanel')}
         </Text>
       </View>
 
@@ -136,7 +138,6 @@ const SettingsStackNavigator = () => {
 const DummyComponent = () => null;
 
 // Screens where the global drawer should NOT open from a left-edge swipe.
-// Add route `name` values from your stack/tab navigators (e.g. "SelectedPost").
 const SWIPE_DISABLED_SCREENS = [
   'SelectedPost',
   'FlipsScreen',
@@ -165,6 +166,7 @@ const MainAppWithDrawerSwipeSync = (props) => {
 // Global Drawer Navigator (wraps everything)
 const GlobalDrawerNavigator = () => {
   const { bgStyle, textStyle, text } = useAppTheme();
+  const { t } = useLanguage();
   const reduxProfile = useSelector(state => state.userProfile.userProfile);
   const [storedProfile, setStoredProfile] = React.useState('');
   const resolvedProfile = String(
@@ -206,19 +208,19 @@ const GlobalDrawerNavigator = () => {
         component={MainAppWithDrawerSwipeSync}
         options={{
           headerShown: false,
-          drawerLabel: 'Home',
+          drawerLabel: t('drawerNav.home'),
           drawerItemStyle: { display: 'none' },
           swipeEnabled: true,
           swipeEdgeWidth: 50,
         }}
       />
 
-      {/* Wallet Drawer Items - These create the menu, navigation handled in CustomDrawerContent */}
+      {/* Wallet Drawer Items */}
       <Drawer.Screen
         name="DrawerDashboard"
         component={DummyComponent}
         options={{
-          drawerLabel: 'Dashboard',
+          drawerLabel: t('drawerNav.dashboard'),
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
@@ -232,29 +234,11 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      {/* <Drawer.Screen
-        name="DrawerPortfolio"
-        component={DummyComponent}
-        options={{
-          drawerLabel: 'Portfolio',
-          headerShown: false,
-        }}
-        listeners={({ navigation }) => ({
-          drawerItemPress: (e) => {
-            e.preventDefault();
-            navigation.closeDrawer();
-            navigation.navigate('MainApp', {
-              screen: 'wallet',
-              params: { screen: 'Portfolio' }
-            });
-          },
-        })}
-      /> */}
       <Drawer.Screen
         name="DrawerWallet"
         component={DummyComponent}
         options={{
-          drawerLabel: 'Buy Mission Credits',
+          drawerLabel: t('drawerNav.buyMissionCredits'),
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
@@ -268,29 +252,11 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      {/* <Drawer.Screen
-        name="DrawerMarket"
-        component={DummyComponent}
-        options={{
-          drawerLabel: 'Market',
-          headerShown: false,
-        }}
-        listeners={({ navigation }) => ({
-          drawerItemPress: (e) => {
-            e.preventDefault();
-            navigation.closeDrawer();
-            navigation.navigate('MainApp', {
-              screen: 'wallet',
-              params: { screen: 'Market' }
-            });
-          },
-        })}
-      /> */}
       <Drawer.Screen
         name="DrawerActivity"
         component={DummyComponent}
         options={{
-          drawerLabel: 'Activity',
+          drawerLabel: t('drawerNav.activity'),
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
@@ -308,7 +274,7 @@ const GlobalDrawerNavigator = () => {
         name="Valens Wallet"
         component={ValensWallet}
         options={{
-          drawerLabel: 'Valens Wallet',
+          drawerLabel: t('drawerNav.valensWallet'),
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
@@ -327,7 +293,7 @@ const GlobalDrawerNavigator = () => {
           name="My closet"
           component={ValensWallet}
           options={{
-            drawerLabel: 'My closet',
+            drawerLabel: t('drawerNav.myCloset'),
             headerShown: false,
           }}
           listeners={({ navigation }) => ({
@@ -347,7 +313,7 @@ const GlobalDrawerNavigator = () => {
           name="Shop"
           component={ValensWallet}
           options={{
-            drawerLabel: 'Shop',
+            drawerLabel: t('drawerNav.shop'),
             headerShown: false,
           }}
           listeners={({ navigation }) => ({
@@ -366,13 +332,12 @@ const GlobalDrawerNavigator = () => {
         name="DrawerSubscription"
         component={DummyComponent}
         options={{
-          drawerLabel: 'Subscriptions',
+          drawerLabel: t('drawerNav.subscriptions'),
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
           drawerItemPress: (e) => {
             e.preventDefault();
-            // navigation.closeDrawer();
             navigation.navigate('MainApp', {
               screen: 'wallet',
               params: { screen: 'SubscriptionSetup' }
@@ -380,29 +345,29 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-       <Drawer.Screen
-          name="Privatecircle"
-          component={PrivateCircle}
-          options={{
-            drawerLabel: 'Private Circle',
-            headerShown: false,
-          }}
-          listeners={({ navigation }) => ({
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.closeDrawer();
-              navigation.navigate('MainApp', {
-                screen: 'wallet',
-                params: { screen: 'Privatecircle' }
-              });
-            },
-          })}
-        />
+      <Drawer.Screen
+        name="Privatecircle"
+        component={PrivateCircle}
+        options={{
+          drawerLabel: t('drawerNav.privateCircle'),
+          headerShown: false,
+        }}
+        listeners={({ navigation }) => ({
+          drawerItemPress: (e) => {
+            e.preventDefault();
+            navigation.closeDrawer();
+            navigation.navigate('MainApp', {
+              screen: 'wallet',
+              params: { screen: 'Privatecircle' }
+            });
+          },
+        })}
+      />
       <Drawer.Screen
         name="DrawerSettings"
         component={DummyComponent}
         options={{
-          drawerLabel: 'Settings',
+          drawerLabel: t('drawerNav.settings'),
           headerShown: false,
         }}
         listeners={({ navigation }) => ({
@@ -423,68 +388,6 @@ const GlobalDrawerNavigator = () => {
 export default function MainStack() {
   const isLogin = useSelector(state => state.login.IS_LOGGED_IN);
   const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
-  // const toast = useToast();
-  // const dispatch = useDispatch();
-
-  // useEffect(() => {
-  //   if (isLogin) {
-  //     setupUserToken();
-  //   } else {
-  //     dispatch(hideLoader());
-  //   }
-  // }, [isLogin]);
-
-  // const setupUserToken = async () => {
-  //   try {
-  //     dispatch(showLoader());
-  //     const userId = await AsyncStorage.getItem('userId');
-  //     console.log('userId for token setup:', userId);
-
-  //     if (!userId) return;
-
-  //     // Try creating a new token
-  //     const response = await createToken({ userId });
-  //     console.log('Create token response:', response);
-
-  //     if (response && response.statusCode === 200) {
-  //       await getPriceOfToken(response.data?.tokenAddress);
-  //       AsyncStorage.setItem('PlatFormToken', response.data.tokenAddress);
-  //       return;
-  //     }
-
-  //     // Fallback → get token by userId
-  //     const tokenRes = await getTokenByUserId(userId);
-  //     console.log('Get token by userId response:', tokenRes);
-
-  //     if (tokenRes && tokenRes.statusCode === 200) {
-  //       await getPriceOfToken(tokenRes.data?.data?.tokenAddress);
-  //       AsyncStorage.setItem('PlatFormToken', tokenRes.data?.data?.tokenAddress);
-  //     } else {
-  //       showToastMessage(toast, 'danger', 'User token not found.');
-  //     }
-  //   } catch (error) {
-  //     showToastMessage(toast, 'danger', 'Failed to setup token.');
-  //   } finally {
-  //     dispatch(hideLoader());
-  //   }
-  // };
-
-  // const getPriceOfToken = async (tokenAddress) => {
-  //   try {
-  //     if (!tokenAddress) return;
-  //     dispatch(showLoader());
-  //     const response = await getTokenPrice({ tokenAddress });
-  //     if (response.statusCode === 200) {
-  //       console.log('Token price fetched:', response.data);
-  //       await AsyncStorage.setItem('priceInUsd', JSON.stringify(response?.data?.priceInUsd));
-  //       await AsyncStorage.setItem('priceInWei', response?.data?.priceInWei);
-  //     }
-  //   } catch (err) {
-  //     Alert.alert('Error', err.message || 'Failed to fetch token price');
-  //   } finally {
-  //     dispatch(hideLoader());
-  //   }
-  // };
 
   if (!isLogin || isAddAccount) {
     return (

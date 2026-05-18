@@ -1109,9 +1109,22 @@ const InstagramPostCreator = () => {
           const edits = imageEdits[index] || createEmptyImageEdits();
           let processedUri = edits.processedImageUri || getMediaDisplayUri(image);
           const isVideo = isMediaVideo(image);
-          const hasEdits = edits.textOverlays.length > 0 || edits.overlayImages.length > 0 || edits.drawings || edits.processedImageUri || (edits.filter && edits.filter !== 'none');
-          if (!isVideo && (hasEdits || selectedImages.length === 1)) {
-            try { const uri = await captureFilteredImage(index); if (uri) processedUri = uri; } catch (captureError) { console.log('Error capturing image with overlays:', captureError); }
+          const hasEdits =
+            edits.textOverlays.length > 0 ||
+            edits.overlayImages.length > 0 ||
+            edits.drawings ||
+            edits.processedImageUri ||
+            (edits.filter && edits.filter !== 'none');
+
+          if (!isVideo && hasEdits) {
+            try {
+              const uri = await captureFilteredImage(index);
+              if (uri) {
+                processedUri = uri;
+              }
+            } catch (captureError) {
+              console.log('Error capturing image with overlays:', captureError);
+            }
           }
           return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
@@ -1269,18 +1282,145 @@ const InstagramPostCreator = () => {
                             {selectedFilter !== 'none' && index === currentImageIndex && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' : selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' : selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' : selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' : selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' : 'transparent' }]} />}
                           </View>
                         ) : isDrawing && index === currentImageIndex ? (
-                          <View ref={ref => { if (ref) drawingSurfaceRefs.current[index] = ref; }} collapsable={false} style={[styles.drawingSurface, { width: IMAGE_SIZE, height: currentCanvasHeight }]}>
-                            <View style={[styles.staticImageCanvas, { width: IMAGE_SIZE, height: currentCanvasHeight }, isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing]}>
-                              {(() => { const slideEdits = imageEdits[index] || {}; const currentImageUri = getMediaDisplayUri(image, slideEdits.processedImageUri); return <Image source={{ uri: currentImageUri }} style={[styles.mainImage, { width: IMAGE_SIZE, height: currentCanvasHeight }, isSquareDrawingSurface && styles.mainImageSquareDrawing]} resizeMode='cover' />; })()}
-                              {selectedFilter !== 'none' && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.filterOverlay, isSquareDrawingSurface && styles.filterOverlaySquareDrawing, { backgroundColor: selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' : selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' : selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' : selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' : selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' : 'transparent' }]} />}
+                          <View
+                            ref={ref => {
+                              if (ref) {
+                                drawingSurfaceRefs.current[index] = ref;
+                              }
+                            }}
+                            collapsable={false}
+                            style={[
+                              styles.drawingSurface,
+                              { width: IMAGE_SIZE, height: currentCanvasHeight },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.staticImageCanvas,
+                                { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
+                              ]}
+                            >
+                              {(() => {
+                                const slideEdits = imageEdits[index] || {};
+                                const currentImageUri =
+                                  getMediaDisplayUri(image, slideEdits.processedImageUri);
+
+                                return (
+                                  <Image
+                                    source={{ uri: currentImageUri }}
+                                    style={[
+                                      styles.mainImage,
+                                      { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                      isSquareDrawingSurface && styles.mainImageSquareDrawing,
+                                    ]}
+                                    resizeMode='contain'
+                                  />
+                                );
+                              })()}
+
+                              {selectedFilter !== 'none' && (
+                                <View
+                                  pointerEvents="none"
+                                  style={[
+                                    StyleSheet.absoluteFillObject,
+                                    styles.filterOverlay,
+                                    isSquareDrawingSurface && styles.filterOverlaySquareDrawing,
+                                    {
+                                      backgroundColor:
+                                        selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                          selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                            selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                              selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                                selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                                  'transparent',
+                                    }
+                                  ]}
+                                />
+                              )}
                             </View>
                             <SketchCanvas key={`canvas-${currentImageIndex}-${canvasKey}`} ref={canvasRef} style={[StyleSheet.absoluteFill, styles.activeDrawCanvas]} strokeColor={drawColor} strokeWidth={5} touchEnabled={true} pointerEvents="auto" />
                           </View>
                         ) : (
-                          <ImageZoom {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})} cropWidth={IMAGE_SIZE} cropHeight={currentCanvasHeight} imageWidth={IMAGE_SIZE} imageHeight={currentCanvasHeight} panToMove={!isDrawing && !isOverlayTransforming} minScale={0.5} maxScale={4} pinchToZoom={!isDrawing && !isOverlayTransforming} enableDoubleClickZoom={!isDrawing && !isOverlayTransforming} doubleClickInterval={175} style={[styles.imageZoomContainer, { width: IMAGE_SIZE, height: currentCanvasHeight }]} onPanResponderGrant={handleZoomStart} onPanResponderRelease={handleZoomEnd} onMove={({ scale }) => handleZoomChange(scale)}>
-                            <View style={[styles.staticImageCanvas, { width: IMAGE_SIZE, height: currentCanvasHeight }, isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing]}>
-                              {(() => { const slideEdits = imageEdits[index] || {}; const currentImageUri = getMediaDisplayUri(image, slideEdits.processedImageUri); return <Image source={{ uri: currentImageUri }} style={[styles.mainImage, { width: IMAGE_SIZE, height: currentCanvasHeight }, isSquareDrawingSurface && styles.mainImageSquareDrawing]} resizeMode='cover' />; })()}
-                              {selectedFilter !== 'none' && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.filterOverlay, isSquareDrawingSurface && styles.filterOverlaySquareDrawing, { backgroundColor: selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' : selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' : selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' : selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' : selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' : 'transparent' }]} />}
+                          // Image with zoom functionality
+                          <ImageZoom
+                            {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})}
+                            cropWidth={IMAGE_SIZE}
+                            cropHeight={currentCanvasHeight}
+                            imageWidth={IMAGE_SIZE}
+                            imageHeight={currentCanvasHeight}
+                            panToMove={!isDrawing && !isOverlayTransforming}
+                            minScale={0.5}
+                            maxScale={4}
+                            pinchToZoom={!isDrawing && !isOverlayTransforming}
+                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming}
+                            doubleClickInterval={175}
+                            style={[
+                              styles.imageZoomContainer,
+                              { width: IMAGE_SIZE, height: currentCanvasHeight },
+                            ]}
+                            onStartShouldSetPanResponder={evt => {
+                              if (isDrawing) return false;
+                              return (
+                                evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
+                              );
+                            }}
+                            onMoveShouldSetPanResponder={evt => {
+                              if (isDrawing) return false;
+                              return (
+                                evt.nativeEvent.target._owner?.memoizedProps?.testID !== 'overlay-element'
+                              );
+                            }}
+                            onPanResponderGrant={handleZoomStart}
+                            onPanResponderRelease={handleZoomEnd}
+                            onMove={({ scale }) => handleZoomChange(scale)}
+                          >
+                            <View
+                              style={[
+                                styles.staticImageCanvas,
+                                { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
+                              ]}
+                            >
+                              {/* Use processedImageUri if drawing was saved, otherwise original */}
+                              {(() => {
+                                const slideEdits = imageEdits[index] || {};
+                                const currentImageUri =
+                                  getMediaDisplayUri(image, slideEdits.processedImageUri);
+
+                                return (
+                                  <Image
+                                    source={{ uri: currentImageUri }}
+                                    style={[
+                                      styles.mainImage,
+                                      { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                      isSquareDrawingSurface && styles.mainImageSquareDrawing,
+                                    ]}
+                                    resizeMode='contain'
+                                  />
+                                );
+                              })()}
+
+                              {/* Fake filter overlay (your current visual effect) */}
+                              {selectedFilter !== 'none' && (
+                                <View
+                                  pointerEvents="none"
+                                  style={[
+                                    StyleSheet.absoluteFillObject,
+                                    styles.filterOverlay,
+                                    isSquareDrawingSurface && styles.filterOverlaySquareDrawing,
+                                    {
+                                      backgroundColor:
+                                        selectedFilter === 'grayscale' ? 'rgba(0,0,0,0.6)' :
+                                          selectedFilter === 'sepia' ? 'rgba(140, 171, 225, 0.4)' :
+                                            selectedFilter === 'saturate' ? 'rgba(255,100,255,0.15)' :
+                                              selectedFilter === 'contrast' ? 'rgba(0,0,0,0.35)' :
+                                                selectedFilter === 'brightness' ? 'rgba(255,255,255,0.35)' :
+                                                  'transparent',
+                                    }
+                                  ]}
+                                />
+                              )}
                             </View>
                           </ImageZoom>
                         )}

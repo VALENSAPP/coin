@@ -14,6 +14,18 @@ import { useLanguage } from '../../i18n';
 const { width, height: screenHeight } = Dimensions.get('window');
 const gridItemSize = (width - 48) / 3;
 const selectedGridItemSize = (width - 64) / 2;
+const selectedPreviewWidth = width * 0.92;
+const maxSelectedPreviewHeight = screenHeight * 0.5;
+
+const getPreviewHeightForMedia = (media) => {
+  const mediaWidth = Number(media?.width);
+  const mediaHeight = Number(media?.height);
+  if (!mediaWidth || !mediaHeight) {
+    return maxSelectedPreviewHeight;
+  }
+  const aspectHeight = (selectedPreviewWidth * mediaHeight) / mediaWidth;
+  return Math.min(maxSelectedPreviewHeight, Math.max(selectedPreviewWidth * 0.35, aspectHeight));
+};
 
 export default function PostScreen({ navigation }) {
   const [selectedMedia, setSelectedMedia] = useState([]);
@@ -53,8 +65,6 @@ export default function PostScreen({ navigation }) {
   const cropImage = (imageUri, index) => {
     ImagePicker.openCropper({
       path: imageUri,
-      width: 800,
-      height: 800,
       cropping: true,
       cropperActiveWidgetColor: '#0095f6',
       cropperStatusBarColor: '#0095f6',
@@ -504,13 +514,19 @@ export default function PostScreen({ navigation }) {
           contentContainerStyle={styles.selectedMediaScrollContainer}
           style={styles.selectedMediaScroll}
         >
-          {currentSelection.map((media, index) => (
-            <View key={`selected_${media.uri}_${index}`} style={styles.selectedGridItemHorizontal}>
+          {currentSelection.map((media, index) => {
+            const previewHeight =
+              postType === 'flip' ? screenHeight * 0.9 : getPreviewHeightForMedia(media);
+            return (
+            <View
+              key={`selected_${media.uri}_${index}`}
+              style={[styles.selectedGridItemHorizontal, { height: previewHeight }]}
+            >
               {media.type && media.type.startsWith('video') ? (
                 <View style={styles.selectedVideoItem}>
                   <Video
                     source={{ uri: media.uri }}
-                    style={[styles.selectedGridImageHorizontal, { height: postType === 'flip' ? screenHeight * 0.9 : screenHeight * 0.5 }]}
+                    style={[styles.selectedGridImageHorizontal, { height: previewHeight }]}
                     paused={true}
                     muted={true}
                     repeat={false}
@@ -528,7 +544,11 @@ export default function PostScreen({ navigation }) {
                 </View>
               ) : (
                 <View style={styles.selectedImageContainer}>
-                  <Image source={{ uri: media.uri }} style={styles.selectedGridImageHorizontal} />
+                  <Image
+                    source={{ uri: media.uri }}
+                    style={[styles.selectedGridImageHorizontal, { height: previewHeight }]}
+                    resizeMode="contain"
+                  />
                   <TouchableOpacity
                     style={styles.cropButton}
                     onPress={() => cropImage(media.uri, index)}
@@ -552,7 +572,8 @@ export default function PostScreen({ navigation }) {
                 <Text style={styles.selectedOrderText}>{index + 1}</Text>
               </View>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       </View>
     );
@@ -997,8 +1018,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   selectedGridItemHorizontal: {
-    width: width * .92,
-    height: screenHeight * 0.5,
+    width: selectedPreviewWidth,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
@@ -1012,8 +1032,7 @@ const styles = StyleSheet.create({
   },
   selectedGridImageHorizontal: {
     width: '100%',
-    height: screenHeight * 0.5,
-    resizeMode: 'cover',
+    height: maxSelectedPreviewHeight,
   },
   selectedVideoPlay: {
     position: 'absolute',

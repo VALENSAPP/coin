@@ -2870,7 +2870,7 @@
     "startNowButton": "Empieza ahora",
     "guestTitle": "Mi armario 🛍️",
     "guestIntro": "Aquí encontrarás las piezas que he decidido dejar ir.",
-    "guestDescription": "Artículos que he usado, amado y ahora comparto directamente contigo, para ser usados, amados y vividos nuevamente."
+    "guestDescription": "Los artículos aquí son nuevos o han sido usados y amados por mí antes de compartirlos — directamente de mí para ti,hechos para ser usados, amados y vividos una vez más."
   },
   "battleCard": {
     "ended": "Finalizado",
@@ -3049,5 +3049,46 @@
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "deleting": "Eliminando..."
+  },
+  "drawerNav": {
+    "walletPanel": "Panel de Billetera",
+    "home": "Inicio",
+    "dashboard": "Panel",
+    "buyMissionCredits": "Comprar Créditos de Misión",
+    "activity": "Actividad",
+    "valensWallet": "Billetera Valens",
+    "myCloset": "Mi Armario",
+    "shop": "Tienda",
+    "subscriptions": "Suscripciones",
+    "privateCircle": "Círculo Privado",
+    "settings": "Configuración"
+  },
+  "walletStack": {
+    "buyMissionCredits": "Comprar Créditos de Misión",
+    "deposit": "Depositar",
+    "cashOut": "Retirar",
+    "send": "Enviar",
+    "valensWallet": "Billetera Valens",
+    "myCloset": "Mi Armario",
+    "shop": "Tienda",
+    "privateCircle": "Círculo Privado",
+    "recentActivities": "Actividades Recientes",
+    "market": "Mercado",
+    "activity": "Actividad",
+    "settings": "Configuración",
+    "profileSettings": "Configuración del Perfil",
+    "changePassword": "Cambiar Contraseña",
+    "verificationStatus": "Estado de Verificación",
+    "kycVerification": "Verificación KYC",
+    "privacySettings": "Configuración de Privacidad",
+    "twoFactorAuth": "Autenticación de Dos Factores",
+    "loginHistory": "Historial de Inicio de Sesión",
+    "subscriptionSetup": "Configuración del Programa de Suscripción",
+    "viewMissionPost": "Ver Publicación de Misión",
+    "revenueFromSubscriptions": "Ingresos por Suscripciones",
+    "selectLanguage": "Seleccionar Idioma"
+  },
+  "tabNav": {
+    "editProfile": "Editar Perfil"
   }
 }

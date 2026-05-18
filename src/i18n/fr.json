@@ -2870,7 +2870,7 @@
     "startNowButton": "Commencer maintenant",
     "guestTitle": "Mon dressing 🛍️",
     "guestIntro": "Vous trouverez ici les pièces que j’ai choisi de laisser partir.",
-    "guestDescription": "Des articles que j’ai portés, aimés et que je partage maintenant directement avec vous, pour être portés, aimés et vécus à nouveau."
+    "guestDescription": "Les articles ici sont soit neufs, soit portés et aimés par moi avant d’être partagés — directement de moi à vous,faits pour être portés, aimés et vécus une nouvelle fois."
   },
   "battleCard": {
     "ended": "Terminé",
@@ -3049,5 +3049,46 @@
     "cancel": "Annuler",
     "delete": "Supprimer",
     "deleting": "Suppression..."
+  },
+  "drawerNav": {
+    "walletPanel": "Panneau Portefeuille",
+    "home": "Accueil",
+    "dashboard": "Tableau de Bord",
+    "buyMissionCredits": "Acheter des Crédits de Mission",
+    "activity": "Activité",
+    "valensWallet": "Portefeuille Valens",
+    "myCloset": "Mon Dressing",
+    "shop": "Boutique",
+    "subscriptions": "Abonnements",
+    "privateCircle": "Cercle Privé",
+    "settings": "Paramètres"
+  },
+  "walletStack": {
+    "buyMissionCredits": "Acheter des Crédits de Mission",
+    "deposit": "Déposer",
+    "cashOut": "Retirer",
+    "send": "Envoyer",
+    "valensWallet": "Portefeuille Valens",
+    "myCloset": "Mon Dressing",
+    "shop": "Boutique",
+    "privateCircle": "Cercle Privé",
+    "recentActivities": "Activités Récentes",
+    "market": "Marché",
+    "activity": "Activité",
+    "settings": "Paramètres",
+    "profileSettings": "Paramètres du Profil",
+    "changePassword": "Changer le Mot de Passe",
+    "verificationStatus": "Statut de Vérification",
+    "kycVerification": "Vérification KYC",
+    "privacySettings": "Paramètres de Confidentialité",
+    "twoFactorAuth": "Authentification à Deux Facteurs",
+    "loginHistory": "Historique de Connexion",
+    "subscriptionSetup": "Configuration du Programme d’Abonnement",
+    "viewMissionPost": "Voir la Publication de Mission",
+    "revenueFromSubscriptions": "Revenus des Abonnements",
+    "selectLanguage": "Choisir la Langue"
+  },
+  "tabNav": {
+    "editProfile": "Modifier le Profil"
   }
 }

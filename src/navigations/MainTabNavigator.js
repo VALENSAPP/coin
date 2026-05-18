@@ -93,6 +93,8 @@ import ProfileShop from '../components/profile/Shop';
 import ShopScreen from '../pages/wallet/ShopScreen';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import LanguageSelectionScreen from '../pages/settings/LanguageSelectionScreen';
+// ── TRANSLATION CHANGE: import useLanguage hook ──────────────────────────────
+import { useLanguage } from '../i18n';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -121,6 +123,8 @@ export default function MainTabNavigator() {
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text } = useAppTheme();
+  // ── TRANSLATION CHANGE: initialise t() ──────────────────────────────────────
+  const { t } = useLanguage();
 
   const getUserDetail = async () => {
     try {
@@ -185,7 +189,8 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="EditProfile"
           component={ProfileEditScreen}
-          options={{ headerShown: true, headerStyle: ['#fff'], headerTitle: 'Edit Profile', }}
+          // ── TRANSLATION CHANGE: headerTitle translated ───────────────────
+          options={{ headerShown: true, headerStyle: ['#fff'], headerTitle: t('tabNav.editProfile'), }}
         />
         <Stack.Screen
           name="PostUpload"
@@ -318,7 +323,8 @@ export default function MainTabNavigator() {
         />
       </Stack.Navigator>
     );
-  }, []);
+  // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
+  }, [t]);
 
   // Enhanced Wallet Stack Navigator with ALL drawer screens
   const WalletStack = useMemo(() => {
@@ -367,13 +373,15 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="WalletMain"
             component={WalletComponent}
-            options={{ headerTitle: 'Buy Mission Credits' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.buyMissionCredits') }}
           />
           <Stack.Screen
             name="DepositeCash"
             component={DepositeCash}
             options={{
-              headerTitle: 'Deposit',
+              // ── TRANSLATION CHANGE ─────────────────────────────────────────
+              headerTitle: t('walletStack.deposit'),
               headerTitleAlign: 'center',
             }}
           />
@@ -381,7 +389,8 @@ export default function MainTabNavigator() {
             name="CashOut"
             component={CashOut}
             options={{
-              headerTitle: 'Cash Out',
+              // ── TRANSLATION CHANGE ─────────────────────────────────────────
+              headerTitle: t('walletStack.cashOut'),
               headerTitleAlign: 'center',
             }}
           />
@@ -389,7 +398,8 @@ export default function MainTabNavigator() {
             name="SendCoin"
             component={SendCoins}
             options={{
-              headerTitle: 'Send',
+              // ── TRANSLATION CHANGE ─────────────────────────────────────────
+              headerTitle: t('walletStack.send'),
               headerTitleAlign: 'center',
             }}
           />
@@ -398,7 +408,8 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="Dashboard"
             component={WalletDashboardScreen}
-            options={{ headerTitle: 'Dashboard' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('drawerNav.dashboard') }}
           />
           {/* <Stack.Screen
             name="Portfolio"
@@ -408,28 +419,33 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="ValensWallet"
             component={ValensWallet}
-            options={{ headerTitle: 'Valens Wallet' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.valensWallet') }}
           />
           <Stack.Screen
             name="MyCloset"
             component={MyClosetScreen}
-            options={{ headerTitle: 'My Closet' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.myCloset') }}
           />
           <Stack.Screen
             name="Shop"
             component={ShopScreen}
-            options={{ headerTitle: 'Shop' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.shop') }}
           />
            <Stack.Screen
             name="Privatecircle"
             component={PrivateCircle}
-            options={{ headerTitle: 'Privatecircle' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.privateCircle') }}
           />
           <Stack.Screen
             name="TransactionActivity"
             component={TransactionActivityScreen}
             options={({ navigation }) => ({
-              headerTitle: 'Recent Activities',
+              // ── TRANSLATION CHANGE ───────────────────────────────────────────
+              headerTitle: t('walletStack.recentActivities'),
               headerRight: () => (
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                   <View style={{marginRight:10}}>
@@ -442,12 +458,14 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="Market"
             component={MarketScreen}
-            options={{ headerTitle: 'Market' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.market') }}
           />
           <Stack.Screen
             name="Activity"
             component={ActivityScreen}
-            options={{ headerTitle: 'Activity' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.activity') }}
           />
           {/* <Stack.Screen
             name="Creators"
@@ -457,20 +475,23 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
-            options={{ headerTitle: 'Settings' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.settings') }}
           />
           <Stack.Screen
             name="WalletEditProfile"
             component={ProfileEditScreen}
             options={{
-              headerTitle: 'Profile Settings',
+              // ── TRANSLATION CHANGE ─────────────────────────────────────────
+              headerTitle: t('walletStack.profileSettings'),
               headerTitleAlign: 'center',
             }}
           />
           <Stack.Screen
             name="ChangePassword"
             component={ChangePassword}
-            options={{ headerTitle: 'Change Password' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.changePassword') }}
           />
           <Stack.Screen
             name="CreatorProfile"
@@ -480,52 +501,62 @@ export default function MainTabNavigator() {
           <Stack.Screen
             name="VerificationStatus"
             component={VerificationStatusScreen}
-            options={{ headerTitle: 'Verification Status' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.verificationStatus') }}
           />
           <Stack.Screen
             name="kycverify"
             component={KYCVerification}
-            options={{ headerTitle: 'KYC Verification' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.kycVerification') }}
           />
           <Stack.Screen
             name="PrivacySettings"
             component={PrivacySettingsScreen}
-            options={{ headerTitle: 'Privacy Settings' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.privacySettings') }}
           />
           <Stack.Screen
             name="TwoFactorAuth"
             component={TwoFactorAuthScreen}
-            options={{ headerTitle: 'Two-Factor Auth' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.twoFactorAuth') }}
           />
           <Stack.Screen
             name="LoginHistory"
             component={LoginHistoryScreen}
-            options={{ headerTitle: 'Login History' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.loginHistory') }}
           />
           <Stack.Screen
             name="SubscriptionSetup"
             component={SubventionSetupScreen}
-            options={{ headerTitle: 'Subscription Program Setup' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.subscriptionSetup') }}
           />
           <Stack.Screen
             name="ViewMissionPost"
             component={ViewMissioPost}
-            options={{ headerTitle: 'View Mission Post' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.viewMissionPost') }}
           />
           <Stack.Screen
             name="RevenueFromSubscriptions"
             component={RevenueFromSubscriptions}
-            options={{ headerTitle: 'Revenue From Subscriptions' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.revenueFromSubscriptions') }}
           />
            <Stack.Screen
             name="LanguageSelectionScreen"
             component={LanguageSelectionScreen}
-            options={{ headerTitle: 'Select Language', headerTitleAlign: 'center' }}
+            // ── TRANSLATION CHANGE ───────────────────────────────────────────
+            options={{ headerTitle: t('walletStack.selectLanguage'), headerTitleAlign: 'center' }}
           />
         </Stack.Navigator>
       );
     };
-  }, []);
+  // ── TRANSLATION CHANGE: t added to dependency array so stack rebuilds on lang change ──
+  }, [t, text, userProfile]);
 
   const PostStack = useMemo(() => {
     return () => (
