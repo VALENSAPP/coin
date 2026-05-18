@@ -3047,5 +3047,46 @@
     "cancel": "Annulla",
     "delete": "Elimina",
     "deleting": "Eliminazione..."
+  },
+  "drawerNav": {
+    "walletPanel": "Pannello Portafoglio",
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "buyMissionCredits": "Acquista Crediti Missione",
+    "activity": "Attività",
+    "valensWallet": "Portafoglio Valens",
+    "myCloset": "Il Mio Armadio",
+    "shop": "Negozio",
+    "subscriptions": "Abbonamenti",
+    "privateCircle": "Cerchia Privata",
+    "settings": "Impostazioni"
+  },
+  "walletStack": {
+    "buyMissionCredits": "Acquista Crediti Missione",
+    "deposit": "Deposita",
+    "cashOut": "Preleva",
+    "send": "Invia",
+    "valensWallet": "Portafoglio Valens",
+    "myCloset": "Il Mio Armadio",
+    "shop": "Negozio",
+    "privateCircle": "Cerchia Privata",
+    "recentActivities": "Attività Recenti",
+    "market": "Mercato",
+    "activity": "Attività",
+    "settings": "Impostazioni",
+    "profileSettings": "Impostazioni del Profilo",
+    "changePassword": "Cambia Password",
+    "verificationStatus": "Stato della Verifica",
+    "kycVerification": "Verifica KYC",
+    "privacySettings": "Impostazioni sulla Privacy",
+    "twoFactorAuth": "Autenticazione a Due Fattori",
+    "loginHistory": "Cronologia Accessi",
+    "subscriptionSetup": "Configurazione Programma Abbonamento",
+    "viewMissionPost": "Visualizza Post Missione",
+    "revenueFromSubscriptions": "Entrate dagli Abbonamenti",
+    "selectLanguage": "Seleziona Lingua"
+  },
+  "tabNav": {
+    "editProfile": "Modifica Profilo"
   }
 }

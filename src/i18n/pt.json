@@ -3047,5 +3047,46 @@
     "cancel": "Cancelar",
     "delete": "Excluir",
     "deleting": "Excluindo..."
+  },
+  "drawerNav": {
+    "walletPanel": "Painel da Carteira",
+    "home": "Início",
+    "dashboard": "Painel",
+    "buyMissionCredits": "Comprar Créditos de Missão",
+    "activity": "Atividade",
+    "valensWallet": "Carteira Valens",
+    "myCloset": "Meu Guarda-Roupa",
+    "shop": "Loja",
+    "subscriptions": "Assinaturas",
+    "privateCircle": "Círculo Privado",
+    "settings": "Configurações"
+  },
+  "walletStack": {
+    "buyMissionCredits": "Comprar Créditos de Missão",
+    "deposit": "Depositar",
+    "cashOut": "Sacar",
+    "send": "Enviar",
+    "valensWallet": "Carteira Valens",
+    "myCloset": "Meu Guarda-Roupa",
+    "shop": "Loja",
+    "privateCircle": "Círculo Privado",
+    "recentActivities": "Atividades Recentes",
+    "market": "Mercado",
+    "activity": "Atividade",
+    "settings": "Configurações",
+    "profileSettings": "Configurações do Perfil",
+    "changePassword": "Alterar Senha",
+    "verificationStatus": "Status da Verificação",
+    "kycVerification": "Verificação KYC",
+    "privacySettings": "Configurações de Privacidade",
+    "twoFactorAuth": "Autenticação de Dois Fatores",
+    "loginHistory": "Histórico de Login",
+    "subscriptionSetup": "Configuração do Programa de Assinatura",
+    "viewMissionPost": "Ver Publicação da Missão",
+    "revenueFromSubscriptions": "Receita de Assinaturas",
+    "selectLanguage": "Selecionar Idioma"
+  },
+  "tabNav": {
+    "editProfile": "Editar Perfil"
   }
 }

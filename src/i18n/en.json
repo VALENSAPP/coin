@@ -3047,5 +3047,46 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "deleting": "Deleting..."
+  },
+  "drawerNav": {
+    "walletPanel": "Wallet Panel",
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "buyMissionCredits": "Buy Mission Credits",
+    "activity": "Activity",
+    "valensWallet": "Valens Wallet",
+    "myCloset": "My Closet",
+    "shop": "Shop",
+    "subscriptions": "Subscriptions",
+    "privateCircle": "Private Circle",
+    "settings": "Settings"
+  },
+  "walletStack": {
+    "buyMissionCredits": "Buy Mission Credits",
+    "deposit": "Deposit",
+    "cashOut": "Cash Out",
+    "send": "Send",
+    "valensWallet": "Valens Wallet",
+    "myCloset": "My Closet",
+    "shop": "Shop",
+    "privateCircle": "Private Circle",
+    "recentActivities": "Recent Activities",
+    "market": "Market",
+    "activity": "Activity",
+    "settings": "Settings",
+    "profileSettings": "Profile Settings",
+    "changePassword": "Change Password",
+    "verificationStatus": "Verification Status",
+    "kycVerification": "KYC Verification",
+    "privacySettings": "Privacy Settings",
+    "twoFactorAuth": "Two-Factor Auth",
+    "loginHistory": "Login History",
+    "subscriptionSetup": "Subscription Program Setup",
+    "viewMissionPost": "View Mission Post",
+    "revenueFromSubscriptions": "Revenue From Subscriptions",
+    "selectLanguage": "Select Language"
+  },
+  "tabNav": {
+    "editProfile": "Edit Profile"
   }
 }

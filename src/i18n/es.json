@@ -3047,5 +3047,46 @@
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "deleting": "Eliminando..."
+  },
+  "drawerNav": {
+    "walletPanel": "Panel de Billetera",
+    "home": "Inicio",
+    "dashboard": "Panel",
+    "buyMissionCredits": "Comprar Créditos de Misión",
+    "activity": "Actividad",
+    "valensWallet": "Billetera Valens",
+    "myCloset": "Mi Armario",
+    "shop": "Tienda",
+    "subscriptions": "Suscripciones",
+    "privateCircle": "Círculo Privado",
+    "settings": "Configuración"
+  },
+  "walletStack": {
+    "buyMissionCredits": "Comprar Créditos de Misión",
+    "deposit": "Depositar",
+    "cashOut": "Retirar",
+    "send": "Enviar",
+    "valensWallet": "Billetera Valens",
+    "myCloset": "Mi Armario",
+    "shop": "Tienda",
+    "privateCircle": "Círculo Privado",
+    "recentActivities": "Actividades Recientes",
+    "market": "Mercado",
+    "activity": "Actividad",
+    "settings": "Configuración",
+    "profileSettings": "Configuración del Perfil",
+    "changePassword": "Cambiar Contraseña",
+    "verificationStatus": "Estado de Verificación",
+    "kycVerification": "Verificación KYC",
+    "privacySettings": "Configuración de Privacidad",
+    "twoFactorAuth": "Autenticación de Dos Factores",
+    "loginHistory": "Historial de Inicio de Sesión",
+    "subscriptionSetup": "Configuración del Programa de Suscripción",
+    "viewMissionPost": "Ver Publicación de Misión",
+    "revenueFromSubscriptions": "Ingresos por Suscripciones",
+    "selectLanguage": "Seleccionar Idioma"
+  },
+  "tabNav": {
+    "editProfile": "Editar Perfil"
   }
 }
