@@ -220,12 +220,15 @@ const ProfilePersonData = ({
     Displayname: displayName || t('profilePersonData.noName'),
     Username: username || t('profilePersonData.unknownUser'),
     profilePic: profileImage,
-    Bio: bio,
+    Bio: bio == 'null' ? '' : bio,
     totalPost: dashboard?.totalPosts ?? t('profilePersonData.notAvailable'),
     Followers: dashboard?.totalFollowers ?? t('profilePersonData.notAvailable'),
     Followings: dashboard?.totalFollowing ?? t('profilePersonData.notAvailable'),
     userId: userId,
   };
+  
+
+  console.log(Userdata.Bio, 'BIOOOO');
 
   const requestCameraPermission = async () => {
     if (Platform.OS !== 'android') return true;
