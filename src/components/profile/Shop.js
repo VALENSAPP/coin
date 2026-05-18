@@ -112,8 +112,8 @@ useEffect(() => {
               Here you’ll find the pieces I’ve chosen to let go.
             </Text>
             <Text style={[styles.paragraph, textStyle]}>
-              Items I’ve worn, loved, and now share — directly from me to you, made to be worn, loved,
-              and lived in again.
+              Items here are either new or I’ve worn, loved, and now share — directly from me to you,
+              made to be worn, loved, and lived in again.
             </Text>
           </View>
         </View>

@@ -2256,7 +2256,7 @@ const InstagramPostCreator = () => {
             edits.processedImageUri ||
             (edits.filter && edits.filter !== 'none');
 
-          if (!isVideo && (hasEdits || selectedImages.length === 1)) {
+          if (!isVideo && hasEdits) {
             try {
               const uri = await captureFilteredImage(index);
               if (uri) {
@@ -2670,7 +2670,7 @@ const InstagramPostCreator = () => {
                                       { width: IMAGE_SIZE, height: currentCanvasHeight },
                                       isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
-                                    resizeMode='cover'
+                                    resizeMode='contain'
                                   />
                                 );
                               })()}
@@ -2761,7 +2761,7 @@ const InstagramPostCreator = () => {
                                       { width: IMAGE_SIZE, height: currentCanvasHeight },
                                       isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
-                                    resizeMode='cover'
+                                    resizeMode='contain'
                                   />
                                 );
                               })()}

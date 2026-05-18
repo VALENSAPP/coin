@@ -106,7 +106,7 @@ const SubventionSetupScreen = () => {
     };
 
     const openTerms = async () => {
-        const url = 'https://www.valenstechnologies.app/creatorterms';
+        const url = 'https://valens.app/creator-terms';
         try {
             const supported = await Linking.canOpenURL(url);
             if (supported) {
