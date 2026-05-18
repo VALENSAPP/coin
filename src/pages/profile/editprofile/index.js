@@ -410,7 +410,7 @@ const ProfileEditScreen = () => {
       const formData = new FormData();
       formData.append('displayName', name.trim());
       formData.append('userName', username.trim());
-      formData.append('bio', bio.trim());
+      formData.append('bio', bio ? bio.trim() : null);
       formData.append('gender', gender);
       formData.append('website_link', website_link);
       const formattedSocialLinks = [];
@@ -442,7 +442,6 @@ const ProfileEditScreen = () => {
           url: linkedin.trim(),
         });
       }
-
       const socialLinksPayload = JSON.stringify(formattedSocialLinks);
       formData.append('social_media_links', socialLinksPayload);
       formData.append('socialLinks', socialLinksPayload);
@@ -604,7 +603,7 @@ const ProfileEditScreen = () => {
                 errors.bio && styles.inputError,
               ]}
               placeholder={t('profileEdit.bioPlaceholder')}
-              value={bio}
+              value={bio == 'null' ? '' : bio}
               onChangeText={handleBioChange}
               placeholderTextColor="#999"
               multiline
