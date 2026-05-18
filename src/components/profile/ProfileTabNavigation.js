@@ -154,11 +154,11 @@ const ProfileTabs = memo(({
         loggedInUserId={loggedInUserId}
         onSubscribePress={() => { userData?.profile !== 'company' && setShowSubscribeModal(true); }}
         isCompany={userData?.profile === 'company'}
-        refreshKey={refreshKey}
+        refreshKey={`${refreshKey ?? 0}-${privateKey}`}
         scrollEnabled={scrollEnabled}
       />
     ),
-    [post, userData, isSubscribed, loggedInUserId, refreshKey, scrollEnabled],
+    [post, userData, isSubscribed, loggedInUserId, refreshKey, privateKey, scrollEnabled],
   );
 
   const renderPrivateCircleScreen = useCallback(
@@ -180,6 +180,7 @@ const ProfileTabs = memo(({
   const handleSubscription = () => {
     setIsSubscribed(true);
     setShowSubscribeModal(false);
+    setPrivatKey((prev) => prev + 1);
   };
 
   return (
@@ -267,6 +268,7 @@ const ProfileTabs = memo(({
           }}
           listeners={{
             tabPress: async () => {
+              if (!loggedInUserId) return;
               if (isOwnProfile || isSubscribed) {
                 setShowSubscribeModal(false);
                 return;
@@ -326,7 +328,7 @@ const ProfileTabs = memo(({
           displayName={displayName}
           userData={userData}
           dashboard={dashboard}
-          targetUserId={targetUserId}
+          targetUserId={targetProfileId}
         />
       )}
     </>

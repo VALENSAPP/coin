@@ -37,6 +37,8 @@ import {
   replyCommentBattle,
   voteBattle,
   battlePoint,
+  voteHeadtoHead,
+  voteHeadtoHeadOpponent,
 } from '../../services/battle';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -266,7 +268,19 @@ const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = []) => {
 const normalizeBattle = (raw, currentUserId = '') => {
   const creatorChoice = pickFirst(raw?.creatorChoice, raw?.creatorLockedOption, '');
   const creatorId = String(pickFirst(raw?.creatorId, raw?.createdById, raw?.creator?.id, raw?.creator?._id, ''));
-  const invitedUserId = String(pickFirst(raw?.id, raw?.invitedUser?.id, raw?.invitedUser?._id, ''));
+  const headToHeadSides = raw?.headToHeadSides && typeof raw.headToHeadSides === 'object'
+    ? raw.headToHeadSides
+    : null;
+  const headToHeadInvited = headToHeadSides?.invitedUser || {};
+  const invitedUserId = String(pickFirst(
+    raw?.invitedUser?.id,
+    raw?.invitedUser?._id,
+    headToHeadInvited?.userId,
+    raw?.invites?.[0]?.invitedUserId,
+    raw?.invites?.[0]?.invited?.id,
+    raw?.invites?.[0]?.invited?._id,
+    '',
+  ));
   const status = String(pickFirst(raw?.status, raw?.battleStatus, 'OPEN')).toUpperCase();
   const battleType = String(pickFirst(raw?.battleType, raw?.type, 'OPINION')).toUpperCase();
   const format = String(pickFirst(raw?.format, 'POLL')).toUpperCase();
@@ -350,14 +364,39 @@ const normalizeBattle = (raw, currentUserId = '') => {
       avatar: pickFirst(raw?.creator?.avatar, raw?.creator?.image, raw?.creator?.profilePicture, ''),
     },
     invitedUser: {
-      name: pickFirst(raw?.invitedUser?.name, raw?.invitedUser?.displayName, raw?.invitedUser?.userName, 'Opponent'),
-      handle: pickFirst(raw?.invitedUser?.userName, raw?.invitedUser?.username, ''),
-      avatar: pickFirst(raw?.invitedUser?.avatar, raw?.invitedUser?.image, raw?.invitedUser?.profilePicture, ''),
+      name: pickFirst(
+        raw?.invitedUser?.name,
+        raw?.invitedUser?.displayName,
+        raw?.invitedUser?.userName,
+        headToHeadInvited?.user?.name,
+        headToHeadInvited?.user?.displayName,
+        headToHeadInvited?.user?.userName,
+        raw?.invites?.[0]?.invited?.displayName,
+        raw?.invites?.[0]?.invited?.userName,
+        'Opponent',
+      ),
+      handle: pickFirst(
+        raw?.invitedUser?.userName,
+        raw?.invitedUser?.username,
+        headToHeadInvited?.user?.userName,
+        raw?.invites?.[0]?.invited?.userName,
+        '',
+      ),
+      avatar: pickFirst(
+        raw?.invitedUser?.avatar,
+        raw?.invitedUser?.image,
+        raw?.invitedUser?.profilePicture,
+        headToHeadInvited?.user?.avatar,
+        headToHeadInvited?.user?.image,
+        raw?.invites?.[0]?.invited?.image,
+        '',
+      ),
     },
     predictionCounts: raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {},
     voteCounts: raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {},
     optionImages: Array.isArray(raw?.optionImages) ? raw.optionImages.filter(Boolean) : [],
     comments,
+    headToHeadSides: headToHeadSides || undefined,
   };
 };
 
@@ -453,6 +492,110 @@ export default function BattleInProgress() {
     battle?.id, route?.params?.battleId, routeBattle.id, routeBattle._id, routeBattle.battleId, '',
   ));
 
+  const headToHeadAssignedSide = useMemo(() => {
+    if (!isHeadToHead) return '';
+    const normalizedCurrentUser = String(currentUserId || '');
+    if (!normalizedCurrentUser) return '';
+
+    const normalizedCreatorId = String(battle?.creatorId || '');
+    const normalizedInvitedId = String(battle?.invitedUserId || '');
+    const isParticipant =
+      (normalizedCreatorId && normalizedCurrentUser === normalizedCreatorId) ||
+      (normalizedInvitedId && normalizedCurrentUser === normalizedInvitedId);
+
+    if (!isParticipant) return '';
+
+    const sides = battle?.headToHeadSides || null;
+
+    const resolveSideFromEntry = (entry) => String(pickFirst(
+      entry?.side,
+      entry?.label,
+      entry?.option,
+      entry?.choice,
+      entry?.value,
+      '',
+    ));
+
+    const scanHeadToHeadSides = (sidesObj) => {
+      if (!sidesObj || typeof sidesObj !== 'object') return '';
+      const values = Object.values(sidesObj);
+      for (const entry of values) {
+        if (!entry || typeof entry !== 'object') continue;
+        const entryUserId = resolveEntityId(pickFirst(entry?.userId, entry?.user, entry?.invitedUser, entry?.creator));
+        if (entryUserId && String(entryUserId) === normalizedCurrentUser) {
+          const side = resolveSideFromEntry(entry);
+          if (side) return side;
+        }
+      }
+      return '';
+    };
+
+    if (sides && typeof sides === 'object') {
+      if (normalizedCreatorId && normalizedCurrentUser === normalizedCreatorId) {
+        const creatorEntry = pickFirst(sides?.creator, sides?.createdBy, sides?.owner, null);
+        const side = String(pickFirst(
+          resolveSideFromEntry(creatorEntry),
+          sides?.creatorSide,
+          sides?.creatorChoice,
+          battle?.creatorChoice,
+          '',
+        ));
+        if (side) return side;
+      }
+
+      if (normalizedInvitedId && normalizedCurrentUser === normalizedInvitedId) {
+        const invitedEntry = pickFirst(sides?.invitedUser, sides?.invited, sides?.opponent, null);
+        const explicitSide = String(pickFirst(
+          resolveSideFromEntry(invitedEntry),
+          sides?.invitedUserSide,
+          sides?.invitedSide,
+          sides?.opponentSide,
+          sides?.invitedUserChoice,
+          battle?.invitedUserChoice,
+          '',
+        ));
+        if (explicitSide) return explicitSide;
+
+        const creatorSide = String(pickFirst(
+          sides?.creatorSide,
+          resolveSideFromEntry(pickFirst(sides?.creator, sides?.createdBy, sides?.owner, null)),
+          sides?.creatorChoice,
+          battle?.creatorChoice,
+          '',
+        ));
+        if (creatorSide) {
+          const normalizedCreatorSide = normalizeSideKey(creatorSide);
+          const otherOption = (Array.isArray(battle?.options) ? battle.options : []).find((option) => {
+            const optionSide = String(pickFirst(option?.side, option?.label, option, ''));
+            return normalizeSideKey(optionSide) && normalizeSideKey(optionSide) !== normalizedCreatorSide;
+          });
+          if (otherOption) {
+            return String(pickFirst(otherOption?.side, otherOption?.label, otherOption, ''));
+          }
+        }
+      }
+
+      const scanned = scanHeadToHeadSides(sides);
+      if (scanned) return scanned;
+    }
+
+    const participantMatch = (Array.isArray(battle?.participants) ? battle.participants : [])
+      .find(entry => resolveEntityId(entry) === normalizedCurrentUser || String(entry?.userId || '') === normalizedCurrentUser);
+    return String(pickFirst(participantMatch?.side, battle?.creatorChoice, battle?.invitedUserChoice, ''));
+  }, [battle?.headToHeadSides, battle?.participants, currentUserId, isHeadToHead]);
+
+  const isHeadToHeadOpponent = useMemo(() => {
+    if (!isHeadToHead) return false;
+    if (!currentUserId) return false;
+    return String(currentUserId) === String(battle.invitedUserId);
+  }, [battle.invitedUserId, currentUserId, isHeadToHead]);
+
+  const isHeadToHeadCreator = useMemo(() => {
+    if (!isHeadToHead) return false;
+    if (!currentUserId) return false;
+    return String(currentUserId) === String(battle.creatorId);
+  }, [battle.creatorId, currentUserId, isHeadToHead]);
+
   const userVotedSelection = useMemo(() => {
     if (!currentUserId) return { side: '', optionId: '' };
     const matchByUserId = entry => String(pickFirst(
@@ -517,6 +660,7 @@ export default function BattleInProgress() {
     if (!isSilent && !hasInitialBattleData) setLoading(true);
     try {
       const response = await getbattle({ params: { battleId } });
+      console.log(response,'dtaa in this batatlke im geting kya a gete krta hu ')
       const storedId = await AsyncStorage.getItem('userId');
       const rawBattle = response?.data?.battle || response?.data?.data || response?.data || response?.battle || routeBattle;
       const enrichedBattle = {
@@ -611,6 +755,33 @@ export default function BattleInProgress() {
   }, [userVotedSelection.optionId, userVotedSelection.side]);
 
   useEffect(() => {
+    if (!isHeadToHead) return;
+    if (!currentUserId) return;
+    if (hasUserVoted) return;
+    if (selectedOption) return;
+    if (String(currentUserId) !== String(battle.invitedUserId)) return;
+    if (!headToHeadAssignedSide) return;
+
+    const normalizedAssigned = normalizeSideKey(headToHeadAssignedSide);
+    const matchedIndex = (Array.isArray(battle.options) ? battle.options : []).findIndex((option) => {
+      const optionSide = String(pickFirst(option?.side, option?.label, option, ''));
+      return normalizeSideKey(optionSide) === normalizedAssigned;
+    });
+
+    if (matchedIndex < 0) return;
+    const matchedOption = battle.options[matchedIndex];
+    setSelectedOption(getOptionSelectionKey(matchedOption, matchedIndex));
+  }, [
+    battle.invitedUserId,
+    battle.options,
+    currentUserId,
+    hasUserVoted,
+    headToHeadAssignedSide,
+    isHeadToHead,
+    selectedOption,
+  ]);
+
+  useEffect(() => {
     if (hasUserVoted && keepActiveSelectedStyle) {
       const timer = setTimeout(() => setKeepActiveSelectedStyle(false), 500);
       return () => clearTimeout(timer);
@@ -680,13 +851,14 @@ export default function BattleInProgress() {
   const handleVote = async () => {
     const finalBattleId = resolvedBattleId || battleId;
     const selectedOptionKey = String(selectedOption || '');
+    const effectiveSelectedOptionKey = selectedOptionKey;
     const trimmedArgument = argumentText.trim();
 
     if (!finalBattleId) {
       Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
       return;
     }
-    if (!selectedOptionKey) {
+    if (!effectiveSelectedOptionKey) {
       Alert.alert(
         t('battleInProgress.voteAlertSelectOption'),
         isPrediction
@@ -698,15 +870,15 @@ export default function BattleInProgress() {
     const selectedBattleOption = battle.options.find((option, index) => {
       const optionSide = String(pickFirst(option?.side, option?.label, ''));
       return (
-        getOptionSelectionKey(option, index) === selectedOptionKey ||
-        optionSide === selectedOptionKey ||
-        String(option?.id || '') === selectedOptionKey
+        getOptionSelectionKey(option, index) === effectiveSelectedOptionKey ||
+        optionSide === effectiveSelectedOptionKey ||
+        String(option?.id || '') === effectiveSelectedOptionKey
       );
     });
     const finalSelectedOption = String(pickFirst(
       selectedBattleOption?.side,
       selectedBattleOption?.label,
-      selectedOptionKey,
+      effectiveSelectedOptionKey,
     ));
     let payload;
     if (isPrediction) {
@@ -729,7 +901,13 @@ export default function BattleInProgress() {
     try {
       let response;
       if (isPrediction) response = await predictBattle(payload);
-      else response = await voteBattle(payload);
+      else if (isHeadToHead && isHeadToHeadOpponent) {
+        response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: trimmedArgument });
+      } else if (isHeadToHead && isHeadToHeadCreator) {
+        response = await voteHeadtoHead(payload);
+      } else {
+        response = await voteBattle(payload);
+      }
       if (!isSuccessfulResponse(response)) {
         Alert.alert(
           isPrediction ? t('battleInProgress.predictionNotSubmitted') : t('battleInProgress.voteNotSubmitted'),
@@ -1203,6 +1381,19 @@ export default function BattleInProgress() {
                   const p1 = battle.participants[1];
                   const d0 = participantUserData[p0?.userId] || {};
                   const d1 = participantUserData[p1?.userId] || {};
+                  const sides = battle?.headToHeadSides || {};
+                  const openingForUser = (userId, participant) => {
+                    const safeUserId = String(userId || '');
+                    const fromCreator = safeUserId && String(sides?.creator?.userId || '') === safeUserId
+                      ? sides?.creator?.openingArgument
+                      : '';
+                    const fromInvited = safeUserId && String(sides?.invitedUser?.userId || '') === safeUserId
+                      ? sides?.invitedUser?.openingArgument
+                      : '';
+                    return pickFirst(fromCreator, fromInvited, participant?.openingArgument, '');
+                  };
+                  const opening0 = openingForUser(p0?.userId, p0);
+                  const opening1 = openingForUser(p1?.userId, p1);
                   const navigateToUser = (userId) => {
                     if (currentUserId === userId) navigation.navigate('ProfileMain', { screen: 'Profile' });
                     else navigation.navigate('HomeMain', {
@@ -1240,6 +1431,11 @@ export default function BattleInProgress() {
                          <View>
                           <Text  style={[styles.playerName,{color:'#fff'}]}>{d0?.name || 'User'} Says:</Text>
                         </View>
+                        {!!opening0 && (
+                          <Text style={styles.playerOpeningArgument} numberOfLines={3}>
+                            {opening0}
+                          </Text>
+                        )}
                       </TouchableOpacity>
 
                       <View style={styles.duelVsWrapOverlay}>
@@ -1275,6 +1471,11 @@ export default function BattleInProgress() {
                         <View>
                           <Text  style={[styles.playerName,{color:'#fff'}]}>{d1?.name || 'User'} Says:</Text>
                         </View>
+                        {!!opening1 && (
+                          <Text style={styles.playerOpeningArgument} numberOfLines={3}>
+                            {opening1}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     </>
                   );
@@ -1457,10 +1658,27 @@ export default function BattleInProgress() {
 
           {/* Choose Your Side / Make Prediction */}
           <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
-            <Text style={[styles.sectionTitle, { color: text }]}>
-              {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
-            </Text>
-            <View style={[styles.optionGrid, { width: '100%' }]}>
+            <View style={styles.sectionTitleRow}>
+              <Text style={[styles.sectionTitle, { color: text }]}>
+                {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
+              </Text>
+              {/* <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  navigation.navigate('BattleVoteDetails', {
+                    battleId: resolvedBattleId || battleId,
+                    battle,
+                    profile,
+                  });
+                }}
+                style={[styles.viewVotesBtn, { borderColor: palette.border }]}
+              >
+                <Text style={[styles.viewVotesText, { color: palette.primary }]}>
+                  View votes
+                </Text>
+              </TouchableOpacity> */}
+            </View>
+          <View style={[styles.optionGrid, { width: '100%' }]}>
               {battle.options.map((option, index) => {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
@@ -1477,15 +1695,25 @@ export default function BattleInProgress() {
                 const isSelectedByVote =
                   (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
                   (userVotedSelection.side && normalizedOptionSide && normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
+                const isSelectedByAssignedSide =
+                  isHeadToHead &&
+                  !!headToHeadAssignedSide &&
+                  normalizedOptionSide &&
+                  normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
                 const isSelected = hasUserVoted
                   ? isSelectedByVote
-                  : isSelectedByTap || isSelectedByInitialValue;
+                  : isSelectedByAssignedSide || isSelectedByTap || isSelectedByInitialValue;
                 const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
-                const shouldDisable = hasUserVoted;
+                const isHeadToHeadParticipant = isHeadToHeadCreator || isHeadToHeadOpponent;
+                const isLockedToAssignedSide = isHeadToHeadParticipant && !!headToHeadAssignedSide;
+                const isNonAssignedOption = isLockedToAssignedSide &&
+                  normalizedOptionSide &&
+                  normalizeSideKey(headToHeadAssignedSide) !== normalizedOptionSide;
+                const shouldDisable = hasUserVoted || isNonAssignedOption;
                 return (
                   <TouchableOpacity
                     key={`${battle.id}-${option.id}-${index}`}
-                    disabled={hasUserVoted}
+                    disabled={shouldDisable}
                     activeOpacity={0.88}
                     style={[
                       styles.optionPillCard,
@@ -1497,7 +1725,7 @@ export default function BattleInProgress() {
                         width: '100%',
                       },
                     ]}
-                    onPress={() => { if (!hasUserVoted) setSelectedOption(optionSelectionKey); }}
+                    onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
                   >
                     <TouchableOpacity
                       activeOpacity={0.9}
@@ -1751,6 +1979,7 @@ const styles = StyleSheet.create({
   playerBadgeText: { fontSize: 10, fontWeight: '800', color: '#111827', maxWidth: 72 },
   playerName: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   playerPoints: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '700', marginTop: -2 },
+  playerOpeningArgument: { color: 'rgba(255,255,255,0.95)', fontSize: 11, fontWeight: '600', textAlign: 'center', },
   playerSidePill: { backgroundColor: '#ede8fb', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   playerSidePillText: { color: '#6b5fa6', fontSize: 11, fontWeight: '600' },
   vsOverlay: { position: 'absolute', left: '50%', top: '50%', marginLeft: -18, marginTop: -18, zIndex: 10 },
@@ -1857,4 +2086,8 @@ const styles = StyleSheet.create({
   optionImagePreviewCloseBtn: { position: 'absolute', top: 44, right: 18, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)', zIndex: 10 },
   optionImagePreviewZoomHost: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   optionImagePreviewHexWrap: { width: OPTION_IMAGE_PREVIEW_SIZE, height: OPTION_IMAGE_PREVIEW_SIZE, alignItems: 'center', justifyContent: 'center' },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 },
+  viewVotesBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  viewVotesText: { fontSize: 12, fontWeight: '900' },
 });
+ 

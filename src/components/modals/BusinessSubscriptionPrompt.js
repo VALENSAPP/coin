@@ -229,6 +229,8 @@ const BusinessSubscriptionPrompt = ({
               <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature2')}</Text>
               <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature3')}</Text>
               <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature4')}</Text>
+              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature5')}</Text>
+              <Text style={styles.listItem}>{t('businessSubscriptionPrompt.feature6')}</Text>
 
               <Text style={styles.bodyText}>
                 {t('businessSubscriptionPrompt.step2BodyFooter')}

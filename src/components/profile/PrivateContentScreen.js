@@ -208,10 +208,19 @@ const PrivateContentScreen = ({
     try {
       setLoading(true);
       const response = await getPostByUser(id, 'private');
-      const formattedData = Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response)
-        ? response
+      const payload =
+        response?.data?.posts ??
+        response?.data?.data?.posts ??
+        response?.data?.data ??
+        response?.data ??
+        response;
+
+      const formattedData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.posts)
+        ? payload.posts
+        : Array.isArray(payload?.data)
+        ? payload.data
         : [];
       setPosts(formattedData);
     } catch (error) {
@@ -242,6 +251,7 @@ const PrivateContentScreen = ({
     setStatusLoading(true);
     try {
       const active = await getSubscriptionStatus(userData.id);
+      console.log(active,'data in this')
       setResolvedIsSubscribed(active);
       if (active) await fetchPosts(userData.id);
       else setPosts([]);
@@ -400,8 +410,21 @@ const PrivateContentScreen = ({
   );
 
   const renderEmptyComponent = useCallback(
-    () => (isCompany ? <ShopCard /> : <LockedCard />),
-    [isCompany, ShopCard, LockedCard],
+    () => {
+      if (canViewPrivateContent) {
+        return (
+          <View style={[styles.screen, bgStyle, styles.lockedContainer]}>
+            <View style={[styles.lockedCard, { opacity: 0.92 }]}>
+              <Text style={styles.lockedIcon}>📭</Text>
+              <Text style={[styles.lockedTitle, textStyle]}>No private posts yet</Text>
+              <Text style={styles.lockedSubtitle}>Check back later.</Text>
+            </View>
+          </View>
+        );
+      }
+      return isCompany ? <ShopCard /> : <LockedCard />;
+    },
+    [LockedCard, ShopCard, bgStyle, canViewPrivateContent, isCompany, textStyle],
   );
 
   if (loading || statusLoading) {

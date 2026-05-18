@@ -83,6 +83,7 @@ import HighlightsScreen from '../pages/settings/highlights';
 import BattleInProgress from '../pages/settings/BattleInProgress';
 import BattleResults from '../pages/settings/BattleResults';
 import BattleReward from '../pages/settings/BattleReward';
+import BattleVoteDetails from '../pages/settings/BattleVoteDetails';
 import HexAvatar from '../components/home/story.js/HexAvatar';
 import { getUserCredentials } from '../services/post';
 import RevenueFromSubscriptions from '../pages/wallet/MyRevenue';
@@ -254,6 +255,11 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="BattleInProgress"
           component={BattleInProgress}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BattleVoteDetails"
+          component={BattleVoteDetails}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -723,6 +729,7 @@ export default function MainTabNavigator() {
         'ShareProfile',
         'EditProfile',
         'CreateMission',
+        'BattleVoteDetails',
       ];
 
       let currentRouteName = routeName;

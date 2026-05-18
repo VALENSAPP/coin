@@ -28,6 +28,9 @@ const normalizeUsername = (value) =>
     .trim()
     .replace(/^@+/, '');
 
+const looksLikeUuid = (value = '') =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value).trim());
+
 const getAccentColorForProfileType = (value) =>
   normalizeProfileType(value) === 'user' ? '#5a2d82' : '#D3B683';
 
@@ -289,7 +292,9 @@ export default function BuyersListModal({
     const cached = readCachedUser(item);
     const enrichedItem = cached ? { ...item, ...cached } : item;
 
-    const username = enrichedItem?.username || '—';
+    const resolvedUsername = normalizeUsername(enrichedItem?.username);
+    const shouldHideUsername = !resolvedUsername || looksLikeUuid(resolvedUsername);
+    const username = shouldHideUsername ? 'Unknown user' : resolvedUsername;
     const fullName = enrichedItem?.fullName || '';
     const avatarUri = enrichedItem?.avatar;
     const itemAccentColor = getAccentColorForProfileType(
@@ -298,7 +303,7 @@ export default function BuyersListModal({
     const userId = resolveUserId(enrichedItem);
     const canPress = onUserPress
       ? !!(enrichedItem?.id || enrichedItem?.username || userId)
-      : !!(userId || cleanUsername);
+      : !!(userId || (!shouldHideUsername && cleanUsername));
 
     return (
       <Pressable

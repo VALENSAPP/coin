@@ -18,6 +18,7 @@ import { getDragonflyIcon } from '../profile/ProfilePersonalData';
 import { getSubscriptionByUserID, getUserSubscription } from '../../services/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FanPageSubscription } from '../../services/stirpe';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { useAppTheme } from '../../theme/useApptheme';
 import {
@@ -140,6 +141,46 @@ const SubscribeFlowModal = ({
 
             const onboardingStatus = await GetInbordingstatus();
 
+            const isActiveStatus = (value) => {
+                if (value === true) return true;
+                return String(value || '').toUpperCase() === 'ACTIVE';
+            };
+
+            const verifyFanSubscriptionActive = async () => {
+                try {
+                    const statusResponse = await getFansubscriptionStatus(targetUserId);
+                    const data = statusResponse?.data;
+                    if (
+                        isActiveStatus(statusResponse?.status) ||
+                        isActiveStatus(data?.status) ||
+                        isActiveStatus(data?.subscriptionStatus) ||
+                        isActiveStatus(data?.subscription?.status) ||
+                        isActiveStatus(data?.fanSubscription?.status)
+                    ) {
+                        return true;
+                    }
+                    if (typeof data?.isSubscribed === 'boolean') return data.isSubscribed;
+                    if (Array.isArray(data?.subscriptions)) {
+                        return data.subscriptions.some((sub) => isActiveStatus(sub?.status));
+                    }
+                    if (Array.isArray(data)) {
+                        return data.some((sub) => isActiveStatus(sub?.status));
+                    }
+                } catch (_e) {
+                    // ignore
+                }
+                return false;
+            };
+
+            const waitForSubscriptionActivation = async () => {
+                for (let attempt = 0; attempt < 10; attempt += 1) {
+                    const active = await verifyFanSubscriptionActive();
+                    if (active) return true;
+                    await delay(2000);
+                }
+                return false;
+            };
+
             const openPayment = async () => {
                 const response = await FanPageSubscription(payload);
                 const url = getPaymentSessionUrl(response);
@@ -158,7 +199,13 @@ const SubscribeFlowModal = ({
                 } else {
                     await Linking.openURL(url);
                 }
-                return true;
+
+                // After returning from payment, wait a bit for backend/Stripe webhooks to sync.
+                const active = await waitForSubscriptionActivation();
+                if (active) {
+                    onPaymentDone?.({ contentUserId: targetUserId, status: 'ACTIVE' });
+                }
+                return active;
             };
 
             if (isOnboardingReady(onboardingStatus)) {

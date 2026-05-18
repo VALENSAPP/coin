@@ -10,6 +10,7 @@ import {
   Image,
   Alert,
   PermissionsAndroid,
+  Platform,
   FlatList,
   Linking,
   Modal,
@@ -32,6 +33,11 @@ import { useDebouncedCallback } from '../../../hooks/useDebouncedCallback';
 import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import { showLoader, hideLoader } from '../../../redux/actions/LoaderAction';
 import { useLanguage } from '../../../i18n';
+import {
+  pickProfileImageFromCamera,
+  pickProfileImageFromGallery,
+  uriFromCropPath,
+} from '../../../utils/profileImageCrop';
 
 const { width } = Dimensions.get('window');
 const AVATAR_SIZE = 128;
@@ -256,9 +262,9 @@ export default function CreateProfile() {
 
   const naviGationButton = (data) => {
     if (data === 'termsCondition') {
-      Linking.openURL('https://www.valens.app/terms-conditions');
+      Linking.openURL('https://valens.app/terms');
     } else if (data === 'privacyPolicy') {
-      Linking.openURL('https://www.valens.app/privacy-policy');
+      Linking.openURL('https://valens.app/privacy-policy');
     } else {
       navigation.navigate('TermsCondition');
     }

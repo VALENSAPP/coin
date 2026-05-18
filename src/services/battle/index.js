@@ -95,3 +95,9 @@ export const battleWinner = async (battleId) => {
         params: { battleId },
     });
 };
+export const voteHeadtoHead = async (data ) => {
+    return axiosInstance.post('battle/challenger-position',data);
+};
+export const voteHeadtoHeadOpponent = async (data ) => {
+    return axiosInstance.post('battle/opponent-position',data);
+};
