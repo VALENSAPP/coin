@@ -1662,7 +1662,7 @@ export default function BattleInProgress() {
               <Text style={[styles.sectionTitle, { color: text }]}>
                 {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
               </Text>
-              {/* <TouchableOpacity
+              <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => {
                   navigation.navigate('BattleVoteDetails', {
@@ -1676,7 +1676,7 @@ export default function BattleInProgress() {
                 <Text style={[styles.viewVotesText, { color: palette.primary }]}>
                   View votes
                 </Text>
-              </TouchableOpacity> */}
+              </TouchableOpacity>
             </View>
           <View style={[styles.optionGrid, { width: '100%' }]}>
               {battle.options.map((option, index) => {

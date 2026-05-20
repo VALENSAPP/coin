@@ -543,6 +543,9 @@ export default function ChatMessages() {
       console.log('👁️ ChatMessages: Screen focused');
       setIsScreenFocused(true);
 
+      // Refresh conversations when screen becomes active
+      fetchConversations();
+
       if (currentUserId && socketReady) {
         const socket = getSocket();
         if (socket?.connected) {
@@ -568,7 +571,8 @@ export default function ChatMessages() {
     }
 
     try {
-      setIsLoading(true);
+      // Avoid flashing loader when list is already visible.
+      if (conversations.length === 0) setIsLoading(true);
 
       const response = await getAllConversations();
       console.log('📥 API Response (fallback):', response);
@@ -674,8 +678,21 @@ export default function ChatMessages() {
         const chatPartner = isCurrentUserSender ? message.receiver : message.sender;
         const partnerId = chatPartner.id;
 
-        chatId = [currentUserId, partnerId].sort().join('_');
-        console.log(`  - Generated chatId: ${chatId}`);
+        // Prefer a stable server-provided conversation id when present.
+        const serverChatId = String(
+          item?.chatId ||
+            item?.conversationId ||
+            item?.threadId ||
+            item?.roomId ||
+            item?.id ||
+            '',
+        ).trim();
+
+        const generatedChatId = [currentUserId, partnerId].sort().join('_');
+        chatId = serverChatId || generatedChatId;
+        console.log(
+          `  - chatId: ${chatId} (server: ${serverChatId || 'n/a'}, generated: ${generatedChatId})`,
+        );
 
         if (chatId && hiddenChatIdsRef.current.has(String(chatId).trim())) {
           console.log(`ðŸš« Skipping locally hidden conversation: ${chatId}`);
@@ -860,7 +877,14 @@ export default function ChatMessages() {
       console.log('📡 Hide conversation response:', response);
 
       if (response.success) {
-        hiddenChatIdsRef.current.add(String(selectedConversation.chatId));
+        // Store both conversation id and partner id as hidden keys, since the
+        // server can return different shapes (conversation vs message list).
+        if (selectedConversation.chatId != null) {
+          hiddenChatIdsRef.current.add(String(selectedConversation.chatId).trim());
+        }
+        if (selectedConversation.id != null) {
+          hiddenChatIdsRef.current.add(String(selectedConversation.id).trim());
+        }
 
         setConversations(prev =>
           prev.filter(conv => conv.chatId !== selectedConversation.chatId)

@@ -1,0 +1,897 @@
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  SectionList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+import { useAppTheme } from '../../theme/useApptheme';
+import { normalizeProfileType } from '../../utils/supportEligibility';
+import HexAvatar from '../../components/home/story.js/HexAvatar';
+
+const FALLBACK_AVATAR =
+  'https://ui-avatars.com/api/?name=User&background=random';
+
+const isMeaningfulValue = value => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return (
+      !!trimmed &&
+      trimmed.toLowerCase() !== 'undefined' &&
+      trimmed.toLowerCase() !== 'null'
+    );
+  }
+  return true;
+};
+
+const pickFirst = (...values) => values.find(isMeaningfulValue);
+const normalizeSideKey = value => String(value || '').trim().toLowerCase();
+
+const normalizeOption = (option, index) => {
+  if (typeof option === 'string') {
+    return { id: `${index}`, label: option };
+  }
+  const label = pickFirst(
+    option?.side,
+    option?.label,
+    option?.text,
+    option?.value,
+    option?.name,
+    option?.title,
+    option?.option,
+    `Option ${index + 1}`,
+  );
+  return {
+    id: String(pickFirst(option?.id, option?._id, index)),
+    label: String(label),
+  };
+};
+
+export default function BattleVoteDetails() {
+  const navigation = useNavigation();
+  const route = useRoute();
+
+  const { profile } = route.params || {};
+  const { battle } = route.params || {};
+
+  const resolvedProfileType = normalizeProfileType(profile);
+
+  const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
+
+  const palette = {
+    primary: '#7B61FF',
+    border: 'rgba(255,255,255,0.08)',
+    surface: 'rgba(255,255,255,0.03)',
+    soft: 'rgba(123,97,255,0.12)',
+    muted: '#9CA3AF',
+  };
+
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [activeTab, setActiveTab] = useState('votes');
+
+  const battleType = battle?.type || 'PUBLIC';
+  const battleFormat = battle?.format || 'HEAD_TO_HEAD';
+  const battleStatus = battle?.status || 'LIVE';
+
+  const options = useMemo(() => {
+    const rawOptions = Array.isArray(battle?.options) ? battle.options : [];
+    const normalized = rawOptions.map((opt, idx) => normalizeOption(opt, idx));
+    if (normalized.length > 0) return normalized;
+
+    const headToHeadSides = battle?.headToHeadSides;
+    const creatorSide = pickFirst(headToHeadSides?.creatorSide, headToHeadSides?.creator?.side);
+    const invitedSide = pickFirst(
+      headToHeadSides?.invitedUserSide,
+      headToHeadSides?.invitedUser?.side,
+    );
+
+    const fallback = [creatorSide, invitedSide].filter(isMeaningfulValue);
+    return fallback.map((label, idx) => ({ id: String(idx), label: String(label) }));
+  }, [battle]);
+
+  const resolveUserMeta = useCallback(
+    userId => {
+      if (!userId) return null;
+
+      const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+      const matchedParticipant = participants.find(p => p?.userId === userId || p?.user?.id === userId);
+      if (matchedParticipant?.user) {
+        return {
+          displayName: pickFirst(matchedParticipant.user.displayName, matchedParticipant.user.name, 'User'),
+          displayHandle: pickFirst(matchedParticipant.user.userName, matchedParticipant.user.handle, ''),
+          displayAvatar: pickFirst(matchedParticipant.user.image, matchedParticipant.user.avatar, FALLBACK_AVATAR),
+        };
+      }
+
+      const comments = Array.isArray(battle?.comments) ? battle.comments : [];
+      const matchedCommentAuthor = comments.find(c => c?.userId === userId);
+      if (matchedCommentAuthor) {
+        return {
+          displayName: pickFirst(matchedCommentAuthor.authorName, matchedCommentAuthor.name, 'User'),
+          displayHandle: pickFirst(matchedCommentAuthor.authorHandle, matchedCommentAuthor.handle, ''),
+          displayAvatar: pickFirst(matchedCommentAuthor.avatar, FALLBACK_AVATAR),
+        };
+      }
+
+      if (battle?.creatorId && battle.creatorId === userId && battle?.creator) {
+        return {
+          displayName: pickFirst(battle.creator.name, 'User'),
+          displayHandle: pickFirst(battle.creator.handle, ''),
+          displayAvatar: pickFirst(battle.creator.avatar, FALLBACK_AVATAR),
+        };
+      }
+
+      if (battle?.invitedUserId && battle.invitedUserId === userId && battle?.invitedUser) {
+        return {
+          displayName: pickFirst(battle.invitedUser.name, 'User'),
+          displayHandle: pickFirst(battle.invitedUser.handle, ''),
+          displayAvatar: FALLBACK_AVATAR,
+        };
+      }
+
+      return null;
+    },
+    [battle],
+  );
+
+  const buildSections = useCallback(
+    (entries, entryType) => {
+      const list = Array.isArray(entries) ? entries : [];
+      const grouped = new Map();
+
+      const ensureGroup = title => {
+        const key = String(title || '').trim() || 'Other';
+        if (!grouped.has(key)) grouped.set(key, []);
+        return grouped.get(key);
+      };
+
+      // Always show all options as sections (even when there are zero votes/predictions).
+      options.forEach(opt => {
+        const title = String(opt?.label || '').trim();
+        if (title) ensureGroup(title);
+      });
+
+      list.forEach(entry => {
+        const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.id, '') || '');
+        const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '').trim();
+
+        const meta = entry?.user
+          ? {
+              displayName: pickFirst(entry.user.displayName, entry.user.name, 'User'),
+              displayHandle: pickFirst(entry.user.userName, entry.user.handle, ''),
+              displayAvatar: pickFirst(entry.user.image, entry.user.avatar, FALLBACK_AVATAR),
+            }
+          : resolveUserMeta(userId);
+
+        const fallbackName = entryType === 'votes' ? 'Voter' : 'Predictor';
+        const row = {
+          userId,
+          displayName: pickFirst(meta?.displayName, fallbackName),
+          displayHandle: pickFirst(meta?.displayHandle, ''),
+          displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
+          side,
+        };
+
+        const normalizedSide = normalizeSideKey(side);
+        const matchedOption =
+          options.find(opt => normalizeSideKey(opt.label) === normalizedSide) || null;
+        const groupTitle = matchedOption?.label || side || 'Other';
+
+        ensureGroup(groupTitle).push(row);
+      });
+
+      // If API doesn't provide voter meta (only participants are available), still render participants
+      // so users can see each participant and their chosen side under their details.
+      if (grouped.size === 0 && entryType === 'votes') {
+        const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+        participants.forEach(p => {
+          const userId = String(pickFirst(p?.userId, p?.user?.id, '') || '');
+          const side = String(pickFirst(p?.side, '') || '').trim();
+          const meta = p?.user
+            ? {
+                displayName: pickFirst(p.user.displayName, p.user.name, 'User'),
+                displayHandle: pickFirst(p.user.userName, p.user.handle, ''),
+                displayAvatar: pickFirst(p.user.image, p.user.avatar, FALLBACK_AVATAR),
+              }
+            : resolveUserMeta(userId);
+
+          const normalizedSide = normalizeSideKey(side);
+          const matchedOption =
+            options.find(opt => normalizeSideKey(opt.label) === normalizedSide) || null;
+          const groupTitle = matchedOption?.label || side || 'Participants';
+
+          ensureGroup(groupTitle).push({
+            userId,
+            displayName: pickFirst(meta?.displayName, 'User'),
+            displayHandle: pickFirst(meta?.displayHandle, ''),
+            displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
+            side: matchedOption?.label || side,
+          });
+        });
+      }
+
+      return Array.from(grouped.entries()).map(([title, data]) => ({
+        title,
+        data,
+      }));
+    },
+    [battle, options, resolveUserMeta],
+  );
+
+  const votesSections = useMemo(
+    () => buildSections(battle?.votes, 'votes'),
+    [battle?.votes, buildSections],
+  );
+
+  const predictionsSections = useMemo(
+    () => buildSections(battle?.predictions, 'predictions'),
+    [battle?.predictions, buildSections],
+  );
+
+  const sections = activeTab === 'votes' ? votesSections : predictionsSections;
+
+  const availableTabs = useMemo(() => {
+    const tabs = ['votes'];
+    if (Array.isArray(battle?.predictions) && battle.predictions.length > 0) {
+      tabs.push('predictions');
+    }
+    return tabs;
+  }, [battle?.predictions]);
+
+  const optionSummaries = useMemo(() => {
+    const sideCounts = activeTab === 'votes' ? battle?.voteCounts : battle?.predictionCounts;
+    const fallbackCountsFromSections = sections.reduce((acc, section) => {
+      acc[section.title] = (acc[section.title] || 0) + section.data.length;
+      return acc;
+    }, {});
+
+    const countForLabel = label => {
+      if (!label) return 0;
+      const direct = sideCounts && typeof sideCounts === 'object' ? sideCounts[label] : undefined;
+      const directNum = Number(direct);
+      if (Number.isFinite(directNum)) return directNum;
+
+      const normalizedTarget = normalizeSideKey(label);
+      if (sideCounts && typeof sideCounts === 'object') {
+        const matchKey = Object.keys(sideCounts).find(k => normalizeSideKey(k) === normalizedTarget);
+        const matchNum = Number(matchKey ? sideCounts[matchKey] : undefined);
+        if (Number.isFinite(matchNum)) return matchNum;
+      }
+
+      const fallbackKey = Object.keys(fallbackCountsFromSections).find(
+        k => normalizeSideKey(k) === normalizedTarget,
+      );
+      return fallbackKey ? Number(fallbackCountsFromSections[fallbackKey] || 0) : 0;
+    };
+
+    const base = options.length > 0 ? options : [{ id: '0', label: 'Other' }];
+    return base.map((opt, idx) => ({
+      sideKey: String(opt.id ?? idx),
+      title: opt.label,
+      count: countForLabel(opt.label),
+    }));
+  }, [
+    activeTab,
+    battle?.voteCounts,
+    battle?.predictionCounts,
+    options,
+    sections,
+  ]);
+
+  const totalCount = useMemo(
+    () => sections.reduce((acc, item) => acc + item.data.length, 0),
+    [sections],
+  );
+
+  const handleOpenUser = userId => {
+    console.log('OPEN USER =>', userId);
+  };
+
+  const renderRow = ({ item }) => {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => handleOpenUser(item.userId)}
+        style={[
+          styles.row,
+          {
+            borderColor: palette.border,
+            backgroundColor: palette.surface,
+          },
+        ]}>
+        <HexAvatar
+          uri={item.displayAvatar || FALLBACK_AVATAR}
+          size={44}
+          borderWidth={1}
+          borderColor={palette.border}
+        />
+
+        <View style={styles.rowText}>
+          <Text
+            numberOfLines={1}
+            style={[styles.name, { color: text }]}>
+            {item.displayName}
+          </Text>
+
+          {!!item.displayHandle && (
+            <Text
+              numberOfLines={1}
+              style={[styles.handle, { color: palette.muted }]}>
+              @{item.displayHandle}
+            </Text>
+          )}
+        </View>
+
+        {!!item.side && (
+          <View
+            style={[
+              styles.badge,
+              {
+                borderColor: palette.border,
+                backgroundColor: palette.soft,
+              },
+            ]}>
+            <Text
+              numberOfLines={1}
+              style={[styles.badgeText, { color: palette.primary }]}>
+              {item.side}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  
+  const titleText =
+    activeTab === 'votes' ? 'Votes' : 'Predictions';
+
+  return (
+    <SafeAreaView style={[styles.container, bgStyle]}>
+      {/* HEADER */}
+
+      <View
+        style={[
+          styles.header,
+          {
+            borderBottomColor: palette.border,
+          },
+        ]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}>
+          <Ionicons
+            name="chevron-back"
+            size={22}
+            color={text}
+          />
+        </TouchableOpacity>
+
+        <View style={styles.headerText}>
+          <Text
+            numberOfLines={1}
+            style={[styles.headerTitle, { color: text }]}>
+            {titleText}
+          </Text>
+
+          {/* <Text
+            numberOfLines={1}
+            style={[styles.headerSub, { color: palette.muted }]}>
+            {totalCount}{' '}
+            {activeTab === 'votes' ? 'votes' : 'predictions'}
+          </Text> */}
+        </View>
+
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* CONTENT */}
+
+      {loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator
+            size="large"
+            color={palette.primary}
+          />
+
+          <Text
+            style={[
+              styles.loadingText,
+              { color: palette.muted },
+            ]}>
+            Loading...
+          </Text>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item, index) =>
+            `${item.userId}-${index}`
+          }
+          contentContainerStyle={styles.listContent}
+          refreshing={refreshing}
+          onRefresh={() => {}}
+          renderItem={renderRow}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: text },
+                ]}>
+                {section.title}
+              </Text>
+
+              <Text
+                style={[
+                  styles.sectionCount,
+                  { color: palette.muted },
+                ]}>
+                {section.data.length}
+              </Text>
+            </View>
+          )}
+          renderSectionFooter={({ section }) => {
+            if (
+              Array.isArray(section?.data) &&
+              section.data.length > 0
+            ) {
+              return null;
+            }
+
+            return (
+              <View
+                style={[
+                  styles.sectionEmpty,
+                  {
+                    borderColor: palette.border,
+                    backgroundColor: palette.soft,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.sectionEmptyText,
+                    { color: palette.muted },
+                  ]}>
+                  {activeTab === 'votes'
+                    ? 'No votes for this option'
+                    : 'No predictions for this option'}
+                </Text>
+              </View>
+            );
+          }}
+          ListHeaderComponent={() => (
+            <View>
+              {/* SUMMARY */}
+
+              <View
+                style={[
+                  styles.summaryCard,
+                  cardStyle,
+                  {
+                    borderColor: palette.border,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.summaryTitle,
+                    { color: text },
+                  ]}>
+                  {battle.question}
+                </Text>
+
+                <View style={styles.chipsRow}>
+                  <View
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: palette.border,
+                        backgroundColor: palette.soft,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: palette.primary },
+                      ]}>
+                      {battleType}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: palette.border,
+                        backgroundColor: palette.soft,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: palette.primary },
+                      ]}>
+                      {battleFormat}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: palette.border,
+                        backgroundColor: palette.soft,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: palette.primary },
+                      ]}>
+                      {battleStatus}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text
+                  style={[
+                    styles.summaryHint,
+                    { color: palette.muted },
+                  ]}>
+                  Tap a user to open profile.
+                </Text>
+              </View>
+
+              {/* BREAKDOWN */}
+
+              {optionSummaries.length > 0 && (
+                <View
+                  style={[
+                    styles.breakdownCard,
+                    cardStyle,
+                    {
+                      borderColor: palette.border,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.breakdownTitle,
+                      { color: text },
+                    ]}>
+                    Breakdown
+                  </Text>
+
+                  <View style={styles.breakdownList}>
+                    {optionSummaries.map(opt => (
+                      <View
+                        key={opt.sideKey}
+                        style={[
+                          styles.breakdownRow,
+                          {
+                            borderColor: palette.border,
+                          },
+                        ]}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.breakdownLabel,
+                            {
+                              color: palette.muted,
+                            },
+                          ]}>
+                          {opt.title}
+                        </Text>
+
+                        <View
+                          style={[
+                            styles.breakdownPill,
+                            {
+                              backgroundColor:
+                                palette.soft,
+                              borderColor:
+                                palette.border,
+                            },
+                          ]}>
+                          <Text
+                            style={[
+                              styles.breakdownCount,
+                              {
+                                color:
+                                  palette.primary,
+                              },
+                            ]}>
+                            {opt.count}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+          ListEmptyComponent={() => (
+            <View
+              style={[
+                styles.empty,
+                {
+                  borderColor: palette.border,
+                  backgroundColor: palette.surface,
+                },
+              ]}>
+              <Text
+                style={[styles.emptyTitle, { color: text }]}>
+                No data yet
+              </Text>
+
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: palette.muted },
+                ]}>
+                Come back later to check activity.
+              </Text>
+            </View>
+          )}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+
+  backBtn: {
+    padding: 6,
+    marginRight: 8,
+  },
+
+  headerText: {
+    flex: 1,
+  },
+
+  headerRight: {
+    width: 28,
+  },
+
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  headerSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  tabsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+    borderBottomWidth: 1,
+  },
+
+  tabBtn: {
+    flex: 1,
+    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  tabText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+
+  loadingText: {
+    marginTop: 10,
+    fontSize: 13,
+  },
+
+  listContent: {
+    padding: 14,
+    paddingBottom: 26,
+  },
+
+  summaryCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+
+  summaryTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  summaryHint: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  sectionCount: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  rowText: {
+    flex: 1,
+    marginLeft: 10,
+  },
+
+  name: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  handle: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+
+  badge: {
+    maxWidth: 130,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  empty: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  emptyText: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+
+  chip: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+
+  chipText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  breakdownCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+
+  breakdownTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  breakdownList: {
+    marginTop: 10,
+    gap: 10,
+  },
+
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+
+  breakdownLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 10,
+  },
+
+  breakdownPill: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+
+  breakdownCount: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
+  sectionEmpty: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  sectionEmptyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+});
