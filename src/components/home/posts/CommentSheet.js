@@ -82,6 +82,7 @@ const CommentItem = memo(
   ({
     item,
     onMorePress,
+    onCloseSheet,
     currentUserId,
     postOwnerId,
     onReplyPress,
@@ -119,6 +120,17 @@ const CommentItem = memo(
     const hasReplies = Array.isArray(item.replies) && item.replies.length > 0;
     const isExpanded = !!expandedReplies[item.id];
 
+    const handleNavigateToProfile = useCallback(
+      userId => {
+        if (!userId) return;
+        onCloseSheet?.();
+        requestAnimationFrame(() => {
+          navigation.navigate('UsersProfile', { userId });
+        });
+      },
+      [navigation, onCloseSheet],
+    );
+
     return (
       <View
         style={[
@@ -127,10 +139,7 @@ const CommentItem = memo(
         ]}>
         <View style={styles.commentRow}>
           <TouchableOpacity
-            onPress={() => {
-              if (!item?.userId) return;
-              navigation.navigate('UsersProfile', { userId: item.userId });
-            }}
+            onPress={() => handleNavigateToProfile(item?.userId)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.hexAvatarWrap}
             accessibilityRole="button"
@@ -267,10 +276,7 @@ const CommentItem = memo(
               return (
                 <View key={reply.id} style={styles.replyCard}>
                   <TouchableOpacity
-                    onPress={() => {
-                      if (!reply?.userId) return;
-                      navigation.navigate('UsersProfile', { userId: reply.userId });
-                    }}
+                    onPress={() => handleNavigateToProfile(reply?.userId)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     style={styles.hexAvatarWrap}
                     accessibilityRole="button"
@@ -751,6 +757,7 @@ export default function CommentSheet({
       <CommentItem
         item={item}
         onMorePress={openActionsFor}
+        onCloseSheet={onClose}
         currentUserId={currentUser?.id ?? userId}
         postOwnerId={postOwnerId}
         onReplyPress={handleReplyPress}
@@ -773,6 +780,7 @@ export default function CommentSheet({
     ),
     [
       openActionsFor,
+      onClose,
       currentUser?.id,
       userId,
       postOwnerId,
