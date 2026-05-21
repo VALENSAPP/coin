@@ -1049,9 +1049,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
         prevKpiData.map(item =>
           item.id === 'Mission Post'
             ? {
-                ...item,
-                value: `$ ${totalAmount.toFixed(2)} \n${t('walletDashboard.kpi.missionActive', { count: postCount || 0 })}`,
-              }
+              ...item,
+              value: `$ ${totalAmount.toFixed(2)} \n${t('walletDashboard.kpi.missionActive', { count: postCount || 0 })}`,
+            }
             : item
         )
       );
@@ -1089,7 +1089,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
     setPendingFollowUserId(null);
   };
 
-  const handleTokenPurchase = async () => {};
+  const handleTokenPurchase = async () => { };
 
   const handleTokenSell = () => {
     // sellSheetRef.current?.close();
@@ -1304,18 +1304,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
               <View style={styles.headerText}>
-                <Text
-                  style={[
-                    styles.headerName,
-                    { color: text },
-                  ]}
-                  numberOfLines={1}
-                >
-                  @{userProfile.name || t('walletDashboard.headerDefaultUser')}
-                </Text>
+                <View style={{ flexDirection: 'row', gap: 5 }}>
+                  <Text
+                    style={[
+                      styles.headerName,
+                      { color: text },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    @{userProfile.name || t('walletDashboard.headerDefaultUser')}
+                  </Text>
+                  {kyc === true && (
+                    <DragonflyIcon width={25} height={25} />
+                  )}
+                </View>
                 {kyc === true && (
                   <View style={styles.headerStatus}>
-                    <DragonflyIcon width={25} height={25} />
                     <Text
                       style={[
                         styles.headerStatusText,
@@ -1879,7 +1883,7 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     fontSize: 14,
     fontWeight: '500',
-    
+
   },
   headerBadge: {
     width: 36,
