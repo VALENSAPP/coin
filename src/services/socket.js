@@ -1,7 +1,7 @@
 // services/socket.js
 import io from 'socket.io-client';
 
-const SOCKET_URL = 'https://www.valenscorp.com/';
+const SOCKET_URL = 'https://api.valens.app/';
 // const SOCKET_URL = 'http://192.168.29.211:3002/';
 
 

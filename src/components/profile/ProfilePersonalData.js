@@ -184,6 +184,7 @@ const ProfilePersonData = ({
   const [userProfile, setUserProfile] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportDisclaimerVisible, setSupportDisclaimerVisible] = useState(false);
+  const [followActionsOpen, setFollowActionsOpen] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [totalSupportOpen, setTotalSupportOpen] = useState(false);
   const [totalSupportLoading, setTotalSupportLoading] = useState(false);
@@ -191,6 +192,7 @@ const ProfilePersonData = ({
   const [totalSupportAmount, setTotalSupportAmount] = useState(0);
   const [hasLiveBattle, setHasLiveBattle] = useState(false);
   const totalSupportAnim = useRef(new Animated.Value(0)).current;
+  const followActionsAnim = useRef(new Animated.Value(0)).current;
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('battle');
   const toast = useToast();
@@ -216,8 +218,15 @@ const ProfilePersonData = ({
     [targetUserId, userData?.id, userData?._id, userData?.userId, userId],
   );
 
+  const resolvedDisplayName =
+    displayName ||
+    userData?.displayName ||
+    userData?.businessName ||
+    userData?.companyProfile?.businessName ||
+    userData?.company?.businessName;
+
   const Userdata = {
-    Displayname: displayName || t('profilePersonData.noName'),
+    Displayname: resolvedDisplayName || t('profilePersonData.noName'),
     Username: username || t('profilePersonData.unknownUser'),
     profilePic: profileImage,
     Bio: bio == 'null' ? '' : bio,
@@ -533,6 +542,40 @@ const ProfilePersonData = ({
     userData?.profile,
   ]);
 
+  const openSupportIntroModal = useCallback(() => {
+    const supporterProfile = isBusinessProfile ? 'company' : 'user';
+    const recipientProfile = normalizeProfileType(
+      effectiveProfileType || userProfile || userData?.profile,
+    );
+    if (!isSupportAllowed({ supporterProfile, recipientProfile })) {
+      Alert.alert(
+        t('profilePersonData.supportUnavailableTitle'),
+        t('profilePersonData.supportUnavailableMessage'),
+      );
+      return;
+    }
+    setSupportModalVisible(true);
+  }, [
+    isBusinessProfile,
+    effectiveProfileType,
+    userProfile,
+    userData?.profile,
+    t,
+  ]);
+
+  const handleFollowButtonPressWithActions = useCallback(() => {
+    if (followBusy || isFollowing == null) return;
+    if (isFollowing) {
+      setFollowActionsOpen(prev => !prev);
+      return;
+    }
+    handleFollowButtonPress();
+  }, [followBusy, isFollowing, handleFollowButtonPress]);
+
+  const closeFollowActions = useCallback(() => {
+    setFollowActionsOpen(false);
+  }, []);
+
   const fetchReceivedSupportAmount = useCallback(async () => {
     try {
       setTotalSupportLoading(true);
@@ -573,6 +616,15 @@ const ProfilePersonData = ({
   }, [totalSupportAnim, totalSupportOpen]);
 
   useEffect(() => {
+    Animated.timing(followActionsAnim, {
+      toValue: followActionsOpen ? 1 : 0,
+      duration: followActionsOpen ? 200 : 140,
+      easing: followActionsOpen ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [followActionsAnim, followActionsOpen]);
+
+  useEffect(() => {
     if (compactLocked && totalSupportOpen) setTotalSupportOpen(false);
   }, [compactLocked, totalSupportOpen]);
 
@@ -589,6 +641,7 @@ const ProfilePersonData = ({
           if (!id) return;
 
           const response = await getProfile(id);
+          console.log(response,'data in this didieeeieiei')
           if (!isActive) return;
 
           if (response.statusCode === 200 && response.data) {
@@ -900,6 +953,23 @@ const ProfilePersonData = ({
   const totalSupportCardScale = totalSupportAnim.interpolate({
     inputRange: [0, 1], outputRange: [0.96, 1],
   });
+
+  const followActionsCardHeight = followActionsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 96],
+  });
+  const followActionsCardOpacity = followActionsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const followActionsCardTranslateY = followActionsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-4, 0],
+  });
+  const followActionsCardScale = followActionsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1],
+  });
   const usernameModalData = useMemo(() => ({
     ...(userData || {}),
     ...(data || {}),
@@ -1039,24 +1109,67 @@ const ProfilePersonData = ({
               <View style={styles.edit}>
                 {fromUsersProfile ? (
                   <>
-                    <TouchableOpacity
-                      onPress={handleFollowButtonPress}
-                      disabled={followBusy || isFollowing === null}
-                    >
-                      <LinearGradient
-                        colors={profileActionGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[styles.editbuttons, { shadowColor: text }]}
+                    <View style={styles.followButtonWrap}>
+                      <TouchableOpacity
+                        onPress={handleFollowButtonPressWithActions}
+                        disabled={followBusy || isFollowing === null}
                       >
-                        <Text style={styles.buttonText}>
-                          {isFollowing
-                            ? t('profilePersonData.following')
-                            : t('profilePersonData.follow')}
-                          {followBusy ? '...' : ''}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                        <LinearGradient
+                          colors={profileActionGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[styles.editbuttons, { shadowColor: text }]}
+                        >
+                          <Text style={styles.buttonText}>
+                            {isFollowing
+                              ? t('profilePersonData.following')
+                              : t('profilePersonData.follow')}
+                            {followBusy ? '...' : ''}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <Animated.View
+                        pointerEvents={followActionsOpen ? 'auto' : 'none'}
+                        style={[
+                          styles.followActionsPopover,
+                          {
+                            height: followActionsCardHeight,
+                            opacity: followActionsCardOpacity,
+                            transform: [
+                              { translateY: followActionsCardTranslateY },
+                              { scale: followActionsCardScale },
+                            ],
+                          },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          style={styles.followActionsItem}
+                          onPress={() => {
+                            closeFollowActions();
+                            openSupportIntroModal();
+                          }}
+                        >
+                          <Text style={[styles.followActionsItemText, { color: text }]}>
+                            {t('supportCreator.supportNowButton')}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.followActionsDivider} />
+
+                        <TouchableOpacity
+                          style={styles.followActionsItem}
+                          onPress={() => {
+                            closeFollowActions();
+                            void handleFollowButtonPress();
+                          }}
+                        >
+                          <Text style={[styles.followActionsItemText, { color: text }]}>
+                            {t('profilePersonData.unfollow')}
+                          </Text>
+                        </TouchableOpacity>
+                      </Animated.View>
+                    </View>
 
                     <TouchableOpacity onPress={() => UserMessageNavigation()}>
                       <LinearGradient
@@ -1544,6 +1657,42 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
+  },
+  followButtonWrap: {
+    position: 'relative',
+    width: '100%',
+  },
+  followActionsPopover: {
+    position: 'absolute',
+    top: 42,
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    overflow: 'hidden',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#513189',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  followActionsItem: {
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  followActionsItemText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  followActionsDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    width: '100%',
   },
   buttonText: {
     fontSize: 14,

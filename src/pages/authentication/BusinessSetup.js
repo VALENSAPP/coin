@@ -27,6 +27,7 @@ import {
   startVerification,
   CheckVerificationStatus,
 } from '../../services/companyProfile';
+import { EditProfile } from '../../services/createProfile';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
@@ -77,6 +78,7 @@ const BusinessProfileForm = () => {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isLaunchingSumsub, setIsLaunchingSumsub] = useState(false);
   const sumsubLaunchLockRef = useRef(false);
+  const hasSavedUserProfileRef = useRef(false);
 
   // Build field definitions inside component so t() is in scope
   const fields = [
@@ -149,7 +151,50 @@ const BusinessProfileForm = () => {
     handleChange('phone', localDigits ? `+${nextDial}${localDigits}` : `+${nextDial}`);
   };
 
+  const saveUserProfile = useCallback(async () => {
+    if (!profileData) return true;
+    try {
+      const formData = new FormData();
+      formData.append('userName', profileData.username || '');
+      formData.append('displayName', profileData.displayName || '');
+      formData.append('bio', profileData.bio || '');
+      if (profileData?.image?.uri) {
+        const img = profileData.image;
+        const fileUri = Platform.OS === 'android' ? img.uri : img.uri.replace('file://', '');
+        formData.append('image', {
+          uri: fileUri,
+          name: img.name || 'profile.jpg',
+          type: img.type || 'image/jpeg',
+        });
+      } else if (profileData?.imageUri) {
+        const uri = profileData.imageUri;
+        const fileUri = Platform.OS === 'android' ? uri : uri.replace('file://', '');
+        formData.append('image', { uri: fileUri, name: 'profile.jpg', type: 'image/jpeg' });
+      }
+      formData.append('gender', '');
+      formData.append('age', '');
+      formData.append('phoneNumber', '');
+      const response = await EditProfile(formData);
+      if (response?.statusCode === 200) {
+        if (profileData.displayName) {
+          await AsyncStorage.setItem('currentUsername', profileData.displayName);
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [profileData]);
+
+  useEffect(() => {
+    if (!profileData || hasSavedUserProfileRef.current) return;
+    hasSavedUserProfileRef.current = true;
+    saveUserProfile();
+  }, [profileData, saveUserProfile]);
+
   const proceedToKyc = async () => {
+    await saveUserProfile();
     await AsyncStorage.setItem('isLoggedIn', 'true');
     dispatch(loggedIn());
     dispatch(setIsAddAccount(false));
@@ -440,6 +485,12 @@ const BusinessProfileForm = () => {
     setIsSubmitting(true);
     dispatch(showLoader());
     try {
+      const profileSaved = await saveUserProfile();
+      if (!profileSaved) {
+        showToastMessage(toast, 'danger', t('businessProfile.saveError'));
+        return;
+      }
+
       if (!isDocumentUploaded) {
         const documentFormData = new FormData();
         const fileUri = Platform.OS === 'android' ? selectedDocument.uri : selectedDocument.uri?.replace('file://', '');

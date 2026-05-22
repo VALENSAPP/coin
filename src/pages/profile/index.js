@@ -273,7 +273,12 @@ const profileTabsProps = useMemo(() => ({
         }
       >
         <ProfilePersonData
-          displayName={userData?.displayName}
+          displayName={
+            userData?.displayName ||
+            userData?.businessName ||
+            userData?.companyProfile?.businessName ||
+            userData?.company?.businessName
+          }
           username={userData?.userName}
           profilepic={userData?.image}
           bio={userData?.bio}

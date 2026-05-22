@@ -107,6 +107,7 @@ export default function LoginScreen() {
           await ensureCurrentAccountSaved({
             profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
             username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+            displayName: response?.data?.displayName || response?.data?.userName || response?.data?.username,
             email: response?.data?.email || (await AsyncStorage.getItem('email')),
           });
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
@@ -143,6 +144,7 @@ export default function LoginScreen() {
           await ensureCurrentAccountSaved({
             profile: response?.data?.profile || (await AsyncStorage.getItem('profile')) || 'normal',
             username: response?.data?.userName || response?.data?.username || (await AsyncStorage.getItem('username')),
+            displayName: response?.data?.displayName || response?.data?.userName || response?.data?.username,
             email: response?.data?.email || (await AsyncStorage.getItem('email')),
           });
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);

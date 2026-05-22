@@ -280,7 +280,7 @@ const SubscribeFlowModal = ({
     };
 
     const openTerms = async () => {
-        const url = 'https://www.valenstechnologies.app/subscriberterms';
+        const url = 'https://valens.app/terms';
         const supported = await Linking.canOpenURL(url);
         if (supported) await Linking.openURL(url);
     };

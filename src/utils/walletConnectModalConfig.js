@@ -14,7 +14,7 @@ export const providerMetadata = {
   name: 'Valens',
   description: 'Valens — connect wallet for creator support',
   url: 'https://valens.app',
-  icons: ['https://valenscorp.com/favicon.ico'],
+  icons: ['https://api.valens.app/favicon.ico'],
   redirect: {
     native: 'com.valens.app://',
   },
