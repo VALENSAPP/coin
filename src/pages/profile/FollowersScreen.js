@@ -357,23 +357,30 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   );
 
   const handleBack = () => {
-    const screenParams = route?.params?.screenParams || {};
-    if (route?.params?.returnTo === 'UserProfile') {
-      navigation.goBack();
-    } else if (route?.params?.returnTo === 'Home') {
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
-        params: {
-          userId: screenParams?.userId || '',
-          username: screenParams?.username || '',
-          returnTo: 'Search',
-        },
-      });
-    } else {
-      navigation.goBack();
-    }
-  };
+  const screenParams = route?.params?.screenParams || {};
+  const returnTo = route?.params?.returnTo;
 
+  if (returnTo === 'UserProfile') {
+    navigation.navigate('ProfileMain', {
+      screen: 'UsersProfile',
+      params: {
+        userId: screenParams?.userId || '',
+        username: screenParams?.username || '',
+      },
+    });
+  } else if (returnTo === 'Home') {
+    navigation.navigate('HomeMain', {
+      screen: 'UsersProfile',
+      params: {
+        userId: screenParams?.userId || '',
+        username: screenParams?.username || '',
+        returnTo: 'Search',
+      },
+    });
+  } else {
+    navigation.goBack();
+  }
+};
   const renderItem =
     tab =>
       ({ item }) => {

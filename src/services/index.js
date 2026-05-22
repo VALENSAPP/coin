@@ -6,7 +6,7 @@ const baseUrl = BASE_URL;
 
 const axiosInstance = axios.create({
     // baseURL: 'https://valenscorp.com/',
-    baseURL: 'http://192.168.29.210:3002/',
+    baseURL: 'http://api.valens.app/',
 
     maxBodyLength: Infinity
 });
