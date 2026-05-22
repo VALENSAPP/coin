@@ -326,7 +326,7 @@ const Subscription = () => {
           <View style={styles.legalLinksRow}>
             <TouchableOpacity
               style={styles.legalLink}
-              onPress={() => Linking.openURL('https://www.valens.app/terms-conditions')}
+              onPress={() => Linking.openURL('https://valens.app/terms')}
             >
               <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
                 <Icon name="document-text" size={16} color={themeColors.text} />
@@ -336,7 +336,7 @@ const Subscription = () => {
 
             <TouchableOpacity
               style={styles.legalLink}
-              onPress={() => Linking.openURL('https://www.valens.app/privacy-policy')}
+              onPress={() => Linking.openURL('https://valens.app/privacy-policy')}
             >
               <View style={[styles.legalLinkGradient, { backgroundColor: themeColors.bg, borderColor: themeColors.border }]}>
                 <Icon name="shield-checkmark" size={16} color={themeColors.text} />
