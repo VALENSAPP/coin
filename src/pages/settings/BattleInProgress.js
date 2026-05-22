@@ -660,7 +660,7 @@ export default function BattleInProgress() {
     if (!isSilent && !hasInitialBattleData) setLoading(true);
     try {
       const response = await getbattle({ params: { battleId } });
-      console.log(response,'dtaa in this batatlke im geting kya a gete krta hu ')
+      console.log(response, 'dtaa in this batatlke im geting kya a gete krta hu ')
       const storedId = await AsyncStorage.getItem('userId');
       const rawBattle = response?.data?.battle || response?.data?.data || response?.data || response?.battle || routeBattle;
       const enrichedBattle = {
@@ -1264,25 +1264,25 @@ export default function BattleInProgress() {
         </View>
         <View style={styles.timerPill}>
           <Ionicons name="time-outline" size={12} color="#000" />
-          <Text style={[styles.timerPillText,{color:text}]}>{formatBattleTime(battle.endTime)}</Text>
+          <Text style={[styles.timerPillText, { color: text }]}>{formatBattleTime(battle.endTime)}</Text>
         </View>
       </View>
       <View>
-        <Text style={[styles.heroTitle,{color:text}]}>{battle.title}</Text>
+        <Text style={[styles.heroTitle, { color: text }]}>{battle.title}</Text>
       </View>
       <View>
         <View style={styles.heroInfoRow}>
           <View style={styles.heroInfoChip}>
             <Ionicons name="people-outline" size={12} color="#000" />
-            <Text style={[styles.heroInfoText,{color:text}]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
+            <Text style={[styles.heroInfoText, { color: text }]}>{battle.primaryCount} {battle.primaryCountLabel}</Text>
           </View>
           <View style={styles.heroInfoChip}>
             <Ionicons name="calendar-outline" size={12} color="#000" />
-            <Text style={[styles.heroInfoText,{color:text}]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
+            <Text style={[styles.heroInfoText, { color: text }]}>{battle.format === 'HEAD_TO_HEAD' ? 'Head-to-Head' : 'Battle Poll'}</Text>
           </View>
           <View style={styles.heroInfoChip}>
             <Ionicons name="flash" size={12} color="#000" />
-            <Text style={[styles.heroInfoText,{color:text}]}>
+            <Text style={[styles.heroInfoText, { color: text }]}>
               Stakes: {formatStakeAmount(battle.stake)}
             </Text>
           </View>
@@ -1410,6 +1410,9 @@ export default function BattleInProgress() {
                           end={{ x: 1, y: 1 }}
                           style={styles.duelPlayerCardBg}
                         />
+                        <View style={styles.cornerBadgeTopLeft}>
+                          <Ionicons name="shield" size={16} color="#fff" />
+                        </View>
                         <View style={styles.avatarBadgeWrap}>
                           <HexAvatar uri={d0?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor="rgba(255,255,255,0.85)" />
                           {!!participantBattleStats?.[p0?.userId]?.level && (
@@ -1428,8 +1431,8 @@ export default function BattleInProgress() {
                         <View style={styles.playerSidePill}>
                           <Text style={styles.playerSidePillText}>{p0?.side}</Text>
                         </View>
-                         <View>
-                          <Text  style={[styles.playerName,{color:'#fff'}]}>{d0?.name || 'User'} Says:</Text>
+                        <View>
+                          <Text style={[styles.playerName, { color: '#fff' }]}>{d0?.name || 'User'} Says:</Text>
                         </View>
                         {!!opening0 && (
                           <Text style={styles.playerOpeningArgument} numberOfLines={3}>
@@ -1450,6 +1453,9 @@ export default function BattleInProgress() {
                           end={{ x: 1, y: 1 }}
                           style={styles.duelPlayerCardBg}
                         />
+                        <View style={styles.cornerBadgeTopRight}>
+                          <Ionicons name="flash" size={16} color="#fff" />
+                        </View>
                         <View style={styles.avatarBadgeWrap}>
                           <HexAvatar uri={d1?.image || FALLBACK_AVATAR} size={64} borderWidth={2} borderColor="rgba(255,255,255,0.85)" />
                           {!!participantBattleStats?.[p1?.userId]?.level && (
@@ -1469,7 +1475,7 @@ export default function BattleInProgress() {
                           <Text style={styles.playerSidePillText}>{p1?.side}</Text>
                         </View>
                         <View>
-                          <Text  style={[styles.playerName,{color:'#fff'}]}>{d1?.name || 'User'} Says:</Text>
+                          <Text style={[styles.playerName, { color: '#fff' }]}>{d1?.name || 'User'} Says:</Text>
                         </View>
                         {!!opening1 && (
                           <Text style={styles.playerOpeningArgument} numberOfLines={3}>
@@ -1678,7 +1684,7 @@ export default function BattleInProgress() {
                 </Text>
               </TouchableOpacity>
             </View>
-          <View style={[styles.optionGrid, { width: '100%' }]}>
+            <View style={[styles.optionGrid, { width: '100%' }]}>
               {battle.options.map((option, index) => {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
@@ -1975,7 +1981,7 @@ const styles = StyleSheet.create({
   duelPlayerCard: { flex: 1, maxWidth: '44%', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.32)', paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6, overflow: 'hidden' },
   duelPlayerCardBg: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
   avatarBadgeWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  playerBadge: {flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(17,24,39,0.12)', },
+  playerBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(17,24,39,0.12)', },
   playerBadgeText: { fontSize: 10, fontWeight: '800', color: '#111827', maxWidth: 72 },
   playerName: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   playerPoints: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '700', marginTop: -2 },
@@ -2089,5 +2095,39 @@ const styles = StyleSheet.create({
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 },
   viewVotesBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
   viewVotesText: { fontSize: 12, fontWeight: '900' },
+  cornerBadgeTopLeft: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 0.2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#7C3AED',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cornerBadgeTopRight: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 0.2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#DB2777',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 });
- 
+

@@ -1303,7 +1303,7 @@
     "termsConditions": "Conditions générales",
     "privacyPolicy": "Politique de confidentialité",
     "legalNote": "En utilisant l’abonnement, vous acceptez nos conditions et reconnaissez la politique de confidentialité.",
-    "cancelButton": "Annuler l’abonnement",
+    "cancelButton": "Annuler l’abonnement sans remboursement",
     "refreshButton": "Actualiser"
   },
   "splash": {
@@ -1511,6 +1511,7 @@
     "copyAlertMessage": "ID utilisateur {{userId}} copié dans le presse-papiers."
   },
   "walletDashboard": {
+    "Wallet": "Portefeuille",
     "pullToRefresh": "Tirer pour actualiser",
     "headerVerified": "Vérifié",
     "headerDefaultUser": "Utilisateur",
@@ -1697,6 +1698,8 @@
     "maxPrice": "Max",
     "commentPlaceholder": "Ajouter un commentaire...",
     "subscriptionEnds": "L’abonnement se termine",
+    "inactiveSubscriptionMessage": "Votre abonnement est inactif. Activez-le pour débloquer les outils d’abonnés privés.",
+    "activateSubscriptionButton": "Activer l’abonnement",
     "contentSectionTitle": "📱 Créer du contenu",
     "contentSectionSubtitle": "Accès complet à tous les types de contenu",
     "tabMint": "Mint",

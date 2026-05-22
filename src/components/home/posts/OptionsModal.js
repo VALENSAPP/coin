@@ -18,6 +18,7 @@ export default function OptionsModal({
   onSelect,
   fromHome,
   isSaved = false,
+  isPinned = false,
   postId = '',
   canDelete = false,
   canEdit = false,
@@ -133,7 +134,7 @@ export default function OptionsModal({
       <RBSheet
         ref={sheetRef}
         draggable
-        height={canEdit ? 300 : 250}
+        height={canEdit ? 340 : 250}
         onClose={onClose}
         customModalProps={{
           statusBarTranslucent: true,
@@ -177,14 +178,31 @@ export default function OptionsModal({
 
               {/* Edit (owner only) */}
               {canEdit ? (
-                <TouchableOpacity
-                  style={styles.innerRow}
-                  onPress={() => tap('editPost')}>
-                  <MaterialIcons name="edit" size={20} color="#262626" />
-                  <Text style={styles.innerText}>
-                    {t('optionsModal.editPost')}
-                  </Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={styles.innerRow}
+                    onPress={() => tap('editPost')}>
+                    <MaterialIcons name="edit" size={20} color="#262626" />
+                    <Text style={styles.innerText}>
+                      {t('optionsModal.editPost')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.innerRow}
+                    onPress={() => tap('togglePinPost')}>
+                    <Ionicons
+                      name={isPinned ? 'pin' : 'pin-outline'}
+                      size={20}
+                      color="#262626"
+                    />
+                    <Text style={styles.innerText}>
+                      {isPinned
+                        ? t('postScreen.unpinPost')
+                        : t('postScreen.pinPost')}
+                    </Text>
+                  </TouchableOpacity>
+                </>
               ) : null}
             </View>
 

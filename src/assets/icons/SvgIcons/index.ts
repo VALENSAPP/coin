@@ -27,10 +27,12 @@ import Thumbup from './thumbsup.svg'
 import Comments from './comments.svg'
 import ShareIcom from './share.svg'
 import Vsbanner from './vs_square_banner.svg';
+import Challenger from './challenger.svg';
+import Strategist from './strategist.svg';
 
 export {
     Google, Twitter, Eyeopen, Eyeclosed, Metamask, Reels, Chat, ReelWhite, Thread, LogoIcon, Dragonfly,
     ProfileReelIcon, LockKey, AppleLogo, WhiteDragonfly, BlueDragonfly, GoldDragonfly,GoldLavenderDragonfly,
     LavenderDragonfly, LilacDragonfly, SoftGrayDragonfly, WhiteSmokeDragonfly,CoinBase,Tiktok,Linkedin,
-    Thumbup, Comments, ShareIcom, Vsbanner
+    Thumbup, Comments, ShareIcom, Vsbanner, Challenger, Strategist
 };

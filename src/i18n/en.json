@@ -1303,7 +1303,7 @@
     "termsConditions": "Terms & Conditions",
     "privacyPolicy": "Privacy Policy",
     "legalNote": "By using the subscription, you agree to our terms and acknowledge the privacy policy.",
-    "cancelButton": "Cancel subscription",
+    "cancelButton": "Cancel subscription with no refund",
     "refreshButton": "Refresh"
   },
   "splash": {
@@ -1511,6 +1511,7 @@
     "copyAlertMessage": "User ID {{userId}} copied to clipboard."
   },
   "walletDashboard": {
+    "Wallet": "wallet",
     "pullToRefresh": "Pull to refresh",
     "headerVerified": "Verified",
     "headerDefaultUser": "User",
@@ -1697,6 +1698,8 @@
     "maxPrice": "Max",
     "commentPlaceholder": "Add a comment...",
     "subscriptionEnds": "Subscription ends",
+    "inactiveSubscriptionMessage": "Your subscription is inactive. Activate it to unlock private subscriber tools.",
+    "activateSubscriptionButton": "Activate Subscription",
     "contentSectionTitle": "📱 Create Content",
     "contentSectionSubtitle": "Full access to all content types",
     "tabMint": "Mint",

@@ -1303,7 +1303,7 @@
     "termsConditions": "Termos e condições",
     "privacyPolicy": "Política de privacidade",
     "legalNote": "Ao usar a assinatura, você concorda com nossos termos e reconhece a política de privacidade.",
-    "cancelButton": "Cancelar assinatura",
+    "cancelButton": "Cancelar assinatura sem reembolso",
     "refreshButton": "Atualizar"
   },
   "splash": {
@@ -1511,6 +1511,7 @@
     "copyAlertMessage": "ID do usuário {{userId}} copiado para a área de transferência."
   },
   "walletDashboard": {
+    "Wallet": "Carteira",
     "pullToRefresh": "Puxe para atualizar",
     "headerVerified": "Verificado",
     "headerDefaultUser": "Usuário",
@@ -1697,6 +1698,8 @@
     "maxPrice": "Máx",
     "commentPlaceholder": "Adicione um comentário...",
     "subscriptionEnds": "A assinatura termina",
+    "inactiveSubscriptionMessage": "Sua assinatura está inativa. Ative-a para desbloquear as ferramentas para assinantes privados.",
+    "activateSubscriptionButton": "Ativar assinatura",
     "contentSectionTitle": "📱 Criar conteúdo",
     "contentSectionSubtitle": "Acesso completo a todos os tipos de conteúdo",
     "tabMint": "Mint",

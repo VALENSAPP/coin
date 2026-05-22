@@ -1,21 +1,22 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { useNavigation } from '@react-navigation/native';
+import React, { memo, useState, useCallback, useMemo, useEffect } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, Dimensions
+} from 'react-native';
 import PostsScreen from '../profile/PostScreen';
 import ReelsScreen from '../profile/ReelsScreen';
+import PrivateContentScreen from './PrivateContentScreen';
+import PrivateCircle from './PrivateCircle';
+import Shop from './Shop';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { LockKey, ProfileReelIcon } from '../../assets/icons';
-import SubscribeModal from '../modals/SubscriptionModal';
+import { Image } from 'react-native';
 import { useAppTheme } from '../../theme/useApptheme';
-import PrivateContentScreen from './PrivateContentScreen';
-import { getFansubscriptionStatus } from '../../services/stirpe';
-import PrivateCircle from './PrivateCircle';
-import Shop from './Shop';
-import { Dimensions, Image } from 'react-native';
 import { useLanguage } from '../../i18n';
+import SubscribeModal from '../modals/SubscriptionModal';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 
-const Tab = createMaterialTopTabNavigator();
+const { width: screenWidth } = Dimensions.get('window');
 
 const ProfileTabs = memo(({
   post,
@@ -27,48 +28,20 @@ const ProfileTabs = memo(({
   isSubscribed: isSubscribedProp,
   loggedInUserId,
   refreshKey,
-  ListHeaderComponent,
-  onScroll,
-  scrollEventThrottle,
-  refreshControl,
   onPostPinChanged,
-  scrollEnabled = true,
+  scrollEnabled = false,
 }) => {
+  const [activeTab, setActiveTab] = useState(0);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [privateKey, setPrivatKey] = useState(0);
 
   const effectiveProfileType = profileType || userData?.profile;
-  const { textStyle, text } = useAppTheme(effectiveProfileType);
+  const { text } = useAppTheme(effectiveProfileType);
   const { t } = useLanguage();
 
-  const tabScreenOptions = useMemo(() => ({
-    tabBarShowLabel: false,
-    swipeEnabled: true,
-    animationEnabled: true,
-    lazy: true,
-    lazyPlaceholder: () => null,
-    tabBarStyle: {
-      marginTop: 2,
-      height: 52,
-      backgroundColor: '#fff',
-      elevation: 2,
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-    },
-    tabBarIndicatorStyle: {
-      backgroundColor: text,
-      height: 3,
-      borderRadius: 999,
-      bottom: 0,
-    },
-    tabBarIconStyle: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    tabBarPressColor: 'transparent',
-    tabBarPressOpacity: 0.7,
-  }), [text]);
+  const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
+  const targetProfileId = targetUserId || userData?.id;
 
   useEffect(() => {
     const normalizedIsSubscribed =
@@ -77,9 +50,6 @@ const ProfileTabs = memo(({
       String(isSubscribedProp || '').toLowerCase() === 'true';
     setIsSubscribed(normalizedIsSubscribed);
   }, [isSubscribedProp]);
-
-  const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
-  const targetProfileId = targetUserId || userData?.id;
 
   const isActiveStatus = useCallback((value) => {
     if (value === true) return true;
@@ -102,228 +72,148 @@ const ProfileTabs = memo(({
         isActive = true;
       } else if (typeof data?.isSubscribed === 'boolean') {
         isActive = data.isSubscribed;
-      } else if (Array.isArray(data?.subscriptions)) {
-        isActive = data.subscriptions.some((sub) => isActiveStatus(sub?.status));
-      } else if (Array.isArray(data)) {
-        isActive = data.some((sub) => isActiveStatus(sub?.status));
       }
       setIsSubscribed(isActive);
       return isActive;
     } catch (error) {
-      console.log('Error checking fan subscription status:', error);
       setIsSubscribed(false);
       return false;
     }
   }, [isOwnProfile, isActiveStatus]);
 
-  const renderPostsScreen = useCallback(
-    (navProps) => (
-      <PostsScreen
-        {...navProps}
-        postCheck={post}
-        userData={userData}
-        isOwnProfile={isOwnProfile}
-        onPostPinChanged={onPostPinChanged}
-        scrollEnabled={scrollEnabled}
-      />
-    ),
-    [post, userData, isOwnProfile, onPostPinChanged, scrollEnabled],
-  );
+  const tabs = useMemo(() => {
+    const list = [
+      {
+        key: 'posts',
+        label: t('profileTabs.postsTab'),
+        icon: (focused) => (
+          <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? text : '#6b7280'} />
+        ),
+        screen: (
+          <PostsScreen
+            postCheck={post}
+            userData={userData}
+            isOwnProfile={isOwnProfile}
+            onPostPinChanged={onPostPinChanged}
+            scrollEnabled={false}
+          />
+        ),
+      },
+      {
+        key: 'privateCircle',
+        label: t('profileTabs.privateCircleTab'),
+        icon: (focused) => (
+          <Image
+            source={require('../../assets/icons/pngicons/private.png')}
+            style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
+          />
+        ),
+        screen: <PrivateCircle isOwnProfile={isOwnProfile} userData={userData} />,
+      },
+      {
+        key: 'reels',
+        label: t('profileTabs.reelsTab'),
+        icon: (focused) => (
+          <ProfileReelIcon fill={focused ? text : '#6b7280'} height={24} width={24} />
+        ),
+        screen: (
+          <ReelsScreen
+            postCheck={post}
+            userData={userData}
+            isOwnProfile={isOwnProfile}
+            onPostPinChanged={onPostPinChanged}
+            scrollEnabled={false}
+          />
+        ),
+      },
+      {
+        key: 'privateContent',
+        label: userData?.profile === 'company' ? t('profileTabs.shopTab') : t('profileTabs.privateContentTab'),
+        icon: (focused) =>
+          userData?.profile === 'company' ? (
+            <MaterialIcons name="shopping-bag" size={24} color={focused ? text : '#6b7280'} />
+          ) : (
+            <LockKey fill={focused ? text : '#6b7280'} height={24} width={24} />
+          ),
+        screen: (
+          <PrivateContentScreen
+            postCheck={post}
+            userData={userData}
+            isSubscribed={isSubscribed}
+            loggedInUserId={loggedInUserId}
+            onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+            isCompany={userData?.profile === 'company'}
+            refreshKey={`${refreshKey ?? 0}-${privateKey}`}
+            scrollEnabled={false}
+          />
+        ),
+        onPress: async () => {
+          if (!loggedInUserId || isOwnProfile || isSubscribed) return;
+          const hasActive = await getSubscriptionStatus(targetProfileId);
+          if (!hasActive && userData?.profile !== 'company') {
+            setPrivatKey(p => p + 1);
+            setTimeout(() => setShowSubscribeModal(true), 50);
+          }
+        },
+      },
+    ];
 
-  const renderReelsScreen = useCallback(
-    (navProps) => (
-      <ReelsScreen
-        {...navProps}
-        postCheck={post}
-        userData={userData}
-        isOwnProfile={isOwnProfile}
-        onPostPinChanged={onPostPinChanged}
-        scrollEnabled={scrollEnabled}
-      />
-    ),
-    [post, userData, isOwnProfile, onPostPinChanged, scrollEnabled],
-  );
+    if (userData?.profile === 'user') {
+      list.push({
+        key: 'closet',
+        label: t('profileTabs.myClosetTab'),
+        icon: (focused) => (
+          <Image
+            source={require('../../assets/icons/pngicons/shop.png')}
+            style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
+          />
+        ),
+        screen: <Shop isOwnProfile={isOwnProfile} userData={userData} />,
+      });
+    }
 
-  const renderPrivateContentScreen = useCallback(
-    (navProps) => (
-      <PrivateContentScreen
-        {...navProps}
-        postCheck={post}
-        userData={userData}
-        isSubscribed={isSubscribed}
-        loggedInUserId={loggedInUserId}
-        onSubscribePress={() => { userData?.profile !== 'company' && setShowSubscribeModal(true); }}
-        isCompany={userData?.profile === 'company'}
-        refreshKey={`${refreshKey ?? 0}-${privateKey}`}
-        scrollEnabled={scrollEnabled}
-      />
-    ),
-    [post, userData, isSubscribed, loggedInUserId, refreshKey, privateKey, scrollEnabled],
-  );
-
-  const renderPrivateCircleScreen = useCallback(
-    (navProps) => <PrivateCircle {...navProps} isOwnProfile={isOwnProfile} userData={userData} />,
-    [isOwnProfile, userData],
-  );
-
-  const renderShopScreen = useCallback(
-    (navProps) => <Shop {...navProps} isOwnProfile={isOwnProfile} userData={userData} />,
-    [isOwnProfile, userData],
-  );
-
-  const navigation = useNavigation();
-
-  const handleModalClose = () => {
-    setShowSubscribeModal(false);
-  };
-
-  const handleSubscription = () => {
-    setIsSubscribed(true);
-    setShowSubscribeModal(false);
-    setPrivatKey((prev) => prev + 1);
-  };
+    return list;
+  }, [post, userData, isOwnProfile, isSubscribed, loggedInUserId, refreshKey, privateKey, text, t]);
 
   return (
     <>
-      <Tab.Navigator
-        initialLayout={{ width: Dimensions.get('window').width }}
-        screenOptions={tabScreenOptions}
-      >
-        {/* Posts Tab */}
-        <Tab.Screen
-          name="Posts"
-          options={{
-            tabBarAccessibilityLabel: t('profileTabs.postsTab'),
-            tabBarIcon: ({ focused }) => (
-              <Ionicons
-                name={focused ? 'grid' : 'grid-outline'}
-                size={24}
-                color={focused ? text : '#6b7280'}
-              />
-            ),
-          }}
-        >
-          {renderPostsScreen}
-        </Tab.Screen>
+      {/* Tab Bar */}
+      <View style={[styles.tabBar, { borderBottomColor: '#e5e7eb' }]}>
+        {tabs.map((tab, index) => {
+          const focused = activeTab === index;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={styles.tabItem}
+              onPress={async () => {
+                setActiveTab(index);
+                await tab.onPress?.();
+              }}
+              activeOpacity={0.7}
+            >
+              {tab.icon(focused)}
+              {focused && (
+                <View style={[styles.indicator, { backgroundColor: text }]} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-        {/* Private Circle Tab */}
-        <Tab.Screen
-          name="Private Circle"
-          options={{
-            tabBarAccessibilityLabel: t('profileTabs.privateCircleTab'),
-            tabBarIcon: ({ focused }) => (
-              <Image
-                source={require('../../assets/icons/pngicons/private.png')}
-                style={{
-                  width: 35,
-                  height: 35,
-                  tintColor: focused ? text : '#6b7280',
-                }}
-              />
-            ),
-          }}
-        >
-          {renderPrivateCircleScreen}
-        </Tab.Screen>
-
-        {/* Reels Tab */}
-        <Tab.Screen
-          name="Reels"
-          options={{
-            tabBarAccessibilityLabel: t('profileTabs.reelsTab'),
-            tabBarIcon: ({ focused }) => (
-              <ProfileReelIcon
-                fill={focused ? text : '#6b7280'}
-                height={24}
-                width={24}
-              />
-            ),
-          }}
-        >
-          {renderReelsScreen}
-        </Tab.Screen>
-
-        {/* Private Content / Shop Tab */}
-        <Tab.Screen
-          name="PrivateContent"
-          options={{
-            tabBarAccessibilityLabel: userData?.profile === 'company'
-              ? t('profileTabs.shopTab')
-              : t('profileTabs.privateContentTab'),
-            tabBarIcon: ({ focused }) => (
-              userData?.profile === 'company' ? (
-                <MaterialIcons
-                  name="shopping-bag"
-                  size={24}
-                  color={focused ? text : '#6b7280'}
-                />
-              ) : (
-                <LockKey
-                  fill={focused ? text : '#6b7280'}
-                  height={24}
-                  width={24}
-                />
-              )
-            ),
-          }}
-          listeners={{
-            tabPress: async () => {
-              if (!loggedInUserId) return;
-              if (isOwnProfile || isSubscribed) {
-                setShowSubscribeModal(false);
-                return;
-              }
-              const hasActiveSubscription = await getSubscriptionStatus(targetProfileId);
-              if (hasActiveSubscription) {
-                setShowSubscribeModal(false);
-                return;
-              }
-              if (!isOwnProfile) {
-                setPrivatKey(prev => prev + 1);
-                setShowSubscribeModal(false);
-                setTimeout(() => {
-                  if (userData?.profile !== 'company') {
-                    setShowSubscribeModal(true);
-                  }
-                }, 50);
-              }
-            },
-          }}
-        >
-          {renderPrivateContentScreen}
-        </Tab.Screen>
-
-        {/* My Closet Tab — users only */}
-        {userData?.profile === 'user' && (
-          <Tab.Screen
-            name="My Closet"
-            options={{
-              tabBarAccessibilityLabel: t('profileTabs.myClosetTab'),
-              tabBarIcon: ({ focused }) => (
-                <Image
-                  source={require('../../assets/icons/pngicons/shop.png')}
-                  style={{
-                    width: 35,
-                    height: 35,
-                    tintColor: focused ? text : '#6b7280',
-                  }}
-                />
-              ),
-            }}
-          >
-            {renderShopScreen}
-          </Tab.Screen>
-        )}
-      </Tab.Navigator>
+      {/* Active Tab Content — renders directly, no fixed height */}
+      <View style={styles.content}>
+        {tabs[activeTab]?.screen}
+      </View>
 
       {!isSubscribed && (
         <SubscribeModal
           visible={showSubscribeModal}
-          onClose={handleModalClose}
+          onClose={() => setShowSubscribeModal(false)}
           membershipPrice={19.99}
-          onPaymentDone={(info) => {
-            console.log('Payment info:', info);
-            handleSubscription();
+          onPaymentDone={() => {
+            setIsSubscribed(true);
+            setShowSubscribeModal(false);
+            setPrivatKey(p => p + 1);
           }}
           displayName={displayName}
           userData={userData}
@@ -337,3 +227,34 @@ const ProfileTabs = memo(({
 
 ProfileTabs.displayName = 'ProfileTabs';
 export default ProfileTabs;
+
+const styles = StyleSheet.create({
+  tabBar: {
+    flexDirection: 'row',
+    height: 52,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    marginTop: 2,
+  },
+  tabItem: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  indicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '10%',
+    right: '10%',
+    height: 3,
+    borderRadius: 999,
+  },
+  content: {
+    // No fixed height — grows with content naturally
+    width: screenWidth,
+  },
+});

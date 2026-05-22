@@ -72,7 +72,8 @@ function getFeedMusicPlaybackWindow(trim, durationSec) {
 }
 
 /* ─── InstagramZoomableImage ─────────────────────────────────────────────── */
-function InstagramZoomableImage({ uri, onZoomChange }) {
+// FIX: Added onHeightChange to destructured props
+function InstagramZoomableImage({ uri, onZoomChange, onHeightChange }) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -89,7 +90,10 @@ function InstagramZoomableImage({ uri, onZoomChange }) {
       const newHeight = h * ratio;
       const maxHeight = screenWidth * 2.2;
       const minHeight = screenWidth * 0.56;
-      setImageHeight(Math.max(minHeight, Math.min(newHeight, maxHeight)));
+      const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+      setImageHeight(finalHeight);
+      // FIX: was calling onHeightChange but it wasn't in the props — now it is
+      onHeightChange?.(finalHeight);
     });
   }, [uri]);
 
@@ -467,6 +471,8 @@ function PostItem({
   const [videoLoaded, setVideoLoaded] = useState({});
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
+  // FIX: slideHeights state declared here (was already present, kept in place)
+  const [slideHeights, setSlideHeights] = useState({});
 
   const { t } = useLanguage();
 
@@ -536,8 +542,26 @@ function PostItem({
     });
   }, [item]);
 
+  // FIX: safeMedia and mediaLength declared BEFORE any useMemo/useCallback that references them
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
+
+  // FIX: isVideoUrl declared BEFORE mediaHeight useMemo
+  const isVideoUrl = useCallback(url => {
+    if (!url || typeof url !== 'string') return false;
+    const lower = url.toLowerCase().split('?')[0];
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'].some(ext =>
+      lower.endsWith(`.${ext}`),
+    );
+  }, []);
+
+  // FIX: mediaHeight now safely references safeMedia and isVideoUrl (both declared above)
+  const mediaHeight = useMemo(() => {
+    const m = safeMedia[currentIndex];
+    if (!m) return videoHeight;
+    const isVid = m.type === 'video' || isVideoUrl(m.url);
+    return isVid ? videoHeight : undefined;
+  }, [safeMedia, currentIndex, videoHeight, isVideoUrl]);
 
   const parsedPostMeta = useMemo(() => parsePostMeta(item?.postMeta), [item?.postMeta]);
 
@@ -579,10 +603,6 @@ function PostItem({
     return () => clearInterval(timer);
   }, [calculateDaysLeft]);
 
-  const handleDonationSuccess = useCallback(() => {
-    fetchTotalDonation();
-  }, [fetchTotalDonation]);
-
   const fetchTotalDonation = useCallback(async () => {
     if (!item.id) return;
     setIsLoadingDonation(true);
@@ -598,6 +618,10 @@ function PostItem({
       setIsLoadingDonation(false);
     }
   }, [item.id]);
+
+  const handleDonationSuccess = useCallback(() => {
+    fetchTotalDonation();
+  }, [fetchTotalDonation]);
 
   const fetchAllData = useCallback(async () => {
     if (!item?.UserId) return;
@@ -690,6 +714,16 @@ function PostItem({
     }, [item?.UserId, calculateDaysLeft, fetchTotalDonation, fetchAllData, dataFetched]),
   );
 
+  // FIX: safeVideoPause declared before the useEffect that uses it in its cleanup
+  const safeVideoPause = useCallback(index => {
+    try {
+      const ref = videoRefsMap.current[index];
+      if (ref && typeof ref.pause === 'function') ref.pause();
+    } catch (error) {
+      console.warn(`Error pausing video at index ${index}:`, error);
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       Object.keys(videoRefsMap.current).forEach(idx => safeVideoPause(parseInt(idx)));
@@ -761,15 +795,6 @@ function PostItem({
     setSupportDisclaimerVisible(true);
   }, [supporterProfile, recipientProfile, t]);
 
-  const safeVideoPause = useCallback(index => {
-    try {
-      const ref = videoRefsMap.current[index];
-      if (ref && typeof ref.pause === 'function') ref.pause();
-    } catch (error) {
-      console.warn(`Error pausing video at index ${index}:`, error);
-    }
-  }, []);
-
   const wasPostActiveRef = useRef(false);
   useEffect(() => {
     const hasPlayingTarget = playingPostId !== undefined && playingPostId !== null;
@@ -781,6 +806,22 @@ function PostItem({
     if (isPostActive && !wasPostActiveRef.current) setIsMuted(true);
     wasPostActiveRef.current = isPostActive;
   }, [isVisible, screenFocused, playingPostId, currentlyVisiblePostId, item.id]);
+
+  const isCurrentSlideVideo = useMemo(() => {
+    const m = safeMedia[currentIndex];
+    if (!m) return false;
+    return m.type === 'video' || isVideoUrl(m.url);
+  }, [safeMedia, currentIndex, isVideoUrl]);
+
+  const playbackEligible = useMemo(
+    () =>
+      screenFocused &&
+      isVisible &&
+      (playingPostId != null && playingPostId !== ''
+        ? String(playingPostId) === String(item.id)
+        : true),
+    [screenFocused, isVisible, playingPostId, item.id],
+  );
 
   useLayoutEffect(() => {
     if (playbackEligible) return;
@@ -820,30 +861,6 @@ function PostItem({
     };
     return currencySymbols[currencyCode] || (currencyCode ? `${currencyCode} ` : '$');
   }, [item?.currency]);
-
-  const isVideoUrl = useCallback(url => {
-    if (!url || typeof url !== 'string') return false;
-    const lower = url.toLowerCase().split('?')[0];
-    return ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'].some(ext =>
-      lower.endsWith(`.${ext}`),
-    );
-  }, []);
-
-  const isCurrentSlideVideo = useMemo(() => {
-    const m = safeMedia[currentIndex];
-    if (!m) return false;
-    return m.type === 'video' || isVideoUrl(m.url);
-  }, [safeMedia, currentIndex, isVideoUrl]);
-
-  const playbackEligible = useMemo(
-    () =>
-      screenFocused &&
-      isVisible &&
-      (playingPostId != null && playingPostId !== ''
-        ? String(playingPostId) === String(item.id)
-        : true),
-    [screenFocused, isVisible, playingPostId, item.id],
-  );
 
   const buyerList = useMemo(
     () =>
@@ -937,7 +954,6 @@ function PostItem({
   const isGoalAmountRaised = goalAmount > 0 && currentRaised >= goalAmount;
   const isCampaignDaysCompleted = goalAmount > 0 && !!item?.end_time && daysLeft <= 0;
 
-  // Translated progress status label
   const progressStatusLabel = isGoalAmountRaised
     ? t('postItem.goalAmountRaised')
     : isCampaignDaysCompleted
@@ -1007,10 +1023,14 @@ function PostItem({
       const isVideoReady = !!videoLoaded[index];
       const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
+      const slideH = isVideo
+        ? videoHeight
+        : (slideHeights[index] ?? videoHeight);
+
       return (
-        <View style={styles.mediaContainer}>
+        <View style={[styles.mediaContainer, { height: slideH }]}>
           {isVideo ? (
-            <View style={{ width, height: videoHeight }}>
+            <View style={{ width, height: slideH }}>
               {!isVideoReady && mediaItem.thumbnail && (
                 <Image
                   source={{ uri: mediaItem.thumbnail }}
@@ -1020,7 +1040,7 @@ function PostItem({
               )}
               <InstagramZoomableVideo
                 uri={mediaItem.url}
-                videoHeight={videoHeight}
+                videoHeight={slideH}
                 paused={!shouldPlay}
                 muted={isMuted}
                 repeat
@@ -1066,6 +1086,7 @@ function PostItem({
           ) : (
             <InstagramZoomableImage
               uri={mediaItem.url}
+              onHeightChange={h => setSlideHeights(prev => ({ ...prev, [index]: h }))}
               onZoomChange={zoomed => {
                 setIsZooming(zoomed);
                 setScrollEnabled(!zoomed);
@@ -1075,7 +1096,8 @@ function PostItem({
         </View>
       );
     },
-    [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted, playbackEligible],
+    [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted,
+      playbackEligible, videoHeight, slideHeights],
   );
 
   const shouldPlayPostFeedMusic =
@@ -1274,13 +1296,17 @@ function PostItem({
               disableIntervalMomentum={true}
               directionalLockEnabled
               nestedScrollEnabled
-              getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
               renderItem={renderMedia}
               removeClippedSubviews={Platform.OS === 'android'}
               maxToRenderPerBatch={2}
               windowSize={2}
               initialNumToRender={2}
               extraData={currentIndex}
+              getItemLayout={(_, index) => ({
+                length: width,
+                offset: width * index,
+                index,
+              })}
             />
           </GestureDetector>
 
@@ -1644,7 +1670,6 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: '700',
-    // color: '#1F2937',
     fontSize: 16,
     marginRight: 6,
   },
@@ -1668,14 +1693,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F9FAFB',
   },
-  // mediaWrapper: {
-  //   position: 'relative',
-  //   // width: '100%',
-
-  //   // height: 500,
-  //   backgroundColor: '#000',
-  //   overflow: 'hidden',
-  // },
   mediaWrapper: {
     width: '100%',
     backgroundColor: '#000',
@@ -1692,15 +1709,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 6,
   },
-  // mediaContainer: {
-  //   width,
-  //   height: 500,
-  //   position: 'relative',
-  // },
   mediaContainer: {
     width,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   zoomVideoPrewarmHost: {
     position: 'absolute',
@@ -1718,9 +1730,6 @@ const styles = StyleSheet.create({
   },
   postMedia: {
     width: width,
-    // height: 500,
-    // resizeMode: 'contain',
-    // height: 450,
     aspectRatio: 1,
   },
   videoOverlay: {
@@ -1758,7 +1767,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   mediaCounterText: {
     color: '#fff',
@@ -1812,12 +1821,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
-    backgroundColor: '#5a2d82'
+    backgroundColor: '#5a2d82',
   },
   followingButtonText: {
     color: '#fff',
   },
-
   followingButton: {
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
@@ -1846,7 +1854,6 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: '#FFFFFF',
   },
   buyerAvatar: {
     width: 24,
@@ -1915,14 +1922,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginBottom: 10,
-    width: '100%'
+    width: '100%',
   },
   progressStatusBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   progressBarBackground: {
     height: 10,
@@ -1993,13 +2000,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 8,
     borderRadius: 20,
-    // justifyContent: 'center',
-    // alignItems: 'center',
     zIndex: 10,
   },
   linkText: {
     fontWeight: '600',
-    // textDecorationLine: 'underline',
   },
   gestureModalRoot: {
     flex: 1,

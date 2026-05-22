@@ -1133,7 +1133,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.kpiMetaMaskText}>
                   <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
-                    {item.title}
+                    {isMetaMaskConnected ? item.title : 'Wallet'}
                   </Text>
                   <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
                     {item.value}
