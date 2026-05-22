@@ -96,20 +96,52 @@ export default function BattleResults({ navigation }) {
   const isLiveStatus =
     normalizedStatus.includes('LIVE') || normalizedStatus.includes('PROGRESS');
   const isFinishedStatus =
-    normalizedStatus.includes('RESOLVED') ||
     normalizedStatus.includes('FINISH') ||
     normalizedStatus.includes('CLOSED') ||
     normalizedStatus.includes('RESULT');
-  const statusBadgeLabel = isLiveStatus
-    ? 'LIVE BATTLE'
-    : isFinishedStatus
-      ? 'FINISHED BATTLE'
-      : 'BATTLE OPEN';
-  const statusBadgeColor = isLiveStatus
-    ? '#22C55E'
-    : isFinishedStatus
-      ? '#9CA3AF'
-      : '#60A5FA';
+  const isResolvedStatus =
+    normalizedStatus === 'RESOLVED' || normalizedStatus.includes('RESOLVED');
+  const endedByTime = useMemo(() => {
+    if (!endedAt) {
+      return false;
+    }
+    const parsed = new Date(endedAt);
+    return !Number.isNaN(parsed.getTime()) && parsed.getTime() <= Date.now();
+  }, [endedAt]);
+  const heroStatus = useMemo(() => {
+    if (isResolvedStatus) {
+      return {
+        badgeLabel: t('battleInProgress.statusResult'),
+        badgeTone: '#FFD184',
+        headline: t('battleResults.winnerDeclared'),
+      };
+    }
+    if (isLiveStatus) {
+      return {
+        badgeLabel: t('battleInProgress.statusLive'),
+        badgeTone: '#86EFAC',
+        headline: t('battleResults.battleOngoing'),
+      };
+    }
+    if (isFinishedStatus || endedByTime) {
+      return {
+        badgeLabel: t('battleInProgress.statusFinished'),
+        badgeTone: '#F5F0E6',
+        headline: t('battleResults.battleClosed'),
+      };
+    }
+    return {
+      badgeLabel: t('battleInProgress.statusOpen'),
+      badgeTone: '#FFF3D0',
+      headline: t('battleResults.battleOpen'),
+    };
+  }, [
+    endedByTime,
+    isFinishedStatus,
+    isLiveStatus,
+    isResolvedStatus,
+    t,
+  ]);
   const battleFormat = String(battle.format || '').toUpperCase().trim();
   const isPollFormat = battleFormat === 'POLL';
   const participants = battle.primaryCount || 0;
@@ -167,13 +199,6 @@ export default function BattleResults({ navigation }) {
     if (!resolvedTotalVotes) return 0;
     return Math.round((votes / resolvedTotalVotes) * 100);
   };
-
-  const winnerText =
-    normalizedStatus === 'RESOLVED'
-      ? t('battleResults.winnerDeclared')
-      : isLiveStatus
-        ? t('battleResults.battleOngoing')
-        : t('battleResults.battleClosed');
 
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
@@ -367,7 +392,9 @@ export default function BattleResults({ navigation }) {
         </View>
 
         <Text style={[styles.meta, { color: palette.muted }]}>
-          {t('battleResults.metaEnds')}{' '}
+          {endedByTime || isFinishedStatus || isResolvedStatus
+            ? t('battleResults.metaEnded')
+            : t('battleResults.metaEnds')}{' '}
           {endedAt
             ? new Date(endedAt).toLocaleString()
             : t('battleResults.metaNotAvailable')}
@@ -414,7 +441,7 @@ export default function BattleResults({ navigation }) {
         )}
 
         {/* Winner Profile Card */}
-        {status === 'RESOLVED' &&
+        {isResolvedStatus &&
           (winnerUserId || winnerLoading || winnerProfile) && (
             <View
               style={[
@@ -503,67 +530,72 @@ export default function BattleResults({ navigation }) {
               { backgroundColor: withAlpha('#FFFFFF', '14') },
             ]}
           />
-          <View
-            style={[
-              styles.heroIconWrap,
-              { backgroundColor: palette.whiteSoft },
-            ]}
-          >
-            <Ionicons name="trophy-outline" size={34} color={palette.warm} />
-          </View>
 
-          <View style={styles.metaPillsRow}>
+          <View style={styles.heroTopRow}>
             <View
               style={[
-                styles.liveStatusPill,
-                { backgroundColor: withAlpha(statusBadgeColor, '2E') },
+                styles.heroIconWrap,
+                { backgroundColor: palette.whiteSoft },
               ]}
             >
-              <Animated.View
-                style={[
-                  styles.liveStatusDot,
-                  {
-                    opacity: isLiveStatus ? livePulseAnim : 1,
-                    backgroundColor: statusBadgeColor,
-                  },
-                ]}
-              />
-              <Text style={[styles.liveStatusText, { color: statusBadgeColor }]}>
-                {statusBadgeLabel}
-              </Text>
+              <Ionicons name="trophy-outline" size={28} color={palette.warm} />
             </View>
 
-            <View style={styles.stakePill}>
-              <Ionicons name="flash" size={11} color="#7F77DD" />
-              <Text style={styles.stakeText}>
-                Stakes: <Text style={styles.stakeAmount}>{formatStakeAmount(stake)}</Text>
-              </Text>
+            <View style={styles.metaPillsRow}>
+              <View
+                style={[
+                  styles.statusPill,
+                  { backgroundColor: withAlpha(heroStatus.badgeTone, '33') },
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.statusDot,
+                    {
+                      opacity: isLiveStatus ? livePulseAnim : 1,
+                      backgroundColor: heroStatus.badgeTone,
+                    },
+                  ]}
+                />
+                <Text style={[styles.statusPillText, { color: heroStatus.badgeTone }]}>
+                  {heroStatus.badgeLabel}
+                </Text>
+              </View>
+
+              <View style={styles.stakePill}>
+                <Ionicons name="flash" size={11} color={palette.warm} />
+                <Text style={styles.stakeText}>
+                  {t('battleResults.stakesLabel')}{' '}
+                  <Text style={styles.stakeAmount}>{formatStakeAmount(stake)}</Text>
+                </Text>
+              </View>
             </View>
           </View>
 
-          <Text style={styles.winner}>{winnerText}</Text>
-          <Text style={styles.sub}>
-            {participants} {t('battleResults.participants')}
+          <Text style={styles.heroHeadline}>{heroStatus.headline}</Text>
+          <Text style={styles.heroSubline}>
+            {participants.toLocaleString()} {t('battleResults.participants')}
+            {isPollFormat ? ` · ${t('battleInProgress.formatPoll')}` : ''}
           </Text>
 
-          {status === 'RESOLVED' && (
-            <>
-              {winningSide && (
-                <Text style={styles.sub}>
-                  {t('battleResults.winningSideLabel')} {winningSide}
-                </Text>
-              )}
-            </>
+          {isResolvedStatus && !!winningSide && (
+            <Text style={styles.heroSubline}>
+              {t('battleResults.winningSideLabel')} {winningSide}
+            </Text>
           )}
 
           <View style={styles.statsRow}>
-            <View style={styles.statChip}>
+            <View style={styles.statBox}>
               <Text style={styles.statLabel}>{t('battleResults.statsVotes')}</Text>
-              <Text style={styles.statValue}>{totalVotes}</Text>
+              <Text style={styles.statValue}>
+                {resolvedTotalVotes.toLocaleString()}
+              </Text>
             </View>
-            <View style={styles.statChip}>
+            <View style={styles.statBox}>
               <Text style={styles.statLabel}>{t('battleResults.statsComments')}</Text>
-              <Text style={styles.statValue}>{totalComments}</Text>
+              <Text style={styles.statValue}>
+                {Number(totalComments).toLocaleString()}
+              </Text>
             </View>
           </View>
         </LinearGradient>
@@ -755,10 +787,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   hero: {
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 20,
+    padding: 16,
     marginVertical: 12,
     overflow: 'hidden',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 12,
   },
   heroGlow: {
     position: 'absolute',
@@ -769,89 +808,91 @@ const styles = StyleSheet.create({
     borderRadius: 60,
   },
   heroIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-  },
-  liveStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(34,197,94,0.18)',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 10,
-    gap: 6,
   },
   metaPillsRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 10,
   },
-  liveStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
-  liveStatusText: {
-    fontSize: 11,
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 2,
+  },
+  statusPillText: {
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   stakePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: '#F5F1FF',
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    gap: 5,
+    borderRadius: 6,
+    paddingHorizontal: 8,
     paddingVertical: 5,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   stakeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#5B5860',
+    color: 'rgba(255,255,255,0.88)',
   },
   stakeAmount: {
-    fontWeight: '700',
-    color: '#7F77DD',
+    fontWeight: '800',
+    color: '#FFE8B8',
   },
-  winner: {
-    fontSize: 22,
+  heroHeadline: {
+    fontSize: 24,
+    lineHeight: 30,
     color: '#FFFFFF',
     fontWeight: '900',
+    letterSpacing: -0.3,
   },
-  sub: {
-    color: '#E9DEFF',
-    marginTop: 4,
-    marginBottom: 14,
-    fontSize: 14,
+  heroSubline: {
+    color: 'rgba(255,255,255,0.82)',
+    marginTop: 6,
+    marginBottom: 4,
+    fontSize: 13,
     fontWeight: '600',
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    flexWrap: 'wrap',
-    marginBottom: '10%'
+    gap: 10,
+    marginTop: 14,
   },
-  statChip: {
-    width: '31%',
-    minWidth: 92,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    paddingHorizontal: 12,
+  statBox: {
+    flex: 1,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.26)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.38)',
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 10,
   },
   statLabel: {
-    color: '#E9DEFF',
+    color: 'rgba(255,255,255,0.88)',
     fontSize: 11,
     fontWeight: '700',
     marginBottom: 6,

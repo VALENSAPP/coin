@@ -1003,10 +1003,13 @@
   "battleResults": {
     "headerTitle": "Résultats de la battle",
     "metaEnds": "Se termine :",
+    "metaEnded": "Terminée :",
     "metaNotAvailable": "Non disponible",
     "winnerDeclared": "Gagnant déclaré",
     "battleOngoing": "Battle en cours",
+    "battleOpen": "Battle ouverte",
     "battleClosed": "Battle terminée",
+    "stakesLabel": "Mises :",
     "winningUser": "Utilisateur gagnant",
     "sideLabel": "Camp",
     "winningSideLabel": "Camp gagnant :",

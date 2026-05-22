@@ -1003,10 +1003,13 @@
   "battleResults": {
     "headerTitle": "Resultados da Batalha",
     "metaEnds": "Termina:",
+    "metaEnded": "Encerrada:",
     "metaNotAvailable": "Não disponível",
     "winnerDeclared": "Vencedor Declarado",
     "battleOngoing": "Batalha em Andamento",
+    "battleOpen": "Batalha Aberta",
     "battleClosed": "Batalha Encerrada",
+    "stakesLabel": "Apostas:",
     "winningUser": "Usuário Vencedor",
     "sideLabel": "Lado",
     "winningSideLabel": "Lado vencedor:",

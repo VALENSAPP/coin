@@ -36,8 +36,24 @@ import { useLanguage } from '../../../i18n';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
+const IMAGE_PREVIEW_WIDTH = screenWidth * 0.85;
 const IMAGE_PREVIEW_MAX_HEIGHT =
   Platform.OS === 'ios' ? Math.min(screenHeight * 0.48, 420) : screenHeight * 0.6;
+const IMAGE_PREVIEW_MIN_HEIGHT = IMAGE_PREVIEW_WIDTH * 0.35;
+const IMAGE_CARD_VERTICAL_PADDING = 16;
+
+const getPreviewHeightForMedia = (media) => {
+  const mediaWidth = Number(media?.width);
+  const mediaHeight = Number(media?.height);
+  if (!mediaWidth || !mediaHeight) {
+    return IMAGE_PREVIEW_MAX_HEIGHT;
+  }
+  const aspectHeight = (IMAGE_PREVIEW_WIDTH * mediaHeight) / mediaWidth;
+  return Math.min(
+    IMAGE_PREVIEW_MAX_HEIGHT,
+    Math.max(IMAGE_PREVIEW_MIN_HEIGHT, aspectHeight),
+  );
+};
 
 const PostEditorScreen = () => {
   const navigation = useNavigation();
@@ -332,10 +348,22 @@ const PostEditorScreen = () => {
     }
   }, [navigation, resolveUserIdFromUsername, toast, t]);
 
+  const getPreviewCardHeight = useCallback((images) => {
+    if (!images?.length) return IMAGE_PREVIEW_MAX_HEIGHT + IMAGE_CARD_VERTICAL_PADDING * 2;
+    const maxThumbHeight = Math.max(
+      ...images.map((img) =>
+        isMediaVideo(img) ? IMAGE_PREVIEW_MAX_HEIGHT : getPreviewHeightForMedia(img),
+      ),
+    );
+    return maxThumbHeight + IMAGE_CARD_VERTICAL_PADDING * 2;
+  }, []);
+
+  const previewCardHeight = getPreviewCardHeight(editorImages);
+
   const renderEditorBody = () => (
     <>
       {editorImages.length > 0 && (
-        <View style={[styles.imagesCard, bgStyle]}>
+        <View style={[styles.imagesCard, bgStyle, { height: previewCardHeight }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -343,13 +371,22 @@ const PostEditorScreen = () => {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="none"
           >
-            {editorImages.map((img, idx) => (
+            {editorImages.map((img, idx) => {
+              const thumbHeight = isMediaVideo(img)
+                ? IMAGE_PREVIEW_MAX_HEIGHT
+                : getPreviewHeightForMedia(img);
+              const thumbStyle = [
+                styles.imageThumb,
+                { height: thumbHeight },
+              ];
+
+              return (
               <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
                 {isMediaVideo(img) ? (
-                  <View style={styles.videoThumbContainer}>
+                  <View style={[styles.videoThumbContainer, { height: thumbHeight }]}>
                     <Video
                       source={{ uri: getMediaUri(img) }}
-                      style={styles.imageThumb}
+                      style={thumbStyle}
                       resizeMode="contain"
                       paused={true}
                       muted={true}
@@ -363,7 +400,7 @@ const PostEditorScreen = () => {
                 ) : (
                   <Image
                     source={{ uri: getMediaUri(img) }}
-                    style={styles.imageThumb}
+                    style={thumbStyle}
                     resizeMode="contain"
                   />
                 )}
@@ -382,7 +419,8 @@ const PostEditorScreen = () => {
                   </View>
                 )}
               </View>
-            ))}
+            );
+            })}
           </ScrollView>
         </View>
       )}
@@ -537,11 +575,12 @@ const styles = StyleSheet.create({
   imagesCard: {
     margin: 16,
     borderRadius: 12,
-    height: Platform.OS === 'ios' ? IMAGE_PREVIEW_MAX_HEIGHT : screenHeight * 0.6,
+    overflow: 'hidden',
   },
   imagesContainer: {
-    paddingVertical: 20,
-    paddingHorizontal: 10
+    paddingVertical: IMAGE_CARD_VERTICAL_PADDING,
+    paddingHorizontal: 10,
+    alignItems: 'center',
   },
   imageThumbWrapper: {
     marginRight: 12,
@@ -558,10 +597,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   imageThumb: {
-    width: screenWidth * .85,
-    // height: screenHeight * 0.6,
+    width: IMAGE_PREVIEW_WIDTH,
     borderRadius: 10,
-    aspectRatio: 0.6,
     marginHorizontal: 6,
     // shadowColor: '#000',
     // shadowOffset: { width: 0, height: 4 },
