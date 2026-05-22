@@ -758,25 +758,41 @@ export default function BattleInProgress() {
     if (!isHeadToHead) return;
     if (!currentUserId) return;
     if (hasUserVoted) return;
-    if (selectedOption) return;
-    if (String(currentUserId) !== String(battle.invitedUserId)) return;
-    if (!headToHeadAssignedSide) return;
+    if (!Array.isArray(battle.options) || battle.options.length === 0) return;
 
-    const normalizedAssigned = normalizeSideKey(headToHeadAssignedSide);
-    const matchedIndex = (Array.isArray(battle.options) ? battle.options : []).findIndex((option) => {
-      const optionSide = String(pickFirst(option?.side, option?.label, option, ''));
-      return normalizeSideKey(optionSide) === normalizedAssigned;
+    // For head-to-head, only auto-preselect for the invited user (opponent) to avoid
+    // locking the creator into a side before they choose.
+    const isInvitedUser = String(currentUserId) === String(battle.invitedUserId);
+    if (!isInvitedUser) return;
+
+    const lockedSide = String(headToHeadAssignedSide || '').trim();
+    if (!lockedSide) return;
+
+    const normalizedLockedSide = normalizeSideKey(lockedSide);
+    const matchIndex = battle.options.findIndex((option) => {
+      const optionSide = String(pickFirst(option?.side, option?.label, ''));
+      return normalizeSideKey(optionSide) === normalizedLockedSide;
     });
+    if (matchIndex < 0) return;
 
-    if (matchedIndex < 0) return;
-    const matchedOption = battle.options[matchedIndex];
-    setSelectedOption(getOptionSelectionKey(matchedOption, matchedIndex));
+    const matchOption = battle.options[matchIndex];
+    const nextSelection = getOptionSelectionKey(matchOption, matchIndex);
+    if (!selectedOption) {
+      setSelectedOption(nextSelection);
+      return;
+    }
+
+    // If selectedOption is a raw side value (e.g. "A"), normalize it to the option key.
+    if (normalizeSideKey(selectedOption) === normalizedLockedSide) {
+      setSelectedOption(nextSelection);
+    }
   }, [
+    battle.creatorId,
     battle.invitedUserId,
     battle.options,
     currentUserId,
-    hasUserVoted,
     headToHeadAssignedSide,
+    hasUserVoted,
     isHeadToHead,
     selectedOption,
   ]);
@@ -1683,9 +1699,9 @@ export default function BattleInProgress() {
                 const optionImage = battle.optionImages?.[index];
                 const optionSide = String(pickFirst(option?.side, option?.label, ''));
                 const optionSelectionKey = getOptionSelectionKey(option, index);
-                const headToHeadAccent = isHeadToHead
-                  ? (index === 0 ? { accent: '#3B82F6', soft: 'rgba(59,130,246,0.08)' } : { accent: '#DB2777', soft: 'rgba(219,39,119,0.08)' })
-                  : { accent: palette.primary, soft: palette.soft };
+                // Use the same selected color styling as poll battles (single theme accent),
+                // instead of the legacy head-to-head blue/pink accents.
+                const headToHeadAccent = { accent: palette.primary, soft: palette.soft };
                 const normalizedSelected = normalizeSideKey(selectedOption);
                 const normalizedOptionSide = normalizeSideKey(optionSide);
                 const isSelectedByTap = selectedOption === optionSelectionKey;
@@ -1704,12 +1720,17 @@ export default function BattleInProgress() {
                   ? isSelectedByVote
                   : isSelectedByAssignedSide || isSelectedByTap || isSelectedByInitialValue;
                 const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
-                const isHeadToHeadParticipant = isHeadToHeadCreator || isHeadToHeadOpponent;
-                const isLockedToAssignedSide = isHeadToHeadParticipant && !!headToHeadAssignedSide;
-                const isNonAssignedOption = isLockedToAssignedSide &&
+                const isHeadToHeadParticipant = isHeadToHead && (isHeadToHeadCreator || isHeadToHeadOpponent);
+                // Only lock the opposite option for the invited user (opponent) when we know their assigned side.
+                // The creator should be able to choose either side until they vote.
+                const canLockToAssignedSide = isHeadToHeadOpponent && !!headToHeadAssignedSide;
+                const isMyHeadToHeadSide =
+                  canLockToAssignedSide &&
                   normalizedOptionSide &&
-                  normalizeSideKey(headToHeadAssignedSide) !== normalizedOptionSide;
-                const shouldDisable = hasUserVoted || isNonAssignedOption;
+                  normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
+                // Only lock options when we actually know the assigned side.
+                // Otherwise allow selecting either option (same behavior as poll).
+                const shouldDisable = hasUserVoted || (canLockToAssignedSide && !isMyHeadToHeadSide);
                 return (
                   <TouchableOpacity
                     key={`${battle.id}-${option.id}-${index}`}
@@ -1721,7 +1742,8 @@ export default function BattleInProgress() {
                         borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#E5E7EB',
                         backgroundColor: isSelected
                           ? (useVotedGrayStyle ? '#F3F4F6' : headToHeadAccent.soft)
-                          : shouldDisable ? headToHeadAccent.soft : '#F9FAFB',
+                          : '#F9FAFB',
+                        opacity: shouldDisable && !isSelected ? 0.6 : 1,
                         width: '100%',
                       },
                     ]}

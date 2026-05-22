@@ -14,6 +14,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
+import { useLanguage } from '../../i18n';
 
 const FALLBACK_AVATAR =
   'https://ui-avatars.com/api/?name=User&background=random';
@@ -36,31 +37,34 @@ const normalizeSideKey = value => String(value || '').trim().toLowerCase();
 
 const normalizeOption = (option, index) => {
   if (typeof option === 'string') {
-    return { id: `${index}`, label: option };
+    return { id: `${index}`, label: option, sideKey: String(option) };
   }
+  // Prefer a user-facing label; keep `side` as a separate matching key.
   const label = pickFirst(
-    option?.side,
     option?.label,
-    option?.text,
-    option?.value,
-    option?.name,
     option?.title,
+    option?.text,
+    option?.name,
+    option?.value,
     option?.option,
+    option?.side,
     `Option ${index + 1}`,
   );
+  const sideKey = pickFirst(option?.side, option?.key, option?.code, label);
   return {
     id: String(pickFirst(option?.id, option?._id, index)),
     label: String(label),
+    sideKey: String(sideKey),
   };
 };
 
 export default function BattleVoteDetails() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
 
   const { profile } = route.params || {};
   const { battle } = route.params || {};
-
   const resolvedProfileType = normalizeProfileType(profile);
 
   const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
@@ -95,7 +99,11 @@ export default function BattleVoteDetails() {
     );
 
     const fallback = [creatorSide, invitedSide].filter(isMeaningfulValue);
-    return fallback.map((label, idx) => ({ id: String(idx), label: String(label) }));
+    return fallback.map((label, idx) => ({
+      id: String(idx),
+      label: String(label),
+      sideKey: String(label),
+    }));
   }, [battle]);
 
   const resolveUserMeta = useCallback(
@@ -143,6 +151,20 @@ export default function BattleVoteDetails() {
     [battle],
   );
 
+  const resolveOptionForSide = useCallback(
+    (sideValue) => {
+      const raw = String(sideValue || '').trim();
+      if (!raw) return null;
+      const normalized = normalizeSideKey(raw);
+      return (
+        options.find(opt => normalizeSideKey(opt?.sideKey) === normalized) ||
+        options.find(opt => normalizeSideKey(opt?.label) === normalized) ||
+        null
+      );
+    },
+    [options],
+  );
+
   const buildSections = useCallback(
     (entries, entryType) => {
       const list = Array.isArray(entries) ? entries : [];
@@ -173,17 +195,15 @@ export default function BattleVoteDetails() {
           : resolveUserMeta(userId);
 
         const fallbackName = entryType === 'votes' ? 'Voter' : 'Predictor';
+        const matchedOption = resolveOptionForSide(side);
         const row = {
           userId,
           displayName: pickFirst(meta?.displayName, fallbackName),
           displayHandle: pickFirst(meta?.displayHandle, ''),
           displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
-          side,
+          side: matchedOption?.label || side,
         };
 
-        const normalizedSide = normalizeSideKey(side);
-        const matchedOption =
-          options.find(opt => normalizeSideKey(opt.label) === normalizedSide) || null;
         const groupTitle = matchedOption?.label || side || 'Other';
 
         ensureGroup(groupTitle).push(row);
@@ -191,7 +211,7 @@ export default function BattleVoteDetails() {
 
       // If API doesn't provide voter meta (only participants are available), still render participants
       // so users can see each participant and their chosen side under their details.
-      if (grouped.size === 0 && entryType === 'votes') {
+      if (entryType === 'votes' && list.length === 0) {
         const participants = Array.isArray(battle?.participants) ? battle.participants : [];
         participants.forEach(p => {
           const userId = String(pickFirst(p?.userId, p?.user?.id, '') || '');
@@ -204,9 +224,7 @@ export default function BattleVoteDetails() {
               }
             : resolveUserMeta(userId);
 
-          const normalizedSide = normalizeSideKey(side);
-          const matchedOption =
-            options.find(opt => normalizeSideKey(opt.label) === normalizedSide) || null;
+          const matchedOption = resolveOptionForSide(side);
           const groupTitle = matchedOption?.label || side || 'Participants';
 
           ensureGroup(groupTitle).push({
@@ -224,7 +242,7 @@ export default function BattleVoteDetails() {
         data,
       }));
     },
-    [battle, options, resolveUserMeta],
+    [battle, options, resolveOptionForSide, resolveUserMeta],
   );
 
   const votesSections = useMemo(
@@ -254,30 +272,36 @@ export default function BattleVoteDetails() {
       return acc;
     }, {});
 
-    const countForLabel = label => {
-      if (!label) return 0;
-      const direct = sideCounts && typeof sideCounts === 'object' ? sideCounts[label] : undefined;
+    const countForOption = (label, sideKey) => {
+      const candidateKeys = [label, sideKey].filter(Boolean).map(v => String(v));
+      if (candidateKeys.length === 0) return 0;
+
+      const direct = sideCounts && typeof sideCounts === 'object'
+        ? candidateKeys.map(k => sideCounts[k]).find(v => v !== undefined)
+        : undefined;
       const directNum = Number(direct);
       if (Number.isFinite(directNum)) return directNum;
 
-      const normalizedTarget = normalizeSideKey(label);
+      const normalizedTargets = candidateKeys.map(normalizeSideKey);
       if (sideCounts && typeof sideCounts === 'object') {
-        const matchKey = Object.keys(sideCounts).find(k => normalizeSideKey(k) === normalizedTarget);
+        const matchKey = Object.keys(sideCounts).find(k =>
+          normalizedTargets.includes(normalizeSideKey(k)),
+        );
         const matchNum = Number(matchKey ? sideCounts[matchKey] : undefined);
         if (Number.isFinite(matchNum)) return matchNum;
       }
 
       const fallbackKey = Object.keys(fallbackCountsFromSections).find(
-        k => normalizeSideKey(k) === normalizedTarget,
+        k => normalizedTargets.includes(normalizeSideKey(k)),
       );
       return fallbackKey ? Number(fallbackCountsFromSections[fallbackKey] || 0) : 0;
     };
 
-    const base = options.length > 0 ? options : [{ id: '0', label: 'Other' }];
+    const base = options.length > 0 ? options : [{ id: '0', label: 'Other', sideKey: 'Other' }];
     return base.map((opt, idx) => ({
       sideKey: String(opt.id ?? idx),
       title: opt.label,
-      count: countForLabel(opt.label),
+      count: countForOption(opt.label, opt.sideKey),
     }));
   }, [
     activeTab,
@@ -353,7 +377,9 @@ export default function BattleVoteDetails() {
 
   
   const titleText =
-    activeTab === 'votes' ? 'Votes' : 'Predictions';
+    activeTab === 'votes'
+      ? t('battleVoteDetails.votesTitle', 'Votes')
+      : t('battleVoteDetails.predictionsTitle', 'Predictions');
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -409,7 +435,7 @@ export default function BattleVoteDetails() {
               styles.loadingText,
               { color: palette.muted },
             ]}>
-            Loading...
+            {t('battleVoteDetails.loading', 'Loading...')}
           </Text>
         </View>
       ) : (
@@ -465,8 +491,14 @@ export default function BattleVoteDetails() {
                     { color: palette.muted },
                   ]}>
                   {activeTab === 'votes'
-                    ? 'No votes for this option'
-                    : 'No predictions for this option'}
+                    ? t(
+                        'battleVoteDetails.noVotesForOption',
+                        'No votes for this option',
+                      )
+                    : t(
+                        'battleVoteDetails.noPredictionsForOption',
+                        'No predictions for this option',
+                      )}
                 </Text>
               </View>
             );
@@ -549,7 +581,10 @@ export default function BattleVoteDetails() {
                     styles.summaryHint,
                     { color: palette.muted },
                   ]}>
-                  Tap a user to open profile.
+                  {t(
+                    'battleVoteDetails.tapUserHint',
+                    'Tap a user to open profile.',
+                  )}
                 </Text>
               </View>
 
@@ -569,7 +604,7 @@ export default function BattleVoteDetails() {
                       styles.breakdownTitle,
                       { color: text },
                     ]}>
-                    Breakdown
+                    {t('battleVoteDetails.breakdownTitle', 'Breakdown')}
                   </Text>
 
                   <View style={styles.breakdownList}>
@@ -632,7 +667,7 @@ export default function BattleVoteDetails() {
               ]}>
               <Text
                 style={[styles.emptyTitle, { color: text }]}>
-                No data yet
+                {t('battleVoteDetails.emptyTitle', 'No data yet')}
               </Text>
 
               <Text
@@ -640,7 +675,10 @@ export default function BattleVoteDetails() {
                   styles.emptyText,
                   { color: palette.muted },
                 ]}>
-                Come back later to check activity.
+                {t(
+                  'battleVoteDetails.emptySubtitle',
+                  'Come back later to check activity.',
+                )}
               </Text>
             </View>
           )}

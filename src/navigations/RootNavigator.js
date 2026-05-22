@@ -345,24 +345,28 @@ const GlobalDrawerNavigator = () => {
           },
         })}
       />
-      <Drawer.Screen
-        name="Privatecircle"
-        component={PrivateCircle}
-        options={{
-          drawerLabel: t('drawerNav.privateCircle'),
-          headerShown: false,
-        }}
-        listeners={({ navigation }) => ({
-          drawerItemPress: (e) => {
-            e.preventDefault();
-            navigation.closeDrawer();
-            navigation.navigate('MainApp', {
-              screen: 'wallet',
-              params: { screen: 'Privatecircle' }
-            });
-          },
-        })}
-      />
+      {!isCompanyProfile && (
+
+
+        <Drawer.Screen
+          name="Privatecircle"
+          component={PrivateCircle}
+          options={{
+            drawerLabel: t('drawerNav.privateCircle'),
+            headerShown: false,
+          }}
+          listeners={({ navigation }) => ({
+            drawerItemPress: (e) => {
+              e.preventDefault();
+              navigation.closeDrawer();
+              navigation.navigate('MainApp', {
+                screen: 'wallet',
+                params: { screen: 'Privatecircle' }
+              });
+            },
+          })}
+        />
+      )}
       <Drawer.Screen
         name="DrawerSettings"
         component={DummyComponent}

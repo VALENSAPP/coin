@@ -22,7 +22,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import StepHeader from './headerSection';
-import { checkDisplayName, getProfile } from '../../../services/createProfile';
+import { checkDisplayName, getProfile, EditProfile } from '../../../services/createProfile';
 import { logout, removeDeviceAccountRequest } from '../../../services/authentication';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -415,6 +415,30 @@ export default function CreateProfile() {
     </View>
   );
 
+  const saveProfileToApi = async (data) => {
+    const formData = new FormData();
+    formData.append('userName', data.username || '');
+    formData.append('displayName', data.displayName || '');
+    formData.append('bio', data.bio || '');
+    if (data?.image?.uri) {
+      const img = data.image;
+      const fileUri = Platform.OS === 'android' ? img.uri : img.uri.replace('file://', '');
+      formData.append('image', {
+        uri: fileUri,
+        name: img.name || 'profile.jpg',
+        type: img.type || 'image/jpeg',
+      });
+    } else if (data?.imageUri) {
+      const uri = data.imageUri;
+      const fileUri = Platform.OS === 'android' ? uri : uri.replace('file://', '');
+      formData.append('image', { uri: fileUri, name: 'profile.jpg', type: 'image/jpeg' });
+    }
+    formData.append('gender', '');
+    formData.append('age', '');
+    formData.append('phoneNumber', '');
+    return EditProfile(formData);
+  };
+
   const continueNext = async () => {
     const termsErrors = validateTermsAndPrivacy();
     if (Object.keys(termsErrors).length > 0) {
@@ -436,6 +460,22 @@ export default function CreateProfile() {
       serverProfile?.data?.profile || storedProfileType || profileFromRoute || '',
     ).toLowerCase();
     if (profileType === 'company') {
+      dispatch(showLoader());
+      try {
+        const response = await saveProfileToApi(profileData);
+        console.log(response,'data in this api setup ')
+        if (response?.statusCode === 200 && displayName) {
+          await AsyncStorage.setItem('currentUsername', displayName);
+        } else if (response?.statusCode !== 200) {
+          toast.show(t('createProfile.saveError') || 'Failed to save profile', { type: 'danger' });
+          return;
+        }
+      } catch (err) {
+        toast.show(err?.message || t('createProfile.saveError') || 'Failed to save profile', { type: 'danger' });
+        return;
+      } finally {
+        dispatch(hideLoader());
+      }
       navigation.navigate('BusinessSetupAuth', { profileData, serverProfile, profile: profileFromRoute });
       return;
     }

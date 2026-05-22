@@ -94,7 +94,7 @@ const Shop = memo(({ isOwnProfile = false, onStartPress, userData }) => {
           </View>
         </View>
       ) : (
-        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12),marginTop: -40}]}>
           <LinearGradient
             colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
             start={{ x: 0, y: 0 }}

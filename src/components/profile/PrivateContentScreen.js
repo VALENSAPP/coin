@@ -18,6 +18,7 @@ import { getFansubscriptionStatus } from '../../services/stirpe';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
+import FastImage from 'react-native-fast-image';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -124,7 +125,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
           <ActivityIndicator size="large" color="#5A2D82" />
         </View>
       )}
-      <Image
+      <FastImage
         source={{ uri: mediaUrl }}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
@@ -150,6 +151,7 @@ const PrivateContentScreen = ({
   refreshKey,
 }) => {
   const [posts, setPosts] = useState([]);
+  console.log([posts,'data in pvt content'])
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [resolvedIsSubscribed, setResolvedIsSubscribed] = useState(false);

@@ -989,6 +989,17 @@
     "fallbackOpponent": "Avversario",
     "valensUser": "Utente Valens"
   },
+  "battleVoteDetails": {
+    "votesTitle": "Voti",
+    "predictionsTitle": "Previsioni",
+    "loading": "Caricamento...",
+    "noVotesForOption": "Nessun voto per questa opzione",
+    "noPredictionsForOption": "Nessuna previsione per questa opzione",
+    "tapUserHint": "Tocca un utente per aprire il profilo.",
+    "breakdownTitle": "Ripartizione",
+    "emptyTitle": "Nessun dato ancora",
+    "emptySubtitle": "Torna più tardi per controllare l'attività."
+  },
   "battleResults": {
     "headerTitle": "Risultati Battaglia",
     "metaEnds": "Termina:",
@@ -2830,7 +2841,9 @@
     "linkEmpty": "Il link è vuoto",
     "invalidLink": "Link non valido",
     "unableToOpenLink": "Impossibile aprire il link",
-    "verifiedAccount": "Account verificato"
+    "verifiedAccount": "Account verificato",
+    "unfollow": "Smetti di seguire",
+    "followingActionsPrompt": "Scegli un'azione."
   },
   "profileTabs": {
     "postsTab": "Post",
