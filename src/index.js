@@ -32,6 +32,7 @@ const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const linking = {
   prefixes: [
+    'https://api.valens.app',
     'https://www.valenscorp.com',
     'https://valenscorp.com',
     'https://www.valens.app',

@@ -38,11 +38,19 @@ const ShareProfile = ({ navigation }) => {
   const routeParams = useRoute().params || {};
   const { userData, targetUserId } = routeParams;
   const viewShotRef = useRef(null);
-  const profile = useMemo(() => (
-    userData?.user && typeof userData.user === 'object'
+  const profile = useMemo(() => {
+    if (!userData) return {};
+    // handle both { user: {...} } and flat object
+    return userData?.user && typeof userData.user === 'object'
       ? userData.user
-      : (userData || {})
-  ), [userData]);
+      : userData;
+  }, [userData]);
+  console.log('[ShareProfile] debug', {
+  resolvedUsername,
+  resolvedUserId,
+  primaryShareUrl,
+  qrShareUrl,
+});
   const [username, setUsername] = useState('');
   const ownProfileImage = useSelector(state => state.profileImage?.profileImg);
   const currentUser = useSelector(state => state.user?.profile || state.auth?.user);
@@ -144,28 +152,20 @@ const ShareProfile = ({ navigation }) => {
       })
       .join('');
 
-  const resolvedUsername = useMemo(() => (
-    String(
-      username ||
-      profile?.userName ||
-      profile?.username ||
-      profile?.displayName ||
-      '',
-    ).trim()
-  ), [profile, username]);
+  const resolvedUsername = useMemo(() => String(
+    profile?.userName ||
+    profile?.username ||
+    profile?.displayName ||
+    ''
+  ).trim(), [profile]);
 
-  const resolvedUserId = useMemo(() => (
-    String(
-      profile?.id ||
-      profile?.userId ||
-      profile?._id ||
-      userData?.id ||
-      userData?.userId ||
-      userData?._id ||
-      targetUserId ||
-      '',
-    ).trim()
-  ), [profile, targetUserId, userData]);
+  const resolvedUserId = useMemo(() => String(
+    profile?.id ||
+    profile?.userId ||
+    profile?._id ||
+    targetUserId ||
+    ''
+  ).trim(), [profile, targetUserId]);
 
   const currentUserId = useMemo(() => (
     String(
@@ -185,15 +185,20 @@ const ShareProfile = ({ navigation }) => {
     'https://cdn-icons-png.flaticon.com/512/149/149071.png'
   ), [isOwnProfile, ownProfileImage, profile?.image, profile?.profileImage]);
 
-  const {
-    primaryShareUrl,
-    shareMessage,
-  } = useMemo(() => buildProfileSharePayload({
-    username: resolvedUsername,
-    userId: resolvedUserId,
-  }), [resolvedUsername, resolvedUserId]);
 
-  const qrShareUrl = primaryShareUrl || 'com.valens://profile';
+    const primaryShareUrl = useMemo(() => {
+    const slug = resolvedUsername || resolvedUserId;
+    if (!slug) return null;
+    return `https://api.valens.app/u/${slug}`;
+  }, [resolvedUsername, resolvedUserId]);
+
+  const qrShareUrl = primaryShareUrl || 'https://api.valens.app';
+
+  const shareMessage = useMemo(() => {
+    if (!resolvedUsername && !resolvedUserId) return '';
+    return `Check out @${resolvedUsername || resolvedUserId} on Valens\n${primaryShareUrl}`;
+  }, [resolvedUsername, resolvedUserId, primaryShareUrl]);
+
 
   useFocusEffect(
     useCallback(() => {
@@ -217,41 +222,22 @@ const ShareProfile = ({ navigation }) => {
   };
 
   const onShare = async () => {
-    try {
-      if (!resolvedUsername && !resolvedUserId) {
-        Alert.alert(
-          t('shareProfile.profileNotAvailable'),
-          t('shareProfile.profileNotAvailableMessage'),
-        );
-        return;
-      }
-
-      const currentUsername = String(username || '').trim();
-      const profileLabel = currentUsername ? `@${currentUsername}` : 'this profile';
-
-      const result = await Share.share({
-        url: qrShareUrl,
-        message: t('shareProfile.shareMessageTemplate', {
-          username: toBold(profileLabel),
-        }),
-      });
-
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          console.log('Shared with activity type:', result.activityType);
-        } else {
-          console.log('Shared successfully');
-        }
-      } else if (result.action === Share.dismissedAction) {
-        console.log('Share dismissed');
-      }
-    } catch (error) {
-      Alert.alert(
-        t('shareProfile.shareErrorTitle'),
-        t('shareProfile.shareErrorMessage', { error: error.message }),
-      );
+  try {
+    if (!primaryShareUrl) {
+      Alert.alert(t('shareProfile.profileNotAvailable'), t('shareProfile.profileNotAvailableMessage'));
+      return;
     }
-  };
+
+    await Share.share({
+      // ✅ URL must be in message for Android — WhatsApp, Teams ignore the url field
+      message: `Check out @${resolvedUsername || 'valens'} on Valens\n${primaryShareUrl}`,
+      url: primaryShareUrl,   // iOS only
+      title: 'Valens Profile',
+    });
+  } catch (error) {
+    Alert.alert(t('shareProfile.shareErrorTitle'), error.message);
+  }
+};
 
   const actionButtons = [
     {

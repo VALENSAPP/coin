@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
@@ -531,14 +531,22 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 16,
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
     fontWeight: '500',
+    paddingRight: 8,
+    lineHeight: 22,
   },
   detailValue: {
     fontSize: 16,
     fontWeight: '600',
-    flex: 2,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
     textAlign: 'right',
+    lineHeight: 22,
   },
   highlightText: {
     fontWeight: 'bold',

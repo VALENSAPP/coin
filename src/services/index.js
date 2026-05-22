@@ -5,8 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const baseUrl = BASE_URL;
 
 const axiosInstance = axios.create({
-    baseURL: 'https://api.valens.app/',
-    // baseURL: 'http://api.valens.app/',
+    // baseURL: 'https://valenscorp.com/',
+    baseURL: 'http://api.valens.app/',
 
     maxBodyLength: Infinity
 });
