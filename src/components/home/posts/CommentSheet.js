@@ -21,6 +21,7 @@ import {
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../displaytoastmessage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAppTheme } from '../../../theme/useApptheme';
 import HexAvatar from '../story.js/HexAvatar';
@@ -682,6 +683,20 @@ export default function CommentSheet({
     setSelectedComment(null);
   }, [selectedComment]);
 
+  const handleCopyComment = useCallback(() => {
+    const textToCopy = selectedComment?.text?.trim();
+    if (!textToCopy) {
+      setIsModalVisible(false);
+      setSelectedComment(null);
+      return;
+    }
+
+    Clipboard.setString(textToCopy);
+    showToastMessage(toast, 'success', t('commentSheet.successCommentCopied'));
+    setIsModalVisible(false);
+    setSelectedComment(null);
+  }, [selectedComment, toast, t]);
+
   // ─── reactions ───────────────────────────────────────────────────────────────
 
   const handleThumbsUpPress = useCallback(
@@ -898,6 +913,15 @@ export default function CommentSheet({
         }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleCopyComment}
+              disabled={!selectedComment?.text?.trim()}>
+              <Text style={styles.modalButtonText}>
+                {t('commentSheet.copyComment')}
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.modalButton}
               onPress={handleDeleteComment}

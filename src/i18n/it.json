@@ -961,6 +961,7 @@
     "addComment": "Aggiungi Commento",
     "submitPrediction": "Invia Previsione",
     "voteInBattle": "Vota nella Battaglia",
+    "acceptBattle": "Accetta battaglia",
     "voteAlertMissingBattle": "Impossibile votare",
     "voteAlertMissingBattleMsg": "Informazioni battaglia mancanti.",
     "voteAlertSelectOption": "Seleziona un'opzione",
@@ -1532,6 +1533,7 @@
       "creditsLeft": "Crediti Rimasti",
       "missionPost": "Post Missione",
       "referralPoints": "Punti Referral",
+      "wallet": "Portafoglio",
       "metamaskWallet": "Wallet Metamask",
       "tapToBuyCredits": "Tocca per acquistare crediti",
       "missionActive": "Attive: {{count}}"
@@ -1553,6 +1555,10 @@
       "totalPlatformPoints": "Punti Totali della Piattaforma",
       "battlePoints": "Punti Battle",
       "referPoints": "Punti Referral",
+      "referPointsInfoTitle": "Punti Referral",
+      "referPointsInfoBody1": "Condividi il tuo link referral con i tuoi amici.",
+      "referPointsInfoBody2": "Se scaricano l'app e si registrano usando il tuo codice, guadagni {{points}} punti.",
+      "referPointsInfoCta": "Ho capito",
       "usedPoints": "Punti Utilizzati"
     },
     "activityOverview": {
@@ -1934,6 +1940,7 @@
     "cancel": "Annulla",
     "deleteComment": "Elimina commento",
     "editComment": "Modifica commento",
+    "copyComment": "Copia",
     "deleting": "Eliminazione...",
     "justNow": "Proprio adesso",
     "editedJustNow": "Modificato proprio adesso",
@@ -1941,6 +1948,7 @@
     "successCommentPosted": "Commento pubblicato con successo",
     "successCommentUpdated": "Commento aggiornato",
     "successCommentDeleted": "Commento eliminato",
+    "successCommentCopied": "Commento copiato",
     "successReplyPosted": "Risposta pubblicata con successo",
     "errorEmptyComment": "Inserisci un commento",
     "errorLoadFailed": "Impossibile caricare i commenti",

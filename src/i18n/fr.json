@@ -961,6 +961,7 @@
     "addComment": "Ajouter un commentaire",
     "submitPrediction": "Soumettre la prédiction",
     "voteInBattle": "Voter dans la battle",
+    "acceptBattle": "Accepter la battle",
     "voteAlertMissingBattle": "Impossible de voter",
     "voteAlertMissingBattleMsg": "Les informations de la battle sont manquantes.",
     "voteAlertSelectOption": "Sélectionnez une option",
@@ -1532,6 +1533,7 @@
       "creditsLeft": "Crédits restants",
       "missionPost": "Publication de mission",
       "referralPoints": "Points de parrainage",
+      "wallet": "Portefeuille",
       "metamaskWallet": "Portefeuille Metamask",
       "tapToBuyCredits": "Touchez pour acheter des crédits",
       "missionActive": "Actif : {{count}}"
@@ -1553,6 +1555,10 @@
       "totalPlatformPoints": "Points totaux de la plateforme",
       "battlePoints": "Points de bataille",
       "referPoints": "Points de parrainage",
+      "referPointsInfoTitle": "Points de parrainage",
+      "referPointsInfoBody1": "Partagez votre lien de parrainage avec vos amis.",
+      "referPointsInfoBody2": "S'ils téléchargent l'application et s'inscrivent avec votre code, vous gagnez {{points}} points.",
+      "referPointsInfoCta": "Compris",
       "usedPoints": "Points utilisés"
     },
     "activityOverview": {
@@ -1934,6 +1940,7 @@
     "cancel": "Annuler",
     "deleteComment": "Supprimer le commentaire",
     "editComment": "Modifier le commentaire",
+    "copyComment": "Copier",
     "deleting": "Suppression...",
     "justNow": "À l’instant",
     "editedJustNow": "Modifié à l’instant",
@@ -1941,6 +1948,7 @@
     "successCommentPosted": "Commentaire publié avec succès",
     "successCommentUpdated": "Commentaire mis à jour",
     "successCommentDeleted": "Commentaire supprimé",
+    "successCommentCopied": "Commentaire copié",
     "successReplyPosted": "Réponse publiée avec succès",
     "errorEmptyComment": "Veuillez saisir un commentaire",
     "errorLoadFailed": "Échec du chargement des commentaires",

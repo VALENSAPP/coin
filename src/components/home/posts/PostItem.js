@@ -7,6 +7,7 @@ import {
   Animated,
   StyleSheet,
   Dimensions,
+  useWindowDimensions,
   Linking,
   ActivityIndicator,
   Modal,
@@ -443,6 +444,7 @@ function PostItem({
   taggedPeople,
   hideDonationButton = false,
 }) {
+  const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
   const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
   const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
@@ -469,6 +471,12 @@ function PostItem({
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
 
   const { t } = useLanguage();
+
+  const currentUserIdStr = useMemo(() => (userId != null ? String(userId) : ''), [userId]);
+  const itemUserIdStr = useMemo(() => {
+    const raw = item?.UserId ?? item?.userId ?? item?.UserID ?? '';
+    return raw != null ? String(raw) : '';
+  }, [item?.UserID, item?.UserId, item?.userId]);
 
   const getDaysLeftFromEndTime = endTime => {
     if (!endTime) return 0;
@@ -546,26 +554,57 @@ function PostItem({
     [currentIndex, parsedPostMeta, item?.id, item?.music, item?.youtubeMusicMeta, item?.postMeta, item?.media],
   );
 
-  const taggedUsers = useMemo(
-    () =>
-      (Array.isArray(taggedPeople || item?.taggedPeople)
-        ? taggedPeople || item?.taggedPeople
-        : []
-      )
-        .filter(Boolean)
-        .map((person, index) => {
-          if (typeof person === 'string') {
-            return { id: `tagged-${index}-${person}`, username: person };
+  const taggedUsers = useMemo(() => {
+    const source = Array.isArray(taggedPeople || item?.taggedPeople)
+      ? (taggedPeople || item?.taggedPeople)
+      : [];
+
+    const looksLikeUuid = (value = '') =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value).trim());
+
+    return source
+      .filter(Boolean)
+      .map((person, index) => {
+        // Handle primitives (strings/numbers) coming from API payloads.
+        if (typeof person === 'string' || typeof person === 'number') {
+          const rawValue = String(person).trim();
+          if (!rawValue) return { id: `tagged-${index}`, username: t('postItem.unknownUser') };
+
+          // Sometimes backend sends tagged user IDs (UUIDs) instead of usernames.
+          if (looksLikeUuid(rawValue)) {
+            return {
+              id: rawValue,
+              userId: rawValue,
+              username: '',
+              fullName: '',
+              avatar: null,
+            };
           }
-          return {
-            id: person?.id || `tagged-${index}`,
-            username: person?.username || person?.userName || t('postItem.unknownUser'),
-            fullName: person?.fullName || person?.name || '',
-            avatar: person?.avatar || person?.image || person?.userImage || null,
-          };
-        }),
-    [item?.taggedPeople, taggedPeople],
-  );
+
+          const username = rawValue.replace(/^@+/, '');
+          return { id: `tagged-${index}-${username}`, username };
+        }
+
+        const usernameCandidate = String(
+          person?.username ??
+          person?.userName ??
+          person?.tag ??
+          person?.handle ??
+          person?.label ??
+          person?.value ??
+          '',
+        )
+          .trim()
+          .replace(/^@+/, '');
+
+        return {
+          id: person?.id || person?.userId || person?._id || `tagged-${index}`,
+          username: usernameCandidate || t('postItem.unknownUser'),
+          fullName: String(person?.fullName ?? person?.name ?? person?.displayName ?? '').trim(),
+          avatar: person?.avatar || person?.image || person?.userImage || person?.profilePicture || null,
+        };
+      });
+  }, [item?.taggedPeople, taggedPeople, t]);
 
   const calculateDaysLeft = useCallback(() => {
     return getDaysLeftFromEndTime(item?.end_time);
@@ -794,7 +833,10 @@ function PostItem({
 
   const handleUserProfile = useCallback(
     id => {
-      if (userId === id) {
+      const targetId = id != null ? String(id) : '';
+      if (!targetId) return;
+
+      if (currentUserIdStr && currentUserIdStr === targetId) {
         navigation.navigate('ProfileMain', { screen: 'Profile' });
       } else {
         const currentRoute = route?.name || 'Home';
@@ -804,7 +846,7 @@ function PostItem({
         });
       }
     },
-    [userId, navigation, route?.name],
+    [currentUserIdStr, navigation, route?.name],
   );
 
   const formatNumber = useCallback(n => {
@@ -985,7 +1027,7 @@ function PostItem({
   );
 
   const handleFollowPress = useCallback(async () => {
-    if (!item?.UserId || item.UserId === userId || followingBusy) return;
+    if (!itemUserIdStr || !currentUserIdStr || itemUserIdStr === currentUserIdStr || followingBusy) return;
     const shouldFollow = !item.follow;
     const followHandler = executeFollowAction || onToggleFollow;
     if (!followHandler) return;
@@ -996,7 +1038,12 @@ function PostItem({
       setModalVisible(true);
     }
   }, [
-    item?.UserId, item.follow, item.userTokenAddress, userId, followingBusy,
+    currentUserIdStr,
+    followingBusy,
+    item?.UserId,
+    item.follow,
+    item.userTokenAddress,
+    itemUserIdStr,
     executeFollowAction, onToggleFollow, supporterProfile, recipientProfile,
   ]);
 
@@ -1359,7 +1406,7 @@ function PostItem({
             </TouchableOpacity>
           </View>
 
-          {item.UserId !== userId && (
+          {itemUserIdStr && currentUserIdStr && itemUserIdStr !== currentUserIdStr && (
             <TouchableOpacity
               onPress={handleFollowPress}
               disabled={followingBusy}
@@ -1449,7 +1496,11 @@ function PostItem({
                   activeOpacity={0.8}
                   onPress={hasExpandableCaption ? () => setExpanded(true) : undefined}
                   disabled={!hasExpandableCaption}>
-                  <Text style={styles.captionRow} numberOfLines={1} ellipsizeMode="tail">
+                  <Text
+                    style={styles.captionRow}
+                    numberOfLines={windowWidth < 360 ? 1 : 2}
+                    ellipsizeMode="tail"
+                  >
                     <Text
                       onPress={() => handleUserProfile(item.UserId)}
                       style={[
@@ -1534,7 +1585,9 @@ function PostItem({
 
               {!hideDonationButton &&
                 !isGoalAmountRaised &&
-                item.UserId !== userId &&
+                itemUserIdStr &&
+                currentUserIdStr &&
+                itemUserIdStr !== currentUserIdStr &&
                 daysLeft > 0 &&
                 item?.end_time && (
                   <TouchableOpacity
