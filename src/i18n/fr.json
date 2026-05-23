@@ -1554,10 +1554,14 @@
       "walletDisconnectError": "Impossible de déconnecter le portefeuille"
     },
     "battlePoints": {
-      "sectionTitle": "Points de bataille",
-      "totalPlatformPoints": "Points totaux de la plateforme",
-      "battlePoints": "Points de bataille",
+      "sectionTitle": "Points de battle",
+      "totalPlatformPoints": "Total des points de la plateforme",
+      "battlePoints": "Points de battle",
       "referPoints": "Points de parrainage",
+      "referPointsInfoTitle": "Points de parrainage",
+      "referPointsInfoBody1": "Partagez votre lien de parrainage avec vos amis.",
+      "referPointsInfoBody2": "S’ils téléchargent l’application et s’inscrivent avec votre code de parrainage, vous gagnez {{points}} points.",
+      "referPointsInfoCta": "Compris",
       "usedPoints": "Points utilisés"
     },
     "activityOverview": {
@@ -1606,6 +1610,19 @@
         "range": "1M - 10M",
         "note": "1 million à 10 millions d’abonnés."
       }
+    },
+    "dralensModal": {
+      "title": "Hey, meet Dralens ✨",
+      "paragraph1": "Welcome to the world behind your Valens community.",
+      "paragraph2": "Dralens represents your presence, trust, and influence inside the Valens ecosystem. More than a symbol, it reflects the real people who choose to connect with you.",
+      "paragraph3": "Your followers on Valens are not just numbers — they represent intentional connections, participation, and credibility built over time.",
+      "onValensHeading": "On Valens:",
+      "bullet1": "Following is intentional",
+      "bullet2": "Connections are transparent",
+      "bullet3": "Reputation is earned through real interaction",
+      "bullet4": "Your audience reflects trust, interest, and participation",
+      "paragraph4": "The stronger your community grows, the more your Dralens evolves. This is not about fake reach or empty numbers. It’s about real people, real reputation, and real connection.",
+      "gotIt": "Compris"
     }
   },
   "market": {

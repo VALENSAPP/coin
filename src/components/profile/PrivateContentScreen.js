@@ -441,7 +441,7 @@ const PrivateContentScreen = ({
     <View style={[styles.screen, bgStyle]}>
       {!canViewPrivateContent ? (
         isCompany ? (
-          <ShopCard marginTopOverride={-50} />
+          <ShopCard marginTopOverride={0} />
         ) : (
           <LockedCard />
         )

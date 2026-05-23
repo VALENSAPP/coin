@@ -185,6 +185,7 @@ export default function MainTabNavigator() {
         <Stack.Screen
           name="FollowersFollowingScreen"
           component={FollowersFollowingScreen}
+          options={{ gestureEnabled: false }}
         />
         <Stack.Screen
           name="EditProfile"

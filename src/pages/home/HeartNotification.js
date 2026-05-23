@@ -106,6 +106,7 @@ const isBattleNotificationType = type =>
     'battle_invite',
     'battle_started',
     'battle_completed',
+    'battle_closed',
     'battle_victory',
     'battle_result',
   ].includes(normalizeNotificationType(type));

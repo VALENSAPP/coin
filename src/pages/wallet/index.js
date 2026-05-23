@@ -1420,9 +1420,29 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     <Text style={[styles.pointsColValue, { color: text }]} numberOfLines={1}>
                       {formatPointValue(item.value)}
                     </Text>
-                    <Text style={[styles.pointsColLabel, { color: text }]} numberOfLines={2}>
-                      {item.title}
-                    </Text>
+                    {item.id === 'referPoints' ? (
+                      <View style={styles.pointsColLabelRow}>
+                        <Text
+                          style={[styles.pointsColLabel, { color: text, marginTop: 0 }]}
+                          numberOfLines={2}
+                        >
+                          {item.title}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.pointsInfoButton}
+                          onPress={openReferPointsInfo}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('walletDashboard.battlePoints.referPointsInfoTitle')}
+                        >
+                          <Ionicons name="ellipsis-horizontal" size={14} color={text} style={styles.pointsInfoIcon} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <Text style={[styles.pointsColLabel, { color: text }]} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                    )}
                   </View>
                   {index !== rewardPointCards.length - 1 ? (
                     <View style={styles.pointsDivider} />
@@ -1683,7 +1703,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             </Pressable>
           </Pressable>
         </Modal>
-        <Modal
+         <Modal
           visible={dragonflyModalVisible}
           transparent
           animationType="fade"
@@ -1703,7 +1723,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 <View style={styles.modalHeaderRow}>
                   <View style={styles.modalTitleBlock}>
                     <Text style={[styles.modalTitle, textStyle]}>
-                      {t('walletDashboard.dragonflyModal.title')}
+                      {t('walletDashboard.dralensModal.title')}
                     </Text>
                   </View>
                   <View style={styles.modalIconWrap}>
@@ -1712,20 +1732,24 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </View>
                 <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    {t('walletDashboard.dragonflyModal.paragraph1')}
+                    {t('walletDashboard.dralensModal.paragraph1')}
                   </Text>
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    {t('walletDashboard.dragonflyModal.paragraph2')}
+                    {t('walletDashboard.dralensModal.paragraph2')}
                   </Text>
-
+                  <Text style={[styles.modalParagraph, textStyle]}>
+                    {t('walletDashboard.dralensModal.paragraph3')}
+                  </Text>
+ 
                   <Text style={[styles.modalSectionHeading, textStyle]}>
-                    {t('walletDashboard.dragonflyModal.onValensHeading')}
+                    {t('walletDashboard.dralensModal.onValensHeading')}
                   </Text>
                   <View style={styles.modalBulletList}>
                     {[
-                      t('walletDashboard.dragonflyModal.bullet1'),
-                      t('walletDashboard.dragonflyModal.bullet2'),
-                      t('walletDashboard.dragonflyModal.bullet3'),
+                      t('walletDashboard.dralensModal.bullet1'),
+                      t('walletDashboard.dralensModal.bullet2'),
+                      t('walletDashboard.dralensModal.bullet3'),
+                      t('walletDashboard.dralensModal.bullet4'),
                     ].map((item) => (
                       <View key={item} style={styles.modalBulletItem}>
                         <View style={styles.modalBulletPoint} />
@@ -1733,20 +1757,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       </View>
                     ))}
                   </View>
-
+ 
                   <Text style={[styles.modalParagraph, textStyle]}>
-                    {t('walletDashboard.dragonflyModal.paragraph3')}
+                    {t('walletDashboard.dralensModal.paragraph4')}
                   </Text>
-                  <Text style={[styles.modalParagraph, textStyle]}>
-                    {t('walletDashboard.dragonflyModal.paragraph4')}
-                  </Text>
-
+ 
                   <View style={styles.modalGrid}>
                     {DRAGONFLY_TIERS(t).map(({ id, Icon, title, range, note, color }, index) => {
                       const isLastRow =
                         DRAGONFLY_TIERS(t).length % 3 !== 0 &&
                         index >= DRAGONFLY_TIERS(t).length - (DRAGONFLY_TIERS(t).length % 3);
-
+ 
                       return (
                         <View
                           key={id}
@@ -1774,14 +1795,14 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       );
                     })}
                   </View>
-
+ 
                   <TouchableOpacity
                     style={[styles.modalCloseButton, { backgroundColor: text }]}
                     onPress={closeDragonflyModal}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.modalCloseButtonText}>
-                      {t('walletDashboard.dragonflyModal.gotIt')}
+                      {t('walletDashboard.dralensModal.gotIt')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2239,6 +2260,22 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     opacity: 0.75,
     textAlign: 'center',
+  },
+  pointsColLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    gap: 4,
+  },
+  pointsInfoButton: {
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    borderRadius: 10,
+    opacity: 0.9,
+  },
+  pointsInfoIcon: {
+    marginTop: 1,
   },
   referPointsInfoInner: {
     paddingHorizontal: 20,

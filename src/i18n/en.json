@@ -962,6 +962,7 @@
     "submitPrediction": "Submit Prediction",
     "voteInBattle": "Vote in Battle",
     "voteAlertMissingBattle": "Unable to vote",
+    "acceptBattle": "Accept Battle",
     "voteAlertMissingBattleMsg": "Battle information is missing.",
     "voteAlertSelectOption": "Select an option",
     "voteAlertSelectPredictionMsg": "Choose one option before submitting your prediction.",
@@ -1557,6 +1558,10 @@
       "totalPlatformPoints": "Total Platform Points",
       "battlePoints": "Battle Points",
       "referPoints": "Refer Points",
+      "referPointsInfoTitle": "Referral Points",
+      "referPointsInfoBody1": "Share your referral link with your friends.",
+      "referPointsInfoBody2": "If they download the app and register using your referral code, you earn {{points}} points.",
+      "referPointsInfoCta": "Got it",
       "usedPoints": "Used Points"
     },
     "activityOverview": {
@@ -1605,6 +1610,19 @@
         "range": "1M - 10M",
         "note": "1 million to 10 million followers."
       }
+    },
+    "dralensModal": {
+      "title": "Hey, meet Dralens ✨",
+      "paragraph1": "Welcome to the world behind your Valens community.",
+      "paragraph2": "Dralens represents your presence, trust, and influence inside the Valens ecosystem. More than a symbol, it reflects the real people who choose to connect with you.",
+      "paragraph3": "Your followers on Valens are not just numbers — they represent intentional connections, participation, and credibility built over time.",
+      "onValensHeading": "On Valens:",
+      "bullet1": "Following is intentional",
+      "bullet2": "Connections are transparent",
+      "bullet3": "Reputation is earned through real interaction",
+      "bullet4": "Your audience reflects trust, interest, and participation",
+      "paragraph4": "The stronger your community grows, the more your Dralens evolves. This is not about fake reach or empty numbers. It’s about real people, real reputation, and real connection.",
+      "gotIt": "Got it"
     }
   },
   "market": {
@@ -1940,6 +1958,7 @@
     "cancel": "Cancel",
     "deleteComment": "Delete Comment",
     "editComment": "Edit Comment",
+    "copyComment": "Copy",
     "deleting": "Deleting...",
     "justNow": "Just now",
     "editedJustNow": "Edited just now",
@@ -1947,6 +1966,7 @@
     "successCommentPosted": "Comment posted successfully",
     "successCommentUpdated": "Comment updated",
     "successCommentDeleted": "Comment deleted",
+    "successCommentCopied": "Comment copied",
     "successReplyPosted": "Reply posted successfully",
     "errorEmptyComment": "Please enter a comment",
     "errorLoadFailed": "Failed to load comments",

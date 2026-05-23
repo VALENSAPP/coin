@@ -1610,6 +1610,19 @@
         "range": "1M - 10M",
         "note": "Da 1 milione a 10 milioni di follower."
       }
+    },
+    "dralensModal": {
+      "title": "Hey, meet Dralens ✨",
+      "paragraph1": "Welcome to the world behind your Valens community.",
+      "paragraph2": "Dralens represents your presence, trust, and influence inside the Valens ecosystem. More than a symbol, it reflects the real people who choose to connect with you.",
+      "paragraph3": "Your followers on Valens are not just numbers — they represent intentional connections, participation, and credibility built over time.",
+      "onValensHeading": "On Valens:",
+      "bullet1": "Following is intentional",
+      "bullet2": "Connections are transparent",
+      "bullet3": "Reputation is earned through real interaction",
+      "bullet4": "Your audience reflects trust, interest, and participation",
+      "paragraph4": "The stronger your community grows, the more your Dralens evolves. This is not about fake reach or empty numbers. It’s about real people, real reputation, and real connection.",
+      "gotIt": "Capito"
     }
   },
   "market": {

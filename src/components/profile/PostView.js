@@ -227,6 +227,13 @@ export default function PostView({ postData = [], userData = {} }) {
     }
 
     if (routeUserData) {
+      const targetUserId = String(routeUserData?.id ?? routeUserData?.userId ?? '');
+      const currentUserIdStr = currentUserId != null ? String(currentUserId) : '';
+ 
+      if (targetUserId && currentUserIdStr && targetUserId === currentUserIdStr) {
+        navigation.navigate('ProfileMain', { screen: 'Profile' });
+        return;
+      }
       console.log('Going back to PostScreen with userData:', routeUserData);
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
@@ -237,7 +244,7 @@ export default function PostView({ postData = [], userData = {} }) {
     } else {
       navigation.goBack();
     }
-  }, [navigation, route.params, routeUserData]);
+  }, [navigation, currentUserId, route.params, routeUserData]);
 
   const getMediaType = url => {
     if (!url || typeof url !== 'string') return 'image';
