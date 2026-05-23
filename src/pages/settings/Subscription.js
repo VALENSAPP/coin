@@ -7,18 +7,21 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import React, { useState, useEffect } from 'react';
-import { cancelSubscription, checkSubscription } from '../../services/stirpe';
+import React, { useState, useEffect, useCallback } from 'react';
+import { cancelSubscription, checkSubscription, createCheckoutSession } from '../../services/stirpe';
 import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 const Subscription = () => {
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [showActivationPopup, setShowActivationPopup] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text, card } = useAppTheme();
   const { t } = useLanguage();
@@ -33,11 +36,7 @@ const Subscription = () => {
     warningBg: '#FFF4EA',
   };
 
-  useEffect(() => {
-    loadSubscriptionData();
-  }, []);
-
-  const loadSubscriptionData = async () => {
+  const loadSubscriptionData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await checkSubscription();
@@ -51,7 +50,11 @@ const Subscription = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    loadSubscriptionData();
+  }, [loadSubscriptionData]);
 
   const handleCancelSubscription = () => {
     Alert.alert(
@@ -86,6 +89,40 @@ const Subscription = () => {
       Alert.alert(t('subscription.error'), t('subscription.failedToCancel'));
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const isBrowserCancelled = result => result?.type === 'cancel' || result?.type === 'dismiss';
+
+  const handleActivationConfirm = async () => {
+    try {
+      const response = await createCheckoutSession();
+      const checkoutUrl = response?.data?.url;
+      if (!checkoutUrl) throw new Error('Checkout URL not received');
+
+      let cancelled = false;
+      if (await InAppBrowser.isAvailable()) {
+        const browserResult = await InAppBrowser.open(checkoutUrl, {
+          dismissButtonStyle: 'close',
+          preferredBarTintColor: '#000',
+          preferredControlTintColor: '#fff',
+          showTitle: true,
+          toolbarColor: '#000',
+          enableUrlBarHiding: true,
+          enableDefaultShare: false,
+        });
+        cancelled = isBrowserCancelled(browserResult);
+      } else {
+        await Linking.openURL(checkoutUrl);
+      }
+
+      setShowActivationPopup(false);
+      if (!cancelled) {
+        await loadSubscriptionData();
+      }
+    } catch (error) {
+      console.error('Error activating subscription:', error);
+      Alert.alert(t('subscription.error'), error?.message || t('payment.paymentErrorMsg'));
     }
   };
 
@@ -139,13 +176,26 @@ const Subscription = () => {
   };
 
   const getStatusText = subscription => {
-    if (subscription.subscription && subscription.subscription.status === 'CANCELED') {
+    if (
+      subscription.subscription &&
+      subscription.subscription.status === 'CANCELED' &&
+      hasActiveSubscriptionAccess(subscription.subscription)
+    ) {
       return t('subscription.cancelledActiveUntilPeriodEnd');
     }
     if (subscription.subscription) {
       return subscription.subscription.status;
     }
     return t('subscription.unknown');
+  };
+
+  const hasActiveSubscriptionAccess = subscription => {
+    const normalizedStatus = String(subscription?.status || '').toUpperCase();
+    if (normalizedStatus === 'ACTIVE') return true;
+    if (normalizedStatus !== 'CANCELED') return false;
+
+    const parsedEndDate = new Date(subscription?.currentPeriodEnd);
+    return !Number.isNaN(parsedEndDate.getTime()) && parsedEndDate >= new Date();
   };
 
   if (loading) {
@@ -177,6 +227,8 @@ const Subscription = () => {
   const isCancelledSubscription =
     subscriptionData.subscription && subscriptionData.subscription.status === 'CANCELED';
   const subscription = subscriptionData.subscription;
+  const isSubscriptionActive = hasActiveSubscriptionAccess(subscription);
+  const shouldShowActivationOption = !isSubscriptionActive;
 
   const status = getStatusText(subscriptionData);
   const statusColor = getStatusColor(status, isCancelledSubscription);
@@ -204,7 +256,7 @@ const Subscription = () => {
             <View style={styles.statusContent}>
               <View style={styles.statusIconContainer}>
                 <Icon
-                  name={isCancelledSubscription ? 'warning' : 'checkmark-circle'}
+                  name={shouldShowActivationOption ? 'alert-circle' : isCancelledSubscription ? 'warning' : 'checkmark-circle'}
                   size={32}
                   color="#fff"
                 />
@@ -213,7 +265,7 @@ const Subscription = () => {
             </View>
           </View>
 
-          {isCancelledSubscription && (
+          {isCancelledSubscription && isSubscriptionActive && (
             <View style={[styles.warningContainer, { backgroundColor: themeColors.warningBg, borderLeftColor: themeColors.warning }]}>
               <Icon name="warning" size={20} color={themeColors.warning} />
               <Text style={styles.warningText}>
@@ -306,6 +358,22 @@ const Subscription = () => {
             </>
           )}
 
+          {shouldShowActivationOption && (
+            <View style={styles.activationPrompt}>
+              <Text style={styles.activationPromptText}>
+                {t('subventionSetup.inactiveSubscriptionMessage')}
+              </Text>
+              <TouchableOpacity
+                style={[styles.activateSubscriptionButton, { backgroundColor: themeColors.text }]}
+                onPress={() => setShowActivationPopup(true)}
+              >
+                <Text style={styles.activateSubscriptionButtonText}>
+                  {t('subventionSetup.activateSubscriptionButton')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={[styles.timeRemainingContainer, { borderColor: themeColors.border }]}>
             <View style={[styles.timeRemainingGradient, { backgroundColor: themeColors.bg }]}>
               <Text style={[styles.timeRemainingLabel, { color: themeColors.subText }]}>{t('subscription.timeRemaining')}</Text>
@@ -378,6 +446,12 @@ const Subscription = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <SubscriptionActivationPopup
+        visible={showActivationPopup}
+        onClose={() => setShowActivationPopup(false)}
+        onConfirm={handleActivationConfirm}
+        returnToSettingsSub={true}
+      />
     </View>
   );
 };
@@ -550,6 +624,31 @@ const styles = StyleSheet.create({
   },
   highlightText: {
     fontWeight: 'bold',
+  },
+  activationPrompt: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fff1f2',
+  },
+  activationPromptText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#7f1d1d',
+    marginBottom: 12,
+  },
+  activateSubscriptionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  activateSubscriptionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   timeRemainingContainer: {
     marginTop: 20,

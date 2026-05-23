@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef, useMemo } from 'react';
 import {
   Alert,
   View,
@@ -23,7 +23,7 @@ import { useLanguage } from '../../i18n';
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
 const SPACING = 1;
-const IMAGE_SIZE = (screenWidth - SPACING * (numColumns + 1)) / numColumns;
+const IMAGE_SIZE = (screenWidth - SPACING * (numColumns - 1)) / numColumns;
 
 const parseNonNegativeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -245,10 +245,21 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   const route = useRoute();
   const { t } = useLanguage();
 
-  // Merge userData from props and route params (route params take precedence)
   const userData = route?.params?.userData || propUserData;
-
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
+
+  // ✅ Move ALL hooks/useMemo/useCallback BEFORE any early returns
+  const rows = useMemo(() => {
+    const chunks = [];
+    for (let i = 0; i < posts.length; i += numColumns) {
+      chunks.push(posts.slice(i, i + numColumns));
+    }
+    return chunks;
+  }, [posts]);
+
+  const calculatedHeight = useMemo(() => {
+    return Math.ceil(posts.length / numColumns) * (IMAGE_SIZE + SPACING) + 120;
+  }, [posts.length]);
 
   useEffect(() => {
     setPosts(sortPostsByPinned(getImagePosts(postCheck)));
@@ -256,7 +267,6 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
 
   useEffect(() => {
     let isActive = true;
-
     const fetchDonationTotals = async () => {
       const missionPostIds = [
         ...new Set(
@@ -268,18 +278,14 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
             .map(post => String(post.id)),
         ),
       ];
-
       if (missionPostIds.length === 0) {
         if (isActive) setDonationTotals({});
         return;
       }
-
       const responses = await Promise.allSettled(
         missionPostIds.map(postId => getTotalDonationAmount({ postId })),
       );
-
       if (!isActive) return;
-
       const nextTotals = {};
       responses.forEach((res, idx) => {
         if (res.status === 'fulfilled' && res.value?.statusCode === 200) {
@@ -289,19 +295,14 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
       });
       setDonationTotals(nextTotals);
     };
-
     fetchDonationTotals();
-
-    return () => {
-      isActive = false;
-    };
+    return () => { isActive = false; };
   }, [posts]);
 
   const openPosts = useCallback((index) => {
     const selectedPost = posts?.[index];
     if (!selectedPost) return;
     const { isVideo } = getPreviewMedia(selectedPost);
-
     if (isVideo) {
       navigation.getParent().navigate('ProfileMain', {
         screen: 'FlipsScreen',
@@ -309,29 +310,21 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
       });
       return;
     }
-
     navigation.getParent().navigate('ProfileMain', {
       screen: 'PostView',
-      params: {
-        postData: posts,
-        startIndex: index,
-        hideTabBar: true,
-        userData: userData,
-      },
+      params: { postData: posts, startIndex: index, hideTabBar: true, userData },
     });
   }, [navigation, posts, userData]);
 
   const handleTogglePinPost = useCallback(async (post) => {
     const postId = String(post?.id || post?._id || '');
     if (!isOwnProfile || !postId || pinningPostIdRef.current) return;
-
     const nextPinned = !isPostPinned(post);
     pinningPostIdRef.current = postId;
     try {
       const payload = { postId };
       if (nextPinned) await pinPost(payload);
       else await unpinPost(payload);
-
       setPosts(prevPosts => setPostPinnedState(prevPosts, postId, nextPinned));
       const refreshedPosts = await onPostPinChanged?.(postId, nextPinned);
       if (Array.isArray(refreshedPosts)) setPosts(sortPostsByPinned(getImagePosts(refreshedPosts)));
@@ -361,56 +354,6 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
     );
   }, [handleTogglePinPost, isOwnProfile, t]);
 
-  const renderItem = useCallback(({ item, index }) => {
-    const isMissionPost =
-      item?.isMission === true ||
-      item?.type === 'crowdfunding' ||
-      Number(item?.raiseAmount) > 0;
-    const raisedAmount = donationTotals[String(item?.id)];
-    const stats = isMissionPost ? calculateMissionStats(item, raisedAmount) : null;
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.imageContainer,
-          { marginLeft: index % numColumns === 0 ? 0 : SPACING, shadowColor: text },
-        ]}
-        activeOpacity={0.95}
-        onPress={() => openPosts(index)}
-        onLongPress={() => confirmTogglePinPost(item)}
-        delayLongPress={450}
-      >
-        <PostImage item={item} index={index} themeTextStyle={textStyle} />
-        <View style={styles.overlay} />
-        {isPostPinned(item) && (
-          <View style={styles.pinnedBadge}>
-            <Ionicons name="pin" size={12} color="#FFFFFF" />
-            <Text style={styles.pinnedBadgeText}>{t('postScreen.pinned')}</Text>
-          </View>
-        )}
-        {isMissionPost && stats && (
-          <View style={styles.missionBadgeWrapper}>
-            <MissionProgressBar
-              progressPercent={stats.progressPercent}
-              goalAmount={stats.goalAmount}
-              currentRaised={stats.currentRaised}
-              daysLeft={stats.daysLeft}
-              profile={item?.profile}
-            />
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  }, [confirmTogglePinPost, openPosts, text, textStyle, donationTotals, t]);
-
-  const keyExtractor = useCallback((item) => item.id.toString(), []);
-
-  const getItemLayout = useCallback((data, index) => ({
-    length: IMAGE_SIZE + SPACING,
-    offset: (IMAGE_SIZE + SPACING) * Math.floor(index / numColumns),
-    index,
-  }), []);
-
   const renderEmptyComponent = useCallback(() => (
     <View style={styles.emptyContainer}>
       <Text style={[styles.emptyTitle, textStyle]}>{t('postScreen.noPostsTitle')}</Text>
@@ -418,6 +361,7 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
     </View>
   ), [textStyle, t]);
 
+  // ✅ Early return AFTER all hooks
   if (!posts || posts.length === 0) {
     return (
       <View style={styles.screen}>
@@ -427,29 +371,60 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
   }
 
   return (
-    <View style={[styles.screen, bgStyle]}>
-      <FlatList
-        data={posts}
-        renderItem={renderItem}
-        scrollEnabled={scrollEnabled}
-        nestedScrollEnabled={false}
-        keyExtractor={keyExtractor}
-        numColumns={numColumns}
-        ListEmptyComponent={renderEmptyComponent}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          posts.length === 0 && styles.emptyListContent,
-        ]}
-        ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={12}
-        windowSize={5}
-        initialNumToRender={12}
-        getItemLayout={getItemLayout}
-        updateCellsBatchingPeriod={50}
-        disableVirtualization={false}
-      />
+    <View style={[styles.screen, bgStyle, { height: calculatedHeight }]}>
+      <View style={[styles.grid, { height: calculatedHeight }]}>
+        {rows.map((row, rowIndex) => (
+          <View key={`row-${rowIndex}`} style={styles.row}>
+            {row.map((item, colIndex) => {
+              const index = rowIndex * numColumns + colIndex;
+              const isMissionPost =
+                item?.isMission === true ||
+                item?.type === 'crowdfunding' ||
+                Number(item?.raiseAmount) > 0;
+              const raisedAmount = donationTotals[String(item?.id)];
+              const stats = isMissionPost ? calculateMissionStats(item, raisedAmount) : null;
+
+              return (
+                <TouchableOpacity
+                  key={item.id?.toString()}
+                  style={[
+                    styles.imageContainer,
+                    colIndex === 0 ? { marginLeft: 0 } : { marginLeft: SPACING },
+                  ]}
+                  activeOpacity={0.95}
+                  onPress={() => openPosts(index)}
+                  onLongPress={() => confirmTogglePinPost(item)}
+                  delayLongPress={450}
+                >
+                  <PostImage item={item} index={index} themeTextStyle={textStyle} />
+                  <View style={styles.overlay} />
+                  {isPostPinned(item) && (
+                    <View style={styles.pinnedBadge}>
+                      <Ionicons name="pin" size={12} color="#FFFFFF" />
+                      <Text style={styles.pinnedBadgeText}>{t('postScreen.pinned')}</Text>
+                    </View>
+                  )}
+                  {isMissionPost && stats && (
+                    <View style={styles.missionBadgeWrapper}>
+                      <MissionProgressBar
+                        progressPercent={stats.progressPercent}
+                        goalAmount={stats.goalAmount}
+                        currentRaised={stats.currentRaised}
+                        daysLeft={stats.daysLeft}
+                        profile={item?.profile}
+                      />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            {row.length < numColumns &&
+              Array(numColumns - row.length).fill(null).map((_, i) => (
+                <View key={`empty-${i}`} style={[styles.imageContainer, { marginLeft: SPACING }]} />
+              ))}
+          </View>
+        ))}
+      </View>
     </View>
   );
 });
@@ -463,32 +438,35 @@ const styles = StyleSheet.create({
     flex: 1
   },
   listContent: {
-    padding: SPACING,
-    paddingBottom: 100,
+    paddingHorizontal: SPACING,
+    paddingBottom: 120,                 // ✅ breathing room at bottom
+    flexGrow: 1,                        // 👈 add this
   },
   emptyListContent: {
-    flexGrow: 1,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
-  // --- Grid Images ---
-  imageContainer: {
-    width: IMAGE_SIZE,
-    marginBottom: SPACING,
-    borderRadius: 12, // rounded corners
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    marginRight: 0,
-    marginTop: 5
-  },
-  image: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE*1.5,
-    backgroundColor: '#f0f0f0',
-  },
+row: {
+  flexDirection: 'row',
+  marginBottom: SPACING,
+  width: screenWidth,   // 👈 ensure row takes full screen width
+},
+grid: {
+  flexDirection: 'column',
+  paddingBottom: 120,
+  width: screenWidth,   // 👈 ensure grid takes full screen width
+},
+imageContainer: {
+  width: IMAGE_SIZE,
+  height: IMAGE_SIZE,
+  overflow: 'hidden',
+  position: 'relative',
+},
+image: {
+  width: IMAGE_SIZE,    // 👈 must match IMAGE_SIZE exactly
+  height: IMAGE_SIZE,   // 👈 must match IMAGE_SIZE exactly
+},
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(90, 45, 130, 0.08)', // subtle purple tint
@@ -611,6 +589,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingTop: '25%'
   },
   emptyTitle: {
     fontSize: 22,

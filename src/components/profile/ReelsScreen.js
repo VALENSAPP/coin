@@ -344,6 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingTop: '25%'
   },
   emptyTitle: {
     fontSize: 22,

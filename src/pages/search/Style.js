@@ -150,7 +150,6 @@ export default StyleSheet.create({
   masonryContainer: {
     position: 'relative',
     width: SCREEN_WIDTH,
-    paddingBottom: 10,
   },
 
   masonryItem: {

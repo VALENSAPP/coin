@@ -11,7 +11,7 @@ import {
 import { useAppTheme } from "../../theme/useApptheme";
 import { useLanguage } from "../../i18n";
 
-const SubscriptionActivationPopup = ({ visible, onClose, onConfirm }) => {
+const SubscriptionActivationPopup = ({ visible, onClose, onConfirm, returnToSettingsSub }) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
   const { bgStyle, textStyle, card, text } = useAppTheme();
@@ -97,10 +97,12 @@ const SubscriptionActivationPopup = ({ visible, onClose, onConfirm }) => {
               style={[styles.cancelBtn, { borderColor: text }, isLoading && styles.cancelBtnDisabled]}
               onPress={() => {
                 onClose();
-                navigation.navigate('MainApp', {
-                  screen: 'wallet',
-                  params: { screen: 'Dashboard' },
-                });
+                {!returnToSettingsSub &&
+                  navigation.navigate('MainApp', {
+                    screen: 'wallet',
+                    params: { screen: 'Dashboard' },
+                  });
+                }
               }}
               disabled={isLoading}
             >

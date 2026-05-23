@@ -40,6 +40,7 @@ const ProfileScreen = () => {
   const relockMinYRef = useRef(0);
   const touchStartYRef = useRef(0);
   const touchLastYRef = useRef(0);
+  const compactLockedAnim = useRef(new Animated.Value(0)).current;
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -169,11 +170,15 @@ const ProfileScreen = () => {
     }, [fetchAllData])
   );
 
-  const expandProfileHeader = useCallback(() => {
-    if (!compactLockedRef.current) return;
-    compactLockedRef.current = false;
-    setCompactLocked(false);
-  }, []);
+const expandProfileHeader = useCallback(() => {
+  if (!compactLockedRef.current) return;
+  compactLockedRef.current = false;
+  Animated.timing(compactLockedAnim, {
+    toValue: 0,
+    duration: 200,
+    useNativeDriver: true,
+  }).start();
+}, [compactLockedAnim]);
 
   // Pull-to-refresh
   const onRefresh = async () => {
@@ -206,17 +211,19 @@ const handleProfileScroll = useCallback((event) => {
   const dy = y - lastScrollYRef.current;
   lastScrollYRef.current = y;
 
-  // Collapse on any upward scroll past 30px
   if (dy > 0 && y > 30 && !compactLockedRef.current) {
     compactLockedRef.current = true;
-    setCompactLocked(true);
+    Animated.timing(compactLockedAnim, {    // 👈 animate instead of setState
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
   }
 
-  // Expand ONLY on explicit downward swipe (dy < 0 means finger moving down)
   if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
     expandProfileHeader();
   }
-}, [expandProfileHeader, profileScrollY]);
+}, [expandProfileHeader, profileScrollY, compactLockedAnim]);
 
 const handleProfileTouchStart = useCallback((event) => {
   const pageY = event?.nativeEvent?.pageY ?? 0;
@@ -236,6 +243,17 @@ const handleProfileTouchMove = useCallback((event) => {
     expandProfileHeader();
   }
 }, [expandProfileHeader]);
+
+const profileTabsProps = useMemo(() => ({
+  post: posts,
+  displayName: userData?.userName,
+  userData: userData,
+  dashboard: userDashboard,
+  loggedInUserId: userId,
+  refreshKey: refreshKey,
+  onPostPinChanged: handlePostPinChanged,
+  scrollEnabled: false,
+}), [posts, userData, userDashboard, userId, refreshKey, handlePostPinChanged]);
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -273,16 +291,7 @@ const handleProfileTouchMove = useCallback((event) => {
         <View>
           <HighlightStories userData={userData} />
         </View>
-        <ProfileTabs
-          post={posts}
-          displayName={userData?.userName}
-          userData={userData}
-          dashboard={userDashboard}
-          loggedInUserId={userId}
-          refreshKey={refreshKey}
-          onPostPinChanged={handlePostPinChanged}
-          scrollEnabled={false}  
-        />
+        <ProfileTabs {...profileTabsProps} />
       </Animated.ScrollView>
       {/* <WelcomeValensModal
         visible={welcomeModalVisible}
@@ -307,5 +316,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingBottom: 120
   },
 });
