@@ -9,7 +9,12 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import {
+  StackActions,
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../home/posts/PostItem';
 import CommentSheet from '../home/posts/CommentSheet';
@@ -26,6 +31,8 @@ import {
   HidePost as apiHidePost,
   unHidePost as apiUnhidePost,
   getPostById,
+  pinPost,
+  unpinPost,
 } from '../../services/post';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
@@ -37,6 +44,7 @@ import { getTotalDonationAmount } from '../../services/tokens';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
+import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 
 export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -88,6 +96,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const commentSheetRef = useRef();
   const flatListRef = useRef();
   const playingDebounceRef = useRef(null);
+  const pinningPostIdRef = useRef('');
   const pendingInitialScrollRef = useRef(false);
   const [listViewportHeight, setListViewportHeight] = useState(0);
   const { bgStyle } = useAppTheme();
@@ -198,6 +207,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const handleBackPress = useCallback(() => {
     const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
+    const fromScreen = route.params?.fromScreen;
 
     if (backTarget) {
       if (returnParams?.screen) {
@@ -205,16 +215,18 @@ export default function PostView({ postData = [], userData = {} }) {
       } else {
         navigation.navigate(backTarget, returnParams);
       }
+      return;
     }
+
+    if (fromScreen === 'Notifications') {
+      navigation.dispatch(StackActions.pop(1));
+      navigation.getParent()?.navigate('HomeMain', {
+        screen: 'HeartNotification',
+      });
+      return;
+    }
+
     if (routeUserData) {
-      const targetUserId = String(routeUserData?.id ?? routeUserData?.userId ?? '');
-      const currentUserIdStr = currentUserId != null ? String(currentUserId) : '';
-
-      if (targetUserId && currentUserIdStr && targetUserId === currentUserIdStr) {
-        navigation.navigate('ProfileMain', { screen: 'Profile' });
-        return;
-      }
-
       console.log('Going back to PostScreen with userData:', routeUserData);
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
@@ -225,7 +237,7 @@ export default function PostView({ postData = [], userData = {} }) {
     } else {
       navigation.goBack();
     }
-  }, [currentUserId, navigation, routeUserData]);
+  }, [navigation, route.params, routeUserData]);
 
   const getMediaType = url => {
     if (!url || typeof url !== 'string') return 'image';
@@ -659,6 +671,33 @@ export default function PostView({ postData = [], userData = {} }) {
     return String(post.userId) === String(currentUserId);
   }, [list, modalPostId, currentUserId]);
 
+  const modalPost = useMemo(() => {
+    if (!modalPostId) return null;
+    return list.find(post => String(post.id) === String(modalPostId)) || null;
+  }, [list, modalPostId]);
+
+  const handleTogglePinPost = useCallback(async post => {
+    const postId = String(post?.id || post?._id || '');
+    if (!canDelete || !postId || pinningPostIdRef.current) return;
+
+    const nextPinned = !isPostPinned(post);
+    pinningPostIdRef.current = postId;
+
+    try {
+      const payload = { postId };
+      if (nextPinned) await pinPost(payload);
+      else await unpinPost(payload);
+      setList(prevPosts => setPostPinnedState(prevPosts, postId, nextPinned));
+    } catch (error) {
+      Alert.alert(
+        nextPinned ? t('postScreen.unableToPinTitle') : t('postScreen.unableToUnpinTitle'),
+        error?.response?.data?.message || error?.message || t('postScreen.tryAgain'),
+      );
+    } finally {
+      pinningPostIdRef.current = '';
+    }
+  }, [canDelete, t]);
+
   const onSheetAction = useCallback(
     async action => {
       if (!modalPostId) return;
@@ -702,6 +741,29 @@ export default function PostView({ postData = [], userData = {} }) {
           post: postToEdit,
           onSave: handlePostEdited,
         });
+        return;
+      }
+
+      if (action === 'togglePinPost') {
+        if (!canDelete || !modalPost) {
+          closeOptions();
+          return;
+        }
+
+        const postToToggle = modalPost;
+        const pinned = isPostPinned(postToToggle);
+        closeOptions();
+        Alert.alert(
+          pinned ? t('postScreen.unpinPost') : t('postScreen.pinPost'),
+          pinned ? t('postScreen.unpinConfirm') : t('postScreen.pinConfirm'),
+          [
+            { text: t('postScreen.cancel'), style: 'cancel' },
+            {
+              text: pinned ? t('postScreen.unpin') : t('postScreen.pin'),
+              onPress: () => handleTogglePinPost(postToToggle),
+            },
+          ],
+        );
         return;
       }
 
@@ -793,8 +855,10 @@ export default function PostView({ postData = [], userData = {} }) {
       handleToggleSave,
       closeOptions,
       list,
+      modalPost,
       navigation,
       handlePostEdited,
+      handleTogglePinPost,
       toast,
       currentUserId,
       dispatch,
@@ -880,7 +944,7 @@ export default function PostView({ postData = [], userData = {} }) {
         <View
           style={[
             styles.feedItemPage,
-            listViewportHeight > 0 && { minHeight: listViewportHeight },
+            // listViewportHeight > 0 && { minHeight: listViewportHeight },
           ]}
         >
           <PostItem
@@ -1050,6 +1114,7 @@ export default function PostView({ postData = [], userData = {} }) {
         fromHome={true}
         postId={modalPostId ?? ''}
         isSaved={!!(modalPostId && saved[modalPostId])}
+        isPinned={!!(modalPost && isPostPinned(modalPost))}
         canDelete={!!canDelete}
         canEdit={!!canDelete}
         isHidden={!!(modalPostId && hiddenById[modalPostId])}
