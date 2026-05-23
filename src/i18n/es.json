@@ -961,6 +961,7 @@
     "addComment": "Agregar comentario",
     "submitPrediction": "Enviar predicción",
     "voteInBattle": "Votar en la batalla",
+    "acceptBattle": "Aceptar batalla",
     "voteAlertMissingBattle": "No se puede votar",
     "voteAlertMissingBattleMsg": "Falta la información de la batalla.",
     "voteAlertSelectOption": "Selecciona una opción",
@@ -1536,6 +1537,7 @@
       "creditsLeft": "Créditos restantes",
       "missionPost": "Publicación de misión",
       "referralPoints": "Puntos de referencia",
+      "wallet": "Billetera",
       "metamaskWallet": "Billetera Metamask",
       "tapToBuyCredits": "Toca para comprar créditos",
       "missionActive": "Activo: {{count}}"
@@ -1557,6 +1559,10 @@
       "totalPlatformPoints": "Puntos totales de la plataforma",
       "battlePoints": "Puntos de batalla",
       "referPoints": "Puntos de referencia",
+      "referPointsInfoTitle": "Puntos de referido",
+      "referPointsInfoBody1": "Comparte tu enlace de referido con tus amigos.",
+      "referPointsInfoBody2": "Si descargan la app y se registran usando tu código de referido, ganas {{points}} puntos.",
+      "referPointsInfoCta": "Entendido",
       "usedPoints": "Puntos usados"
     },
     "activityOverview": {
@@ -1940,6 +1946,7 @@
     "cancel": "Cancelar",
     "deleteComment": "Eliminar comentario",
     "editComment": "Editar comentario",
+    "copyComment": "Copiar",
     "deleting": "Eliminando...",
     "justNow": "Justo ahora",
     "editedJustNow": "Editado justo ahora",
@@ -1947,6 +1954,7 @@
     "successCommentPosted": "Comentario publicado correctamente",
     "successCommentUpdated": "Comentario actualizado",
     "successCommentDeleted": "Comentario eliminado",
+    "successCommentCopied": "Comentario copiado",
     "successReplyPosted": "Respuesta publicada correctamente",
     "errorEmptyComment": "Por favor ingresa un comentario",
     "errorLoadFailed": "No se pudieron cargar los comentarios",

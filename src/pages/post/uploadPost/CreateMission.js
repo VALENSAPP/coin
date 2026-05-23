@@ -139,8 +139,14 @@ const CreateMission = () => {
 
   const userProfile = useSelector(state => state.user?.profile || state.auth?.user);
 
-  const { images, caption, link } = route.params || {};
-
+  const {
+    images,
+    caption,
+    link,
+    taggedPeople = [],
+    taggedPeopleIds = [],
+    taggedPeopleMeta = [],
+  } = route.params || {};
   // Validation Schema — built inside component so `t` is available
   const validationSchema = Yup.object().shape({
     raiseAmount: Yup.string()
@@ -291,6 +297,18 @@ const CreateMission = () => {
 
     const payload = {
       caption: caption.trim(),
+      taggedPeople: taggedPeopleIds,
+      // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
+      //   ? {
+      //       taggedPeople: taggedPeopleIds,
+      //       taggedPeopleIds,
+      //     }
+      //   : {
+      //       taggedPeople: Array.isArray(taggedPeople) ? taggedPeople.join(', ') : taggedPeople,
+      //     }),
+      // ...(Array.isArray(taggedPeopleMeta) && taggedPeopleMeta.length
+      //   ? { taggedPeopleMeta }
+      //   : {}),
       media: images.map(img => ({
         uri: img.processedUri || img.uri,
         type: img.type,

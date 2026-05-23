@@ -282,7 +282,10 @@ const normalizeBattle = (raw, currentUserId = '') => {
     raw?.invites?.[0]?.invited?._id,
     '',
   ));
-  const status = String(pickFirst(raw?.status, raw?.battleStatus, 'OPEN')).toUpperCase();
+  const rawResolvedAt = pickFirst(raw?.resolvedAt, raw?.resultResolvedAt, '');
+  const rawClosedAt = pickFirst(raw?.closedAt, raw?.battleClosedAt, '');
+  const statusSource = pickFirst(raw?.battleStatus, raw?.status, 'OPEN');
+  const status = String(statusSource || 'OPEN').trim().toUpperCase();
   const battleType = String(pickFirst(raw?.battleType, raw?.type, 'OPINION')).toUpperCase();
   const format = String(pickFirst(raw?.format, 'POLL')).toUpperCase();
   const participantEntries = Array.isArray(raw?.participants) ? raw.participants : [];
@@ -341,6 +344,8 @@ const normalizeBattle = (raw, currentUserId = '') => {
     question: pickFirst(raw?.question, raw?.title, 'Untitled battle'),
     description: pickFirst(raw?.description, raw?.caption, ''),
     format, battleType, status,
+    resolvedAt: rawResolvedAt,
+    closedAt: rawClosedAt,
     participants: participantEntries,
     predictions: predictionEntries,
     votes: voteEntries,
@@ -487,6 +492,18 @@ export default function BattleInProgress() {
     () => getStatusTone(battle.status, t),
     [battle.status, t],
   );
+
+  const canViewResults = useMemo(() => {
+    const normalized = String(battle?.status || '').trim().toLowerCase();
+    if (!normalized) return false;
+    if (normalized.includes('open') || normalized.includes('live') || normalized.includes('progress')) return false;
+    return (
+      normalized.includes('resolved') ||
+      normalized.includes('result') ||
+      normalized.includes('finish') ||
+      normalized.includes('closed')
+    );
+  }, [battle?.status]);
   const isPrediction = battle.format === 'POLL';
   const isHeadToHead = battle.format === 'HEAD_TO_HEAD';
   const resolvedBattleId = String(pickFirst(
@@ -614,10 +631,85 @@ export default function BattleInProgress() {
     };
   }, [battle?.predictions, battle?.votes, currentUserId, isPrediction]);
 
-  const hasUserVoted = useMemo(
+  const hasUserSelectionLocked = useMemo(
     () => Boolean(userVotedSelection.side || userVotedSelection.optionId),
     [userVotedSelection.optionId, userVotedSelection.side],
   );
+
+  const hasUserVoted = useMemo(() => {
+    if (!currentUserId) return false;
+
+    // Poll / prediction flow (uses predictions list)
+    if (isPrediction) {
+      return hasUserSelectionLocked;
+    }
+
+    // Head-to-head flow: invited user "accept" should unlock commenting even if
+    // the API doesn't expose a vote entry immediately.
+    if (isHeadToHead) {
+      const normalizedUserId = String(currentUserId || '');
+      const sides = battle?.headToHeadSides || {};
+      const fromCreator = normalizedUserId && String(sides?.creator?.userId || '') === normalizedUserId
+        ? String(sides?.creator?.openingArgument || '')
+        : '';
+      const fromInvited = normalizedUserId && String(sides?.invitedUser?.userId || '') === normalizedUserId
+        ? String(sides?.invitedUser?.openingArgument || '')
+        : '';
+      const participantEntry = (Array.isArray(battle?.participants) ? battle.participants : [])
+        .find(entry =>
+          String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '')) === normalizedUserId,
+        );
+      const fromParticipant = String(participantEntry?.openingArgument || '');
+      const openingCandidate = pickFirst(fromCreator, fromInvited, fromParticipant);
+      const hasOpeningArgument = Boolean(String(openingCandidate || '').trim());
+      const hasVoteEntry = (Array.isArray(battle?.votes) ? battle.votes : []).some(entry => {
+        const entryUserId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, ''));
+        return entryUserId === normalizedUserId;
+      });
+
+      if (isHeadToHeadOpponent) {
+        return Boolean(participantEntry) || hasOpeningArgument || hasVoteEntry;
+      }
+
+      return hasOpeningArgument || hasVoteEntry;
+    }
+
+    // Default (non-head-to-head voting uses votes list)
+    return hasUserSelectionLocked;
+  }, [
+    battle?.headToHeadSides,
+    battle?.participants,
+    battle?.votes,
+    currentUserId,
+    isHeadToHead,
+    isHeadToHeadOpponent,
+    isPrediction,
+    hasUserSelectionLocked,
+    userVotedSelection.optionId,
+    userVotedSelection.side,
+  ]);
+
+  const shouldShowAcceptBattleCta = useMemo(() => {
+    if (!isHeadToHead) return false;
+    if (!isHeadToHeadOpponent) return false;
+    if (hasUserVoted) return false;
+    if (canViewResults) return false;
+
+    const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+    const hasCurrentUserInParticipants = participants.some(entry =>
+      String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '')) === String(currentUserId || ''),
+    );
+
+    // "Accept battle" is only meaningful before the invited user has joined/acted.
+    return participants.length < 2 || !hasCurrentUserInParticipants;
+  }, [
+    battle?.participants,
+    canViewResults,
+    currentUserId,
+    hasUserVoted,
+    isHeadToHead,
+    isHeadToHeadOpponent,
+  ]);
 
   const closeOptionImagePreview = useCallback(() => {
     setOptionImagePreviewVisible(false);
@@ -943,6 +1035,32 @@ export default function BattleInProgress() {
     } catch (error) {
       Alert.alert(
         isPrediction ? t('battleInProgress.predictionNotSubmitted') : t('battleInProgress.voteNotSubmitted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingVote(false);
+    }
+  };
+
+  const handleAcceptBattle = async () => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId) {
+      Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
+      return;
+    }
+
+    setSubmittingVote(true);
+    try {
+      const response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: argumentText.trim() });
+      if (!isSuccessfulResponse(response)) {
+        Alert.alert(t('battleInProgress.voteNotSubmitted'), response?.message || t('battleInProgress.tryAgain'));
+        return;
+      }
+      setArgumentText('');
+      await fetchBattle(true);
+    } catch (error) {
+      Alert.alert(
+        t('battleInProgress.voteNotSubmitted'),
         error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
       );
     } finally {
@@ -1525,26 +1643,38 @@ export default function BattleInProgress() {
           <View style={styles.progressCard}>
             {(() => {
               const options = Array.isArray(battle.options) ? battle.options : [];
-              const leftOption = options[0] || {};
-              const rightOption = options[1] || {};
+
+              const getOptionVoteCount = (option = {}) => {
+                const label = String(pickFirst(option?.label, option?.side, '')).trim();
+                const side = String(pickFirst(option?.side, option?.label, '')).trim();
+                return Number(pickFirst(
+                  getCountFromSideMap(battle?.voteCounts, side),
+                  getCountFromSideMap(battle?.predictionCounts, side),
+                  getCountFromSideMap(battle?.voteCounts, label),
+                  getCountFromSideMap(battle?.predictionCounts, label),
+                  option?.votes,
+                  option?.voteCount,
+                  option?._count?.votes,
+                  0,
+                ));
+              };
+
+              // Head-to-head has exactly 2 sides; keep existing behavior.
+              // Polls can have many options; show only the top 2 by votes/predictions.
+              const displayOptions = isPrediction
+                ? [...options]
+                  .map((opt, index) => ({ opt, index, count: getOptionVoteCount(opt) }))
+                  .sort((a, b) => (b.count - a.count) || (a.index - b.index))
+                  .slice(0, 2)
+                  .map(x => x.opt)
+                : options.slice(0, 2);
+
+              const leftOption = displayOptions[0] || {};
+              const rightOption = displayOptions[1] || {};
               const leftLabel = String(pickFirst(leftOption?.label, leftOption?.side, 'Option 1'));
               const rightLabel = String(pickFirst(rightOption?.label, rightOption?.side, 'Option 2'));
-              const leftSide = String(pickFirst(leftOption?.side, leftOption?.label, ''));
-              const rightSide = String(pickFirst(rightOption?.side, rightOption?.label, ''));
-              const leftVotes = Number(pickFirst(
-                getCountFromSideMap(battle?.voteCounts, leftSide),
-                getCountFromSideMap(battle?.predictionCounts, leftSide),
-                getCountFromSideMap(battle?.voteCounts, leftLabel),
-                getCountFromSideMap(battle?.predictionCounts, leftLabel),
-                leftOption?.votes, 0,
-              ));
-              const rightVotes = Number(pickFirst(
-                getCountFromSideMap(battle?.voteCounts, rightSide),
-                getCountFromSideMap(battle?.predictionCounts, rightSide),
-                getCountFromSideMap(battle?.voteCounts, rightLabel),
-                getCountFromSideMap(battle?.predictionCounts, rightLabel),
-                rightOption?.votes, 0,
-              ));
+              const leftVotes = getOptionVoteCount(leftOption);
+              const rightVotes = getOptionVoteCount(rightOption);
               const total = leftVotes + rightVotes;
               const leftPct = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
               const rightPct = total > 0 ? 100 - leftPct : 0;
@@ -1737,10 +1867,10 @@ export default function BattleInProgress() {
                   !!headToHeadAssignedSide &&
                   normalizedOptionSide &&
                   normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
-                const isSelected = hasUserVoted
+                const isSelected = hasUserSelectionLocked
                   ? isSelectedByVote
                   : isSelectedByAssignedSide || isSelectedByTap || isSelectedByInitialValue;
-                const useVotedGrayStyle = hasUserVoted && !keepActiveSelectedStyle;
+                const useVotedGrayStyle = hasUserSelectionLocked && !keepActiveSelectedStyle;
                 const isHeadToHeadParticipant = isHeadToHead && (isHeadToHeadCreator || isHeadToHeadOpponent);
                 // Only lock the opposite option for the invited user (opponent) when we know their assigned side.
                 // The creator should be able to choose either side until they vote.
@@ -1751,7 +1881,7 @@ export default function BattleInProgress() {
                   normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
                 // Only lock options when we actually know the assigned side.
                 // Otherwise allow selecting either option (same behavior as poll).
-                const shouldDisable = hasUserVoted || (canLockToAssignedSide && !isMyHeadToHeadSide);
+                const shouldDisable = hasUserSelectionLocked || (canLockToAssignedSide && !isMyHeadToHeadSide);
                 return (
                   <TouchableOpacity
                     key={`${battle.id}-${option.id}-${index}`}
@@ -1807,7 +1937,7 @@ export default function BattleInProgress() {
                       {
                         borderColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#D1D5DB',
                         backgroundColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#FFFFFF',
-                        opacity: hasUserVoted && !isSelected ? 0.3 : 1,
+                        opacity: hasUserSelectionLocked && !isSelected ? 0.3 : 1,
                       },
                     ]} />
                   </TouchableOpacity>
@@ -1837,14 +1967,22 @@ export default function BattleInProgress() {
 
             <TouchableOpacity
               activeOpacity={0.9}
-              onPress={hasUserVoted ? handlePostComment : handleVote}
+              onPress={
+                shouldShowAcceptBattleCta
+                  ? handleAcceptBattle
+                  : (hasUserVoted ? handlePostComment : handleVote)
+              }
               disabled={
                 submittingVote ||
-                (!hasUserVoted && !argumentText?.trim()) ||
+                (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
                 (hasUserVoted && !commentText?.trim())
               }
               style={{
-                opacity: (submittingVote || (!hasUserVoted && !argumentText?.trim()) || (hasUserVoted && !commentText?.trim())) ? 0.5 : 1,
+                opacity: (
+                  submittingVote ||
+                  (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
+                  (hasUserVoted && !commentText?.trim())
+                ) ? 0.5 : 1,
               }}
             >
               <LinearGradient
@@ -1860,7 +1998,9 @@ export default function BattleInProgress() {
                       ? t('battleInProgress.addComment')
                       : isPrediction
                         ? t('battleInProgress.submitPrediction')
-                        : t('battleInProgress.voteInBattle')}
+                        : shouldShowAcceptBattleCta
+                          ? t('battleInProgress.acceptBattle')
+                          : t('battleInProgress.voteInBattle')}
                   </Text>
                 }
               </LinearGradient>
@@ -1880,24 +2020,26 @@ export default function BattleInProgress() {
           </View>
 
           {/* Bottom actions */}
-          <View style={styles.bottomActions}>
-            <TouchableOpacity
-              style={[styles.secondaryButton, cardStyle, { borderColor: palette.primary }]}
-              onPress={() => navigation.navigate('BattleResults', {
-                battleId: battle.id || battleId,
-                battle,
-                predictionCounts: battle?.predictionCounts || {},
-                winnerUserId: battle?.winnerUserId || '',
-                winningSide: battle?.winningSide || '',
-                entryPoint: route?.params?.entryPoint || 'battle_progress',
-                profile,
-              })}
-            >
-              <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
-                {t('battleInProgress.viewResults')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {canViewResults ? (
+            <View style={styles.bottomActions}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, cardStyle, { borderColor: palette.primary }]}
+                onPress={() => navigation.navigate('BattleResults', {
+                  battleId: battle.id || battleId,
+                  battle,
+                  predictionCounts: battle?.predictionCounts || {},
+                  winnerUserId: battle?.winnerUserId || '',
+                  winningSide: battle?.winningSide || '',
+                  entryPoint: route?.params?.entryPoint || 'battle_progress',
+                  profile,
+                })}
+              >
+                <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                  {t('battleInProgress.viewResults')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </KeyboardAwareScrollView>
       </TouchableWithoutFeedback>
 
