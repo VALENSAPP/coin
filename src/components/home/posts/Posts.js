@@ -896,41 +896,60 @@ const Posts = forwardRef(function Posts(
 
   // Require most of the row to be on-screen; ignore tiny / jitter scrolls.
   const MIN_VISIBLE_PERCENT_TO_FOCUS = 50;
+  const viewabilityDebounceRef = useRef(null);
 
   const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
-    if (!viewableItems || viewableItems.length === 0) {
-      setCurrentlyVisiblePostId(null);
-      setPlayingPostId(null);
-      return;
+    if (viewabilityDebounceRef.current) {
+      clearTimeout(viewabilityDebounceRef.current);
     }
 
-    const candidates = [];
-    for (const v of viewableItems) {
-      if (v.item?.__type === 'suggestions') continue;
-      if (!v.isViewable || v.item?.id == null) continue;
-      const pct =
-        typeof v.percentVisible === 'number'
-          ? v.percentVisible
-          : typeof v.viewablePercent === 'number'
-            ? v.viewablePercent
-            : 100;
-      if (pct < MIN_VISIBLE_PERCENT_TO_FOCUS) continue;
-      candidates.push({
-        id: v.item.id,
-        pct,
-      });
-    }
+    viewabilityDebounceRef.current = setTimeout(() => {
+      if (!viewableItems || viewableItems.length === 0) {
+        setCurrentlyVisiblePostId(null);
+        setPlayingPostId(null);
+        return;
+      }
 
-    if (candidates.length === 0) {
-      setCurrentlyVisiblePostId(null);
-      setPlayingPostId(null);
-      return;
-    }
+      const candidates = [];
+      for (const v of viewableItems) {
+        if (v.item?.__type === 'suggestions') continue;
+        if (!v.isViewable || v.item?.id == null) continue;
+        const pct =
+          typeof v.percentVisible === 'number'
+            ? v.percentVisible
+            : typeof v.viewablePercent === 'number'
+              ? v.viewablePercent
+              : 100;
+        if (pct < MIN_VISIBLE_PERCENT_TO_FOCUS) continue;
+        candidates.push({
+          id: v.item.id,
+          pct,
+        });
+      }
 
-    const mostVisiblePost = candidates.reduce((a, b) => (a.pct >= b.pct ? a : b)).id;
+      if (candidates.length === 0) {
+        setCurrentlyVisiblePostId(null);
+        setPlayingPostId(null);
+        return;
+      }
 
-    setCurrentlyVisiblePostId(mostVisiblePost);
-    setPlayingPostId(mostVisiblePost);
+      const mostVisiblePost = candidates.reduce((a, b) => (a.pct >= b.pct ? a : b)).id;
+
+      setCurrentlyVisiblePostId(prev =>
+        String(prev) === String(mostVisiblePost) ? prev : mostVisiblePost,
+      );
+      setPlayingPostId(prev =>
+        String(prev) === String(mostVisiblePost) ? prev : mostVisiblePost,
+      );
+    }, 120);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (viewabilityDebounceRef.current) {
+        clearTimeout(viewabilityDebounceRef.current);
+      }
+    };
   }, []);
 
   const feedItems = useMemo(() => {
@@ -990,7 +1009,6 @@ const Posts = forwardRef(function Posts(
           isVisible={isPostVisible}
           screenFocused={screenFocused}
           playingPostId={playingPostId}
-          currentlyVisiblePostId={currentlyVisiblePostId}
           shareCount={item.shareCount}
           taggedPeople={item.taggedPeople}
         />
@@ -1084,10 +1102,10 @@ const Posts = forwardRef(function Posts(
                 : undefined
             }
             removeClippedSubviews={false}
-            maxToRenderPerBatch={3}
-            windowSize={7}
-            initialNumToRender={2}
-            updateCellsBatchingPeriod={50}
+            maxToRenderPerBatch={4}
+            windowSize={9}
+            initialNumToRender={3}
+            updateCellsBatchingPeriod={100}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
             scrollEventThrottle={16}
           />
