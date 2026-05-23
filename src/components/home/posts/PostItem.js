@@ -51,9 +51,13 @@ import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEl
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { parsePostMeta, getPostMusicForSlide } from '../../../utils/postSoundtracks';
+import {
+  DEFAULT_FEED_MEDIA_HEIGHT,
+} from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
 
 const { width } = Dimensions.get('window');
+const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
 
 function getFeedMusicPlaybackWindow(trim, durationSec) {
   const prev = Math.max(0.1, Number(durationSec) || 30);
@@ -72,40 +76,23 @@ function getFeedMusicPlaybackWindow(trim, durationSec) {
 }
 
 /* ─── InstagramZoomableImage ─────────────────────────────────────────────── */
-// FIX: Added onHeightChange to destructured props
-function InstagramZoomableImage({ uri, onZoomChange, onHeightChange }) {
+function InstagramZoomableImage({ uri, height, onZoomChange }) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
-  const [imageHeight, setImageHeight] = useState(500);
-  const screenWidth = Dimensions.get('window').width;
 
-  useEffect(() => {
-    if (!uri) return;
-    Image.getSize(uri, (w, h) => {
-      const ratio = screenWidth / w;
-      const newHeight = h * ratio;
-      const maxHeight = screenWidth * 2.2;
-      const minHeight = screenWidth * 0.56;
-      const finalHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
-      setImageHeight(finalHeight);
-      // FIX: was calling onHeightChange but it wasn't in the props — now it is
-      onHeightChange?.(finalHeight);
-    });
-  }, [uri]);
-
-  const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
   const imageSource = useMemo(
     () => ({ uri, priority: FastImage.priority.high, cache: FastImage.cacheControl.immutable }),
     [uri],
   );
 
-  const width = Dimensions.get('window').width;
-  const halfWidth = width / 2;
-  const halfHeight = imageHeight / 2;
+  const screenWidth = Dimensions.get('window').width;
+  const displayHeight = height || DEFAULT_FEED_MEDIA_HEIGHT;
+  const halfWidth = screenWidth / 2;
+  const halfHeight = displayHeight / 2;
 
   const onPinchEvent = Animated.event(
     [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
@@ -146,12 +133,14 @@ function InstagramZoomableImage({ uri, onZoomChange, onHeightChange }) {
   }, [uri, imageSource]);
 
   return (
-    <GestureHandlerRootView style={styles.mediaContainer}>
+    <GestureHandlerRootView style={[styles.mediaContainer, { height: displayHeight }]}>
       <PinchGestureHandler onGestureEvent={onPinchEvent} onHandlerStateChange={onPinchStateChange}>
-        <Animated.Image
+        <AnimatedFastImage
           source={imageSource}
+          resizeMode={FastImage.resizeMode.cover}
+          fadeDuration={0}
           style={[
-            { width: '100%', height: imageHeight, resizeMode: 'contain' },
+            { width: '100%', height: displayHeight },
             { opacity: isModalVisible && modalImageLoaded ? 0 : 1 },
           ]}
         />
@@ -176,8 +165,8 @@ function InstagramZoomableImage({ uri, onZoomChange, onHeightChange }) {
                 style={[
                   styles.fullScreenImage,
                   {
-                    width,
-                    height: imageHeight,
+                    width: screenWidth,
+                    height: displayHeight,
                     transform: [
                       { translateX: Animated.subtract(translateX, halfWidth) },
                       { translateY: Animated.subtract(translateY, halfHeight) },
@@ -441,7 +430,6 @@ function PostItem({
   isVisible = false,
   screenFocused = true,
   playingPostId,
-  currentlyVisiblePostId,
   returnTo,
   shareCount,
   taggedPeople,
@@ -467,12 +455,9 @@ function PostItem({
   const [showBuyersModal, setShowBuyersModal] = useState(false);
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [videoHeight, setVideoHeight] = useState(500);
   const [videoLoaded, setVideoLoaded] = useState({});
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
-  // FIX: slideHeights state declared here (was already present, kept in place)
-  const [slideHeights, setSlideHeights] = useState({});
 
   const { t } = useLanguage();
 
@@ -533,15 +518,6 @@ function PostItem({
 
   const width = Dimensions.get('window').width;
 
-  useEffect(() => {
-    const firstVideo = item?.media?.find(m => m.thumbnail);
-    if (!firstVideo?.thumbnail) return;
-    Image.getSize(firstVideo.thumbnail, (w, h) => {
-      const ratio = width / w;
-      setVideoHeight(h * ratio);
-    });
-  }, [item]);
-
   // FIX: safeMedia and mediaLength declared BEFORE any useMemo/useCallback that references them
   const safeMedia = item.media || [];
   const mediaLength = safeMedia.length;
@@ -555,13 +531,8 @@ function PostItem({
     );
   }, []);
 
-  // FIX: mediaHeight now safely references safeMedia and isVideoUrl (both declared above)
-  const mediaHeight = useMemo(() => {
-    const m = safeMedia[currentIndex];
-    if (!m) return videoHeight;
-    const isVid = m.type === 'video' || isVideoUrl(m.url);
-    return isVid ? videoHeight : undefined;
-  }, [safeMedia, currentIndex, videoHeight, isVideoUrl]);
+  const getSlideHeight = useCallback(() => DEFAULT_FEED_MEDIA_HEIGHT, []);
+  const currentMediaHeight = DEFAULT_FEED_MEDIA_HEIGHT;
 
   const parsedPostMeta = useMemo(() => parsePostMeta(item?.postMeta), [item?.postMeta]);
 
@@ -805,7 +776,7 @@ function PostItem({
 
     if (isPostActive && !wasPostActiveRef.current) setIsMuted(true);
     wasPostActiveRef.current = isPostActive;
-  }, [isVisible, screenFocused, playingPostId, currentlyVisiblePostId, item.id]);
+  }, [isVisible, screenFocused, playingPostId, item.id]);
 
   const isCurrentSlideVideo = useMemo(() => {
     const m = safeMedia[currentIndex];
@@ -1023,9 +994,7 @@ function PostItem({
       const isVideoReady = !!videoLoaded[index];
       const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
-      const slideH = isVideo
-        ? videoHeight
-        : (slideHeights[index] ?? videoHeight);
+      const slideH = getSlideHeight();
 
       return (
         <View style={[styles.mediaContainer, { height: slideH }]}>
@@ -1034,7 +1003,7 @@ function PostItem({
               {!isVideoReady && mediaItem.thumbnail && (
                 <Image
                   source={{ uri: mediaItem.thumbnail }}
-                  style={{ width, height: videoHeight, position: 'absolute' }}
+                  style={{ width, height: slideH, position: 'absolute' }}
                   resizeMode="cover"
                 />
               )}
@@ -1086,7 +1055,7 @@ function PostItem({
           ) : (
             <InstagramZoomableImage
               uri={mediaItem.url}
-              onHeightChange={h => setSlideHeights(prev => ({ ...prev, [index]: h }))}
+              height={slideH}
               onZoomChange={zoomed => {
                 setIsZooming(zoomed);
                 setScrollEnabled(!zoomed);
@@ -1097,7 +1066,7 @@ function PostItem({
       );
     },
     [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted,
-      playbackEligible, videoHeight, slideHeights],
+      playbackEligible, getSlideHeight, videoLoaded],
   );
 
   const shouldPlayPostFeedMusic =
@@ -1202,7 +1171,7 @@ function PostItem({
         </View>
 
         {/* Media */}
-        <View style={styles.mediaWrapper}>
+        <View style={[styles.mediaWrapper, { height: currentMediaHeight }]}>
           {postMusic?.kind === 'mp3' ? (
             <Video
               ref={postFeedMp3Ref}
@@ -1297,11 +1266,12 @@ function PostItem({
               directionalLockEnabled
               nestedScrollEnabled
               renderItem={renderMedia}
-              removeClippedSubviews={Platform.OS === 'android'}
+              removeClippedSubviews={false}
               maxToRenderPerBatch={2}
-              windowSize={2}
-              initialNumToRender={2}
+              windowSize={3}
+              initialNumToRender={1}
               extraData={currentIndex}
+              style={{ height: currentMediaHeight }}
               getItemLayout={(_, index) => ({
                 length: width,
                 offset: width * index,
@@ -1630,7 +1600,20 @@ function PostItem({
   );
 }
 
-export default React.memo(PostItem);
+export default React.memo(PostItem, (prev, next) => {
+  if (prev.item?.id !== next.item?.id) return false;
+  if (prev.liked !== next.liked) return false;
+  if (prev.saved !== next.saved) return false;
+  if (prev.likesCount !== next.likesCount) return false;
+  if (prev.commentsCount !== next.commentsCount) return false;
+  if (prev.followingBusy !== next.followingBusy) return false;
+  if (prev.isVisible !== next.isVisible) return false;
+  if (prev.screenFocused !== next.screenFocused) return false;
+  if (prev.playingPostId !== next.playingPostId) return false;
+  if (prev.item?.follow !== next.item?.follow) return false;
+  if (prev.shareCount !== next.shareCount) return false;
+  return true;
+});
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -1700,7 +1683,7 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#000',
     position: 'relative',
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   doubleTapHeartBurst: {
     position: 'absolute',
