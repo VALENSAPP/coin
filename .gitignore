@@ -86,11 +86,9 @@ web_modules/
 src/shims/env.js
 
 # dotenv environment variable files
-.env
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -313,3 +311,4 @@ ios/*.xcworkspace/xcuserdata/
 ios/*.xcodeproj/xcuserdata/
 ios/DerivedData/
 ios/Pods/
+config.bat

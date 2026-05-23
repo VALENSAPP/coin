@@ -599,6 +599,9 @@ const StoryViewer = ({
   onOpenUserProfile,
 }) => {
   const insets = useSafeAreaInsets();
+  const storyTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 0);
+  const storyProgressTop = storyTopInset + 6;
+  const storyHeaderTop = storyTopInset + 18;
   const dispatch = useDispatch();
   const { t } = useLanguage();
   const [paused, setPaused] = useState(false);
@@ -1120,10 +1123,9 @@ const StoryViewer = ({
       showVideoLoadModal();
       return;
     }
-    if (visibleRef.current && !pausedRef.current && !progressStartedRef.current) {
-      progressStartedRef.current = true;
-      startProgress(resolveStoryDurationMs(currentStory));
-    }
+    // Image failed — keep the progress bar still; user can tap to skip.
+    setPaused(true);
+    stopAndResetProgress(true);
   };
 
   const onVideoBuffer = ({ isBuffering: buffering }) => {
@@ -1199,56 +1201,52 @@ const StoryViewer = ({
       visible={visible}
       transparent
       animationType="fade"
+      statusBarTranslucent
       onRequestClose={() => { stopAndResetProgress(true); onClose(); }}
     >
       <View style={modalStyles.modalBg} {...panResponder.panHandlers}>
 
-        {/* ── IMAGE story ─────────────────────────────────────────────────── */}
-        {currentStory?.type === 'image' && currentStory?.uri ? (
-          <Image
-            key={`story_img_${storyKey}`}
-            source={{ uri: currentStory.uri }}
-            style={modalStyles.storyMediaFullscreen}
-            resizeMode="contain"
-            onLoadEnd={onImageLoaded}
-            onError={onMediaError}
-            pointerEvents="none"
-          />
+        {/* ── IMAGE story (black placeholder always present) ──────────────── */}
+        {currentStory?.type === 'image' ? (
+          <View style={modalStyles.storyMediaFullscreen} pointerEvents="none">
+            {currentStory?.uri ? (
+              <Image
+                key={`story_img_${storyKey}`}
+                source={{ uri: currentStory.uri }}
+                style={modalStyles.storyMediaFill}
+                resizeMode="contain"
+                onLoadEnd={onImageLoaded}
+                onError={onMediaError}
+              />
+            ) : null}
+          </View>
         ) : null}
 
-        {/* ── Progress bars ───────────────────────────────────────────────── */}
-        <View
-          style={[
-            modalStyles.progressContainer,
-            { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: Math.max(insets.top, 6) + 6, zIndex: 100 },
-          ]}
-        >
-          {currentUser.stories.map((_, idx) => (
-            <View key={idx} style={modalStyles.progressBarBg}>
-              <Animated.View
-                style={[
-                  modalStyles.progressBarFill,
-                  {
-                    width:
-                      idx === currentStoryIndex
-                        ? progressAnimation.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-                        : idx < currentStoryIndex ? '100%' : '0%',
-                  },
-                ]}
-              />
-            </View>
-          ))}
-        </View>
+        {/* ── Fixed UI overlay: progress + header ─────────────────────────── */}
+        <View style={modalStyles.storyUiOverlay} pointerEvents="box-none">
+          <View style={[modalStyles.progressContainer, { paddingTop: storyProgressTop }]}>
+            {currentUser.stories.map((_, idx) => (
+              <View key={idx} style={modalStyles.progressBarBg}>
+                <Animated.View
+                  style={[
+                    modalStyles.progressBarFill,
+                    {
+                      width:
+                        idx === currentStoryIndex
+                          ? progressAnimation.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
+                          : idx < currentStoryIndex ? '100%' : '0%',
+                    },
+                  ]}
+                />
+              </View>
+            ))}
+          </View>
 
-        {/* ── Top bar ─────────────────────────────────────────────────────── */}
-        <View
-          style={[
-            modalStyles.topBar,
-            { position: 'absolute', top: Math.max(insets.top, 6) + 18, left: 0, right: 0, zIndex: 100 },
-          ]}
-          onStartShouldSetResponder={() => true}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
+          <View
+            style={[modalStyles.topBar, { top: storyHeaderTop }]}
+            onStartShouldSetResponder={() => true}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
           <View style={modalStyles.userInfo}>
             <TouchableOpacity
               activeOpacity={isViewingOwnStory ? 1 : 0.7}
@@ -1294,6 +1292,7 @@ const StoryViewer = ({
               <Icon name="close" size={28} color="#fff" />
             </TouchableOpacity>
           </View>
+        </View>
         </View>
 
         {/* ── Story content ───────────────────────────────────────────────── */}

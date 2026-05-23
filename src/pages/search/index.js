@@ -50,6 +50,7 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
@@ -468,6 +469,13 @@ const SearchScreen = () => {
   const { bgStyle, text } = useAppTheme();
   const isScreenFocused = useIsFocused();
   const isSearchActive = searchText.trim().length > 0;
+  const tabBarHeight = useBottomTabBarHeight();
+  const masonryBottomInset = useMemo(
+    () => Platform.OS === 'ios'
+      ? Math.max(tabBarHeight + 20, 100)
+      : Math.max(tabBarHeight - 16, 24),
+    [tabBarHeight],
+  );
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('SEARCH_TAB_PRESS', () => {
@@ -1135,7 +1143,13 @@ const SearchScreen = () => {
                       keyExtractor={masonryKeyExtractor}
                       showsVerticalScrollIndicator={false}
                       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                      contentContainerStyle={[styles.masonryContainer, { height: masonryLayout.maxHeight }]}
+                      contentContainerStyle={[
+                        styles.masonryContainer,
+                        {
+                          minHeight: masonryLayout.maxHeight + masonryBottomInset,
+                          paddingBottom: masonryBottomInset,
+                        },
+                      ]}
                       removeClippedSubviews
                       initialNumToRender={12}
                       maxToRenderPerBatch={20}

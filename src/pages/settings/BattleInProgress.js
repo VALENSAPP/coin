@@ -1637,7 +1637,7 @@ export default function BattleInProgress() {
           contentContainerStyle={[
             styles.contentContainer,
             styles.keyboardAwareContentContainer,
-            isKeyboardVisible && styles.keyboardOpenContentContainer,
+            isKeyboardVisible && Platform.OS === 'android' && styles.keyboardOpenContentContainer,
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={null}
@@ -1646,7 +1646,7 @@ export default function BattleInProgress() {
           keyboardDismissMode="interactive"
           enableOnAndroid
           enableAutomaticScroll
-          extraScrollHeight={32}
+          extraScrollHeight={Platform.OS === 'ios' ? 8 : 32}
           keyboardOpeningTime={0}
         >
           {/* Header */}
@@ -1952,7 +1952,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   contentContainer: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 34 },
   keyboardAwareContentContainer: { flexGrow: 1 },
-  keyboardOpenContentContainer: { paddingBottom: 120 },
+  keyboardOpenContentContainer: Platform.select({
+    android: { paddingBottom: 130 },
+    default: {},
+  }),
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   headerIconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '800' },
