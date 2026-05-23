@@ -63,6 +63,13 @@ const DEFAULT_REWARD_POINTS = {
   used: 0,
 };
 
+const WALLET_ICON_BY_TYPE = {
+  metamask: require('../../assets/icons/pngicons/Emeta.png'),
+  coinbase: require('../../assets/icons/pngicons/coin.png'),
+  walletconnect: require('../../assets/icons/pngicons/EWallet.png'),
+  wallet: require('../../assets/icons/pngicons/EWallet.png'),
+};
+
 const DRAGONFLY_TIERS = (t) => [
   {
     id: 'white',
@@ -417,9 +424,9 @@ function ActivityTrendSvg({
 
       {n > 0 ? (
         <>
-          <Path d={areaPath(yS)} fill="url(#gradS)" stroke="none" />
-          <Path d={areaPath(yU)} fill="url(#gradU)" stroke="none" />
-          <Path d={areaPath(yF)} fill="url(#gradF)" stroke="none" />
+          <Path d={areaPath(yS)} fill="#f1eaea" stroke="none" />
+          <Path d={areaPath(yU)} fill="#f1eaea" stroke="none" />
+          <Path d={areaPath(yF)} fill="#f1eaea" stroke="none" />
 
           <Path d={linePath(yS)} stroke={colorSupport} strokeWidth={2} fill="none" />
           <Path d={linePath(yU)} stroke={colorUnfollowers} strokeWidth={2} fill="none" />
@@ -439,7 +446,7 @@ function ActivityTrendSvg({
             y={chartHeight - 4}
             fill="#888"
             fontSize={9}
-            textAnchor={anchor}
+            // textAnchor={anchor}
           >
             {format(ts, 'MMM d')}
           </SvgText>
@@ -498,11 +505,10 @@ export const WalletDashboardScreen = ({ navigation }) => {
     image: FALLBACK_AVATAR,
   });
   const [followersCount, setFollowersCount] = useState(0);
+  const [connectedWalletType, setConnectedWalletType] = useState(null);
 
   const activityChartW = width - 80;
   const activityChartH = 200;
-  /** Fixed-width cards in a horizontal strip (~1.5 visible) so nothing clips on narrow phones. */
-  const activityCardWidth = Math.round(Math.min(Math.max(width * 0.42, 132), 158));
   const activityPeriodDeltaLabel =
     activityPeriod === 'Weekly' ? 'vs last week' : 'vs prior day';
 
@@ -521,12 +527,15 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
   const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
   const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
+  const [referPointsInfoVisible, setReferPointsInfoVisible] = useState(false);
   const profileImage = useSelector(state => state.profileImage?.profileImg);
 
   const openDragonflyModal = () => setDragonflyModalVisible(true);
   const closeDragonflyModal = () => setDragonflyModalVisible(false);
   const openAvatarPreview = () => setAvatarPreviewVisible(true);
   const closeAvatarPreview = () => setAvatarPreviewVisible(false);
+  const openReferPointsInfo = () => setReferPointsInfoVisible(true);
+  const closeReferPointsInfo = () => setReferPointsInfoVisible(false);
 
   const formatPointValue = (value) => {
     const numericValue = Number(value) || 0;
@@ -729,6 +738,9 @@ export const WalletDashboardScreen = ({ navigation }) => {
         try {
           dispatch(showLoader());
 
+          const storedWalletType = await AsyncStorage.getItem('walletType');
+          setConnectedWalletType(storedWalletType);
+
           await Promise.allSettled([
             getUserDetail(),
             fetchCreditsLeft(),
@@ -787,6 +799,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
       await appKit?.disconnect?.();
       await AsyncStorage.multiRemove(['walletAddress', 'walletChainId', 'walletType']);
       setUserWalletData((prev) => ({ ...prev, walletAddress: '' }));
+      setConnectedWalletType(null);
       showToastMessage(toast, 'success', t('walletDashboard.metamask.walletDisconnected'));
     } catch (error) {
       showToastMessage(toast, 'danger', t('walletDashboard.metamask.walletDisconnectError'));
@@ -1114,26 +1127,42 @@ export const WalletDashboardScreen = ({ navigation }) => {
       : t('walletDashboard.metamask.tapToConnect');
 
     if (isMetaMaskCard) {
+      const normalizedWalletType = String(connectedWalletType || '').trim().toLowerCase();
+      const walletTypeForUi = isMetaMaskConnected
+        ? normalizedWalletType || 'walletconnect'
+        : 'wallet';
+
+      const walletTitle = isMetaMaskConnected
+        ? normalizedWalletType === 'metamask'
+          ? 'MetaMask'
+          : normalizedWalletType === 'coinbase'
+          ? 'Coinbase Wallet'
+          : 'WalletConnect'
+        : t('walletDashboard.kpi.wallet');
+
+      const walletIconSource =
+        WALLET_ICON_BY_TYPE[walletTypeForUi] || WALLET_ICON_BY_TYPE.wallet;
+
       return (
         <TouchableOpacity
-          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth, { minWidth: 350 }]}
+          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth]}
           activeOpacity={0.86}
           onPress={handleMetaMaskCardPress}
         >
           <LinearGradient
             colors={walletScreenGradient}
-            start={{ x: -8, y: -8 }}
+            start={{ x: -5, y: -5 }}
             end={{ x: 1, y: 1 }}
             style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
           >
             <View style={styles.kpiMetaMaskRow}>
               <View style={styles.kpiMetaMaskLeft}>
                 <View style={[styles.kpiMetaMaskIconWrap, { backgroundColor: '#D3D3D3' }]}>
-                  <Metamask width={28} height={28} />
+                  <Image source={walletIconSource} style={styles.kpiWalletIcon} resizeMode="contain" />
                 </View>
                 <View style={styles.kpiMetaMaskText}>
                   <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
-                    {isMetaMaskConnected ? item.title : 'Wallet'}
+                    {isMetaMaskConnected ? item.title : t('walletDashboard.Wallet')}
                   </Text>
                   <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
                     {item.value}
@@ -1170,13 +1199,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
     const cardContent = (
       <LinearGradient
         colors={walletScreenGradient}
-        start={{ x: -8, y: -8 }}
+        start={{ x: -1, y: -1 }}
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
           (isMetaMaskCard || isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardNoOuterSpacing,
           (isMetaMaskCard || isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardFillTouchable,
-          { shadowColor: text },
         ]}
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
@@ -1196,6 +1224,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
             >
               <DragonflyIcon width={25} height={25} />
             </TouchableOpacity>
+          )}
+          {item.id === 'referralPoints' && (
+            <TouchableOpacity
+              style={styles.kpiInfoButton}
+              onPress={openReferPointsInfo}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('walletDashboard.battlePoints.referPointsInfoTitle')}
+            >
+              <Ionicons name="information-circle-outline" size={18} color={text} />            </TouchableOpacity>
           )}
         </View>
         <Text style={[styles.kpiValue, { color: text }]} numberOfLines={2}>
@@ -1434,28 +1473,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
           {/* Chart — followers vs unfollowers vs subscription support */}
           <View style={[styles.chartContainer, { shadowColor: text }]}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="handled"
-              style={styles.activityMetricsScroller}
-              contentContainerStyle={styles.activityMetricsScrollContent}
-            >
-              <View style={[styles.activityMetricCard, { width: activityCardWidth, borderColor: `${text}22` }]}>
-                <View style={[styles.activityMetricIconWrap, { backgroundColor: `${text}18` }]}>
-                  <Ionicons name="people" size={18} color={text} />
+            <View style={styles.activityMetricsRow}>
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { borderColor: `${text}22` }]}>
+                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${text}18` }]}>
+                  <Ionicons name="people" size={14} color={text} />
                 </View>
-                <Text style={[styles.activityMetricValue, { color: text }]}>
+                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: text }]}>
                   {Math.round(followersCount).toLocaleString()}
                 </Text>
-                <Text style={styles.activityMetricLabel}>Followers</Text>
-                <Text style={[styles.activityFollowingHint, { color: text }]}>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact]}>Followers</Text>
+                <Text style={[styles.activityFollowingHint, styles.activityMetricSubCompact, { color: text }]} numberOfLines={1}>
                   Following {Math.round(followingCount).toLocaleString()}
                 </Text>
                 <View
                   style={[
                     styles.activityDeltaPill,
+                    styles.activityDeltaPillCompact,
                     {
                       backgroundColor:
                         followersTrendDelta >= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
@@ -1464,34 +1497,39 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 >
                   <Ionicons
                     name={followersTrendDelta >= 0 ? 'arrow-up' : 'arrow-down'}
-                    size={11}
+                    size={10}
                     color={followersTrendDelta >= 0 ? '#059669' : '#dc2626'}
                   />
                   <Text
                     style={[
                       styles.activityDeltaText,
+                      styles.activityDeltaTextCompact,
                       { color: followersTrendDelta >= 0 ? '#059669' : '#dc2626' },
                     ]}
+                    numberOfLines={1}
                   >
                     {`${followersTrendDelta >= 0 ? '+' : ''}${Math.round(followersTrendDelta)} ${activityPeriodDeltaLabel}`}
                   </Text>
                 </View>
               </View>
 
-              <View style={[styles.activityMetricCard, { width: activityCardWidth, borderColor: `${ACTIVITY_SUPPORT_LINE}33` }]}>
-                <View
-                  style={[styles.activityMetricIconWrap, { backgroundColor: `${ACTIVITY_SUPPORT_LINE}22` }]}
-                >
-                  <Ionicons name="wallet" size={18} color={ACTIVITY_SUPPORT_LINE} />
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { borderColor: `${ACTIVITY_SUPPORT_LINE}33` }]}>
+                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${ACTIVITY_SUPPORT_LINE}22` }]}>
+                  <Ionicons name="wallet" size={14} color={ACTIVITY_SUPPORT_LINE} />
                 </View>
-                <Text style={[styles.activityMetricValue, { color: ACTIVITY_SUPPORT_LINE }]}>
+                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: ACTIVITY_SUPPORT_LINE }]}>
                   {formatSupportUsd(supportReceivedUsd)}
                 </Text>
-                <Text style={styles.activityMetricLabel}>Total support</Text>
-                <Text style={styles.activityMetricSub}>Subscriptions & tips</Text>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact]} numberOfLines={1}>
+                  Total support
+                </Text>
+                <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact]} numberOfLines={1}>
+                  Subscriptions & tips
+                </Text>
                 <View
                   style={[
                     styles.activityDeltaPill,
+                    styles.activityDeltaPillCompact,
                     {
                       backgroundColor:
                         supportTrendDelta >= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
@@ -1500,34 +1538,37 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 >
                   <Ionicons
                     name={supportTrendDelta >= 0 ? 'arrow-up' : 'arrow-down'}
-                    size={11}
+                    size={10}
                     color={supportTrendDelta >= 0 ? '#059669' : '#dc2626'}
                   />
                   <Text
                     style={[
                       styles.activityDeltaText,
+                      styles.activityDeltaTextCompact,
                       { color: supportTrendDelta >= 0 ? '#059669' : '#dc2626' },
                     ]}
+                    numberOfLines={1}
                   >
                     {`${supportTrendDelta >= 0 ? '+' : '-'}${formatSupportUsd(Math.abs(supportTrendDelta))} ${activityPeriodDeltaLabel}`}
                   </Text>
                 </View>
               </View>
 
-              <View style={[styles.activityMetricCard, { width: activityCardWidth, borderColor: `${ACTIVITY_UNFOLLOW_PINK}33` }]}>
-                <View
-                  style={[styles.activityMetricIconWrap, { backgroundColor: `${ACTIVITY_UNFOLLOW_PINK}18` }]}
-                >
-                  <Ionicons name="person-remove-outline" size={18} color={ACTIVITY_UNFOLLOW_PINK} />
+              <View style={[styles.activityMetricCard, styles.activityMetricCardCompact, { borderColor: `${ACTIVITY_UNFOLLOW_PINK}33` }]}>
+                <View style={[styles.activityMetricIconWrap, styles.activityMetricIconWrapCompact, { backgroundColor: `${ACTIVITY_UNFOLLOW_PINK}18` }]}>
+                  <Ionicons name="person-remove-outline" size={14} color={ACTIVITY_UNFOLLOW_PINK} />
                 </View>
-                <Text style={[styles.activityMetricValue, { color: ACTIVITY_UNFOLLOW_PINK }]}>
+                <Text style={[styles.activityMetricValue, styles.activityMetricValueCompact, { color: ACTIVITY_UNFOLLOW_PINK }]}>
                   {unfollowersDisplay.toLocaleString()}
                 </Text>
-                <Text style={styles.activityMetricLabel}>Unfollowers</Text>
-                <Text style={styles.activityMetricSub}>Lost over this range</Text>
+                <Text style={[styles.activityMetricLabel, styles.activityMetricLabelCompact]}>Unfollowers</Text>
+                <Text style={[styles.activityMetricSub, styles.activityMetricSubCompact]} numberOfLines={1}>
+                  Lost over this range
+                </Text>
                 <View
                   style={[
                     styles.activityDeltaPill,
+                    styles.activityDeltaPillCompact,
                     {
                       backgroundColor:
                         unfollowersTrendDelta <= 0 ? 'rgba(16,185,129,0.14)' : 'rgba(219,39,119,0.14)',
@@ -1536,20 +1577,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 >
                   <Ionicons
                     name={unfollowersTrendDelta <= 0 ? 'arrow-down' : 'arrow-up'}
-                    size={11}
+                    size={10}
                     color={unfollowersTrendDelta <= 0 ? '#059669' : ACTIVITY_UNFOLLOW_PINK}
                   />
                   <Text
                     style={[
                       styles.activityDeltaText,
+                      styles.activityDeltaTextCompact,
                       { color: unfollowersTrendDelta <= 0 ? '#059669' : ACTIVITY_UNFOLLOW_PINK },
                     ]}
+                    numberOfLines={1}
                   >
                     {`${unfollowersTrendDelta >= 0 ? '+' : ''}${Math.round(unfollowersTrendDelta)} ${activityPeriodDeltaLabel}`}
                   </Text>
                 </View>
               </View>
-            </ScrollView>
+            </View>
 
             <View style={styles.activityLegend}>
               <View style={styles.activityLegendItem}>
@@ -1747,6 +1790,44 @@ export const WalletDashboardScreen = ({ navigation }) => {
           </View>
         </Modal>
 
+        <Modal
+          visible={referPointsInfoVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeReferPointsInfo}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={closeReferPointsInfo}
+            />
+            <View style={[styles.modalContent, bgStyle]}>
+              <View style={styles.referPointsInfoInner}>
+                <Text style={[styles.referPointsInfoTitle, textStyle]}>
+                  {t('walletDashboard.battlePoints.referPointsInfoTitle')}
+                </Text>
+                <Text style={[styles.referPointsInfoText, textStyle]}>
+                  {t('walletDashboard.battlePoints.referPointsInfoBody1')}
+                </Text>
+                <Text style={[styles.referPointsInfoText, textStyle]}>
+                  {t('walletDashboard.battlePoints.referPointsInfoBody2', { points: '1,000' })}
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.referPointsInfoCta, { backgroundColor: text }]}
+                  onPress={closeReferPointsInfo}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.referPointsInfoCtaText}>
+                    {t('walletDashboard.battlePoints.referPointsInfoCta')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Token Purchase Modal */}
         <RBSheet
           ref={purchaseSheetRef}
@@ -1836,6 +1917,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 14,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
   headerGlow: {
     position: 'absolute',
@@ -2078,6 +2164,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 2,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 6,
   },
   pointsGlow: {
@@ -2149,6 +2239,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     opacity: 0.75,
     textAlign: 'center',
+  },
+  referPointsInfoInner: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  referPointsInfoTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  referPointsInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    opacity: 0.9,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  referPointsInfoCta: {
+    marginTop: 6,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referPointsInfoCtaText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
   },
 
   pointsOverline: {
@@ -2248,22 +2370,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 2,
     marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 8,
     flex: 1,
-    marginHorizontal: 6,
     alignSelf: 'stretch',
-    minHeight: 80,
+    minHeight: 150,
     justifyContent: 'flex-start',
   },
   kpiCardMetaMask: {
     borderRadius: 18,
     padding: 16,
     minHeight: 108,
-    width: 370,
-    left: -20
+    width: '100%',
+    left: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
   kpiCardNoOuterSpacing: {
     marginHorizontal: 0,
@@ -2274,15 +2401,17 @@ const styles = StyleSheet.create({
   },
   kpiCardTouchable: {
     flex: 1,
-    // marginHorizontal: 6,
+    marginHorizontal: 0,
     marginBottom: 12,
     // alignSelf: 'stretch',
     minHeight: 150,
-    alignItems: 'center',
+    alignItems: 'stretch',
+    minWidth: 0,
     // marginRight:'10%'
   },
   kpiCardFullWidth: {
-    // flexBasis: '100%',
+    width: '100%',
+    flexBasis: '100%',
   },
   kpiCardPlaceholder: {
     backgroundColor: 'transparent',
@@ -2291,6 +2420,9 @@ const styles = StyleSheet.create({
   },
   kpiRow: {
     justifyContent: 'space-between',
+    gap: 12,
+    width: '100%',
+    paddingHorizontal: 0,
   },
   kpiHeader: {
     flexDirection: 'row',
@@ -2319,6 +2451,13 @@ const styles = StyleSheet.create({
   },
   dragonflyInfoButton: {
     padding: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kpiInfoButton: {
+    padding: 4,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.14)',
     justifyContent: 'center',
@@ -2392,6 +2531,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+  },
+  kpiWalletIcon: {
+    width: 28,
+    height: 28,
   },
   kpiMetaMaskText: {
     flex: 1,
@@ -2704,65 +2847,99 @@ const styles = StyleSheet.create({
     color: '#10b981',
     textAlign: 'right',
   },
-  activityMetricsScroller: {
-    marginBottom: 14,
-    flexGrow: 0,
-  },
-  activityMetricsScrollContent: {
+  activityMetricsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 10,
-    paddingRight: 4,
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 12,
   },
   activityMetricCard: {
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     backgroundColor: '#fafafa',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  activityMetricCardCompact: {
+    flex: 1,
+    minWidth: 0,
   },
   activityMetricIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  activityMetricIconWrapCompact: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    marginBottom: 4,
   },
   activityMetricValue: {
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 1,
+  },
+  activityMetricValueCompact: {
+    fontSize: 13,
   },
   activityMetricLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#64748b',
-    marginBottom: 2,
+    marginBottom: 1,
+  },
+  activityMetricLabelCompact: {
+    fontSize: 10,
+    marginBottom: 0,
   },
   activityMetricSub: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#94a3b8',
-    marginBottom: 2,
+    marginBottom: 1,
+  },
+  activityMetricSubCompact: {
+    fontSize: 9,
+    marginBottom: 0,
   },
   activityFollowingHint: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
     opacity: 0.85,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   activityDeltaPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    marginTop: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
     borderRadius: 999,
+    maxWidth: '100%',
+    overflow: 'hidden',
+  },
+  activityDeltaPillCompact: {
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    marginTop: 2,
   },
   activityDeltaText: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  activityDeltaTextCompact: {
+    fontSize: 8,
   },
   activityLegend: {
     flexDirection: 'row',
@@ -2805,10 +2982,12 @@ const styles = StyleSheet.create({
   chartContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 3,
   },
   chartPrice: {
     fontSize: 32,

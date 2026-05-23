@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     borderRadius: 20,
-    padding: 16,
+    // padding: 16,
     marginVertical: 12,
     overflow: 'hidden',
   },
@@ -798,6 +798,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
     gap: 12,
+    paddingTop: 10,
+    paddingHorizontal: 10
   },
   heroGlow: {
     position: 'absolute',
@@ -869,6 +871,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     letterSpacing: -0.3,
+    paddingHorizontal: 10
   },
   heroSubline: {
     color: 'rgba(255,255,255,0.82)',
@@ -876,11 +879,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontSize: 13,
     fontWeight: '600',
+    paddingHorizontal: 10
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 14,
+    paddingHorizontal: 10,
+    paddingBottom: 12
   },
   statBox: {
     flex: 1,
