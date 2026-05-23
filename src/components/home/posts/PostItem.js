@@ -29,7 +29,7 @@ import { runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Video from 'react-native-video';
-import { WhiteDragonfly } from '../../../assets/icons';
+import { WhiteDragonfly, Thumbup, Comments, ShareIcom } from '../../../assets/icons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShareModal from '../../modals/ShareModal';
@@ -1361,10 +1361,13 @@ function PostItem({
           <View style={styles.leftActions}>
             <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
               <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                <Icon
-                  name={liked ? 'heart' : 'heart-outline'}
-                  size={26}
-                  color={liked ? '#ef4444' : '#374151'}
+                <Thumbup
+                  width={24}
+                  height={24}
+                  style={[
+                    styles.actionSvgIcon,
+                    !liked && styles.actionSvgIconInactive,
+                  ]}
                 />
               </Animated.View>
               <Text style={styles.actionCount}>{likesCount || 0}</Text>
@@ -1373,15 +1376,15 @@ function PostItem({
             <TouchableOpacity
               onPress={() => onComment?.(item.id, item.UserId)}
               style={styles.actionButton}>
-              <Feather name="message-circle" size={24} color="#374151" />
+              <Comments width={22} height={22} style={styles.actionSvgIcon} />
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => { shareRef.current?.open?.(); setSelectedPostId(item); }}
               style={styles.actionButton}>
-              <Feather name="send" size={24} color="#374151" />
-              <Text style={styles.actionCount}>{shareCount}</Text>
+              <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
+              <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -1807,6 +1810,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  actionSvgIcon: { opacity: 1 },
+  actionSvgIconInactive: { opacity: 0.7 },
   actionCount: {
     fontSize: 12,
     color: '#6B7280',

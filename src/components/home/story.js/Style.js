@@ -10,14 +10,27 @@ export const modalStyles = StyleSheet.create({
     backgroundColor: '#000',
     zIndex: 0,
   },
+  storyMediaFill: {
+    width: '100%',
+    height: '100%',
+  },
+  /** Fixed overlay for progress + header — never shifts when media loads or fails. */
+  storyUiOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    elevation: 100,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
   },
   progressContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     paddingHorizontal: 8,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
     gap: 4,
   },
   progressBarBg: {
@@ -28,6 +41,9 @@ export const modalStyles = StyleSheet.create({
   },
   progressBarFill: { height: '100%', borderRadius: 1, backgroundColor: 'white' },
   topBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
