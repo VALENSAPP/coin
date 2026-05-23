@@ -153,8 +153,8 @@
     <false/>
     <key>com.apple.developer.associated-domains</key>
     <array>
-        <string>applinks:valenscorp.com</string>
-        <string>applinks:www.valenscorp.com</string>
+        <string>applinks:api.valens.app</string>
+        <string>applinks:www.api.valens.app</string>
     </array>
 </dict>
 </plist>
