@@ -186,11 +186,18 @@ const ShareProfile = ({ navigation }) => {
   ), [isOwnProfile, ownProfileImage, profile?.image, profile?.profileImage]);
 
 
-    const primaryShareUrl = useMemo(() => {
-    const slug = resolvedUsername || resolvedUserId;
-    if (!slug) return null;
-    return `https://api.valens.app/u/${slug}`;
-  }, [resolvedUsername, resolvedUserId]);
+const primaryShareUrl = useMemo(() => {
+  const slug = encodeURIComponent(
+    (resolvedUsername || resolvedUserId)
+      ?.trim()
+      ?.toLowerCase()
+      ?.replace(/\s+/g, '-')
+  );
+
+  if (!slug) return null;
+
+  return `https://api.valens.app/u/${slug}`;
+}, [resolvedUsername, resolvedUserId]);
 
   const qrShareUrl = primaryShareUrl || 'https://api.valens.app';
 

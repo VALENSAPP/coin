@@ -33,8 +33,7 @@ const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 const linking = {
   prefixes: [
     'https://api.valens.app',
-    'https://api.valens.app/',
-    ' https://api.valens.app/',
+    'valens://',
     'https://www.valens.app',
     'https://valens.app',
     'https://valensGoApp.com',
@@ -47,6 +46,13 @@ const linking = {
       Home: '',
       CallbackScreen: 'callback',
       Wallet: 'wallet',
+
+      Profile: {
+        path: 'u/:username',
+        parse: {
+          username: username => decodeURIComponent(username),
+        },
+      },
     },
   },
 };

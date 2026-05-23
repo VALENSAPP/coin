@@ -101,10 +101,27 @@ const extractAvatarFromNotification = item => {
 };
 
 const isFollowType = type => normalizeNotificationType(type).includes('follow');
+const isBattleNotificationType = type =>
+  [
+    'battle_invite',
+    'battle_started',
+    'battle_completed',
+    'battle_victory',
+    'battle_result',
+  ].includes(normalizeNotificationType(type));
 const isCommentType = type =>
   normalizeNotificationType(type).includes('comment');
 const isLikeType = type => normalizeNotificationType(type).includes('like');
+const isMissionPostLaunchType = type =>
+  normalizeNotificationType(type).includes('mission_post_launched');
+const isPostTagType = type => normalizeNotificationType(type) === 'post_tag';
 const isPostActivityType = type => isLikeType(type) || isCommentType(type);
+const shouldOpenPostForNotification = notification =>
+  !!notification?.postId &&
+  (isPostActivityType(notification.type) ||
+    isMissionPostLaunchType(notification.type) ||
+    isPostTagType(notification.type) ||
+    !!notification.image);
 
 const formatRelativeTime = iso => {
   if (!iso) return '';
@@ -478,6 +495,7 @@ export default function Notifications() {
         screen: 'PostView',
         params: {
           postData: postPayload,
+          startIndex: 0,
           userChat: true,
           fromScreen: 'Notifications',
           hideTabBar: true,
@@ -494,6 +512,17 @@ export default function Notifications() {
     setPopupVisible(false);
     navigation.navigate('UsersProfile', { userId: targetUserId });
   }, [SelectedNotification, getNotificationTargetUserId, navigation]);
+
+  const navigateToNotificationProfile = useCallback(
+    notification => {
+      const targetUserId = getNotificationTargetUserId(notification);
+      if (!targetUserId) return false;
+
+      navigation.navigate('UsersProfile', { userId: targetUserId });
+      return true;
+    },
+    [getNotificationTargetUserId, navigation],
+  );
 
   const openBattleFlow = useCallback(
     item => {
@@ -882,7 +911,16 @@ export default function Notifications() {
       const handlePress = () => {
         markAsRead(item.id);
 
-        if ((isPostActivityType(item.type) || item.image) && item.postId) {
+        if (isBattleNotificationType(item.type)) {
+          openBattleFlow(item);
+          return;
+        }
+
+        if (isFollowType(item.type) && navigateToNotificationProfile(item)) {
+          return;
+        }
+
+        if (shouldOpenPostForNotification(item)) {
           navigateToPost(item);
           return;
         }

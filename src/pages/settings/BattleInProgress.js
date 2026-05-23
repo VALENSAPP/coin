@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  StackActions,
   useFocusEffect,
   useNavigation,
   useRoute,
@@ -1040,8 +1041,22 @@ export default function BattleInProgress() {
   const handleBackPress = () => {
     const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
-    if (backTarget) navigation.navigate(backTarget, returnParams);
-    else navigation.goBack();
+    const entryPoint = route.params?.entryPoint;
+
+    if (backTarget) {
+      navigation.navigate(backTarget, returnParams);
+      return;
+    }
+
+    if (entryPoint === 'notifications') {
+      navigation.dispatch(StackActions.pop(1));
+      navigation.getParent()?.navigate('HomeMain', {
+        screen: 'HeartNotification',
+      });
+      return;
+    }
+
+    navigation.goBack();
   };
 
   if (loading) {
@@ -2152,4 +2167,3 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 });
-
