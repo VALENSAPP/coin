@@ -11,7 +11,6 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:api.valens.app</string>
-		<string>applinks:elyriasoft.com</string>
 	</array>
 	<key>com.apple.developer.networking.slicing.appcategory</key>
 	<array/>

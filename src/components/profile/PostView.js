@@ -9,7 +9,12 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import {
+  StackActions,
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../home/posts/PostItem';
 import CommentSheet from '../home/posts/CommentSheet';
@@ -202,6 +207,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const handleBackPress = useCallback(() => {
     const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
+    const fromScreen = route.params?.fromScreen;
 
     if (backTarget) {
       if (returnParams?.screen) {
@@ -209,7 +215,17 @@ export default function PostView({ postData = [], userData = {} }) {
       } else {
         navigation.navigate(backTarget, returnParams);
       }
+      return;
     }
+
+    if (fromScreen === 'Notifications') {
+      navigation.dispatch(StackActions.pop(1));
+      navigation.getParent()?.navigate('HomeMain', {
+        screen: 'HeartNotification',
+      });
+      return;
+    }
+
     if (routeUserData) {
       console.log('Going back to PostScreen with userData:', routeUserData);
       navigation.navigate('HomeMain', {
@@ -221,7 +237,7 @@ export default function PostView({ postData = [], userData = {} }) {
     } else {
       navigation.goBack();
     }
-  }, [navigation, routeUserData]);
+  }, [navigation, route.params, routeUserData]);
 
   const getMediaType = url => {
     if (!url || typeof url !== 'string') return 'image';
