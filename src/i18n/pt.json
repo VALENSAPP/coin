@@ -962,6 +962,7 @@
     "submitPrediction": "Enviar Previsão",
     "voteInBattle": "Votar na Batalha",
     "acceptBattle": "Aceitar batalha",
+    "declineBattle": "Recusar batalha",
     "voteAlertMissingBattle": "Não foi possível votar",
     "voteAlertMissingBattleMsg": "As informações da batalha estão ausentes.",
     "voteAlertSelectOption": "Selecione uma opção",

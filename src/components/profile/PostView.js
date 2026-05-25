@@ -226,24 +226,31 @@ export default function PostView({ postData = [], userData = {} }) {
       return;
     }
 
+    // Prefer the native stack: this preserves the original entry route
+    // (Explore/Search/UserProfile/etc) instead of forcing a Home redirect.
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    // Fallbacks when PostView is opened as a root (rare).
     if (routeUserData) {
       const targetUserId = String(routeUserData?.id ?? routeUserData?.userId ?? '');
       const currentUserIdStr = currentUserId != null ? String(currentUserId) : '';
- 
+
       if (targetUserId && currentUserIdStr && targetUserId === currentUserIdStr) {
         navigation.navigate('ProfileMain', { screen: 'Profile' });
         return;
       }
-      console.log('Going back to PostScreen with userData:', routeUserData);
+
       navigation.navigate('HomeMain', {
         screen: 'UsersProfile',
-        params: {
-          userId: routeUserData.id,
-        },
+        params: { userId: targetUserId },
       });
-    } else {
-      navigation.goBack();
+      return;
     }
+
+    navigation.navigate('HomeMain');
   }, [navigation, currentUserId, route.params, routeUserData]);
 
   const getMediaType = url => {

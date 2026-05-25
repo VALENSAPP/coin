@@ -52,7 +52,7 @@ const SubscribeFlowModal = ({
     const toast = useToast();
     const dispatch = useDispatch();
     const navigation = useNavigation();
-    const { bgStyle, textStyle, bg, text } = useAppTheme();
+    const { bgStyle, textStyle, bg, text } = useAppTheme(userData?.profile);
     const { t } = useLanguage();
     const stripeErrorMessages = getStripeErrorMessages(t);
 

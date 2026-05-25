@@ -328,45 +328,46 @@ const GlobalDrawerNavigator = () => {
           })}
         />
       )}
-      <Drawer.Screen
-        name="DrawerSubscription"
-        component={DummyComponent}
-        options={{
-          drawerLabel: t('drawerNav.subscriptions'),
-          headerShown: false,
-        }}
-        listeners={({ navigation }) => ({
-          drawerItemPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('MainApp', {
-              screen: 'wallet',
-              params: { screen: 'SubscriptionSetup' }
-            });
-          },
-        })}
-      />
       {!isCompanyProfile && (
 
-
         <Drawer.Screen
-          name="Privatecircle"
-          component={PrivateCircle}
+          name="DrawerSubscription"
+          component={DummyComponent}
           options={{
-            drawerLabel: t('drawerNav.privateCircle'),
+            drawerLabel: t('drawerNav.subscriptions'),
             headerShown: false,
           }}
           listeners={({ navigation }) => ({
             drawerItemPress: (e) => {
               e.preventDefault();
-              navigation.closeDrawer();
               navigation.navigate('MainApp', {
                 screen: 'wallet',
-                params: { screen: 'Privatecircle' }
+                params: { screen: 'SubscriptionSetup' }
               });
             },
           })}
         />
       )}
+
+      <Drawer.Screen
+        name="Privatecircle"
+        component={PrivateCircle}
+        options={{
+          drawerLabel: t('drawerNav.privateCircle'),
+          headerShown: false,
+        }}
+        listeners={({ navigation }) => ({
+          drawerItemPress: (e) => {
+            e.preventDefault();
+            navigation.closeDrawer();
+            navigation.navigate('MainApp', {
+              screen: 'wallet',
+              params: { screen: 'Privatecircle' }
+            });
+          },
+        })}
+      />
+
       <Drawer.Screen
         name="DrawerSettings"
         component={DummyComponent}

@@ -40,6 +40,8 @@ import {
   battlePoint,
   voteHeadtoHead,
   voteHeadtoHeadOpponent,
+  acceptBattle,
+  declinetBattle,
 } from '../../services/battle';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -282,6 +284,21 @@ const normalizeBattle = (raw, currentUserId = '') => {
     raw?.invites?.[0]?.invited?._id,
     '',
   ));
+  const invitationId = String(pickFirst(
+    raw?.invitationId,
+    raw?.invitation_id,
+    raw?.inviteId,
+    raw?.invite_id,
+    raw?.battleInviteId,
+    raw?.battle_invite_id,
+    raw?.invites?.[0]?.invitationId,
+    raw?.invites?.[0]?.invitation_id,
+    raw?.invites?.[0]?.inviteId,
+    raw?.invites?.[0]?.invite_id,
+    raw?.invites?.[0]?.id,
+    raw?.invites?.[0]?._id,
+    '',
+  ));
   const rawResolvedAt = pickFirst(raw?.resolvedAt, raw?.resultResolvedAt, '');
   const rawClosedAt = pickFirst(raw?.closedAt, raw?.battleClosedAt, '');
   const statusSource = pickFirst(raw?.battleStatus, raw?.status, 'OPEN');
@@ -360,6 +377,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
     invitedUserChoice: String(pickFirst(raw?.invitedUserChoice, '')),
     creatorId,
     invitedUserId,
+    invitationId,
     resultValue: pickFirst(raw?.resultValue, raw?.actualResult, raw?.winningOption, ''),
     winningSide: String(pickFirst(raw?.winningSide, raw?.resultValue, raw?.actualResult, '')),
     winnerUserId: String(pickFirst(raw?.winnerUserId, raw?.winner?.id, raw?.winner?._id, '')),
@@ -461,6 +479,8 @@ export default function BattleInProgress() {
   const [loading, setLoading] = useState(!hasInitialBattleData);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingVote, setSubmittingVote] = useState(false);
+  const [submittingDecline, setSubmittingDecline] = useState(false);   
+  const [creatorSelectionLocked, setCreatorSelectionLocked] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
@@ -508,6 +528,18 @@ export default function BattleInProgress() {
   const isHeadToHead = battle.format === 'HEAD_TO_HEAD';
   const resolvedBattleId = String(pickFirst(
     battle?.id, route?.params?.battleId, routeBattle.id, routeBattle._id, routeBattle.battleId, '',
+  ));
+  const resolvedInvitationId = String(pickFirst(
+    battle?.invitationId,
+    route?.params?.invitationId,
+    route?.params?.inviteId,
+    routeBattle?.invitationId,
+    routeBattle?.inviteId,
+    routeBattle?.invites?.[0]?.invitationId,
+    routeBattle?.invites?.[0]?.inviteId,
+    routeBattle?.invites?.[0]?.id,
+    routeBattle?.invites?.[0]?._id,
+    '',
   ));
 
   const headToHeadAssignedSide = useMemo(() => {
@@ -694,6 +726,10 @@ export default function BattleInProgress() {
     if (!isHeadToHeadOpponent) return false;
     if (hasUserVoted) return false;
     if (canViewResults) return false;
+
+    const normalizedStatus = String(battle?.status || '').toLowerCase();
+    const isLive = normalizedStatus.includes('live') || normalizedStatus.includes('progress');
+    if (isLive) return false;
 
     const participants = Array.isArray(battle?.participants) ? battle.participants : [];
     const hasCurrentUserInParticipants = participants.some(entry =>
@@ -905,6 +941,11 @@ export default function BattleInProgress() {
   useEffect(() => { setExpandedReplies({}); }, [resolvedBattleId]);
 
   useEffect(() => {
+    // Reset local creator lock when switching battles/screens.
+    setCreatorSelectionLocked(false);
+  }, [resolvedBattleId]);
+
+  useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const showSubscription = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
@@ -1026,6 +1067,7 @@ export default function BattleInProgress() {
       }
       setArgumentText('');
       setKeepActiveSelectedStyle(true);
+      if (isHeadToHead && isHeadToHeadCreator) setCreatorSelectionLocked(true);
       await fetchBattle(true);
 
       Alert.alert(
@@ -1048,15 +1090,46 @@ export default function BattleInProgress() {
       Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
       return;
     }
+    if (submittingVote) return;
 
     setSubmittingVote(true);
     try {
-      const response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: argumentText.trim() });
+      const trimmedArgument = String(argumentText || '').trim();
+      if (!trimmedArgument) {
+        Alert.alert('Add comment', 'Please add your comment to accept the battle.');
+        return;
+      }
+
+      // If the battle is already live (or the user already accepted from notifications),
+      // `battle/accept` can return "Invite not found". In that case, proceed to submit the opponent position.
+      const normalizedStatus = String(battle?.status || '').toLowerCase();
+      const isLive = normalizedStatus.includes('live') || normalizedStatus.includes('progress');
+
+      if (!isLive) {
+        const acceptPayload = {
+          battleId: finalBattleId,
+          ...(resolvedInvitationId ? { invitationId: resolvedInvitationId } : {}),
+          ...(battle?.invitedUserId ? { invitedUserId: battle.invitedUserId } : {}),
+        };
+        const accepted = await acceptBattle(acceptPayload);
+        if (!isSuccessfulResponse(accepted)) {
+          const msg = String(accepted?.message || accepted?.data?.message || '').toLowerCase();
+          const statusCode = Number(accepted?.statusCode || accepted?.status || 0);
+          const inviteNotFound = statusCode === 404 || msg.includes('invite not found');
+          if (!inviteNotFound) {
+            Alert.alert(t('battleInProgress.voteNotSubmitted'), accepted?.message || t('battleInProgress.tryAgain'));
+            return;
+          }
+        }
+      }
+
+      const response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: trimmedArgument });
       if (!isSuccessfulResponse(response)) {
         Alert.alert(t('battleInProgress.voteNotSubmitted'), response?.message || t('battleInProgress.tryAgain'));
         return;
       }
       setArgumentText('');
+      setKeepActiveSelectedStyle(true);
       await fetchBattle(true);
     } catch (error) {
       Alert.alert(
@@ -1065,6 +1138,38 @@ export default function BattleInProgress() {
       );
     } finally {
       setSubmittingVote(false);
+    }
+  };
+
+  const handleDeclineBattle = async () => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId) {
+      Alert.alert(t('battleInProgress.voteAlertMissingBattle'), t('battleInProgress.voteAlertMissingBattleMsg'));
+      return;
+    }
+    if (submittingDecline || submittingVote) return;
+
+    setSubmittingDecline(true);
+    try {
+      const declinePayload = {
+        battleId: finalBattleId,
+        ...(resolvedInvitationId ? { invitationId: resolvedInvitationId } : {}),
+        ...(battle?.invitedUserId ? { invitedUserId: battle.invitedUserId } : {}),
+      };
+      const response = await declinetBattle(declinePayload);
+      console.log(response, 'data in declieneeen')
+      if (!isSuccessfulResponse(response)) {
+        Alert.alert(t('battleInProgress.voteNotSubmitted'), response?.message || t('battleInProgress.tryAgain'));
+        return;
+      }
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        t('battleInProgress.voteNotSubmitted'),
+        error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
+      );
+    } finally {
+      setSubmittingDecline(false);
     }
   };
 
@@ -1879,9 +1984,18 @@ export default function BattleInProgress() {
                   canLockToAssignedSide &&
                   normalizedOptionSide &&
                   normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
+                // Creator UX: don't lock on tap; lock only after a successful submit.
+                // (Some APIs don't immediately return a votes entry, so we keep a local lock.)
+                const creatorHasPickedSide = isHeadToHeadCreator && creatorSelectionLocked && !!selectedOption;
+                const isCreatorPickedThisOption =
+                  selectedOption === optionSelectionKey ||
+                  (normalizedOptionSide && normalizeSideKey(selectedOption) === normalizedOptionSide);
                 // Only lock options when we actually know the assigned side.
                 // Otherwise allow selecting either option (same behavior as poll).
-                const shouldDisable = hasUserSelectionLocked || (canLockToAssignedSide && !isMyHeadToHeadSide);
+                const shouldDisable =
+                  hasUserSelectionLocked ||
+                  (canLockToAssignedSide && !isMyHeadToHeadSide) ||
+                  (creatorHasPickedSide && !isCreatorPickedThisOption);
                 return (
                   <TouchableOpacity
                     key={`${battle.id}-${option.id}-${index}`}
@@ -1974,12 +2088,14 @@ export default function BattleInProgress() {
               }
               disabled={
                 submittingVote ||
+                (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
                 (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
                 (hasUserVoted && !commentText?.trim())
               }
               style={{
                 opacity: (
                   submittingVote ||
+                  (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
                   (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
                   (hasUserVoted && !commentText?.trim())
                 ) ? 0.5 : 1,
@@ -2005,6 +2121,22 @@ export default function BattleInProgress() {
                 }
               </LinearGradient>
             </TouchableOpacity>
+            <View style={{ marginTop: 20 }} >
+            {shouldShowAcceptBattleCta ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={handleDeclineBattle}
+                disabled={submittingVote || submittingDecline}
+                style={{ opacity: (submittingVote || submittingDecline) ? 0.5 : 1, marginTop: 10 }}
+              >
+                <View style={[styles.inviteSecondaryButton, cardStyle, { borderColor: palette.primary }]}>
+                  <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                    {t('battleInProgress.declineBattle')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
+            </View>
           </View>
 
           {/* Comments */}
@@ -2268,6 +2400,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
+  inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
 
   // Image preview modal
   optionImagePreviewBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },

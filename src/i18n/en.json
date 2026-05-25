@@ -963,6 +963,7 @@
     "voteInBattle": "Vote in Battle",
     "voteAlertMissingBattle": "Unable to vote",
     "acceptBattle": "Accept Battle",
+    "declineBattle": "Decline Battle",
     "voteAlertMissingBattleMsg": "Battle information is missing.",
     "voteAlertSelectOption": "Select an option",
     "voteAlertSelectPredictionMsg": "Choose one option before submitting your prediction.",
