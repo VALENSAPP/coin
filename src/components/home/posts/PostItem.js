@@ -504,7 +504,7 @@ function PostItem({
 
   const usernameText = item?.username || t('postItem.unknownUser');
   const captionValue = item?.caption?.trim() || '';
-  const previewCaptionLength = Math.max(18, 60 - usernameText.length);
+  const previewCaptionLength = Math.max(40, 120 - usernameText.length);
   const hasExpandableCaption = captionValue.length > previewCaptionLength;
   const collapsedCaption = hasExpandableCaption
     ? `${captionValue.slice(0, previewCaptionLength).trimEnd()}... `
@@ -898,7 +898,7 @@ function PostItem({
     try {
       postFeedMp3Ref.current?.pause?.();
       void postFeedYoutubeRef.current?.pauseVideo?.();
-    } catch (_) {}
+    } catch (_) { }
   }, [playbackEligible, currentIndex, safeVideoPause]);
 
   const handleUserProfile = useCallback(
@@ -910,14 +910,53 @@ function PostItem({
         navigation.navigate('ProfileMain', { screen: 'Profile' });
       } else {
         const currentRoute = route?.name || 'Home';
+        const returnToPayload =
+          currentRoute === 'PostView'
+            ? { tab: 'ProfileMain', screen: 'PostView', params: route?.params }
+            : currentRoute;
         navigation.navigate('HomeMain', {
           screen: 'UsersProfile',
-          params: { userId: id, returnTo: currentRoute },
+          params: { userId: id, returnTo: returnToPayload },
         });
       }
     },
-    [currentUserIdStr, navigation, route?.name],
+    [currentUserIdStr, navigation, route?.name, route?.params],
   );
+
+  const normalizeExternalUrl = useCallback((value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    // Already has a scheme (http://, https://, etc.) or common native schemes.
+    const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw);
+    const hasNativeScheme = /^(mailto:|tel:|sms:|whatsapp:)/i.test(raw);
+    if (hasScheme || hasNativeScheme) return raw;
+
+    // If user saved "www.example.com" or "example.com", make it a valid URL.
+    return `https://${raw.replace(/^\/+/, '')}`;
+  }, []);
+
+  const handleOpenExternalLink = useCallback(async (value) => {
+    const normalized = normalizeExternalUrl(value);
+    if (!normalized) return;
+
+    const isWebLink = /^https?:\/\//i.test(normalized);
+    const urlToOpen = isWebLink ? encodeURI(normalized) : normalized;
+
+    try {
+      const supported = await Linking.canOpenURL(urlToOpen);
+      if (!supported) {
+        Alert.alert(t('optionsModal.errorGeneric'), t('battleInProgress.tryAgain'));
+        return;
+      }
+      await Linking.openURL(urlToOpen);
+    } catch (error) {
+      Alert.alert(
+        t('optionsModal.errorGeneric'),
+        error?.message || t('battleInProgress.tryAgain'),
+      );
+    }
+  }, [normalizeExternalUrl, t]);
 
   const formatNumber = useCallback(n => {
     if (typeof n !== 'number') n = Number(n) || 0;
@@ -938,8 +977,8 @@ function PostItem({
       Array.isArray(item.boughtBy)
         ? item.boughtBy
         : Array.isArray(item.buyers)
-        ? item.buyers
-        : [],
+          ? item.buyers
+          : [],
     [item.boughtBy, item.buyers],
   );
 
@@ -950,8 +989,8 @@ function PostItem({
       const buyerIdStr = buyer?.id
         ? String(buyer.id)
         : buyer?.userId
-        ? String(buyer.userId)
-        : null;
+          ? String(buyer.userId)
+          : null;
       return buyerIdStr !== currentUserIdStr;
     });
   }, [buyerList, userId]);
@@ -1028,8 +1067,8 @@ function PostItem({
   const progressStatusLabel = isGoalAmountRaised
     ? t('postItem.goalAmountRaised')
     : isCampaignDaysCompleted
-    ? t('postItem.daysCompleted')
-    : '';
+      ? t('postItem.daysCompleted')
+      : '';
 
   const onMomentumEnd = useCallback(e => {
     const x = e?.nativeEvent?.contentOffset?.x ?? 0;
@@ -1043,30 +1082,55 @@ function PostItem({
       const allMediaUrls = Array.isArray(item?.media)
         ? item.media.map(m => m?.url).filter(Boolean)
         : [];
-      navigation.navigate('ProfileMain', {
-        screen: 'FlipsScreen',
-        params: {
-          item: {
-            ...item,
-            image: mediaItem?.url,
-            images:
-              allMediaUrls.length > 0
-                ? allMediaUrls
-                : mediaItem?.url
+
+      const params = {
+        item: {
+          ...item,
+          image: mediaItem?.url,
+          images:
+            allMediaUrls.length > 0
+              ? allMediaUrls
+              : mediaItem?.url
                 ? [mediaItem.url]
                 : [],
-            isVideo: true,
-            type: 'video',
-            mediaType: 'video',
-            userName: item?.userName || item?.username || t('postItem.unknownUser'),
-            userImage: item?.userImage || item?.avatar || null,
-            userId: item?.userId || item?.UserId || null,
-          },
-          key: uniqueKey,
-          returnTo: route?.name || returnTo,
-          returnParams: route?.params || {},
+          isVideo: true,
+          type: 'video',
+          mediaType: 'video',
+          userName: item?.userName || item?.username || t('postItem.unknownUser'),
+          userImage: item?.userImage || item?.avatar || null,
+          userId: item?.userId || item?.UserId || null,
         },
-      });
+        key: uniqueKey,
+        returnTo: route?.name || returnTo,
+        returnParams: route?.params || {},
+        // Explicit nested return target (prevents "NAVIGATE ... not handled" warnings).
+        returnToTab: (() => {
+          const names = navigation.getState?.()?.routeNames || [];
+          if (names.includes('Profile')) return 'ProfileMain';
+          if (names.includes('Home')) return 'HomeMain';
+          return 'HomeMain';
+        })(),
+        returnToScreen: (() => {
+          const names = navigation.getState?.()?.routeNames || [];
+          if (names.includes('Profile')) return 'Profile';
+          if (names.includes('Home')) return 'Home';
+          return 'Home';
+        })(),
+      };
+
+      // Prefer navigating within the nearest navigator that actually owns `FlipsScreen`
+      // so back navigation returns to the current screen automatically.
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('FlipsScreen')) {
+          targetNavigation.navigate('FlipsScreen', params);
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
+
+      navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
     },
     [item, navigation, returnTo, route?.name, route?.params, t],
   );
@@ -1112,45 +1176,50 @@ function PostItem({
                   resizeMode="cover"
                 />
               )}
-              <InstagramZoomableVideo
-                uri={mediaItem.url}
-                videoHeight={slideH}
-                paused={!shouldPlay}
-                muted={isMuted}
-                repeat
-                onVideoRef={ref => { if (ref) videoRefsMap.current[index] = ref; }}
-                onLoadStart={() => setVideoLoaded(prev => ({ ...prev, [index]: false }))}
-                onLoad={() => setVideoLoaded(prev => ({ ...prev, [index]: true }))}
-                onError={error => console.log('Video error:', error)}
-                bufferConfig={{
-                  minBufferMs: 2000,
-                  maxBufferMs: 10000,
-                  bufferForPlaybackMs: 1000,
-                  bufferForPlaybackAfterRebufferMs: 2000,
+              <TapGestureHandler
+                numberOfTaps={1}
+                maxDist={12}
+                onHandlerStateChange={({ nativeEvent }) => {
+                  if (nativeEvent?.state === State.END) handleOpenReel(mediaItem);
                 }}
-                maxBitRate={1200000}
-                onZoomChange={zoomed => {
-                  setIsZooming(zoomed);
-                  setScrollEnabled(!zoomed);
-                }}
-                simultaneousHandlers={listRef}
-              />
-              {isPaused ? (
-                <TouchableOpacity
-                  style={styles.videoOverlay}
-                  activeOpacity={1}
-                  onPress={() => handleOpenReel(mediaItem)}>
-                  <View style={styles.playButtonContainer}>
-                    <Icon name="play" size={32} color="#fff" />
+              >
+                <View collapsable={false} style={{ width, height: slideH }}>
+                  <InstagramZoomableVideo
+                    uri={mediaItem.url}
+                    videoHeight={slideH}
+                    paused={!shouldPlay}
+                    muted={isMuted}
+                    repeat
+                    onVideoRef={ref => { if (ref) videoRefsMap.current[index] = ref; }}
+                    onLoadStart={() => setVideoLoaded(prev => ({ ...prev, [index]: false }))}
+                    onLoad={() => setVideoLoaded(prev => ({ ...prev, [index]: true }))}
+                    onError={error => console.log('Video error:', error)}
+                    bufferConfig={{
+                      minBufferMs: 2000,
+                      maxBufferMs: 10000,
+                      bufferForPlaybackMs: 1000,
+                      bufferForPlaybackAfterRebufferMs: 2000,
+                    }}
+                    maxBitRate={1200000}
+                    onZoomChange={zoomed => {
+                      setIsZooming(zoomed);
+                      setScrollEnabled(!zoomed);
+                    }}
+                    simultaneousHandlers={listRef}
+                  />
+                  <View
+                    pointerEvents="none"
+                    style={[styles.videoOverlay, styles.videoOverlayTransparent]}
+                    collapsable={false}
+                  >
+                    {isPaused ? (
+                      <View style={styles.playButtonContainer}>
+                        <Icon name="play" size={32} color="#fff" />
+                      </View>
+                    ) : null}
                   </View>
-                </TouchableOpacity>
-              ) : (
-                <View
-                  pointerEvents="none"
-                  style={[styles.videoOverlay, styles.videoOverlayTransparent]}
-                  collapsable={false}
-                />
-              )}
+                </View>
+              </TapGestureHandler>
               <TouchableOpacity
                 style={styles.speakerButton}
                 onPress={() => setIsMuted(prev => !prev)}>
@@ -1193,7 +1262,7 @@ function PostItem({
     if (postMusic?.kind !== 'youtube') return;
     if (shouldPlayAudio) return;
     (async () => {
-      try { await postFeedYoutubeRef.current?.pauseVideo?.(); } catch (_) {}
+      try { await postFeedYoutubeRef.current?.pauseVideo?.(); } catch (_) { }
     })();
   }, [shouldPlayAudio, postMusic?.kind]);
 
@@ -1203,7 +1272,7 @@ function PostItem({
       try {
         postFeedYoutubeRef.current?.pauseVideo?.();
         postFeedMp3Ref.current?.pause?.();
-      } catch (_) {}
+      } catch (_) { }
     };
   }, [postMusic?.kind, postMusic?.videoId, postMusic?.audioUrl, item.id]);
 
@@ -1222,7 +1291,7 @@ function PostItem({
           if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
             await postFeedYoutubeRef.current?.seekTo?.(playStart, true);
           }
-        } catch (_) {}
+        } catch (_) { }
       })();
     }, 320);
     return () => clearInterval(tick);
@@ -1338,9 +1407,9 @@ function PostItem({
                     const dur = postFeedMusicDurRef.current || 180;
                     const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(postMusic.trim, dur);
                     await postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
-                  } catch (_) {}
+                  } catch (_) { }
                 }}
-                onChangeState={state => {}}
+                onChangeState={state => { }}
               />
             </View>
           ) : null}
@@ -1489,48 +1558,48 @@ function PostItem({
           const currentUserId = userId ? String(userId) : null;
           return itemUserId && itemUserId !== currentUserId;
         })() && (
-          <>
-            {displayBuyerList.length > 0 && (
-              <TouchableOpacity
-                style={styles.buyersSection}
-                activeOpacity={0.8}
-                onPress={() => setShowBuyersModal(true)}>
-                <View style={styles.avatarsContainer}>
-                  {displayBuyerList.slice(0, 3).map((buyer, idx) => (
-                    <View
-                      key={idx}
+            <>
+              {displayBuyerList.length > 0 && (
+                <TouchableOpacity
+                  style={styles.buyersSection}
+                  activeOpacity={0.8}
+                  onPress={() => setShowBuyersModal(true)}>
+                  <View style={styles.avatarsContainer}>
+                    {displayBuyerList.slice(0, 3).map((buyer, idx) => (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.buyerAvatarWrapper,
+                          { marginLeft: idx > 0 ? -10 : 0, zIndex: 3 - idx, elevation: 3 - idx },
+                        ]}>
+                        <HexAvatar
+                          uri={buyer.avatar}
+                          size={28}
+                          borderWidth={1.5}
+                          borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={styles.buyersText} numberOfLines={1}>
+                    {t('postItem.followedBy')}{' '}
+                    <Text
                       style={[
-                        styles.buyerAvatarWrapper,
-                        { marginLeft: idx > 0 ? -10 : 0, zIndex: 3 - idx, elevation: 3 - idx },
+                        styles.buyerName,
+                        { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
                       ]}>
-                      <HexAvatar
-                        uri={buyer.avatar}
-                        size={28}
-                        borderWidth={1.5}
-                        borderColor={item?.profile === 'company' ? '#D3B683' : '#5a2d82'}
-                      />
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.buyersText} numberOfLines={1}>
-                  {t('postItem.followedBy')}{' '}
-                  <Text
-                    style={[
-                      styles.buyerName,
-                      { color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' },
-                    ]}>
-                    {displayBuyerList[0]?.username || '—'}
-                  </Text>
-                  {displayBuyerList.length > 1 && (
-                    <Text style={{ color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' }}>
-                      {' '}{t('postItem.andOthers', { count: formatNumber(displayBuyerList.length - 1) })}
+                      {displayBuyerList[0]?.username || '—'}
                     </Text>
-                  )}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+                    {displayBuyerList.length > 1 && (
+                      <Text style={{ color: item?.profile === 'user' ? '#5a2d82' : '#D3B683' }}>
+                        {' '}{t('postItem.andOthers', { count: formatNumber(displayBuyerList.length - 1) })}
+                      </Text>
+                    )}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
         {/* Caption */}
         <View style={styles.captionSection}>
@@ -1555,7 +1624,7 @@ function PostItem({
                   disabled={!hasExpandableCaption}>
                   <Text
                     style={styles.captionRow}
-                    numberOfLines={windowWidth < 360 ? 1 : 2}
+                    numberOfLines={3}
                     ellipsizeMode="tail"
                   >
                     <Text
@@ -1583,7 +1652,7 @@ function PostItem({
           )}
 
           {item.link ? (
-            <TouchableOpacity onPress={() => Linking.openURL(item.link)}>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => handleOpenExternalLink(item.link)}>
               <Text style={styles.linkText}>
                 {t('postItem.linkPrefix')} - {item.link}
               </Text>
@@ -1619,8 +1688,8 @@ function PostItem({
                     {isLoadingDonation
                       ? '...'
                       : t('postItem.funded', {
-                          percent: Math.min(progressPercent, 100).toFixed(1),
-                        })}
+                        percent: Math.min(progressPercent, 100).toFixed(1),
+                      })}
                   </Text>
                 </View>
                 <View style={styles.statAtCenter}>
@@ -1628,9 +1697,9 @@ function PostItem({
                     {isLoadingDonation
                       ? t('postItem.loading')
                       : t('postItem.raised', {
-                          current: `${currencyPrefix}${formatNumber(currentRaised)}`,
-                          goal: `${currencyPrefix}${formatNumber(goalAmount)}`,
-                        })}
+                        current: `${currencyPrefix}${formatNumber(currentRaised)}`,
+                        goal: `${currencyPrefix}${formatNumber(goalAmount)}`,
+                      })}
                   </Text>
                 </View>
                 <View style={styles.statAtEnd}>

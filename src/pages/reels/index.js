@@ -1139,17 +1139,29 @@ export default function FlipsScreen() {
   }, [reels]);
 
   const handleBackPress = useCallback(() => {
-    const returnTo = route.params?.returnTo;
-    const returnParams = route.params?.returnParams;
-    if (returnTo) {
-      navigation.navigate(returnTo, returnParams);
-      return;
-    }
+    // Prefer normal back behavior first (covers modal/stack presentation).
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
-      navigation.navigate('HomeMain');
+      return;
     }
+
+    const returnTo = route.params?.returnTo;
+    const returnParams = route.params?.returnParams;
+    const returnToTab = route.params?.returnToTab;
+    const returnToScreen = route.params?.returnToScreen;
+
+    if (returnToTab && returnToScreen) {
+      navigation.navigate(returnToTab, { screen: returnToScreen, params: returnParams });
+      return;
+    }
+
+    if (returnTo) {
+      // Back-compat for older callers that only send a leaf route name.
+      navigation.navigate('HomeMain', { screen: returnTo, params: returnParams });
+      return;
+    }
+
+    navigation.navigate('HomeMain', { screen: 'Home' });
   }, [navigation, route.params]);
 
   const handleScroll = useCallback(

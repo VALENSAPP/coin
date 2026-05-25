@@ -561,6 +561,7 @@ export default function Notifications() {
         action === 'accept'
           ? await acceptBattle(payload)
           : await declinetBattle(payload);
+          console.log(response,'notifcation repossneneneneenneen')
 
       const success =
         (typeof response?.status === 'number' &&

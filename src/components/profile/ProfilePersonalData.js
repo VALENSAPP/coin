@@ -1007,6 +1007,12 @@ const ProfilePersonData = ({
     } else if (returnByTo == 'Search') {
       navigation.navigate(returnByTo);
       return;
+    } else if (returnByTo === 'PostView') {
+      // If the user opened this profile from a post inside ProfileMain,
+      // go back there instead of dropping them on Home.
+      const params = screenParams?.returnParams || screenParams?.postViewParams || undefined;
+      navigation.navigate('ProfileMain', { screen: 'PostView', params });
+      return;
     } else if (returnByTo === 'Add') {
       const parentNav = navigation.getParent?.();
       if (parentNav?.jumpTo) parentNav.jumpTo('Add');
@@ -1014,7 +1020,7 @@ const ProfilePersonData = ({
       return;
     }
     navigation.goBack();
-  }, [navigation, returnByTo]);
+  }, [navigation, returnByTo, screenParams]);
 
   return (
     <View style={{ marginLeft: 5, marginRight: 5, marginTop: 5 }}>

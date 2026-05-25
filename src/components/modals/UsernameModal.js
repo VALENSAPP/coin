@@ -119,7 +119,7 @@ const UsernameModal = ({ visible, onClose, data }) => {
     <RBSheet
       ref={sheetRef}
       draggable
-      height={230}
+      height={200}
       onClose={onClose}
       customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
@@ -146,11 +146,11 @@ const UsernameModal = ({ visible, onClose, data }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={copyWalletAddress}>
+          {/* <TouchableOpacity style={[styles.optionRow, bgStyle]} onPress={copyWalletAddress}>
             <Ionicons name="wallet-outline" size={20} color="#111100" style={styles.optionIcon} />
             <Text style={styles.optionText}>{t('usernameModal.walletAddressOption')}</Text>
             <Ionicons name="copy-outline" size={18} color="#788587" style={styles.optionRightIcon} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </TouchableOpacity>
     </RBSheet>

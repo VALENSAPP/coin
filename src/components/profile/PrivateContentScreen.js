@@ -234,6 +234,7 @@ const PrivateContentScreen = ({
   }, []);
 
   useEffect(() => {
+    if (isCompany) return;
     if (userData?.id) fetchPosts(userData.id);
   }, [userData?.id]);
 
@@ -263,16 +264,19 @@ const PrivateContentScreen = ({
   }, [fetchPosts, getSubscriptionStatus, isOwnProfile, userData?.id]);
 
   useEffect(() => {
+    if (isCompany) return;
     if (refreshKey !== undefined) refreshStatusAndPosts();
   }, [refreshKey]);
 
   useFocusEffect(
     useCallback(() => {
+      if (isCompany) return () => {};
       refreshStatusAndPosts();
     }, [refreshStatusAndPosts]),
   );
 
   useEffect(() => {
+    if (isCompany) return () => {};
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && isFocused) refreshStatusAndPosts();
     });
@@ -424,10 +428,18 @@ const PrivateContentScreen = ({
           </View>
         );
       }
-      return isCompany ? <ShopCard /> : <LockedCard />;
+      return <LockedCard />;
     },
-    [LockedCard, ShopCard, bgStyle, canViewPrivateContent, isCompany, textStyle],
+    [LockedCard, bgStyle, canViewPrivateContent, textStyle],
   );
+
+  if (isCompany) {
+    return (
+      <View style={[styles.screen, bgStyle]}>
+        <ShopCard marginTopOverride={0} />
+      </View>
+    );
+  }
 
   if (loading || statusLoading) {
     return (
@@ -440,11 +452,7 @@ const PrivateContentScreen = ({
   return (
     <View style={[styles.screen, bgStyle]}>
       {!canViewPrivateContent ? (
-        isCompany ? (
-          <ShopCard marginTopOverride={0} />
-        ) : (
-          <LockedCard />
-        )
+        <LockedCard />
       ) : (
         <FlatList
           data={posts}
