@@ -1343,18 +1343,19 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
               <View style={styles.headerText}>
-                <View style={{ flexDirection: 'row', gap: 5 }}>
+                <View style={styles.headerNameRow}>
                   <Text
                     style={[
                       styles.headerName,
                       { color: text },
                     ]}
-                    numberOfLines={1}
+                    numberOfLines={isBusinessProfile ? 2 : 1}
+                    ellipsizeMode="tail"
                   >
                     @{userProfile.name || t('walletDashboard.headerDefaultUser')}
                   </Text>
                   {kyc === true && (
-                    <DragonflyIcon width={25} height={25} />
+                    <DragonflyIcon width={25} height={25} style={styles.headerVerifiedIcon} />
                   )}
                 </View>
                 {kyc === true && (
@@ -1970,12 +1971,25 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 5,
   },
+  headerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minWidth: 0,
+  },
   headerName: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: '#fef3c7',
     fontSize: 18,
     fontWeight: '700',
+  },
+  headerVerifiedIcon: {
+    flexShrink: 0,
   },
   headerStatus: {
     flexDirection: 'row',
