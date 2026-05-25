@@ -270,10 +270,18 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
   const generateShareLink = () => {
     const id = story ? resolveStoryLinkId() : resolvePostId();
+
     if (!id) return null;
-    if (story) return `com.valens.app://?af=dd&storyId=${encodeURIComponent(String(id))}`;
-    if (reel || reelId) return `com.valens.app://?af=dd&reelId=${encodeURIComponent(String(id))}`;
-    return `com.valens.app://?af=dd&postId=${encodeURIComponent(String(id))}`;
+
+    if (story) {
+      return `https://api.valens.app/story/${encodeURIComponent(String(id))}`;
+    }
+
+    if (reel || reelId) {
+      return `https://api.valens.app/reel/${encodeURIComponent(String(id))}`;
+    }
+
+    return `https://api.valens.app/post/${encodeURIComponent(String(id))}`;
   };
 
   const shareToWhatsApp = async () => {
@@ -419,7 +427,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         <View style={styles.bottomBar}>
           <Action icon="share-social-outline" label={t('shareModal.shareToLabel')} onPress={shareToSystem} />
           <Action icon="copy-outline" label={t('shareModal.copyLinkLabel')} onPress={copyToClipboard} />
-          <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} />
+          {/* <Action icon="logo-whatsapp" label={t('shareModal.whatsappLabel')} onPress={shareToWhatsApp} /> */}
         </View>
       )}
     </RBSheet>

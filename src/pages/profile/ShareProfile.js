@@ -185,16 +185,7 @@ const ShareProfile = ({ navigation }) => {
     'https://cdn-icons-png.flaticon.com/512/149/149071.png'
   ), [isOwnProfile, ownProfileImage, profile?.image, profile?.profileImage]);
 
-  const {
-    primaryShareUrl,
-    shareMessage,
-  } = useMemo(() => buildProfileSharePayload({
-    username: resolvedUsername,
-    userId: resolvedUserId,
-  }), [resolvedUsername, resolvedUserId]);
-
-  const qrShareUrl = primaryShareUrl || 'com.valens://profile';
-
+  const qrShareUrl = `https://api.valens.app/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
   useFocusEffect(
     useCallback(() => {
       const nextUsername = String(
@@ -207,12 +198,12 @@ const ShareProfile = ({ navigation }) => {
   );
 
   const copyToClipboard = () => {
-    if (!primaryShareUrl) {
+    if (!qrShareUrl) {
       Alert.alert(t('shareProfile.errorTitle'), t('shareProfile.noLinkToCopy'));
       return;
     }
 
-    Clipboard.setString(primaryShareUrl);
+    Clipboard.setString(qrShareUrl);
     showToastMessage(toast, 'success', t('shareProfile.profileLinkCopied'));
   };
 
@@ -277,7 +268,7 @@ const ShareProfile = ({ navigation }) => {
     },
   ];
 
-  const hasShareUrl = Boolean(primaryShareUrl);
+  const hasShareUrl = Boolean(qrShareUrl);
 
   return (
     <LinearGradient

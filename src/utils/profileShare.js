@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 const ANDROID_CALLBACK_URL = 'com.valens://callback';
 const IOS_CALLBACK_URL = 'com.valens://';
-const WEB_BASE_URL = 'com.valens://callback';
+const WEB_BASE_URL = 'https://api.valens.app';
 const APP_BASE_URL = 'com.valens.app://';
 
 export const getProfileShareCallbackUrl = () => (
@@ -24,31 +24,31 @@ export const buildProfileShareUrls = ({ username = '', userId = '' } = {}) => {
   }
 
   if (resolvedUsername) {
-    deepLinkParams.push(`username=${encodeURIComponent(resolvedUsername)}`);
+    const encodedUsername = encodeURIComponent(resolvedUsername);
+    deepLinkParams.push(`username=${encodedUsername}`);
+    webParams.push(`username=${encodedUsername}`);
   }
 
   const encodedCallbackUrl = encodeURIComponent(callbackUrl);
   deepLinkParams.push(`callbackUrl=${encodedCallbackUrl}`);
   webParams.push(`callbackUrl=${encodedCallbackUrl}`);
+  webParams.push('source=profile_share');
 
   const deepLinkQuery = deepLinkParams.join('&');
   const deepLink = deepLinkQuery
     ? `${APP_BASE_URL}profile?${deepLinkQuery}`
     : `${APP_BASE_URL}profile`;
 
-  const webPath = resolvedUsername
-    ? `/profile/${encodeURIComponent(resolvedUsername)}`
-    : '/profile';
   const webQuery = webParams.join('&');
   const webFallback = webQuery
-    ? `${WEB_BASE_URL}${webPath}?${webQuery}`
-    : `${WEB_BASE_URL}${webPath}`;
+    ? `${WEB_BASE_URL}/?${webQuery}`
+    : `${WEB_BASE_URL}/`;
 
   return {
     callbackUrl,
     deepLink,
     webFallback,
-    primaryShareUrl: Platform.OS === 'ios' ? deepLink : webFallback,
+    primaryShareUrl: webFallback,
   };
 };
 
@@ -94,8 +94,10 @@ export const parseProfileShareUrl = (rawUrl = '') => {
   try {
     const urlObj = new URL(normalizedUrl);
     const pathSegments = String(urlObj.pathname || '').split('/').filter(Boolean);
+    const isProfilePath = String(pathSegments[0] || '').toLowerCase() === 'profile';
+    const hasProfileParams = urlObj.searchParams.has('userId') || urlObj.searchParams.has('username');
 
-    if (String(pathSegments[0] || '').toLowerCase() !== 'profile') {
+    if (!isProfilePath && !hasProfileParams) {
       return null;
     }
 

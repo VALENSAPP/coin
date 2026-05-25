@@ -722,7 +722,7 @@ export default function PostView({ postData = [], userData = {} }) {
           return;
         }
 
-        const deepLink = `com.valens://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
+        const deepLink = `https://api.valens.app/post/${encodeURIComponent(String(modalPostId))}`;
         Clipboard.setString(deepLink);
         showToastMessage(toast, 'success', t('postView.postCopied'));
         closeOptions();

@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform } from 'react-native';
 import ImagePicker from 'react-native-image-crop-picker';
 import Video from 'react-native-video';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import PostTypeModal from '../../components/modals/PostTypeModal';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -31,6 +31,7 @@ export default function PostScreen({ navigation }) {
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [galleryImages, setGalleryImages] = useState([]);
   const [showTypeModal, setShowTypeModal] = useState(true);
+  const [isCropping, setIsCropping] = useState(false);
   const [postType, setPostType] = useState('normal');
   const [shared, setShared] = useState(false);
   const route = useRoute();
@@ -40,6 +41,7 @@ export default function PostScreen({ navigation }) {
   const isPrivateEntry = String(rawPostTypeParam || '').toLowerCase() === 'private';
   const isFlipEntry = String(rawMediaTypeParam || '').toLowerCase() === 'flips';
   const mediaType = rawMediaTypeParam;
+  const insets = useSafeAreaInsets();
 
   const { bgStyle, textStyle, text } = useAppTheme();
   const dispatch = useDispatch();
@@ -62,41 +64,52 @@ export default function PostScreen({ navigation }) {
     }));
   };
 
-  const cropImage = (imageUri, index) => {
+const cropImage = (imageUri, index) => {
+  setIsCropping(true); // unmount PostTypeModal completely
+
+  setTimeout(() => {
     ImagePicker.openCropper({
       path: imageUri,
       cropping: true,
+      cropperRotateButtonsHidden: true,
       cropperActiveWidgetColor: '#0095f6',
       cropperStatusBarColor: '#0095f6',
       cropperToolbarColor: '#0095f6',
       cropperToolbarWidgetColor: '#ffffff',
-      freeStyleCropEnabled: true,
+        freeStyleCropEnabled: false,
       showCropGuidelines: true,
       showCropFrame: true,
       hideBottomControls: false,
       enableRotationGesture: true,
       compressImageQuality: 0.6,
+      ...(Platform.OS === 'ios' && {
+        cropperBottomInset: 100,
+      }),
     })
-      .then((croppedImage) => {
-        setSelectedMedia(prev => {
-          const updated = [...prev];
-          updated[index] = {
-            ...updated[index],
-            uri: croppedImage.path,
-            originalUri: imageUri,
-            isCropped: true,
-            width: croppedImage.width,
-            height: croppedImage.height,
-          };
-          return updated;
-        });
-      })
-      .catch((error) => {
-        if (error.code !== 'E_PICKER_CANCELLED') {
-          Alert.alert(t('post.cropError'), t('post.cropErrorMessage'));
-        }
+    .then((croppedImage) => {
+      setSelectedMedia(prev => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          uri: croppedImage.path,
+          originalUri: imageUri,
+          isCropped: true,
+          width: croppedImage.width,
+          height: croppedImage.height,
+        };
+        return updated;
       });
-  };
+    })
+    .catch((error) => {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert(t('post.cropError'), t('post.cropErrorMessage'));
+      }
+    })
+    .finally(() => {
+      setIsCropping(false); // remount PostTypeModal after cropper closes
+    });
+  }, 300);
+};
 
   const openSettings = () => {
     if (Platform.OS === 'ios') {
@@ -673,6 +686,7 @@ export default function PostScreen({ navigation }) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {galleryImages.length === 0 ? renderInitialGalleryPrompt() : renderMainContent()}
       </ScrollView>
+      {!isCropping && (
       <PostTypeModal
         visible={showTypeModal && !isPrivateEntry && !isFlipEntry}
         setShowTypeModal={setShowTypeModal}
@@ -697,6 +711,7 @@ export default function PostScreen({ navigation }) {
         }}
         onSelect={handleSelectType}
       />
+)}
     </SafeAreaView>
   );
 }

@@ -47,12 +47,13 @@ const linking = {
       CallbackScreen: 'callback',
       Wallet: 'wallet',
 
-      Profile: {
-        path: 'u/:username',
-        parse: {
-          username: username => decodeURIComponent(username),
-        },
-      },
+      Profile: 'profile/:id',
+      User: 'u/:id',
+      Share: 'share/:id',
+
+      Post: 'post/:id',
+      Reel: 'reel/:id',
+      Story: 'story/:id',
     },
   },
 };
@@ -306,7 +307,8 @@ export default function Main() {
       const normalizedPath = String(path || '').toLowerCase();
 
       // Check if URL is callback
-      if (url.includes('callback')) {
+      const parsedPath = urlObj.pathname;
+      if (parsedPath === '/callback' || normalizedPath === '/callback') {
         console.log('🔔 Callback URL detected - closing InAppBrowser');
 
         try {
@@ -350,6 +352,7 @@ export default function Main() {
       }
 
       const navigateToUserProfile = (resolvedUserId) => {
+        console.log("navigateToUserProfilenavigateToUserProfile", resolvedUserId)
         if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
         navigationRef.current.navigate('MainApp', {
           screen: 'HomeMain',
@@ -388,6 +391,71 @@ export default function Main() {
         const reelId = urlObj.searchParams.get('reelId');
         const storyId = String(urlObj.searchParams.get('storyId') || '').trim();
         const fallbackTag = urlObj.searchParams.get('af');
+        const profileMatch = normalizedPath.match(/^\/profile\/([^/?]+)/i);
+
+        const postMatch = normalizedPath.match(/^\/post\/([^/?]+)/i);
+        const reelMatch = normalizedPath.match(/^\/reel\/([^/?]+)/i);
+        const storyMatch = normalizedPath.match(/^\/story\/([^/?]+)/i);
+
+        if (postMatch?.[1]) {
+          const postId = decodeURIComponent(postMatch[1]);
+
+          navigationRef.current.navigate('MainApp', {
+            screen: 'ProfileMain',
+            params: {
+              screen: 'PostView',
+              params: {
+                userChat: true,
+                fromScreen: 'DeepLink',
+                postData: { id: String(postId) },
+              },
+            },
+          });
+
+          return;
+        }
+
+        if (reelMatch?.[1]) {
+          const reelId = decodeURIComponent(reelMatch[1]);
+
+          navigationRef.current.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: {
+              screen: 'FlipsScreen',
+              params: {
+                item: { id: String(reelId) },
+                uniqueKey: `deeplink_reel_${String(reelId)}`,
+              },
+            },
+          });
+
+          return;
+        }
+
+        if (storyMatch?.[1]) {
+          const storyId = decodeURIComponent(storyMatch[1]);
+
+          navigationRef.current.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: {
+              screen: 'Home',
+              params: {
+                sharedStoryId: storyId,
+              },
+            },
+          });
+
+          return;
+        }
+
+        if (profileMatch?.[1]) {
+          const profileUserId = decodeURIComponent(profileMatch[1]);
+
+          console.log('Profile deep link userId:', profileUserId);
+
+          navigateToUserProfile(profileUserId);
+          return;
+        }
         const sharedProfileLink = parseProfileShareUrl(url);
 
         if (navigationRef.current && isNavigationReady) {
@@ -442,7 +510,7 @@ export default function Main() {
                         screen: 'Profile',
                       },
                     });
-                    showToastMessage(toast, 'danger', t('main.unableToOpenProfileLink'));
+                    // showToastMessage(toast, 'danger', t('main.unableToOpenProfileLink'));
                   }
                 });
               } else {
