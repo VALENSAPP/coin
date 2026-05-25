@@ -503,6 +503,7 @@ const SubventionSetupScreen = () => {
             setComposerVisible(false);
             const formData = new FormData();
             formData.append('caption', '');
+            formData.append('type', 'subscription-content');
             clips.forEach((item, index) => {
                 const fileUri = item.processedUri || item.original.uri;
                 const fileName = `story_${Date.now()}_${index}.${item.isVideo ? 'mp4' : 'jpg'}`;
