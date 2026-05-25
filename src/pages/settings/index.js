@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 import { loggedIn, loggedOut } from '../../redux/actions/LoginAction';
 import { useDispatch } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import createStyles from './Style';
 import data from '../../list.json';
@@ -49,6 +49,7 @@ import { logoutDeviecAll } from '../../services/wallet';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 import { useLanguage } from '../../i18n';
+import { getProfile } from '../../services/createProfile';
 
 /** __DEV__ only: set to '' to use real tokens from resolveRefreshTokenForAccountSwitch. */
 const DEBUG_STATIC_REFRESH_TOKEN_FOR_SWITCH_TEST = __DEV__
@@ -66,8 +67,36 @@ const Settings = () => {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [switchInFlight, setSwitchInFlight] = useState(false);
   const [removeAccountConfirm, setRemoveAccountConfirm] = useState(null);
+  const [profileStatus, setProfileStatus] = useState(null);
   const { bgStyle, textStyle, bg, text, card } = useAppTheme();
   const { t } = useLanguage();
+
+  const fetchProfileStatus = useCallback(async () => {
+    try {
+      const id = await AsyncStorage.getItem('userId');
+      if (!id) return;
+
+      const response = await getProfile(id);
+      if (response?.statusCode === 200 && response?.data?.profileStatus) {
+        setProfileStatus(response.data.profileStatus);
+      }
+    } catch (error) {
+      console.log('Error fetching profile status:', error);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileStatus();
+    }, [fetchProfileStatus]),
+  );
+
+  const profileStatusLabel =
+    profileStatus?.toLowerCase() === 'private'
+      ? t('settings.private')
+      : profileStatus?.toLowerCase() === 'public'
+        ? t('privacySettings.public')
+        : null;
 
   // Handler functions for all menu items
   const handleAccountsCentrePress = () => {
@@ -620,22 +649,34 @@ const Settings = () => {
     showChevron = true,
     rightText,
     hasBlueIcon = false,
-  }) => (
-    <TouchableOpacity style={styles.settingsItem} onPress={onPress}>
-      <View style={styles.itemLeft}>
-        <Icon name={icon} size={24} color="#262626" />
-        <View style={styles.itemTextContainer}>
-          <Text style={styles.itemText}>{title}</Text>
-          {subtitle && <Text style={styles.itemSubtext}>{subtitle}</Text>}
+  }) => {
+    const content = (
+      <>
+        <View style={styles.itemLeft}>
+          <Icon name={icon} size={24} color="#262626" />
+          <View style={styles.itemTextContainer}>
+            <Text style={styles.itemText}>{title}</Text>
+            {subtitle && <Text style={styles.itemSubtext}>{subtitle}</Text>}
+          </View>
         </View>
-      </View>
-      <View style={styles.itemRight}>
-        {rightText && <Text style={styles.rightText}>{rightText}</Text>}
-        {hasBlueIcon && <View style={styles.blueIndicator} />}
-        {showChevron && <Icon name="chevron-right" size={24} color="#8e8e93" />}
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.itemRight}>
+          {rightText && <Text style={styles.rightText}>{rightText}</Text>}
+          {hasBlueIcon && <View style={styles.blueIndicator} />}
+          {showChevron && <Icon name="chevron-right" size={24} color="#8e8e93" />}
+        </View>
+      </>
+    );
+
+    if (!onPress) {
+      return <View style={styles.settingsItem}>{content}</View>;
+    }
+
+    return (
+      <TouchableOpacity style={styles.settingsItem} onPress={onPress}>
+        {content}
+      </TouchableOpacity>
+    );
+  };
 
   const SectionHeader = ({ title }) => (
     <Text style={styles.sectionHeader}>{title}</Text>
@@ -720,7 +761,8 @@ const Settings = () => {
           <SettingsItem
             icon="privacy-tip"
             title={t('settings.accountPrivacy')}
-            rightText={t('settings.private')}
+            rightText={profileStatusLabel}
+            showChevron={false}
           />
           <SettingsItem
             icon="visibility-off"

@@ -1033,12 +1033,17 @@ const ProfilePersonData = ({
                 </TouchableOpacity>
               )}
               <View style={styles.userRow}>
-                <Text style={[styles.headerText, textStyle]}>{Userdata.Username}</Text>
+                <Text
+                  style={[styles.headerText, textStyle]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail">
+                  {Userdata.Username}
+                </Text>
                 {showIdentityVerified && (
                   <DragonflyIcon width={30} height={30} style={styles.icon} />
                 )}
                 {!fromUsersProfile && (
-                  <Ionicons name="chevron-down" size={18} color="#111100" style={{ marginLeft: 4 }} />
+                  <Ionicons name="chevron-down" size={18} color="#111100" style={styles.headerChevron} />
                 )}
               </View>
             </TouchableOpacity>
@@ -1532,27 +1537,44 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   usernameRow: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 4,
   },
   usernameTouchable: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
   },
   userRow: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: {
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: '700',
     marginRight: 5,
   },
+  headerChevron: {
+    marginLeft: 4,
+    flexShrink: 0,
+  },
   icon: {
     marginTop: 1,
+    flexShrink: 0,
   },
   iconContainer: {
     flexDirection: 'row',
+    flexShrink: 0,
+    alignItems: 'center',
   },
   iconButton: {
     padding: 6,

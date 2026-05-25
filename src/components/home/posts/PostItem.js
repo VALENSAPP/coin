@@ -54,6 +54,8 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import { parsePostMeta, getPostMusicForSlide } from '../../../utils/postSoundtracks';
 import {
   DEFAULT_FEED_MEDIA_HEIGHT,
+  measureFeedMediaItemHeight,
+  resolveFeedMediaHeight,
 } from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
 
@@ -138,7 +140,7 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
       <PinchGestureHandler onGestureEvent={onPinchEvent} onHandlerStateChange={onPinchStateChange}>
         <AnimatedFastImage
           source={imageSource}
-          resizeMode={FastImage.resizeMode.cover}
+          resizeMode={FastImage.resizeMode.contain}
           fadeDuration={0}
           style={[
             { width: '100%', height: displayHeight },
@@ -458,6 +460,15 @@ function PostItem({
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState({});
+  const [slideHeights, setSlideHeights] = useState(() => {
+    const containerWidth = Dimensions.get('window').width;
+    const initial = {};
+    (item?.media || []).forEach((m, index) => {
+      const h = resolveFeedMediaHeight(m, containerWidth);
+      if (h != null) initial[index] = h;
+    });
+    return initial;
+  });
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
 
@@ -539,8 +550,55 @@ function PostItem({
     );
   }, []);
 
-  const getSlideHeight = useCallback(() => DEFAULT_FEED_MEDIA_HEIGHT, []);
-  const currentMediaHeight = DEFAULT_FEED_MEDIA_HEIGHT;
+  const getSlideHeight = useCallback(
+    index => slideHeights[index] ?? DEFAULT_FEED_MEDIA_HEIGHT,
+    [slideHeights],
+  );
+  const currentMediaHeight = getSlideHeight(currentIndex);
+
+  const mediaMeasureKey = useMemo(
+    () => (item?.media || []).map(m => `${m?.url || ''}:${m?.thumbnail || ''}`).join('|'),
+    [item?.media],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const mediaList = item?.media || [];
+    if (!mediaList.length) return undefined;
+
+    const synced = {};
+    mediaList.forEach((m, index) => {
+      const h = resolveFeedMediaHeight(m, width);
+      if (h != null) synced[index] = h;
+    });
+    setSlideHeights(synced);
+
+    (async () => {
+      const measured = {};
+      await Promise.all(
+        mediaList.map(async (m, index) => {
+          measured[index] = await measureFeedMediaItemHeight(m, isVideoUrl, width);
+        }),
+      );
+      if (cancelled) return;
+      setSlideHeights(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.entries(measured).forEach(([idx, h]) => {
+          const i = Number(idx);
+          if (next[i] !== h) {
+            next[i] = h;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.id, mediaMeasureKey, isVideoUrl, width]);
 
   const parsedPostMeta = useMemo(() => parsePostMeta(item?.postMeta), [item?.postMeta]);
 
@@ -1041,7 +1099,7 @@ function PostItem({
       const isVideoReady = !!videoLoaded[index];
       const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
-      const slideH = getSlideHeight();
+      const slideH = getSlideHeight(index);
 
       return (
         <View style={[styles.mediaContainer, { height: slideH }]}>
@@ -1113,7 +1171,7 @@ function PostItem({
       );
     },
     [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted,
-      playbackEligible, getSlideHeight, videoLoaded],
+      playbackEligible, getSlideHeight, videoLoaded, width],
   );
 
   const shouldPlayPostFeedMusic =
@@ -1317,7 +1375,7 @@ function PostItem({
               maxToRenderPerBatch={2}
               windowSize={3}
               initialNumToRender={1}
-              extraData={currentIndex}
+              extraData={`${currentIndex}-${currentMediaHeight}`}
               style={{ height: currentMediaHeight }}
               getItemLayout={(_, index) => ({
                 length: width,
