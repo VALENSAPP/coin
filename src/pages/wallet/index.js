@@ -446,7 +446,7 @@ function ActivityTrendSvg({
             y={chartHeight - 4}
             fill="#888"
             fontSize={9}
-            // textAnchor={anchor}
+          // textAnchor={anchor}
           >
             {format(ts, 'MMM d')}
           </SvgText>
@@ -1136,8 +1136,8 @@ export const WalletDashboardScreen = ({ navigation }) => {
         ? normalizedWalletType === 'metamask'
           ? 'MetaMask'
           : normalizedWalletType === 'coinbase'
-          ? 'Coinbase Wallet'
-          : 'WalletConnect'
+            ? 'Coinbase Wallet'
+            : 'WalletConnect'
         : t('walletDashboard.kpi.wallet');
 
       const walletIconSource =
@@ -1353,10 +1353,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
                     ellipsizeMode="tail"
                   >
                     @{userProfile.name || t('walletDashboard.headerDefaultUser')}
+                    {kyc === true && (
+                      <DragonflyIcon width={25} height={25} style={styles.headerVerifiedIcon} />
+                    )}
                   </Text>
-                  {kyc === true && (
-                    <DragonflyIcon width={25} height={25} style={styles.headerVerifiedIcon} />
-                  )}
+
                 </View>
                 {kyc === true && (
                   <View style={styles.headerStatus}>
@@ -1704,7 +1705,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             </Pressable>
           </Pressable>
         </Modal>
-         <Modal
+        <Modal
           visible={dragonflyModalVisible}
           transparent
           animationType="fade"
@@ -1741,7 +1742,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   <Text style={[styles.modalParagraph, textStyle]}>
                     {t('walletDashboard.dralensModal.paragraph3')}
                   </Text>
- 
+
                   <Text style={[styles.modalSectionHeading, textStyle]}>
                     {t('walletDashboard.dralensModal.onValensHeading')}
                   </Text>
@@ -1758,17 +1759,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       </View>
                     ))}
                   </View>
- 
+
                   <Text style={[styles.modalParagraph, textStyle]}>
                     {t('walletDashboard.dralensModal.paragraph4')}
                   </Text>
- 
+
                   <View style={styles.modalGrid}>
                     {DRAGONFLY_TIERS(t).map(({ id, Icon, title, range, note, color }, index) => {
                       const isLastRow =
                         DRAGONFLY_TIERS(t).length % 3 !== 0 &&
                         index >= DRAGONFLY_TIERS(t).length - (DRAGONFLY_TIERS(t).length % 3);
- 
+
                       return (
                         <View
                           key={id}
@@ -1796,7 +1797,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       );
                     })}
                   </View>
- 
+
                   <TouchableOpacity
                     style={[styles.modalCloseButton, { backgroundColor: text }]}
                     onPress={closeDragonflyModal}
@@ -1987,10 +1988,13 @@ const styles = StyleSheet.create({
     color: '#fef3c7',
     fontSize: 18,
     fontWeight: '700',
+    marginInlineEnd: 5
   },
   headerVerifiedIcon: {
-    flexShrink: 0,
-  },
+  flexShrink: 0,
+  marginLeft: -6,   // left spacing
+  marginTop: 3,    // top spacing
+},
   headerStatus: {
     flexDirection: 'row',
     alignItems: 'center',

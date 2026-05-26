@@ -34,8 +34,8 @@ export default function InviteScreen() {
     Alert.alert(t('invite.copiedTitle'), t('invite.copiedReferralMessage'));
   };
 
-  const deepLinkQr = `https://www.valens.app/`;
-  const deepLinkUrl = 'https://www.valens.app/';
+  const deepLinkQr = `https://api.valens.app/callback`;
+  const deepLinkUrl = 'https://api.valens.app/callback';
 
   const avatar = route?.params?.avatar;
 
