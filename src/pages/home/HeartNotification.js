@@ -310,9 +310,9 @@ export default function Notifications() {
     markAllAsRead();
   }, [notifications]);
 
-  const getNotification = async () => {
+  const getNotification = async (showLoader = true) => {
     try {
-      setIsLoading(true);
+      if (showLoader) setIsLoading(true);
       const response = await getAllNotifactions();
       console.log(response, 'notification is working');
       const rawPayload =
@@ -349,7 +349,7 @@ export default function Notifications() {
     } catch (err) {
       console.log(err, 'error getting notifications');
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
@@ -376,27 +376,27 @@ export default function Notifications() {
   };
 
   const read = async notificationIds => {
-    console.log(notificationIds, 'notification IDs to mark as read');
     try {
       const idsArray = Array.isArray(notificationIds)
         ? notificationIds
         : [notificationIds];
 
       const payload = { notificationIds: idsArray };
-
-      console.log(payload, 'payload being sent');
       const response = await readNotification(payload);
-      console.log(response, 'response received');
 
       const ok =
         response?.status === 200 ||
         response?.statusCode === 200 ||
         response?.success === true;
-      const notExplicitError = response?.error !== true;
 
-      if (ok || notExplicitError) {
-        console.log('Notifications marked as read');
-        await getNotification();
+      if (ok) {
+        // ← Just update locally, NO getNotification() call
+        setNotifications(prev =>
+          prev.map(n =>
+            idsArray.includes(n.id) ? { ...n, isRead: true } : n,
+          ),
+        );
+        await getNotification(false);
         DeviceEventEmitter.emit('NOTIFICATION_BADGE_REFRESH');
       }
     } catch (err) {
@@ -413,9 +413,16 @@ export default function Notifications() {
 
   const markAllAsRead = async () => {
     const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-    if (unreadIds.length > 0) {
-      setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
+    if (unreadIds.length === 0) return;
+
+    // Update locally first, no reload
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+
+    try {
       await read(unreadIds);
+      DeviceEventEmitter.emit('NOTIFICATION_BADGE_REFRESH');
+    } catch (err) {
+      console.log(err, 'error marking all as read');
     }
   };
 
@@ -561,7 +568,7 @@ export default function Notifications() {
         action === 'accept'
           ? await acceptBattle(payload)
           : await declinetBattle(payload);
-          console.log(response,'notifcation repossneneneneenneen')
+      console.log(response, 'notifcation repossneneneneenneen')
 
       const success =
         (typeof response?.status === 'number' &&
@@ -1014,7 +1021,7 @@ export default function Notifications() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, bgStyle]}>
+    <SafeAreaView style={[styles.container, bgStyle]} collapsable={false} >
       {/* Header */}
       <View style={[styles.header, bgStyle, { shadowColor: text }]}>
         <View style={styles.headerLeft}>
