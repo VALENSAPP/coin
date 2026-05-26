@@ -81,18 +81,44 @@ const formatDate = (value) => {
   return parsed.toLocaleDateString();
 };
 
+const isBattleExpired = (battle) => {
+  const endTime = battle?.endTime;
+  if (!endTime) return false;
+  const parsed =
+    typeof endTime === 'number'
+      ? new Date(endTime < 10_000_000_000 ? endTime * 1000 : endTime)
+      : new Date(endTime);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.getTime() <= Date.now();
+};
+
 const getStatusMeta = (battle) => {
-  if (battle.status.includes('live') || battle.status.includes('progress')) {
+  const status = String(battle?.status || '').toLowerCase();
+  const expired = isBattleExpired(battle);
+
+  if (status.includes('canceled') || status.includes('cancelled')) {
+    return { labelKey: 'battleHub.statusCanceled', tone: '#DC2626' };
+  }
+
+  if (status.includes('pending_invite') || status.includes('pendinginvite')) {
+    if (expired) return { labelKey: 'battleHub.statusClosed', tone: '#6B7280' };
+    return { labelKey: 'battleHub.statusPendingInvite', tone: '#F59E0B' };
+  }
+
+  if (status.includes('live') || status.includes('progress')) {
     return { labelKey: 'battleHub.statusLive', tone: '#EF4444' };
   }
   if (
-    battle.status.includes('closed') ||
-    battle.status.includes('finished') ||
-    battle.status.includes('resolved')
+    status.includes('closed') ||
+    status.includes('finished') ||
+    status.includes('resolved')
   ) {
     return { labelKey: 'battleHub.statusFinished', tone: '#6B7280' };
   }
-  if (battle.status.includes('result')) {
+  if (expired) {
+    return { labelKey: 'battleHub.statusClosed', tone: '#6B7280' };
+  }
+  if (status.includes('result')) {
     return { labelKey: 'battleHub.statusResult', tone: '#8B5CF6' };
   }
   return { labelKey: 'battleHub.statusOpen', tone: '#0F766E' };

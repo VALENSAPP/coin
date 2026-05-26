@@ -45,7 +45,7 @@ const SubscribeFlowModal = ({
     const step2Ref = useRef(null);
 
     const [acceptedTerms, setAcceptedTerms] = useState(false);
-    const [subscriptionAmount, setSubscriptionAmount] = useState(9);
+    const [subscriptionAmount, setSubscriptionAmount] = useState();
     const [userProfile, setUserProfile] = useState('');
     const [comment, setComment] = useState('');
 
@@ -122,6 +122,11 @@ const SubscribeFlowModal = ({
     }, [visible]);
 
     const handleConfirm = () => {
+        const amount = Number(subscriptionAmount);
+        if (!subscriptionAmount || Number.isNaN(amount) || amount <= 0) {
+            showToastMessage(toast, 'warning', t('subscribeFlow.subscriptionAmountNotSet'));
+            return;
+        }
         step1Ref.current?.close();
         setTimeout(() => { step2Ref.current?.open(); }, 350);
     };
@@ -247,7 +252,7 @@ const SubscribeFlowModal = ({
             if (response?.statusCode === 200) {
                 const subscriptions = response?.data?.subscriptions;
                 if (subscriptions?.length > 0) {
-                    setSubscriptionAmount(subscriptions[0].subscriptionAmount || 9);
+                    setSubscriptionAmount(subscriptions[0].subscriptionAmount ||'');
                     setComment(subscriptions[0].comment);
                 }
             }

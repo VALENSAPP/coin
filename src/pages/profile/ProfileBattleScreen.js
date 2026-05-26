@@ -17,7 +17,6 @@ export default function ProfileBattleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { t } = useLanguage();
-  console.log(route, 'data in route in thi screen');
   const returnTo = route?.params?.returnTo;
   const { profile } = route.params || {};
   const { bgStyle, text } = useAppTheme(profile);

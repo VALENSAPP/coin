@@ -439,8 +439,22 @@ const formatBattleTime = (value, t) => {
   if (!value) return t('battleInProgress.endTimeNotSet');
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return t('battleInProgress.endTimeNotSet');
-  return parsed.toLocaleString();
-}
+
+  const diffMs = parsed.getTime() - Date.now();
+  if (!Number.isFinite(diffMs) || diffMs <= 0) {
+    return t?.('battleCard.ended') || 'Ended';
+  }
+
+  const totalMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)));
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const mins = totalMinutes % 60;
+
+  if (days > 0) return t?.('battleCard.endsInDays', { days }) || `Ends in ${days}d`;
+  if (totalHours > 0) return t?.('battleCard.endsInHours', { hours: totalHours }) || `Ends in ${totalHours}h`;
+  return t?.('battleCard.endsInMins', { mins }) || `Ends in ${mins}m`;
+};
 
 const formatStakeAmount = value => {
   const parsed = Number(value);
@@ -491,6 +505,7 @@ export default function BattleInProgress() {
   const scrollRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const statusPulseAnim = useRef(new Animated.Value(1)).current;
+  const endTimePulseAnim = useRef(new Animated.Value(1)).current;
 
   const palette = useMemo(() => {
     const primary = text || '#bb7ef1';
@@ -783,6 +798,44 @@ export default function BattleInProgress() {
 
     return () => pulse.stop();
   }, [statusMeta.label, statusPulseAnim]);
+
+  const endTimeInfo = useMemo(() => {
+    const relative = formatBattleTime(battle?.endTime, t);
+    const parsed = battle?.endTime ? new Date(battle.endTime) : null;
+    const isValid = parsed && !Number.isNaN(parsed.getTime());
+    const diffMs = isValid ? parsed.getTime() - Date.now() : NaN;
+    const isEndingSoon = Number.isFinite(diffMs) && diffMs > 0 && diffMs <= 60 * 60 * 1000;
+    return {
+      relative,
+      absolute: isValid ? parsed.toLocaleString() : '',
+      isEndingSoon,
+    };
+  }, [battle?.endTime, t]);
+
+  useEffect(() => {
+    if (!endTimeInfo.isEndingSoon) {
+      endTimePulseAnim.setValue(1);
+      return undefined;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(endTimePulseAnim, {
+          toValue: 0.2,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+        Animated.timing(endTimePulseAnim, {
+          toValue: 1,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+
+    return () => pulse.stop();
+  }, [endTimeInfo.isEndingSoon, endTimePulseAnim]);
 
   const fetchBattle = useCallback(async (isSilent = false) => {
     if (!battleId) { setLoading(false); return; }
@@ -1518,7 +1571,25 @@ export default function BattleInProgress() {
         </View>
         <View style={styles.timerPill}>
           <Ionicons name="time-outline" size={12} color="#000" />
-          <Text style={[styles.timerPillText, { color: text }]}>{formatBattleTime(battle.endTime)}</Text>
+          {endTimeInfo.isEndingSoon && (
+            <Animated.View style={[styles.endTimeDot, { opacity: endTimePulseAnim }]} />
+          )}
+          <View style={styles.timerTextWrap}>
+            <Text
+              style={[
+                styles.timerPillText,
+                { color: endTimeInfo.isEndingSoon ? '#EF4444' : text },
+              ]}
+              numberOfLines={1}
+            >
+              {endTimeInfo.relative}
+            </Text>
+            {!!endTimeInfo.absolute && (
+              <Text style={[styles.timerPillSubText, { color: withAlpha(text, '99') }]} numberOfLines={1}>
+                {endTimeInfo.absolute}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
       <View>
@@ -2116,7 +2187,9 @@ export default function BattleInProgress() {
                         ? t('battleInProgress.submitPrediction')
                         : shouldShowAcceptBattleCta
                           ? t('battleInProgress.acceptBattle')
-                          : t('battleInProgress.voteInBattle')}
+                          : (isHeadToHead && isHeadToHeadCreator && !creatorSelectionLocked
+                            ? 'Activate battle'
+                            : t('battleInProgress.voteInBattle'))}
                   </Text>
                 }
               </LinearGradient>
@@ -2265,6 +2338,9 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 11, fontWeight: '700', color: '#e84040', letterSpacing: 0.4 },
   timerPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(107,95,166,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
   timerPillText: { fontSize: 11, fontWeight: '600', color: "#000" },
+  timerTextWrap: { flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 },
+  timerPillSubText: { fontSize: 10, fontWeight: '600', marginTop: 0, includeFontPadding: false },
+  endTimeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginLeft: 2 },
   heroChallengeLine: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', marginBottom: 6, marginHorizontal: 8 },
   heroChallengeStrong: { color: '#FFFFFF', fontWeight: '900' },
   heroTitle: { color: "#000", fontSize: 20, fontWeight: '800', lineHeight: 28, marginBottom: 4, marginHorizontal: 8 },
