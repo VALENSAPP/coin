@@ -150,7 +150,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     <>
       <RBSheet
         ref={sheetRef}
-        height={260}
+        height={280}
         draggable={false}
         onClose={handlePostTypeSheetClose}
         customModalProps={
@@ -218,6 +218,16 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
           >
             <Text style={[styles.optionText, textStyle]}>
               {t('postTypeModal.regularMintLabel')}
+            </Text>
+          </TouchableOpacity>
+           <TouchableOpacity
+            style={[styles.optionBtn, { backgroundColor: card, borderColor: text }]}
+            onPress={() => {
+             
+            }}
+          >
+            <Text style={[styles.optionText, textStyle]}>
+              {t('postTypeModal.PrivateCircle')}
             </Text>
           </TouchableOpacity>
         </View>

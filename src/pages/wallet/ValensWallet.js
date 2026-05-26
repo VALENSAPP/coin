@@ -32,9 +32,15 @@ import {
     totalSupport,
     transationActivity,
 } from '../../services/wallet';
-import { Metamask } from '../../assets/icons';
 import { appKit } from '../../config/AppKitConfig';
 import { useLanguage } from '../../i18n';
+
+const WALLET_ICON_BY_TYPE = {
+    metamask: require('../../assets/icons/pngicons/Emeta.png'),
+    coinbase: require('../../assets/icons/pngicons/coin.png'),
+    walletconnect: require('../../assets/icons/pngicons/EWallet.png'),
+    wallet: require('../../assets/icons/pngicons/EWallet.png'),
+};
 
 const ValensWallet = ({ navigation }) => {
     const [tradeModalVisible, setTradeModalVisible] = useState(false);
@@ -45,6 +51,7 @@ const ValensWallet = ({ navigation }) => {
     const [missionEarningsUsd, setMissionEarningsUsd] = useState(0);
     const [subscriptionPaymentsUsd, setSubscriptionPaymentsUsd] = useState(0);
     const [connectedWalletAddress, setConnectedWalletAddress] = useState('');
+    const [connectedWalletType, setConnectedWalletType] = useState(null);
     const [showAmounts, setShowAmounts] = useState(false);
     const [showTotalBalance, setShowTotalBalance] = useState(false);
     const [recentActivity, setRecentActivity] = useState([]);
@@ -67,7 +74,9 @@ const ValensWallet = ({ navigation }) => {
             dispatch(showLoader());
             const userId = await AsyncStorage.getItem('userId');
             const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
+            const storedWalletType = await AsyncStorage.getItem('walletType');
             setConnectedWalletAddress(String(storedWalletAddress || '').trim());
+            setConnectedWalletType(storedWalletType);
 
             const [totalRes, userRes, metaRes, missionRes, supportRes, activityRes] = await Promise.allSettled([
                 totalamount(),
@@ -320,6 +329,7 @@ const ValensWallet = ({ navigation }) => {
             await appKit?.disconnect?.();
             await AsyncStorage.multiRemove(['walletAddress', 'walletChainId', 'walletType']);
             setConnectedWalletAddress('');
+            setConnectedWalletType(null);
             showToastMessage(toast, 'success', t('valensWallet.disconnectSuccess'));
         } catch (error) {
             showToastMessage(toast, 'danger', t('valensWallet.disconnectFailed'));
@@ -341,11 +351,22 @@ const ValensWallet = ({ navigation }) => {
         openWalletConnect();
     };
 
+    const normalizedWalletType = String(connectedWalletType || '').trim().toLowerCase();
+    const walletTypeForUi = isMetaMaskConnected ? normalizedWalletType || 'walletconnect' : 'wallet';
+    const walletTitle = isMetaMaskConnected
+        ? normalizedWalletType === 'metamask'
+            ? 'MetaMask'
+            : normalizedWalletType === 'coinbase'
+                ? 'Coinbase Wallet'
+                : 'WalletConnect'
+        : t('valensWallet.walletLabel');
+    const walletIconSource = WALLET_ICON_BY_TYPE[walletTypeForUi] || WALLET_ICON_BY_TYPE.wallet;
+
     const walletConnections = [
         {
             key: 'metamask',
             label: t('valensWallet.walletLabel'),
-            title: 'MetaMask',
+            title: walletTitle,
             badge: {
                 text: isMetaMaskConnected ? t('valensWallet.connected') : t('valensWallet.disconnected'),
                 tone: isMetaMaskConnected ? 'success' : 'muted',
@@ -355,7 +376,7 @@ const ValensWallet = ({ navigation }) => {
             approx: '',
             cta: isMetaMaskConnected ? t('valensWallet.disconnectMetaMask') : t('valensWallet.connectMetaMask'),
             onPress: handleMetaMaskCardPress,
-            leftIcon: { type: 'custom', name: 'metamask' },
+            leftIcon: { type: 'image', source: walletIconSource },
         },
     ];
 
@@ -451,11 +472,9 @@ const ValensWallet = ({ navigation }) => {
                             style={[styles.connectionCard, { borderColor: `${text}1a` }]}
                         >
                             <View style={styles.connectionTopRow}>
-                                <View style={styles.connectionLeft}>
-                                    <View style={[styles.connectionIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
-                                        {connection.key === 'metamask' ? (
-                                            <Metamask width={28} height={28} />
-                                        ) : connection.leftIcon.type === 'image' ? (
+                                     <View style={styles.connectionLeft}>
+                                     <View style={[styles.connectionIconWrap, { backgroundColor: `${text}0d`, borderColor: `${text}1a` }]}>
+                                        {connection.leftIcon.type === 'image' ? (
                                             <Image source={connection.leftIcon.source} style={styles.connectionIconImage} />
                                         ) : (
                                             <Ionicons name={connection.leftIcon.name} size={22} color={text} />

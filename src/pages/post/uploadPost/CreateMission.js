@@ -7,11 +7,12 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  DeviceEventEmitter,
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
 import CountryPicker from 'react-native-country-picker-modal';
 import CustomButton from '../../../components/customButton/customButton';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
@@ -147,6 +148,51 @@ const CreateMission = () => {
     taggedPeopleIds = [],
     taggedPeopleMeta = [],
   } = route.params || {};
+
+  const getMediaUri = (media) =>
+    media?.processedUri ||
+    media?.originalUri ||
+    media?.path ||
+    media?.uri ||
+    media?.sourceURL ||
+    '';
+
+  const getMediaName = (media, index) => {
+    const uri = getMediaUri(media);
+    const fallback = `mission-media-${index}`;
+    if (!uri) return fallback;
+    const nameFromUri = uri.split('/').pop();
+    return nameFromUri || fallback;
+  };
+
+  const getMediaType = (media) => {
+    const rawType =
+      media?.type ||
+      media?.mime ||
+      media?.mimeType ||
+      media?.mediaType ||
+      media?.contentType ||
+      null;
+    if (typeof rawType === 'string' && rawType.trim()) return rawType;
+
+    const uri = String(getMediaUri(media) || '').toLowerCase();
+    if (uri.endsWith('.mp4')) return 'video/mp4';
+    if (uri.endsWith('.mov')) return 'video/quicktime';
+    if (uri.endsWith('.m4v')) return 'video/x-m4v';
+    if (uri.endsWith('.webm')) return 'video/webm';
+    if (uri.endsWith('.png')) return 'image/png';
+    if (uri.endsWith('.webp')) return 'image/webp';
+    if (uri.endsWith('.heic') || uri.endsWith('.heif')) return 'image/heic';
+    if (uri.endsWith('.jpg') || uri.endsWith('.jpeg')) return 'image/jpeg';
+    return 'image/jpeg';
+  };
+
+  const navigateAfterPostCreated = () => {
+    // Avoid leaving upload flow screens in the stack (images/caption screens).
+    navigation.dispatch(StackActions.popToTop());
+    navigation.navigate('HomeMain', { screen: 'Home' });
+    DeviceEventEmitter.emit('HOME_TAB_PRESS');
+  };
   // Validation Schema — built inside component so `t` is available
   const validationSchema = Yup.object().shape({
     raiseAmount: Yup.string()
@@ -296,7 +342,7 @@ const CreateMission = () => {
     const profileType = await AsyncStorage.getItem('profile');
 
     const payload = {
-      caption: caption.trim(),
+      caption: String(caption || '').trim(),
       taggedPeople: taggedPeopleIds,
       // ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
       //   ? {
@@ -309,14 +355,15 @@ const CreateMission = () => {
       // ...(Array.isArray(taggedPeopleMeta) && taggedPeopleMeta.length
       //   ? { taggedPeopleMeta }
       //   : {}),
-      media: images.map(img => ({
-        uri: img.processedUri || img.uri,
-        type: img.type,
-        name: (img.processedUri || img.uri).split('/').pop()
+      media: (Array.isArray(images) ? images : []).map((img, index) => ({
+        uri: getMediaUri(img),
+        type: getMediaType(img),
+        name: getMediaName(img, index),
       })),
       link: link ? link.trim() : '',
       type: profileType === 'company' ? 'support' : 'crowdfunding',
       raiseAmount: numericValue,
+      currency: values.currency,
       start_time: formatDateTime(values.startTime),
       end_time: formatEndDateTime(values.endTime)
     };
@@ -333,7 +380,7 @@ const CreateMission = () => {
         setShowCountryPicker(false);
         setSelectedCountry(null);
         setInitialCurrency('USD');
-        navigation.navigate('HomeMain');
+        navigateAfterPostCreated();
       } else {
         showToastMessage(toast, 'danger', response.message || t('createMission.postCreatedFail'));
       }

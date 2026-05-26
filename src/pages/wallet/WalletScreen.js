@@ -158,7 +158,7 @@ export default function WalletComponent() {
             if (response?.statusCode === 200) {
                 const hitLeft = Number(response?.data?.hitLeft);
                 const cappedHitLeft = Number.isFinite(hitLeft) ? Math.min(Math.max(hitLeft, 0), 5) : 0;
-                setCreditsLeft(cappedHitLeft);
+                setCreditsLeft(response?.data?.hitLeft);
                 setPostCounts(response.data.postCount);
             } else {
                 showToastMessage(toast, 'danger', response.data.message);

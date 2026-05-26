@@ -529,7 +529,7 @@ const cropImage = (imageUri, index) => {
         >
           {currentSelection.map((media, index) => {
             const previewHeight =
-              postType === 'flip' ? screenHeight * 0.9 : getPreviewHeightForMedia(media);
+              postType === 'flip' ? screenHeight * 0.6 : getPreviewHeightForMedia(media);
             return (
             <View
               key={`selected_${media.uri}_${index}`}

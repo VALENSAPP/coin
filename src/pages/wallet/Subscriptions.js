@@ -41,6 +41,7 @@ import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
 
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
+const SUBVENTION_TERMS_AGREED_KEY_PREFIX = 'subventionTermsAgreed';
 
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
@@ -50,6 +51,7 @@ const SubventionSetupScreen = () => {
     const [printAttempts, setPrintAttempts] = useState(0);
     const [hasExistingSubscription, setHasExistingSubscription] = useState(false);
     const [isChecked, setIsChecked] = useState(false);
+    const [hasAgreedTerms, setHasAgreedTerms] = useState(false);
     const navigation = useNavigation();
     const toast = useToast();
     const dispatch = useDispatch();
@@ -83,12 +85,34 @@ const SubventionSetupScreen = () => {
     useFocusEffect(
         useCallback(() => {
             const initializeScreen = async () => {
+                await loadTermsAgreement();
                 await fetchSubscriptionByUserId();
                 await getCredential();
             };
             initializeScreen();
         }, [])
     );
+
+    const loadTermsAgreement = async () => {
+        try {
+            const userId = await AsyncStorage.getItem('userId');
+            const key = `${SUBVENTION_TERMS_AGREED_KEY_PREFIX}:${userId || 'unknown'}`;
+            const stored = await AsyncStorage.getItem(key);
+            const agreed = stored === 'true';
+            setHasAgreedTerms(agreed);
+            if (agreed) setIsChecked(true);
+        } catch (_e) {
+            // Non-fatal: keep default false.
+        }
+    };
+
+    const persistTermsAgreement = async () => {
+        const userId = await AsyncStorage.getItem('userId');
+        const key = `${SUBVENTION_TERMS_AGREED_KEY_PREFIX}:${userId || 'unknown'}`;
+        await AsyncStorage.setItem(key, 'true');
+        setHasAgreedTerms(true);
+        setIsChecked(true);
+    };
 
     const formatPrice = (value) => {
         if (!value) return "";
@@ -577,6 +601,10 @@ const SubventionSetupScreen = () => {
 
     const handleSaveSubscription = async () => {
         try {
+            if (!hasAgreedTerms && !isChecked) {
+                showToastMessage(toast, 'warning', t('subventionSetup.agreementRequired'));
+                return;
+            }
             const subscriptionAmount = parseFloat(rawAmount) || 0;
             dispatch(showLoader());
             let response;
@@ -591,6 +619,7 @@ const SubventionSetupScreen = () => {
             if (response?.statusCode === 200) {
                 setComment('');
                 showToastMessage(toast, 'success', hasExistingSubscription ? t('subventionSetup.updateSuccess') : t('subventionSetup.createSuccess'));
+                await persistTermsAgreement();
                 await fetchSubscriptionByUserId();
             } else {
                 showToastMessage(toast, 'danger', response?.data?.message || t('subventionSetup.saveFail'));
@@ -606,6 +635,7 @@ const SubventionSetupScreen = () => {
     const subscriptionEndDate = formatSubscriptionDate(credential?.subscriptionEnd || credential?.currentPeriodEnd);
     const subscriptionStatus = credential?.subscriptionStatus || 'INACTIVE';
     const isSubscriptionActive = subscriptionStatus?.toUpperCase() === 'ACTIVE';
+    const canSaveSubscription = hasAgreedTerms || isChecked;
 
     return (
         <>
@@ -723,31 +753,38 @@ const SubventionSetupScreen = () => {
 
                         <View style={{ marginTop: 15 }} />
 
-                        <TouchableOpacity
-                            style={styles.checkboxRow}
-                            activeOpacity={0.8}
-                            onPress={() => setIsChecked(!isChecked)}
-                        >
-                            <Ionicons
-                                name={isChecked ? 'checkbox-outline' : 'square-outline'}
-                                size={24}
-                                color="#000"
-                                style={styles.checkboxIcon}
-                            />
-                            <Text style={styles.checkboxText}>
-                                {t('subventionSetup.agreePrefix')}{' '}
-                                <Text style={styles.linkText} onPress={openTerms}>
-                                    {t('subventionSetup.creatorTermsLink')}
+                        {hasAgreedTerms ? (
+                            <TouchableOpacity style={[styles.saveButton, styles.agreedButton]} activeOpacity={1} disabled>
+                                <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
+                                <Text style={styles.saveButtonText}>{t('subventionSetup.agreedButton')}</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.checkboxRow}
+                                activeOpacity={0.8}
+                                onPress={() => setIsChecked(!isChecked)}
+                            >
+                                <Ionicons
+                                    name={isChecked ? 'checkbox-outline' : 'square-outline'}
+                                    size={24}
+                                    color="#000"
+                                    style={styles.checkboxIcon}
+                                />
+                                <Text style={styles.checkboxText}>
+                                    {t('subventionSetup.agreePrefix')}{' '}
+                                    <Text style={styles.linkText} onPress={openTerms}>
+                                        {t('subventionSetup.creatorTermsLink')}
+                                    </Text>
+                                    {t('subventionSetup.agreeSuffix')}
                                 </Text>
-                                {t('subventionSetup.agreeSuffix')}
-                            </Text>
-                        </TouchableOpacity>
+                            </TouchableOpacity>
+                        )}
                     </ScrollView>
 
                     <TouchableOpacity
-                        style={[styles.saveButton, !isChecked && { opacity: 0.5, backgroundColor: text }]}
+                        style={[styles.saveButton, !canSaveSubscription && { opacity: 0.5, backgroundColor: text }]}
                         onPress={handleSaveSubscription}
-                        disabled={!isChecked}
+                        disabled={!canSaveSubscription}
                     >
                         <Text style={styles.saveButtonText}>
                             {hasExistingSubscription ? t('subventionSetup.updateButton') : t('subventionSetup.saveButton')}
@@ -968,6 +1005,11 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    agreedButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        backgroundColor: '#E5E7EB',
     },
     modalOverlay: {
         flex: 1,
