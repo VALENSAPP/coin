@@ -50,6 +50,8 @@ const UsernameModal = ({ visible, onClose, data }) => {
   const { deepLink, webFallback, primaryShareUrl, shareMessage } =
     buildProfileSharePayload({ username: resolvedUsername, userId: resolvedUserId });
 
+  const qrShareUrl = `https://api.valens.app/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
+
   const onShare = async () => {
     try {
       if (!resolvedUsername && !resolvedUserId) {
@@ -59,61 +61,48 @@ const UsernameModal = ({ visible, onClose, data }) => {
         );
         return;
       }
-      const finalShareMessage = (() => {
-        if (shareMessage && primaryShareUrl && !shareMessage.includes(primaryShareUrl)) {
-          return `${shareMessage}\n\n${primaryShareUrl}`;
-        }
-        return shareMessage || primaryShareUrl;
-      })();
 
-      await Share.share({ url: primaryShareUrl, message: finalShareMessage });
+      const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';
+
+      await Share.share({
+        url: qrShareUrl,
+        message: t('shareProfile.shareMessageTemplate', {
+          username: toBold(profileLabel),
+        }),
+      });
     } catch (error) {
       Alert.alert(t('usernameModal.errorTitle'), t('usernameModal.shareError') + error.message);
     }
   };
 
-  const openProfileLink = async () => {
-    if (!resolvedUsername && !resolvedUserId) {
-      Alert.alert(
-        t('usernameModal.profileNotAvailableTitle'),
-        t('usernameModal.openProfileError')
-      );
-      return;
-    }
-    try {
-      await Linking.openURL(deepLink);
-    } catch (error) {
-      try {
-        await Linking.openURL(webFallback);
-      } catch (fallbackError) {
-        Alert.alert(t('usernameModal.errorTitle'), t('usernameModal.openLinkError'));
-      }
-    }
-  };
+  const toBold = (str) =>
+    String(str)
+      .split('')
+      .map((c) => {
+        const code = c.codePointAt(0);
+        if (code >= 65 && code <= 90) return String.fromCodePoint(code + 0x1D400 - 65);
+        if (code >= 97 && code <= 122) return String.fromCodePoint(code + 0x1D41A - 97);
+        if (code >= 48 && code <= 57) return String.fromCodePoint(code + 0x1D7CE - 48);
+        return c;
+      })
+      .join('');
 
   const copyProfileUrl = () => {
-    if (!primaryShareUrl) {
+    if (!qrShareUrl) {
       Alert.alert(
         t('usernameModal.profileNotAvailableTitle'),
         t('usernameModal.copyLinkError')
       );
       return;
     }
-    Clipboard.setString(String(primaryShareUrl));
+    Clipboard.setString(qrShareUrl);
     showToastMessage(toast, 'success', t('usernameModal.linkCopied'));
   };
 
-  const copyWalletAddress = () => {
-    if (!resolvedWalletAddress) {
-      Alert.alert(
-        t('usernameModal.walletNotConnectedTitle'),
-        t('usernameModal.walletNotConnectedMessage')
-      );
-      return;
-    }
-    Clipboard.setString(resolvedWalletAddress);
-    showToastMessage(toast, 'success', t('usernameModal.walletCopied'));
-  };
+  console.log('resolvedData:', resolvedData);
+console.log('resolvedUserId:', resolvedUserId);
+console.log('resolvedUsername:', resolvedUsername);
+console.log('qrShareUrl:', qrShareUrl);
 
   return (
     <RBSheet

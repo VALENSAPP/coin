@@ -51,9 +51,9 @@ const linking = {
       User: 'u/:id',
       Share: 'share/:id',
 
-      Post: 'post/:id',
-      Reel: 'reel/:id',
-      Story: 'story/:id',
+      Post: 'postshare/:id',
+      Reel: 'reelshare/:id',
+      Story: 'storyshare/:id',
     },
   },
 };
@@ -393,9 +393,9 @@ export default function Main() {
         const fallbackTag = urlObj.searchParams.get('af');
         const profileMatch = normalizedPath.match(/^\/profile\/([^/?]+)/i);
 
-        const postMatch = normalizedPath.match(/^\/post\/([^/?]+)/i);
-        const reelMatch = normalizedPath.match(/^\/reel\/([^/?]+)/i);
-        const storyMatch = normalizedPath.match(/^\/story\/([^/?]+)/i);
+        const postMatch = normalizedPath.match(/^\/postshare\/([^/?]+)/i);
+        const reelMatch = normalizedPath.match(/^\/reelshare\/([^/?]+)/i);
+        const storyMatch = normalizedPath.match(/^\/storyshare\/([^/?]+)/i);
 
         if (postMatch?.[1]) {
           const postId = decodeURIComponent(postMatch[1]);
@@ -417,47 +417,87 @@ export default function Main() {
 
         if (reelMatch?.[1]) {
           const reelId = decodeURIComponent(reelMatch[1]);
-
-          navigationRef.current.navigate('MainApp', {
+          const doNavigate = () => navigationRef.current?.navigate('MainApp', {
             screen: 'HomeMain',
             params: {
               screen: 'FlipsScreen',
-              params: {
-                item: { id: String(reelId) },
-                uniqueKey: `deeplink_reel_${String(reelId)}`,
-              },
+              params: { item: { id: String(reelId) }, uniqueKey: `deeplink_reel_${String(reelId)}` },
             },
           });
-
+          if (navigationRef.current && isNavigationReadyRef.current) {
+            doNavigate();
+          } else {
+            const interval = setInterval(() => {
+              if (navigationRef.current && isNavigationReadyRef.current) {
+                clearInterval(interval);
+                doNavigate();
+              }
+            }, 100);
+            setTimeout(() => clearInterval(interval), 10000);
+          }
           return;
         }
 
         if (storyMatch?.[1]) {
           const storyId = decodeURIComponent(storyMatch[1]);
+          console.log('STORY DEEP LINK storyId:', storyId);
+          console.log('nav ready:', isNavigationReadyRef.current, 'navRef:', !!navigationRef.current);
 
-          navigationRef.current.navigate('MainApp', {
-            screen: 'HomeMain',
-            params: {
-              screen: 'Home',
+          const doNavigate = () => {
+            navigationRef.current?.navigate('MainApp', {
+              screen: 'HomeMain',
               params: {
-                sharedStoryId: storyId,
+                screen: 'Home',
+                params: {
+                  sharedStoryId: storyId,
+                },
               },
-            },
-          });
+            });
+          };
+
+          if (navigationRef.current && isNavigationReady) {
+            doNavigate();
+          } else {
+            // Nav not ready yet (cold start), retry until ready
+            const interval = setInterval(() => {
+              if (navigationRef.current && isNavigationReadyRef.current) {
+                clearInterval(interval);
+                doNavigate();
+              }
+            }, 100);
+            // Give up after 10 seconds
+            setTimeout(() => clearInterval(interval), 10000);
+          }
 
           return;
         }
 
-        if (profileMatch?.[1]) {
-          const profileUserId = decodeURIComponent(profileMatch[1]);
-
-          console.log('Profile deep link userId:', profileUserId);
-
-          navigateToUserProfile(profileUserId);
+        if (postMatch?.[1]) {
+          const postId = decodeURIComponent(postMatch[1]);
+          const doNavigate = () => navigationRef.current?.navigate('MainApp', {
+            screen: 'ProfileMain',
+            params: {
+              screen: 'PostView',
+              params: { userChat: true, fromScreen: 'DeepLink', postData: { id: String(postId) } },
+            },
+          });
+          if (navigationRef.current && isNavigationReadyRef.current) {
+            doNavigate();
+          } else {
+            const interval = setInterval(() => {
+              if (navigationRef.current && isNavigationReadyRef.current) {
+                clearInterval(interval);
+                doNavigate();
+              }
+            }, 100);
+            setTimeout(() => clearInterval(interval), 10000);
+          }
           return;
         }
         const sharedProfileLink = parseProfileShareUrl(url);
-
+        console.log('sharedProfileLink:', sharedProfileLink);
+        console.log('deepLinkUserId:', sharedProfileLink?.userId);
+        console.log('deepLinkUsername:', sharedProfileLink?.username);
         if (navigationRef.current && isNavigationReady) {
           setTimeout(() => {
             if (postId && fallbackTag === 'dd') {
@@ -494,8 +534,11 @@ export default function Main() {
                 },
               });
             } else if (sharedProfileLink) {
-              const deepLinkUserId = String(sharedProfileLink.userId || '').trim();
-              const resolvedUsername = String(sharedProfileLink.username || '').trim();
+              const deepLinkUserId = String(sharedProfileLink?.userId || '').trim()
+                || (String(sharedProfileLink?.username || '').match(/^[0-9a-f-]{36}$/i)
+                  ? sharedProfileLink.username
+                  : '');
+              const resolvedUsername = String(sharedProfileLink?.username || '').trim();
 
               if (deepLinkUserId) {
                 navigateToUserProfile(deepLinkUserId);

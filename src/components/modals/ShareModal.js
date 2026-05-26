@@ -135,10 +135,9 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
   const resolveStoryLinkId = () => {
     if (!story) return null;
-    if (typeof story === 'string' || typeof story === 'number') return String(story);
-    return String(
-      story.storyId || story.id || story._id || story.story?.id || story.story?._id || '',
-    ) || null;
+    if (typeof story === 'string' || typeof story === 'number') return cleanStoryId(story);
+    const raw = story.storyId || story.id || story._id || story.story?.id || story.story?._id || '';
+    return cleanStoryId(raw) || null;
   };
 
   const directSendToInbox = useCallback(async (sharedContent) => {
@@ -270,18 +269,15 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
   const generateShareLink = () => {
     const id = story ? resolveStoryLinkId() : resolvePostId();
-
     if (!id) return null;
 
     if (story) {
-      return `https://api.valens.app/story/${encodeURIComponent(String(id))}`;
+      return `https://api.valens.app/storyshare/${encodeURIComponent(String(id))}`;
     }
-
     if (reel || reelId) {
-      return `https://api.valens.app/reel/${encodeURIComponent(String(id))}`;
+      return `https://api.valens.app/reelshare/${encodeURIComponent(String(id))}`;
     }
-
-    return `https://api.valens.app/post/${encodeURIComponent(String(id))}`;
+    return `https://api.valens.app/postshare/${encodeURIComponent(String(id))}`;
   };
 
   const shareToWhatsApp = async () => {

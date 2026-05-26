@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Stories from '../../components/home/story.js/Stories';
 import Posts from '../../components/home/posts/Posts';
-import { DrawerActions, useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { Chat, LogoIcon } from '../../assets/icons';
 import { getposts } from '../../services/home';
 import { useToast } from 'react-native-toast-notifications';
@@ -140,7 +140,7 @@ export default function HomeScreen({ route }) {
 
   const isInitialMountRef = useRef(true);
   const conversationsRef = useRef([]);
-
+  
   const toast = useToast();
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
@@ -560,40 +560,61 @@ export default function HomeScreen({ route }) {
     checkBusinessSubscriptionStatus();
   }, [isFocused, isBusinessProfile, checkBusinessSubscriptionStatus]);
 
-  const openLinkedStory = useCallback(async (sharedStoryId) => {
-    const storyId = String(sharedStoryId || '').trim();
-    if (!storyId || openingLinkedStory) return;
+const openLinkedStory = useCallback(async (sharedStoryId) => {
+  const storyId = String(sharedStoryId || '').trim();
+  if (!storyId || openingLinkedStory) return;
 
-    try {
-      setOpeningLinkedStory(true);
-      const userId = await AsyncStorage.getItem('userId');
-      const [ownStoryResponse, followingStoryResponse] = await Promise.all([
-        userId ? getStoryByUser(userId, { time: 'all' }).catch(() => null) : Promise.resolve(null),
-        getFollowingUserStories().catch(() => null),
-      ]);
+  try {
+    setOpeningLinkedStory(true);
+    const userId = await AsyncStorage.getItem('userId');
+    const savedUsername = await AsyncStorage.getItem('username') || ''; // ← add this
 
-      const ownStories = ownStoryResponse?.data
-        ? (Array.isArray(ownStoryResponse.data) ? ownStoryResponse.data : [ownStoryResponse.data])
-        : [];
-      const followingStories = followingStoryResponse?.data
-        ? (Array.isArray(followingStoryResponse.data) ? followingStoryResponse.data : [followingStoryResponse.data])
-        : [];
-      const matchedStory = findStoryBySharedId([...ownStories, ...followingStories], storyId, userId);
+    const [ownStoryResponse, followingStoryResponse] = await Promise.all([
+      userId ? getStoryByUser(userId, { time: 'all' }).catch(() => null) : Promise.resolve(null),
+      getFollowingUserStories().catch(() => null),
+    ]);
 
-      if (matchedStory) {
-        setLinkedStory(matchedStory);
-        setLinkedStoryVisible(true);
-      } else {
-        showToastMessage(toast, 'danger', 'This drop is no longer available.');
-      }
-    } catch (error) {
-      console.error('Error opening shared story link:', error);
-      showToastMessage(toast, 'danger', 'Unable to open this drop.');
-    } finally {
-      setOpeningLinkedStory(false);
-      navigation.setParams?.({ sharedStoryId: undefined });
+    const ownStories = ownStoryResponse?.data
+      ? (Array.isArray(ownStoryResponse.data) ? ownStoryResponse.data : [ownStoryResponse.data])
+      : [];
+    const followingStories = followingStoryResponse?.data
+      ? (Array.isArray(followingStoryResponse.data) ? followingStoryResponse.data : [followingStoryResponse.data])
+      : [];
+
+    // ← tag own stories with userId so getStoryOwner can identify them
+    const taggedOwnStories = ownStories.map(s => ({
+      ...s,
+      userId: s.userId || userId,
+      userName: s.userName || s.user?.displayName || s.user?.userName || savedUsername,
+    }));
+
+    const matchedStory = findStoryBySharedId(
+      [...taggedOwnStories, ...followingStories],
+      storyId,
+      userId,
+    );
+
+    if (matchedStory) {
+      // if matched story belongs to current user, show "Your Drops"
+      const isOwnStory = String(matchedStory.userId) === String(userId);
+      setLinkedStory({
+        ...matchedStory,
+        userName: isOwnStory
+          ? t('stories.yourDrops')   // ← "Your Drops" for own story
+          : matchedStory.userName,
+      });
+      setLinkedStoryVisible(true);
+    } else {
+      showToastMessage(toast, 'danger', 'This drop is no longer available.');
     }
-  }, [navigation, openingLinkedStory, toast]);
+  } catch (error) {
+    console.error('Error opening shared story link:', error);
+    showToastMessage(toast, 'danger', 'Unable to open this drop.');
+  } finally {
+    setOpeningLinkedStory(false);
+    navigation.setParams?.({ sharedStoryId: undefined });
+  }
+}, [navigation, openingLinkedStory, toast, t]);
 
   useEffect(() => {
     const sharedStoryId = route?.params?.sharedStoryId;

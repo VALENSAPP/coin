@@ -26,7 +26,7 @@ import VideoPlayer from '@iftek/react-native-video-player';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import createStyles from '../../../pages/home/Style';
@@ -301,7 +301,7 @@ function resolveStoryAudioPayload(storyLike) {
       try {
         const parsed = JSON.parse(trimmed);
         if (parsed && typeof parsed === 'object') src = parsed;
-      } catch (_e) {}
+      } catch (_e) { }
     }
   }
 
@@ -320,11 +320,11 @@ function resolveStoryAudioPayload(storyLike) {
     const normalizedMode = typeof src.mode === 'string' ? src.mode.trim().toLowerCase() : '';
     const libraryTrackId =
       typeof src.trackId === 'string' ? src.trackId :
-      typeof src.libraryTrackId === 'string' ? src.libraryTrackId :
-      typeof src.id === 'string' ? src.id : null;
+        typeof src.libraryTrackId === 'string' ? src.libraryTrackId :
+          typeof src.id === 'string' ? src.id : null;
     const libraryTitle =
       typeof src.title === 'string' ? src.title :
-      typeof src.trackName === 'string' ? src.trackName : null;
+        typeof src.trackName === 'string' ? src.trackName : null;
 
     if (normalizedMode === 'library' || libraryTrackId || libraryTitle) {
       const builtinUrl = getStoryBuiltinLibraryUrl(libraryTrackId || libraryTitle);
@@ -478,16 +478,16 @@ const StoryAnalytics = ({ visible, onClose, story, currentUser }) => {
 
   // Tab labels keyed from translations
   const TAB_KEYS = [
-    { key: 'likes',    label: t('stories.likesTab') },
+    { key: 'likes', label: t('stories.likesTab') },
     { key: 'comments', label: t('stories.commentsTab') },
   ];
 
   const getTabData = () => {
     if (!story) return [];
     switch (activeTab) {
-      case 'likes':    return story.likes    || [];
+      case 'likes': return story.likes || [];
       case 'comments': return story.comments || [];
-      default:         return [];
+      default: return [];
     }
   };
 
@@ -597,6 +597,7 @@ const StoryViewer = ({
   ownerProfileImage,
   onDrawerClose,
   onOpenUserProfile,
+  currentUserId,          // ← add this
 }) => {
   const insets = useSafeAreaInsets();
   const storyTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 0);
@@ -682,42 +683,42 @@ const StoryViewer = ({
   useEffect(() => { isViewingOwnStoryRef.current = !!isViewingOwnStory; }, [isViewingOwnStory]);
 
   // Call view API once per active story (per viewer session)
- useEffect(() => {
-  if (!visible) {
-    lastViewedStoryKeyRef.current = null;
-    return;
-  }
-
-  if (!currentStory || isViewingOwnStory) return;
-  if (!currentStory.storyId) return;
-
-  const viewKey = `${currentUser?.id || ''}:${String(currentStory.storyId)}:${currentStoryIndex}`;
-
-  if (lastViewedStoryKeyRef.current === viewKey) return;
-
-  lastViewedStoryKeyRef.current = viewKey;
-
-  (async () => {
-    try {
-      const response = await viewStory({
-        storyId: currentStory.storyId,
-      });
-
-      console.log('viewStory response =>', response);
-
-      // check response data here
-      if (response?.success) {
-        console.log('Story viewed successfully');
-      }
-
-    } catch (e) {
-      console.warn(
-        '[StoryViewer] viewStory failed:',
-        e?.message || e
-      );
+  useEffect(() => {
+    if (!visible) {
+      lastViewedStoryKeyRef.current = null;
+      return;
     }
-  })();
-}, [visible, currentUserIndex, currentStoryIndex]);
+
+    if (!currentStory || isViewingOwnStory) return;
+    if (!currentStory.storyId) return;
+
+    const viewKey = `${currentUser?.id || ''}:${String(currentStory.storyId)}:${currentStoryIndex}`;
+
+    if (lastViewedStoryKeyRef.current === viewKey) return;
+
+    lastViewedStoryKeyRef.current = viewKey;
+
+    (async () => {
+      try {
+        const response = await viewStory({
+          storyId: currentStory.storyId,
+        });
+
+        console.log('viewStory response =>', response);
+
+        // check response data here
+        if (response?.success) {
+          console.log('Story viewed successfully');
+        }
+
+      } catch (e) {
+        console.warn(
+          '[StoryViewer] viewStory failed:',
+          e?.message || e
+        );
+      }
+    })();
+  }, [visible, currentUserIndex, currentStoryIndex]);
 
   const resolvedAudio = resolveStoryAudioPayload(currentStory);
   const youtubeVideoId = resolvedAudio.youtubeVideoId;
@@ -779,7 +780,7 @@ const StoryViewer = ({
   };
 
   const kickPlayback = () => {
-    try { videoRef.current?.resume?.(); } catch (_e) {}
+    try { videoRef.current?.resume?.(); } catch (_e) { }
   };
 
   const startProgress = (duration) => {
@@ -832,11 +833,11 @@ const StoryViewer = ({
     if (currentStory.type === 'video' && videoRef.current?.seek) {
       try {
         videoRef.current.seek(0);
-        setTimeout(() => { try { videoRef.current?.resume?.(); } catch (_e) {} }, 50);
-      } catch (_e) {}
+        setTimeout(() => { try { videoRef.current?.resume?.(); } catch (_e) { } }, 50);
+      } catch (_e) { }
     }
     if (isDirectAudio && directAudioRef.current?.seek) {
-      try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) {}
+      try { directAudioRef.current.seek(audioTrimStartSec || 0); } catch (_e) { }
     }
 
     const isVideo = currentStory.type === 'video';
@@ -904,7 +905,7 @@ const StoryViewer = ({
           await youtubeRef.current?.unMuteVideo?.();
           await youtubeRef.current?.playVideo?.();
           if (audioTrimStartSec > 0) await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
-        } catch (_e) {}
+        } catch (_e) { }
       }
     };
     run();
@@ -944,7 +945,7 @@ const StoryViewer = ({
         if (shouldOpenMessageComposer) {
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
           requestAnimationFrame(() => requestAnimationFrame(() => {
-            try { commentInputRef.current?.focus(); } catch (_e) {}
+            try { commentInputRef.current?.focus(); } catch (_e) { }
           }));
           return;
         }
@@ -967,6 +968,9 @@ const StoryViewer = ({
     }),
   ).current;
 
+console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUser:', currentUser?.isUser);
+
+
   if (!visible || !currentUser || !currentStory) return null;
 
   const storyId = currentStory.id;
@@ -975,7 +979,7 @@ const StoryViewer = ({
   const liked = !!likes[storyKey]?.liked;
 
   const dismissStoryKeyboard = () => {
-    try { commentInputRef.current?.blur(); } catch (_e) {}
+    try { commentInputRef.current?.blur(); } catch (_e) { }
     Keyboard.dismiss();
   };
 
@@ -1247,52 +1251,54 @@ const StoryViewer = ({
             onStartShouldSetResponder={() => true}
             onTouchStart={(e) => e.stopPropagation()}
           >
-          <View style={modalStyles.userInfo}>
-            <TouchableOpacity
-              activeOpacity={isViewingOwnStory ? 1 : 0.7}
-              onPress={handleOpenUserProfile}
-              disabled={isViewingOwnStory}
-            >
-              <HexAvatar
-                uri={isViewingOwnStory ? (ownerProfileImage || currentUser.image) : currentUser.image}
-                isUser={!!currentUser.isUser}
-                size={36}
-                borderWidth={2}
-                borderColor={isViewingOwnStory ? '#4da3ff' : '#000'}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={isViewingOwnStory ? 1 : 0.7}
-              onPress={handleOpenUserProfile}
-              disabled={isViewingOwnStory}
-            >
-              <Text style={modalStyles.username}>{currentUser.username}</Text>
-            </TouchableOpacity>
-            <Text style={modalStyles.time}>{formatTime(currentStory.timestamp)}</Text>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {!isViewingOwnStory && (
+            <View style={modalStyles.userInfo}>
               <TouchableOpacity
-                onPress={openOptions}
+                activeOpacity={isViewingOwnStory ? 1 : 0.7}
+                onPress={handleOpenUserProfile}
+                disabled={isViewingOwnStory}
+              >
+                <HexAvatar
+                  uri={isViewingOwnStory ? (ownerProfileImage || currentUser.image) : currentUser.image}
+                  isUser={!!currentUser.isUser}
+                  size={36}
+                  borderWidth={2}
+                  borderColor={isViewingOwnStory ? '#4da3ff' : '#000'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={isViewingOwnStory ? 1 : 0.7}
+                onPress={handleOpenUserProfile}
+                disabled={isViewingOwnStory}
+              >
+                <Text style={modalStyles.username}>
+                  {isViewingOwnStory ? t('stories.yourDrops') : currentUser.username}
+                </Text>
+              </TouchableOpacity>
+              <Text style={modalStyles.time}>{formatTime(currentStory.timestamp)}</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {!isViewingOwnStory && (
+                <TouchableOpacity
+                  onPress={openOptions}
+                  style={modalStyles.closeBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Icon name="ellipsis-horizontal" size={26} color="#fff" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => { stopAndResetProgress(true); onClose(); }}
                 style={modalStyles.closeBtn}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                onStartShouldSetResponder={() => true}
+                onTouchStart={(e) => e.stopPropagation()}
               >
-                <Icon name="ellipsis-horizontal" size={26} color="#fff" />
+                <Icon name="close" size={28} color="#fff" />
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={() => { stopAndResetProgress(true); onClose(); }}
-              style={modalStyles.closeBtn}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              onStartShouldSetResponder={() => true}
-              onTouchStart={(e) => e.stopPropagation()}
-            >
-              <Icon name="close" size={28} color="#fff" />
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
         </View>
 
         {/* ── Story content ───────────────────────────────────────────────── */}
@@ -1399,17 +1405,17 @@ const StoryViewer = ({
                     await youtubeRef.current?.unMuteVideo?.();
                     await youtubeRef.current?.playVideo?.();
                     if (audioTrimStartSec > 0) await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
-                  } catch (_e) {}
+                  } catch (_e) { }
                 }}
                 onChangeState={state => {
                   if (['paused', 'unstarted', 'video cued'].includes(state)) {
-                    try { youtubeRef.current?.playVideo?.(); } catch (_e) {}
+                    try { youtubeRef.current?.playVideo?.(); } catch (_e) { }
                   }
                   if (state === 'ended') {
                     try {
                       youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
                       youtubeRef.current?.playVideo?.();
-                    } catch (_e) {}
+                    } catch (_e) { }
                   }
                 }}
                 onError={e => console.warn('[StoryViewer] YouTube audio error', e)}
@@ -1432,7 +1438,7 @@ const StoryViewer = ({
               onLoad={data => {
                 directAudioDurationRef.current = Number(data?.duration) || 0;
                 if (audioTrimStartSec > 0) {
-                  try { directAudioRef.current?.seek(audioTrimStartSec); } catch (_e) {}
+                  try { directAudioRef.current?.seek(audioTrimStartSec); } catch (_e) { }
                 }
               }}
               onReadyForDisplay={() => {
@@ -1448,11 +1454,11 @@ const StoryViewer = ({
                 const fallbackEnd = directAudioDurationRef.current || 0;
                 const end = audioTrimEndSec != null ? audioTrimEndSec : fallbackEnd;
                 if (end > 0 && currentTime >= end - 0.12) {
-                  try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) {}
+                  try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) { }
                 }
               }}
               onEnd={() => {
-                try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) {}
+                try { directAudioRef.current?.seek(audioTrimStartSec || 0); } catch (_e) { }
               }}
               onError={e => console.warn('[StoryViewer] Direct audio error', e)}
             />
@@ -1574,8 +1580,12 @@ const StoryViewer = ({
                   setSelectedPostId({
                     ...currentStory,
                     userName: currentUser?.username,
-                    userImage: currentUser?.avatar,
-                    user: { id: currentUser?.id, displayName: currentUser?.username, image: currentUser?.avatar },
+                    userImage: ownerProfileImage || currentUser?.image,
+                    user: {
+                      id: currentUserId,                               // ← real userId
+                      displayName: currentUser?.username,
+                      image: ownerProfileImage || currentUser?.image   // ← .image not .avatar
+                    },
                   });
                 }}
               >
@@ -1668,8 +1678,12 @@ const StoryViewer = ({
                       setSelectedPostId({
                         ...currentStory,
                         userName: currentUser?.username,
-                        userImage: currentUser?.avatar,
-                        user: { id: currentUser?.id, displayName: currentUser?.username, image: currentUser?.avatar },
+                        userImage: currentUser?.image || currentUser?.avatar,
+                        user: {
+                          id: currentUser?.isUser ? currentUserId : currentUser?.id,
+                          displayName: currentUser?.username,
+                          image: currentUser?.image || currentUser?.avatar
+                        },
                       });
                     }, 150);
                   }}
@@ -1750,10 +1764,44 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
   const profileImage = useSelector(state => state.profileImage?.profileImg);
   const toast = useToast();
   const dispatch = useDispatch();
+  const route = useRoute();
 
   useEffect(() => {
     console.log('[Stories] stories state updated:', stories);
   }, [stories]);
+
+  // Auto-open story from deep link
+  useEffect(() => {
+  const sharedStoryId = route?.params?.sharedStoryId;
+  console.log('DEEP LINK EFFECT sharedStoryId:', sharedStoryId, 'stories count:', stories.length);
+  if (!sharedStoryId || !stories.length) return;
+
+  for (let userIdx = 0; userIdx < stories.length; userIdx++) {
+    const user = stories[userIdx];
+    for (let storyIdx = 0; storyIdx < user.stories.length; storyIdx++) {
+      const story = user.stories[storyIdx];
+      if (
+        String(story.storyId) === String(sharedStoryId) ||
+        String(story.id).replace(/_\d+$/, '') === String(sharedStoryId)
+      ) {
+        // ── if the matched bucket is the current user's own
+        // following bucket (isUser is false but id matches currentUserId)
+        // force it to open the own bucket at index 0 instead
+        const resolvedUserIdx =
+          !user.isUser && String(user.id) === String(currentUserId)
+            ? 0
+            : userIdx;
+
+        setCurrentUserIndex(resolvedUserIdx);
+        setCurrentStoryIndex(storyIdx);
+        setViewerSession(s => s + 1);
+        setViewerVisible(true);
+        navigation.setParams({ sharedStoryId: undefined });
+        return;
+      }
+    }
+  }
+}, [route?.params?.sharedStoryId, stories]);
 
   const fetchStories = async () => {
     try {
@@ -2234,15 +2282,15 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     const storiesToPrefetch = user.stories?.slice(0, 4) || [];
     storiesToPrefetch.forEach(story => {
       if (story?.uri && story.type === 'image') {
-        try { Image.prefetch(story.uri); } catch (_e) {}
+        try { Image.prefetch(story.uri); } catch (_e) { }
       }
       if (story?.thumbnail) {
-        try { Image.prefetch(story.thumbnail); } catch (_e) {}
+        try { Image.prefetch(story.thumbnail); } catch (_e) { }
       }
     });
     storiesToPrefetch.forEach(story => {
       const audio = resolveStoryAudioPayload(story);
-      if (audio?.directUrl) { try { Image.prefetch(audio.directUrl); } catch (_e) {} }
+      if (audio?.directUrl) { try { Image.prefetch(audio.directUrl); } catch (_e) { } }
     });
 
     setCurrentUserIndex(userIndex);
@@ -2270,16 +2318,16 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
     if (!user.isUser) markStoryAsSeen(user.id, currentStoryIndex);
     if (currentStoryIndex < (user.stories?.length || 0) - 1) {
       const nextStory = user.stories[currentStoryIndex + 1];
-      if (nextStory?.uri && nextStory.type === 'image') { try { Image.prefetch(nextStory.uri); } catch (_e) {} }
-      if (nextStory?.thumbnail) { try { Image.prefetch(nextStory.thumbnail); } catch (_e) {} }
+      if (nextStory?.uri && nextStory.type === 'image') { try { Image.prefetch(nextStory.uri); } catch (_e) { } }
+      if (nextStory?.thumbnail) { try { Image.prefetch(nextStory.thumbnail); } catch (_e) { } }
       setCurrentStoryIndex(i => i + 1);
       return;
     }
     const nextIdx = nextUserWithStories(currentUserIndex);
     if (nextIdx !== -1) {
       const firstStory = stories[nextIdx]?.stories?.[0];
-      if (firstStory?.uri && firstStory.type === 'image') { try { Image.prefetch(firstStory.uri); } catch (_e) {} }
-      if (firstStory?.thumbnail) { try { Image.prefetch(firstStory.thumbnail); } catch (_e) {} }
+      if (firstStory?.uri && firstStory.type === 'image') { try { Image.prefetch(firstStory.uri); } catch (_e) { } }
+      if (firstStory?.thumbnail) { try { Image.prefetch(firstStory.thumbnail); } catch (_e) { } }
       setCurrentUserIndex(nextIdx);
       setCurrentStoryIndex(0);
       return;
@@ -2506,6 +2554,7 @@ export default function Stories({ refreshTick, sidebarMode = false, onDrawerClos
         ownerProfileImage={profileImage}
         onDrawerClose={onDrawerClose}
         onOpenUserProfile={handleOpenStoryUserProfile}
+        currentUserId={currentUserId}        // ← add this
       />
 
       <StoryComposer
