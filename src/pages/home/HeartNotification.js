@@ -114,13 +114,16 @@ const isCommentType = type =>
   normalizeNotificationType(type).includes('comment');
 const isLikeType = type => normalizeNotificationType(type).includes('like');
 const isMissionPostLaunchType = type =>
-  normalizeNotificationType(type).includes('mission_post_launched');
+  normalizeNotificationType(type).includes('mission_');
+const isMissionEndingSoonType = type =>
+  normalizeNotificationType(type).includes('mission_ending_soon');
 const isPostTagType = type => normalizeNotificationType(type) === 'post_tag';
 const isPostActivityType = type => isLikeType(type) || isCommentType(type);
 const shouldOpenPostForNotification = notification =>
   !!notification?.postId &&
   (isPostActivityType(notification.type) ||
     isMissionPostLaunchType(notification.type) ||
+    isMissionEndingSoonType(notification.type) ||  
     isPostTagType(notification.type) ||
     !!notification.image);
 

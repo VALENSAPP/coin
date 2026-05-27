@@ -2733,7 +2733,8 @@
     "failedUnhidePost": "Échec de la restauration de la publication",
     "followSuccess": "Abonnement réussi !",
     "unfollowSuccess": "Désabonné",
-    "unableToUpdateFollow": "Impossible de mettre à jour l’abonnement"
+    "unableToUpdateFollow": "Impossible de mettre à jour l’abonnement",
+    "copyMissionText": "✨ Soutenez la mission de @{{username}} sur Valens\nFaites partie de l’impact. Faites un don en toute sécurité ci-dessous.\n{{link}}"
   },
   "privateCircle": {
     "ownTitle": "Mint privé — Qu’est-ce que c’est ?",

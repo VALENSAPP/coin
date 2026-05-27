@@ -2733,7 +2733,8 @@
     "failedUnhidePost": "Failed to unhide post",
     "followSuccess": "Successfully Followed!",
     "unfollowSuccess": "Unfollowed",
-    "unableToUpdateFollow": "Unable to update follow"
+    "unableToUpdateFollow": "Unable to update follow",
+    "copyMissionText": "✨ Support @{{username}}'s Mission on Valens\nBe part of the impact. Donate securely below.\n{{link}}"
   },
   "privateCircle": {
     "ownTitle": "Private mint — What is it?",

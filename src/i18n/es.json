@@ -2733,7 +2733,8 @@
     "failedUnhidePost": "No se pudo restaurar la publicación",
     "followSuccess": "¡Seguido con éxito!",
     "unfollowSuccess": "Dejaste de seguir",
-    "unableToUpdateFollow": "No se pudo actualizar el seguimiento"
+    "unableToUpdateFollow": "No se pudo actualizar el seguimiento",
+    "copyMissionText": "✨ Apoya la misión de @{{username}} en Valens\nSé parte del impacto. Dona de forma segura abajo.\n{{link}}"
   },
   "privateCircle": {
     "ownTitle": "Mint privado — ¿Qué es?",
