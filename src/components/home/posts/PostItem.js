@@ -1525,7 +1525,10 @@ function PostItem({
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => { shareRef.current?.open?.(); setSelectedPostId(item); }}
+              onPress={() => {
+                setSelectedPostId(item);
+                requestAnimationFrame(() => shareRef.current?.open?.());
+              }}
               style={styles.actionButton}>
               <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
               <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
@@ -1744,7 +1747,7 @@ function PostItem({
         item={item}
         onDonationSuccess={handleDonationSuccess}
       />
-      <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
+      <ShareModal ref={shareRef} post={selectedPostId || item} postId={item?.id} />
       <BuyersListModal
         visible={showBuyersModal}
         onClose={() => setShowBuyersModal(false)}

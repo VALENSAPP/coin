@@ -290,7 +290,7 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     const parsedGoal = Number(sharedPost?.raiseAmount);
     const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;
 
-    if (!isMissionPost) return link;
+    if (!isMissionPost) return t('postView.copyPostText', { link });
 
     const username = sharedPost?.userName ?? sharedPost?.username ?? '';
     return t('postView.copyMissionText', { username, link });

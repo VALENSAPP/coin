@@ -2738,7 +2738,8 @@
     "followSuccess": "Seguido com sucesso!",
     "unfollowSuccess": "Deixou de seguir",
     "unableToUpdateFollow": "Não foi possível atualizar o follow",
-    "copyMissionText": "✨ Apoie a missão de @{{username}} no Valens\nFaça parte do impacto. Doe com segurança abaixo.\n{{link}}"
+    "copyMissionText": "✨ Apoie a missão de @{{username}} no Valens\nFaça parte do impacto. Doe com segurança abaixo.\n{{link}}",
+    "copyPostText": "Confira esta publicação no app Valens\n{{link}}"
   },
   "privateCircle": {
     "ownTitle": "Mint privado — O que é?",

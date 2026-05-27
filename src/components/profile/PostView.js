@@ -741,7 +741,7 @@ export default function PostView({ postData = [], userData = {} }) {
           const username = post?.userName ?? post?.username ?? '';
           copyText = t('postView.copyMissionText', { username, link: deepLink });
         } else {
-          copyText = deepLink;
+          copyText = t('postView.copyPostText', { link: deepLink });
         }
 
         Clipboard.setString(copyText);
