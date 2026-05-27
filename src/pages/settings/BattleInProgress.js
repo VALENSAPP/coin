@@ -1961,7 +1961,7 @@ export default function BattleInProgress() {
               <Icon name="arrow-back-ios-new" size={20} color={text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: text }]}>
-              {t('battleInProgress.screenTitle')}
+              {canViewResults ? t('battleInProgress.battleEnded') : t('battleInProgress.screenTitle')}
             </Text>
             <TouchableOpacity
               onPress={() => { setRefreshing(true); fetchBattle(true); }}
@@ -1999,230 +1999,234 @@ export default function BattleInProgress() {
             )}
           </View>
 
-          {/* Choose Your Side / Make Prediction */}
-          <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={[styles.sectionTitle, { color: text }]}>
-                {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
-              </Text>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => {
-                  navigation.navigate('BattleVoteDetails', {
-                    battleId: resolvedBattleId || battleId,
-                    battle,
-                    profile,
-                  });
-                }}
-                style={[styles.viewVotesBtn, { borderColor: palette.border }]}
-              >
-                <Text style={[styles.viewVotesText, { color: palette.primary }]}>
-                  View votes
+          {/* Choose Your Side / Make Prediction (hide when resolved) */}
+          {!canViewResults ? (
+            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: text }]}>
+                  {isPrediction ? t('battleInProgress.makePrediction') : t('battleInProgress.chooseYourSide')}
                 </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={[styles.optionGrid, { width: '100%' }]}>
-              {battle.options.map((option, index) => {
-                const optionImage = battle.optionImages?.[index];
-                const optionSide = String(pickFirst(option?.side, option?.label, ''));
-                const optionSelectionKey = getOptionSelectionKey(option, index);
-                // Use the same selected color styling as poll battles (single theme accent),
-                // instead of the legacy head-to-head blue/pink accents.
-                const headToHeadAccent = { accent: palette.primary, soft: palette.soft };
-                const normalizedSelected = normalizeSideKey(selectedOption);
-                const normalizedOptionSide = normalizeSideKey(optionSide);
-                const isSelectedByTap = selectedOption === optionSelectionKey;
-                const isSelectedByInitialValue =
-                  (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
-                  (option.id && selectedOption === String(option.id));
-                const isSelectedByVote =
-                  (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
-                  (userVotedSelection.side && normalizedOptionSide && normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
-                const isSelectedByAssignedSide =
-                  isHeadToHead &&
-                  !!headToHeadAssignedSide &&
-                  normalizedOptionSide &&
-                  normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
-                const isSelected = hasUserSelectionLocked
-                  ? isSelectedByVote
-                  : isSelectedByAssignedSide || isSelectedByTap || isSelectedByInitialValue;
-                const useVotedGrayStyle = hasUserSelectionLocked && !keepActiveSelectedStyle;
-                const isHeadToHeadParticipant = isHeadToHead && (isHeadToHeadCreator || isHeadToHeadOpponent);
-                // Only lock the opposite option for the invited user (opponent) when we know their assigned side.
-                // The creator should be able to choose either side until they vote.
-                const canLockToAssignedSide = isHeadToHeadOpponent && !!headToHeadAssignedSide;
-                const isMyHeadToHeadSide =
-                  canLockToAssignedSide &&
-                  normalizedOptionSide &&
-                  normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
-                // Creator UX: don't lock on tap; lock only after a successful submit.
-                // (Some APIs don't immediately return a votes entry, so we keep a local lock.)
-                const creatorHasPickedSide = isHeadToHeadCreator && creatorSelectionLocked && !!selectedOption;
-                const isCreatorPickedThisOption =
-                  selectedOption === optionSelectionKey ||
-                  (normalizedOptionSide && normalizeSideKey(selectedOption) === normalizedOptionSide);
-                // Only lock options when we actually know the assigned side.
-                // Otherwise allow selecting either option (same behavior as poll).
-                const shouldDisable =
-                  hasUserSelectionLocked ||
-                  (canLockToAssignedSide && !isMyHeadToHeadSide) ||
-                  (creatorHasPickedSide && !isCreatorPickedThisOption);
-                return (
-                  <TouchableOpacity
-                    key={`${battle.id}-${option.id}-${index}`}
-                    disabled={shouldDisable}
-                    activeOpacity={0.88}
-                    style={[
-                      styles.optionPillCard,
-                      {
-                        borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#E5E7EB',
-                        backgroundColor: isSelected
-                          ? (useVotedGrayStyle ? '#F3F4F6' : headToHeadAccent.soft)
-                          : '#F9FAFB',
-                        opacity: shouldDisable && !isSelected ? 0.6 : 1,
-                        width: '100%',
-                      },
-                    ]}
-                    onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
-                  >
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    navigation.navigate('BattleVoteDetails', {
+                      battleId: resolvedBattleId || battleId,
+                      battle,
+                      profile,
+                    });
+                  }}
+                  style={[styles.viewVotesBtn, { borderColor: palette.border }]}
+                >
+                  <Text style={[styles.viewVotesText, { color: palette.primary }]}>
+                    View votes
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.optionGrid, { width: '100%' }]}>
+                {battle.options.map((option, index) => {
+                  const optionImage = battle.optionImages?.[index];
+                  const optionSide = String(pickFirst(option?.side, option?.label, ''));
+                  const optionSelectionKey = getOptionSelectionKey(option, index);
+                  // Use the same selected color styling as poll battles (single theme accent),
+                  // instead of the legacy head-to-head blue/pink accents.
+                  const headToHeadAccent = { accent: palette.primary, soft: palette.soft };
+                  const normalizedSelected = normalizeSideKey(selectedOption);
+                  const normalizedOptionSide = normalizeSideKey(optionSide);
+                  const isSelectedByTap = selectedOption === optionSelectionKey;
+                  const isSelectedByInitialValue =
+                    (normalizedOptionSide && normalizedSelected && normalizedOptionSide === normalizedSelected) ||
+                    (option.id && selectedOption === String(option.id));
+                  const isSelectedByVote =
+                    (userVotedSelection.optionId && userVotedSelection.optionId === String(option.id)) ||
+                    (userVotedSelection.side && normalizedOptionSide && normalizeSideKey(userVotedSelection.side) === normalizedOptionSide);
+                  const isSelectedByAssignedSide =
+                    isHeadToHead &&
+                    !!headToHeadAssignedSide &&
+                    normalizedOptionSide &&
+                    normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
+                  const isSelected = hasUserSelectionLocked
+                    ? isSelectedByVote
+                    : isSelectedByAssignedSide || isSelectedByTap || isSelectedByInitialValue;
+                  const useVotedGrayStyle = hasUserSelectionLocked && !keepActiveSelectedStyle;
+                  const isHeadToHeadParticipant = isHeadToHead && (isHeadToHeadCreator || isHeadToHeadOpponent);
+                  // Only lock the opposite option for the invited user (opponent) when we know their assigned side.
+                  // The creator should be able to choose either side until they vote.
+                  const canLockToAssignedSide = isHeadToHeadOpponent && !!headToHeadAssignedSide;
+                  const isMyHeadToHeadSide =
+                    canLockToAssignedSide &&
+                    normalizedOptionSide &&
+                    normalizeSideKey(headToHeadAssignedSide) === normalizedOptionSide;
+                  // Creator UX: don't lock on tap; lock only after a successful submit.
+                  // (Some APIs don't immediately return a votes entry, so we keep a local lock.)
+                  const creatorHasPickedSide = isHeadToHeadCreator && creatorSelectionLocked && !!selectedOption;
+                  const isCreatorPickedThisOption =
+                    selectedOption === optionSelectionKey ||
+                    (normalizedOptionSide && normalizeSideKey(selectedOption) === normalizedOptionSide);
+                  // Only lock options when we actually know the assigned side.
+                  // Otherwise allow selecting either option (same behavior as poll).
+                  const shouldDisable =
+                    hasUserSelectionLocked ||
+                    (canLockToAssignedSide && !isMyHeadToHeadSide) ||
+                    (creatorHasPickedSide && !isCreatorPickedThisOption);
+                  return (
                     <TouchableOpacity
-                      activeOpacity={0.9}
-                      style={styles.optionPillAvatarWrap}
-                      onPress={(e) => { e?.stopPropagation?.(); openOptionImagePreview(optionImage || option.image); }}
-                    >
-                      <HexAvatar
-                        uri={optionImage || option.image}
-                        size={36}
-                        borderWidth={2}
-                        borderColor={isSelected ? headToHeadAccent.accent : '#D1D5DB'}
-                        fallback={
-                          <View style={[
-                            styles.optionPillAvatarFallback,
-                            {
-                              borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#D1D5DB',
-                              backgroundColor: isSelected ? (useVotedGrayStyle ? '#E5E7EB' : headToHeadAccent.soft) : '#EDE9F6',
-                            },
-                          ]}>
-                            <Ionicons name="person" size={18} color={isSelected ? headToHeadAccent.accent : text} />
-                          </View>
-                        }
-                      />
-                    </TouchableOpacity>
-                    <Text
+                      key={`${battle.id}-${option.id}-${index}`}
+                      disabled={shouldDisable}
+                      activeOpacity={0.88}
                       style={[
-                        styles.optionPillLabel,
-                        { color: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#374151' },
+                        styles.optionPillCard,
+                        {
+                          borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#E5E7EB',
+                          backgroundColor: isSelected
+                            ? (useVotedGrayStyle ? '#F3F4F6' : headToHeadAccent.soft)
+                            : '#F9FAFB',
+                          opacity: shouldDisable && !isSelected ? 0.6 : 1,
+                          width: '100%',
+                        },
                       ]}
                       onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
                     >
-                      {option.label}
-                    </Text>
-                    <View style={[
-                      styles.optionPillRadio,
-                      {
-                        borderColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#D1D5DB',
-                        backgroundColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#FFFFFF',
-                        opacity: hasUserSelectionLocked && !isSelected ? 0.3 : 1,
-                      },
-                    ]} />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.optionPillAvatarWrap}
+                        onPress={(e) => { e?.stopPropagation?.(); openOptionImagePreview(optionImage || option.image); }}
+                      >
+                        <HexAvatar
+                          uri={optionImage || option.image}
+                          size={36}
+                          borderWidth={2}
+                          borderColor={isSelected ? headToHeadAccent.accent : '#D1D5DB'}
+                          fallback={
+                            <View style={[
+                              styles.optionPillAvatarFallback,
+                              {
+                                borderColor: isSelected ? (useVotedGrayStyle ? '#D1D5DB' : headToHeadAccent.accent) : '#D1D5DB',
+                                backgroundColor: isSelected ? (useVotedGrayStyle ? '#E5E7EB' : headToHeadAccent.soft) : '#EDE9F6',
+                              },
+                            ]}>
+                              <Ionicons name="person" size={18} color={isSelected ? headToHeadAccent.accent : text} />
+                            </View>
+                          }
+                        />
+                      </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.optionPillLabel,
+                          { color: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#374151' },
+                        ]}
+                        onPress={() => { if (!shouldDisable) setSelectedOption(optionSelectionKey); }}
+                      >
+                        {option.label}
+                      </Text>
+                      <View style={[
+                        styles.optionPillRadio,
+                        {
+                          borderColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#D1D5DB',
+                          backgroundColor: isSelected ? (useVotedGrayStyle ? text : headToHeadAccent.accent) : '#FFFFFF',
+                          opacity: hasUserSelectionLocked && !isSelected ? 0.3 : 1,
+                        },
+                      ]} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-            <Text style={styles.argumentLabel}>
-              {hasUserVoted ? 'Comment' : 'Your argument'}
-            </Text>
-            <TextInput
-              editable
-              value={hasUserVoted ? commentText : argumentText}
-              onChangeText={hasUserVoted ? setCommentText : setArgumentText}
-              onFocus={() => scrollRef.current?.update?.()}
-              placeholder={
-                hasUserVoted
-                  ? t('battleInProgress.commentPlaceholder')
-                  : isPrediction
-                    ? t('battleInProgress.predictionReasoningPlaceholder')
-                    : t('battleInProgress.argumentPlaceholder')
-              }
-              placeholderTextColor="#9CA3AF"
-              multiline
-              style={[styles.argumentInput, textStyle, cardStyle, { borderColor: palette.border }]}
-            />
+              <Text style={styles.argumentLabel}>
+                {hasUserVoted ? 'Comment' : 'Your argument'}
+              </Text>
+              <TextInput
+                editable
+                value={hasUserVoted ? commentText : argumentText}
+                onChangeText={hasUserVoted ? setCommentText : setArgumentText}
+                onFocus={() => scrollRef.current?.update?.()}
+                placeholder={
+                  hasUserVoted
+                    ? t('battleInProgress.commentPlaceholder')
+                    : isPrediction
+                      ? t('battleInProgress.predictionReasoningPlaceholder')
+                      : t('battleInProgress.argumentPlaceholder')
+                }
+                placeholderTextColor="#9CA3AF"
+                multiline
+                style={[styles.argumentInput, textStyle, cardStyle, { borderColor: palette.border }]}
+              />
 
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={
-                shouldShowAcceptBattleCta
-                  ? handleAcceptBattle
-                  : (hasUserVoted ? handlePostComment : handleVote)
-              }
-              disabled={
-                submittingVote ||
-                (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
-                (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
-                (hasUserVoted && !commentText?.trim())
-              }
-              style={{
-                opacity: (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={
+                  shouldShowAcceptBattleCta
+                    ? handleAcceptBattle
+                    : (hasUserVoted ? handlePostComment : handleVote)
+                }
+                disabled={
                   submittingVote ||
                   (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
                   (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
                   (hasUserVoted && !commentText?.trim())
-                ) ? 0.5 : 1,
-              }}
-            >
-              <LinearGradient
-                colors={palette.buttonGradient}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.primaryButton}
-              >
-                {submittingVote
-                  ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Text style={styles.primaryButtonText}>
-                    {hasUserVoted
-                      ? t('battleInProgress.addComment')
-                      : isPrediction
-                        ? t('battleInProgress.submitPrediction')
-                        : shouldShowAcceptBattleCta
-                          ? t('battleInProgress.acceptBattle')
-                          : (isHeadToHead && isHeadToHeadCreator && !creatorSelectionLocked
-                            ? 'Activate battle'
-                            : t('battleInProgress.voteInBattle'))}
-                  </Text>
                 }
-              </LinearGradient>
-            </TouchableOpacity>
-            <View style={{ marginTop: 20 }} >
-            {shouldShowAcceptBattleCta ? (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={handleDeclineBattle}
-                disabled={submittingVote || submittingDecline}
-                style={{ opacity: (submittingVote || submittingDecline) ? 0.5 : 1, marginTop: 10 }}
+                style={{
+                  opacity: (
+                    submittingVote ||
+                    (shouldShowAcceptBattleCta && !argumentText?.trim()) ||
+                    (!shouldShowAcceptBattleCta && !hasUserVoted && !argumentText?.trim()) ||
+                    (hasUserVoted && !commentText?.trim())
+                  ) ? 0.5 : 1,
+                }}
               >
-                <View style={[styles.inviteSecondaryButton, cardStyle, { borderColor: palette.primary }]}>
-                  <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
-                    {t('battleInProgress.declineBattle')}
-                  </Text>
-                </View>
+                <LinearGradient
+                  colors={palette.buttonGradient}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.primaryButton}
+                >
+                  {submittingVote
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <Text style={styles.primaryButtonText}>
+                      {hasUserVoted
+                        ? t('battleInProgress.addComment')
+                        : isPrediction
+                          ? t('battleInProgress.submitPrediction')
+                          : shouldShowAcceptBattleCta
+                            ? t('battleInProgress.acceptBattle')
+                            : (isHeadToHead && isHeadToHeadCreator && !creatorSelectionLocked
+                              ? 'Activate battle'
+                              : t('battleInProgress.voteInBattle'))}
+                    </Text>
+                  }
+                </LinearGradient>
               </TouchableOpacity>
-            ) : null}
+              <View style={{ marginTop: 20 }} >
+              {shouldShowAcceptBattleCta ? (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={handleDeclineBattle}
+                  disabled={submittingVote || submittingDecline}
+                  style={{ opacity: (submittingVote || submittingDecline) ? 0.5 : 1, marginTop: 10 }}
+                >
+                  <View style={[styles.inviteSecondaryButton, cardStyle, { borderColor: palette.primary }]}>
+                    <Text style={[styles.secondaryButtonText, { color: palette.primary }]}>
+                      {t('battleInProgress.declineBattle')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
+              </View>
             </View>
-          </View>
+          ) : null}
 
-          {/* Comments */}
-          <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
-            {battle.comments.length > 0
-              ? battle.comments.map(comment => renderCommentItem(comment))
-              : (
-                <Text style={[styles.emptyCommentText, textStyle]}>
-                  {t('battleInProgress.noCommentsYet')}
-                </Text>
-              )
-            }
-          </View>
+          {/* Comments (hide when resolved) */}
+          {!canViewResults ? (
+            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
+              {battle.comments.length > 0
+                ? battle.comments.map(comment => renderCommentItem(comment))
+                : (
+                  <Text style={[styles.emptyCommentText, textStyle]}>
+                    {t('battleInProgress.noCommentsYet')}
+                  </Text>
+                )
+              }
+            </View>
+          ) : null}
 
           {/* Bottom actions */}
           {canViewResults ? (

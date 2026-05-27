@@ -928,6 +928,7 @@
   },
   "battleInProgress": {
     "screenTitle": "Battle In Progress",
+    "battleEnded": "Battle Ended",
     "loadingError": "Unable to load battle",
     "tryAgain": "Please try again.",
     "statusLive": "LIVE",

@@ -928,6 +928,7 @@
   },
   "battleInProgress": {
     "screenTitle": "Batalha em Andamento",
+    "battleEnded": "Batalha encerrada",
     "loadingError": "Não foi possível carregar a batalha",
     "tryAgain": "Tente novamente.",
     "statusLive": "AO VIVO",
