@@ -1628,7 +1628,13 @@ export default function BattleInProgress() {
           >
             <HexAvatar uri={battle.creator?.avatar || FALLBACK_AVATAR} size={28} borderWidth={2} borderColor="rgba(255,255,255,0.7)" />
             <View style={{ marginLeft: 8, flexShrink: 1 }}>
-              <Text style={styles.heroCreatorName} numberOfLines={1}>{battle.creator?.name}</Text>
+              <View style={styles.heroCreatorNameRow}>
+                <Text style={styles.heroCreatorName} numberOfLines={1}>{battle.creator?.name}</Text>
+                <View style={styles.heroLiveIndicatorWrap}>
+                  <Animated.View style={[styles.heroLiveIndicator, { opacity: statusPulseAnim }]} />
+                  <Text style={styles.heroLiveIndicatorText}>{t('battleInProgress.statusLive')}</Text>
+                </View>
+              </View>
               {!!battle.creator?.handle && (
                 <Text style={styles.heroCreatorHandle} numberOfLines={1}>@{battle.creator.handle}</Text>
               )}
@@ -1864,11 +1870,11 @@ export default function BattleInProgress() {
                         {leftVotes} {t('battleInProgress.votesLabel')}
                       </Text>
                     </View>
-                    <View style={styles.progressMidCol}>
+                    {/* <View style={styles.progressMidCol}>
                       {total > 0 && leftPct === rightPct && (
                         <Text style={styles.progressTiedLabel}>{t('battleInProgress.tiedLabel')}</Text>
                       )}
-                    </View>
+                    </View> */}
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.progressPctRight}>{rightPct}%</Text>
                       <Text style={styles.progressVotes}>
@@ -2326,9 +2332,40 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heroCreatorName: {
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 13,
     fontWeight: '700',
     color: '#fff',
+  },
+  heroCreatorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  heroLiveIndicatorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginLeft: 5,
+  },
+  heroLiveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+    backgroundColor: '#22C55E',
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  heroLiveIndicatorText: {
+    color: '#22C55E',
+    fontSize: 9,
+    fontWeight: '800',
+    marginLeft: 3,
   },
   heroCreatorHandle: {
     fontSize: 11,
