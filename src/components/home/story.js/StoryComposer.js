@@ -89,6 +89,8 @@ const AUDIO_LIBRARY = [
   { id: 'original', nameKey: 'musicOriginalSound', previewUri: null },
 ];
 
+const STORY_OVERLAY_EDGE_BLEED = { left: 44, top: 32, right: 44, bottom: 32 };
+
 const isOriginalAudio = a => a == null || a === 'original';
 
 const isYoutubeTrack = a =>
@@ -1304,7 +1306,7 @@ export default function StoryComposer({
       onInteractionStart={beginOverlayInteraction}
       onInteractionEnd={hideOverlayDeleteUi}
       onCommit={(x, y, sc, rot) => {
-        const p = clampMusicBadgePosition(x, y, canvasLayout, sc);
+        const p = clampMusicBadgePosition(x, y, canvasLayout, sc, STORY_OVERLAY_EDGE_BLEED);
         setMusicBadgePosPerIndex(prev => ({
           ...prev,
           [index]: { x: p.x, y: p.y, scale: sc, rotation: rot },
@@ -1312,6 +1314,8 @@ export default function StoryComposer({
       }}
       onDelete={removeMusicOverlay}
       onTrashHoverChange={onTrashHoverChange}
+      bounds={canvasLayout}
+      boundsBleed={STORY_OVERLAY_EDGE_BLEED}
     >
       <View style={styles.musicStickerCard}>
         {trackArtworkUri ? (
@@ -1558,6 +1562,8 @@ export default function StoryComposer({
                   onCommit={(x, y, sc, rot) => setStickerTransform(s.id, x, y, sc, rot)}
                   onDelete={() => removeStickerOverlay(s.id)}
                   onTrashHoverChange={onTrashHoverChange}
+                  bounds={canvasLayout}
+                  boundsBleed={STORY_OVERLAY_EDGE_BLEED}
                 >
                   <View style={styles.stickerHitArea} collapsable={false}>
                     <GestureText style={styles.sticker}>{s.emoji}</GestureText>
@@ -1581,6 +1587,8 @@ export default function StoryComposer({
                   onInteractionEnd={hideOverlayDeleteUi}
                   onCommit={(x, y, sc, rot) => setTextTransform(tx.id, x, y, sc, rot)}
                   onDelete={() => removeTextOverlay(tx.id)}
+                  bounds={canvasLayout}
+                  boundsBleed={STORY_OVERLAY_EDGE_BLEED}
                   onSingleTap={
                     tx.kind === 'lyrics'
                       ? undefined
@@ -2841,6 +2849,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     backgroundColor: '#000',
     position: 'relative',
+    overflow: 'hidden',
   },
 
   imageContainer: {

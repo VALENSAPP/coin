@@ -188,6 +188,7 @@ const CreateMission = () => {
   };
 
   const navigateAfterPostCreated = () => {
+    DeviceEventEmitter.emit('POST_UPLOAD_RESET');
     // Avoid leaving upload flow screens in the stack (images/caption screens).
     navigation.dispatch(StackActions.popToTop());
     navigation.navigate('HomeMain', { screen: 'Home' });

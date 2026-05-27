@@ -929,6 +929,7 @@
   },
   "battleInProgress": {
     "screenTitle": "Battle en cours",
+    "battleEnded": "Battle terminÃ©e",
     "loadingError": "Impossible de charger la battle",
     "tryAgain": "Veuillez réessayer.",
     "statusLive": "EN DIRECT",

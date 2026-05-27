@@ -1576,13 +1576,12 @@ export default function BattleInProgress() {
   };
 
   // ─── render hero card ──────────────────────────────────────────────────────
-
   const renderHeroCard = () => (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <View style={styles.heroTopRow}>
         <View style={[styles.statusPill, { backgroundColor: withAlpha(statusMeta.color, '1F') }]}>
           <Animated.View style={[styles.statusDot, { backgroundColor: statusMeta.color, opacity: statusPulseAnim }]} />
-          <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+          <Text style={[styles.statusPillText, { color: endTimeInfo.relative == 'Ended' ? '#4B5563' : statusMeta.color }]}>{endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}</Text>
         </View>
         <View style={styles.timerPill}>
           <Ionicons name="time-outline" size={12} color="#000" />
@@ -2088,6 +2087,7 @@ export default function BattleInProgress() {
                   // Only lock options when we actually know the assigned side.
                   // Otherwise allow selecting either option (same behavior as poll).
                   const shouldDisable =
+                    endTimeInfo.relative == 'Ended' ||
                     isBattleCancelled ||
                     hasUserSelectionLocked ||
                     (canLockToAssignedSide && !isMyHeadToHeadSide) ||
@@ -2159,7 +2159,7 @@ export default function BattleInProgress() {
                 {hasUserVoted ? 'Comment' : 'Your argument'}
               </Text>
               <TextInput
-                editable={isBattleCancelled ? false : true}
+                editable={isBattleCancelled || endTimeInfo.relative == 'Ended' ? false : true}
                 value={hasUserVoted ? commentText : argumentText}
                 onChangeText={hasUserVoted ? setCommentText : setArgumentText}
                 onFocus={() => scrollRef.current?.update?.()}

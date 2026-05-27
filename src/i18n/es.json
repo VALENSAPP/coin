@@ -929,6 +929,7 @@
   },
   "battleInProgress": {
     "screenTitle": "Batalla en progreso",
+    "battleEnded": "Batalla terminada",
     "loadingError": "No se pudo cargar la batalla",
     "tryAgain": "Por favor, inténtalo de nuevo.",
     "statusLive": "EN VIVO",

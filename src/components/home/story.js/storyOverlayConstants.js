@@ -13,7 +13,7 @@ export const OVERLAY_MAX_SCALE = 3.5;
 
 export { SCREEN_WIDTH, SCREEN_HEIGHT };
 
-export function clampMusicBadgePosition(x, y, layout, scale = 1) {
+export function clampMusicBadgePosition(x, y, layout, scale = 1, bleed = {}) {
   const s = Math.min(
     OVERLAY_MAX_SCALE,
     Math.max(OVERLAY_MIN_SCALE_MUSIC, scale || 1),
@@ -22,11 +22,13 @@ export function clampMusicBadgePosition(x, y, layout, scale = 1) {
   const lh = layout?.height || SCREEN_HEIGHT * 0.65;
   const cardW = MUSIC_STICKER_CARD_W * s;
   const cardH = MUSIC_STICKER_CARD_H * s;
-  const maxX = Math.max(0, lw - cardW);
-  const maxY = Math.max(0, lh - cardH);
+  const minX = -(bleed?.left || 0);
+  const minY = -(bleed?.top || 0);
+  const maxX = Math.max(minX, lw - cardW + (bleed?.right || 0));
+  const maxY = Math.max(minY, lh - cardH + (bleed?.bottom || 0));
   return {
-    x: Math.max(0, Math.min(x, maxX)),
-    y: Math.max(0, Math.min(y, maxY)),
+    x: Math.max(minX, Math.min(x, maxX)),
+    y: Math.max(minY, Math.min(y, maxY)),
   };
 }
 
