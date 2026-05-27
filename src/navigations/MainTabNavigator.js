@@ -162,6 +162,11 @@ export default function MainTabNavigator() {
         <Stack.Screen name="UserChat" component={UserChat} />
         <Stack.Screen name="UsersProfile" component={Usersprofile} />
         <Stack.Screen
+          name="ShareProfile"
+          component={ShareProfile}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="ProfileBattleScreen"
           component={ProfileBattleScreen}
           options={{ headerShown: false }}

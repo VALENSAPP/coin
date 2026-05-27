@@ -280,28 +280,44 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
     return `https://api.valens.app/postshare/${encodeURIComponent(String(id))}`;
   };
 
+  const generateShareText = () => {
+    const link = generateShareLink();
+    if (!link) return null;
+
+    if (story || reel || reelId) return link;
+
+    const sharedPost = post?.post || post;
+    const parsedGoal = Number(sharedPost?.raiseAmount);
+    const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;
+
+    if (!isMissionPost) return link;
+
+    const username = sharedPost?.userName ?? sharedPost?.username ?? '';
+    return t('postView.copyMissionText', { username, link });
+  };
+
   const shareToWhatsApp = async () => {
-    const url = generateShareLink();
-    if (!url) return Alert.alert(t('shareModal.invalidLinkTitle'), t('shareModal.invalidLinkMessage'));
+    const message = generateShareText();
+    if (!message) return Alert.alert(t('shareModal.invalidLinkTitle'), t('shareModal.invalidLinkMessage'));
     try {
-      await Share.open({ message: url, social: Share.Social.WHATSAPP });
+      await Share.open({ message, social: Share.Social.WHATSAPP });
     } catch (err) {
       console.log('WhatsApp share error:', err);
     }
   };
 
   const copyToClipboard = () => {
-    const url = generateShareLink();
-    if (!url) return;
-    Clipboard.setString(url);
+    const message = generateShareText();
+    if (!message) return;
+    Clipboard.setString(message);
     Alert.alert(t('shareModal.copiedTitle'), t('shareModal.copiedMessage'));
   };
 
   const shareToSystem = async () => {
-    const url = generateShareLink();
-    if (!url) return Alert.alert(t('shareModal.invalidLinkTitle'), t('shareModal.invalidLinkMessage'));
+    const message = generateShareText();
+    if (!message) return Alert.alert(t('shareModal.invalidLinkTitle'), t('shareModal.invalidLinkMessage'));
     try {
-      await Share.open({ message: url });
+      await Share.open({ message });
     } catch (err) {
       console.log('System share error:', err);
     }

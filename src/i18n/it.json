@@ -695,7 +695,8 @@
     "profileNotAvailableMessage": "Impossibile condividere il profilo in questo momento.",
     "linkUnavailable": "Link non disponibile",
     "noLinkToCopy": "Nessun link disponibile da copiare",
-    "shareMessageTemplate": "👤 Dai un'occhiata a {{username}} su Valens!\n\n🔗 Apri profilo",
+    "shareMessageTemplate": "✨ Seguimi su Valens\n Unisciti alle mie battaglie, supporta le mie missioni e fai parte del mio mondo. Dove la reputazione si guadagna, non si compra.",
+    "shareOtherMessageTemplate": "✨ Segui {{username}} su Valens\nDove la reputazione si guadagna, non si compra.\nUnisciti al suo mondo qui sotto.\n{{profileLink}}",
     "brandName": "Valens"
   },
   "termCondition": {
@@ -989,7 +990,9 @@
     "fallbackUser": "Utente",
     "fallbackCreator": "Creatore",
     "fallbackOpponent": "Avversario",
-    "valensUser": "Utente Valens"
+    "valensUser": "Utente Valens",
+    "battleCancelled": "Battaglia annullata",
+    "statusCancelled": "ANNULLATA"
   },
   "battleVoteDetails": {
     "votesTitle": "Voti",
