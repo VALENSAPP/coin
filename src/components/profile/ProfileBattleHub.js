@@ -106,7 +106,7 @@ const getStatusMeta = (battle) => {
   }
 
   if (status.includes('live') || status.includes('progress')) {
-    return { labelKey: 'battleHub.statusLive', tone: '#EF4444' };
+    return { labelKey: 'battleHub.statusLive', tone: '#22C55E' };
   }
   if (
     status.includes('closed') ||

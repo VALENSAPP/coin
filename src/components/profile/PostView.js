@@ -19,7 +19,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../home/posts/PostItem';
 import CommentSheet from '../home/posts/CommentSheet';
 import OptionsModal from '../home/posts/OptionsModal';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
   savePost,
@@ -93,6 +93,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const toast = useToast();
   const dispatch = useDispatch();
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const commentSheetRef = useRef();
   const flatListRef = useRef();
   const playingDebounceRef = useRef(null);
@@ -1110,7 +1111,7 @@ export default function PostView({ postData = [], userData = {} }) {
           data={visiblePosts}
           keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
           renderItem={renderFeedItem}
-          contentContainerStyle={styles.feedContainer}
+          contentContainerStyle={[styles.feedContainer, { paddingBottom: Math.max(50, insets.bottom + 34) }]}
           onLayout={event => {
             const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
             // Ignore tiny height changes that destabilize snapping.

@@ -55,6 +55,10 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
   const [, setCurrentTime] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
+
+  // FIX: track how many seconds have elapsed so resume picks up from here
+  const elapsedRef = useRef(0);
+
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [selfUserId, setSelfUserId] = useState(null);
@@ -176,30 +180,41 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     onClose();
   }, [onClose, stopProgress]);
 
-  const startProgress = useCallback(() => {
-    stopProgress();
+  // FIX: startProgress now resumes from elapsedRef instead of always starting at 0
+  const startProgress = useCallback(
+    (durationOverride) => {
+      stopProgress();
 
-    if (isVideo) return;
+      if (isVideo) return;
 
-    const startTime = Date.now();
-    timerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const progress = Math.min(elapsed / duration, 1);
+      const effectiveDuration = durationOverride ?? duration;
+      // Record the wall-clock time we (re)started so we can measure incremental elapsed
+      const resumeAt = Date.now();
 
-      setCurrentTime(elapsed);
-      progressAnim.setValue(progress);
+      timerRef.current = setInterval(() => {
+        // Total elapsed = previously-accumulated + time since last resume
+        const totalElapsed = elapsedRef.current + (Date.now() - resumeAt) / 1000;
+        const progress = Math.min(totalElapsed / effectiveDuration, 1);
 
-      if (progress >= 1) {
-        stopProgress();
-        handleClose();
-      }
-    }, 16);
-  }, [duration, handleClose, isVideo, progressAnim, stopProgress]);
+        setCurrentTime(totalElapsed);
+        progressAnim.setValue(progress);
+
+        if (progress >= 1) {
+          stopProgress();
+          handleClose();
+        }
+      }, 16);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [duration, handleClose, isVideo, progressAnim, stopProgress]
+  );
 
   useEffect(() => {
     if (visible) {
       setIsLoading(true);
       setCurrentTime(0);
+      // Reset elapsed when the story first opens
+      elapsedRef.current = 0;
       progressAnim.setValue(0);
       startProgress();
     } else {
@@ -230,14 +245,24 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
     }
   };
 
-  const togglePause = () => {
-    setIsPaused(!isPaused);
-    if (!isPaused) {
-      stopProgress();
-    } else {
-      startProgress();
-    }
-  };
+  // FIX: use functional updater so we always read the real current value,
+  // not a stale closure copy
+  const togglePause = useCallback(() => {
+    setIsPaused((prev) => {
+      const nowPaused = !prev;
+
+      if (nowPaused) {
+        // Snapshot how much time we've consumed before stopping the ticker
+        elapsedRef.current += (Date.now() - (timerRef._resumeAt ?? Date.now())) / 1000;
+        stopProgress();
+      } else {
+        // Resume: startProgress will pick up from elapsedRef.current
+        startProgress();
+      }
+
+      return nowPaused;
+    });
+  }, [startProgress, stopProgress]);
 
   const handleOpenStoryUserProfile = useCallback(() => {
     if (!storyUserId) return;
@@ -468,24 +493,6 @@ const styles = StyleSheet.create({
     minHeight: 92,
     backgroundColor: 'rgba(0,0,0,0.52)',
   },
-  topBackButton: {
-    minHeight: 40,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.74)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.35)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  topBackText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-    marginLeft: 2,
-  },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -607,51 +614,3 @@ const styles = StyleSheet.create({
 });
 
 export default StoryViewerModal;
-
-/* ============================================
-   HOW TO INTEGRATE INTO USERCHAT COMPONENT
-   ============================================ */
-
-// 1. Import the StoryViewerModal at the top of UserChat.js:
-// import StoryViewerModal from '../../components/chat/StoryViewerModal';
-
-// 2. Add state to control the modal (add with other useState declarations):
-// const [storyViewerVisible, setStoryViewerVisible] = useState(false);
-// const [selectedStory, setSelectedStory] = useState(null);
-
-// 3. Replace the story share TouchableOpacity onPress in renderMessage:
-/*
-<TouchableOpacity
-  style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
-  onPress={() => {
-    if (storyExists && storyData) {
-      // Open story viewer
-      setSelectedStory({
-        ...storyData,
-        userName: storyUser.displayName,
-        userImage: storyUser.image,
-      });
-      setStoryViewerVisible(true);
-    } else {
-      Alert.alert('Story Unavailable', 'This story is no longer available');
-    }
-  }}
-  activeOpacity={0.7}
->
-  {/* ... rest of the story card UI ... *-/}
-</TouchableOpacity>
-*/
-
-// 4. Add the StoryViewerModal component before the closing </SafeAreaView>:
-/*
-<StoryViewerModal
-  visible={storyViewerVisible}
-  story={selectedStory}
-  onClose={() => {
-    setStoryViewerVisible(false);
-    setSelectedStory(null);
-  }}
-  userName={selectedStory?.userName}
-  userImage={selectedStory?.userImage}
-/>
-*/
