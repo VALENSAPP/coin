@@ -35,6 +35,7 @@ import { setUserProfile } from '../../../redux/actions/UserProfileAction';
 import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
 import { setIsAddAccount } from '../../../redux/actions/AddAccountAction';
 import { useLanguage } from '../../../i18n';
+import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 
 const { width, height } = Dimensions.get('window');
 
@@ -302,6 +303,7 @@ export default function KYCVerification({ route }) {
                     }
                     await AsyncStorage.setItem('isLoggedIn', 'true');
                     dispatch(loggedIn());
+                    dispatch(clearSignupFormData());
                     dispatch(setIsAddAccount(false));
                     if (navigation.canGoBack()) { navigation.goBack(); return; }
                 } else if (status === 'DECLINED' || status === 'REJECTED') {
@@ -353,6 +355,7 @@ export default function KYCVerification({ route }) {
                     }
                     await AsyncStorage.setItem('isLoggedIn', 'true');
                     dispatch(loggedIn());
+                    dispatch(clearSignupFormData());
                     dispatch(setIsAddAccount(false));
                     if (navigation.canGoBack()) { navigation.goBack(); return; }
                 } else if (status === 'DECLINED' || status === 'REJECTED') {

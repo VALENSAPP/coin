@@ -21,7 +21,6 @@ import { showToastMessage } from '../../components/displaytoastmessage';
 import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
-import { buildProfileSharePayload } from '../../utils/profileShare';
 import Clipboard from '@react-native-clipboard/clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
@@ -36,7 +35,7 @@ const ShareProfile = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const routeParams = useRoute().params || {};
-  const { userData, targetUserId } = routeParams;
+  const { userData, targetUserId, fromUsersProfile } = routeParams;
   const viewShotRef = useRef(null);
   const profile = useMemo(() => (
     userData?.user && typeof userData.user === 'object'
@@ -176,7 +175,11 @@ const ShareProfile = ({ navigation }) => {
     ).trim()
   ), [currentUser]);
 
-  const isOwnProfile = Boolean(resolvedUserId && currentUserId && resolvedUserId === currentUserId);
+  const isOwnProfile = fromUsersProfile === true
+    ? false
+    : fromUsersProfile === false
+      ? true
+      : Boolean(resolvedUserId && currentUserId && resolvedUserId === currentUserId);
 
   const resolvedAvatarUri = useMemo(() => (
     profile?.image ||
@@ -197,13 +200,31 @@ const ShareProfile = ({ navigation }) => {
     }, [profile])
   );
 
+  const getShareContent = () => {
+    const currentUsername = String(resolvedUsername || username || '').trim();
+    const profileLabel = currentUsername ? `@${currentUsername}` : 'this profile';
+    const shareMessage = isOwnProfile
+      ? t('shareProfile.shareMessageTemplate', {
+        username: toBold(profileLabel),
+      })
+      : t('shareProfile.shareOtherMessageTemplate', {
+        username: toBold(profileLabel),
+        profileLink: qrShareUrl,
+      });
+
+    return {
+      shareMessage,
+      clipboardText: isOwnProfile ? `${shareMessage}\n${qrShareUrl}` : shareMessage,
+    };
+  };
+
   const copyToClipboard = () => {
     if (!qrShareUrl) {
       Alert.alert(t('shareProfile.errorTitle'), t('shareProfile.noLinkToCopy'));
       return;
     }
 
-    Clipboard.setString(qrShareUrl);
+    Clipboard.setString(getShareContent().clipboardText);
     showToastMessage(toast, 'success', t('shareProfile.profileLinkCopied'));
   };
 
@@ -217,14 +238,11 @@ const ShareProfile = ({ navigation }) => {
         return;
       }
 
-      const currentUsername = String(username || '').trim();
-      const profileLabel = currentUsername ? `@${currentUsername}` : 'this profile';
+      const { shareMessage } = getShareContent();
 
       const result = await Share.share({
-        url: qrShareUrl,
-        message: t('shareProfile.shareMessageTemplate', {
-          username: toBold(profileLabel),
-        }),
+        ...(isOwnProfile ? { url: qrShareUrl } : {}),
+        message: shareMessage,
       });
 
       if (result.action === Share.sharedAction) {

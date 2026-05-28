@@ -655,8 +655,21 @@ const Posts = forwardRef(function Posts(
           return;
         }
 
-        const deepLink = `com.valens.app://?af=dd&postId=${encodeURIComponent(String(modalPostId))}`;
-        Clipboard.setString(deepLink);
+        const post = mappedPosts.find(p => String(p.id) === String(modalPostId));
+        const deepLink = `https://api.valens.app/postshare/${encodeURIComponent(String(modalPostId))}`;
+
+        const parsedGoal = Number(post?.raiseAmount);
+        const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;
+
+        let copyText;
+        if (isMissionPost) {
+          const username = post?.userName ?? post?.username ?? '';
+          copyText = t('postView.copyMissionText', { username, link: deepLink });
+        } else {
+          copyText = t('postView.copyPostText', { link: deepLink });
+        }
+
+        Clipboard.setString(copyText);
         showToastMessage(toast, 'success', t('posts.postCopied'));
         closeOptionsModal();
         return;
@@ -741,6 +754,7 @@ const Posts = forwardRef(function Posts(
     [
       modalPostId,
       canDelete,
+      mappedPosts,
       handleToggleSave,
       closeOptionsModal,
       toast,

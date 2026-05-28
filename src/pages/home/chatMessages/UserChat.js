@@ -143,6 +143,32 @@ const getAvatarSource = avatar =>
     : FALLBACK_AVATAR;
 const cleanStoryId = value => String(value || '').replace(/_\d+$/, '');
 
+const STORY_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+const parseStoryTimestamp = (storyData = {}) => {
+  const raw = storyData.createdAt || storyData.updatedAt || storyData.timestamp || storyData.time || storyData.date;
+  if (raw == null) return null;
+  const numeric = Number(raw);
+  if (!Number.isNaN(numeric) && numeric > 0) return numeric;
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime()) ? date.getTime() : null;
+};
+
+const isStoryExpired = (storyData = {}) => {
+  const timestamp = parseStoryTimestamp(storyData);
+  return timestamp ? Date.now() - timestamp >= STORY_EXPIRY_MS : false;
+};
+
+const formatStoryTimeAgo = (timestamp, translate) => {
+  if (!timestamp) return null;
+  const now = Date.now();
+  const diffInSeconds = Math.floor((now - timestamp) / 1000);
+  if (diffInSeconds < 60) return translate('timeJustNow');
+  if (diffInSeconds < 3600) return translate('timeMinutesAgo', { count: Math.floor(diffInSeconds / 60) });
+  if (diffInSeconds < 86400) return translate('timeHoursAgo', { count: Math.floor(diffInSeconds / 3600) });
+  return translate('timeDaysAgo', { count: Math.floor(diffInSeconds / 86400) });
+};
+
 const UserChat = ({ route, navigation }) => {
   const routeParams = route?.params || {};
   const { userId: targetUserId, user, post, postId, reel, reelId, story, storyId } = routeParams;
@@ -1023,7 +1049,14 @@ const UserChat = ({ route, navigation }) => {
 
   const renderVideoGrid = (videoUri, thumbnailUri) => (
     <TouchableOpacity onPress={() => { setCurrentVideo(videoUri); setViewerVisible(false); setVideoModalVisible(true); }} style={styles.singleImageContainer}>
-      <Video source={{ uri: thumbnailUri || videoUri }} style={styles.singleImage} resizeMode="cover" />
+      <Video
+        source={{ uri: thumbnailUri || videoUri }}
+        style={styles.singleImage}
+        resizeMode="cover"
+        paused
+        muted
+        controls={false}
+      />
       <View style={styles.playButton}>
         <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']} style={styles.playButtonGradient}>
           <Text style={styles.playIcon}>▶</Text>
@@ -1264,6 +1297,8 @@ const UserChat = ({ route, navigation }) => {
             {/* STORY SHARE */}
             {(item.type === 'story_share' || item.type === 'story') && (() => {
               const storyData = item.story || item.rawData?.story || item.rawData || {};
+              const storyTimestamp = parseStoryTimestamp(storyData);
+              const storyExpired = isStoryExpired(storyData);
               const mediaUri =
                 storyData.uri || storyData.thumbnail || storyData.media?.[0] ||
                 storyData.media?.[0]?.url || storyData.images?.[0]?.url ||
@@ -1278,7 +1313,8 @@ const UserChat = ({ route, navigation }) => {
               const caption = storyData.caption || storyData.text || item.content || '';
               const views = storyData.views?.length || storyData.viewCount || 0;
               const mediaType = storyData.type || (isVideoUrl(mediaUri) ? 'video' : 'image');
-              const storyExists = storyData && (storyData.id || mediaUri);
+              const storyExists = storyData && (storyData.id || mediaUri) && !storyExpired;
+              const storyTimeText = storyTimestamp ? formatStoryTimeAgo(storyTimestamp, t) : t('userChat.storyLabel');
 
               if (!storyExists) {
                 return (
@@ -1314,7 +1350,7 @@ const UserChat = ({ route, navigation }) => {
                       <Image source={getAvatarSource(storyUser.image)} style={styles.sharedPostAvatar} />
                       <View>
                         <Text style={styles.sharedPostUserName}>{storyUser.displayName}</Text>
-                        <Text style={styles.sharedPostTimeText}>{t('userChat.storyLabel')}</Text>
+                        <Text style={styles.sharedPostTimeText}>{storyTimeText}</Text>
                       </View>
                     </View>
                   </View>
@@ -1604,7 +1640,16 @@ const UserChat = ({ route, navigation }) => {
                 <TouchableOpacity style={styles.videoCloseButton} onPress={() => setVideoModalVisible(false)}>
                   <Text style={styles.videoCloseIcon}>✕</Text>
                 </TouchableOpacity>
-                <Video source={{ uri: currentVideo }} style={styles.videoPlayer} controls resizeMode="contain" />
+                <Video
+                  source={{ uri: currentVideo }}
+                  style={styles.videoPlayer}
+                  controls
+                  resizeMode="contain"
+                  muted={false}
+                  volume={1}
+                  ignoreSilentSwitch="ignore"
+                  playWhenInactive={false}
+                />
               </View>
             </Modal>
           </Animated.View>

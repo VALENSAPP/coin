@@ -19,7 +19,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import PostItem from '../home/posts/PostItem';
 import CommentSheet from '../home/posts/CommentSheet';
 import OptionsModal from '../home/posts/OptionsModal';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
   savePost,
@@ -93,6 +93,7 @@ export default function PostView({ postData = [], userData = {} }) {
   const toast = useToast();
   const dispatch = useDispatch();
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const commentSheetRef = useRef();
   const flatListRef = useRef();
   const playingDebounceRef = useRef(null);
@@ -228,10 +229,6 @@ export default function PostView({ postData = [], userData = {} }) {
 
     // Prefer the native stack: this preserves the original entry route
     // (Explore/Search/UserProfile/etc) instead of forcing a Home redirect.
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
 
     // Fallbacks when PostView is opened as a root (rare).
     if (routeUserData) {
@@ -247,6 +244,11 @@ export default function PostView({ postData = [], userData = {} }) {
         screen: 'UsersProfile',
         params: { userId: targetUserId },
       });
+      return;
+    }
+
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
       return;
     }
 
@@ -729,8 +731,21 @@ export default function PostView({ postData = [], userData = {} }) {
           return;
         }
 
-        const deepLink = `https://api.valens.app/post/${encodeURIComponent(String(modalPostId))}`;
-        Clipboard.setString(deepLink);
+        const post = list.find(p => String(p.id) === String(modalPostId));
+        const deepLink = `https://api.valens.app/postshare/${encodeURIComponent(String(modalPostId))}`;
+
+        const parsedGoal = Number(post?.raiseAmount);
+        const isMissionPost = Number.isFinite(parsedGoal) && parsedGoal > 0;
+
+        let copyText;
+        if (isMissionPost) {
+          const username = post?.userName ?? post?.username ?? '';
+          copyText = t('postView.copyMissionText', { username, link: deepLink });
+        } else {
+          copyText = t('postView.copyPostText', { link: deepLink });
+        }
+
+        Clipboard.setString(copyText);
         showToastMessage(toast, 'success', t('postView.postCopied'));
         closeOptions();
         return;
@@ -954,6 +969,7 @@ export default function PostView({ postData = [], userData = {} }) {
         ...extractPostMusicPayloadFromApi(item),
       };
       const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
+      console.log('Rendering post', mapped);
       return (
         <View
           style={[
@@ -1095,7 +1111,7 @@ export default function PostView({ postData = [], userData = {} }) {
           data={visiblePosts}
           keyExtractor={(p, i) => p.id?.toString() ?? `post-${i}`}
           renderItem={renderFeedItem}
-          contentContainerStyle={styles.feedContainer}
+          contentContainerStyle={[styles.feedContainer, { paddingBottom: Math.max(50, insets.bottom + 34) }]}
           onLayout={event => {
             const nextHeight = Math.round(event?.nativeEvent?.layout?.height || 0);
             // Ignore tiny height changes that destabilize snapping.

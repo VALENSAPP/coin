@@ -62,6 +62,7 @@ const PostEditorScreen = () => {
   const returnTo = route?.params?.returnTo || route?.params?.params?.returnTo;
 
   const navigateAfterPostCreated = useCallback(() => {
+    DeviceEventEmitter.emit('POST_UPLOAD_RESET');
     // Always take the user to Home after successful post creation.
     // Avoids returning to intermediate upload/editor screens.
     navigation.dispatch(StackActions.popToTop());

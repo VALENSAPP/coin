@@ -1,6 +1,6 @@
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Alert, ScrollView, Dimensions, Linking, Platform, DeviceEventEmitter } from 'react-native';
 import ImagePicker from 'react-native-image-crop-picker';
 import Video from 'react-native-video';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +50,13 @@ export default function PostScreen({ navigation }) {
   // Track if we're coming back from EditPostSelected
   const fromEditPostSelectedRef = useRef(false);
 
+  const clearUploadState = useCallback(() => {
+    fromEditPostSelectedRef.current = false;
+    setSelectedMedia([]);
+    setGalleryImages([]);
+    setShared(false);
+  }, []);
+
 
   const mergeGalleryImages = (newAssets, existingGallery, selectedItems) => {
     const existingUris = new Set(existingGallery.map(img => img.uri));
@@ -69,23 +76,19 @@ const cropImage = (imageUri, index) => {
 
   setTimeout(() => {
     ImagePicker.openCropper({
-      path: imageUri,
-      cropping: true,
-      cropperRotateButtonsHidden: true,
-      cropperActiveWidgetColor: '#0095f6',
-      cropperStatusBarColor: '#0095f6',
-      cropperToolbarColor: '#0095f6',
-      cropperToolbarWidgetColor: '#ffffff',
-        freeStyleCropEnabled: false,
-      showCropGuidelines: true,
-      showCropFrame: true,
-      hideBottomControls: false,
-      enableRotationGesture: true,
-      compressImageQuality: 0.6,
-      ...(Platform.OS === 'ios' && {
-        cropperBottomInset: 100,
-      }),
-    })
+  path: imageUri,
+  cropping: true,
+  cropperActiveWidgetColor: '#0095f6',
+  cropperStatusBarColor: '#0095f6',
+  cropperToolbarColor: '#0095f6',
+  cropperToolbarWidgetColor: '#ffffff',
+  freeStyleCropEnabled: true,
+  showCropGuidelines: true,
+  showCropFrame: true,
+  hideBottomControls: false,
+  enableRotationGesture: true,
+  compressImageQuality: 0.6,
+})
     .then((croppedImage) => {
       setSelectedMedia(prev => {
         const updated = [...prev];
@@ -387,9 +390,7 @@ const cropImage = (imageUri, index) => {
         return;
       }
 
-      setSelectedMedia([]);
-      setGalleryImages([]);
-      setShared(false);
+      clearUploadState();
 
       if (isPrivateEntry) {
         setPostType('private');
@@ -405,8 +406,13 @@ const cropImage = (imageUri, index) => {
 
       setPostType('normal');
       setShowTypeModal(true);
-    }, [isPrivateEntry, isFlipEntry])
+    }, [clearUploadState, isPrivateEntry, isFlipEntry])
   );
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('POST_UPLOAD_RESET', clearUploadState);
+    return () => subscription.remove();
+  }, [clearUploadState]);
 
   const galleryImagesRef = useRef([]);
 
@@ -538,14 +544,22 @@ const cropImage = (imageUri, index) => {
           style={styles.selectedMediaScroll}
         >
           {currentSelection.map((media, index) => {
+            const isVideoMedia = media?.type && media.type.startsWith('video');
+            const isHorizontalVideo =
+              isVideoMedia &&
+              Number(media?.width) > 0 &&
+              Number(media?.height) > 0 &&
+              Number(media.width) > Number(media.height);
             const previewHeight =
-              postType === 'flip' ? screenHeight * 0.6 : getPreviewHeightForMedia(media);
+              postType === 'flip' || isHorizontalVideo
+                ? screenHeight * .50
+                : getPreviewHeightForMedia(media);
             return (
             <View
               key={`selected_${media.uri}_${index}`}
               style={[styles.selectedGridItemHorizontal, { height: previewHeight }]}
             >
-              {media.type && media.type.startsWith('video') ? (
+              {isVideoMedia ? (
                 <View style={styles.selectedVideoItem}>
                   <Video
                     source={{ uri: media.uri }}

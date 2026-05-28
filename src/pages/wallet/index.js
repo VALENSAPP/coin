@@ -714,6 +714,11 @@ export const WalletDashboardScreen = ({ navigation }) => {
     () => getDragonflyIcon(followersCount),
     [followersCount],
   );
+  const headerNameLabel = useMemo(() => {
+    const name = String(userProfile.name || t('walletDashboard.headerDefaultUser')).trim();
+    if (name.length <= 18) return `@${name}`;
+    return `@${name.slice(0, 18)}\n${name.slice(18)}`;
+  }, [t, userProfile.name]);
 
   useEffect(() => {
     let timeout;
@@ -1349,15 +1354,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
                       styles.headerName,
                       { color: text },
                     ]}
-                    numberOfLines={isBusinessProfile ? 2 : 1}
+                    numberOfLines={2}
                     ellipsizeMode="tail"
                   >
-                    @{userProfile.name || t('walletDashboard.headerDefaultUser')}
-                    {kyc === true && (
-                      <DragonflyIcon width={25} height={25} style={styles.headerVerifiedIcon} />
-                    )}
+                    {headerNameLabel}
                   </Text>
-
+                  {kyc === true && (
+                    <View style={styles.headerVerifiedIconWrap}>
+                      <DragonflyIcon width={25} height={25} style={styles.headerVerifiedIcon} />
+                    </View>
+                  )}
                 </View>
                 {kyc === true && (
                   <View style={styles.headerStatus}>
@@ -1972,14 +1978,14 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
-    minWidth: 0,
     marginLeft: 5,
   },
   headerNameRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+    alignItems: 'flex-start',
+    width: '100%',
     minWidth: 0,
+    overflow: 'hidden',
   },
   headerName: {
     flex: 1,
@@ -1988,13 +1994,20 @@ const styles = StyleSheet.create({
     color: '#fef3c7',
     fontSize: 18,
     fontWeight: '700',
-    marginInlineEnd: 5
+    marginRight: 4,
+  },
+  headerVerifiedIconWrap: {
+    position:'absolute',
+    right:25,
+    width: 25,
+    height: 25,
+    flexShrink: 0,
+    marginTop: 1,
+    overflow: 'hidden',
   },
   headerVerifiedIcon: {
-  flexShrink: 0,
-  marginLeft: -6,   // left spacing
-  marginTop: 3,    // top spacing
-},
+    flexShrink: 0,
+  },
   headerStatus: {
     flexDirection: 'row',
     alignItems: 'center',

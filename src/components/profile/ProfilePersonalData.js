@@ -859,10 +859,6 @@ const ProfilePersonData = ({
       image: source?.image || profileImage || '',
     };
     const shareParams = { userData: normalizedSource, fromUsersProfile, targetUserId };
-    if (fromUsersProfile) {
-      navigation.navigate('ProfileMain', { screen: 'ShareProfile', params: shareParams });
-      return;
-    }
     navigation.navigate('ShareProfile', shareParams);
   };
 

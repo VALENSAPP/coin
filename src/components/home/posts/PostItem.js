@@ -335,12 +335,14 @@ function InstagramZoomableVideo({
             repeat={repeat}
             paused={inlinePaused}
             muted={muted}
+            volume={muted ? 0 : 1}
             controls={false}
             pointerEvents="none"
             onLoadStart={onLoadStart}
             onLoad={handleInlineLoad}
             onError={onError}
             playWhenInactive={false}
+            ignoreSilentSwitch="ignore"
             progressUpdateInterval={1000}
             onProgress={onProgressStable}
             bufferConfig={resolvedBufferConfig}
@@ -394,9 +396,11 @@ function InstagramZoomableVideo({
                   repeat={repeat}
                   paused={false}
                   muted={muted}
+                  volume={muted ? 0 : 1}
                   controls={false}
                   pointerEvents="none"
                   playWhenInactive={false}
+                  ignoreSilentSwitch="ignore"
                   progressUpdateInterval={1000}
                   bufferConfig={modalBufferConfig}
                   maxBitRate={maxBitRate}
@@ -1525,7 +1529,10 @@ function PostItem({
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => { shareRef.current?.open?.(); setSelectedPostId(item); }}
+              onPress={() => {
+                setSelectedPostId(item);
+                requestAnimationFrame(() => shareRef.current?.open?.());
+              }}
               style={styles.actionButton}>
               <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
               <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
@@ -1744,7 +1751,7 @@ function PostItem({
         item={item}
         onDonationSuccess={handleDonationSuccess}
       />
-      <ShareModal ref={shareRef} post={selectedPostId} postId={item?.id} />
+      <ShareModal ref={shareRef} post={selectedPostId || item} postId={item?.id} />
       <BuyersListModal
         visible={showBuyersModal}
         onClose={() => setShowBuyersModal(false)}
@@ -1797,7 +1804,7 @@ export default React.memo(PostItem, (prev, next) => {
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingBottom: 8,
+    paddingBottom: 18,
     position: 'relative',
   },
   postCard: {
@@ -2078,7 +2085,7 @@ const styles = StyleSheet.create({
   progressSection: {
     marginTop: 12,
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 24,
   },
   progressBarWrapper: {
     position: 'relative',

@@ -109,18 +109,26 @@ const isBattleNotificationType = type =>
     'battle_closed',
     'battle_victory',
     'battle_result',
+    'battle_closing_soon',
+    'battle_declined',
+    'battle_invite_expired',
+    'battle_forecast_missed',
+    'battle_closed',
   ].includes(normalizeNotificationType(type));
 const isCommentType = type =>
   normalizeNotificationType(type).includes('comment');
 const isLikeType = type => normalizeNotificationType(type).includes('like');
 const isMissionPostLaunchType = type =>
-  normalizeNotificationType(type).includes('mission_post_launched');
+  normalizeNotificationType(type).includes('mission_');
+const isMissionEndingSoonType = type =>
+  normalizeNotificationType(type).includes('mission_ending_soon');
 const isPostTagType = type => normalizeNotificationType(type) === 'post_tag';
 const isPostActivityType = type => isLikeType(type) || isCommentType(type);
 const shouldOpenPostForNotification = notification =>
   !!notification?.postId &&
   (isPostActivityType(notification.type) ||
     isMissionPostLaunchType(notification.type) ||
+    isMissionEndingSoonType(notification.type) ||
     isPostTagType(notification.type) ||
     !!notification.image);
 
@@ -917,23 +925,28 @@ export default function Notifications() {
       const message = item.message || '';
       const { usernameText, restText } = splitNotificationMessage(message);
 
+      // In renderItem's handlePress:
       const handlePress = () => {
         markAsRead(item.id);
 
         if (isBattleNotificationType(item.type)) {
-          openBattleFlow(item);
-          return;
+          // Extract battleId from raw data since these come from getAllNotifications
+          const battleId = item?.raw?.data?.battleId || item?.raw?.data?.battle_id;
+          if (battleId) {
+            navigation.navigate('ProfileMain', {
+              screen: 'BattleInProgress',
+              params: {
+                battleId,
+                battle: {},
+                entryPoint: 'notifications',
+              },
+            });
+            return;
+          }
         }
 
-        if (isFollowType(item.type) && navigateToNotificationProfile(item)) {
-          return;
-        }
-
-        if (shouldOpenPostForNotification(item)) {
-          navigateToPost(item);
-          return;
-        }
-
+        if (isFollowType(item.type) && navigateToNotificationProfile(item)) return;
+        if (shouldOpenPostForNotification(item)) { navigateToPost(item); return; }
         popupOpen(item);
       };
 

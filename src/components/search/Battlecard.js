@@ -179,7 +179,7 @@ const ParticipantAvatar = ({ avatarUrl, name, handle, isEmpty, onPress, onPressI
             >
                 <HexAvatar
                     uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR}
-                    size={40}
+                    size={28}
                     borderWidth={2}
                     borderColor="#7F77DD"
                 />
@@ -314,7 +314,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 onPress={event => handleUserPress(item.creator, event)}
                                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                             >
-                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" />
                                 <View style={styles.pollCreatorTextWrap}>
                                     <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                     <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
@@ -322,7 +322,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             </TouchableOpacity>
                         ) : (
                             <View style={styles.pollCreatorPressable}>
-                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={28} borderWidth={2} borderColor="#7F77DD" />
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" />
                                 <View style={styles.pollCreatorTextWrap}>
                                     <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                     <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
@@ -395,7 +395,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         >
                             <HexAvatar
                                 uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
-                                size={28}
+                                size={20}
                                 borderWidth={2}
                                 borderColor="#7F77DD"
                             />
@@ -409,7 +409,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         <View style={styles.pollCreatorPressable}>
                             <HexAvatar
                                 uri={normalizeImageUrl(item.creator?.avatar) || DEFAULT_AVATAR}
-                                size={28}
+                                size={20}
                                 borderWidth={2}
                                 borderColor="#7F77DD"
                             />
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         borderWidth: 0.5,
         borderColor: BORDER,
-        padding: 10,
+        padding: 4,
         marginBottom: 8,
     },
     cardEnded: { opacity: 0.7 },
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 3,
     },
 
     // Mode badge
@@ -724,11 +724,11 @@ const styles = StyleSheet.create({
     // Versus row
     versusRow: {
         flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', marginBottom: 8, gap: 6,
+        justifyContent: 'space-between', marginBottom: 2, gap: 1,
     },
     participantSlot: { flex: 1, alignItems: 'center', minWidth: 0 },
     participantContent: { alignItems: 'center', gap: 2, maxWidth: 72 },
-    participantName: { fontSize: 11, fontWeight: '500', color: TEXT, textAlign: 'center', maxWidth: 64 },
+    participantName: { fontSize: 10, fontWeight: '500', color: TEXT, textAlign: 'center', maxWidth: 64 },
     participantHandle: { fontSize: 10, color: GRAY_MID, textAlign: 'center' },
     vsIcon: { fontSize: 16, flexShrink: 0 },
 
@@ -744,27 +744,27 @@ const styles = StyleSheet.create({
     waitingSub: { fontSize: 9, color: GRAY_MID, textAlign: 'center' },
 
     // Question
-    question: { fontSize: 12, fontWeight: '700', color: TEXT, marginBottom: 6, lineHeight: 16 },
+    question: { fontSize: 11, fontWeight: '700', color: TEXT, marginBottom: 1, lineHeight: 13 },
 
     // Stakes
     stakePill: {
         flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
         backgroundColor: PURPLE_LIGHT, borderRadius: 20,
-        paddingVertical: 3, paddingHorizontal: 8, marginBottom: 6, gap: 4,
+        paddingVertical: 2, paddingHorizontal: 8, marginBottom: 3, gap: 4,
     },
     stakeText: { fontSize: 11, color: PURPLE_DARK },
     stakeAmount: { fontWeight: '700', color: PURPLE_DARK },
 
     // Option chips
-    pollOptions: { width: '100%', gap: 6, marginBottom: 6 },
+    pollOptions: { width: '100%', gap: 2, marginBottom: 3 },
     optionChip: {
         width: '100%', flexDirection: 'row', alignItems: 'center',
         gap: 4, borderRadius: 24, borderWidth: 1, borderColor: BORDER,
-        backgroundColor: '#fff', paddingVertical: 4, paddingHorizontal: 5, minWidth: 0,
+        backgroundColor: '#fff', paddingVertical: 1, paddingHorizontal: 5, minWidth: 0,
     },
     optionChipSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
     optionChipTextWrap: { flex: 1, minWidth: 0 },
-    optionChipLabel: { fontSize: 10, fontWeight: '500', color: TEXT },
+    optionChipLabel: { fontSize: 9, fontWeight: '500', color: TEXT },
     optionChipLabelSelected: { color: PURPLE_DARK },
     optionChipPercent: { marginTop: 1, fontSize: 9, fontWeight: '700', color: GRAY_MID },
     radioCircle: {
@@ -792,11 +792,11 @@ const styles = StyleSheet.create({
     pollCreatorHandle: { fontSize: 10, color: GRAY_MID },
 
     // Meta
-    metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
     metaText: { fontSize: 10, color: GRAY_MID },
 
     // Divider
-    divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 6 },
+    divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 3 },
 
     // Stats
     statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center' },

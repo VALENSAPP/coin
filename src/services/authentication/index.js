@@ -4,6 +4,7 @@ import DeviceInfo from 'react-native-device-info';
 import Geolocation from 'react-native-geolocation-service';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { saveOrUpdateAccount } from '../../utils/accountSession';
+import { setUserProfile } from '../../redux/actions/UserProfileAction';
 
 export const handleLoginSuccess = async (token, dispatch, navigation, getProfileData, toast, accessToken, refreshToken, t) => {
     if (token) {
@@ -333,7 +334,7 @@ export const persistSwitchedUser = async (res, user, dispatch, id) => {
     if (user.profile != null && user.profile !== '') {
         await AsyncStorage.setItem('profile', String(user.profile));
     }
-
+     dispatch(setUserProfile(user.profile || (await AsyncStorage.getItem('profile'))));
     // Try to also save to account session, but don't fail if it errors
     try {
         await saveOrUpdateAccount({
