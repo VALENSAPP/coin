@@ -58,6 +58,7 @@ const linking = {
   },
 };
 
+let _initialUrlConsumed = false;
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +76,7 @@ export default function Main() {
   const isNavigationReadyRef = useRef(false);
   const isLoggedInRef = useRef(false);
   const isLoadingRef = useRef(true);
+  const initialUrlHandled = useRef(false);
   const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
 
@@ -199,9 +201,9 @@ export default function Main() {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
     getNotification();
-  //  setTimeout(() => {
-  //    setIsLoading(false);
-  //  }, 1000);
+    //  setTimeout(() => {
+    //    setIsLoading(false);
+    //  }, 1000);
     const checkLogin = async () => {
       try {
         const loggedI = await AsyncStorage.getItem('isLoggedIn');
@@ -246,7 +248,7 @@ export default function Main() {
         console.log("Error in checkLogin:", error);
         dispatch(loggedOut());
       } finally {
-          
+
       }
     };
 
@@ -596,12 +598,15 @@ export default function Main() {
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
     // Handle deep link when app was closed
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log('Initial URL:', url);
-        handleDeepLink({ url });
-      }
-    });
+    if(!_initialUrlConsumed) {
+      _initialUrlConsumed = true;
+      Linking.getInitialURL().then((url) => {
+        if (url) {
+          console.log('Initial URL:', url);
+          handleDeepLink({ url });
+        }
+      });
+    }
 
     return () => {
       linkingSubscription.remove();
@@ -666,7 +671,7 @@ export default function Main() {
   if (isLoading) {
     return (
       <ThemeProvider activeProfile={userProfile}>
-        <Splash onFinish={() => setIsLoading(false)}/>
+        <Splash onFinish={() => setIsLoading(false)} />
       </ThemeProvider>
     );
   }
@@ -678,7 +683,7 @@ export default function Main() {
           ref={navigationRef}
           linking={linking}
           onReady={handleNavigationReady}
-          // fallback={<Splash />}
+        // fallback={<Splash />}
         >
           <MainStack />
         </NavigationContainer>
