@@ -2021,8 +2021,8 @@ export default function BattleInProgress() {
             )}
           </View>
 
-          {/* Choose Your Side / Make Prediction (hide when resolved) */}
-          {!canViewResults ? (
+          {/* Choose Your Side / Make Prediction (hide when resolved or after user voted) */}
+          {!canViewResults && !hasUserVoted ? (
             <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
               <View style={styles.sectionTitleRow}>
                 <Text style={[styles.sectionTitle, { color: text }]}>

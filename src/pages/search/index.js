@@ -1056,7 +1056,7 @@ const SearchScreen = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                       paddingVertical: 8,
-                      marginTop: 4,
+                      marginTop: 2,
                       backgroundColor: text,
                       borderRadius: 10,
                     }}
