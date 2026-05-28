@@ -39,6 +39,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedIn } from '../../redux/actions/LoginAction';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 import { useLanguage } from '../../i18n';
+import { clearSignupFormData } from '../../redux/actions/SignupFormAction';
 
 const { height } = Dimensions.get('window');
 
@@ -197,6 +198,7 @@ const BusinessProfileForm = () => {
     await saveUserProfile();
     await AsyncStorage.setItem('isLoggedIn', 'true');
     dispatch(loggedIn());
+    dispatch(clearSignupFormData());
     dispatch(setIsAddAccount(false));
     if (navigation.canGoBack()) { navigation.goBack(); return; }
   };

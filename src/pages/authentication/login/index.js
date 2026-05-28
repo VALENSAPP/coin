@@ -47,6 +47,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../../i18n';
 import { useAppTheme } from '../../../theme/useApptheme';
+import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 
 const { width, height } = Dimensions.get('window');
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
@@ -113,6 +114,7 @@ export default function LoginScreen() {
           await AsyncStorage.removeItem(ADDING_ACCOUNT_FLAG_KEY);
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
+          dispatch(clearSignupFormData());
           dispatch(setIsAddAccount(false));
           // showToastMessage(toast, 'danger', 'KYC Verificaion is still pending. Please check again later.');
           return;
@@ -151,6 +153,7 @@ export default function LoginScreen() {
           showToastMessage(toast, 'success', 'User logged in successfully');
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
+          dispatch(clearSignupFormData());
           dispatch(setIsAddAccount(false));
         }
       }

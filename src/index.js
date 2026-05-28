@@ -351,18 +351,34 @@ export default function Main() {
         // return;
       }
 
-      const navigateToUserProfile = (resolvedUserId) => {
-        console.log("navigateToUserProfilenavigateToUserProfile", resolvedUserId)
+      const navigateToUserProfile = async (resolvedUserId) => {
+        console.log("navigateToUserProfilenavigateToUserProfile", resolvedUserId);
         if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
-        navigationRef.current.navigate('MainApp', {
-          screen: 'HomeMain',
-          params: {
-            screen: 'UsersProfile',
+
+        // Get the logged-in user's ID
+        const loggedInUserId = await AsyncStorage.getItem('userId');
+        const isSelf = String(loggedInUserId || '').trim() === String(resolvedUserId).trim();
+
+        if (isSelf) {
+          // Navigate to own profile
+          navigationRef.current.navigate('MainApp', {
+            screen: 'HomeMain',
             params: {
-              userId: String(resolvedUserId),
+              screen: 'Profile', // your own profile screen name
             },
-          },
-        });
+          });
+        } else {
+          // Navigate to another user's profile (fromUsersProfile = true is implicit here)
+          navigationRef.current.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: {
+              screen: 'UsersProfile',
+              params: {
+                userId: String(resolvedUserId),
+              },
+            },
+          });
+        }
       };
 
       const resolveUserIdFromUsername = async (incomingUsername) => {

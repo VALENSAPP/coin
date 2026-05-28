@@ -50,6 +50,7 @@ import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 import { useLanguage } from '../../i18n';
 import { getProfile } from '../../services/createProfile';
+import { clearSignupFormData } from '../../redux/actions/SignupFormAction';
 
 /** __DEV__ only: set to '' to use real tokens from resolveRefreshTokenForAccountSwitch. */
 const DEBUG_STATIC_REFRESH_TOKEN_FOR_SWITCH_TEST = __DEV__
@@ -361,12 +362,14 @@ const Settings = () => {
       const ok = res?.statusCode === 200 || res?.statusCode === 201;
       if (ok) {
         await persistSwitchedUser(res.data, account, dispatch, String(targetUserId));
+        console.log('User persisted after switch, fetching profile to update status', res.data);
         const profile = await AsyncStorage.getItem('profile');
-        dispatch(setUserProfile(profile || 'normal'));
+        // dispatch(setUserProfile(profile || 'normal'));
         setAccountSwitcherVisible(false);
         dispatch(loggedOut());
         setTimeout(() => {
           dispatch(loggedIn());
+          dispatch(clearSignupFormData());
         }, 50);
         showToastMessage(toast, 'success', t('settings.switchedAccount'), 1500);
         return;
@@ -511,6 +514,7 @@ const Settings = () => {
                     setTimeout(() => {
                       console.log('Dispatching loggedIn');
                       dispatch(loggedIn());
+                      dispatch(clearSignupFormData());
                     }, 100);
 
                     showToastMessage(

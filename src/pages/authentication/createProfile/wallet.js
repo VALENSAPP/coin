@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
+import { clearSignupFormData } from '../../../redux/actions/SignupFormAction';
 
 const { width, height } = Dimensions.get('window');
 
@@ -103,6 +104,7 @@ export default function WalletScreen({ route }) {
           setShowModal(false);
           await AsyncStorage.setItem('isLoggedIn', 'true');
           dispatch(loggedIn());
+          dispatch(clearSignupFormData());
         }, 5000);
       } else if (code === 500) {
         setModalType('error');
