@@ -52,6 +52,12 @@ import subscription from '../pages/settings/Subscription';
 import TextGradient from '../assets/textgradient/TextGradient';
 import CreateMission from '../pages/post/uploadPost/CreateMission';
 import EditPostScreen from '../pages/post/uploadPost/EditPostScreen';
+import PrivateCircleWelcome from '../pages/post/privatecircle/onboarding/Welcome';
+import PrivateCircleSelectAccess from '../pages/post/privatecircle/SelectAccess';
+import PrivateCircleSelectMembers from '../pages/post/privatecircle/SelectMembers';
+import PrivateCircleReview from '../pages/post/privatecircle/Review';
+import PrivateCircleCreating from '../pages/post/privatecircle/Creating';
+import PrivateCircleSuccess from '../pages/post/privatecircle/Success';
 import ViewMissioPost from '../pages/wallet/ViewMissioPost';
 
 // Import Wallet Drawer Screens
@@ -583,6 +589,36 @@ export default function MainTabNavigator() {
           component={CreateMission}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="PrivateCircleWelcome"
+          component={PrivateCircleWelcome}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PrivateCircleSelectAccess"
+          component={PrivateCircleSelectAccess}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PrivateCircleSelectMembers"
+          component={PrivateCircleSelectMembers}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PrivateCircleReview"
+          component={PrivateCircleReview}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PrivateCircleCreating"
+          component={PrivateCircleCreating}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PrivateCircleSuccess"
+          component={PrivateCircleSuccess}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }, []);
@@ -761,6 +797,12 @@ export default function MainTabNavigator() {
         'ShareProfile',
         'EditProfile',
         'CreateMission',
+        'PrivateCircleWelcome',
+        'PrivateCircleSelectAccess',
+        'PrivateCircleSelectMembers',
+        'PrivateCircleReview',
+        'PrivateCircleCreating',
+        'PrivateCircleSuccess',
         'BattleVoteDetails',
       ];
 

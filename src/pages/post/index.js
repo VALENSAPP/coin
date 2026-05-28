@@ -415,6 +415,16 @@ const cropImage = (imageUri, index) => {
   }, [galleryImages]);
 
   useEffect(() => {
+    if (!route.params?.privateCircleReady) return;
+    setPostType('private');
+    setShowTypeModal(false);
+    navigation.setParams({
+      privateCircleReady: undefined,
+      privateCircleMemberIds: undefined,
+    });
+  }, [route.params?.privateCircleReady, navigation]);
+
+  useEffect(() => {
     if (galleryImagesRef.current.length === 0) return;
 
     const selectedUris = new Set((selectedMedia || []).map(item => item.uri));
