@@ -358,7 +358,7 @@ const ValensWallet = ({ navigation }) => {
             ? 'MetaMask'
             : normalizedWalletType === 'coinbase'
                 ? 'Coinbase Wallet'
-                : 'WalletConnect'
+                : t('walletConnectedSuccess.title')
         : t('valensWallet.walletLabel');
     const walletIconSource = WALLET_ICON_BY_TYPE[walletTypeForUi] || WALLET_ICON_BY_TYPE.wallet;
 
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     connectionTitle: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '900',
     },
     badge: {

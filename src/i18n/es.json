@@ -695,7 +695,8 @@
     "profileNotAvailableMessage": "No se puede compartir el perfil en este momento.",
     "linkUnavailable": "Enlace no disponible",
     "noLinkToCopy": "No hay enlace disponible para copiar",
-    "shareMessageTemplate": "👤 ¡Mira a {{username}} en Valens!\n\n🔗 Abrir perfil",
+    "shareMessageTemplate": "✨ Sígueme en Valens. \nÚnete a mis batallas, apoya mis misiones y sé parte de mi mundo. Donde la reputación se gana, no se compra.",
+    "shareOtherMessageTemplate": "✨ Sigue a {{username}} en Valens\nDonde la reputación se gana, no se compra.\nÚnete a su mundo abajo.\n{{profileLink}}",
     "brandName": "Valens"
   },
   "termCondition": {
@@ -928,6 +929,7 @@
   },
   "battleInProgress": {
     "screenTitle": "Batalla en progreso",
+    "battleEnded": "Batalla terminada",
     "loadingError": "No se pudo cargar la batalla",
     "tryAgain": "Por favor, inténtalo de nuevo.",
     "statusLive": "EN VIVO",
@@ -989,7 +991,9 @@
     "fallbackUser": "Usuario",
     "fallbackCreator": "Creador",
     "fallbackOpponent": "Oponente",
-    "valensUser": "Usuario Valens"
+    "valensUser": "Usuario Valens",
+    "battleCancelled": "Batalla cancelada",
+    "statusCancelled": "CANCELADA"
   },
   "battleVoteDetails": {
     "votesTitle": "Votos",
@@ -2735,7 +2739,9 @@
     "failedUnhidePost": "No se pudo restaurar la publicación",
     "followSuccess": "¡Seguido con éxito!",
     "unfollowSuccess": "Dejaste de seguir",
-    "unableToUpdateFollow": "No se pudo actualizar el seguimiento"
+    "unableToUpdateFollow": "No se pudo actualizar el seguimiento",
+    "copyMissionText": "✨ Apoya la misión de @{{username}} en Valens\nSé parte del impacto. Dona de forma segura abajo.\n{{link}}",
+    "copyPostText": "Mira esta publicación en la app Valens\n{{link}}"
   },
   "privateCircle": {
     "ownTitle": "Mint privado — ¿Qué es?",

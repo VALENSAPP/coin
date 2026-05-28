@@ -494,6 +494,10 @@ const ArchiveScreen = ({ navigation, route }) => {
                 style={styles.fullMedia}
                 resizeMode="contain"
                 repeat
+                muted={false}
+                volume={1}
+                ignoreSilentSwitch="ignore"
+                playWhenInactive={false}
               />
             ) : (
               <Image

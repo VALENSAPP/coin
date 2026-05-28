@@ -12,11 +12,12 @@ import {
   Dimensions,
   PanResponder,
   Animated,
+  DeviceEventEmitter,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import ImagePicker from 'react-native-image-crop-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import CameraView from './CameraView';
 import Video from 'react-native-video';
 import { useAppTheme } from '../../../theme/useApptheme';
@@ -48,6 +49,24 @@ const GalleryPickerScreen = () => {
   const cropScale = useRef(new Animated.Value(1)).current;
   const { bgStyle, textStyle } = useAppTheme();
   const { t } = useLanguage();
+
+  const resetUploadState = useCallback(() => {
+    setSelected([]);
+    setMedia([]);
+    setShowCamera(false);
+    setTab('gallery');
+  }, []);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('POST_UPLOAD_RESET', resetUploadState);
+    return () => subscription.remove();
+  }, [resetUploadState]);
+
+  useFocusEffect(
+    useCallback(() => {
+      resetUploadState();
+    }, [resetUploadState]),
+  );
 
   useEffect(() => {
     if (tab === 'gallery') {

@@ -24,6 +24,7 @@ import { ensureCurrentAccountSaved } from '../../utils/accountSession';
 import { requestUserPermission } from '../../services/NotificationService';
 import { setIsAddAccount } from '../../redux/actions/AddAccountAction';
 import { setUserProfile } from '../../redux/actions/UserProfileAction';
+import { clearSignupFormData } from '../../redux/actions/SignupFormAction';
 
 // ─── NOTE ────────────────────────────────────────────────────────────────────
 // These are non-hook utility functions. They receive `t` as a parameter from
@@ -153,6 +154,7 @@ export const signInWithFirebase = async idToken => {
     AsyncStorage.setItem('username', username);
     AsyncStorage.setItem('email', lookupResponse.users[0].email);
     dispatch(loggedIn());
+    dispatch(clearSignupFormData());
   } catch (err) {
     // handled elsewhere
   }
@@ -217,6 +219,7 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
         });
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
+        dispatch(clearSignupFormData());
         dispatch(setIsAddAccount(false));
         return;
       }
@@ -250,6 +253,7 @@ const getProfileData = async (dispatch, navigation, toast, accessToken, refreshT
         showToastMessage(toast, 'success', t('socialLogin.loginSuccess'));
         await AsyncStorage.setItem('isLoggedIn', 'true');
         dispatch(loggedIn());
+        dispatch(clearSignupFormData());
         dispatch(setIsAddAccount(false));
       }
     }
