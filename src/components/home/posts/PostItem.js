@@ -1800,7 +1800,7 @@ export default React.memo(PostItem, (prev, next) => {
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingBottom: 8,
+    paddingBottom: 18,
     position: 'relative',
   },
   postCard: {
@@ -2081,7 +2081,7 @@ const styles = StyleSheet.create({
   progressSection: {
     marginTop: 12,
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 24,
   },
   progressBarWrapper: {
     position: 'relative',

@@ -756,7 +756,7 @@ const SubventionSetupScreen = () => {
                         {hasAgreedTerms ? (
                             <TouchableOpacity style={[styles.saveButton, styles.agreedButton]} activeOpacity={1} disabled>
                                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
-                                <Text style={styles.saveButtonText}>{t('subventionSetup.agreedButton')}</Text>
+                                <Text style={[styles.saveButtonText,text]}>{t('subventionSetup.agreedButton')}</Text>
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity

@@ -23,6 +23,7 @@ import {
   ScrollView,
   Keyboard,
   Platform,
+  DeviceEventEmitter,
 } from 'react-native';
 import { FlatList as GestureFlatList } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
@@ -1636,40 +1637,75 @@ export default function FlipsScreen() {
   const deleteReelById = useCallback(
     async reelId => {
       if (!reelId) return;
+      let removedReel = null;
+      let removedIndex = -1;
+      let nextReelsLength = 0;
+
       try {
         const userId = currentUserId ?? (await AsyncStorage.getItem('userId'));
         if (!userId) {
           showToastMessage(toast, 'danger', t('flips.noUserIdError'));
           return;
         }
+
         dispatch(showLoader());
+
         setReels(prev => {
+          removedIndex = prev.findIndex(r => String(r?.id) === String(reelId));
+          if (removedIndex >= 0) {
+            removedReel = prev[removedIndex];
+          }
           const next = prev.filter(r => String(r?.id) !== String(reelId));
-          const maxIdx = Math.max(0, next.length - 1);
+          nextReelsLength = next.length;
+          const maxIdx = Math.max(0, nextReelsLength - 1);
           setCurrentIndex(ci => Math.max(0, Math.min(ci, maxIdx)));
           return next;
         });
+
         setSelectedReelId(null);
         moreOptionsSheetRef.current?.close?.();
+
         const res = await deletePost(String(reelId), String(userId));
+
         if (res?.statusCode === 200 && (res?.success ?? true)) {
           showToastMessage(toast, 'success', res?.data?.message || t('flips.flipDeleted'));
+          DeviceEventEmitter.emit('HOME_TAB_PRESS');
+
+          if (nextReelsLength === 0) {
+            handleBackPress();
+          }
         } else {
           showToastMessage(
             toast, 'danger',
             res?.data?.message || res?.message || t('flips.deleteReelFailed'),
           );
+
+          if (removedReel) {
+            setReels(prev => {
+              const restored = [...prev];
+              restored.splice(Math.max(0, Math.min(removedIndex, restored.length)), 0, removedReel);
+              return restored;
+            });
+          }
         }
       } catch (e) {
         showToastMessage(
           toast, 'danger',
           e?.response?.data?.message || e?.message || t('flips.deleteReelError'),
         );
+
+        if (removedReel) {
+          setReels(prev => {
+            const restored = [...prev];
+            restored.splice(Math.max(0, Math.min(removedIndex, restored.length)), 0, removedReel);
+            return restored;
+          });
+        }
       } finally {
         dispatch(hideLoader());
       }
     },
-    [currentUserId, dispatch, toast, t],
+    [currentUserId, dispatch, toast, t, handleBackPress],
   );
 
   const confirmDeleteReel = useCallback(
