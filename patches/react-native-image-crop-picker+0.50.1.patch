@@ -1,0 +1,16 @@
+diff --git a/node_modules/react-native-image-crop-picker/ios/src/ImageCropPicker.mm b/node_modules/react-native-image-crop-picker/ios/src/ImageCropPicker.mm
+index 354ad09..2694b50 100644
+--- a/node_modules/react-native-image-crop-picker/ios/src/ImageCropPicker.mm
++++ b/node_modules/react-native-image-crop-picker/ios/src/ImageCropPicker.mm
+@@ -916,9 +916,8 @@ - (void)cropImage:(UIImage *)image {
+         
+         cropVC.doneButtonTitle = [self.options objectForKey:@"cropperChooseText"];
+         cropVC.cancelButtonTitle = [self.options objectForKey:@"cropperCancelText"];
+-        cropVC.rotateButtonsHidden = [[self.options objectForKey:@"cropperRotateButtonsHidden"] boolValue];
+-        
+-        cropVC.modalPresentationStyle = UIModalPresentationFullScreen;
++        cropVC.rotateButtonsHidden = NO;
++       cropVC.toolbarPosition = TOCropViewControllerToolbarPositionTop;
+         if (@available(iOS 15.0, *)) {
+             cropVC.modalTransitionStyle = UIModalTransitionStyleCoverVertical;
+         }

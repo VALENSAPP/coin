@@ -199,7 +199,9 @@ export default function Main() {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
     getNotification();
-
+  //  setTimeout(() => {
+  //    setIsLoading(false);
+  //  }, 1000);
     const checkLogin = async () => {
       try {
         const loggedI = await AsyncStorage.getItem('isLoggedIn');
@@ -244,9 +246,7 @@ export default function Main() {
         console.log("Error in checkLogin:", error);
         dispatch(loggedOut());
       } finally {
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 1000);
+          
       }
     };
 
@@ -614,7 +614,7 @@ export default function Main() {
   const fetchRefreshToken = async () => {
     const oldToken = await AsyncStorage.getItem('refreshToken');
     try {
-      dispatch(showLoader());
+      // dispatch(showLoader());
       const dataToSend = { refreshToken: oldToken };
       const response = await refreshToken(dataToSend);
       if (response?.statusCode === 200) {
@@ -627,7 +627,7 @@ export default function Main() {
     } catch (error) {
       // Handle error silently or show message
     } finally {
-      dispatch(hideLoader());
+      // dispatch(hideLoader());
     }
   };
 
@@ -666,7 +666,7 @@ export default function Main() {
   if (isLoading) {
     return (
       <ThemeProvider activeProfile={userProfile}>
-        <Splash />
+        <Splash onFinish={() => setIsLoading(false)}/>
       </ThemeProvider>
     );
   }
@@ -678,7 +678,7 @@ export default function Main() {
           ref={navigationRef}
           linking={linking}
           onReady={handleNavigationReady}
-          fallback={<Splash />}
+          // fallback={<Splash />}
         >
           <MainStack />
         </NavigationContainer>

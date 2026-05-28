@@ -310,6 +310,10 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
                 resizeMode="contain"
                 paused={isPaused || !visible}
                 repeat={false}
+                muted={false}
+                volume={1}
+                ignoreSilentSwitch="ignore"
+                playWhenInactive={false}
                 onLoad={handleVideoLoad}
                 onProgress={handleVideoProgress}
                 onError={() => setIsLoading(false)}

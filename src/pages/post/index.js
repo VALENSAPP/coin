@@ -76,23 +76,19 @@ const cropImage = (imageUri, index) => {
 
   setTimeout(() => {
     ImagePicker.openCropper({
-      path: imageUri,
-      cropping: true,
-      cropperRotateButtonsHidden: true,
-      cropperActiveWidgetColor: '#0095f6',
-      cropperStatusBarColor: '#0095f6',
-      cropperToolbarColor: '#0095f6',
-      cropperToolbarWidgetColor: '#ffffff',
-        freeStyleCropEnabled: false,
-      showCropGuidelines: true,
-      showCropFrame: true,
-      hideBottomControls: false,
-      enableRotationGesture: true,
-      compressImageQuality: 0.6,
-      ...(Platform.OS === 'ios' && {
-        cropperBottomInset: 100,
-      }),
-    })
+  path: imageUri,
+  cropping: true,
+  cropperActiveWidgetColor: '#0095f6',
+  cropperStatusBarColor: '#0095f6',
+  cropperToolbarColor: '#0095f6',
+  cropperToolbarWidgetColor: '#ffffff',
+  freeStyleCropEnabled: true,
+  showCropGuidelines: true,
+  showCropFrame: true,
+  hideBottomControls: false,
+  enableRotationGesture: true,
+  compressImageQuality: 0.6,
+})
     .then((croppedImage) => {
       setSelectedMedia(prev => {
         const updated = [...prev];

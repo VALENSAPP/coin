@@ -335,12 +335,14 @@ function InstagramZoomableVideo({
             repeat={repeat}
             paused={inlinePaused}
             muted={muted}
+            volume={muted ? 0 : 1}
             controls={false}
             pointerEvents="none"
             onLoadStart={onLoadStart}
             onLoad={handleInlineLoad}
             onError={onError}
             playWhenInactive={false}
+            ignoreSilentSwitch="ignore"
             progressUpdateInterval={1000}
             onProgress={onProgressStable}
             bufferConfig={resolvedBufferConfig}
@@ -394,9 +396,11 @@ function InstagramZoomableVideo({
                   repeat={repeat}
                   paused={false}
                   muted={muted}
+                  volume={muted ? 0 : 1}
                   controls={false}
                   pointerEvents="none"
                   playWhenInactive={false}
+                  ignoreSilentSwitch="ignore"
                   progressUpdateInterval={1000}
                   bufferConfig={modalBufferConfig}
                   maxBitRate={maxBitRate}

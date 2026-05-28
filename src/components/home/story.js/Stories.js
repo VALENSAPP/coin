@@ -1434,6 +1434,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
               repeat={false}
               playInBackground={false}
               playWhenInactive={false}
+              ignoreSilentSwitch="ignore"
               volume={Math.max(0, Math.min(1, Number(currentStory?.volume) || 1))}
               onLoad={data => {
                 directAudioDurationRef.current = Number(data?.duration) || 0;
