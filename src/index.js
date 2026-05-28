@@ -362,7 +362,7 @@ export default function Main() {
         if (isSelf) {
           // Navigate to own profile
           navigationRef.current.navigate('MainApp', {
-            screen: 'HomeMain',
+            screen: 'ProfileMain',
             params: {
               screen: 'Profile', // your own profile screen name
             },
