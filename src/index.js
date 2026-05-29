@@ -248,7 +248,6 @@ export default function Main() {
         console.log("Error in checkLogin:", error);
         dispatch(loggedOut());
       } finally {
-
       }
     };
 

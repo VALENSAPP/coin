@@ -43,6 +43,18 @@ import { useLanguage } from '../../i18n';
 const STRIPE_ONBOARDING_STATUS_KEY = 'stripeOnboardingStatus';
 const SUBVENTION_TERMS_AGREED_KEY_PREFIX = 'subventionTermsAgreed';
 
+const hasActiveSubscriptionAccess = (data) => {
+    const status = String(data?.subscriptionStatus || '').toUpperCase();
+    const endDateValue = data?.subscriptionEnd || data?.currentPeriodEnd;
+    const endDate = endDateValue ? new Date(endDateValue) : null;
+    const hasValidEndDate = endDate && !Number.isNaN(endDate.getTime());
+    const hasFutureAccess = hasValidEndDate ? endDate >= new Date() : status === 'ACTIVE';
+
+    if (status === 'ACTIVE') return hasFutureAccess;
+    if (status === 'CANCELED') return hasFutureAccess;
+    return false;
+};
+
 const SubventionSetupScreen = () => {
     const [price, setPrice] = useState('9');
     const [subscriptionId, setSubscriptionId] = useState(null);
@@ -329,18 +341,20 @@ const SubventionSetupScreen = () => {
             const response = await getUserCredentials(id);
             const data = response?.data ?? response;
             setCredential(data);
-            const status = data?.subscriptionStatus?.toUpperCase();
-            const endDate = new Date(data?.currentPeriodEnd);
             const apiProfileType = data?.profile || data?.user?.profile || '';
             const effectiveProfileType = String(apiProfileType).toLowerCase();
             setIsBusinessProfile(effectiveProfileType === 'company' || effectiveProfileType === 'business');
-            const newDate = new Date();
-            if (status === "ACTIVE" || (status === "CANCELED" && endDate >= newDate)) {
+            const hasActiveAccess = hasActiveSubscriptionAccess(data);
+            if (hasActiveAccess) {
                 setShowActivationPopup(false);
                 setShowBusinessReminderPopup(false);
+                setHasAgreedTerms(true);
+                setIsChecked(true);
             } else {
                 setShowBusinessReminderPopup(false);
                 setShowActivationPopup(true);
+                setHasAgreedTerms(false);
+                setIsChecked(false);
             }
         } catch (error) {
             console.log('Get credential error:', error?.message);
@@ -632,10 +646,12 @@ const SubventionSetupScreen = () => {
         }
     };
 
+    const hasActiveSubscription = hasActiveSubscriptionAccess(credential);
     const subscriptionEndDate = formatSubscriptionDate(credential?.subscriptionEnd || credential?.currentPeriodEnd);
     const subscriptionStatus = credential?.subscriptionStatus || 'INACTIVE';
-    const isSubscriptionActive = subscriptionStatus?.toUpperCase() === 'ACTIVE';
-    const canSaveSubscription = hasAgreedTerms || isChecked;
+    const isSubscriptionActive = hasActiveSubscription;
+    const shouldShowAgreedButton = hasActiveSubscription && hasAgreedTerms;
+    const canSaveSubscription = shouldShowAgreedButton || isChecked;
 
     return (
         <>
@@ -753,7 +769,7 @@ const SubventionSetupScreen = () => {
 
                         <View style={{ marginTop: 15 }} />
 
-                        {hasAgreedTerms ? (
+                        {shouldShowAgreedButton ? (
                             <TouchableOpacity style={[styles.agreedBtn, styles.agreedButton, {backgroundColor: text}]} activeOpacity={1} disabled>
                                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
                                 <Text style={styles.saveButtonText}>{t('subventionSetup.agreedButton')}</Text>

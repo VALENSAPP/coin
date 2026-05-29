@@ -23,6 +23,7 @@ import {
   Pressable,
   TouchableWithoutFeedback,
   View,
+  DeviceEventEmitter,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
@@ -529,6 +530,10 @@ export default function BattleInProgress() {
     () => getStatusTone(battle.status, t),
     [battle.status, t],
   );
+  const isLiveStatus = useMemo(() => {
+    const normalized = String(battle.status || '').toLowerCase();
+    return normalized.includes('live') || normalized.includes('progress');
+  }, [battle.status]);
 
   const canViewResults = useMemo(() => {
     const normalized = String(battle?.status || '').trim().toLowerCase();
@@ -783,7 +788,7 @@ export default function BattleInProgress() {
   }, []);
 
   useEffect(() => {
-    if (statusMeta.label !== 'LIVE') {
+    if (!isLiveStatus) {
       statusPulseAnim.setValue(1);
       return undefined;
     }
@@ -805,7 +810,7 @@ export default function BattleInProgress() {
     pulse.start();
 
     return () => pulse.stop();
-  }, [statusMeta.label, statusPulseAnim]);
+  }, [isLiveStatus, statusPulseAnim]);
 
   const endTimeInfo = useMemo(() => {
     if (isBattleCancelled) {
@@ -1152,6 +1157,14 @@ export default function BattleInProgress() {
     }
   };
 
+  const emitBattleInviteHandled = useCallback((status) => {
+    DeviceEventEmitter.emit('BATTLE_INVITE_HANDLED', {
+      battleId: resolvedBattleId || battleId,
+      invitationId: resolvedInvitationId,
+      status,
+    });
+  }, [battleId, resolvedBattleId, resolvedInvitationId]);
+
   const handleAcceptBattle = async () => {
     const finalBattleId = resolvedBattleId || battleId;
     if (!finalBattleId) {
@@ -1179,16 +1192,29 @@ export default function BattleInProgress() {
           ...(resolvedInvitationId ? { invitationId: resolvedInvitationId } : {}),
           ...(battle?.invitedUserId ? { invitedUserId: battle.invitedUserId } : {}),
         };
-        const accepted = await acceptBattle(acceptPayload);
-        if (!isSuccessfulResponse(accepted)) {
+        let accepted = null;
+        let acceptInviteAlreadyHandled = false;
+        try {
+          accepted = await acceptBattle(acceptPayload);
+        } catch (acceptError) {
+          const msg = String(acceptError?.response?.data?.message || acceptError?.message || '').toLowerCase();
+          const statusCode = Number(acceptError?.response?.status || acceptError?.statusCode || acceptError?.status || 0);
+          const inviteNotFound = statusCode === 404 || msg.includes('invite not found') || msg.includes('invitation not found');
+          if (!inviteNotFound) throw acceptError;
+          acceptInviteAlreadyHandled = true;
+        }
+        if (!acceptInviteAlreadyHandled && !isSuccessfulResponse(accepted)) {
           const msg = String(accepted?.message || accepted?.data?.message || '').toLowerCase();
           const statusCode = Number(accepted?.statusCode || accepted?.status || 0);
-          const inviteNotFound = statusCode === 404 || msg.includes('invite not found');
+          const inviteNotFound = statusCode === 404 || msg.includes('invite not found') || msg.includes('invitation not found');
           if (!inviteNotFound) {
             Alert.alert(t('battleInProgress.voteNotSubmitted'), accepted?.message || t('battleInProgress.tryAgain'));
             return;
           }
         }
+        emitBattleInviteHandled('LIVE');
+      } else {
+        emitBattleInviteHandled('LIVE');
       }
 
       const response = await voteHeadtoHeadOpponent({ battleId: finalBattleId, comment: trimmedArgument });
@@ -1198,6 +1224,7 @@ export default function BattleInProgress() {
       }
       setArgumentText('');
       setKeepActiveSelectedStyle(true);
+      emitBattleInviteHandled('LIVE');
       await fetchBattle(true);
     } catch (error) {
       Alert.alert(
@@ -1227,11 +1254,26 @@ export default function BattleInProgress() {
       const response = await declinetBattle(declinePayload);
       console.log(response, 'data in declieneeen')
       if (!isSuccessfulResponse(response)) {
+        const msg = String(response?.message || response?.data?.message || '').toLowerCase();
+        const statusCode = Number(response?.statusCode || response?.status || 0);
+        const inviteNotFound = statusCode === 404 || msg.includes('invite not found');
+        if (inviteNotFound) {
+          emitBattleInviteHandled('DECLINED');
+          navigation.goBack();
+          return;
+        }
         Alert.alert(t('battleInProgress.voteNotSubmitted'), response?.message || t('battleInProgress.tryAgain'));
         return;
       }
+      emitBattleInviteHandled('DECLINED');
       navigation.goBack();
     } catch (error) {
+      const msg = String(error?.response?.data?.message || error?.message || '').toLowerCase();
+      if (msg.includes('invite not found') || msg.includes('invitation not found')) {
+        emitBattleInviteHandled('DECLINED');
+        navigation.goBack();
+        return;
+      }
       Alert.alert(
         t('battleInProgress.voteNotSubmitted'),
         error?.response?.data?.message || error?.message || t('battleInProgress.tryAgain'),
@@ -1645,8 +1687,22 @@ export default function BattleInProgress() {
               <View style={styles.heroCreatorNameRow}>
                 <Text style={styles.heroCreatorName} numberOfLines={1}>{battle.creator?.name}</Text>
                 <View style={styles.heroLiveIndicatorWrap}>
-                  <Animated.View style={[styles.heroLiveIndicator, { opacity: statusPulseAnim }]} />
-                  <Text style={styles.heroLiveIndicatorText}>{t('battleInProgress.statusLive')}</Text>
+                  <Animated.View
+                    style={[
+                      styles.heroLiveIndicator,
+                      {
+                        backgroundColor: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color,
+                        shadowColor: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color,
+                        opacity: statusPulseAnim,
+                      },
+                    ]}
+                  />
+                  <Text style={[
+                    styles.heroLiveIndicatorText,
+                    { color: endTimeInfo.relative == 'Ended' ? '#EF4444' : statusMeta.color },
+                  ]}>
+                    {endTimeInfo.relative == 'Ended' ? 'Closed' : statusMeta.label}
+                  </Text>
                 </View>
               </View>
               {!!battle.creator?.handle && (
@@ -2240,7 +2296,7 @@ export default function BattleInProgress() {
 
           {/* Comments (hide when resolved) */}
           {!canViewResults ? (
-            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary }]}>
+            <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary,marginBottom:Platform.OS==='android'?'18%':0 }]}>
               {battle.comments.length > 0
                 ? battle.comments.map(comment => renderCommentItem(comment))
                 : (

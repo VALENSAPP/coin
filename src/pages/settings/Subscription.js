@@ -7,11 +7,11 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { cancelSubscription, checkSubscription, createCheckoutSession } from '../../services/stirpe';
 import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
@@ -52,9 +52,9 @@ const Subscription = () => {
     }
   }, [t]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadSubscriptionData();
-  }, [loadSubscriptionData]);
+  }, [loadSubscriptionData]));
 
   const handleCancelSubscription = () => {
     Alert.alert(
