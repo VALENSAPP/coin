@@ -56,9 +56,9 @@ export default function FollowersFollowingScreen({ navigation, route }) {
   const [search, setSearch] = useState('');
   const [followersList, setFollowersList] = useState([]);
   const [followingList, setFollowingList] = useState([]);
-  const [selfFollowingIds, setSelfFollowingIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [followBusyById, setFollowBusyById] = useState({});
   const [walletAddress, setWalletAddress] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
@@ -73,27 +73,27 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
   useEffect(() => {
     (async () => {
-      const id = await AsyncStorage.getItem('userId');
-      const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
-      const storedProfile = await AsyncStorage.getItem('profile');
-      setSelfUserId(id ? String(id) : null);
-      setWalletAddress(storedWalletAddress || '');
-      setSelfProfileType(normalizeProfileType(storedProfile || 'user'));
+      try {
+        const id = await AsyncStorage.getItem('userId');
+        const storedWalletAddress = await AsyncStorage.getItem('walletAddress');
+        const storedProfile = await AsyncStorage.getItem('profile');
+        setSelfUserId(id ? String(id) : null);
+        setWalletAddress(storedWalletAddress || '');
+        setSelfProfileType(normalizeProfileType(storedProfile || 'user'));
+      } finally {
+        setAuthReady(true);
+      }
     })();
   }, []);
 
-  const selfFollowingIdSet = useMemo(() => {
-    const safeIds = Array.isArray(selfFollowingIds) ? selfFollowingIds : [];
-    return new Set(safeIds.map((id) => String(id)));
-  }, [selfFollowingIds]);
-
-  const shapeUser = (u, { defaultFollowing = false } = {}) => ({
+  const shapeUser = (u, { defaultFollowing = false, followsMe = false } = {}) => ({
     id: String(u?.id ?? u?._id ?? u?.userId ?? ''),
     username: u?.userName ?? u?.username ?? 'unknown',
     fullName: u?.displayName ?? u?.fullName ?? '',
     profile: u?.profile ?? u?.accountType ?? '',
     avatar: u?.image ?? u?.avatar ?? DEFAULT_AVATAR,
     isFollowing: typeof u?.isFollowing === 'boolean' ? u.isFollowing : !!defaultFollowing,
+    followsMe,
     tokenAddress: u?.userTokens?.[0]?.tokenAddress,
     walletAddress:
       u?.walletAddress ||
@@ -126,31 +126,48 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     return updated;
   }, []);
 
-  const fetchSelfFollowingIds = useCallback(async () => {
-    if (!selfUserId) return;
+  const getRelationUserId = useCallback((rel, relationType) => {
+    const user =
+      relationType === 'following'
+        ? rel?.following || rel?.user || rel?.toUser || rel?.to || null
+        : rel?.follower || rel?.followerUser || rel?.user || rel?.fromUser || rel?.from || null;
+
+    return user?.id ?? user?._id ?? user?.userId ?? null;
+  }, []);
+
+  const fetchSelfRelationshipIds = useCallback(async () => {
+    if (!selfUserId) {
+      return { followingSet: new Set(), followerSet: new Set() };
+    }
 
     try {
-      const res = await apiFollowing(selfUserId);
-      const rows = res?.data?.data ?? res?.data ?? [];
-      const ids = rows
-        .map((rel) => {
-          const user = rel?.following || rel?.user || rel?.toUser || rel?.to || null;
-          return user?.id ?? user?._id ?? user?.userId ?? null;
-        })
-        .filter(Boolean)
-        .map((id) => String(id));
-      setSelfFollowingIds(ids);
-    } catch (_e) {
-      setSelfFollowingIds([]);
-    }
-  }, [selfUserId]);
+      const [followingRes, followersRes] = await Promise.all([
+        apiFollowing(selfUserId),
+        apiFollowers(selfUserId),
+      ]);
 
-  useEffect(() => {
-    fetchSelfFollowingIds();
-  }, [fetchSelfFollowingIds]);
+      const followingIds = (followingRes?.data?.data ?? followingRes?.data ?? [])
+        .map(rel => getRelationUserId(rel, 'following'))
+        .filter(Boolean)
+        .map(id => String(id));
+      const followerIds = (followersRes?.data?.data ?? followersRes?.data ?? [])
+        .map(rel => getRelationUserId(rel, 'followers'))
+        .filter(Boolean)
+        .map(id => String(id));
+
+      return {
+        followingSet: new Set(followingIds),
+        followerSet: new Set(followerIds),
+      };
+    } catch (_e) {
+      return { followingSet: new Set(), followerSet: new Set() };
+    }
+  }, [getRelationUserId, selfUserId]);
 
   const loadData = useCallback(
     async (tab, { silent = false } = {}) => {
+      if (!authReady) return;
+
       const profileUserId = profileUserIdFromRoute || selfUserId;
       if (!profileUserId) {
         if (!silent) setLoading(false);
@@ -159,6 +176,8 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
       if (!silent) setLoading(true);
       try {
+        const { followingSet, followerSet } = await fetchSelfRelationshipIds();
+
         if (tab === 'followers') {
           const res = await apiFollowers(profileUserId);
           const rows = res?.data?.data ?? res?.data ?? [];
@@ -170,9 +189,10 @@ export default function FollowersFollowingScreen({ navigation, route }) {
 
               const userId = user?.id ?? user?._id ?? user?.userId ?? null;
               const derivedFollowing = userId
-                ? selfFollowingIdSet.has(String(userId))
+                ? followingSet.has(String(userId))
                 : false;
-              return shapeUser(user, { defaultFollowing: derivedFollowing });
+              const followsMe = userId ? followerSet.has(String(userId)) : false;
+              return shapeUser(user, { defaultFollowing: derivedFollowing, followsMe });
             })
             .filter(Boolean);
           const usersWithProfile = await enrichUsersWithProfile(users);
@@ -186,9 +206,10 @@ export default function FollowersFollowingScreen({ navigation, route }) {
             .map((u) => {
               const userId = u?.id ?? u?._id ?? u?.userId ?? null;
               const derivedFollowing = userId
-                ? selfFollowingIdSet.has(String(userId)) || String(profileUserId) === String(selfUserId)
+                ? followingSet.has(String(userId)) || String(profileUserId) === String(selfUserId)
                 : false;
-              return shapeUser(u, { defaultFollowing: derivedFollowing });
+              const followsMe = userId ? followerSet.has(String(userId)) : false;
+              return shapeUser(u, { defaultFollowing: derivedFollowing, followsMe });
             });
           const usersWithProfile = await enrichUsersWithProfile(users);
           setFollowingList(usersWithProfile);
@@ -203,14 +224,14 @@ export default function FollowersFollowingScreen({ navigation, route }) {
         if (!silent) setLoading(false);
       }
     },
-    [profileUserIdFromRoute, selfUserId, enrichUsersWithProfile, selfFollowingIdSet, t],
+    [authReady, profileUserIdFromRoute, selfUserId, enrichUsersWithProfile, fetchSelfRelationshipIds, t],
   );
 
   useEffect(() => {
-    if (selfUserId || profileUserIdFromRoute) {
+    if (authReady && (selfUserId || profileUserIdFromRoute)) {
       loadData(activeTab);
     }
-  }, [activeTab, selfUserId, profileUserIdFromRoute, loadData]);
+  }, [activeTab, authReady, selfUserId, profileUserIdFromRoute, loadData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -385,6 +406,11 @@ export default function FollowersFollowingScreen({ navigation, route }) {
     tab =>
       ({ item }) => {
         const isFollowingState = !!item.isFollowing;
+        const followButtonLabel = isFollowingState
+          ? t('followersFollowing.following')
+          : item.followsMe
+            ? t('followersFollowing.followback')
+            : t('followersFollowing.follow');
         const accentColor = getUserAccentColor(item?.profile);
 
         return (
@@ -431,9 +457,7 @@ export default function FollowersFollowingScreen({ navigation, route }) {
                     ? [styles.followingText, { color: accentColor }]
                     : styles.followText}
                   >
-                    {isFollowingState
-                      ? t('followersFollowing.following')
-                      : t('followersFollowing.followback')}
+                    {followButtonLabel}
                   </Text>
                 )}
               </TouchableOpacity>

@@ -151,6 +151,47 @@ const formatRelativeTime = iso => {
 const pickFirstValue = (...values) =>
   values.find(value => value !== undefined && value !== null && value !== '');
 
+const isBattleInviteHandledStatus = status =>
+  [
+    'RESOLVED',
+    'CLOSED',
+    'DECLINED',
+    'DECLINE',
+    'REJECTED',
+    'CANCELED',
+    'CANCELLED',
+    'COMPLETED',
+    'ACCEPTED',
+    'ACTIVE',
+    'LIVE',
+    'IN_PROGRESS',
+    'INPROGRESS',
+  ].includes(String(status || '').toUpperCase().trim());
+
+const hasBattleInviteBeenHandled = item => {
+  const raw = item?.raw ?? item ?? {};
+  const data = raw?.data ?? {};
+  const battle = data?.battle || raw?.battle || {};
+  const invite = data?.invite || data?.invitation || raw?.invite || raw?.invitation || {};
+
+  const statusCandidates = [
+    item?.status,
+    item?.inviteStatus,
+    item?.invitationStatus,
+    item?.actionStatus,
+    raw?.status,
+    raw?.inviteStatus,
+    raw?.invitationStatus,
+    data?.status,
+    data?.inviteStatus,
+    data?.invitationStatus,
+    battle?.status,
+    invite?.status,
+  ];
+
+  return statusCandidates.some(isBattleInviteHandledStatus);
+};
+
 const extractBattleActionPayload = item => {
   const raw = item?.raw ?? item ?? {};
   const data = raw?.data ?? {};
@@ -205,13 +246,12 @@ const normalizeBattleNotification = (item, t) => {
   const normalizedStatus = String(battle?.status || data?.status || '')
     .toUpperCase()
     .trim();
+  const inviteHandled = hasBattleInviteBeenHandled(item);
   const isHeadToHeadInvite =
     normalizedType === 'battle_invite' && normalizedFormat === 'HEAD_TO_HEAD';
   const isBattleActionable =
     isHeadToHeadInvite &&
-    !['RESOLVED', 'CLOSED', 'DECLINED', 'CANCELLED', 'COMPLETED'].includes(
-      normalizedStatus,
-    );
+    !inviteHandled;
 
   return {
     id:
@@ -247,6 +287,7 @@ const normalizeBattleNotification = (item, t) => {
     status: normalizedStatus,
     stake: pickFirstValue(battle?.stake, data?.stake),
     options: Array.isArray(battle?.options) ? battle.options : [],
+    inviteHandled,
     isBattleActionable,
   };
 };
@@ -271,6 +312,7 @@ export default function Notifications() {
     id: null,
     action: null,
   });
+  const [handledBattleIds, setHandledBattleIds] = useState({});
 
   const navigation = useNavigation();
 
@@ -303,6 +345,22 @@ export default function Notifications() {
     }
   };
 
+  const getBattleActionKey = useCallback(item => {
+    const payload = item?.actionPayload ?? extractBattleActionPayload(item);
+    return String(payload?.invitationId || payload?.battleId || item?.id || '');
+  }, []);
+
+  const getBattleActionKeys = useCallback(item => {
+    const payload = item?.actionPayload ?? extractBattleActionPayload(item);
+    return [
+      payload?.invitationId,
+      payload?.battleId,
+      item?.id,
+    ]
+      .filter(Boolean)
+      .map(key => String(key));
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       getNotification();
@@ -310,6 +368,37 @@ export default function Notifications() {
       markAllOnFocusRef.current = true;
     }, []),
   );
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('BATTLE_INVITE_HANDLED', event => {
+      const eventKeys = [event?.invitationId, event?.battleId]
+        .filter(Boolean)
+        .map(key => String(key));
+      if (!eventKeys.length) return;
+
+      setHandledBattleIds(prev => ({
+        ...prev,
+        ...eventKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
+      }));
+      setBattleNotifications(prev =>
+        prev.map(notification => {
+          const notificationKeys = getBattleActionKeys(notification);
+          if (!notificationKeys.some(key => eventKeys.includes(key))) return notification;
+
+          return {
+            ...notification,
+            status: event?.status || 'LIVE',
+            inviteHandled: true,
+            isBattleActionable: false,
+          };
+        }),
+      );
+      getBattleNotifications();
+      getNotification(false);
+    });
+
+    return () => subscription.remove();
+  }, [getBattleActionKeys]);
 
   useEffect(() => {
     if (!markAllOnFocusRef.current) return;
@@ -550,6 +639,7 @@ export default function Notifications() {
         params: {
           battleId:
             payload?.battleId || battleData?.id || battleData?._id || '',
+          invitationId: payload?.invitationId || '',
           battle: battleData,
           entryPoint: 'notifications',
         },
@@ -558,8 +648,36 @@ export default function Notifications() {
     [navigation],
   );
 
+  const markBattleInviteHandled = useCallback((item, status) => {
+    const actionKeys = getBattleActionKeys(item);
+    if (actionKeys.length) {
+      setHandledBattleIds(prev => ({
+        ...prev,
+        ...actionKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
+      }));
+    }
+
+    setBattleNotifications(prev =>
+      prev.map(notification => {
+        const notificationKeys = getBattleActionKeys(notification);
+        if (
+          notification.id !== item.id &&
+          !notificationKeys.some(key => actionKeys.includes(key))
+        ) return notification;
+
+        return {
+          ...notification,
+          status,
+          inviteHandled: true,
+          isBattleActionable: false,
+        };
+      }),
+    );
+  }, [getBattleActionKeys]);
+
   const handleBattleAction = async (item, action) => {
     const payload = item?.actionPayload ?? extractBattleActionPayload(item);
+    const actionKey = getBattleActionKey(item);
 
     if (!payload?.battleId && !payload?.invitationId) {
       Alert.alert(
@@ -568,6 +686,7 @@ export default function Notifications() {
       );
       return;
     }
+    if (handledBattleIds[actionKey]) return;
 
     try {
       setProcessingBattle({ id: item.id, action });
@@ -588,7 +707,26 @@ export default function Notifications() {
         response?.success === true ||
         response?.error === false;
 
+      const alreadyHandledMessage = String(
+        response?.message ||
+        response?.data?.message ||
+        '',
+      ).toLowerCase();
+      const alreadyHandled =
+        alreadyHandledMessage.includes('invite not found') ||
+        alreadyHandledMessage.includes('invitation not found') ||
+        alreadyHandledMessage.includes('already');
+
       if (!success) {
+        if (alreadyHandled) {
+          markBattleInviteHandled(item, action === 'accept' ? 'LIVE' : 'DECLINED');
+          await Promise.all([getBattleNotifications(), getNotification(false)]);
+          if (action === 'accept') {
+            openBattleFlow(item);
+          }
+          return;
+        }
+
         Alert.alert(
           t('notifications.battleUpdateErrorTitle'),
           response?.message || t('notifications.battleUpdateErrorDefault'),
@@ -596,27 +734,31 @@ export default function Notifications() {
         return;
       }
 
-      setBattleNotifications(prev =>
-        prev.map(notification =>
-          notification.id === item.id
-            ? {
-              ...notification,
-              status: action === 'accept' ? 'LIVE' : 'DECLINED',
-              isBattleActionable: false,
-            }
-            : notification,
-        ),
-      );
-      await Promise.all([getBattleNotifications(), getNotification()]);
+      markBattleInviteHandled(item, action === 'accept' ? 'LIVE' : 'DECLINED');
+      await Promise.all([getBattleNotifications(), getNotification(false)]);
       if (action === 'accept') {
         openBattleFlow(item);
-      } else {
-        Alert.alert(
-          t('notifications.battleDeclinedTitle'),
-          response?.message || t('notifications.battleDeclinedDefault'),
-        );
       }
     } catch (err) {
+      const errorMessage = String(
+        err?.response?.data?.message ||
+        err?.message ||
+        '',
+      ).toLowerCase();
+      const alreadyHandled =
+        errorMessage.includes('invite not found') ||
+        errorMessage.includes('invitation not found') ||
+        errorMessage.includes('already');
+
+      if (alreadyHandled) {
+        markBattleInviteHandled(item, action === 'accept' ? 'LIVE' : 'DECLINED');
+        await Promise.all([getBattleNotifications(), getNotification(false)]);
+        if (action === 'accept') {
+          openBattleFlow(item);
+        }
+        return;
+      }
+
       Alert.alert(
         t('notifications.battleUpdateErrorTitle'),
         err?.response?.data?.message || err?.message || t('notifications.battleUpdateErrorDefault'),
@@ -797,8 +939,11 @@ export default function Notifications() {
   const renderTabContent = (tabData, tabKey) => {
     const renderBattleItem = ({ item, index }) => {
       const isProcessing = processingBattleId === item.id;
+      const actionKey = getBattleActionKey(item);
       const isActionable =
         item?.isBattleActionable &&
+        !item?.inviteHandled &&
+        !handledBattleIds[actionKey] &&
         ![
           'RESOLVED',
           'CLOSED',
@@ -807,7 +952,10 @@ export default function Notifications() {
           'CANCELLED',
           'COMPLETED',
           'ACCEPTED',
+          'ACTIVE',
           'LIVE',
+          'IN_PROGRESS',
+          'INPROGRESS',
         ].includes(item?.status);
       const stakeText =
         item?.stake !== undefined && item?.stake !== null && item?.stake !== ''
@@ -881,9 +1029,12 @@ export default function Notifications() {
               <View style={styles.battleActionRow}>
                 <TouchableOpacity
                   style={[styles.battleActionButton, styles.battleDeclineButton]}
-                  onPress={() => handleBattleAction(item, 'decline')}
+                  onPress={(event) => {
+                    event?.stopPropagation?.();
+                    handleBattleAction(item, 'decline');
+                  }}
                   activeOpacity={0.85}
-                  disabled={processingBattle.id === item.id && processingBattle.action === 'decline'}
+                  disabled={isProcessing}
                 >
                   {processingBattle.id === item.id && processingBattle.action === 'decline' ? (
                     <ActivityIndicator size="small" color="#B91C1C" />
@@ -900,9 +1051,12 @@ export default function Notifications() {
                     styles.battleAcceptButton,
                     { backgroundColor: text },
                   ]}
-                  onPress={() => handleBattleAction(item, 'accept')}
+                  onPress={(event) => {
+                    event?.stopPropagation?.();
+                    handleBattleAction(item, 'accept');
+                  }}
                   activeOpacity={0.85}
-                  disabled={processingBattle.id === item.id && processingBattle.action === 'accept'}
+                  disabled={isProcessing}
                 >
                   {processingBattle.id === item.id && processingBattle.action === 'accept' ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
