@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   primaryBtn: {
-    paddingVertical: 12,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
