@@ -21,6 +21,7 @@ import {
   privateSetup,
   parsePrivateCircleSetup,
   isPrivateCircleApiSuccess,
+  getPvtCircleMembers,
 } from '../../services/privatecircle';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 
@@ -207,8 +208,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData, logg
       }
 
       // Guest profile → call privateSetup to get the owner's members list
-      const response = await privateSetup();
-
+      const response = await getPvtCircleMembers(userData?.id);
+      console.log('PrivateCircle membership API response:', response);
       if (!isPrivateCircleApiSuccess(response)) {
         // API failed or not set up → not a member
         setIsMember(false);

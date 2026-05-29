@@ -127,3 +127,7 @@ export const parsePrivateCircleDashboard = (response) => {
     dashboardData: root,
   };
 };
+
+export const getPvtCircleMembers = async (userid) => {
+  return axiosInstance.get(`/private-circle/users/${userid}/members`);
+};
