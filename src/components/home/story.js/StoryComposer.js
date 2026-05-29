@@ -1512,6 +1512,8 @@ export default function StoryComposer({
                     repeat={false}
                     muted={mutedForVideo}
                     volume={volForVideo}
+                    ignoreSilentSwitch="ignore"
+                    playWhenInactive={false}
                     onLoad={data => {
                       videoDurationRef.current = data?.duration || 0;
                       const tr    = trimPerIndex[index] || { start: 0, end: null };

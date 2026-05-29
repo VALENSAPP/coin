@@ -1185,7 +1185,13 @@ const SearchScreen = () => {
                       source={{ uri: previewMediaUrl }}
                       style={styles.previewMedia}
                       resizeMode="cover"
-                      repeat controls paused={false} muted={false}
+                      repeat
+                      controls
+                      paused={false}
+                      muted={false}
+                      volume={1}
+                      ignoreSilentSwitch="ignore"
+                      playWhenInactive={false}
                     />
                   ) : (
                     <Image source={{ uri: previewMediaUrl }} style={styles.previewMedia} resizeMode="cover" fadeDuration={0} />

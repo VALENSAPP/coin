@@ -754,9 +754,9 @@ const SubventionSetupScreen = () => {
                         <View style={{ marginTop: 15 }} />
 
                         {hasAgreedTerms ? (
-                            <TouchableOpacity style={[styles.saveButton, styles.agreedButton]} activeOpacity={1} disabled>
+                            <TouchableOpacity style={[styles.agreedBtn, styles.agreedButton, {backgroundColor: text}]} activeOpacity={1} disabled>
                                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" style={{ marginRight: 8 }} />
-                                <Text style={[styles.saveButtonText,text]}>{t('subventionSetup.agreedButton')}</Text>
+                                <Text style={styles.saveButtonText}>{t('subventionSetup.agreedButton')}</Text>
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity
@@ -782,7 +782,7 @@ const SubventionSetupScreen = () => {
                     </ScrollView>
 
                     <TouchableOpacity
-                        style={[styles.saveButton, !canSaveSubscription && { opacity: 0.5, backgroundColor: text }]}
+                        style={[styles.saveButton, { opacity: !canSaveSubscription && 0.5, backgroundColor: text }]}
                         onPress={handleSaveSubscription}
                         disabled={!canSaveSubscription}
                     >
@@ -991,8 +991,16 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         fontWeight: '600',
     },
+    agreedBtn: {
+        //  marginLeft: 16,
+        // marginRight: 16,
+        paddingHorizontal: 18,
+        paddingVertical: 13,
+        borderRadius: 12,
+        alignItems: 'center',
+        // marginBottom: 40,
+    },
     saveButton: {
-        backgroundColor: '#7c3aed',
         marginLeft: 16,
         marginRight: 16,
         paddingHorizontal: 18,
@@ -1009,7 +1017,6 @@ const styles = StyleSheet.create({
     agreedButton: {
         flexDirection: 'row',
         justifyContent: 'center',
-        backgroundColor: '#E5E7EB',
     },
     modalOverlay: {
         flex: 1,

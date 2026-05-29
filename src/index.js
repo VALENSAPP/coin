@@ -58,6 +58,7 @@ const linking = {
   },
 };
 
+let _initialUrlConsumed = false;
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +76,7 @@ export default function Main() {
   const isNavigationReadyRef = useRef(false);
   const isLoggedInRef = useRef(false);
   const isLoadingRef = useRef(true);
+  const initialUrlHandled = useRef(false);
   const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
 
@@ -199,7 +201,9 @@ export default function Main() {
     dispatch(setUserProfile('normal'));
     fetchRefreshToken();
     getNotification();
-
+    //  setTimeout(() => {
+    //    setIsLoading(false);
+    //  }, 1000);
     const checkLogin = async () => {
       try {
         const loggedI = await AsyncStorage.getItem('isLoggedIn');
@@ -244,9 +248,6 @@ export default function Main() {
         console.log("Error in checkLogin:", error);
         dispatch(loggedOut());
       } finally {
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 1000);
       }
     };
 
@@ -351,18 +352,34 @@ export default function Main() {
         // return;
       }
 
-      const navigateToUserProfile = (resolvedUserId) => {
-        console.log("navigateToUserProfilenavigateToUserProfile", resolvedUserId)
+      const navigateToUserProfile = async (resolvedUserId) => {
+        console.log("navigateToUserProfilenavigateToUserProfile", resolvedUserId);
         if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
-        navigationRef.current.navigate('MainApp', {
-          screen: 'HomeMain',
-          params: {
-            screen: 'UsersProfile',
+
+        // Get the logged-in user's ID
+        const loggedInUserId = await AsyncStorage.getItem('userId');
+        const isSelf = String(loggedInUserId || '').trim() === String(resolvedUserId).trim();
+
+        if (isSelf) {
+          // Navigate to own profile
+          navigationRef.current.navigate('MainApp', {
+            screen: 'ProfileMain',
             params: {
-              userId: String(resolvedUserId),
+              screen: 'Profile', // your own profile screen name
             },
-          },
-        });
+          });
+        } else {
+          // Navigate to another user's profile (fromUsersProfile = true is implicit here)
+          navigationRef.current.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: {
+              screen: 'UsersProfile',
+              params: {
+                userId: String(resolvedUserId),
+              },
+            },
+          });
+        }
       };
 
       const resolveUserIdFromUsername = async (incomingUsername) => {
@@ -580,12 +597,15 @@ export default function Main() {
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
     // Handle deep link when app was closed
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log('Initial URL:', url);
-        handleDeepLink({ url });
-      }
-    });
+    if(!_initialUrlConsumed) {
+      _initialUrlConsumed = true;
+      Linking.getInitialURL().then((url) => {
+        if (url) {
+          console.log('Initial URL:', url);
+          handleDeepLink({ url });
+        }
+      });
+    }
 
     return () => {
       linkingSubscription.remove();
@@ -598,7 +618,7 @@ export default function Main() {
   const fetchRefreshToken = async () => {
     const oldToken = await AsyncStorage.getItem('refreshToken');
     try {
-      dispatch(showLoader());
+      // dispatch(showLoader());
       const dataToSend = { refreshToken: oldToken };
       const response = await refreshToken(dataToSend);
       if (response?.statusCode === 200) {
@@ -611,7 +631,7 @@ export default function Main() {
     } catch (error) {
       // Handle error silently or show message
     } finally {
-      dispatch(hideLoader());
+      // dispatch(hideLoader());
     }
   };
 
@@ -650,7 +670,7 @@ export default function Main() {
   if (isLoading) {
     return (
       <ThemeProvider activeProfile={userProfile}>
-        <Splash />
+        <Splash onFinish={() => setIsLoading(false)} />
       </ThemeProvider>
     );
   }
@@ -662,7 +682,7 @@ export default function Main() {
           ref={navigationRef}
           linking={linking}
           onReady={handleNavigationReady}
-          fallback={<Splash />}
+        // fallback={<Splash />}
         >
           <MainStack />
         </NavigationContainer>

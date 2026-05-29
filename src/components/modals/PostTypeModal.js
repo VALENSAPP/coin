@@ -12,6 +12,12 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getCreditsLeft } from '../../services/wallet';
+import {
+  PrivateSetup,
+  parsePrivateCircleSetup,
+  isPrivateCircleApiSuccess,
+} from '../../services/privatecircle';
+import { goToPrivateCircleReview } from '../../pages/post/privatecircle/privateCircleFlow';
 import { showToastMessage } from '../displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +37,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigation = useNavigation();
-  const { bgStyle, textStyle, text, card } = useAppTheme();
+  const { bgStyle, textStyle, text, card } = useAppTheme(profile);
   const { t } = useLanguage();
 
   const resetNestedModals = useCallback(() => {
@@ -144,13 +150,59 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
     });
   };
 
+  const handlePrivateCirclePress = async () => {
+    try {
+      dispatch(showLoader());
+      const response = await PrivateSetup();
+      console.log(response, "Private circle setup response=>>>>>>>>>>>>>>");
+      if (!isPrivateCircleApiSuccess(response)) {
+        showToastMessage(
+          toast,
+          'danger',
+          response?.message ||
+          t('privateCircleMint.setupError'),
+        );;
+        return;
+      }
+
+      const { members, count } = parsePrivateCircleSetup(response);
+      resetNestedModals();
+      setShowTypeModal(false);
+      sheetRef.current?.close();
+
+      InteractionManager.runAfterInteractions(() => {
+        if (count > 0) {
+          goToPrivateCircleReview(navigation, {
+            mode: 'mint',
+            members,
+            selectedIds: members.map((m) => m.id),
+            selectedMembers: members,
+          });
+          return;
+        }
+        // NEW PRIVATE CIRCL
+        navigation.navigate('PrivateCircleWelcome');
+      });
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message ||
+        error?.message ||
+        t('privateCircleMint.setupError'),
+      );
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
   const isCompany = profile === 'company';
 
   return (
     <>
       <RBSheet
         ref={sheetRef}
-        height={240}
+        height={320}
         draggable={false}
         onClose={handlePostTypeSheetClose}
         customModalProps={
@@ -168,7 +220,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
             bgStyle,
           ],
         }}
-        onRequestClose={() => {}}
+        onRequestClose={() => { }}
         closeOnPressMask={false}
         closeOnPressBack={false}
       >
@@ -220,16 +272,21 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
               {t('postTypeModal.regularMintLabel')}
             </Text>
           </TouchableOpacity>
-           {/* <TouchableOpacity
+          <TouchableOpacity
             style={[styles.optionBtn, { backgroundColor: card, borderColor: text }]}
-            onPress={() => {
-             
-            }}
+            activeOpacity={0.85}
+            onPress={handlePrivateCirclePress}
           >
-            <Text style={[styles.optionText, textStyle]}>
-              {t('postTypeModal.PrivateCircle')}
+            <View style={styles.privateCircleTitleRow}>
+              <Icon name="lock-closed" size={16} color={textStyle.color} />
+              <Text style={[styles.privateCircleTitle, textStyle]}>
+                {t('postTypeModal.privateCircleMintLabel')}
+              </Text>
+            </View>
+            <Text style={styles.privateCircleSubtitle}>
+              {t('postTypeModal.privateCircleMintSubtitle')}
             </Text>
-          </TouchableOpacity> */}
+          </TouchableOpacity>
         </View>
       </RBSheet>
 
@@ -239,12 +296,12 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
         transparent={true}
         animationType="fade"
         presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-        onRequestClose={() => {}}
+        onRequestClose={() => { }}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => {}}
+          onPress={() => { }}
         >
           <View style={[styles.modalContent, bgStyle]}>
             <View style={styles.modalHeader}>
@@ -412,5 +469,32 @@ const styles = StyleSheet.create({
     // padding: 4,
     marginTop: -30,
   },
-
+  privateCircleBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#B19CD9',
+    backgroundColor: '#F9F7FF',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  privateCircleTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  privateCircleTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  privateCircleSubtitle: {
+    fontSize: 12,
+    color: '#757575',
+    marginTop: 4,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
 });

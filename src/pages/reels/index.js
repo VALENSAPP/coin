@@ -332,11 +332,12 @@ const ReelPinchVideoBlock = React.memo(
                   rate={playbackRate ?? 1}
                   paused={!isScreenFocused || paused === true}
                   muted={!!muted}
+                  volume={muted ? 0 : 1}
                   onLoad={onVideoLoad}
                   onProgress={onVideoProgress}
                   progressUpdateInterval={500}
                   playWhenInactive={false}
-                  ignoreSilentSwitch="obey"
+                  ignoreSilentSwitch="ignore"
                   onReadyForDisplay={() => setVideoReady(true)}
                 />
                 {showThumbnailOverlay && (

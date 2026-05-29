@@ -15,6 +15,14 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
+import {
+  PrivateSetup,
+  parsePrivateCircleSetup,
+  isPrivateCircleApiSuccess,
+} from '../../services/privatecircle';
+import { useNavigation } from '@react-navigation/native';
+import { useToast } from 'react-native-toast-notifications';
+import { showToastMessage } from '../displaytoastmessage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -31,6 +39,8 @@ const ProfileTabs = memo(({
   onPostPinChanged,
   scrollEnabled = false,
 }) => {
+  const navigation = useNavigation();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState(0);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -81,6 +91,46 @@ const ProfileTabs = memo(({
     }
   }, [isOwnProfile, isActiveStatus]);
 
+  const handlePrivateCircleStartPress = useCallback(async () => {
+    try {
+      const response = await PrivateSetup();
+      if (!isPrivateCircleApiSuccess(response)) {
+        showToastMessage(
+          toast,
+          'danger',
+          response?.message || t('privateCircleMint.setupError'),
+        );
+        return;
+      }
+
+      const { members, count } = parsePrivateCircleSetup(response);
+      const parentNavigation = navigation.getParent?.() || navigation;
+      if (count > 0) {
+        parentNavigation.navigate('Add', {
+          screen: 'PrivateCircleReview',
+          params: {
+            mode: 'mint',
+            members,
+            selectedIds: members.map((member) => member.id),
+            selectedMembers: members,
+          },
+        });
+        return;
+      }
+
+      parentNavigation.navigate('Add', {
+        screen: 'PrivateCircleWelcome',
+        params: { mode: 'setup' },
+      });
+    } catch (error) {
+      showToastMessage(
+        toast,
+        'danger',
+        error?.response?.data?.message || error?.message || t('privateCircleMint.setupError'),
+      );
+    }
+  }, [navigation, t, toast]);
+
   const tabs = useMemo(() => {
     const list = [
       {
@@ -108,7 +158,13 @@ const ProfileTabs = memo(({
             style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
           />
         ),
-        screen: <PrivateCircle isOwnProfile={isOwnProfile} userData={userData} />,
+        screen: (
+          <PrivateCircle
+            isOwnProfile={isOwnProfile}
+            userData={userData}
+            onStartPress={handlePrivateCircleStartPress}
+          />
+        ),
       },
       {
         key: 'reels',
@@ -173,7 +229,18 @@ const ProfileTabs = memo(({
     }
 
     return list;
-  }, [post, userData, isOwnProfile, isSubscribed, loggedInUserId, refreshKey, privateKey, text, t]);
+  }, [
+    post,
+    userData,
+    isOwnProfile,
+    isSubscribed,
+    loggedInUserId,
+    refreshKey,
+    privateKey,
+    text,
+    t,
+    handlePrivateCircleStartPress,
+  ]);
 
   return (
     <>

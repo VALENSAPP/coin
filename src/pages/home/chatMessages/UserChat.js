@@ -1049,7 +1049,14 @@ const UserChat = ({ route, navigation }) => {
 
   const renderVideoGrid = (videoUri, thumbnailUri) => (
     <TouchableOpacity onPress={() => { setCurrentVideo(videoUri); setViewerVisible(false); setVideoModalVisible(true); }} style={styles.singleImageContainer}>
-      <Video source={{ uri: thumbnailUri || videoUri }} style={styles.singleImage} resizeMode="cover" />
+      <Video
+        source={{ uri: thumbnailUri || videoUri }}
+        style={styles.singleImage}
+        resizeMode="cover"
+        paused
+        muted
+        controls={false}
+      />
       <View style={styles.playButton}>
         <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)']} style={styles.playButtonGradient}>
           <Text style={styles.playIcon}>▶</Text>
@@ -1633,7 +1640,16 @@ const UserChat = ({ route, navigation }) => {
                 <TouchableOpacity style={styles.videoCloseButton} onPress={() => setVideoModalVisible(false)}>
                   <Text style={styles.videoCloseIcon}>✕</Text>
                 </TouchableOpacity>
-                <Video source={{ uri: currentVideo }} style={styles.videoPlayer} controls resizeMode="contain" />
+                <Video
+                  source={{ uri: currentVideo }}
+                  style={styles.videoPlayer}
+                  controls
+                  resizeMode="contain"
+                  muted={false}
+                  volume={1}
+                  ignoreSilentSwitch="ignore"
+                  playWhenInactive={false}
+                />
               </View>
             </Modal>
           </Animated.View>
