@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     // backgroundColor: '#000',
     marginRight: 12,
-    elevation: 2,
+    // elevation: 2,
     // shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

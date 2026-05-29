@@ -1200,42 +1200,42 @@ export const WalletDashboardScreen = ({ navigation }) => {
               end={{ x: 1, y: 1 }}
               style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
             >
-            <View style={styles.kpiMetaMaskRow}>
-              <View style={styles.kpiMetaMaskLeft}>
-                <View style={[styles.kpiMetaMaskIconWrap, { backgroundColor: '#D3D3D3' }]}>
-                  <Image source={walletIconSource} style={styles.kpiWalletIcon} resizeMode="contain" />
-                </View>
-                <View style={styles.kpiMetaMaskText}>
-                  <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
-                    {isMetaMaskConnected ? item.title : t('walletDashboard.Wallet')}
-                  </Text>
-                  <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
-                    {item.value}
-                  </Text>
-                  <View style={styles.kpiMetaMaskStatusRow}>
-                    <View
-                      style={[
-                        styles.kpiStatusDot,
-                        { backgroundColor: isMetaMaskConnected ? '#16a34a' : '#b45309' },
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.kpiMetaMaskStatusText,
-                        { color: isMetaMaskConnected ? '#16a34a' : '#b45309' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {metaStatusText}
+              <View style={styles.kpiMetaMaskRow}>
+                <View style={styles.kpiMetaMaskLeft}>
+                  <View style={[styles.kpiMetaMaskIconWrap, { backgroundColor: '#D3D3D3' }]}>
+                    <Image source={walletIconSource} style={styles.kpiWalletIcon} resizeMode="contain" />
+                  </View>
+                  <View style={styles.kpiMetaMaskText}>
+                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+                      {isMetaMaskConnected ? item.title : t('walletDashboard.Wallet')}
                     </Text>
-                    <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
-                      {metaActionText}
+                    <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
+                      {item.value}
                     </Text>
+                    <View style={styles.kpiMetaMaskStatusRow}>
+                      <View
+                        style={[
+                          styles.kpiStatusDot,
+                          { backgroundColor: isMetaMaskConnected ? '#16a34a' : '#b45309' },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.kpiMetaMaskStatusText,
+                          { color: isMetaMaskConnected ? '#16a34a' : '#b45309' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {metaStatusText}
+                      </Text>
+                      <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
+                        {metaActionText}
+                      </Text>
+                    </View>
                   </View>
                 </View>
+                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
               </View>
-              <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
-            </View>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -1986,13 +1986,14 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    marginBottom: 4,
+    paddingVertical: Platform.OS == "android" ? 0 : 14,
+    paddingTop: Platform.OS == "android" ? 16 : 0,
+    paddingBottom: Platform.OS == "android" ? 8 : 0,
+    marginBottom: Platform.OS == "android" ? 4 : -12,
   },
   headerCard: {
     borderRadius: 20,
-    padding: 18,
+    padding: Platform.OS == "android" ? 18 : 14,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -2012,7 +2013,9 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: Platform.OS == "android" ? 4 : 0,
+    paddingBottom: Platform.OS == "android" ? 0 : 40,
+    paddingTop: Platform.OS == "android" ? 0 : 10,
   },
   headerAvatarWrap: {
     width: 72,
@@ -2066,7 +2069,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   battlePointsSection: {
-    marginTop: 4,
+    marginTop: Platform.OS == "android" ? 4 : -25,
     marginBottom: 12,
   },
   sectionTitle: {
@@ -2483,16 +2486,17 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: Platform.OS == "android" ? 16 : 2,
+    marginBottom: Platform.OS == "android" ? 0 : 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 8,
     flex: 1,
     alignSelf: 'stretch',
-    minHeight: 132,
-    justifyContent: 'space-between',
+    minHeight: Platform.OS == "android" ? 132 : 150,
+    justifyContent: 'flex-start',
   },
   kpiCardMetaMask: {
     borderRadius: 18,
@@ -2512,11 +2516,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'stretch',
     minWidth: 0,
-    minHeight: 132,
+    minHeight: Platform.OS == "android" ? 132 : 170,
   },
   kpiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: Platform.OS == "android" ? 0 : 15,
     paddingTop: 0,
     paddingHorizontal: 0,
     marginBottom: 10,
@@ -2567,7 +2572,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 0,
     paddingBottom: 0,
-    paddingLeft: 0,
+    paddingLeft: Platform.OS == "android" ? 0 : 15,
     paddingTop: 0,
     lineHeight: 26,
   },
@@ -2600,11 +2605,12 @@ const styles = StyleSheet.create({
   },
   kpiMetaBuyCredits: {
     opacity: 0.75,
+    paddingLeft: Platform.OS == "android" ? 0 : 15,
   },
   kpiChevronInline: {
     position: 'absolute',
-    top: 16,
-    right: 0,
+    top: Platform.OS == "android" ? 16 : 22,
+    right: Platform.OS == "android" ? 0 : 12,
     opacity: 0.75,
   },
   kpiChevron: {
