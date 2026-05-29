@@ -21,7 +21,6 @@ import { following as apiFollowing } from '../../services/profile';
 import { sharePost } from '../../services/post';
 import Share from 'react-native-share';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSocket, initializeSocket } from '../../services/socket';
 import { useLanguage } from '../../i18n';
@@ -40,8 +39,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
   const [sending, setSending] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [search, setSearch] = useState('');
-  const navigation = useNavigation();
-  const route = useRoute();
   const { text } = useAppTheme();
   const { t } = useLanguage();
 
@@ -195,14 +192,6 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
 
         if (socket?.connected) socket.emit('sendMessage', messageData);
       }
-
-      const count = selectedUsers.length;
-      Alert.alert(
-        t('shareModal.sentTitle'),
-        count > 1
-          ? t('shareModal.sentMessage_other', { count })
-          : t('shareModal.sentMessage_one', { count }),
-      );
     } catch (e) {
       Alert.alert(
         t('shareModal.shareErrorTitle'),
@@ -234,34 +223,14 @@ const ShareModal = forwardRef(({ post, postId, reel, reelId, story, onClose, onS
         storyId: resolveStoryId(),
       };
 
-      if (reel || reelId) {
-        if (ref?.current) ref.current.close();
-        await directSendToInbox(sharedContent);
-        setSelectedUsers([]);
-        return;
-      }
-
       if (ref?.current) ref.current.close();
-
-      setTimeout(() => {
-        const parentState = navigation.getParent?.()?.getState?.();
-        const activeParentRoute = parentState?.routes?.[parentState.index];
-
-        navigation.navigate('HomeMain', {
-          screen: 'ChatMessages',
-          params: {
-            selectedUserIds: selectedUsers,
-            sharedContent,
-            fromShareModal: true,
-            returnTo: route?.name,
-            returnParams: route?.params || {},
-            returnToTab: activeParentRoute?.name,
-          },
-        });
-        setSelectedUsers([]);
-      }, 300);
+      setSelectedUsers([]);
+      directSendToInbox(sharedContent);
     } catch (e) {
-      Alert.alert(t('shareModal.navigationErrorTitle'), t('shareModal.navigationErrorMessage'));
+      Alert.alert(
+        t('shareModal.shareErrorTitle'),
+        e?.response?.data?.message || t('shareModal.shareErrorMessage'),
+      );
     } finally {
       setSending(false);
     }
