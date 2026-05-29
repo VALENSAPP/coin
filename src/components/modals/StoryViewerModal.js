@@ -58,6 +58,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
   // FIX: track how many seconds have elapsed so resume picks up from here
   const elapsedRef = useRef(0);
+  const resumeStartedAtRef = useRef(null);
 
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -173,6 +174,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    resumeStartedAtRef.current = null;
   }, []);
 
   const handleClose = useCallback(() => {
@@ -190,6 +192,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       const effectiveDuration = durationOverride ?? duration;
       // Record the wall-clock time we (re)started so we can measure incremental elapsed
       const resumeAt = Date.now();
+      resumeStartedAtRef.current = resumeAt;
 
       timerRef.current = setInterval(() => {
         // Total elapsed = previously-accumulated + time since last resume
@@ -205,13 +208,13 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
         }
       }, 16);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [duration, handleClose, isVideo, progressAnim, stopProgress]
   );
 
   useEffect(() => {
     if (visible) {
       setIsLoading(true);
+      setIsPaused(false);
       setCurrentTime(0);
       // Reset elapsed when the story first opens
       elapsedRef.current = 0;
@@ -253,7 +256,10 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
       if (nowPaused) {
         // Snapshot how much time we've consumed before stopping the ticker
-        elapsedRef.current += (Date.now() - (timerRef._resumeAt ?? Date.now())) / 1000;
+        if (resumeStartedAtRef.current) {
+          elapsedRef.current += (Date.now() - resumeStartedAtRef.current) / 1000;
+          resumeStartedAtRef.current = null;
+        }
         stopProgress();
       } else {
         // Resume: startProgress will pick up from elapsedRef.current
@@ -317,11 +323,7 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
       <StatusBar backgroundColor="#000" barStyle="light-content" />
       <View style={styles.container} {...panResponder.panHandlers}>
         <View style={styles.mediaLayer}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={togglePause}
-            style={styles.contentContainer}
-          >
+          <View style={styles.contentContainer}>
             {isLoading && (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#fff" />
@@ -356,10 +358,10 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
 
             {isPaused && (
               <View style={styles.pauseIndicator}>
-                <Icon name="pause" size={60} color="rgba(255,255,255,0.8)" />
+                <Icon name="play" size={60} color="rgba(255,255,255,0.8)" />
               </View>
             )}
-          </TouchableOpacity>
+          </View>
         </View>
 
         {storyCaption && storyCaption.trim() !== '' && (
@@ -413,6 +415,16 @@ const StoryViewerModal = ({ visible, story, onClose, userName, userImage }) => {
                 </View>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={styles.pauseButton}
+              onPress={togglePause}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={isPaused ? 'Play story' : 'Pause story'}
+            >
+              <Icon name={isPaused ? 'play' : 'pause'} size={24} color="#fff" />
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
               <Icon name="close" size={28} color="#fff" />
@@ -522,6 +534,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  pauseButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
