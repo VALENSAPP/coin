@@ -38,6 +38,10 @@ export const createPost = async data => {
     formData.append("type", data.type);
   }
 
+  if (data.visibleTo) {
+    formData.append("visibleTo", data.visibleTo);
+  }
+
   if (data.raiseAmount) {
     formData.append("raiseAmount", data.raiseAmount);
   }

@@ -17,7 +17,7 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import {
   addPrivateCircleMembers,
-  PrivateSetup,
+  privateSetup,
   isPrivateCircleApiSuccess,
 } from '../../../services/privatecircle';
 import { goToPrivateCircleSuccess } from './privateCircleFlow';
@@ -125,7 +125,7 @@ export default function PrivateCircleCreating() {
       const startedAt = Date.now();
       try {
         if (mode === 'setup' && !membersAlreadySaved) {
-          const setupRes = await PrivateSetup();
+          const setupRes = await privateSetup();
           if (!isPrivateCircleApiSuccess(setupRes)) {
             throw new Error(
               setupRes?.message || tRef.current('privateCircleMint.setupError'),

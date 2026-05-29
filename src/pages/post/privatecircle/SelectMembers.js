@@ -18,7 +18,7 @@ import { useDispatch } from 'react-redux';
 import { following as apiFollowing } from '../../../services/profile';
 import {
   addPrivateCircleMembers,
-  PrivateSetup,
+  privateSetup,
   removePrivateCircleMember,
   shapePrivateCircleMember,
   isPrivateCircleApiSuccess,
@@ -209,7 +209,7 @@ export default function PrivateCircleSelectMembers() {
       setSaving(true);
       dispatch(showLoader());
       try {
-        const setupRes = await PrivateSetup();
+        const setupRes = await privateSetup();
         if (!isPrivateCircleApiSuccess(setupRes)) {
           showToastMessage(
             toast,

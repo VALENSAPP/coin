@@ -99,6 +99,7 @@ const PostEditorScreen = () => {
     metadata = {},
     imageEdits,
     postType,
+    visibleTo,
     fromIcon,
     taggedPeople = [],
     taggedPeopleIds = [],
@@ -257,11 +258,12 @@ const PostEditorScreen = () => {
             || fromIcon === 'Flips'
             ? 'reel'
             : 'normal',
+      visibleTo: visibleTo,
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
     const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(editorImages);
-
+    console.log('Creating post with payload:', payload );
     try {
       const response = await createPost({
         ...payload,

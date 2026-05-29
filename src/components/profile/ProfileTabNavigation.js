@@ -16,7 +16,7 @@ import { useLanguage } from '../../i18n';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import {
-  PrivateSetup,
+  privateSetup,
   parsePrivateCircleSetup,
   isPrivateCircleApiSuccess,
 } from '../../services/privatecircle';
@@ -93,7 +93,7 @@ const ProfileTabs = memo(({
 
   const handlePrivateCircleStartPress = useCallback(async () => {
     try {
-      const response = await PrivateSetup();
+      const response = await privateSetup();
       if (!isPrivateCircleApiSuccess(response)) {
         showToastMessage(
           toast,
@@ -163,6 +163,7 @@ const ProfileTabs = memo(({
             isOwnProfile={isOwnProfile}
             userData={userData}
             onStartPress={handlePrivateCircleStartPress}
+            loggedInUserId={loggedInUserId}
           />
         ),
       },

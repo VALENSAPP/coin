@@ -13,7 +13,7 @@ import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getCreditsLeft } from '../../services/wallet';
 import {
-  PrivateSetup,
+  privateSetup,
   parsePrivateCircleSetup,
   isPrivateCircleApiSuccess,
 } from '../../services/privatecircle';
@@ -153,7 +153,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const handlePrivateCirclePress = async () => {
     try {
       dispatch(showLoader());
-      const response = await PrivateSetup();
+      const response = await privateSetup();
       console.log(response, "Private circle setup response=>>>>>>>>>>>>>>");
       if (!isPrivateCircleApiSuccess(response)) {
         showToastMessage(
@@ -172,6 +172,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
       InteractionManager.runAfterInteractions(() => {
         if (count > 0) {
+          onSelect('private');
           goToPrivateCircleReview(navigation, {
             mode: 'mint',
             members,
