@@ -527,6 +527,18 @@
     "postError": "Something went wrong",
     "openProfileError": "Unable to open this user profile."
   },
+  "editPost": {
+    "screenTitle": "Edit Post",
+    "doneButton": "Done",
+    "captionLabel": "Caption",
+    "captionPlaceholder": "Write a caption...",
+    "tagPeople": "Tag people",
+    "taggedCount_one": "{{count}} person tagged",
+    "taggedCount_other": "{{count}} people tagged",
+    "searchPeoplePlaceholder": "Search people",
+    "postUpdated": "Post updated",
+    "updateFailed": "Unable to update post"
+  },
   "galleryPicker": {
     "recents": "Recents",
     "next": "Next",

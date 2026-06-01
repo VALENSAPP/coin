@@ -527,6 +527,18 @@
     "postError": "Une erreur s'est produite",
     "openProfileError": "Impossible d'ouvrir ce profil utilisateur."
   },
+  "editPost": {
+    "screenTitle": "Modifier la publication",
+    "doneButton": "Terminé",
+    "captionLabel": "Légende",
+    "captionPlaceholder": "Écrire une légende...",
+    "tagPeople": "Identifier des personnes",
+    "taggedCount_one": "{{count}} personne identifiée",
+    "taggedCount_other": "{{count}} personnes identifiées",
+    "searchPeoplePlaceholder": "Rechercher des personnes",
+    "postUpdated": "Publication mise à jour",
+    "updateFailed": "Impossible de mettre à jour la publication"
+  },
   "galleryPicker": {
     "recents": "Récents",
     "next": "Suivant",

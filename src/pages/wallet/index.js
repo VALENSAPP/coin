@@ -2497,6 +2497,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: Platform.OS == "android" ? 132 : 150,
     justifyContent: 'flex-start',
+    top: 15
   },
   kpiCardMetaMask: {
     borderRadius: 18,

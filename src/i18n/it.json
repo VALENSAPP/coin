@@ -527,6 +527,18 @@
     "postError": "Qualcosa è andato storto",
     "openProfileError": "Impossibile aprire il profilo di questo utente."
   },
+  "editPost": {
+    "screenTitle": "Modifica post",
+    "doneButton": "Fatto",
+    "captionLabel": "Didascalia",
+    "captionPlaceholder": "Scrivi una didascalia...",
+    "tagPeople": "Tagga persone",
+    "taggedCount_one": "{{count}} persona taggata",
+    "taggedCount_other": "{{count}} persone taggate",
+    "searchPeoplePlaceholder": "Cerca persone",
+    "postUpdated": "Post aggiornato",
+    "updateFailed": "Impossibile aggiornare il post"
+  },
   "galleryPicker": {
     "recents": "Recenti",
     "next": "Avanti",

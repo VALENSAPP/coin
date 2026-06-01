@@ -18,7 +18,6 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { getPostByUser } from '../../services/post';
 import {
-  privateSetup,
   parsePrivateCircleSetup,
   isPrivateCircleApiSuccess,
   getPvtCircleMembers,
@@ -151,11 +150,12 @@ const PostImage = memo(({ item, themeTextStyle }) => {
 const ItemSeparator = memo(() => <View style={gridStyles.itemSeparator} />);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData, loggedInUserId }) => {
+const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -195,6 +195,13 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData, logg
 
   // ── Membership check → then fetch if allowed ─────────────────────────────
   const checkMembershipAndFetch = useCallback(async () => {
+    if (skipPrivateCircleApi) {
+      setIsMember(false);
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
     if (!userData?.id) return;
 
     try {
@@ -240,11 +247,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData, logg
     } finally {
       setLoading(false);
     }
-  }, [userData?.id, isOwnProfile, loggedInUserId, fetchPostsOnly]);
+  }, [skipPrivateCircleApi, userData?.id, isOwnProfile, loggedInUserId, fetchPostsOnly]);
 
   useEffect(() => {
     checkMembershipAndFetch();
-  }, [userData?.id, loggedInUserId]);
+  }, [checkMembershipAndFetch]);
 
   useFocusEffect(
     useCallback(() => {
@@ -414,6 +421,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData, logg
     ),
     [bgStyle, cardStyle, text, textStyle, isOwnProfile, onStartPress, bullets, t],
   );
+
+  if (skipPrivateCircleApi) {
+    return <InfoCard />;
+  }
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading || isMember === null) {

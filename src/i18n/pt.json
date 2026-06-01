@@ -527,6 +527,18 @@
     "postError": "Algo deu errado",
     "openProfileError": "Não foi possível abrir o perfil deste usuário."
   },
+  "editPost": {
+    "screenTitle": "Editar publicação",
+    "doneButton": "Concluído",
+    "captionLabel": "Legenda",
+    "captionPlaceholder": "Escreva uma legenda...",
+    "tagPeople": "Marcar pessoas",
+    "taggedCount_one": "{{count}} pessoa marcada",
+    "taggedCount_other": "{{count}} pessoas marcadas",
+    "searchPeoplePlaceholder": "Pesquisar pessoas",
+    "postUpdated": "Publicação atualizada",
+    "updateFailed": "Não foi possível atualizar a publicação"
+  },
   "galleryPicker": {
     "recents": "Recentes",
     "next": "Próximo",

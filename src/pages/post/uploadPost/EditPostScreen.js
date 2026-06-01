@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   },
   editorSection: {
     padding: 16,
-    marginTop: '20%  '
+    marginTop: '5%'
   },
   label: {
     fontSize: 15,
