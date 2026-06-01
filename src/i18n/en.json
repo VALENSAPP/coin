@@ -92,6 +92,7 @@
     "emailPlaceholder": "Enter your email address",
     "usernameLabel": "Username",
     "usernamePlaceholder": "Choose a username",
+    "usernameHelper": "Attention: double-check for typos. After you submit, your username cannot be edited.",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Create a strong password",
     "referralLabel": "Referral Code",
@@ -2741,7 +2742,9 @@
     "unfollowSuccess": "Unfollowed",
     "unableToUpdateFollow": "Unable to update follow",
     "copyMissionText": "✨ Support @{{username}}'s Mission on Valens\nBe part of the impact. Donate securely below.\n{{link}}",
-    "copyPostText": "Check out this post on Valens App\n{{link}}"
+    "copyPostText": "Check out this post on Valens App\n{{link}}",
+    "screenshotWarningTitle": "Screenshots not allowed",
+    "screenshotWarningMessage": "Screenshots and screen recording are disabled on this screen. This content is protected."
   },
   "privateCircle": {
     "ownTitle": "Private mint — What is it?",

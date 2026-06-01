@@ -531,6 +531,7 @@ export default function CreateProfile() {
                   }}
                 />
               </View>
+              <Text style={styles.helperText}>{t('signup.usernameHelper')}</Text>
               {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
             </View>
 
@@ -711,6 +712,7 @@ const styles = StyleSheet.create({
     padding: 12, minHeight: 100, fontSize: 14, color: '#1F2937',
   },
   counter: { fontSize: 12, color: '#6B7280', marginTop: 4 },
+  helperText: { color: '#6B7280', fontSize: 12, lineHeight: 18, marginTop: 8 },
   errorText: { color: '#DC2626', fontSize: 12, marginTop: 4 },
   inputErrorWrapper: { borderColor: '#DC2626', backgroundColor: '#FEF2F2' },
   checkboxContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },

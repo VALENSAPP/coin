@@ -151,6 +151,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         try {
             const range = PERIOD_MAP[chartPeriod] ?? 'weekly';
             const response = await subscriptionEarningGraph({ range });
+            console.log('Subscription Earning Graph Response:', response);
             const points = mapGraphResponse(response);
             if (points.length > 0) {
                 setGraphData(points);
@@ -173,6 +174,7 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
         setRevenueLoading(true);
         try {
             const response = await totalSupport({ page: 1 });
+            console.log('Total Support Response:', response);
             const data = response?.data?.data ?? response?.data ?? response;
 
             setTotalRevenue(data?.totalAmount ?? 0);
