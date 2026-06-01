@@ -66,6 +66,7 @@ import StoryComposer from '../home/story.js/StoryComposer';
 import { getUserCredentials } from '../../services/post';
 import { metaMaskRecived } from '../../services/wallet';
 import { battleByUserId } from '../../services/battle';
+import { isBattleLive } from '../../utils/battleCardUtils';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getSupportRecipientWalletAddress } from '../../utils/walletPaymentSupport';
 import { useWalletConnectSupport } from '../../context/WalletConnectSupportContext';
@@ -689,17 +690,7 @@ const ProfilePersonData = ({
       const rawBattles = Array.isArray(payload)
         ? payload
         : payload?.battles || payload?.data?.battles || payload?.data || response?.battles || [];
-      const liveBattleFound = (Array.isArray(rawBattles) ? rawBattles : []).some(battle => {
-        const status = String(battle?.status || battle?.battleStatus || '').toLowerCase();
-        const isLiveFlag = Boolean(battle?.isLive || battle?.live);
-        return (
-          isLiveFlag ||
-          status.includes('live') ||
-          status.includes('progress') ||
-          status.includes('active') ||
-          status.includes('ongoing')
-        );
-      });
+      const liveBattleFound = (Array.isArray(rawBattles) ? rawBattles : []).some(isBattleLive);
       setHasLiveBattle(liveBattleFound);
     } catch (_error) {
       setHasLiveBattle(false);
@@ -1323,8 +1314,30 @@ const ProfilePersonData = ({
         <Animated.View
           style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
         >
-          {/* Battle buttons */}
+          {/* Battle LIVE — shown above Open Battle when a battle is active */}
           <View style={[styles.tabContainer, { marginBottom: -8, height: 50 }]}>
+            <TouchableOpacity
+              style={[styles.tab, { backgroundColor: text, borderColor: text }]}
+              onPress={handleBattleTabPress}
+            >
+              <View style={styles.tabContentRow}>
+                <Text style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}>
+                  {t('profilePersonData.battle')}
+                </Text>
+                {hasLiveBattle && (
+                  <View style={styles.liveBadge}>
+                    <Animated.View
+                      style={[styles.liveBadgeDot, { opacity: battleStatusPulseAnim }]}
+                    />
+                    <Text style={styles.liveBadgeText}>{t('profilePersonData.live')}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Open Battle / Invite to Battle */}
+          <View style={[styles.tabContainer, { height: 50 }]}>
             {fromUsersProfile ? (
               <TouchableOpacity
                 style={[styles.battleBtnWrapper, { backgroundColor: text, borderColor: text }]}
@@ -1354,28 +1367,6 @@ const ProfilePersonData = ({
                 </LinearGradient>
               </TouchableOpacity>
             )}
-          </View>
-
-          {/* Battle tab */}
-          <View style={[styles.tabContainer, { height: 50 }]}>
-            <TouchableOpacity
-              style={[styles.tab, { backgroundColor: text, borderColor: text }]}
-              onPress={handleBattleTabPress}
-            >
-              <View style={styles.tabContentRow}>
-                <Text style={[styles.tabText, styles.activeTabText, { color: '#fff' }]}>
-                  {t('profilePersonData.battle')}
-                </Text>
-                {hasLiveBattle && (
-                  <View style={styles.liveBadge}>
-                    <Animated.View
-                      style={[styles.liveBadgeDot, { opacity: battleStatusPulseAnim }]}
-                    />
-                    <Text style={styles.liveBadgeText}>{t('profilePersonData.live')}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
           </View>
 
           {/* Stats */}

@@ -36,6 +36,7 @@ import useSocket from '../../hooks/useSocket';
 import { checkSubscription } from '../../services/stirpe';
 import BusinessSubscriptionPrompt from '../../components/modals/BusinessSubscriptionPrompt';
 import { useLanguage } from '../../i18n';
+// import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 import StoryViewerModal from '../../components/modals/StoryViewerModal';
 import { getFollowingUserStories, getStoryByUser } from '../../services/stories';
 
@@ -122,6 +123,12 @@ export default function HomeScreen({ route }) {
   const styles = createStyles();
   const navigation = useNavigation();
   const { t } = useLanguage();
+
+  // useScreenshotProtection({
+  //   title: t('postView.screenshotWarningTitle'),
+  //   message: t('postView.screenshotWarningMessage'),
+  // });
+
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [storyRefreshTick, setStoryRefreshTick] = useState(0);

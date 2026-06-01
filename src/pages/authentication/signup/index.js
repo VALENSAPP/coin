@@ -263,6 +263,7 @@ export default function SignupScreen() {
                     }}
                   />
                 </View>
+                <Text style={styles.helperText}>{t('signup.usernameHelper')}</Text>
                 {errors.userName && <Text style={styles.errorText}>{errors.userName}</Text>}
               </View>
 

@@ -45,6 +45,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
+import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 
 export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -327,6 +328,11 @@ export default function PostView({ postData = [], userData = {} }) {
       };
     }, [])
   );
+
+  useScreenshotProtection({
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
 
   // ─── Fetch latest raised amount for mission posts ──────────
   useEffect(() => {

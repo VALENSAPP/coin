@@ -92,6 +92,7 @@
     "emailPlaceholder": "Entrez votre email",
     "usernameLabel": "Nom d'utilisateur",
     "usernamePlaceholder": "Choisissez un nom d'utilisateur",
+    "usernameHelper": "Attention : vérifiez les fautes de frappe. Une fois envoyé, le nom d'utilisateur ne pourra plus être modifié.",
     "passwordLabel": "Mot de passe",
     "passwordPlaceholder": "Créez un mot de passe sécurisé",
     "referralLabel": "Code de parrainage",
@@ -2741,7 +2742,9 @@
     "unfollowSuccess": "Désabonné",
     "unableToUpdateFollow": "Impossible de mettre à jour l’abonnement",
     "copyMissionText": "✨ Soutenez la mission de @{{username}} sur Valens\nFaites partie de l’impact. Faites un don en toute sécurité ci-dessous.\n{{link}}",
-    "copyPostText": "Découvrez cette publication sur l’app Valens\n{{link}}"
+    "copyPostText": "Découvrez cette publication sur l’app Valens\n{{link}}",
+    "screenshotWarningTitle": "Captures d’écran interdites",
+    "screenshotWarningMessage": "Les captures d’écran et l’enregistrement sont désactivés sur cet écran. Ce contenu est protégé."
   },
   "privateCircle": {
     "ownTitle": "Mint privé — Qu’est-ce que c’est ?",
