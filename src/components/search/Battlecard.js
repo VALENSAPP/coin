@@ -10,7 +10,9 @@ import {
     StyleSheet,
     Animated,
     ScrollView,
-    Dimensions
+    Dimensions,
+    Platform,
+    PanResponder,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
@@ -37,7 +39,7 @@ const formatAmount = value => {
 };
 
 const formatBattleDate = value => {
-    if (!value) return null; // caller uses t() for label
+    if (!value) return null;
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return null;
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -303,6 +305,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                 activeOpacity={0.88}
                 style={[styles.card, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
                 onPress={handleCardPress}
+                renderToHardwareTextureAndroid
             >
                 <View style={styles.cardTopRow}>
                     <View style={styles.pollCreatorRowContainer}>
@@ -314,7 +317,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 onPress={event => handleUserPress(item.creator, event)}
                                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                             >
-                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" />
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" fadeDuration={0} />
                                 <View style={styles.pollCreatorTextWrap}>
                                     <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                     <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
@@ -322,7 +325,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             </TouchableOpacity>
                         ) : (
                             <View style={styles.pollCreatorPressable}>
-                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" />
+                                <HexAvatar uri={normalizeImageUrl(item.creator.avatar) || DEFAULT_AVATAR} size={20} borderWidth={2} borderColor="#7F77DD" fadeDuration={0} />
                                 <View style={styles.pollCreatorTextWrap}>
                                     <Text style={styles.pollCreatorName} numberOfLines={1}>{item.creator.name}</Text>
                                     <Text style={styles.pollCreatorHandle} numberOfLines={1}>@{item.creator.userName}</Text>
@@ -330,7 +333,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                             </View>
                         )}
                     </View>
-                    <ModeBadge format="POLL" ended={ended} isLive={item.isLive} t={t}/>
+                    <ModeBadge format="POLL" ended={ended} isLive={item.isLive} t={t} />
                 </View>
 
                 <TimerBadge endTime={item.endTime} ended={ended} t={t} />
@@ -379,6 +382,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
             style={[styles.card, ended && styles.cardEnded, fullWidth && styles.cardFullWidth]}
             onPress={handleCardPress}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            renderToHardwareTextureAndroid
         >
             <View style={styles.cardTopRow}>
                 <View style={styles.pollCreatorRowContainer}>
@@ -398,6 +402,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 size={20}
                                 borderWidth={2}
                                 borderColor="#7F77DD"
+                                fadeDuration={0}
                             />
                             <View style={styles.pollCreatorTextWrap}>
                                 <Text style={styles.pollCreatorName} numberOfLines={1}>
@@ -412,6 +417,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                                 size={20}
                                 borderWidth={2}
                                 borderColor="#7F77DD"
+                                fadeDuration={0}
                             />
                             <View style={styles.pollCreatorTextWrap}>
                                 <Text style={styles.pollCreatorName} numberOfLines={1}>
@@ -421,7 +427,7 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
                         </View>
                     )}
                 </View>
-                <ModeBadge format={item.format} ended={ended} isLive={item.isLive} t={t}/>
+                <ModeBadge format={item.format} ended={ended} isLive={item.isLive} t={t} />
             </View>
             <TimerBadge endTime={item.endTime} ended={ended} t={t} />
 
@@ -509,16 +515,180 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
 
 export default BattleCard;
 
-// ─── AutoScrollBattleRow ──────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const CARD_WIDTH = 220;
 const CARD_GAP = 8;
 const RESUME_DELAY_MS = 1000;
-const AUTO_SCROLL_SPEED_PX_PER_MS = 0.055;
+const AUTO_SCROLL_SPEED_PX_PER_MS = 0.04;
 const START_DELAY_MS = 300;
 const ROW_PADDING_LEFT = 10;
 
-export const AutoScrollBattleRow = ({ children, style }) => {
+const AndroidBattleRow = ({ children, style }) => {
+    const allChildren = React.Children.toArray(children);
+
+    if (allChildren.length === 0) return null;
+
+    if (allChildren.length === 1) {
+        return (
+            <View style={[{ flexDirection: 'row', paddingHorizontal: ROW_PADDING_LEFT }, style]}>
+                {allChildren}
+            </View>
+        );
+    }
+
+    const loopedChildren = [...allChildren, ...allChildren];
+    const totalWidth = allChildren.length * (CARD_WIDTH + CARD_GAP);
+
+    const translateX = useRef(new Animated.Value(0)).current;
+    const animRef = useRef(null);
+    const animOffsetRef = useRef(0);
+    const isDraggingRef = useRef(false);
+    const dragStartOffsetRef = useRef(0);
+    const resumeTimerRef = useRef(null);
+    const isPausedForCardRef = useRef(false);
+
+    useEffect(() => {
+        const id = translateX.addListener(({ value }) => {
+            animOffsetRef.current = value;
+        });
+        return () => translateX.removeListener(id);
+    }, [translateX]);
+
+    // scroll one card width, pause 1s, then next card, loop forever
+    const startStepScroll = useCallback((fromX = 0) => {
+        if (isDraggingRef.current) return;
+        animRef.current?.stop();
+
+        const stepSize = CARD_WIDTH + CARD_GAP;
+
+        // snap fromX to nearest card boundary
+        const snapped = Math.round(fromX / stepSize) * stepSize;
+        const nextStop = snapped - stepSize;
+
+        // wrap: if we've gone past one full set, reset to equivalent position in first set
+        const wrappedFrom = snapped % -totalWidth === 0 && snapped !== 0
+            ? 0
+            : snapped;
+
+        translateX.setValue(wrappedFrom);
+        animOffsetRef.current = wrappedFrom;
+
+        const target = wrappedFrom - stepSize;
+
+        // scroll to next card
+        animRef.current = Animated.timing(translateX, {
+            toValue: target,
+            duration: stepSize / AUTO_SCROLL_SPEED_PX_PER_MS,
+            useNativeDriver: true,
+            isInteraction: false,
+        });
+
+        animRef.current.start(({ finished }) => {
+            if (!finished || isDraggingRef.current) return;
+
+            animOffsetRef.current = target;
+            isPausedForCardRef.current = true;
+
+            // pause 1 second at this card
+            resumeTimerRef.current = setTimeout(() => {
+                isPausedForCardRef.current = false;
+
+                // wrap if needed
+                const nextFrom = target <= -totalWidth ? target + totalWidth : target;
+                startStepScroll(nextFrom);
+            }, 500);
+        });
+    }, [totalWidth, translateX]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => startStepScroll(0), START_DELAY_MS);
+        return () => {
+            clearTimeout(timer);
+            animRef.current?.stop();
+            if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+        };
+    }, [startStepScroll]);
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => false,
+            onStartShouldSetPanResponderCapture: () => false,
+            onMoveShouldSetPanResponder: (_, gestureState) => {
+                const { dx, dy } = gestureState;
+                return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 2;
+            },
+            onMoveShouldSetPanResponderCapture: () => false,
+
+            onPanResponderGrant: () => {
+                isDraggingRef.current = true;
+                animRef.current?.stop();
+                if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+                dragStartOffsetRef.current = animOffsetRef.current;
+                translateX.setValue(animOffsetRef.current);
+            },
+
+            onPanResponderMove: (_, gestureState) => {
+                let next = dragStartOffsetRef.current + gestureState.dx;
+                if (next > 0) next -= totalWidth;
+                if (next < -totalWidth) next += totalWidth;
+                translateX.setValue(next);
+                animOffsetRef.current = next;
+            },
+
+            onPanResponderRelease: () => {
+                isDraggingRef.current = false;
+                // snap to nearest card then resume step scroll
+                resumeTimerRef.current = setTimeout(() => {
+                    startStepScroll(animOffsetRef.current);
+                }, RESUME_DELAY_MS);
+            },
+
+            onPanResponderTerminate: () => {
+                isDraggingRef.current = false;
+                resumeTimerRef.current = setTimeout(() => {
+                    startStepScroll(animOffsetRef.current);
+                }, RESUME_DELAY_MS);
+            },
+        })
+    ).current;
+
+    useEffect(() => () => {
+        animRef.current?.stop();
+        if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    }, []);
+
+    return (
+        <View
+            style={[{ overflow: 'hidden', paddingLeft: ROW_PADDING_LEFT }, style]}
+            collapsable={false}
+            {...panResponder.panHandlers}
+        >
+            <Animated.View
+                style={{
+                    flexDirection: 'row',
+                    gap: CARD_GAP,
+                    transform: [{ translateX }],
+                }}
+            >
+                {loopedChildren.map((child, i) => (
+                    <View
+                        key={`android-card-${i}`}
+                        style={{ width: CARD_WIDTH }}
+                        renderToHardwareTextureAndroid
+                        collapsable={false}
+                    >
+                        {child}
+                    </View>
+                ))}
+            </Animated.View>
+        </View>
+    );
+};
+
+// ─── iOS: original ScrollView implementation (untouched) ──────────────────────
+
+const IOSBattleRow = ({ children, style }) => {
     const scrollViewRef = useRef(null);
     const autoScrollFrameRef = useRef(null);
     const resumeTimeoutRef = useRef(null);
@@ -547,11 +717,6 @@ export const AutoScrollBattleRow = ({ children, style }) => {
             autoScrollFrameRef.current = null;
         }
         lastFrameTsRef.current = 0;
-    }, []);
-
-    const scrollTo = useCallback((x) => {
-        scrollViewRef.current?.scrollTo({ x, animated: false });
-        offsetRef.current = x;
     }, []);
 
     const startAutoScroll = useCallback(() => {
@@ -653,6 +818,9 @@ export const AutoScrollBattleRow = ({ children, style }) => {
     );
 };
 
+// ✅ Android gets HeroCarousel, iOS keeps original — evaluated once at module load
+export const AutoScrollBattleRow = Platform.OS === 'android' ? AndroidBattleRow : IOSBattleRow;
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const PURPLE = '#7F77DD';
@@ -673,18 +841,16 @@ const styles = StyleSheet.create({
         borderColor: BORDER,
         padding: 4,
         marginBottom: 8,
+        overflow: 'hidden',
     },
     cardEnded: { opacity: 0.7 },
     cardFullWidth: { width: '100%', marginRight: 0 },
-
     cardTopRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 3,
     },
-
-    // Mode badge
     modeBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -706,8 +872,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     modeBadgeTextEnded: { color: GRAY_MID },
-
-    // Live dot
     liveDotWrapper: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
     liveDotRing: {
         position: 'absolute',
@@ -715,13 +879,9 @@ const styles = StyleSheet.create({
         backgroundColor: GREEN, opacity: 0.3,
     },
     liveDotCore: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
-
-    // Timer
     timerBadge: { flexDirection: 'row', alignItems: 'center' },
     timerText: { fontSize: 10, color: GRAY_MID, fontWeight: '500' },
     timerTextEnded: { color: '#A32D2D' },
-
-    // Versus row
     versusRow: {
         flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between', marginBottom: 2, gap: 1,
@@ -731,8 +891,6 @@ const styles = StyleSheet.create({
     participantName: { fontSize: 10, fontWeight: '500', color: TEXT, textAlign: 'center', maxWidth: 64 },
     participantHandle: { fontSize: 10, color: GRAY_MID, textAlign: 'center' },
     vsIcon: { fontSize: 16, flexShrink: 0 },
-
-    // Empty opponent slot
     emptySlot: {
         width: 40, height: 40,
         borderRadius: 8,
@@ -742,11 +900,7 @@ const styles = StyleSheet.create({
     },
     waitingLabel: { fontSize: 10, fontWeight: '600', color: PURPLE, textAlign: 'center' },
     waitingSub: { fontSize: 9, color: GRAY_MID, textAlign: 'center' },
-
-    // Question
     question: { fontSize: 11, fontWeight: '700', color: TEXT, marginBottom: 1, lineHeight: 13 },
-
-    // Stakes
     stakePill: {
         flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
         backgroundColor: PURPLE_LIGHT, borderRadius: 20,
@@ -754,8 +908,6 @@ const styles = StyleSheet.create({
     },
     stakeText: { fontSize: 11, color: PURPLE_DARK },
     stakeAmount: { fontWeight: '700', color: PURPLE_DARK },
-
-    // Option chips
     pollOptions: { width: '100%', gap: 2, marginBottom: 3 },
     optionChip: {
         width: '100%', flexDirection: 'row', alignItems: 'center',
@@ -775,30 +927,20 @@ const styles = StyleSheet.create({
     radioCircleSelected: { borderColor: PURPLE },
     radioInner: { width: 6, height: 6, borderRadius: 3, backgroundColor: PURPLE },
     optionDisabled: { opacity: 0.45 },
-
-    // Accept challenge
     acceptBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         backgroundColor: PURPLE, borderRadius: 20,
         paddingVertical: 6, paddingHorizontal: 12, marginBottom: 6,
     },
     acceptBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-
-    // Poll creator
     pollCreatorRowContainer: { flex: 1, marginRight: 8, minWidth: 0 },
     pollCreatorPressable: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', minWidth: 0 },
     pollCreatorTextWrap: { marginLeft: 6, flexShrink: 1, minWidth: 0 },
-    pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT,flexShrink: 1,  },
+    pollCreatorName: { fontSize: 12, fontWeight: '500', color: TEXT, flexShrink: 1 },
     pollCreatorHandle: { fontSize: 10, color: GRAY_MID },
-
-    // Meta
     metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
     metaText: { fontSize: 10, color: GRAY_MID },
-
-    // Divider
     divider: { height: 0.5, backgroundColor: BORDER, marginBottom: 3 },
-
-    // Stats
     statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center' },
     statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { fontSize: 11, color: GRAY_MID },
