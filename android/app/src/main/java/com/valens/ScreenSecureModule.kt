@@ -14,7 +14,7 @@ class ScreenSecureModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun setSecure(enabled: Boolean, promise: Promise) {
-    val activity: Activity? = currentActivity
+    val activity: Activity? = reactApplicationContext.currentActivity
     if (activity == null) {
       promise.reject("NO_ACTIVITY", "Activity is not available")
       return
@@ -36,7 +36,7 @@ class ScreenSecureModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun isSecure(promise: Promise) {
-    val activity: Activity? = currentActivity
+    val activity: Activity? = reactApplicationContext.currentActivity
     if (activity == null) {
       promise.resolve(false)
       return
