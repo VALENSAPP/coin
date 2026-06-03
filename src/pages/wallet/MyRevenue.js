@@ -12,14 +12,17 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { LineChart } from 'react-native-wagmi-charts';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { subscriptionEarningGraph, totalSupport } from '../../services/wallet';
 import { useAppTheme } from '../../theme/useApptheme';
 import { getUserCredentials } from '../../services/post';
 import { useLanguage } from '../../i18n';
+import SubscriptionTrendChart, {
+    parseSubscriptionGraphResponse,
+    SUBSCRIPTION_CHART_LINE,
+} from '../../components/wallet/SubscriptionTrendChart';
 
 const { width } = Dimensions.get('window');
+const CHART_VIEWPORT_WIDTH = width - 80;
 
 const PERIOD_MAP = {
     Daily: 'daily',
@@ -27,47 +30,10 @@ const PERIOD_MAP = {
     Monthly: 'monthly',
 };
 
-const mapGraphResponse = (response) => {
-    const root = response?.data?.data ?? response?.data ?? response;
-
-    const raw = Array.isArray(root?.points)
-        ? root.points
-        : Array.isArray(root)
-            ? root
-            : root?.graph ??
-            root?.history ??
-            root?.series ??
-            root?.items ??
-            (Array.isArray(root?.data) ? root.data : null);
-
-    if (!Array.isArray(raw) || raw.length === 0) return [];
-
-    return raw
-        .map((item, index) => {
-            const dateStr =
-                item?.date ?? item?.label ?? item?.day ?? item?.time ?? item?.createdAt;
-
-            const val = Number(
-                item?.amount ?? item?.earning ?? item?.revenue ??
-                item?.totalAmount ?? item?.value ?? item?.count ?? 0,
-            );
-
-            let ts;
-            if (dateStr != null && String(dateStr).length > 0) {
-                ts = new Date(dateStr).getTime();
-            } else if (typeof item?.timestamp === 'number') {
-                ts = item.timestamp;
-            } else {
-                ts = Date.now() - (raw.length - 1 - index) * 86400000;
-            }
-
-            return {
-                timestamp: ts,
-                value: Number.isFinite(val) ? val : 0,
-            };
-        })
-        .filter((p) => !isNaN(p.timestamp) && Number.isFinite(p.value))
-        .sort((a, b) => a.timestamp - b.timestamp);
+const PERIOD_DELTA_LABEL = {
+    Daily: 'vs prior day',
+    Weekly: 'vs last week',
+    Monthly: 'vs last month',
 };
 
 // ── Enrich transactions with user profile (name + image) ─────────────────────
@@ -126,10 +92,9 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     const { bgStyle, text } = useAppTheme();
     const { t } = useLanguage();
 
-    const [period] = useState('This Month');
-    const [chartPeriod, setChartPeriod] = useState('Weekly');
+    const [chartPeriod, setChartPeriod] = useState('Daily');
     const [graphData, setGraphData] = useState([]);
-    const [selectedValue, setSelectedValue] = useState(0);
+    const [graphTotalAmount, setGraphTotalAmount] = useState(0);
     const [graphLoading, setGraphLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -149,21 +114,16 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     const fetchGraph = useCallback(async () => {
         setGraphLoading(true);
         try {
-            const range = PERIOD_MAP[chartPeriod] ?? 'weekly';
-            const response = await subscriptionEarningGraph({ range });
-            console.log('Subscription Earning Graph Response:', response);
-            const points = mapGraphResponse(response);
-            if (points.length > 0) {
-                setGraphData(points);
-                setSelectedValue(points[points.length - 1].value);
-            } else {
-                setGraphData([]);
-                setSelectedValue(0);
-            }
+            const interval = PERIOD_MAP[chartPeriod] ?? 'daily';
+            const response = await subscriptionEarningGraph({ interval });
+            console.log('Subscription graph response:', response);
+            const { points, totalAmount } = parseSubscriptionGraphResponse(response, interval);
+            setGraphData(points);
+            setGraphTotalAmount(totalAmount);
         } catch (error) {
             console.error('Error fetching subscription earning graph:', error);
             setGraphData([]);
-            setSelectedValue(0);
+            setGraphTotalAmount(0);
         } finally {
             setGraphLoading(false);
         }
@@ -173,11 +133,11 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     const fetchRevenue = useCallback(async () => {
         setRevenueLoading(true);
         try {
-            const response = await totalSupport({ page: 1 });
-            console.log('Total Support Response:', response);
-            const data = response?.data?.data ?? response?.data ?? response;
+            const response = await totalSupport({ params: { page: 1 } });
+            console.log('Total support response:', response);
+            const data = response?.data ?? response;
 
-            setTotalRevenue(data?.totalAmount ?? 0);
+            setTotalRevenue(Number(data?.totalAmount) || 0);
 
             const rawTransactions = Array.isArray(data?.transactions)
                 ? data.transactions
@@ -195,34 +155,18 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
     }, []);
 
     useEffect(() => {
-        fetchGraph();
         fetchRevenue();
-    }, [fetchGraph, fetchRevenue]);
+    }, [fetchRevenue]);
+
+    useEffect(() => {
+        fetchGraph();
+    }, [fetchGraph]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await Promise.all([fetchGraph(), fetchRevenue()]);
         setRefreshing(false);
     }, [fetchGraph, fetchRevenue]);
-
-    const hapticFeedback = (type) => {
-        ReactNativeHapticFeedback.trigger(type, {
-            enableVibrateFallback: true,
-            ignoreAndroidSystemSettings: false,
-        });
-    };
-
-    const updateSelectedValue = (point) => {
-        if (point && point.value !== undefined) setSelectedValue(point.value);
-    };
-
-    const resetSelectedValue = () => {
-        if (graphData.length > 0) setSelectedValue(graphData[graphData.length - 1].value);
-    };
-
-    const formattedSelected = Number.isFinite(Number(selectedValue))
-        ? `$${Number(selectedValue).toFixed(2)}`
-        : '$0.00';
 
     // ── Resolve display name for a transaction ─────────────────────────────────
     const getDisplayName = (tx) => {
@@ -355,52 +299,25 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <View style={styles.chartContainer}>
-                        <Text style={[styles.chartPrice, { color: text }]}>{formattedSelected}</Text>
-                        <Text style={[styles.chartLabel, { color: text }]}>{t('revenue.subscriptionEarnings')}</Text>
-
-                        {graphData.length > 0 ? (
-                            <LineChart.Provider data={graphData}>
-                                <LineChart height={200} width={width - 72}>
-                                    <LineChart.Path color={text} width={3}>
-                                        <LineChart.Gradient color={text} />
-                                    </LineChart.Path>
-                                    <LineChart.CursorCrosshair
-                                        onActivated={() => hapticFeedback('impactLight')}
-                                        onEnded={resetSelectedValue}
-                                    >
-                                        <LineChart.Tooltip>
-                                            {({ value }) => {
-                                                updateSelectedValue({ value });
-                                                return (
-                                                    <View style={[styles.tooltipContainer, { backgroundColor: text }]}>
-                                                        <Text style={styles.tooltipText}>
-                                                            {Number.isFinite(Number(value))
-                                                                ? `$${Number(value).toFixed(2)}`
-                                                                : '—'}
-                                                        </Text>
-                                                    </View>
-                                                );
-                                            }}
-                                        </LineChart.Tooltip>
-                                        <LineChart.HoverTrap />
-                                    </LineChart.CursorCrosshair>
-                                </LineChart>
-                            </LineChart.Provider>
-                        ) : graphLoading ? (
-                            <View style={styles.emptyChart}>
-                                <Ionicons name="hourglass-outline" size={48} color={text} />
-                                <Text style={[styles.emptyChartText, { color: text }]}>{t('revenue.loadingChart')}</Text>
-                            </View>
-                        ) : (
-                            <View style={styles.emptyChart}>
-                                <Ionicons name="bar-chart-outline" size={48} color="#ccc" />
-                                <Text style={[styles.emptyChartText, { color: text }]}>{t('revenue.noDataAvailable')}</Text>
-                                <Text style={[styles.emptyChartSubtext, { color: text }]}>
-                                    {t('revenue.checkBackLater')}
-                                </Text>
-                            </View>
-                        )}
+                    <View style={[styles.chartContainer, { shadowColor: text }]}>
+                        <Text style={[styles.chartLabel, { color: text, marginBottom: 12 }]}>
+                            {t('revenue.subscriptionEarnings')}
+                        </Text>
+                        <SubscriptionTrendChart
+                            points={graphData}
+                            totalAmount={graphTotalAmount}
+                            periodDeltaLabel={PERIOD_DELTA_LABEL[chartPeriod] ?? 'vs prior period'}
+                            chartViewportWidth={CHART_VIEWPORT_WIDTH}
+                            lineColor={SUBSCRIPTION_CHART_LINE}
+                            textColor={text}
+                            interval={PERIOD_MAP[chartPeriod] ?? 'daily'}
+                            loading={graphLoading}
+                            emptyTitle={
+                                graphLoading ? t('revenue.loadingChart') : t('revenue.noDataAvailable')
+                            }
+                            emptySubtitle={graphLoading ? undefined : t('revenue.checkBackLater')}
+                            footnote="Swipe the chart sideways when points are crowded."
+                        />
                     </View>
                 </View>
 
@@ -626,11 +543,16 @@ const styles = StyleSheet.create({
     periodButtonTextActive: { color: '#fff', fontWeight: '600' },
 
     // Chart
-    chartContainer: { borderRadius: 12, paddingTop: 4 },
-    chartPrice: { fontSize: 32, fontWeight: '800', marginBottom: 2 },
-    chartLabel: { fontSize: 13, opacity: 0.6, marginBottom: 16 },
-    tooltipContainer: { padding: 8, borderRadius: 8 },
-    tooltipText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    chartContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    chartLabel: { fontSize: 14, opacity: 0.7 },
     emptyChart: { height: 200, justifyContent: 'center', alignItems: 'center' },
     emptyChartText: { fontSize: 15, fontWeight: '600', opacity: 0.6, marginTop: 12 },
     emptyChartSubtext: { fontSize: 13, opacity: 0.4, marginTop: 4, textAlign: 'center' },
