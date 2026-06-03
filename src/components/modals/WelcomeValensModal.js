@@ -14,7 +14,7 @@ export default function WelcomeValensModal({ visible, onClose }) {
       visible={visible}
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <TouchableOpacity style={styles.overlay} onPress={onClose}>
         <Pressable style={[styles.modalContent, bgStyle]} onPress={() => {}}>
           <Text style={[styles.title, textStyle]}>{t('welcomeValensModal.title')}</Text>
           <Text style={styles.description}>
@@ -28,7 +28,7 @@ export default function WelcomeValensModal({ visible, onClose }) {
             <Text style={styles.buttonText}>{t('welcomeValensModal.getStarted')}</Text>
           </TouchableOpacity>
         </Pressable>
-      </Pressable>
+      </TouchableOpacity>
     </Modal>
   );
 }

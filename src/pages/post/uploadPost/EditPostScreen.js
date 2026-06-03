@@ -66,16 +66,18 @@ export default function EditPostScreen() {
       Array.isArray(post?.taggedPeople)
         ? post.taggedPeople
             .map(person => {
-              if (typeof person === 'string') return person;
-              return person?.username || person?.userName || person?.name || person?.id || '';
+              if (typeof person === 'string') {
+                // If it's a string, we can't extract ID, return empty to skip
+                return null;
+              }
+              const userId = person?.id;
+              const userName = person?.username || person?.userName || person?.name || '';
+              if (!userId) return null;
+              return { id: userId, userName: userName.replace(/^@+/, '') };
             })
             .filter(Boolean)
-            .map(person => person.replace(/^@+/, ''))
         : typeof post?.taggedPeople === 'string'
-          ? post.taggedPeople
-              .split(',')
-              .map(person => person.trim().replace(/^@+/, ''))
-              .filter(Boolean)
+          ? []
           : [],
     [post?.taggedPeople],
   );
@@ -101,7 +103,8 @@ export default function EditPostScreen() {
 
   const locationSummary = location.trim();
   const taggedPeopleList = useMemo(() => selectedTaggedPeople, [selectedTaggedPeople]);
-  const taggedPeopleSummary = taggedPeopleList.join(', ');
+  const taggedPeopleSummary = taggedPeopleList.map(p => p.id).join(', ');
+  const initialTaggedPeopleSummary = initialTaggedPeople.map(p => p.id).join(', ');
   const locationSuggestions = useMemo(() => {
     const query = locationSummary.toLowerCase();
     if (!query) {
@@ -116,12 +119,12 @@ export default function EditPostScreen() {
     return (
       caption.trim() !== String(post?.caption || '').trim() ||
       locationSummary !== initialLocation.trim() ||
-      taggedPeopleSummary !== initialTaggedPeople.join(', ')
+      taggedPeopleSummary !== initialTaggedPeopleSummary
     );
   }, [
     caption,
     initialLocation,
-    initialTaggedPeople,
+    initialTaggedPeopleSummary,
     locationSummary,
     post?.caption,
     taggedPeopleSummary,
@@ -175,8 +178,9 @@ export default function EditPostScreen() {
         const users = Array.isArray(response?.data?.users) ? response.data.users : [];
         setUserSuggestions(
           users.filter(user => {
+            const userId = String(user?.id || '').trim();
             const username = String(user?.userName || user?.username || '').trim();
-            return username && !selectedTaggedPeople.includes(username);
+            return userId && username && !selectedTaggedPeople.some(p => p.id === userId);
           }),
         );
       } catch (error) {
@@ -198,16 +202,21 @@ export default function EditPostScreen() {
   }, [selectedTaggedPeople, showTaggedPeopleEditor, tagSearch]);
 
   const handleSelectUser = useCallback(user => {
+    const userId = String(user?.id || '').trim();
     const username = String(user?.userName || user?.username || '').trim().replace(/^@+/, '');
-    if (!username) return;
+    if (!userId || !username) return;
 
-    setSelectedTaggedPeople(prev => (prev.includes(username) ? prev : [...prev, username]));
+    setSelectedTaggedPeople(prev => 
+      prev.some(p => p.id === userId) 
+        ? prev 
+        : [...prev, { id: userId, userName: username }]
+    );
     setTagSearch('');
     setUserSuggestions([]);
   }, []);
 
-  const handleRemoveTaggedPerson = useCallback(username => {
-    setSelectedTaggedPeople(prev => prev.filter(person => person !== username));
+  const handleRemoveTaggedPerson = useCallback(userId => {
+    setSelectedTaggedPeople(prev => prev.filter(person => person.id !== userId));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -228,7 +237,6 @@ export default function EditPostScreen() {
       if (response?.statusCode && response.statusCode >= 400) {
         throw new Error(response?.message || t('editPost.updateFailed'));
       }
-
       const updatedFromApi =
         response?.data?.data ||
         response?.data ||
@@ -272,8 +280,7 @@ export default function EditPostScreen() {
     taggedPeopleSummary,
     toast,
   ]);
-
-  const renderMediaItem = useCallback(
+    const renderMediaItem = useCallback(
     ({ item }) => (
       <View style={styles.mediaSlide}>
         {item.type === 'video' ? (
@@ -456,12 +463,12 @@ export default function EditPostScreen() {
                   <View style={styles.tagChipWrap}>
                     {taggedPeopleList.map(person => (
                       <TouchableOpacity
-                        key={person}
+                        key={person.id}
                         style={styles.tagChip}
                         activeOpacity={0.8}
-                        onPress={() => handleRemoveTaggedPerson(person)}
+                        onPress={() => handleRemoveTaggedPerson(person.id)}
                       >
-                        <Text style={styles.tagChipText}>{`@${person}`}</Text>
+                        <Text style={styles.tagChipText}>{`@${person.userName}`}</Text>
                         <Icon name="close" size={14} color="#1f2937" />
                       </TouchableOpacity>
                     ))}

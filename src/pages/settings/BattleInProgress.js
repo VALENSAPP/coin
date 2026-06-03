@@ -253,11 +253,17 @@ const findCommentInTree = (comments, targetId) => {
   return null;
 };
 
-const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = []) => {
+const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = [], explicitUserSides = {}) => {
   const userVoteMap = {};
+  Object.entries(explicitUserSides || {}).forEach(([userId, side]) => {
+    if (isMeaningfulValue(userId) && isMeaningfulValue(side)) {
+      userVoteMap[String(userId)] = String(side);
+    }
+  });
   (Array.isArray(votesOrPredictions) ? votesOrPredictions : []).forEach(entry => {
     const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, ''));
-    if (userId) userVoteMap[userId] = String(pickFirst(entry?.side, ''));
+    const side = pickFirst(entry?.side, entry?.label, entry?.option, entry?.choice, entry?.position, '');
+    if (userId && isMeaningfulValue(side)) userVoteMap[userId] = String(side);
   });
   const enrichComment = (comment, isRoot = true) => ({
     ...comment,
@@ -270,16 +276,34 @@ const enrichCommentsWithVoteSide = (comments = [], votesOrPredictions = []) => {
 };
 
 const normalizeBattle = (raw, currentUserId = '') => {
-  const creatorChoice = pickFirst(raw?.creatorChoice, raw?.creatorLockedOption, '');
-  const creatorId = String(pickFirst(raw?.creatorId, raw?.createdById, raw?.creator?.id, raw?.creator?._id, ''));
   const headToHeadSides = raw?.headToHeadSides && typeof raw.headToHeadSides === 'object'
     ? raw.headToHeadSides
     : null;
-  const headToHeadInvited = headToHeadSides?.invitedUser || {};
+  const headToHeadCreator = headToHeadSides?.creator || headToHeadSides?.createdBy || {};
+  const headToHeadInvited = headToHeadSides?.invitedUser || headToHeadSides?.opponent || {};
+  const creatorChoice = pickFirst(
+    raw?.creatorChoice,
+    raw?.creatorLockedOption,
+    headToHeadCreator?.side,
+    headToHeadCreator?.choice,
+    headToHeadCreator?.position,
+    '',
+  );
+  const creatorId = String(pickFirst(raw?.creatorId, raw?.createdById, raw?.creator?.id, raw?.creator?._id, ''));
+  const invitedUserChoice = pickFirst(
+    raw?.invitedUserChoice,
+    raw?.opponentChoice,
+    headToHeadInvited?.side,
+    headToHeadInvited?.choice,
+    headToHeadInvited?.position,
+    '',
+  );
   const invitedUserId = String(pickFirst(
     raw?.invitedUser?.id,
     raw?.invitedUser?._id,
     headToHeadInvited?.userId,
+    headToHeadInvited?.user?.id,
+    headToHeadInvited?.user?._id,
     raw?.invites?.[0]?.invitedUserId,
     raw?.invites?.[0]?.invited?.id,
     raw?.invites?.[0]?.invited?._id,
@@ -316,8 +340,8 @@ const normalizeBattle = (raw, currentUserId = '') => {
   );
   const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
   const fallbackSides = [
-    pickFirst(raw?.creatorChoice, raw?.creatorLockedOption, ''),
-    pickFirst(raw?.invitedUserChoice, ''),
+    creatorChoice,
+    invitedUserChoice,
   ].filter(Boolean);
   const derivedSides = Object.keys(sideMetrics);
   const baseOptions = rawOptions.length > 0 ? rawOptions : fallbackSides;
@@ -328,7 +352,11 @@ const normalizeBattle = (raw, currentUserId = '') => {
   const votesOrPredictionsForComments = format === 'POLL'
     ? predictionEntries.length > 0 ? predictionEntries : participantEntries
     : voteEntries.length > 0 ? voteEntries : participantEntries;
-  const comments = enrichCommentsWithVoteSide(normalizedComments, votesOrPredictionsForComments);
+  const explicitCommentSides = {
+    ...(creatorId && isMeaningfulValue(creatorChoice) ? { [creatorId]: creatorChoice } : {}),
+    ...(invitedUserId && isMeaningfulValue(invitedUserChoice) ? { [invitedUserId]: invitedUserChoice } : {}),
+  };
+  const comments = enrichCommentsWithVoteSide(normalizedComments, votesOrPredictionsForComments, explicitCommentSides);
   const options = optionsSource.map((option, index) => {
     const normalizedOption = normalizeOption(option, index);
     const sideKey = normalizeSideKey(pickFirst(normalizedOption?.side, normalizedOption?.label, ''));
@@ -375,7 +403,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
     stake: Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0)),
     endTime: pickFirst(raw?.endTime, raw?.endsAt, ''),
     creatorChoice,
-    invitedUserChoice: String(pickFirst(raw?.invitedUserChoice, '')),
+    invitedUserChoice: String(pickFirst(invitedUserChoice, '')),
     creatorId,
     invitedUserId,
     invitationId,
