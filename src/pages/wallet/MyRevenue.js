@@ -153,12 +153,13 @@ export default function RevenueFromSubscriptions({ navigation, route }) {
             const response = await subscriptionEarningGraph({ range });
             console.log('Subscription Earning Graph Response:', response);
             const points = mapGraphResponse(response);
+             setSelectedValue(response?.data?.totalAmount ?? response?.data ?? 0);
             if (points.length > 0) {
                 setGraphData(points);
-                setSelectedValue(points[points.length - 1].value);
+                // setSelectedValue(points[points.length - 1].value);
             } else {
                 setGraphData([]);
-                setSelectedValue(0);
+                // setSelectedValue(0);
             }
         } catch (error) {
             console.error('Error fetching subscription earning graph:', error);

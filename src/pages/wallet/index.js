@@ -2486,7 +2486,7 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     borderRadius: 16,
-    padding: Platform.OS == "android" ? 16 : 2,
+    padding: Platform.OS == "android" ? 16 : 8,
     marginBottom: Platform.OS == "android" ? 0 : 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -2552,6 +2552,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     justifyContent: 'center',
     alignItems: 'center',
+      right: Platform.OS == "android" ? 0 : 14,
   },
   kpiInfoButton: {
     padding: 4,
@@ -2559,6 +2560,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     justifyContent: 'center',
     alignItems: 'center',
+    right: Platform.OS == "android" ? 0 : 8,
   },
   kpiTitle: {
     fontSize: 12,
@@ -2610,8 +2612,8 @@ const styles = StyleSheet.create({
   },
   kpiChevronInline: {
     position: 'absolute',
-    top: Platform.OS == "android" ? 16 : 22,
-    right: Platform.OS == "android" ? 0 : 12,
+    top: Platform.OS == "android" ? 16 : 15,
+    right: Platform.OS == "android" ? 0 : 22,
     opacity: 0.75,
   },
   kpiChevron: {

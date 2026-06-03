@@ -11,6 +11,7 @@ import {
   Platform,
   Modal,
   DeviceEventEmitter,
+  Button,
 } from 'react-native';
 import createStyles from './Style';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,6 +40,7 @@ import { useLanguage } from '../../i18n';
 // import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 import StoryViewerModal from '../../components/modals/StoryViewerModal';
 import { getFollowingUserStories, getStoryByUser } from '../../services/stories';
+import { displayExpandableNotification } from '../../services/NotificationService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = 130;
@@ -814,6 +816,15 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
             />
           </TouchableOpacity>
         </View>
+        {/* <Button title="Test Expandable" onPress={() =>
+          displayExpandableNotification({
+            title: 'New Message',
+            body: 'John sent you a message...',
+            bigText: 'John: Hey! Are you coming to the meeting tomorrow at 3pm? I wanted to discuss the Q4 report and also catch up on the project timeline. Let me know!',
+            bigTitle: 'John Doe',
+            subtitle: 'Direct Message',  // iOS subtitle
+          })
+        } /> */}
       </View>
 
       <BusinessSubscriptionPrompt

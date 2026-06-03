@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking, AppState, DeviceEventEmitter, View, StyleSheet } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import messaging from '@react-native-firebase/messaging';
+import notifee, { EventType } from '@notifee/react-native';
 import Splash from './pages/splashSceen/Splash';
 import { hideLoader, showLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
@@ -25,6 +26,9 @@ import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
 import { updatLoginModal } from './services/kycverification';
 import { useLanguage } from './i18n';
+import { createNotificationChannels, PENDING_NOTIFICATION_MODAL_KEY } from './services/NotificationService';
+import { useNotificationToast } from './utils/useNotificationToast';
+import NotificationToast from './components/notifications/NotificationToast';
 // import { getUserCountry } from './hooks/countryLocation';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
@@ -79,6 +83,8 @@ export default function Main() {
   const initialUrlHandled = useRef(false);
   const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
+
+  const { activeNotification, showNotificationToast, dismissNotificationToast } = useNotificationToast();
 
   useEffect(() => {
     isNavigationReadyRef.current = isNavigationReady;
@@ -199,8 +205,9 @@ export default function Main() {
 
   useEffect(() => {
     dispatch(setUserProfile('normal'));
+    createNotificationChannels();
     fetchRefreshToken();
-    getNotification();
+    const unsubscribeNotifications = getNotification();
     //  setTimeout(() => {
     //    setIsLoading(false);
     //  }, 1000);
@@ -597,7 +604,7 @@ export default function Main() {
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
     // Handle deep link when app was closed
-    if(!_initialUrlConsumed) {
+    if (!_initialUrlConsumed) {
       _initialUrlConsumed = true;
       Linking.getInitialURL().then((url) => {
         if (url) {
@@ -608,6 +615,9 @@ export default function Main() {
     }
 
     return () => {
+      if (typeof unsubscribeNotifications === 'function') {
+        unsubscribeNotifications();
+      }
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
@@ -635,26 +645,75 @@ export default function Main() {
     }
   };
 
-  const getNotification = async () => {
-    messaging().onMessage(async remoteMessage => {
+  const getNotification = () => {
+    const showPendingNotifeeNotification = async () => {
+      const pendingNotification = await AsyncStorage.getItem(PENDING_NOTIFICATION_MODAL_KEY);
+      if (!pendingNotification) return;
+
+      await AsyncStorage.removeItem(PENDING_NOTIFICATION_MODAL_KEY);
+      try {
+        showNotificationToast(JSON.parse(pendingNotification));
+      } catch (error) {
+        console.log('Failed to parse pending notification modal payload:', error?.message || error);
+      }
+    };
+
+    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
       console.log("onMessage data------------------------", remoteMessage);
+      showNotificationToast(remoteMessage);
     });
 
-    messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log("onNotificationOpenedApp data------------------------", remoteMessage);
+    const unsubscribeOnNotificationOpened = messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log("onNotificationOpenedApp------------------------", remoteMessage);
       setMessage(remoteMessage?.notification?.body || '');
-      navigateToHeartNotification();
+      showNotificationToast(remoteMessage);
     });
 
-    messaging()
-      .getInitialNotification()
-      .then(remoteMessage => {
-        if (remoteMessage) {
-          console.log("getInitialNotification data------------------------", remoteMessage);
-          setMessage(remoteMessage?.notification?.body || '');
-          navigateToHeartNotification();
-        }
+    messaging().getInitialNotification().then(remoteMessage => {
+      if (remoteMessage) {
+        setMessage(remoteMessage?.notification?.body || '');
+        showNotificationToast(remoteMessage);
+      }
+    });
+
+    showPendingNotifeeNotification();
+
+    const unsubscribeNotifeeForeground = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS && detail?.notification) {
+        showNotificationToast({
+          notification: {
+            title: detail.notification?.title,
+            body: detail.notification?.body,
+          },
+          data: detail.notification?.data || {},
+        });
+      }
+    });
+
+    return () => {
+      unsubscribeOnMessage();
+      unsubscribeOnNotificationOpened();
+      unsubscribeNotifeeForeground();
+    };
+  };
+
+  const handleNotificationAction = (action, data) => {
+    if (!navigationRef.current || !isNavigationReady) return;
+
+    if (action === 'VIEW_PROFILE' && data?.followerId) {
+      navigationRef.current.navigate('MainApp', {
+        screen: 'HomeMain',
+        params: {
+          screen: 'UsersProfile',
+          params: { userId: data.followerId },
+        },
       });
+    }
+
+    if (action === 'FOLLOW_BACK' && data?.followerId) {
+      // Call your follow API here
+      console.log('Follow back:', data.followerId);
+    }
   };
 
   const handleNavigationReady = () => {
@@ -694,6 +753,13 @@ export default function Main() {
             closeModal={closeModal}
           />
         }
+        {/* {activeNotification && (
+          <NotificationToast
+            notification={activeNotification}
+            onDismiss={dismissNotificationToast}
+            onAction={handleNotificationAction}
+          />
+        )} */}
         <WelcomeValensModal
           visible={welcomeModalVisible}
           onClose={handleWelcomeModalClose}
