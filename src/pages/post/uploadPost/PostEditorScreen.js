@@ -36,23 +36,33 @@ import { useLanguage } from '../../../i18n';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
-const IMAGE_PREVIEW_WIDTH = screenWidth * 0.85;
-const IMAGE_PREVIEW_MAX_HEIGHT =
-  Platform.OS === 'ios' ? Math.min(screenHeight * 0.48, 420) : screenHeight * 0.6;
+const IMAGE_PREVIEW_WIDTH = screenWidth * 0.92;
+const MAX_SELECTED_PREVIEW_HEIGHT = screenHeight * 0.5;
 const IMAGE_PREVIEW_MIN_HEIGHT = IMAGE_PREVIEW_WIDTH * 0.35;
-const IMAGE_CARD_VERTICAL_PADDING = 16;
+const MEDIA_PREVIEW_MARGIN = 16;
 
 const getPreviewHeightForMedia = (media) => {
   const mediaWidth = Number(media?.width);
   const mediaHeight = Number(media?.height);
   if (!mediaWidth || !mediaHeight) {
-    return IMAGE_PREVIEW_MAX_HEIGHT;
+    return MAX_SELECTED_PREVIEW_HEIGHT;
   }
   const aspectHeight = (IMAGE_PREVIEW_WIDTH * mediaHeight) / mediaWidth;
   return Math.min(
-    IMAGE_PREVIEW_MAX_HEIGHT,
+    MAX_SELECTED_PREVIEW_HEIGHT,
     Math.max(IMAGE_PREVIEW_MIN_HEIGHT, aspectHeight),
   );
+};
+
+const getVideoPreviewHeight = (media, isFlipPost) => {
+  const isHorizontalVideo =
+    Number(media?.width) > 0 &&
+    Number(media?.height) > 0 &&
+    Number(media.width) > Number(media.height);
+  if (isFlipPost || isHorizontalVideo) {
+    return screenHeight * 0.5;
+  }
+  return getPreviewHeightForMedia(media);
 };
 
 const PostEditorScreen = () => {
@@ -99,6 +109,7 @@ const PostEditorScreen = () => {
     metadata = {},
     imageEdits,
     postType,
+    visibleTo,
     fromIcon,
     taggedPeople = [],
     taggedPeopleIds = [],
@@ -257,6 +268,7 @@ const PostEditorScreen = () => {
             || fromIcon === 'Flips'
             ? 'reel'
             : 'normal',
+      visibleTo: visibleTo
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
@@ -349,82 +361,104 @@ const PostEditorScreen = () => {
     }
   }, [navigation, resolveUserIdFromUsername, toast, t]);
 
-  const getPreviewCardHeight = useCallback((images) => {
-    if (!images?.length) return IMAGE_PREVIEW_MAX_HEIGHT + IMAGE_CARD_VERTICAL_PADDING * 2;
-    const maxThumbHeight = Math.max(
-      ...images.map((img) =>
-        isMediaVideo(img) ? IMAGE_PREVIEW_MAX_HEIGHT : getPreviewHeightForMedia(img),
-      ),
-    );
-    return maxThumbHeight + IMAGE_CARD_VERTICAL_PADDING * 2;
-  }, []);
+  const isFlipPost = fromIcon === 'Flips' || postType === 'flip';
 
-  const previewCardHeight = getPreviewCardHeight(editorImages);
+  const getThumbHeight = (img) =>
+    isMediaVideo(img)
+      ? getVideoPreviewHeight(img, isFlipPost)
+      : getPreviewHeightForMedia(img);
+
+  const renderMediaPreviewItem = (img, idx) => {
+    const thumbHeight = getThumbHeight(img);
+
+    if (isMediaVideo(img)) {
+      return (
+        <View
+          key={getMediaKey(img, idx)}
+          style={[styles.mediaPreviewCard, { height: thumbHeight }]}
+        >
+          <Video
+            source={{ uri: getMediaUri(img) }}
+            style={{ width: IMAGE_PREVIEW_WIDTH, height: thumbHeight }}
+            resizeMode="cover"
+            paused={true}
+            muted={true}
+            controls={false}
+            poster={getVideoPosterUri(img) || undefined}
+          />
+          <View style={styles.videoPlayOverlay}>
+            <Icon name="play" size={20} color="#fff" />
+          </View>
+          <View style={styles.videoDurationBadge}>
+            <Icon name="videocam" size={10} color="#fff" />
+            <Text style={styles.videoDurationText}>
+              {img.duration ? `${Math.floor(img.duration / 1000)}s` : '0:00'}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View
+        key={getMediaKey(img, idx)}
+        style={[styles.mediaPreviewCard, { height: thumbHeight }]}
+      >
+        <Image
+          source={{ uri: getMediaUri(img) }}
+          style={styles.mediaPreviewFill}
+          resizeMode="contain"
+        />
+        {img.drawings && img.uriBeforeAnyDrawing && (
+          <TouchableOpacity
+            style={styles.removeDrawingBtn}
+            onPress={() => removeDrawingFromImage(idx)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.removeDrawingText, { color: text }]}>
+              {' '}
+              {t('postEditor.removeDrawing')}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {img.appliedFilter && img.appliedFilter !== 'none' && (
+          <View style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>{img.filterName}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderMediaPreviewSection = () => {
+    if (!editorImages.length) return null;
+
+    if (editorImages.length === 1) {
+      return (
+        <View style={styles.mediaPreviewSection}>
+          {renderMediaPreviewItem(editorImages[0], 0)}
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.mediaPreviewSection}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.mediaPreviewScrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+        >
+          {editorImages.map((img, idx) => renderMediaPreviewItem(img, idx))}
+        </ScrollView>
+      </View>
+    );
+  };
 
   const renderEditorBody = () => (
     <>
-      {editorImages.length > 0 && (
-        <View style={[styles.imagesCard, bgStyle, { height: previewCardHeight }]}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.imagesContainer}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="none"
-          >
-            {editorImages.map((img, idx) => {
-              const thumbHeight = isMediaVideo(img)
-                ? IMAGE_PREVIEW_MAX_HEIGHT
-                : getPreviewHeightForMedia(img);
-              const thumbStyle = [
-                styles.imageThumb,
-                { height: thumbHeight },
-              ];
-
-              return (
-              <View key={getMediaKey(img, idx)} style={styles.imageThumbWrapper}>
-                {isMediaVideo(img) ? (
-                  <View style={[styles.videoThumbContainer, { height: thumbHeight }]}>
-                    <Video
-                      source={{ uri: getMediaUri(img) }}
-                      style={thumbStyle}
-                      resizeMode="contain"
-                      paused={true}
-                      muted={true}
-                      controls={false}
-                      poster={getVideoPosterUri(img) || undefined}
-                    />
-                    <View style={styles.videoBadge}>
-                      <Icon name="play" size={14} color="#fff" />
-                    </View>
-                  </View>
-                ) : (
-                  <Image
-                    source={{ uri: getMediaUri(img) }}
-                    style={thumbStyle}
-                    resizeMode="contain"
-                  />
-                )}
-                {!isMediaVideo(img) && img.drawings && img.uriBeforeAnyDrawing && (
-                  <TouchableOpacity
-                    style={styles.removeDrawingBtn}
-                    onPress={() => removeDrawingFromImage(idx)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.removeDrawingText, { color: text }]}> {t('postEditor.removeDrawing')}</Text>
-                  </TouchableOpacity>
-                )}
-                {img.appliedFilter && img.appliedFilter !== 'none' && (
-                  <View style={styles.filterBadge}>
-                    <Text style={styles.filterBadgeText}>{img.filterName}</Text>
-                  </View>
-                )}
-              </View>
-            );
-            })}
-          </ScrollView>
-        </View>
-      )}
+      {renderMediaPreviewSection()}
 
       {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
         <View style={styles.captionSection}>
@@ -573,54 +607,72 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 32,
   },
-  imagesCard: {
-    margin: 16,
+  mediaPreviewSection: {
+    marginHorizontal: MEDIA_PREVIEW_MARGIN,
+    marginTop: 10,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  mediaPreviewScrollContent: {
+    alignItems: 'center',
+    paddingRight: MEDIA_PREVIEW_MARGIN,
+  },
+  mediaPreviewCard: {
+    width: IMAGE_PREVIEW_WIDTH,
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  imagesContainer: {
-    paddingVertical: IMAGE_CARD_VERTICAL_PADDING,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  imageThumbWrapper: {
+    // backgroundColor: '#000',
     marginRight: 12,
-    position: 'relative',
-    alignItems: 'center',
+    // elevation: 2,
+    // shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  mediaPreviewFill: {
+    ...StyleSheet.absoluteFillObject,
   },
   removeDrawingBtn: {
-    marginTop: 8,
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
     paddingVertical: 4,
     paddingHorizontal: 4,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 6,
   },
   removeDrawingText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  imageThumb: {
-    width: IMAGE_PREVIEW_WIDTH,
-    borderRadius: 10,
-    marginHorizontal: 6,
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 4 },
-    // shadowOpacity: 0.25,
-    // shadowRadius: 6,
-    // elevation: 6,
-    // backgroundColor: '#fff', //
-  },
-  videoThumbContainer: {
-    position: 'relative',
-  },
-  videoBadge: {
+  videoPlayOverlay: {
     position: 'absolute',
-    right: 6,
-    bottom: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    alignItems: 'center',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -16 }, { translateY: -16 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoDurationBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoDurationText: {
+    color: '#fff',
+    fontSize: 11,
+    marginLeft: 3,
+    fontWeight: '600',
   },
   filterBadge: {
     position: 'absolute',

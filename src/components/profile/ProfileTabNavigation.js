@@ -16,13 +16,14 @@ import { useLanguage } from '../../i18n';
 import SubscribeModal from '../modals/SubscriptionModal';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import {
-  PrivateSetup,
+  privateSetup,
   parsePrivateCircleSetup,
   isPrivateCircleApiSuccess,
 } from '../../services/privatecircle';
 import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
+import useScreenshotProtection from '../../hooks/useScreenshotProtection';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -93,7 +94,7 @@ const ProfileTabs = memo(({
 
   const handlePrivateCircleStartPress = useCallback(async () => {
     try {
-      const response = await PrivateSetup();
+      const response = await privateSetup();
       if (!isPrivateCircleApiSuccess(response)) {
         showToastMessage(
           toast,
@@ -163,6 +164,7 @@ const ProfileTabs = memo(({
             isOwnProfile={isOwnProfile}
             userData={userData}
             onStartPress={handlePrivateCircleStartPress}
+            loggedInUserId={loggedInUserId}
           />
         ),
       },
@@ -241,6 +243,16 @@ const ProfileTabs = memo(({
     t,
     handlePrivateCircleStartPress,
   ]);
+
+  const privateContentTabIndex = tabs.findIndex(tab => tab.key === 'privateContent');
+  const isPrivateContentTabActive =
+    privateContentTabIndex >= 0 && activeTab === privateContentTabIndex;
+
+  useScreenshotProtection({
+    enabled: isPrivateContentTabActive,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
 
   return (
     <>

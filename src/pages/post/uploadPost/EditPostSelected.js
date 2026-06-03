@@ -191,6 +191,7 @@ const InstagramPostCreator = () => {
   const postType = route.params?.postType || 'regular';
   const fromIcon = route.params?.fromIcon;
   const isFlipPost = fromIcon === 'Flips';
+  const visibleTo = route.params?.visibleTo || '';
   const [selectedImages, setSelectedImages] = useState(routeImages);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('null');
@@ -1145,6 +1146,7 @@ const InstagramPostCreator = () => {
           username,
           userId: selectedTaggedPeopleIds?.[username] || null,
         })),
+        visibleTo: visibleTo,
       });
 
     } catch (error) {
@@ -1207,8 +1209,9 @@ const InstagramPostCreator = () => {
                   username,
                   userId: selectedTaggedPeopleIds?.[username] || null,
                 })),
+                visibleTo: visibleTo,
               });
-              navigation.navigate('PostEditor', { images: fallbackImages, imageEdits, postType, fromIcon, taggedPeople: selectedTaggedPeople });
+              navigation.navigate('PostEditor', { images: fallbackImages, imageEdits, postType, fromIcon, taggedPeople: selectedTaggedPeople, visibleTo: visibleTo });
             }
           }
         ]

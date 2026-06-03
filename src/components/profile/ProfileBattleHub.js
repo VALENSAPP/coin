@@ -15,6 +15,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { battleByUserId, battlePoint } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { sortBattlesLiveFirst } from '../../utils/battleCardUtils';
 
 const pickFirst = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== '');
@@ -248,10 +249,12 @@ export default function ProfileBattleHub({
 
   const filteredBattles = useMemo(() => {
     const query = searchText.trim().toLowerCase();
-    if (!query) return battles;
-    return battles.filter((battle) =>
-      String(battle?.title || '').toLowerCase().includes(query),
-    );
+    const matched = query
+      ? battles.filter((battle) =>
+          String(battle?.title || '').toLowerCase().includes(query),
+        )
+      : battles;
+    return sortBattlesLiveFirst(matched);
   }, [battles, searchText]);
 
   return (

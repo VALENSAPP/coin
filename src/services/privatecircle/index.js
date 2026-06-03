@@ -1,7 +1,7 @@
 import axiosInstance from '..';
 
 /** POST /private-circle/setup — create or return the authenticated user's private circle */
-export const PrivateSetup = async () => {
+export const privateSetup = async () => {
   return axiosInstance.post('/private-circle/setup');
 };
 
@@ -126,4 +126,8 @@ export const parsePrivateCircleDashboard = (response) => {
     slots: data?.slots ?? root?.slots ?? [],
     dashboardData: root,
   };
+};
+
+export const getPvtCircleMembers = async (userid) => {
+  return axiosInstance.get(`/private-circle/users/${userid}/members`);
 };

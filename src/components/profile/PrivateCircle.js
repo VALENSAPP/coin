@@ -1,10 +1,36 @@
-import React, { memo, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { memo, useEffect, useMemo, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+  ActivityIndicator,
+  AppState,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import Video from 'react-native-video';
+import FastImage from 'react-native-fast-image';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { getPostByUser } from '../../services/post';
+import {
+  parsePrivateCircleSetup,
+  isPrivateCircleApiSuccess,
+  getPvtCircleMembers,
+} from '../../services/privatecircle';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+const { width: screenWidth } = Dimensions.get('window');
+const numColumns = 3;
+const SPACING = 2;
+const IMAGE_SIZE = (screenWidth - SPACING * (numColumns + 1)) / numColumns;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 const mixWithWhite = (hex, amount = 0.85) => {
   const normalized = String(hex || '').replace('#', '');
   if (normalized.length !== 6) return '#f3f4f6';
@@ -25,13 +51,282 @@ const withAlpha = (hex, alpha = 0.12) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) => {
+const normalizeImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:')
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
+  return `http://35.174.167.92:3002/${trimmed}`;
+};
+
+const isVideoUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
+};
+
+// ─── PostImage ────────────────────────────────────────────────────────────────
+const PostImage = memo(({ item, themeTextStyle }) => {
+  const mediaUrl = normalizeImageUrl(item?.images?.[0]);
+  const isVideo = isVideoUrl(item?.images?.[0]);
+  const [imageError, setImageError] = useState(false);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const { text } = useAppTheme();
+
+  if (!mediaUrl) {
+    return (
+      <View style={[gridStyles.image, gridStyles.placeholderImage]}>
+        <Text style={[gridStyles.placeholderText, themeTextStyle]}>📷</Text>
+      </View>
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <View style={[gridStyles.image, gridStyles.placeholderImage]}>
+        <Video
+          source={{ uri: mediaUrl }}
+          style={StyleSheet.absoluteFill}
+          paused={true}
+          muted={true}
+          resizeMode="cover"
+          onLoad={() => setIsVideoLoading(false)}
+          onError={() => {
+            setVideoError(true);
+            setIsVideoLoading(false);
+          }}
+          playInBackground={false}
+        />
+        {(isVideoLoading || videoError) && (
+          <View style={[StyleSheet.absoluteFill, gridStyles.videoPlaceholderOverlay]}>
+            <ActivityIndicator size="large" color="#5A2D82" />
+          </View>
+        )}
+        {!isVideoLoading && !videoError && (
+          <View style={gridStyles.videoBadge}>
+            <Text style={gridStyles.videoBadgeText}>▶</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  if (imageError) {
+    return (
+      <View style={[gridStyles.image, gridStyles.placeholderImage]}>
+        <Text style={[gridStyles.placeholderText, themeTextStyle]}>📷</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={gridStyles.image}>
+      {isImageLoading && (
+        <View style={[StyleSheet.absoluteFill, gridStyles.imageLoadingOverlay]}>
+          <ActivityIndicator size="large" color={text} />
+        </View>
+      )}
+      <FastImage
+        source={{ uri: mediaUrl }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        onError={() => {
+          setImageError(true);
+          setIsImageLoading(false);
+        }}
+        onLoad={() => setIsImageLoading(false)}
+      />
+    </View>
+  );
+});
+
+const ItemSeparator = memo(() => <View style={gridStyles.itemSeparator} />);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userData, loggedInUserId }) => {
   const { bgStyle, textStyle, text, cardStyle } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
+
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  // null = not yet checked, true = is member, false = not a member
+  const [isMember, setIsMember] = useState(null);
+
+  // ── Pure post fetcher ─────────────────────────────────────────────────────
+  const fetchPostsOnly = useCallback(async (id) => {
+    try {
+      const response = await getPostByUser(id, 'private');
+      const payload =
+        response?.data?.posts ??
+        response?.data?.data?.posts ??
+        response?.data?.data ??
+        response?.data ??
+        response;
+
+      const formattedData = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.posts)
+          ? payload.posts
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+      // Only posts where visibleTo has a non-empty value = Private Circle posts
+      const filteredData = formattedData.filter(
+        (post) => post?.visibleTo && post.visibleTo !== '',
+      );
+
+      setPosts(filteredData);
+    } catch (error) {
+      console.log('PrivateCircle fetchPosts error:', error);
+      setPosts([]);
+    }
+  }, []);
+
+  // ── Membership check → then fetch if allowed ─────────────────────────────
+  const checkMembershipAndFetch = useCallback(async () => {
+    if (skipPrivateCircleApi) {
+      setIsMember(false);
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
+    if (!userData?.id) return;
+
+    try {
+      setLoading(true);
+
+      // Own profile → always a member, show all posts
+      if (isOwnProfile) {
+        setIsMember(true);
+        await fetchPostsOnly(userData.id);
+        return;
+      }
+
+      // Guest profile → call privateSetup to get the owner's members list
+      const response = await getPvtCircleMembers(userData?.id);
+      console.log('PrivateCircle membership API response:', response);
+      if (!isPrivateCircleApiSuccess(response)) {
+        // API failed or not set up → not a member
+        setIsMember(false);
+        setPosts([]);
+        return;
+      }
+
+      const { members } = parsePrivateCircleSetup(response);
+
+      // Check if the logged-in user is in the members list
+      const found = Array.isArray(members)
+        ? members.some((m) => String(m?.id) === String(loggedInUserId || ''))
+        : false;
+
+      console.log('PrivateCircle member check:', { found, loggedInUserId, members });
+
+      setIsMember(found);
+
+      if (found) {
+        await fetchPostsOnly(userData.id);
+      } else {
+        setPosts([]);
+      }
+    } catch (error) {
+      console.log('PrivateCircle membership check error:', error);
+      setIsMember(false);
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [skipPrivateCircleApi, userData?.id, isOwnProfile, loggedInUserId, fetchPostsOnly]);
 
   useEffect(() => {
-    console.log(userData);
-  }, [userData]);
+    checkMembershipAndFetch();
+  }, [checkMembershipAndFetch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkMembershipAndFetch();
+      return () => {};
+    }, [checkMembershipAndFetch]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isFocused) checkMembershipAndFetch();
+    });
+    return () => sub.remove();
+  }, [isFocused, checkMembershipAndFetch]);
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const openContent = useCallback(
+    (index) => {
+      const item = posts[index];
+      if (!item) return;
+      const isReel = isVideoUrl(item?.images?.[0]);
+      if (isReel) {
+        const parent = navigation.getParent?.();
+        if (parent?.navigate) {
+          parent.navigate('FlipsScreen', { item });
+          return;
+        }
+        navigation.navigate('FlipsScreen', { item });
+        return;
+      }
+      const imagePosts = posts.filter((p) => !isVideoUrl(p?.images?.[0]));
+      const nextIndex = Math.max(
+        0,
+        imagePosts.findIndex((p) => String(p?.id) === String(item?.id)),
+      );
+      navigation.getParent().navigate('ProfileMain', {
+        screen: 'PostView',
+        params: { postData: imagePosts, startIndex: nextIndex, hideTabBar: true },
+      });
+    },
+    [navigation, posts],
+  );
+
+  // ── Grid render ───────────────────────────────────────────────────────────
+  const renderItem = useCallback(
+    ({ item, index }) => (
+      <TouchableOpacity
+        style={[
+          gridStyles.imageContainer,
+          index % numColumns === 0 ? gridStyles.firstColumn : gridStyles.otherColumn,
+          { shadowColor: text },
+        ]}
+        activeOpacity={0.95}
+        onPress={() => openContent(index)}
+      >
+        <PostImage item={item} themeTextStyle={textStyle} />
+        <View style={gridStyles.overlay} />
+      </TouchableOpacity>
+    ),
+    [openContent, text, textStyle],
+  );
+
+  const keyExtractor = useCallback(
+    (item, index) => item?.id?.toString() || index.toString(),
+    [],
+  );
+
+  const getItemLayout = useCallback(
+    (_data, index) => ({
+      length: IMAGE_SIZE + SPACING,
+      offset: (IMAGE_SIZE + SPACING) * Math.floor(index / numColumns),
+      index,
+    }),
+    [],
+  );
 
   const bullets = useMemo(
     () => [
@@ -43,85 +338,141 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, userData }) =>
     [t],
   );
 
-  const handleStartPress = () => {
-    if (typeof onStartPress === 'function') onStartPress();
-  };
-
-  return (
-    <ScrollView
-      style={[styles.container, bgStyle]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {isOwnProfile ? (
-        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-          <LinearGradient
-            colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.leftRail}
-          >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' }]}>
-              <Ionicons name="lock-closed" size={34} color={text} />
-            </View>
-          </LinearGradient>
-
-          <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoon')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownChoose')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownDescription')}</Text>
-
-            <Text style={[styles.sectionTitle, textStyle]}>{t('privateCircle.perfectFor')}</Text>
-            {bullets.map((item) => (
-              <Text key={item} style={[styles.bullet, textStyle]}>
-                • {item}
-              </Text>
-            ))}
-
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownYourSpace')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoonProfile')}</Text>
-
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={handleStartPress}
-              style={[styles.ctaButton, { backgroundColor: text }]}
+  // ── Info card (shown when not a member OR no posts) ───────────────────────
+  const InfoCard = useCallback(
+    () => (
+      <ScrollView
+        style={[styles.container, bgStyle]}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {isOwnProfile ? (
+          <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+            <LinearGradient
+              colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.leftRail}
             >
-              <Text style={styles.ctaText}>{t('privateCircle.startNowButton')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-          <LinearGradient
-            colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.leftRail}
-          >
-            <View style={[styles.railIconBubble, { backgroundColor: mixWithWhite(text, 0.9), marginTop: '100%' }]}>
-              <Ionicons name="lock-closed" size={34} color={text} />
-            </View>
-          </LinearGradient>
+              <View
+                style={[
+                  styles.railIconBubble,
+                  { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' },
+                ]}
+              >
+                <Ionicons name="lock-closed" size={34} color={text} />
+              </View>
+            </LinearGradient>
 
-          <View style={styles.cardBody}>
-            <Text style={[styles.title, textStyle]}>{t('privateCircle.guestTitle')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestNotPublic')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestNeedInvite')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestAudience')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestInviteOnly')}</Text>
-            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestStayConnected')}</Text>
+            <View style={styles.cardBody}>
+              <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoon')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownChoose')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownDescription')}</Text>
+
+              <Text style={[styles.sectionTitle, textStyle]}>{t('privateCircle.perfectFor')}</Text>
+              {bullets.map((bullet) => (
+                <Text key={bullet} style={[styles.bullet, textStyle]}>
+                  • {bullet}
+                </Text>
+              ))}
+
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownYourSpace')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoonProfile')}</Text>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => typeof onStartPress === 'function' && onStartPress()}
+                style={[styles.ctaButton, { backgroundColor: text }]}
+              >
+                <Text style={styles.ctaText}>{t('privateCircle.startNowButton')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
-    </ScrollView>
+        ) : (
+          <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+            <LinearGradient
+              colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.leftRail}
+            >
+              <View
+                style={[
+                  styles.railIconBubble,
+                  { backgroundColor: mixWithWhite(text, 0.9), marginTop: '100%' },
+                ]}
+              >
+                <Ionicons name="lock-closed" size={34} color={text} />
+              </View>
+            </LinearGradient>
+
+            <View style={styles.cardBody}>
+              <Text style={[styles.title, textStyle]}>{t('privateCircle.guestTitle')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestNotPublic')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestNeedInvite')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestAudience')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestInviteOnly')}</Text>
+              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.guestStayConnected')}</Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    ),
+    [bgStyle, cardStyle, text, textStyle, isOwnProfile, onStartPress, bullets, t],
+  );
+
+  if (skipPrivateCircleApi) {
+    return <InfoCard />;
+  }
+
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (loading || isMember === null) {
+    return (
+      <View style={[gridStyles.loaderContainer, bgStyle]}>
+        <ActivityIndicator size="large" color="#5A2D82" />
+      </View>
+    );
+  }
+
+  // ── Not a member → info card ──────────────────────────────────────────────
+  if (!isMember) {
+    return <InfoCard />;
+  }
+
+  // ── Member but no posts → info card ──────────────────────────────────────
+  if (posts.length === 0) {
+    return <InfoCard />;
+  }
+
+  // ── Member + posts → grid ─────────────────────────────────────────────────
+  return (
+    <View style={[gridStyles.screen, bgStyle]}>
+      <FlatList
+        data={posts}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        numColumns={numColumns}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={gridStyles.listContent}
+        ItemSeparatorComponent={ItemSeparator}
+        removeClippedSubviews
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={5}
+        getItemLayout={getItemLayout}
+        updateCellsBatchingPeriod={50}
+      />
+    </View>
   );
 });
 
+PrivateCircle.displayName = 'PrivateCircle';
+export default PrivateCircle;
+
+// ─── Styles: Info card ────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     paddingHorizontal: 10,
     paddingTop: 5,
@@ -143,8 +494,6 @@ const styles = StyleSheet.create({
   },
   leftRail: {
     width: 92,
-    // paddingTop: 16,
-    // paddingBottom: 14,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -155,64 +504,81 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  railMiniBubble: {
-    height: 34,
-    width: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   cardBody: {
     flex: 1,
     paddingHorizontal: 15,
     paddingVertical: 14,
-    // justifyContent: 'space-between',
-    flexShrink: 1, // ✅ important
+    flexShrink: 1,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
+  title: { fontSize: 16, fontWeight: '700', marginBottom: 10 },
   paragraph: {
     fontSize: 12,
     lineHeight: 14,
     marginBottom: 10,
-    flexShrink: 1,     // ✅ important
-    flexWrap: 'wrap',  // ✅ ensures wrapping
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  bullet: {
-    fontSize: 12,
-    textAlign: 'left',
-    lineHeight: 14,
-    marginBottom: 4,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginTop: 6, marginBottom: 8 },
+  bullet: { fontSize: 12, textAlign: 'left', lineHeight: 14, marginBottom: 4 },
   ctaButton: {
     borderRadius: 18,
     alignItems: 'center',
-    minHeight: 40, // ✅ ensures full visibility
+    minHeight: 40,
     justifyContent: 'center',
-    marginTop: 8
+    marginTop: 8,
   },
-  ctaGradient: {
-    // paddingVertical: 12,
-    // paddingHorizontal: 14,
-    borderRadius: 18,
-    alignItems: 'center',
-    minHeight: 40, // ✅ ensures full visibility
-    justifyContent: 'center',
-  },
-  ctaText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
+  ctaText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 });
 
-export default PrivateCircle;
+// ─── Styles: Grid ─────────────────────────────────────────────────────────────
+const gridStyles = StyleSheet.create({
+  screen: { flex: 1, width: screenWidth },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  listContent: { paddingBottom: 20 },
+  imageContainer: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+    overflow: 'hidden',
+    borderRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  firstColumn: { marginLeft: SPACING, marginRight: SPACING / 2 },
+  otherColumn: { marginLeft: SPACING / 2, marginRight: SPACING / 2 },
+  image: { width: '100%', height: '100%' },
+  placeholderImage: {
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: { fontSize: 28 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
+  videoBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  videoBadgeText: { color: '#fff', fontSize: 10 },
+  videoPlaceholderOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageLoadingOverlay: {
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemSeparator: { height: SPACING },
+});

@@ -7,6 +7,7 @@ export const continuePrivateMint = (navigation, memberIds = []) => {
         params: {
           privateCircleReady: true,
           privateCircleMemberIds: memberIds,
+          postType: 'private'
         },
       },
     ],

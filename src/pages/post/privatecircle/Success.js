@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   primaryBtn: {
-    paddingVertical: 12,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,

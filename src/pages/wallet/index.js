@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   SafeAreaView,
   Dimensions,
   RefreshControl,
@@ -53,6 +52,7 @@ import Svg, { Polygon, Path, Text as SvgText, Defs, LinearGradient as SvgLinearG
 import { useLanguage } from '../../i18n';
 
 const { width, height } = Dimensions.get('window');
+const KPI_GRID_GAP = 12;
 const AVATAR_PREVIEW_SIZE = Math.min(width * 0.9, 340);
 const FALLBACK_AVATAR =
   'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -306,6 +306,37 @@ const formatSupportUsd = (n) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+};
+
+/** Split display name into lines; last line is paired with the verified dragonfly icon. */
+const splitHeaderNameLines = (label, maxCharsPerLine) => {
+  const trimmed = String(label || '').trim();
+  if (!trimmed) return [''];
+  if (trimmed.length <= maxCharsPerLine) return [trimmed];
+
+  const words = trimmed.split(/\s+/);
+  const lines = [];
+  let current = '';
+
+  words.forEach((word) => {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  });
+  if (current) lines.push(current);
+
+  if (lines.length <= 2) return lines;
+
+  const mergedLast = lines.slice(1).join(' ');
+  const lastLine =
+    mergedLast.length > maxCharsPerLine
+      ? `${mergedLast.slice(0, maxCharsPerLine - 1)}…`
+      : mergedLast;
+  return [lines[0], lastLine];
 };
 
 const ACTIVITY_UNFOLLOW_PINK = '#db2777';
@@ -716,9 +747,12 @@ export const WalletDashboardScreen = ({ navigation }) => {
   );
   const headerNameLabel = useMemo(() => {
     const name = String(userProfile.name || t('walletDashboard.headerDefaultUser')).trim();
-    if (name.length <= 18) return `@${name}`;
-    return `@${name.slice(0, 18)}\n${name.slice(18)}`;
+    return `@${name}`;
   }, [t, userProfile.name]);
+  const headerNameLines = useMemo(() => {
+    const maxChars = Math.max(12, Math.floor((width - 168) / 9));
+    return splitHeaderNameLines(headerNameLabel, maxChars);
+  }, [headerNameLabel]);
 
   useEffect(() => {
     let timeout;
@@ -1115,12 +1149,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
     onRefresh();
   };
 
-  const renderKPICard = ({ item }) => {
+  const renderKPICard = (item) => {
+    const isMetaMaskCard = item.id === 'metamask';
+    const cellStyle = [
+      styles.kpiCardCell,
+      isMetaMaskCard && styles.kpiCardCellFull,
+    ];
+
     if (item?.isPlaceholder) {
-      return <View style={[styles.kpiCard, styles.kpiCardPlaceholder]} />;
+      return <View key={item.id} style={cellStyle} />;
     }
 
-    const isMetaMaskCard = item.id === 'metamask';
     const isCreditsCard = item.id === 'credits';
     const isMissionPostCard = item.id === 'Mission Post';
     const isSupportCard = item.id === 'support';
@@ -1149,55 +1188,57 @@ export const WalletDashboardScreen = ({ navigation }) => {
         WALLET_ICON_BY_TYPE[walletTypeForUi] || WALLET_ICON_BY_TYPE.wallet;
 
       return (
-        <TouchableOpacity
-          style={[styles.kpiCardTouchable, styles.kpiCardFullWidth]}
-          activeOpacity={0.86}
-          onPress={handleMetaMaskCardPress}
-        >
-          <LinearGradient
-            colors={walletScreenGradient}
-            start={{ x: -5, y: -5 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={handleMetaMaskCardPress}
           >
-            <View style={styles.kpiMetaMaskRow}>
-              <View style={styles.kpiMetaMaskLeft}>
-                <View style={[styles.kpiMetaMaskIconWrap, { backgroundColor: '#D3D3D3' }]}>
-                  <Image source={walletIconSource} style={styles.kpiWalletIcon} resizeMode="contain" />
-                </View>
-                <View style={styles.kpiMetaMaskText}>
-                  <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
-                    {isMetaMaskConnected ? item.title : t('walletDashboard.Wallet')}
-                  </Text>
-                  <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
-                    {item.value}
-                  </Text>
-                  <View style={styles.kpiMetaMaskStatusRow}>
-                    <View
-                      style={[
-                        styles.kpiStatusDot,
-                        { backgroundColor: isMetaMaskConnected ? '#16a34a' : '#b45309' },
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.kpiMetaMaskStatusText,
-                        { color: isMetaMaskConnected ? '#16a34a' : '#b45309' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {metaStatusText}
+            <LinearGradient
+              colors={walletScreenGradient}
+              start={{ x: -5, y: -5 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.kpiCard, styles.kpiCardMetaMask, { shadowColor: text }]}
+            >
+              <View style={styles.kpiMetaMaskRow}>
+                <View style={styles.kpiMetaMaskLeft}>
+                  <View style={[styles.kpiMetaMaskIconWrap, { backgroundColor: '#D3D3D3' }]}>
+                    <Image source={walletIconSource} style={styles.kpiWalletIcon} resizeMode="contain" />
+                  </View>
+                  <View style={styles.kpiMetaMaskText}>
+                    <Text style={[styles.kpiTitle, { color: text }]} numberOfLines={1}>
+                      {isMetaMaskConnected ? item.title : t('walletDashboard.Wallet')}
                     </Text>
-                    <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
-                      {metaActionText}
+                    <Text style={[styles.kpiValue, styles.kpiValueMetaMask, { color: text }]} numberOfLines={1}>
+                      {item.value}
                     </Text>
+                    <View style={styles.kpiMetaMaskStatusRow}>
+                      <View
+                        style={[
+                          styles.kpiStatusDot,
+                          { backgroundColor: isMetaMaskConnected ? '#16a34a' : '#b45309' },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.kpiMetaMaskStatusText,
+                          { color: isMetaMaskConnected ? '#16a34a' : '#b45309' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {metaStatusText}
+                      </Text>
+                      <Text style={[styles.kpiMetaMaskHint, { color: text }]} numberOfLines={1}>
+                        {metaActionText}
+                      </Text>
+                    </View>
                   </View>
                 </View>
+                <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
               </View>
-              <Ionicons name="chevron-forward" size={18} color={text} style={styles.kpiChevron} />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       );
     }
 
@@ -1208,8 +1249,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
         end={{ x: 1, y: 1 }}
         style={[
           styles.kpiCard,
-          (isMetaMaskCard || isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardNoOuterSpacing,
-          (isMetaMaskCard || isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardFillTouchable,
+          (isCreditsCard || isMissionPostCard || isSupportCard) && styles.kpiCardFillTouchable,
         ]}
       >
         <View style={[styles.kpiHeader, styles.kpiHeaderWithAction]}>
@@ -1242,7 +1282,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
               <Ionicons name="information-circle-outline" size={18} color={text} />            </TouchableOpacity>
           )}
         </View>
-        <Text style={[styles.kpiValue, { color: text }]} numberOfLines={2}>
+        <Text style={[styles.kpiValue, isMissionPostCard && styles.kpiValueMultiline, { color: text }]} numberOfLines={3}>
           {item.value}
         </Text>
         {isMetaMaskCard ? (
@@ -1275,47 +1315,58 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
     if (isCreditsCard) {
       return (
-        <TouchableOpacity
-          style={styles.kpiCardTouchable}
-          activeOpacity={0.86}
-          onPress={() => navigation.navigate('WalletMain')}
-        >
-          {cardContent}
-        </TouchableOpacity>
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={() => navigation.navigate('WalletMain')}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
       );
     }
 
     if (isMissionPostCard) {
       return (
-        <TouchableOpacity
-          style={styles.kpiCardTouchable}
-          activeOpacity={0.86}
-          onPress={() => navigation.navigate('ViewMissionPost', { isBusinessProfile: isBusinessProfile })}
-        >
-          {cardContent}
-        </TouchableOpacity>
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={() => navigation.navigate('ViewMissionPost', { isBusinessProfile: isBusinessProfile })}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
       );
     }
 
     if (isSupportCard) {
       return (
-        <TouchableOpacity
-          style={styles.kpiCardTouchable}
-          activeOpacity={0.86}
-          onPress={() => navigation.navigate('RevenueFromSubscriptions')}
-        >
-          {cardContent}
-        </TouchableOpacity>
+        <View key={item.id} style={cellStyle}>
+          <TouchableOpacity
+            style={styles.kpiCardTouchable}
+            activeOpacity={0.86}
+            onPress={() => navigation.navigate('RevenueFromSubscriptions')}
+          >
+            {cardContent}
+          </TouchableOpacity>
+        </View>
       );
     }
 
-    return cardContent;
+    return (
+      <View key={item.id} style={cellStyle}>
+        {cardContent}
+      </View>
+    );
   };
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1341,41 +1392,40 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 <TouchableOpacity activeOpacity={0.85} onPress={openAvatarPreview}>
                   <HexAvatar
                     uri={profileImage || userProfile.image || FALLBACK_AVATAR}
-                    size={100}
+                    size={72}
                     borderWidth={3}
                     borderColor={text}
                   />
                 </TouchableOpacity>
               </View>
               <View style={styles.headerText}>
-                <View style={styles.headerNameRow}>
-                  <Text
-                    style={[
-                      styles.headerName,
-                      { color: text },
-                    ]}
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
-                  >
-                    {headerNameLabel}
-                  </Text>
-                  {kyc === true && (
-                    <View style={styles.headerVerifiedIconWrap}>
-                      <DragonflyIcon width={25} height={25} style={styles.headerVerifiedIcon} />
-                    </View>
-                  )}
+                <View style={styles.headerNameBlock}>
+                  {headerNameLines.slice(0, -1).map((line, index) => (
+                    <Text
+                      key={`${line}-${index}`}
+                      style={[styles.headerName, { color: text }]}
+                      numberOfLines={1}
+                    >
+                      {line}
+                    </Text>
+                  ))}
+                  <View style={styles.headerNameLastRow}>
+                    <Text
+                      style={[styles.headerName, styles.headerNameLastLine, { color: text }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {headerNameLines[headerNameLines.length - 1]}
+                    </Text>
+                    {kyc === true && (
+                      <DragonflyIcon width={20} height={20} style={styles.headerNameDragonfly} />
+                    )}
+                  </View>
                 </View>
                 {kyc === true && (
-                  <View style={styles.headerStatus}>
-                    <Text
-                      style={[
-                        styles.headerStatusText,
-                        { color: text },
-                      ]}
-                    >
-                      {t('walletDashboard.headerVerified')}
-                    </Text>
-                  </View>
+                  <Text style={[styles.headerStatusText, { color: text }]}>
+                    {t('walletDashboard.headerVerified')}
+                  </Text>
                 )}
               </View>
             </View>
@@ -1384,18 +1434,13 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
         {/* KPI Cards */}
         <View style={styles.section}>
-          <FlatList
-            data={kpiGridData}
-            renderItem={renderKPICard}
-            keyExtractor={(item) => item.id || item.title}
-            numColumns={2}
-            columnWrapperStyle={styles.kpiRow}
-            scrollEnabled={false}
-          />
+          <View style={styles.kpiGrid}>
+            {kpiGridData.map((item) => renderKPICard(item))}
+          </View>
         </View>
 
         {/* Battle Points */}
-        <View style={[styles.section, { marginBottom: 10, marginTop: -30 }]}>
+        <View style={[styles.section, styles.battlePointsSection]}>
           <Text style={[styles.sectionTitle, styles.pointsSectionTitle, textStyle]}>
             {t('walletDashboard.battlePoints.sectionTitle')}
           </Text>
@@ -1933,18 +1978,22 @@ export const WalletDashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // paddingTop: 20,
     paddingBottom: 40,
     marginBottom: Platform.OS == "ios" ? 60 : 0
   },
+  scrollContent: {
+    paddingBottom: 32,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    marginBottom: -12
+    paddingVertical: Platform.OS == "android" ? 0 : 14,
+    paddingTop: Platform.OS == "android" ? 16 : 0,
+    paddingBottom: Platform.OS == "android" ? 8 : 0,
+    marginBottom: Platform.OS == "android" ? 4 : -12,
   },
   headerCard: {
     borderRadius: 20,
-    padding: 14,
+    padding: Platform.OS == "android" ? 18 : 14,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -1964,64 +2013,48 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 40,
-    paddingTop: 10
+    paddingVertical: Platform.OS == "android" ? 4 : 0,
+    paddingBottom: Platform.OS == "android" ? 0 : 40,
+    paddingTop: Platform.OS == "android" ? 0 : 10,
   },
   headerAvatarWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 72,
+    height: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    marginLeft: 10,
+    marginRight: 16,
   },
   headerText: {
     flex: 1,
-    marginLeft: 5,
+    minWidth: 0,
   },
-  headerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  headerNameBlock: {
     width: '100%',
-    minWidth: 0,
-    overflow: 'hidden',
   },
-  headerName: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    color: '#fef3c7',
-    fontSize: 18,
-    fontWeight: '700',
-    marginRight: 4,
-  },
-  headerVerifiedIconWrap: {
-    position:'absolute',
-    right:25,
-    width: 25,
-    height: 25,
-    flexShrink: 0,
-    marginTop: 1,
-    overflow: 'hidden',
-  },
-  headerVerifiedIcon: {
-    flexShrink: 0,
-  },
-  headerStatus: {
+  headerNameLastRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    width: '100%',
   },
-  headerStatusIcon: {
-    marginRight: 6,
+  headerName: {
+    color: '#fef3c7',
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  headerNameLastLine: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  headerNameDragonfly: {
+    marginLeft: 6,
+    flexShrink: 0,
   },
   headerStatusText: {
     color: '#f9fafb',
-    marginLeft: 5,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-
+    marginTop: 6,
   },
   headerBadge: {
     width: 36,
@@ -2033,14 +2066,18 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 28,
+  },
+  battlePointsSection: {
+    marginTop: Platform.OS == "android" ? 4 : -25,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
   },
   pointsSectionTitle: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   battleMissionRow: {
     flexDirection: 'row',
@@ -2234,8 +2271,8 @@ const styles = StyleSheet.create({
   pointsFourColRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 20,
   },
   pointsDivider: {
     width: 1,
@@ -2434,10 +2471,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // KPI Cards
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -(KPI_GRID_GAP / 2),
+  },
+  kpiCardCell: {
+    width: '50%',
+    paddingHorizontal: KPI_GRID_GAP / 2,
+    marginBottom: KPI_GRID_GAP,
+  },
+  kpiCardCellFull: {
+    width: '100%',
+  },
   kpiCard: {
     borderRadius: 16,
-    padding: 2,
-    marginBottom: 12,
+    padding: Platform.OS == "android" ? 16 : 2,
+    marginBottom: Platform.OS == "android" ? 0 : 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
@@ -2445,58 +2495,37 @@ const styles = StyleSheet.create({
     elevation: 8,
     flex: 1,
     alignSelf: 'stretch',
-    minHeight: 150,
+    minHeight: Platform.OS == "android" ? 132 : 150,
     justifyContent: 'flex-start',
+    top: 15
   },
   kpiCardMetaMask: {
     borderRadius: 18,
     padding: 16,
     minHeight: 108,
     width: '100%',
-    left: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 6,
   },
-  kpiCardNoOuterSpacing: {
-    marginHorizontal: 0,
-    marginBottom: 0,
-  },
   kpiCardFillTouchable: {
     flexGrow: 1,
   },
   kpiCardTouchable: {
     flex: 1,
-    marginHorizontal: 0,
-    marginBottom: 12,
-    // alignSelf: 'stretch',
-    minHeight: 150,
     alignItems: 'stretch',
     minWidth: 0,
-    // marginRight:'10%'
-  },
-  kpiCardFullWidth: {
-    width: '100%',
-    flexBasis: '100%',
-  },
-  kpiCardPlaceholder: {
-    backgroundColor: 'transparent',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  kpiRow: {
-    justifyContent: 'space-between',
-    gap: 12,
-    width: '100%',
-    paddingHorizontal: 0,
+    minHeight: Platform.OS == "android" ? 132 : 170,
   },
   kpiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 16,
+    padding: Platform.OS == "android" ? 0 : 15,
+    paddingTop: 0,
+    paddingHorizontal: 0,
+    marginBottom: 10,
   },
   kpiHeaderWithAction: {
     justifyContent: 'space-between',
@@ -2505,12 +2534,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginLeft: -5,
+    minWidth: 0,
   },
   kpiIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#D3D3D3',
@@ -2533,18 +2562,25 @@ const styles = StyleSheet.create({
   },
   kpiTitle: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     marginLeft: 8,
     flex: 1,
     textTransform: 'capitalize',
+    lineHeight: 16,
   },
   kpiValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    marginBottom: 2,
-    paddingBottom: 16,
-    paddingLeft: 16,
-    paddingTop: 10
+    marginBottom: 0,
+    paddingBottom: 0,
+    paddingLeft: Platform.OS == "android" ? 0 : 15,
+    paddingTop: 0,
+    lineHeight: 26,
+  },
+  kpiValueMultiline: {
+    fontSize: 18,
+    lineHeight: 22,
+    marginTop: 2,
   },
   kpiValueMetaMask: {
     fontSize: 24,
@@ -2554,13 +2590,13 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   kpiMetaSingleLine: {
-    marginTop: -6,
+    marginTop: 6,
     fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-    opacity: 0.95,
-    paddingLeft: 16,
-    paddingBottom: 10,
+    fontWeight: '600',
+    lineHeight: 15,
+    opacity: 0.85,
+    paddingLeft: 0,
+    paddingBottom: 0,
   },
   kpiMetaConnected: {
     color: '#16a34a',
@@ -2570,11 +2606,12 @@ const styles = StyleSheet.create({
   },
   kpiMetaBuyCredits: {
     opacity: 0.75,
+    paddingLeft: Platform.OS == "android" ? 0 : 15,
   },
   kpiChevronInline: {
     position: 'absolute',
-    top: 25,
-    right: 14,
+    top: Platform.OS == "android" ? 16 : 22,
+    right: Platform.OS == "android" ? 0 : 12,
     opacity: 0.75,
   },
   kpiChevron: {

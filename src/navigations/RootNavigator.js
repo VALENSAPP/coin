@@ -362,7 +362,10 @@ const GlobalDrawerNavigator = () => {
             navigation.closeDrawer();
             navigation.navigate('MainApp', {
               screen: 'wallet',
-              params: { screen: 'Privatecircle' }
+              params: {
+                screen: 'Privatecircle',
+                params: { skipPrivateCircleApi: true },
+              }
             });
           },
         })}

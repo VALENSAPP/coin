@@ -92,6 +92,7 @@
     "emailPlaceholder": "Inserisci la tua email",
     "usernameLabel": "Nome utente",
     "usernamePlaceholder": "Scegli un nome utente",
+    "usernameHelper": "Attenzione: controlla errori di battitura. Dopo l'invio, il nome utente non potrà essere modificato.",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Crea una password sicura",
     "referralLabel": "Codice referral",
@@ -525,6 +526,18 @@
     "postFail": "Per favore riprova",
     "postError": "Qualcosa è andato storto",
     "openProfileError": "Impossibile aprire il profilo di questo utente."
+  },
+  "editPost": {
+    "screenTitle": "Modifica post",
+    "doneButton": "Fatto",
+    "captionLabel": "Didascalia",
+    "captionPlaceholder": "Scrivi una didascalia...",
+    "tagPeople": "Tagga persone",
+    "taggedCount_one": "{{count}} persona taggata",
+    "taggedCount_other": "{{count}} persone taggate",
+    "searchPeoplePlaceholder": "Cerca persone",
+    "postUpdated": "Post aggiornato",
+    "updateFailed": "Impossibile aggiornare il post"
   },
   "galleryPicker": {
     "recents": "Recenti",
@@ -2741,7 +2754,9 @@
     "unfollowSuccess": "Non segui più",
     "unableToUpdateFollow": "Impossibile aggiornare il follow",
     "copyMissionText": "✨ Supporta la missione di @{{username}} su Valens\nFai parte dell’impatto. Dona in modo sicuro qui sotto.\n{{link}}",
-    "copyPostText": "Guarda questo post sull’app Valens\n{{link}}"
+    "copyPostText": "Guarda questo post sull’app Valens\n{{link}}",
+    "screenshotWarningTitle": "Screenshot non consentiti",
+    "screenshotWarningMessage": "Screenshot e registrazione dello schermo sono disabilitati in questa schermata. Questo contenuto è protetto."
   },
   "privateCircle": {
     "ownTitle": "Mint privato — Cos’è?",

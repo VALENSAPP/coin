@@ -220,11 +220,14 @@ const PrivateContentScreen = ({
       const formattedData = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.posts)
-        ? payload.posts
-        : Array.isArray(payload?.data)
-        ? payload.data
-        : [];
-      setPosts(formattedData);
+          ? payload.posts
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+      const filteredData = formattedData.filter(
+        (post) => !post?.visibleTo || post.visibleTo === ''
+      );
+      setPosts(filteredData);
     } catch (error) {
       console.log(error);
       setPosts([]);
@@ -254,7 +257,7 @@ const PrivateContentScreen = ({
     setStatusLoading(true);
     try {
       const active = await getSubscriptionStatus(userData.id);
-      console.log(active,'data in this')
+      console.log(active, 'data in this')
       setResolvedIsSubscribed(active);
       if (active) await fetchPosts(userData.id);
       else setPosts([]);
@@ -270,13 +273,13 @@ const PrivateContentScreen = ({
 
   useFocusEffect(
     useCallback(() => {
-      if (isCompany) return () => {};
+      if (isCompany) return () => { };
       refreshStatusAndPosts();
     }, [refreshStatusAndPosts]),
   );
 
   useEffect(() => {
-    if (isCompany) return () => {};
+    if (isCompany) return () => { };
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && isFocused) refreshStatusAndPosts();
     });

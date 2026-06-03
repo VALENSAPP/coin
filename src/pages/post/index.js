@@ -33,6 +33,7 @@ export default function PostScreen({ navigation }) {
   const [showTypeModal, setShowTypeModal] = useState(true);
   const [isCropping, setIsCropping] = useState(false);
   const [postType, setPostType] = useState('normal');
+  const [visibleTo, setVisibleTo] = useState('');
   const [shared, setShared] = useState(false);
   const route = useRoute();
   const returnTo = route?.params?.returnTo;
@@ -423,6 +424,7 @@ const cropImage = (imageUri, index) => {
   useEffect(() => {
     if (!route.params?.privateCircleReady) return;
     setPostType('private');
+    setVisibleTo('private_circle');
     setShowTypeModal(false);
     navigation.setParams({
       privateCircleReady: undefined,
@@ -483,7 +485,7 @@ const cropImage = (imageUri, index) => {
       return;
     }
     fromEditPostSelectedRef.current = true;
-    navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: mediaType });
+    navigation.navigate('SelectedPost', { selectedMedia: currentSelection, postType: postType, fromIcon: mediaType, visibleTo: visibleTo, });
   };
 
   const renderGridItem = (asset, index) => {

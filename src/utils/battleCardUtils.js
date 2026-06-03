@@ -133,6 +133,75 @@ export const buildBattleOptions = battle => {
   return [];
 };
 
+const getBattleStatusLower = battle =>
+  String(battle?.status || battle?.battleStatus || '').trim().toLowerCase();
+
+export const isBattleEndTimePassed = battle => {
+  const endTime = battle?.endTime ?? battle?.end_time ?? battle?.endsAt ?? battle?.expiresAt;
+  if (!endTime) return false;
+  const parsed =
+    typeof endTime === 'number'
+      ? new Date(endTime < 10_000_000_000 ? endTime * 1000 : endTime)
+      : new Date(endTime);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.getTime() <= Date.now();
+};
+
+export const isBattleCanceledOrFinished = battle => {
+  const status = getBattleStatusLower(battle);
+  if (
+    status.includes('cancel') ||
+    status.includes('finished') ||
+    status.includes('closed') ||
+    status.includes('resolved') ||
+    status.includes('ended') ||
+    status.includes('declined')
+  ) {
+    return true;
+  }
+  return isBattleEndTimePassed(battle);
+};
+
+export const isBattleLive = battle => {
+  if (isBattleCanceledOrFinished(battle)) return false;
+
+  const status = getBattleStatusLower(battle);
+  const isLiveFlag = Boolean(battle?.isLive || battle?.live);
+
+  return (
+    isLiveFlag ||
+    status.includes('live') ||
+    status.includes('progress') ||
+    status.includes('active') ||
+    status.includes('ongoing')
+  );
+};
+
+/** Lower rank = higher in list. Live first, then open, then finished, canceled last. */
+export const getBattleListSortRank = battle => {
+  if (isBattleLive(battle)) return 0;
+
+  const status = getBattleStatusLower(battle);
+  if (status.includes('cancel')) return 3;
+  if (
+    status.includes('finished') ||
+    status.includes('closed') ||
+    status.includes('resolved') ||
+    status.includes('ended')
+  ) {
+    return 2;
+  }
+  if (isBattleEndTimePassed(battle)) return 2;
+  return 1;
+};
+
+export const sortBattlesLiveFirst = (battles = []) =>
+  [...battles].sort((a, b) => {
+    const rankDiff = getBattleListSortRank(a) - getBattleListSortRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+  });
+
 export const mapBattleCard = battle => {
   const creator = {
     id: battle?.creator?.id || battle?.creatorId || '',
