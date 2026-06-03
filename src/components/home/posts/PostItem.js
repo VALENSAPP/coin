@@ -86,60 +86,25 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
-  const [imageHeight, setImageHeight] = useState(500);
 
-  const isRealPinchRef = useRef(false);      // confirmed 2-finger pinch
-  const hasOpenedModalRef = useRef(false); 
-
-  const screenWidth = Dimensions.get("window").width;
-  useEffect(() => {
-    if (!uri) return;
-    Image.getSize(uri, (w, h) => {
-      const ratio = screenWidth / w;
-      const newHeight = h * ratio;
-      const maxHeight = screenWidth * 2.2;
-      const minHeight = screenWidth * 0.56;
-      setImageHeight(Math.max(minHeight, Math.min(newHeight, maxHeight)));
-    });
-  }, [uri]);
-
-  const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
   const imageSource = useMemo(
     () => ({ uri, priority: FastImage.priority.high, cache: FastImage.cacheControl.immutable }),
     [uri],
   );
 
+  const screenWidth = Dimensions.get('window').width;
   const displayHeight = height || DEFAULT_FEED_MEDIA_HEIGHT;
   const halfWidth = screenWidth / 2;
   const halfHeight = displayHeight / 2;
 
- const onPinchEvent = Animated.event(
-    [{ nativeEvent: { scale: scale, focalX: translateX, focalY: translateY } }],
-    {
-      useNativeDriver: true,
-      listener: (event) => {
-        const { numberOfPointers, scale: currentScale } = event.nativeEvent;
-        
-        // Confirm it's a real 2-finger pinch during ACTIVE
-        if (numberOfPointers >= 2 && Math.abs(currentScale - 1) > 0.04) {
-          isRealPinchRef.current = true;
-          
-          // Open modal only once confirmed
-          if (!hasOpenedModalRef.current) {
-            hasOpenedModalRef.current = true;
-            setIsModalVisible(true);
-            onZoomChange?.(true);
-          }
-        }
-      },
-    }
+  const onPinchEvent = Animated.event(
+    [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
+    { useNativeDriver: true },
   );
 
   const resetScale = () => {
     setIsModalVisible(false);
     setModalImageLoaded(false);
-    isRealPinchRef.current = false;
-    hasOpenedModalRef.current = false;
     onZoomChange?.(false);
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
@@ -148,22 +113,19 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
     ]).start();
   };
 
-const onPinchStateChange = ({ nativeEvent }) => {
-  const { state, oldState, scale } = nativeEvent;
-
-  // REMOVE the scale check on BEGAN — scale is always 1.0 at BEGAN
-  // if (state === State.BEGAN) {
-  //   // setIsModalVisible(true);
-  //   onZoomChange?.(true);
-  // }
-
-   if (
+  const onPinchStateChange = ({ nativeEvent }) => {
+    const { state, oldState } = nativeEvent;
+    if (state === State.BEGAN) {
+      setIsModalVisible(true);
+      onZoomChange?.(true);
+    }
+    if (
       oldState === State.ACTIVE &&
       (state === State.END || state === State.CANCELLED || state === State.FAILED)
     ) {
       resetScale();
     }
-};
+  };
 
   useEffect(() => {
     if (!uri) return;
@@ -174,15 +136,9 @@ const onPinchStateChange = ({ nativeEvent }) => {
   }, [uri, imageSource]);
 
   return (
-    <GestureHandlerRootView style={styles.mediaContainer}>
-      {/* INLINE IMAGE */}
-      <PinchGestureHandler
-        onGestureEvent={onPinchEvent}
-        onHandlerStateChange={onPinchStateChange}
-        minPointers={2}          // ← ADD THIS
-        avgTouches={true}
-      >
-        <Animated.Image
+    <GestureHandlerRootView style={[styles.mediaContainer, { height: displayHeight }]}>
+      <PinchGestureHandler onGestureEvent={onPinchEvent} onHandlerStateChange={onPinchStateChange}>
+        <AnimatedFastImage
           source={imageSource}
           resizeMode={FastImage.resizeMode.contain}
           fadeDuration={0}
@@ -261,8 +217,6 @@ function InstagramZoomableVideo({
   const currentTimeRef = useRef(0);
   const modalVideoRef = useRef(null);
   const inlineVideoRef = useRef(null);
-  const isRealPinchRef = useRef(false);
-  const hasOpenedModalRef = useRef(false);
 
   const resolvedBufferConfig = useMemo(() => {
     const base = { ...(bufferConfig || {}) };
@@ -302,32 +256,14 @@ function InstagramZoomableVideo({
     currentTimeRef.current = currentTime;
   }, []);
 
- const onPinchEvent = Animated.event(
+  const onPinchEvent = Animated.event(
     [{ nativeEvent: { scale, focalX: translateX, focalY: translateY } }],
-    {
-      useNativeDriver: true,
-      listener: (event) => {
-        const { numberOfPointers, scale: currentScale } = event.nativeEvent;
-        
-        if (numberOfPointers >= 2 && Math.abs(currentScale - 1) > 0.04) {
-          isRealPinchRef.current = true;
-          
-          if (!hasOpenedModalRef.current) {
-            hasOpenedModalRef.current = true;
-            setModalVideoReady(false);
-            setIsModalVisible(true);
-            onZoomChange?.(true);
-          }
-        }
-      },
-    }
+    { useNativeDriver: true },
   );
 
- const resetScale = useCallback(() => {
+  const resetScale = useCallback(() => {
     setIsModalVisible(false);
     setModalVideoReady(false);
-    isRealPinchRef.current = false;
-    hasOpenedModalRef.current = false;
     onZoomChange?.(false);
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
@@ -336,23 +272,20 @@ function InstagramZoomableVideo({
     ]).start();
   }, [scale, translateX, translateY, onZoomChange]);
 
-const onPinchStateChange = useCallback(({ nativeEvent }) => {
-  const { state, oldState } = nativeEvent;
-
-  // Revert — no scale check at BEGAN
-  // if (state === State.BEGAN) {
-  //   setModalVideoReady(false);
-  //   setIsModalVisible(true);
-  //   onZoomChange?.(true);
-  // }
-
-  if (
+  const onPinchStateChange = useCallback(({ nativeEvent }) => {
+    const { state, oldState } = nativeEvent;
+    if (state === State.BEGAN) {
+      setModalVideoReady(false);
+      setIsModalVisible(true);
+      onZoomChange?.(true);
+    }
+    if (
       oldState === State.ACTIVE &&
       (state === State.END || state === State.CANCELLED || state === State.FAILED)
     ) {
       resetScale();
     }
-}, [resetScale]);
+  }, [resetScale, onZoomChange]);
 
   const modalTransformStyle = {
     width: screenW,
@@ -402,12 +335,14 @@ const onPinchStateChange = useCallback(({ nativeEvent }) => {
             repeat={repeat}
             paused={inlinePaused}
             muted={muted}
+            volume={muted ? 0 : 1}
             controls={false}
             pointerEvents="none"
             onLoadStart={onLoadStart}
             onLoad={handleInlineLoad}
             onError={onError}
             playWhenInactive={false}
+            ignoreSilentSwitch="ignore"
             progressUpdateInterval={1000}
             onProgress={onProgressStable}
             bufferConfig={resolvedBufferConfig}
@@ -461,9 +396,11 @@ const onPinchStateChange = useCallback(({ nativeEvent }) => {
                   repeat={repeat}
                   paused={false}
                   muted={muted}
+                  volume={muted ? 0 : 1}
                   controls={false}
                   pointerEvents="none"
                   playWhenInactive={false}
+                  ignoreSilentSwitch="ignore"
                   progressUpdateInterval={1000}
                   bufferConfig={modalBufferConfig}
                   maxBitRate={maxBitRate}
@@ -1867,7 +1804,7 @@ export default React.memo(PostItem, (prev, next) => {
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingBottom: 8,
+    paddingBottom: 18,
     position: 'relative',
   },
   postCard: {
@@ -2148,7 +2085,7 @@ const styles = StyleSheet.create({
   progressSection: {
     marginTop: 12,
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 24,
   },
   progressBarWrapper: {
     position: 'relative',
