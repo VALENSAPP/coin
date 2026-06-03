@@ -15,6 +15,7 @@
   "dependencies": {
     "@iftek/react-native-video-player": "^0.14.1",
     "@invertase/react-native-apple-authentication": "^2.4.1",
+    "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-camera-roll/camera-roll": "^7.10.1",
     "@react-native-clipboard/clipboard": "^1.16.3",

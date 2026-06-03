@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { getCreditsLeft } from '../../services/wallet';
 import {
@@ -35,6 +35,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
   const sheetRef = useRef(null);
   const pendingActivateMissionAfterSheetCloseRef = useRef(false);
   const dispatch = useDispatch();
+  const userProfile = useSelector(state => state.userProfile.userProfile);
   const toast = useToast();
   const navigation = useNavigation();
   const { bgStyle, textStyle, text, card } = useAppTheme(profile);
@@ -78,7 +79,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
   const loadProfileType = async () => {
     const type = await AsyncStorage.getItem('profile');
-    setProfile(type);
+    setProfile(userProfile || type);
   };
 
   const fetchCreditsLeft = async () => {
