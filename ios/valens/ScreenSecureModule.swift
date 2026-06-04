@@ -25,11 +25,8 @@ class ScreenSecureModule: NSObject {
         return
       }
 
-      if enabled {
-        window.enableScreenSecure()
-      } else {
-        window.disableScreenSecure()
-      }
+      // Screenshot protection is temporarily disabled on iOS.
+      window.disableScreenSecure()
 
       resolve(true)
     }
