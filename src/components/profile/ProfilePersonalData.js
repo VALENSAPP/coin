@@ -836,21 +836,67 @@ const ProfilePersonData = ({
   ]);
 
   const redirect = () => {
-    const source = data?.id ? data : userData?.id ? userData : null;
+    const hasShareableIdentity = profile =>
+      Boolean(
+        profile?.id ||
+        profile?.userId ||
+        profile?._id ||
+        profile?.user?.id ||
+        profile?.user?.userId ||
+        profile?.user?._id,
+      );
+    const source = hasShareableIdentity(data)
+      ? data
+      : hasShareableIdentity(userData)
+        ? userData
+        : null;
     if (!source) {
       Alert.alert(t('profilePersonData.pleaseWait'), t('profilePersonData.profileStillLoading'));
       return;
     }
+    const nestedUser = source?.user && typeof source.user === 'object' ? source.user : {};
     const normalizedSource = {
       ...source,
-      id: source?.id || source?.userId || targetUserId,
-      userId: source?.userId || source?.id || targetUserId,
-      userName: source?.userName || username || displayName || '',
-      displayName: source?.displayName || displayName || source?.userName || '',
-      image: source?.image || profileImage || '',
+      id: source?.id ||
+        source?.userId ||
+        source?._id ||
+        nestedUser?.id ||
+        nestedUser?.userId ||
+        nestedUser?._id ||
+        targetUserId,
+      userId: source?.userId ||
+        source?.id ||
+        source?._id ||
+        nestedUser?.userId ||
+        nestedUser?.id ||
+        nestedUser?._id ||
+        targetUserId,
+      userName: source?.userName ||
+        source?.username ||
+        nestedUser?.userName ||
+        nestedUser?.username ||
+        username ||
+        displayName ||
+        '',
+      displayName: source?.displayName ||
+        nestedUser?.displayName ||
+        displayName ||
+        source?.userName ||
+        nestedUser?.userName ||
+        '',
+      image: source?.image || nestedUser?.image || profileImage || '',
     };
     const shareParams = { userData: normalizedSource, fromUsersProfile, targetUserId };
-    navigation.navigate('ShareProfile', shareParams);
+    const parentNavigation = navigation.getParent?.();
+    try {
+      navigation.navigate('ShareProfile', shareParams);
+    } catch (error) {
+      if (parentNavigation) {
+        parentNavigation.navigate('ShareProfile', shareParams);
+        return;
+      }
+      throw error;
+    }
   };
 
   const detectPlatformFromUrl = useCallback((url = '') => {

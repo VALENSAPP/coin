@@ -5,12 +5,6 @@ class NotificationService: UNNotificationServiceExtension {
     var contentHandler: ((UNNotificationContent) -> Void)?
     var bestAttemptContent: UNMutableNotificationContent?
 
-    if request.trigger is UNPushNotificationTrigger == false {
-    // This is a local notification (from notifee) — don't modify it
-    contentHandler(request.content)
-    return
-}
-
     override func didReceive(
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
@@ -18,10 +12,18 @@ class NotificationService: UNNotificationServiceExtension {
         self.contentHandler = contentHandler
         bestAttemptContent  = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
-        guard let content = bestAttemptContent else {
-            contentHandler(request.content)
-            return
-        }
+
+      // Notifee local notifications carry this marker — pass them through untouched
+             let isNotifeeLocal = (request.content.userInfo["notifee_local"] as? String) == "1"
+             if isNotifeeLocal {
+                 contentHandler(request.content)
+                 return
+             }
+
+             guard let content = bestAttemptContent else {
+                 contentHandler(request.content)
+                 return
+             }
 
         let data = request.content.userInfo
 
