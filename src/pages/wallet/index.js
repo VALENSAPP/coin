@@ -932,7 +932,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
 
       const [followersRes, supportRes] = await Promise.all([
         userId ? getTotalFollowers({ userId, range }) : Promise.resolve(null),
-        subscriptionEarningGraph({ range }),
+        subscriptionEarningGraph({ interval: range }),
       ]);
 
       const { followers: fp, unfollowers: up } = parseFollowersGraphSeries(followersRes);
