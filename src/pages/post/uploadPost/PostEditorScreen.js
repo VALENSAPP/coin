@@ -27,6 +27,7 @@ import {
   buildPostMetaFromImages,
   buildCreatePostMusicPayload,
 } from '../../../utils/postSoundtracks';
+import { getPostMediaFormat } from '../../../utils/postMediaFormat';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
@@ -250,6 +251,9 @@ const PostEditorScreen = () => {
     }
 
     dispatch(showLoader());
+    const isFlipPost = fromIcon === 'Flips' || postType === 'flip';
+    const primaryMedia = editorImages[0];
+
     const payload = {
       caption: caption.trim(),
       taggedPeople: taggedPeopleIds,
@@ -264,11 +268,13 @@ const PostEditorScreen = () => {
       type:
         postType === 'private'
           ? 'private'
-          : 'normal'
-            || fromIcon === 'Flips'
+          : isFlipPost
             ? 'reel'
             : 'normal',
-      visibleTo: visibleTo
+      visibleTo: visibleTo,
+      ...(isFlipPost && primaryMedia
+        ? { format: getPostMediaFormat(primaryMedia) }
+        : {}),
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);

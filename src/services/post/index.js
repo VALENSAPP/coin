@@ -3,6 +3,7 @@ import axiosInstance from '..';
 import { appendStoryAudioFiles } from '../../utils/storyAudioUpload';
 
 export const createPost = async data => {
+  console.log('Creating post with data:', data);
   const formData = new FormData();
 
   if (data.music != null && String(data.music).trim() !== '') {
@@ -36,6 +37,10 @@ export const createPost = async data => {
 
   if (data.type) {
     formData.append("type", data.type);
+  }
+
+  if (data.format) {
+    formData.append("format", data.format);
   }
 
   if (data.visibleTo) {
