@@ -257,6 +257,7 @@ export default function Main() {
         if (currentSession) {
           dispatch(loggedIn());
           await ensureCurrentAccountSaved();
+          requestUserPermission();
           const storedStripeId = await AsyncStorage.getItem('stripeCustomerId');
           if (storedStripeId) dispatch(setStripeCustomerId(storedStripeId));
         } else {
