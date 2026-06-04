@@ -173,20 +173,29 @@ export default function Main() {
     }
   }, [isLoggedIn]);
 
-  const handleWelcomeModalClose = async () => {
-    if (welcomeModalCloseInFlight.current) return;
-    welcomeModalCloseInFlight.current = true;
+ const handleWelcomeModalClose = async () => {
+  if (welcomeModalCloseInFlight.current) return;
 
+  welcomeModalCloseInFlight.current = true;
+
+  try {
+    const response = await updatLoginModal();
+
+
+    // Hide modal after successful API call
     setWelcomeModalVisible(false);
 
-    try {
-      await updatLoginModal();
-    } catch (error) {
-      console.log('Failed to update first login after KYC:', error?.message || error);
-    } finally {
-      welcomeModalCloseInFlight.current = false;
-    }
-  };
+    // Re-fetch user data immediately
+    checkKycAndShowWelcomeModal();
+  } catch (error) {
+    console.log(
+      'Failed to update first login after KYC:',
+      error?.message || error,
+    );
+  } finally {
+    welcomeModalCloseInFlight.current = false;
+  }
+};
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -196,7 +205,7 @@ export default function Main() {
     checkKycAndShowWelcomeModal();
     const intervalId = setInterval(() => {
       checkKycAndShowWelcomeModal();
-    }, 90000);
+    }, 60000);
 
     return () => {
       clearInterval(intervalId);

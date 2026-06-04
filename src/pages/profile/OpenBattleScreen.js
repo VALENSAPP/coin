@@ -37,6 +37,7 @@ const BORDER = '#D1D5DB';
 const SOFT = '#EEF2FF';
 const MUTED = '#6B7280';
 const ERROR = '#DC2626';
+const MAX_POLL_OPTIONS = 3;
 
 const createInitialForm = () => ({
   format: 'POLL',
@@ -523,10 +524,12 @@ export default function OpenBattleScreen() {
           ...prev,
           format: value,
           invitedUserId: value === 'HEAD_TO_HEAD' ? prev.invitedUserId : '',
-          options: value === 'POLL' ? prev.options : [
-            { text: '', image: null },
-            { text: '', image: null },
-          ],
+          options: value === 'POLL'
+            ? prev.options.slice(0, MAX_POLL_OPTIONS)
+            : [
+              { text: '', image: null },
+              { text: '', image: null },
+            ],
         };
       }
 
@@ -577,23 +580,39 @@ export default function OpenBattleScreen() {
   };
 
   const addOption = () => {
-    setForm(prev => ({
-      ...prev,
-      options: [...prev.options, { text: '', image: null }],
-    }));
-  };
+    setForm(prev => {
+      if (prev.format === 'POLL' && prev.options.length >= MAX_POLL_OPTIONS) {
+        return prev;
+      }
 
+      return {
+        ...prev,
+        options: [...prev.options, { text: '', image: null }],
+      };
+    });
+  };
   const removeOption = index => {
     setForm(prev => {
       if (prev.options.length <= 2) {
         return prev;
       }
 
+      const options = prev.options.filter(
+        (_, currentIndex) => currentIndex !== index,
+      );
+      const texts = options
+        .map(opt => opt.text?.trim().toLowerCase())
+        .filter(Boolean);
+      const hasDuplicates = new Set(texts).size !== texts.length;
+
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        options: hasDuplicates ? t('openBattle.optionsDuplicate') : '',
+      }));
+
       return {
         ...prev,
-        options: prev.options.filter(
-          (_, currentIndex) => currentIndex !== index,
-        ),
+        options,
       };
     });
   };
@@ -707,9 +726,10 @@ export default function OpenBattleScreen() {
     };
 
     if (isPoll) {
-      payload.options = filledOptions;
+      const pollOptions = filledOptions.slice(0, MAX_POLL_OPTIONS);
+      payload.options = pollOptions;
       payload.optionImages = form.options
-        .slice(0, filledOptions.length)
+        .slice(0, pollOptions.length)
         .map(opt => (opt.image));
     }
 
@@ -911,7 +931,7 @@ export default function OpenBattleScreen() {
                 <Text style={[styles.label, { color: text }]}>
                   {isHeadToHead ? t('openBattle.battleSidesLabel') : t('openBattle.optionsLabel')}
                 </Text>
-                {!isHeadToHead &&
+                {!isHeadToHead && form.options.length < MAX_POLL_OPTIONS &&
                   <TouchableOpacity onPress={addOption}>
                     <Text style={[styles.addOptionText, { color: text }]}>{t('openBattle.addOption')}</Text>
                   </TouchableOpacity>
