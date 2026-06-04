@@ -2755,8 +2755,8 @@
     "unableToUpdateFollow": "Impossible de mettre à jour l’abonnement",
     "copyMissionText": "✨ Soutenez la mission de @{{username}} sur Valens\nFaites partie de l’impact. Faites un don en toute sécurité ci-dessous.\n{{link}}",
     "copyPostText": "Découvrez cette publication sur l’app Valens\n{{link}}",
-    "screenshotWarningTitle": "Captures d’écran interdites",
-    "screenshotWarningMessage": "Les captures d’écran et l’enregistrement sont désactivés sur cet écran. Ce contenu est protégé."
+    "screenshotWarningTitle": "Captures restreintes",
+    "screenshotWarningMessage": "Vous ne pouvez pas capturer des captures d'écran de contenu privé."
   },
   "privateCircle": {
     "ownTitle": "Mint privé — Qu’est-ce que c’est ?",

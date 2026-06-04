@@ -2755,8 +2755,8 @@
     "unableToUpdateFollow": "Impossibile aggiornare il follow",
     "copyMissionText": "✨ Supporta la missione di @{{username}} su Valens\nFai parte dell’impatto. Dona in modo sicuro qui sotto.\n{{link}}",
     "copyPostText": "Guarda questo post sull’app Valens\n{{link}}",
-    "screenshotWarningTitle": "Screenshot non consentiti",
-    "screenshotWarningMessage": "Screenshot e registrazione dello schermo sono disabilitati in questa schermata. Questo contenuto è protetto."
+    "screenshotWarningTitle": "Screenshot limitati",
+    "screenshotWarningMessage": "Non puoi catturare screenshot di contenuti privati."
   },
   "privateCircle": {
     "ownTitle": "Mint privato — Cos’è?",
