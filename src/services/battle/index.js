@@ -101,3 +101,6 @@ export const voteHeadtoHead = async (data ) => {
 export const voteHeadtoHeadOpponent = async (data ) => {
     return axiosInstance.post('battle/opponent-position',data);
 };
+export const editBattle = async (data ) => {
+    return axiosInstance.post('battle/edit-question',data);
+};
