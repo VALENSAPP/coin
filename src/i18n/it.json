@@ -2783,7 +2783,17 @@
     "guestNeedInvite": "Hai bisogno di un invito per accedere a questo spazio.",
     "guestAudience": "amici, famiglia e connessioni fidate.",
     "guestInviteOnly": "L’accesso è solo su invito.",
-    "guestStayConnected": "Resta connesso, partecipa e costruisci vera fiducia per farne parte."
+    "guestStayConnected": "Resta connesso, partecipa e costruisci vera fiducia per farne parte.",
+    "statusActive": "Attivo",
+    "statusInactive": "Inattivo",
+    "overview": "Panoramica",
+    "members": "Membri",
+    "posts": "Post",
+    "recentActivity": "Attività recente",
+    "unknownUser": "Sconosciuto",
+    "activityNewComment": "Nuovo commento",
+    "activityPostLiked": "Post con like",
+    "activityInteracted": "Ha interagito con un post"
   },
   "privateCircleMint": {
     "setupError": "Impossibile configurare la Cerchia Privata. Riprova.",

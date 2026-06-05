@@ -56,10 +56,16 @@ export default function InviteScreen() {
     }
   };
 
-  const onCopyLink = () => {
-    Clipboard.setString(deepLinkUrl);
-    Alert.alert(t('invite.copiedTitle'), t('invite.copiedLinkMessage'));
-  };
+const onCopyLink = () => {
+  const inviteMessage = `${t('invite.shareMessage')} ${userReferralCode}\n\n${deepLinkUrl}`;
+
+  Clipboard.setString(inviteMessage);
+
+  Alert.alert(
+    t('invite.copiedTitle'),
+    t('invite.copiedReferralMessage')
+  );
+};
 
   return (
     <SafeAreaView style={[styles.safe, bgStyle]}>

@@ -217,7 +217,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
             {
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
-              padding: 20,
+              padding: 15,
             },
             bgStyle,
           ],
@@ -368,7 +368,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 35,
+    paddingtop: 8,
+    marginBottom: 25,
     textAlign: 'center',
     paddingVertical: 5,
   },

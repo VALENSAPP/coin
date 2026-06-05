@@ -27,6 +27,21 @@ class NotificationService: UNNotificationServiceExtension {
 
         let data = request.content.userInfo
 
+        // ── Inject title/body from data if APNs notification object is missing them
+        // (backend sends title/body only in the data payload, not in notification{})
+        // Always inject from data — backend sends title/body only in data{}, not in notification{}
+if let t = data["expandedTitle"] as? String, !t.isEmpty {
+    content.title = t
+} else if let t = data["title"] as? String, !t.isEmpty {
+    content.title = t
+}
+
+if let b = data["expandedBody"] as? String, !b.isEmpty {
+    content.body = b
+} else if let b = data["body"] as? String, !b.isEmpty {
+    content.body = b
+}
+
         let type          = data["type"]          as? String ?? ""
         let imageUrl      = data["image_url"]     as? String
                          ?? data["followerImage"] as? String

@@ -98,8 +98,8 @@ export const displayExpandableNotification = async ({
     }
 
     const iosSummary = androidStyle?.lines
-    ? androidStyle.lines.join('\n')
-    : (bigText || body);
+        ? androidStyle.lines.join('\n')
+        : (bigText || body);
 
     if (!androidStyle) {
         if (imageUrl) {
@@ -188,17 +188,17 @@ export const displayFcmAsExpandable = async (remoteMessage) => {
         subtitle = data?.followerDisplayName;
 
         const followerName = data?.followerDisplayName || data?.followerUserName || '';
-    androidStyle = {
-        type: AndroidStyle.INBOX,
-        lines: [
-            ...(followerName ? [`${followerName} is now following you`] : []),
-            ...(data?.followerTotalFollowers ? [`Their followers: ${data.followerTotalFollowers}`] : []),
-            ...(data?.followerAccuracyRate ? [`Accuracy rate: ${data.followerAccuracyRate}%`] : []),
-            `[ View Profile ]`,
-        ],
-        title: data?.expandedTitle ?? 'NEW FOLLOWER',
-        summary: body,
-    };
+        androidStyle = {
+            type: AndroidStyle.INBOX,
+            lines: [
+                ...(followerName ? [`${followerName} is now following you`] : []),
+                ...(data?.followerTotalFollowers ? [`Their followers: ${data.followerTotalFollowers}`] : []),
+                ...(data?.followerAccuracyRate ? [`Accuracy rate: ${data.followerAccuracyRate}%`] : []),
+                `[ View Profile ]`,
+            ],
+            title: data?.expandedTitle ?? 'NEW FOLLOWER',
+            summary: body,
+        };
 
     } else if (type === 'battle_invite') {
         // ── BATTLE INVITE ─────────────────────────────────────────────────
@@ -770,8 +770,8 @@ export const registerBackgroundHandler = () => {
     messaging().setBackgroundMessageHandler(async remoteMessage => {
         console.log('[NOTIF] ⚫ BACKGROUND HANDLER FIRED', Platform.OS);
 
-        // Cancel whatever the OS (APNs or FCM) already displayed, then show
-        // our rich notifee version — same flow for both platforms.
+        // ── iOS: cancel any OS-delivered duplicate, then show our rich version
+        // (same as Android — Notifee works in background on iOS too)
         try {
             const displayed = await notifee.getDisplayedNotifications();
             await Promise.all(displayed.map(n => notifee.cancelNotification(n.id)));
@@ -781,7 +781,7 @@ export const registerBackgroundHandler = () => {
 
         await displayFcmAsExpandable(remoteMessage);
 
-        // Clean up any duplicate that slipped through after ours was posted
+        // Clean up duplicates after ours is posted
         if (remoteMessage.messageId) {
             try {
                 await new Promise(resolve => setTimeout(resolve, 800));

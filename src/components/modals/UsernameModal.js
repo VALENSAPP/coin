@@ -15,7 +15,6 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
-import { buildProfileSharePayload } from '../../utils/profileShare';
 import { useLanguage } from '../../i18n';
 
 const UsernameModal = ({ visible, onClose, data }) => {
@@ -47,10 +46,14 @@ const UsernameModal = ({ visible, onClose, data }) => {
     resolvedData?.displayName ||
     '';
 
-  const { deepLink, webFallback, primaryShareUrl, shareMessage } =
-    buildProfileSharePayload({ username: resolvedUsername, userId: resolvedUserId });
-
   const qrShareUrl = `https://api.valens.app/profile/${resolvedUserId}?username=${encodeURIComponent(resolvedUsername)}&callbackUrl=${encodeURIComponent('com.valens://')}`;
+
+  const getProfileShareMessage = () => {
+    const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';
+    return t('shareProfile.shareMessageTemplate', {
+      username: toBold(profileLabel),
+    });
+  };
 
   const onShare = async () => {
     try {
@@ -62,13 +65,9 @@ const UsernameModal = ({ visible, onClose, data }) => {
         return;
       }
 
-      const profileLabel = resolvedUsername ? `@${resolvedUsername}` : 'this profile';
-
       await Share.share({
         url: qrShareUrl,
-        message: t('shareProfile.shareMessageTemplate', {
-          username: toBold(profileLabel),
-        }),
+        message: getProfileShareMessage(),
       });
     } catch (error) {
       Alert.alert(t('usernameModal.errorTitle'), t('usernameModal.shareError') + error.message);
@@ -95,7 +94,7 @@ const UsernameModal = ({ visible, onClose, data }) => {
       );
       return;
     }
-    Clipboard.setString(qrShareUrl);
+    Clipboard.setString(`${getProfileShareMessage()}\n${qrShareUrl}`);
     showToastMessage(toast, 'success', t('usernameModal.linkCopied'));
   };
 

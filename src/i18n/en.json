@@ -2783,7 +2783,17 @@
     "guestNeedInvite": "You need to be invited to access this space.",
     "guestAudience": "friends, family, and trusted connections.",
     "guestInviteOnly": "Access is by invitation only.",
-    "guestStayConnected": "Stay connected, engage, and build real trust to be part of it."
+    "guestStayConnected": "Stay connected, engage, and build real trust to be part of it.",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "overview": "Overview",
+    "members": "Members",
+    "posts": "Posts",
+    "recentActivity": "Recent activity",
+    "unknownUser": "Unknown",
+    "activityNewComment": "New Comment",
+    "activityPostLiked": "Post Liked",
+    "activityInteracted": "Interacted with a post"
   },
   "privateCircleMint": {
     "setupError": "Unable to set up Private Circle. Please try again.",

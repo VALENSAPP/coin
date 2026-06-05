@@ -2783,7 +2783,17 @@
     "guestNeedInvite": "Você precisa ser convidado para acessar este espaço.",
     "guestAudience": "amigos, família e conexões de confiança.",
     "guestInviteOnly": "O acesso é apenas por convite.",
-    "guestStayConnected": "Mantenha-se conectado, participe e construa confiança real para fazer parte disso."
+    "guestStayConnected": "Mantenha-se conectado, participe e construa confiança real para fazer parte disso.",
+    "statusActive": "Ativo",
+    "statusInactive": "Inativo",
+    "overview": "Visão geral",
+    "members": "Membros",
+    "posts": "Publicações",
+    "recentActivity": "Atividade recente",
+    "unknownUser": "Desconhecido",
+    "activityNewComment": "Novo comentário",
+    "activityPostLiked": "Publicação curtida",
+    "activityInteracted": "Interagiu com uma publicação"
   },
   "privateCircleMint": {
     "setupError": "Não foi possível configurar o Círculo Privado. Tente novamente.",

@@ -85,23 +85,23 @@ const formatActivityTime = (timestamp) => {
   return `${Math.floor(diffInSeconds / 86400)}d`;
 };
 
-const mapInteractionAction = (item) => {
+const mapInteractionAction = (item, t) => {
   if (item?.body) return item.body;
   if (item?.title) return item.title;
   const type = String(item?.type || '').toLowerCase();
-  if (type.includes('comment')) return 'New Comment';
-  if (type.includes('like')) return 'Post Liked';
-  return 'Interacted with a post';
+  if (type.includes('comment')) return t('privateCircle.activityNewComment');
+  if (type.includes('like')) return t('privateCircle.activityPostLiked');
+  return t('privateCircle.activityInteracted');
 };
 
-const parseRecentActivities = (response) => {
+const parseRecentActivities = (response, t) => {
   const data = response?.data ?? response ?? {};
   const notifications = data?.notifications ?? [];
 
   return (Array.isArray(notifications) ? notifications : []).map((item, index) => ({
     id: String(item?.id ?? index),
-    name: item?.actorDisplayName || item?.actorUserName || 'Unknown',
-    action: mapInteractionAction(item),
+    name: item?.actorDisplayName || item?.actorUserName || t('privateCircle.unknownUser'),
+    action: mapInteractionAction(item, t),
     body: item?.body || '',
     time: formatActivityTime(item?.createdAt),
   }));
@@ -324,12 +324,12 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         setRecentActivities([]);
         return;
       }
-      setRecentActivities(parseRecentActivities(response));
+      setRecentActivities(parseRecentActivities(response, t));
     } catch (error) {
       console.log('PrivateCircle recentActivity error:', error);
       setRecentActivities([]);
     }
-  }, []);
+  }, [t]);
 
   const fetchPrivateCircleDashboard = useCallback(async () => {
     try {
@@ -560,7 +560,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
                       ]}
                     />
                     <Text style={[styles.statusPillText, { color: isAccessActive ? '#15803D' : '#B91C1C' }]}>
-                      {isAccessActive ? 'Active' : 'Inactive'}
+                      {isAccessActive ? t('privateCircle.statusActive') : t('privateCircle.statusInactive')}
                     </Text>
                   </View>
                 </View>
@@ -568,24 +568,24 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             </View>
             <View style={styles.dashboardWrap}>
               <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
-                <Text style={[styles.miniSectionTitle, textStyle]}>Overview</Text>
+                <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
                 <View style={styles.overviewGrid}>
                   <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
                     <Ionicons name="people-outline" size={18} color={text} />
                     <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
-                    <Text style={styles.overviewLabel}>Members</Text>
+                    <Text style={styles.overviewLabel}>{t('privateCircle.members')}</Text>
                   </View>
                   <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
                     <Ionicons name="document-text-outline" size={18} color={text} />
                     <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
-                    <Text style={styles.overviewLabel}>Posts</Text>
+                    <Text style={styles.overviewLabel}>{t('privateCircle.posts')}</Text>
                   </View>
                 </View>
               </View>
 
               <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
                 <View style={styles.previewSectionHeader}>
-                  <Text style={[styles.miniSectionTitle, textStyle]}>Recent activity</Text>
+                  <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.recentActivity')}</Text>
                   {/* <Text style={[styles.previewLink, { color: text }]}>View all</Text> */}
                 </View>
                 {recentActivities.map((activity) => (
@@ -602,7 +602,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
 
               <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
                 <View style={styles.previewSectionHeader}>
-                  <Text style={[styles.miniSectionTitle, textStyle]}>Members</Text>
+                  <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.members')}</Text>
                   {/* <TouchableOpacity
                     activeOpacity={0.85}
                     style={[styles.inviteButton, { backgroundColor: withAlpha(text, 0.1) }]}
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 2,
   },
-  miniSectionTitle: { fontSize: 13, fontWeight: '800', marginBottom: 8 },
+  miniSectionTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
   overviewGrid: { flexDirection: 'row', gap: 8 },
   overviewTile: {
     flex: 1,
@@ -781,15 +781,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.55)',
   },
-  overviewNumber: { fontSize: 18, fontWeight: '900', marginTop: 5 },
-  overviewLabel: { fontSize: 10, fontWeight: '700', color: '#6B7280', marginTop: 2 },
+  overviewNumber: { fontSize: 24, fontWeight: '900', marginTop: 5 },
+  overviewLabel: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginTop: 2 },
   previewSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  previewLink: { fontSize: 10, fontWeight: '800' },
+  previewLink: { fontSize: 12, fontWeight: '800' },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -797,8 +797,8 @@ const styles = StyleSheet.create({
   },
   activityDot: { width: 5, height: 5, borderRadius: 3, marginRight: 8 },
   activityTextWrap: { flex: 1, minWidth: 0 },
-  activityName: { fontSize: 11, fontWeight: '800' },
-  activityMeta: { fontSize: 10, color: '#6B7280', marginTop: 1 },
+  activityName: { fontSize: 14, fontWeight: '800' },
+  activityMeta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   activityTime: { fontSize: 10, color: '#9CA3AF', marginLeft: 8 },
   inviteButton: {
     flexDirection: 'row',
