@@ -34,6 +34,7 @@ import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
+import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
@@ -353,13 +354,9 @@ const PostEditorScreen = () => {
         return;
       }
 
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
-        params: {
-          userId: String(resolvedUserId),
-          params: {
-            returnTo: { tab: 'Add' },
-          },
+      void navigateToUserProfile(navigation, resolvedUserId, {
+        returnParams: {
+          returnTo: { tab: 'Add' },
         },
       });
     } finally {

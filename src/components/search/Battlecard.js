@@ -201,29 +201,39 @@ const StakePill = ({ amount, t }) => (
     </View>
 );
 
-const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => (
-    <TouchableOpacity
-        activeOpacity={0.85}
-        disabled={disabled}
-        onPress={onPress}
-        style={[styles.optionChip, isSelected && styles.optionChipSelected, disabled && styles.optionDisabled]}
-    >
-        <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={20} fadeDuration={0} />
-        <View style={styles.optionChipTextWrap}>
-            <Text style={[styles.optionChipLabel, isSelected && styles.optionChipLabelSelected]} numberOfLines={1}>
-                {option?.label || option}
-            </Text>
-            {Number.isFinite(percent) && (
-                <Text style={styles.optionChipPercent}>
-                    {Math.max(0, Math.min(100, Math.round(percent)))}%
+const OptionChip = ({ option, isSelected, onPress, disabled, avatarUrl, percent }) => {
+    const safePercent = Number.isFinite(percent)
+        ? Math.max(0, Math.min(100, Math.round(percent)))
+        : 0;
+    const label = option?.label || option;
+
+    return (
+        <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={disabled}
+            onPress={onPress}
+            style={[styles.optionChip, isSelected && styles.optionChipSelected, disabled && styles.optionDisabled]}
+        >
+            <View style={styles.optionChipTopRow}>
+                <HexAvatar uri={normalizeImageUrl(avatarUrl) || DEFAULT_AVATAR} size={22} fadeDuration={0} />
+                <Text
+                    style={[styles.optionChipLabel, isSelected && styles.optionChipLabelSelected]}
+                    numberOfLines={1}
+                >
+                    {label}
+                    {' '}
+                    <Text style={styles.optionChipPercentInline}>{safePercent}%</Text>
                 </Text>
-            )}
-        </View>
-        <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-            {isSelected && <View style={styles.radioInner} />}
-        </View>
-    </TouchableOpacity>
-);
+                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                    {isSelected && <View style={styles.radioInner} />}
+                </View>
+            </View>
+            <View style={styles.optionProgressTrack}>
+                <View style={[styles.optionProgressFill, { width: `${safePercent}%` }]} />
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 const StatRow = ({ totalParticipants, totalLikes, totalComments }) => (
     <View style={styles.statsRow}>
@@ -292,8 +302,11 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
     );
 
     const optionPercents = useMemo(() => {
-        const hasPredictionCounts = item?.predictionCounts && Object.keys(item.predictionCounts).length > 0;
-        const countsSource = isPoll && hasPredictionCounts ? item.predictionCounts : item.voteCounts;
+        const countsSource = item?.voteCounts && Object.keys(item.voteCounts).length > 0
+            ? item.voteCounts
+            : (isPoll && item?.predictionCounts && Object.keys(item.predictionCounts).length > 0
+                ? item.predictionCounts
+                : item?.voteCounts);
         return computePercentages(optionLabels, countsSource || {});
     }, [isPoll, item?.predictionCounts, item?.voteCounts, optionLabels]);
 
@@ -508,6 +521,8 @@ const BattleCard = memo(({ item, selectedOption, onCardPress, onOptionSelect, on
         prevProps.onCardPress === nextProps.onCardPress &&
         prevProps.onOptionSelect === nextProps.onOptionSelect &&
         prevProps.onUserPress === nextProps.onUserPress &&
+        JSON.stringify(prevProps.item?.voteCounts) === JSON.stringify(nextProps.item?.voteCounts) &&
+        JSON.stringify(prevProps.item?.predictionCounts) === JSON.stringify(nextProps.item?.predictionCounts) &&
         JSON.stringify(prevProps.item?.optionImages) === JSON.stringify(nextProps.item?.optionImages) &&
         JSON.stringify(prevProps.item?.opponent) === JSON.stringify(nextProps.item?.opponent)
     );
@@ -908,17 +923,42 @@ const styles = StyleSheet.create({
     },
     stakeText: { fontSize: 11, color: PURPLE_DARK },
     stakeAmount: { fontWeight: '700', color: PURPLE_DARK },
-    pollOptions: { width: '100%', gap: 2, marginBottom: 3 },
+    pollOptions: { width: '100%', gap: 6, marginBottom: 6 },
     optionChip: {
-        width: '100%', flexDirection: 'row', alignItems: 'center',
-        gap: 4, borderRadius: 24, borderWidth: 1, borderColor: BORDER,
-        backgroundColor: '#fff', paddingVertical: 1, paddingHorizontal: 5, minWidth: 0,
+        width: '100%',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: BORDER,
+        backgroundColor: '#fff',
+        paddingVertical: 6,
+        paddingHorizontal: 8,
+        minWidth: 0,
+        gap: 6,
     },
     optionChipSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
+    optionChipTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        minWidth: 0,
+    },
     optionChipTextWrap: { flex: 1, minWidth: 0 },
-    optionChipLabel: { fontSize: 9, fontWeight: '500', color: TEXT },
+    optionChipLabel: { flex: 1, fontSize: 11, fontWeight: '600', color: TEXT, minWidth: 0 },
     optionChipLabelSelected: { color: PURPLE_DARK },
+    optionChipPercentInline: { fontSize: 11, fontWeight: '700', color: PURPLE_DARK },
     optionChipPercent: { marginTop: 1, fontSize: 9, fontWeight: '700', color: GRAY_MID },
+    optionProgressTrack: {
+        width: '100%',
+        height: 4,
+        borderRadius: 999,
+        backgroundColor: '#ECEAF8',
+        overflow: 'hidden',
+    },
+    optionProgressFill: {
+        height: '100%',
+        borderRadius: 999,
+        backgroundColor: PURPLE,
+    },
     radioCircle: {
         width: 13, height: 13, borderRadius: 6.5,
         borderWidth: 1.5, borderColor: BORDER,

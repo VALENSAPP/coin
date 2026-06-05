@@ -55,6 +55,7 @@ export default function BattleExplore({ onClose, profile }) {
     if (!isSilent) setLoading(true);
     try {
       const response = await exploretBattle();
+      console.log(response,'explore bataatateeeleleeleleelelelel')
       if (response?.statusCode === 200 || response?.status === 200) {
         const rawBattles = response?.data?.battles || response?.data?.data || response?.data || [];
         const normalized = [];

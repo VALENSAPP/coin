@@ -6,8 +6,9 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  DeviceEventEmitter,
 } from 'react-native';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cancelSubscription, checkSubscription, createCheckoutSession } from '../../services/stirpe';
 import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -17,11 +18,26 @@ import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 
+const PAYMENT_POLL_ATTEMPTS = 8;
+const PAYMENT_POLL_DELAY_MS = 1500;
+
+const hasActiveSubscriptionAccess = subscription => {
+  const normalizedStatus = String(subscription?.status || '').toUpperCase();
+  if (normalizedStatus === 'ACTIVE' || normalizedStatus === 'TRIALING') return true;
+  if (normalizedStatus !== 'CANCELED' && normalizedStatus !== 'CANCELLED') return false;
+
+  const parsedEndDate = new Date(subscription?.currentPeriodEnd);
+  return !Number.isNaN(parsedEndDate.getTime()) && parsedEndDate >= new Date();
+};
+
 const Subscription = () => {
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showActivationPopup, setShowActivationPopup] = useState(false);
+  const paymentPollRef = useRef(null);
   const navigation = useNavigation();
   const { bgStyle, textStyle, bg, text, card } = useAppTheme();
   const { t } = useLanguage();
@@ -36,25 +52,100 @@ const Subscription = () => {
     warningBg: '#FFF4EA',
   };
 
-  const loadSubscriptionData = useCallback(async () => {
+  const loadSubscriptionData = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
       const response = await checkSubscription();
-      console.log(response, 'checkSubscription');
       if (response.success) {
         setSubscriptionData(response.data);
+        return response.data;
       }
+
+      if (!silent) {
+        setSubscriptionData(null);
+      }
+      return null;
     } catch (error) {
       console.error('Error loading subscription:', error);
-      Alert.alert(t('subscription.error'), t('subscription.failedToLoad'));
+      if (!silent) {
+        Alert.alert(t('subscription.error'), t('subscription.failedToLoad'));
+        setSubscriptionData(null);
+      }
+      return null;
     } finally {
-      setLoading(false);
+      if (silent) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, [t]);
+
+  const pollSubscriptionAfterPayment = useCallback(async () => {
+    if (paymentPollRef.current) {
+      return paymentPollRef.current;
+    }
+
+    paymentPollRef.current = (async () => {
+      setRefreshing(true);
+      setActivating(true);
+
+      try {
+        for (let attempt = 0; attempt < PAYMENT_POLL_ATTEMPTS; attempt += 1) {
+          try {
+            const response = await checkSubscription();
+            if (response?.success) {
+              setSubscriptionData(response.data);
+              const subscription = response.data?.subscription;
+              if (hasActiveSubscriptionAccess(subscription)) {
+                return true;
+              }
+            }
+          } catch (error) {
+            console.error('Error polling subscription status:', error);
+          }
+
+          if (attempt < PAYMENT_POLL_ATTEMPTS - 1) {
+            await new Promise(resolve => setTimeout(resolve, PAYMENT_POLL_DELAY_MS));
+          }
+        }
+
+        return false;
+      } finally {
+        setRefreshing(false);
+        setActivating(false);
+        paymentPollRef.current = null;
+      }
+    })();
+
+    return paymentPollRef.current;
+  }, []);
 
   useFocusEffect(useCallback(() => {
     loadSubscriptionData();
   }, [loadSubscriptionData]));
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('PAYMENT_COMPLETED', (data) => {
+      const paymentStatus = String(data?.status || 'success').toLowerCase();
+      const isPaymentSuccess = !['failed', 'cancelled', 'canceled'].includes(paymentStatus);
+      if (!isPaymentSuccess) return;
+
+      setShowActivationPopup(false);
+      void pollSubscriptionAfterPayment();
+    });
+
+    return () => subscription.remove();
+  }, [pollSubscriptionAfterPayment]);
+
+  useEffect(() => () => {
+    paymentPollRef.current = null;
+  }, []);
 
   const handleCancelSubscription = () => {
     Alert.alert(
@@ -80,7 +171,7 @@ const Subscription = () => {
       const response = await cancelSubscription();
       if (response.success) {
         Alert.alert(t('subscription.success'), response.data.message);
-        await loadSubscriptionData();
+        await loadSubscriptionData({ silent: true });
       } else {
         Alert.alert(t('subscription.error'), t('subscription.failedToCancel'));
       }
@@ -96,6 +187,7 @@ const Subscription = () => {
 
   const handleActivationConfirm = async () => {
     try {
+      setActivating(true);
       const response = await createCheckoutSession();
       const checkoutUrl = response?.data?.url;
       if (!checkoutUrl) throw new Error('Checkout URL not received');
@@ -118,11 +210,13 @@ const Subscription = () => {
 
       setShowActivationPopup(false);
       if (!cancelled) {
-        await loadSubscriptionData();
+        await pollSubscriptionAfterPayment();
       }
     } catch (error) {
       console.error('Error activating subscription:', error);
       Alert.alert(t('subscription.error'), error?.message || t('payment.paymentErrorMsg'));
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -189,16 +283,7 @@ const Subscription = () => {
     return t('subscription.unknown');
   };
 
-  const hasActiveSubscriptionAccess = subscription => {
-    const normalizedStatus = String(subscription?.status || '').toUpperCase();
-    if (normalizedStatus === 'ACTIVE') return true;
-    if (normalizedStatus !== 'CANCELED') return false;
-
-    const parsedEndDate = new Date(subscription?.currentPeriodEnd);
-    return !Number.isNaN(parsedEndDate.getTime()) && parsedEndDate >= new Date();
-  };
-
-  if (loading) {
+  if (loading && !subscriptionData) {
     return (
       <View style={[styles.loadingContainer, bgStyle]}>
         <ActivityIndicator size="large" color={themeColors.text} />
@@ -228,7 +313,7 @@ const Subscription = () => {
     subscriptionData.subscription && subscriptionData.subscription.status === 'CANCELED';
   const subscription = subscriptionData.subscription;
   const isSubscriptionActive = hasActiveSubscriptionAccess(subscription);
-  const shouldShowActivationOption = !isSubscriptionActive;
+  const shouldShowActivationOption = !isSubscriptionActive && !refreshing && !activating;
 
   const status = getStatusText(subscriptionData);
   const statusColor = getStatusColor(status, isCancelledSubscription);
@@ -249,6 +334,14 @@ const Subscription = () => {
       </View>
 
       <ScrollView style={[styles.scrollContainer, bgStyle]} showsVerticalScrollIndicator={false}>
+        {(refreshing || activating) && (
+          <View style={[styles.syncBanner, { backgroundColor: themeColors.warningBg, borderColor: themeColors.warning }]}>
+            <ActivityIndicator size="small" color={themeColors.warning} />
+            <Text style={[styles.syncBannerText, { color: themeColors.warning }]}>
+              {t('subscription.loadingText')}
+            </Text>
+          </View>
+        )}
 
         {/* Status Card */}
         <View style={[styles.statusCard, { shadowColor: themeColors.text }]}>
@@ -439,10 +532,17 @@ const Subscription = () => {
 
           <TouchableOpacity
             style={[styles.refreshButton, { backgroundColor: themeColors.text }]}
-            onPress={loadSubscriptionData}
+            onPress={() => loadSubscriptionData({ silent: true })}
+            disabled={refreshing || activating}
           >
-            <Icon name="refresh" size={20} color="#fff" />
-            <Text style={styles.refreshButtonText}>{t('subscription.refreshButton')}</Text>
+            {refreshing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Icon name="refresh" size={20} color="#fff" />
+                <Text style={styles.refreshButtonText}>{t('subscription.refreshButton')}</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -487,6 +587,22 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  syncBanner: {
+    marginTop: 16,
+    marginBottom: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  syncBannerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
