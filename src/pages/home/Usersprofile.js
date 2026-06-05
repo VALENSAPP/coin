@@ -8,10 +8,9 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { useDispatch } from 'react-redux';
-import { useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfilePersonData from '../../components/profile/ProfilePersonalData';
 import HighlightStories from '../../components/profile/HighLightStories';
@@ -28,11 +27,13 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
+import { isSameUserId, shouldOpenOwnProfile } from '../../utils/navigateToUserProfile';
 
 const Usersprofile = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const { t } = useLanguage();
-  const { userId: targetUserId } = route.params;
+  const targetUserId = route.params?.userId || route.params?.params?.userId;
 
   const screenParams = route?.params?.params || route?.params || {};
   const returnTo = screenParams?.returnTo;
@@ -48,6 +49,7 @@ const Usersprofile = () => {
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
+  const [redirectingToOwnProfile, setRedirectingToOwnProfile] = useState(false);
   const [compactLocked, setCompactLocked] = useState(false);
   const profileScrollY = useRef(new Animated.Value(0)).current;
   const compactLockedRef = useRef(false);
@@ -282,6 +284,23 @@ const Usersprofile = () => {
 
       const loadData = async () => {
         if (!isActive) return;
+        const currentUserId = await fetchLoggedInUserId();
+        if (!isActive || !targetUserId) return;
+
+        const openOwnProfile = await shouldOpenOwnProfile(targetUserId, currentUserId);
+        if (openOwnProfile) {
+          setRedirectingToOwnProfile(true);
+          navigation.navigate('ProfileMain', {
+            screen: 'Profile',
+            params: {
+              returnTo,
+              ...screenParams,
+            },
+          });
+          return;
+        }
+
+        setRedirectingToOwnProfile(false);
         await fetchAllData();
       };
 
@@ -290,7 +309,7 @@ const Usersprofile = () => {
       return () => {
         isActive = false;
       };
-    }, [fetchAllData]),
+    }, [fetchAllData, fetchLoggedInUserId, navigation, returnTo, screenParams, targetUserId]),
   );
 
   const onRefresh = async () => {
@@ -375,6 +394,12 @@ const Usersprofile = () => {
     Keyboard.dismiss();
     setPurchaseAutoFocus(false);
   }, []);
+
+  const isOwnProfileView = isSameUserId(loggedInUserId, targetUserId);
+
+  if (redirectingToOwnProfile || isOwnProfileView) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>

@@ -154,6 +154,20 @@ const buildSideMetrics = entries => {
   }, {});
 };
 
+const isHeadToHeadParticipantUserId = (userId, creatorId, invitedUserId) => {
+  const id = String(userId || '');
+  if (!id) return false;
+  return id === String(creatorId || '') || id === String(invitedUserId || '');
+};
+
+const filterHeadToHeadCountableEntries = (entries, format, creatorId, invitedUserId) => {
+  if (format !== 'HEAD_TO_HEAD') return Array.isArray(entries) ? entries : [];
+  return (Array.isArray(entries) ? entries : []).filter(entry => {
+    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '') || '');
+    return !isHeadToHeadParticipantUserId(userId, creatorId, invitedUserId);
+  });
+};
+
 const resolveEntityId = (value) => {
   if (value === undefined || value === null) return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
@@ -333,11 +347,21 @@ const normalizeBattle = (raw, currentUserId = '') => {
   const participantEntries = Array.isArray(raw?.participants) ? raw.participants : [];
   const predictionEntries = Array.isArray(raw?.predictions) ? raw.predictions : [];
   const voteEntries = Array.isArray(raw?.votes) ? raw.votes : [];
-  const sideMetrics = buildSideMetrics(
-    format === 'POLL'
-      ? predictionEntries.length > 0 ? predictionEntries : participantEntries
-      : voteEntries.length > 0 ? voteEntries : participantEntries,
+  const countableVoteEntries = filterHeadToHeadCountableEntries(voteEntries, format, creatorId, invitedUserId);
+  const countablePredictionEntries = filterHeadToHeadCountableEntries(
+    predictionEntries,
+    format,
+    creatorId,
+    invitedUserId,
   );
+  const sideMetricsSource = format === 'POLL'
+    ? (countablePredictionEntries.length > 0
+      ? countablePredictionEntries
+      : format === 'HEAD_TO_HEAD' ? [] : participantEntries)
+    : (countableVoteEntries.length > 0
+      ? countableVoteEntries
+      : format === 'HEAD_TO_HEAD' ? [] : participantEntries);
+  const sideMetrics = buildSideMetrics(sideMetricsSource);
   const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
   const fallbackSides = [
     creatorChoice,
@@ -369,14 +393,29 @@ const normalizeBattle = (raw, currentUserId = '') => {
   });
   const calculatedTotalVotes = options.reduce((sum, option) => sum + Number(option.votes || 0), 0);
   const totalVotes = Number(pickFirst(
-    raw?.totalVotes, raw?.votesCount,
-    format === 'HEAD_TO_HEAD' ? raw?._count?.votes : undefined,
+    format === 'HEAD_TO_HEAD' ? calculatedTotalVotes : undefined,
+    raw?.totalVotes,
+    raw?.votesCount,
     format === 'POLL' ? raw?._count?.participants : undefined,
     format === 'POLL' && participantEntries.length > 0 ? participantEntries.length : undefined,
     format === 'POLL' && predictionEntries.length > 0 ? predictionEntries.length : undefined,
-    format === 'HEAD_TO_HEAD' && voteEntries.length > 0 ? voteEntries.length : undefined,
-    calculatedTotalVotes, 0,
+    calculatedTotalVotes,
+    0,
   ));
+  const normalizedVoteCounts = format === 'HEAD_TO_HEAD'
+    ? options.reduce((acc, option) => {
+        const key = String(pickFirst(option?.side, option?.label, '')).trim();
+        if (key) acc[key] = Number(option.votes || 0);
+        return acc;
+      }, {})
+    : (raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {});
+  const normalizedPredictionCounts = format === 'HEAD_TO_HEAD'
+    ? options.reduce((acc, option) => {
+        const key = String(pickFirst(option?.side, option?.label, '')).trim();
+        if (key) acc[key] = Number(option.votes || 0);
+        return acc;
+      }, {})
+    : (raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {});
   const normalizedOptions = options.map(option => ({
     ...option,
     percentage: totalVotes > 0
@@ -445,8 +484,8 @@ const normalizeBattle = (raw, currentUserId = '') => {
         '',
       ),
     },
-    predictionCounts: raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {},
-    voteCounts: raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {},
+    predictionCounts: normalizedPredictionCounts,
+    voteCounts: normalizedVoteCounts,
     optionImages: Array.isArray(raw?.optionImages) ? raw.optionImages.filter(Boolean) : [],
     comments,
     headToHeadSides: headToHeadSides || undefined,
@@ -1358,10 +1397,16 @@ export default function BattleInProgress() {
     }
   };
 
+  const isOwnComment = useCallback(
+    (userId) => String(userId || '') === String(currentUserId || ''),
+    [currentUserId],
+  );
+
   const handleCommentLike = async (commentId) => {
     if (!commentId || !battleId) return;
     const targetComment = findCommentInTree(battle.comments, commentId);
     if (!targetComment) return;
+    if (isOwnComment(targetComment.userId)) return;
     setLikingCommentId(commentId);
     const previousCommentState = {
       isLiked: !!targetComment.isLiked,
@@ -1461,18 +1506,20 @@ export default function BattleInProgress() {
                 <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
                   <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
-                  {likingCommentId === reply.id ? (
-                    <ActivityIndicator size="small" color={palette.primary} />
-                  ) : (
-                    <>
-                      <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
-                      <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
-                        {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {!isOwnComment(reply.userId) && (
+                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
+                    {likingCommentId === reply.id ? (
+                      <ActivityIndicator size="small" color={palette.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
+                        <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
+                          {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
             {!!reply.authorHandle && (
@@ -1565,18 +1612,20 @@ export default function BattleInProgress() {
                   <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
                     <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
-                    {likingCommentId === comment.id ? (
-                      <ActivityIndicator size="small" color={palette.primary} />
-                    ) : (
-                      <>
-                        <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
-                        <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
-                          {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {!isOwnComment(comment.userId) && (
+                    <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
+                      {likingCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
+                          <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
+                            {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
               {!!comment.authorHandle && (

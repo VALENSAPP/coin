@@ -1025,7 +1025,7 @@ export default function Notifications() {
               </View>
             )}
 
-            {isActionable && (
+            {/* {isActionable && (
               <View style={styles.battleActionRow}>
                 <TouchableOpacity
                   style={[styles.battleActionButton, styles.battleDeclineButton]}
@@ -1067,7 +1067,7 @@ export default function Notifications() {
                   )}
                 </TouchableOpacity>
               </View>
-            )}
+            )} */}
           </View>
 
           {index < tabData.length - 1 && <View style={styles.separator} />}

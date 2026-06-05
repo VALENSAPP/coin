@@ -35,6 +35,22 @@ const isMeaningfulValue = value => {
 const pickFirst = (...values) => values.find(isMeaningfulValue);
 const normalizeSideKey = value => String(value || '').trim().toLowerCase();
 
+const isHeadToHeadParticipantUserId = (userId, creatorId, invitedUserId) => {
+  const id = String(userId || '');
+  if (!id) return false;
+  return id === String(creatorId || '') || id === String(invitedUserId || '');
+};
+
+const filterHeadToHeadCountableEntries = (entries, battleFormat, battle) => {
+  if (battleFormat !== 'HEAD_TO_HEAD') return Array.isArray(entries) ? entries : [];
+  const creatorId = String(battle?.creatorId || '');
+  const invitedUserId = String(battle?.invitedUserId || '');
+  return (Array.isArray(entries) ? entries : []).filter(entry => {
+    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '') || '');
+    return userId && !isHeadToHeadParticipantUserId(userId, creatorId, invitedUserId);
+  });
+};
+
 const normalizeOption = (option, index) => {
   if (typeof option === 'string') {
     return { id: `${index}`, label: option, sideKey: String(option) };
@@ -165,9 +181,60 @@ export default function BattleVoteDetails() {
     [options],
   );
 
+  const buildHeadToHeadSideChoices = useCallback(
+    (entryType) => {
+      if (battleFormat !== 'HEAD_TO_HEAD' || entryType !== 'votes') return [];
+
+      const creatorId = String(battle?.creatorId || '');
+      const invitedUserId = String(battle?.invitedUserId || '');
+      const sides = battle?.headToHeadSides || {};
+      const choices = [];
+
+      const addChoice = (userId, sideValue, role) => {
+        const side = String(sideValue || '').trim();
+        if (!userId || !side) return;
+        const meta = resolveUserMeta(userId);
+        const matchedOption = resolveOptionForSide(side);
+        choices.push({
+          userId,
+          displayName: pickFirst(meta?.displayName, role === 'creator' ? 'Creator' : 'Opponent'),
+          displayHandle: pickFirst(meta?.displayHandle, ''),
+          displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
+          side: matchedOption?.label || side,
+          isSideChoice: true,
+        });
+      };
+
+      addChoice(
+        creatorId,
+        pickFirst(
+          sides?.creator?.side,
+          sides?.creator?.choice,
+          sides?.creatorSide,
+          battle?.creatorChoice,
+        ),
+        'creator',
+      );
+      addChoice(
+        invitedUserId,
+        pickFirst(
+          sides?.invitedUser?.side,
+          sides?.invitedUser?.choice,
+          sides?.opponent?.side,
+          sides?.invitedUserSide,
+          battle?.invitedUserChoice,
+        ),
+        'opponent',
+      );
+
+      return choices;
+    },
+    [battle, battleFormat, resolveOptionForSide, resolveUserMeta],
+  );
+
   const buildSections = useCallback(
     (entries, entryType) => {
-      const list = Array.isArray(entries) ? entries : [];
+      const list = filterHeadToHeadCountableEntries(entries, battleFormat, battle);
       const grouped = new Map();
 
       const ensureGroup = title => {
@@ -176,7 +243,6 @@ export default function BattleVoteDetails() {
         return grouped.get(key);
       };
 
-      // Always show all options as sections (even when there are zero votes/predictions).
       options.forEach(opt => {
         const title = String(opt?.label || '').trim();
         if (title) ensureGroup(title);
@@ -202,6 +268,7 @@ export default function BattleVoteDetails() {
           displayHandle: pickFirst(meta?.displayHandle, ''),
           displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
           side: matchedOption?.label || side,
+          isSideChoice: false,
         };
 
         const groupTitle = matchedOption?.label || side || 'Other';
@@ -209,40 +276,18 @@ export default function BattleVoteDetails() {
         ensureGroup(groupTitle).push(row);
       });
 
-      // If API doesn't provide voter meta (only participants are available), still render participants
-      // so users can see each participant and their chosen side under their details.
-      if (entryType === 'votes' && list.length === 0) {
-        const participants = Array.isArray(battle?.participants) ? battle.participants : [];
-        participants.forEach(p => {
-          const userId = String(pickFirst(p?.userId, p?.user?.id, '') || '');
-          const side = String(pickFirst(p?.side, '') || '').trim();
-          const meta = p?.user
-            ? {
-                displayName: pickFirst(p.user.displayName, p.user.name, 'User'),
-                displayHandle: pickFirst(p.user.userName, p.user.handle, ''),
-                displayAvatar: pickFirst(p.user.image, p.user.avatar, FALLBACK_AVATAR),
-              }
-            : resolveUserMeta(userId);
-
-          const matchedOption = resolveOptionForSide(side);
-          const groupTitle = matchedOption?.label || side || 'Participants';
-
-          ensureGroup(groupTitle).push({
-            userId,
-            displayName: pickFirst(meta?.displayName, 'User'),
-            displayHandle: pickFirst(meta?.displayHandle, ''),
-            displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
-            side: matchedOption?.label || side,
-          });
-        });
-      }
+      buildHeadToHeadSideChoices(entryType).forEach(choice => {
+        const groupTitle = choice.side || 'Other';
+        ensureGroup(groupTitle).push(choice);
+      });
 
       return Array.from(grouped.entries()).map(([title, data]) => ({
         title,
         data,
+        countableTotal: data.filter(row => !row.isSideChoice).length,
       }));
     },
-    [battle, options, resolveOptionForSide, resolveUserMeta],
+    [battle, battleFormat, buildHeadToHeadSideChoices, options, resolveOptionForSide, resolveUserMeta],
   );
 
   const votesSections = useMemo(
@@ -268,7 +313,10 @@ export default function BattleVoteDetails() {
   const optionSummaries = useMemo(() => {
     const sideCounts = activeTab === 'votes' ? battle?.voteCounts : battle?.predictionCounts;
     const fallbackCountsFromSections = sections.reduce((acc, section) => {
-      acc[section.title] = (acc[section.title] || 0) + section.data.length;
+      const countable = Number.isFinite(section?.countableTotal)
+        ? section.countableTotal
+        : section.data.filter(row => !row.isSideChoice).length;
+      acc[section.title] = (acc[section.title] || 0) + countable;
       return acc;
     }, {});
 
@@ -276,21 +324,24 @@ export default function BattleVoteDetails() {
       const candidateKeys = [label, sideKey].filter(Boolean).map(v => String(v));
       if (candidateKeys.length === 0) return 0;
 
-      const direct = sideCounts && typeof sideCounts === 'object'
-        ? candidateKeys.map(k => sideCounts[k]).find(v => v !== undefined)
-        : undefined;
-      const directNum = Number(direct);
-      if (Number.isFinite(directNum)) return directNum;
+      if (battleFormat !== 'HEAD_TO_HEAD') {
+        const direct = sideCounts && typeof sideCounts === 'object'
+          ? candidateKeys.map(k => sideCounts[k]).find(v => v !== undefined)
+          : undefined;
+        const directNum = Number(direct);
+        if (Number.isFinite(directNum)) return directNum;
 
-      const normalizedTargets = candidateKeys.map(normalizeSideKey);
-      if (sideCounts && typeof sideCounts === 'object') {
-        const matchKey = Object.keys(sideCounts).find(k =>
-          normalizedTargets.includes(normalizeSideKey(k)),
-        );
-        const matchNum = Number(matchKey ? sideCounts[matchKey] : undefined);
-        if (Number.isFinite(matchNum)) return matchNum;
+        const normalizedTargets = candidateKeys.map(normalizeSideKey);
+        if (sideCounts && typeof sideCounts === 'object') {
+          const matchKey = Object.keys(sideCounts).find(k =>
+            normalizedTargets.includes(normalizeSideKey(k)),
+          );
+          const matchNum = Number(matchKey ? sideCounts[matchKey] : undefined);
+          if (Number.isFinite(matchNum)) return matchNum;
+        }
       }
 
+      const normalizedTargets = candidateKeys.map(normalizeSideKey);
       const fallbackKey = Object.keys(fallbackCountsFromSections).find(
         k => normalizedTargets.includes(normalizeSideKey(k)),
       );
@@ -307,12 +358,18 @@ export default function BattleVoteDetails() {
     activeTab,
     battle?.voteCounts,
     battle?.predictionCounts,
+    battleFormat,
     options,
     sections,
   ]);
 
   const totalCount = useMemo(
-    () => sections.reduce((acc, item) => acc + item.data.length, 0),
+    () => sections.reduce(
+      (acc, item) => acc + (Number.isFinite(item?.countableTotal)
+        ? item.countableTotal
+        : item.data.filter(row => !row.isSideChoice).length),
+      0,
+    ),
     [sections],
   );
 
@@ -367,7 +424,9 @@ export default function BattleVoteDetails() {
             <Text
               numberOfLines={1}
               style={[styles.badgeText, { color: palette.primary }]}>
-              {item.side}
+              {item.isSideChoice
+                ? t('battleVoteDetails.sideChoice', 'Side choice')
+                : item.side}
             </Text>
           </View>
         )}
@@ -464,15 +523,17 @@ export default function BattleVoteDetails() {
                   styles.sectionCount,
                   { color: palette.muted },
                 ]}>
-                {section.data.length}
+                {Number.isFinite(section?.countableTotal)
+                  ? section.countableTotal
+                  : section.data.filter(row => !row.isSideChoice).length}
               </Text>
             </View>
           )}
           renderSectionFooter={({ section }) => {
-            if (
-              Array.isArray(section?.data) &&
-              section.data.length > 0
-            ) {
+            const countableRows = Array.isArray(section?.data)
+              ? section.data.filter(row => !row.isSideChoice)
+              : [];
+            if (countableRows.length > 0) {
               return null;
             }
 

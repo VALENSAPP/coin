@@ -329,12 +329,12 @@ export default function ViewMissioPost({ navigation, route }) {
                                                 </Text>
                                                 <Text style={[styles.splitItemValue, { color: text }]}>${c.valensFee}</Text>
                                             </View>
-                                            <View style={styles.splitItem}>
+                                            {/* <View style={styles.splitItem}>
                                                 <Text style={styles.splitItemLabel}>
                                                     {t('viewMissionPost.total')}
                                                 </Text>
                                                 <Text style={[styles.splitItemValue, { color: text }]}>${c.total}.00</Text>
-                                            </View>
+                                            </View> */}
                                         </View>
                                     </View>
                                 </TouchableOpacity>

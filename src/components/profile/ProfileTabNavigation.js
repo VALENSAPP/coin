@@ -24,6 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
+import ScreenshotProtectionOverlay from '../ScreenshotProtectionOverlay';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -248,14 +249,14 @@ const ProfileTabs = memo(({
   const isPrivateContentTabActive =
     privateContentTabIndex >= 0 && activeTab === privateContentTabIndex;
 
-  useScreenshotProtection({
+  const { shouldBlur } = useScreenshotProtection({
     enabled: isPrivateContentTabActive,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
 
   return (
-    <>
+    <View style={styles.tabsRoot}>
       {/* Tab Bar */}
       <View style={[styles.tabBar, { borderBottomColor: '#e5e7eb' }]}>
         {tabs.map((tab, index) => {
@@ -284,6 +285,8 @@ const ProfileTabs = memo(({
         {tabs[activeTab]?.screen}
       </View>
 
+      <ScreenshotProtectionOverlay visible={shouldBlur} />
+
       {!isSubscribed && (
         <SubscribeModal
           visible={showSubscribeModal}
@@ -300,7 +303,7 @@ const ProfileTabs = memo(({
           targetUserId={targetProfileId}
         />
       )}
-    </>
+    </View>
   );
 });
 
@@ -308,6 +311,9 @@ ProfileTabs.displayName = 'ProfileTabs';
 export default ProfileTabs;
 
 const styles = StyleSheet.create({
+  tabsRoot: {
+    flex: 1,
+  },
   tabBar: {
     flexDirection: 'row',
     height: 52,
