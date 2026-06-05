@@ -46,6 +46,7 @@ import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
@@ -234,17 +235,11 @@ export default function PostView({ postData = [], userData = {} }) {
     // Fallbacks when PostView is opened as a root (rare).
     if (routeUserData) {
       const targetUserId = String(routeUserData?.id ?? routeUserData?.userId ?? '');
-      const currentUserIdStr = currentUserId != null ? String(currentUserId) : '';
-
-      if (targetUserId && currentUserIdStr && targetUserId === currentUserIdStr) {
-        navigation.navigate('ProfileMain', { screen: 'Profile' });
-        return;
+      if (targetUserId) {
+        void navigateToUserProfile(navigation, targetUserId, {
+          loggedInUserId: currentUserId,
+        });
       }
-
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
-        params: { userId: targetUserId },
-      });
       return;
     }
 

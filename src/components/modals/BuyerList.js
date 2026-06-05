@@ -17,6 +17,7 @@ import { getUserCredentials } from '../../services/post';
 import { getAllUser } from '../../services/users';
 import { normalizeProfileType } from '../../utils/supportEligibility';
 import { useLanguage } from '../../i18n';
+import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 const normalizeString = (value) =>
   String(value ?? '')
@@ -236,21 +237,10 @@ export default function BuyersListModal({
       forceRefresh((tick) => tick + 1);
     }
 
-    const params = {
-      userId: String(resolvedUserId),
-      user: resolvedUser,
-    };
-
     setTimeout(() => {
-      const parent = navigation.getParent?.();
-      if (parent) {
-        parent.navigate('HomeMain', {
-          screen: 'UsersProfile',
-          params,
-        });
-        return;
-      }
-      navigation.navigate('UsersProfile', params);
+      void navigateToUserProfile(navigation, resolvedUserId, {
+        user: resolvedUser,
+      });
     }, 150);
   }, [navigation, onClose, resolveProfileUserIdFromUsername, resolveUserId, writeCachedUser]);
 

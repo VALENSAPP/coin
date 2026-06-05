@@ -370,6 +370,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 35,
     textAlign: 'center',
+    paddingVertical: 5,
   },
   optionBtn: {
     paddingVertical: 14,
