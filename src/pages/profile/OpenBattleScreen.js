@@ -26,7 +26,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../../i18n';
-import { createBattle } from '../../services/battle';
+import { createBattle, editBattle } from '../../services/battle';
 import { getAllUser } from '../../services/users';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -95,6 +95,46 @@ const getFilledOptions = options =>
     .map(option => (typeof option === 'string' ? option.trim() : option.text?.trim() || ''))
     .filter(Boolean);
 
+const isSuccessfulResponse = response =>
+  (typeof response?.status === 'number' && response.status >= 200 && response.status < 300) ||
+  (typeof response?.statusCode === 'number' && response.statusCode >= 200 && response.statusCode < 300) ||
+  response?.success === true ||
+  response?.error === false;
+
+const buildFormFromBattle = battle => {
+  const rawOptions = Array.isArray(battle?.options) ? battle.options : [];
+  const optionImages = Array.isArray(battle?.optionImages) ? battle.optionImages : [];
+  const mappedOptions = rawOptions.map((option, index) => {
+    if (typeof option === 'string') {
+      return { text: option, image: optionImages[index] || null };
+    }
+
+    return {
+      text: pickFirst(option?.text, option?.label, option?.side, option?.value, ''),
+      image: pickFirst(option?.image, option?.imageUrl, optionImages[index], null),
+    };
+  });
+
+  const endTimeValue = pickFirst(battle?.endTime, battle?.endsAt, '');
+  const parsedEndTime = endTimeValue ? new Date(endTimeValue) : null;
+
+  return {
+    format: pickFirst(battle?.format, 'POLL'),
+    battleType: pickFirst(battle?.battleType, 'OPINION'),
+    question: pickFirst(battle?.question, battle?.title, ''),
+    options: mappedOptions.length >= 2
+      ? mappedOptions
+      : createInitialForm().options,
+    endTime: parsedEndTime && !Number.isNaN(parsedEndTime.getTime()) ? parsedEndTime : null,
+    isPublic: battle?.isPublic !== false,
+    invitedUserId: String(pickFirst(battle?.invitedUserId, '')),
+    stake: (() => {
+      const stakeValue = pickFirst(battle?.stakeAmount, battle?.stake, '');
+      return stakeValue === '' || stakeValue == null ? '' : String(stakeValue);
+    })(),
+  };
+};
+
 const formatDisplayDate = value => {
   if (!value) {
     return '';
@@ -134,7 +174,8 @@ export default function OpenBattleScreen() {
     () => route?.params?.params || route?.params || {},
     [route?.params],
   );
-  console.log("routeParamsrouteParamsrouteParamsrouteParamsrouteParamsrouteParams", routeParams)
+  const isEditMode = Boolean(routeParams.editMode && routeParams.battleId);
+  const editBattleId = String(routeParams.battleId || '');
   const { bgStyle, text, card } = useAppTheme(routeParams.profile);
   const isCompanyProfile =
     routeParams?.isCompanyProfile === true ||
@@ -200,7 +241,31 @@ export default function OpenBattleScreen() {
   }, []);
 
   useEffect(() => {
-    if (!Object.keys(routeParams).length) {
+    if (!isEditMode || !routeParams.battle) {
+      return;
+    }
+
+    const nextForm = buildFormFromBattle(routeParams.battle);
+    setForm(nextForm);
+    setErrors({});
+
+    const invitedUser = routeParams.battle?.invitedUser;
+    const invitedUserId = String(pickFirst(routeParams.battle?.invitedUserId, ''));
+    if (invitedUser && invitedUserId) {
+      setSelectedInviteUser({
+        id: invitedUserId,
+        name: pickFirst(invitedUser?.name, invitedUser?.displayName, invitedUser?.userName, 'User'),
+        userName: pickFirst(invitedUser?.userName, invitedUser?.username, ''),
+        avatar: pickFirst(invitedUser?.avatar, invitedUser?.image, invitedUser?.profilePicture, ''),
+      });
+      setInviteSearchText(
+        invitedUser?.userName ? `@${invitedUser.userName}` : pickFirst(invitedUser?.name, ''),
+      );
+    }
+  }, [isEditMode, routeParams.battle]);
+
+  useEffect(() => {
+    if (!Object.keys(routeParams).length || isEditMode) {
       return;
     }
 
@@ -281,7 +346,7 @@ export default function OpenBattleScreen() {
     return () => {
       cancelled = true;
     };
-  }, [routeParams, viewerUserId]);
+  }, [isEditMode, routeParams, viewerUserId]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -712,6 +777,72 @@ export default function OpenBattleScreen() {
   };
 
   const handleSubmit = async () => {
+    if (isEditMode) {
+      const question = form.question.trim();
+      const nextErrors = {};
+
+      if (!question) {
+        nextErrors.question = t('openBattle.questionRequired');
+      }
+
+      setErrors(nextErrors);
+      if (Object.keys(nextErrors).length > 0) {
+        showToastMessage(toast, 'danger', t('openBattle.fixFieldsError'));
+        return;
+      }
+
+      if (!editBattleId) {
+        showToastMessage(toast, 'danger', t('openBattle.battleUpdatedFail'));
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        const response = await editBattle({
+          battleId: editBattleId,
+          question,
+        });
+
+        if (isSuccessfulResponse(response)) {
+          showToastMessage(
+            toast,
+            'success',
+            response?.message || t('openBattle.battleUpdatedSuccess'),
+          );
+
+          const updatedBattle = {
+            ...(routeParams.battle || {}),
+            ...(response?.data?.battle || response?.data || {}),
+            id: editBattleId,
+            question,
+            title: question,
+          };
+
+          navigation.replace('BattleInProgress', {
+            battleId: editBattleId,
+            battle: updatedBattle,
+            profile,
+          });
+          return;
+        }
+
+        showToastMessage(
+          toast,
+          'danger',
+          response?.message || t('openBattle.battleUpdatedFail'),
+        );
+      } catch (error) {
+        showToastMessage(
+          toast,
+          'danger',
+          error?.message || t('openBattle.somethingWentWrong'),
+        );
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     if (!validate()) {
       showToastMessage(toast, 'danger', t('openBattle.fixFieldsError'));
       return;
@@ -815,7 +946,7 @@ export default function OpenBattleScreen() {
             <Ionicons name="chevron-back" size={24} color={text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: text }]}>
-            {t('openBattle.screenTitle')}
+            {isEditMode ? t('openBattle.editScreenTitle') : t('openBattle.screenTitle')}
           </Text>
           <TouchableOpacity
             onPress={() =>
@@ -839,14 +970,14 @@ export default function OpenBattleScreen() {
               <Ionicons name="trophy-outline" size={30} color={text} />
             </View>
             <Text style={[styles.heroTitle, { color: text }]}>
-              {t('openBattle.heroTitle')}
+              {isEditMode ? t('openBattle.editHeroTitle') : t('openBattle.heroTitle')}
             </Text>
             <Text style={styles.heroSubtitle}>
-              {t('openBattle.heroSubtitle')}
+              {isEditMode ? t('openBattle.editHeroSubtitle') : t('openBattle.heroSubtitle')}
             </Text>
           </View>
 
-          <View style={styles.section}>
+          <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
             <Text style={[styles.sectionTitle, { color: text }]}>
               {t('openBattle.battleFormatSection')}
             </Text>
@@ -868,6 +999,7 @@ export default function OpenBattleScreen() {
                     style={styles.formatCell}
                     onPress={() => updateField('format', option.key)}
                     activeOpacity={0.88}
+                    disabled={isEditMode}
                   >
                     <Wrapper
                       {...wrapperProps}
@@ -926,7 +1058,7 @@ export default function OpenBattleScreen() {
           </View>
 
           {(isPoll || isHeadToHead) && (
-            <View style={styles.section}>
+            <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
               <View style={styles.rowBetween}>
                 <Text style={[styles.label, { color: text }]}>
                   {isHeadToHead ? t('openBattle.battleSidesLabel') : t('openBattle.optionsLabel')}
@@ -1010,7 +1142,7 @@ export default function OpenBattleScreen() {
           )}
 
           {isHeadToHead && (
-            <View style={styles.section}>
+            <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
               <Text style={[styles.label, { color: text }]}>{t('openBattle.inviteUserLabel')}</Text>
               <View
                 style={[
@@ -1096,7 +1228,7 @@ export default function OpenBattleScreen() {
             </View>
           )}
 
-          <View style={styles.section}>
+          <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
             <Text style={[styles.label, { color: text }]}>{t('openBattle.endTimeLabel')}</Text>
             <TouchableOpacity
               style={[
@@ -1107,7 +1239,12 @@ export default function OpenBattleScreen() {
                   borderColor: errors.endTime ? ERROR : BORDER,
                 },
               ]}
-              onPress={() => setDatePickerOpen(true)}
+              onPress={() => {
+                if (!isEditMode) {
+                  setDatePickerOpen(true);
+                }
+              }}
+              disabled={isEditMode}
             >
               <Text
                 style={[
@@ -1126,7 +1263,7 @@ export default function OpenBattleScreen() {
             )}
           </View>
 
-          <View style={styles.section}>
+          <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
             <Text style={[styles.label, { color: text }]}>
               {t('openBattle.stakeLabel')}
             </Text>
@@ -1144,13 +1281,14 @@ export default function OpenBattleScreen() {
               keyboardType="numeric"
               value={form.stake}
               onChangeText={value => updateField('stake', value)}
+              editable={!isEditMode}
             />
             {!!errors.stake && (
               <Text style={styles.errorText}>{errors.stake}</Text>
             )}
           </View>
 
-          <View style={styles.section}>
+          <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
             <View
               style={[
                 styles.publicCard,
@@ -1170,6 +1308,7 @@ export default function OpenBattleScreen() {
                 onValueChange={value => updateField('isPublic', value)}
                 trackColor={{ false: '#CBD5E1', true: '#CBD5E1' }}
                 thumbColor={form.isPublic ? text : '#F8FAFC'}
+                disabled={isEditMode}
               />
             </View>
           </View>
@@ -1190,7 +1329,9 @@ export default function OpenBattleScreen() {
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.createBtnText}>{t('openBattle.createButton')}</Text>
+                <Text style={styles.createBtnText}>
+                  {isEditMode ? t('openBattle.updateButton') : t('openBattle.createButton')}
+                </Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
@@ -1336,6 +1477,9 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 10,
+  },
+  readOnlySection: {
+    opacity: 0.55,
   },
   sectionTitle: {
     fontSize: 14,

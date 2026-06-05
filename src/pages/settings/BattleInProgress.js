@@ -440,6 +440,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
     primaryCountLabel: format === 'HEAD_TO_HEAD' ? 'votes' : 'participants',
     totalComments: Number(pickFirst(raw?.totalComments, raw?._count?.comments, comments.length, 0)),
     stake: Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0)),
+    createdAt: pickFirst(raw?.createdAt, raw?.created_at, raw?.createdDate, ''),
     endTime: pickFirst(raw?.endTime, raw?.endsAt, ''),
     creatorChoice,
     invitedUserChoice: String(pickFirst(invitedUserChoice, '')),
@@ -533,6 +534,8 @@ const formatStakeAmount = value => {
     maximumFractionDigits: 2,
   });
 };
+
+const BATTLE_QUESTION_EDIT_WINDOW_MS = 5 * 60 * 1000;
 
 const isSuccessfulResponse = response =>
   (typeof response?.status === 'number' && response.status >= 200 && response.status < 300) ||
@@ -739,6 +742,46 @@ export default function BattleInProgress() {
     if (!currentUserId) return false;
     return String(currentUserId) === String(battle.creatorId);
   }, [battle.creatorId, currentUserId, isHeadToHead]);
+
+  const isBattleCreator = useMemo(() => {
+    if (!currentUserId || !battle.creatorId) return false;
+    return String(currentUserId) === String(battle.creatorId);
+  }, [battle.creatorId, currentUserId]);
+
+  const [editWindowNow, setEditWindowNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!battle.createdAt || !isBattleCreator) return undefined;
+    const interval = setInterval(() => setEditWindowNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [battle.createdAt, isBattleCreator]);
+
+  const canEditBattleQuestion = useMemo(() => {
+    if (!isBattleCreator || isBattleCancelled || canViewResults) return false;
+    if (!battle.createdAt) return false;
+
+    const createdMs = new Date(battle.createdAt).getTime();
+    if (Number.isNaN(createdMs)) return false;
+
+    return editWindowNow - createdMs < BATTLE_QUESTION_EDIT_WINDOW_MS;
+  }, [
+    battle.createdAt,
+    canViewResults,
+    editWindowNow,
+    isBattleCancelled,
+    isBattleCreator,
+  ]);
+
+  const handleEditBattleQuestion = useCallback(() => {
+    if (!resolvedBattleId) return;
+
+    navigation.navigate('OpenBattle', {
+      editMode: true,
+      battleId: resolvedBattleId,
+      battle,
+      profile: resolvedProfileType,
+    });
+  }, [battle, navigation, resolvedBattleId, resolvedProfileType]);
 
   const userVotedSelection = useMemo(() => {
     if (!currentUserId) return { side: '', optionId: '' };
@@ -1075,8 +1118,11 @@ export default function BattleInProgress() {
 
   useFocusEffect(useCallback(() => {
     setExpandedReplies({});
+    if (battleId) {
+      fetchBattle(true);
+    }
     return () => setExpandedReplies({});
-  }, []));
+  }, [battleId, fetchBattle]));
 
   useEffect(() => { setExpandedReplies({}); }, [resolvedBattleId]);
 
@@ -1744,6 +1790,18 @@ export default function BattleInProgress() {
               Stakes: {formatStakeAmount(battle.stake)}
             </Text>
           </View>
+          {canEditBattleQuestion ? (
+            <TouchableOpacity
+              style={[styles.editBattleButton, { borderColor: withAlpha(text, '33') }]}
+              onPress={handleEditBattleQuestion}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="create-outline" size={13} color={text} />
+              <Text style={[styles.editBattleButtonText, { color: text }]}>
+                {t('battleInProgress.editQuestion')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
       <TouchableOpacity activeOpacity={0.9} onPressIn={handleHeroCardPressIn} onPressOut={handleHeroCardPressOut}>
@@ -2540,6 +2598,17 @@ const styles = StyleSheet.create({
   heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   heroInfoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(107,95,166,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   heroInfoText: { color: "#000", fontSize: 11, fontWeight: '600' },
+  editBattleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  editBattleButtonText: { fontSize: 11, fontWeight: '700' },
   heroMetaRight: { alignItems: 'flex-end' },
 
   // Duel
