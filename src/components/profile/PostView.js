@@ -46,6 +46,7 @@ import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
+import ScreenshotProtectionOverlay from '../ScreenshotProtectionOverlay';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 export default function PostView({ postData = [], userData = {} }) {
@@ -324,7 +325,7 @@ export default function PostView({ postData = [], userData = {} }) {
     }, [])
   );
 
-  useScreenshotProtection({
+  const { shouldBlur } = useScreenshotProtection({
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
@@ -1135,6 +1136,8 @@ export default function PostView({ postData = [], userData = {} }) {
           windowSize={9}
           nestedScrollEnabled
         />
+
+        <ScreenshotProtectionOverlay visible={shouldBlur} />
       </SafeAreaView>
 
       {/* Options Modal */}
@@ -1191,6 +1194,7 @@ export default function PostView({ postData = [], userData = {} }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: 'hidden',
   },
   feedContainer: {
     // Avoid padding with snapping (can cause bounce/jitter).

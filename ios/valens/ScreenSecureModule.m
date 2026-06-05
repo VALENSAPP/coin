@@ -1,6 +1,7 @@
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface RCT_EXTERN_MODULE(ScreenSecureModule, NSObject)
+@interface RCT_EXTERN_MODULE(ScreenSecure, RCTEventEmitter)
 
 RCT_EXTERN_METHOD(setSecure:(BOOL)enabled
                   resolve:(RCTPromiseResolveBlock)resolve
