@@ -264,8 +264,7 @@ const PostEditorScreen = () => {
       type:
         postType === 'private'
           ? 'private'
-          : 'normal'
-            || fromIcon === 'Flips'
+          : fromIcon === 'Flips'
             ? 'reel'
             : 'normal',
       visibleTo: visibleTo

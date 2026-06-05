@@ -1124,17 +1124,17 @@ function PostItem({
 
       // Prefer navigating within the nearest navigator that actually owns `FlipsScreen`
       // so back navigation returns to the current screen automatically.
-      let targetNavigation = navigation;
-      while (targetNavigation) {
-        const routeNames = targetNavigation.getState?.()?.routeNames || [];
-        if (routeNames.includes('FlipsScreen')) {
-          targetNavigation.navigate('FlipsScreen', params);
-          return;
-        }
-        targetNavigation = targetNavigation.getParent?.();
-      }
+      // let targetNavigation = navigation;
+      // while (targetNavigation) {
+      //   const routeNames = targetNavigation.getState?.()?.routeNames || [];
+      //   if (routeNames.includes('FlipsScreen')) {
+      //     targetNavigation.navigate('FlipsScreen', params);
+      //     return;
+      //   }
+      //   targetNavigation = targetNavigation.getParent?.();
+      // }
 
-      navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
+      // navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
     },
     [item, navigation, returnTo, route?.name, route?.params, t],
   );
