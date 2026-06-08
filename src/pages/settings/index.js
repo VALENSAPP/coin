@@ -141,7 +141,13 @@ const Settings = () => {
   };
 
   const handleAccountPrivacyPress = () => {
-    Alert.alert(t('settings.accountPrivacy'), t('settings.navigateAccountPrivacy'));
+    navigation.navigate('wallet', {
+      screen: 'PrivacySettings',
+      params: {
+        hideDeleteAccount: true,
+        returnToSettings: true,
+      },
+    });
   };
 
   const handleCloseFriendsPress = () => {
@@ -766,7 +772,7 @@ const Settings = () => {
             icon="privacy-tip"
             title={t('settings.accountPrivacy')}
             rightText={profileStatusLabel}
-            showChevron={false}
+            onPress={handleAccountPrivacyPress}
           />
           <SettingsItem
             icon="visibility-off"

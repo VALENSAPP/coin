@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { format } from 'date-fns';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
 import { useDispatch, useSelector } from 'react-redux';
@@ -118,6 +117,53 @@ const FOLLOWERS_RANGE_BY_PERIOD = {
   Daily: 'daily',
   Weekly: 'weekly',
 };
+
+const pad2 = value => String(value).padStart(2, '0');
+
+const formatActivityBucketLabel = (timestamp, range) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  if (range === 'daily') {
+    return `${pad2(date.getUTCHours())}:00`;
+  }
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+};
+
+const normalizeActivityTimestamp = (timestamp, range) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return NaN;
+  if (range === 'daily') {
+    date.setUTCMinutes(0, 0, 0);
+  } else {
+    date.setUTCHours(0, 0, 0, 0);
+  }
+  return date.getTime();
+};
+
+const resolveActivityTimestamp = (item, index, raw, range) => {
+  const dateStr =
+    item?.date ?? item?.day ?? item?.createdAt ?? item?.timestamp ?? item?.time;
+  if (dateStr != null && String(dateStr).length > 0) {
+    const ts = typeof dateStr === 'number' ? dateStr : new Date(dateStr).getTime();
+    if (Number.isFinite(ts)) return normalizeActivityTimestamp(ts, range);
+  }
+
+  if (range === 'daily' && item?.label && /^\d{1,2}:\d{2}$/.test(String(item.label))) {
+    const [hour, minute] = String(item.label).split(':').map(Number);
+    const fallback = new Date();
+    fallback.setUTCHours(Number(hour) || 0, Number(minute) || 0, 0, 0);
+    return fallback.getTime();
+  }
+
+  return Date.now() - (raw.length - 1 - index) * (range === 'daily' ? 3600000 : 86400000);
+};
+
+const resolveActivityLabel = (item, timestamp, range) => {
+  const label = String(item?.label || '').trim();
+  if (label) return label;
+  return formatActivityBucketLabel(timestamp, range);
+};
+
 const HexStarIcon = ({ size = 36, starSize = 16, starColor = '#ffffff', bgColor = '#5a2d82' }) => {
   const cx = size / 2;
   const cy = size / 2;
@@ -138,7 +184,7 @@ const HexStarIcon = ({ size = 36, starSize = 16, starColor = '#ffffff', bgColor 
   );
 };
 /** Subscription / support earnings graph → `{ timestamp, value }[]` */
-const mapSubscriptionGraphPoints = (response) => {
+const mapSubscriptionGraphPoints = (response, range = 'weekly') => {
   const root = response?.data?.data ?? response?.data ?? response;
   const raw = Array.isArray(root?.points)
     ? root.points
@@ -154,8 +200,6 @@ const mapSubscriptionGraphPoints = (response) => {
 
   return raw
     .map((item, index) => {
-      const dateStr =
-        item?.date ?? item?.label ?? item?.day ?? item?.time ?? item?.createdAt;
       const val = Number(
         item?.amount ??
         item?.earning ??
@@ -165,17 +209,11 @@ const mapSubscriptionGraphPoints = (response) => {
         item?.count ??
         0,
       );
-      let ts;
-      if (dateStr != null && String(dateStr).length > 0) {
-        ts = new Date(dateStr).getTime();
-      } else if (typeof item?.timestamp === 'number') {
-        ts = item.timestamp;
-      } else {
-        ts = Date.now() - (raw.length - 1 - index) * 86400000;
-      }
+      const ts = resolveActivityTimestamp(item, index, raw, range);
       return {
         timestamp: ts,
         value: Number.isFinite(val) ? val : 0,
+        label: resolveActivityLabel(item, ts, range),
       };
     })
     .filter((p) => !isNaN(p.timestamp) && Number.isFinite(p.value))
@@ -186,7 +224,7 @@ const mapSubscriptionGraphPoints = (response) => {
  * Parse `user/followers-graph`: follower totals/counts plus optional unfollow series
  * (`unfollowers`, `unfollowCount`, etc.) when the API provides them.
  */
-const parseFollowersGraphSeries = (response) => {
+const parseFollowersGraphSeries = (response, range = 'weekly') => {
   const root = response?.data?.data ?? response?.data ?? response;
   const raw = Array.isArray(root?.points)
     ? root.points
@@ -204,12 +242,6 @@ const parseFollowersGraphSeries = (response) => {
 
   const pair = raw
     .map((item, index) => {
-      const dateStr =
-        item?.date ??
-        item?.label ??
-        item?.day ??
-        item?.time ??
-        item?.createdAt;
       const fVal = Number(
         item?.followers ??
         item?.followerCount ??
@@ -228,16 +260,10 @@ const parseFollowersGraphSeries = (response) => {
         item?.unfollows ??
         0,
       );
-      let ts;
-      if (dateStr != null && String(dateStr).length > 0) {
-        ts = new Date(dateStr).getTime();
-      } else if (typeof item?.timestamp === 'number') {
-        ts = item.timestamp;
-      } else {
-        ts = Date.now() - (raw.length - 1 - index) * 86400000;
-      }
+      const ts = resolveActivityTimestamp(item, index, raw, range);
       return {
         timestamp: ts,
+        label: resolveActivityLabel(item, ts, range),
         follower: Number.isFinite(fVal) ? fVal : 0,
         unfollow: Number.isFinite(uVal) ? uVal : 0,
       };
@@ -246,12 +272,12 @@ const parseFollowersGraphSeries = (response) => {
     .sort((a, b) => a.timestamp - b.timestamp);
 
   return {
-    followers: pair.map((p) => ({ timestamp: p.timestamp, value: p.follower })),
-    unfollowers: pair.map((p) => ({ timestamp: p.timestamp, value: p.unfollow })),
+    followers: pair.map((p) => ({ timestamp: p.timestamp, value: p.follower, label: p.label })),
+    unfollowers: pair.map((p) => ({ timestamp: p.timestamp, value: p.unfollow, label: p.label })),
   };
 };
 
-function alignThreeActivitySeries(followers, unfollowers, support) {
+function alignThreeActivitySeries(followers, unfollowers, support, range = 'weekly') {
   const allTs = [
     ...new Set([
       ...followers.map((p) => p.timestamp),
@@ -261,8 +287,15 @@ function alignThreeActivitySeries(followers, unfollowers, support) {
   ].sort((a, b) => a - b);
 
   if (allTs.length === 0) {
-    return { followers: [], unfollowers: [], support: [], timestamps: [] };
+    return { followers: [], unfollowers: [], support: [], timestamps: [], labels: [] };
   }
+
+  const labelsByTs = new Map();
+  [...followers, ...unfollowers, ...support].forEach((point) => {
+    if (!labelsByTs.has(point.timestamp) && point.label) {
+      labelsByTs.set(point.timestamp, point.label);
+    }
+  });
 
   const align = (arr, carryForward) => {
     const m = new Map(arr.map((p) => [p.timestamp, p.value]));
@@ -280,6 +313,7 @@ function alignThreeActivitySeries(followers, unfollowers, support) {
 
   return {
     timestamps: allTs,
+    labels: allTs.map(ts => labelsByTs.get(ts) || formatActivityBucketLabel(ts, range)),
     followers: align(followers, true),
     unfollowers: align(unfollowers, true),
     support: align(support, false),
@@ -347,6 +381,7 @@ const ACTIVITY_CHART_POINT_GAP = 46;
 /** Multi-series trend (each line scaled to its own min/max so shapes are visible together). */
 function ActivityTrendSvg({
   timestamps,
+  labels = [],
   followersValues,
   unfollowersValues,
   supportValues,
@@ -369,6 +404,7 @@ function ActivityTrendSvg({
       if (!Number.isFinite(t)) continue;
       rows.push({
         t,
+        label: labels[i],
         fv: Number(followersValues[i]) || 0,
         uv: Number(unfollowersValues[i]) || 0,
         sv: Number(supportValues[i]) || 0,
@@ -376,7 +412,7 @@ function ActivityTrendSvg({
     }
     rows.sort((a, b) => a.t - b.t);
     return rows;
-  }, [timestamps, followersValues, unfollowersValues, supportValues]);
+  }, [timestamps, labels, followersValues, unfollowersValues, supportValues]);
 
   const padL = 32;
   const padR = 32;
@@ -390,6 +426,7 @@ function ActivityTrendSvg({
   const unfollowersValuesSorted = pairedSorted.map((r) => r.uv);
   const supportValuesSorted = pairedSorted.map((r) => r.sv);
   const timestampsSorted = pairedSorted.map((r) => r.t);
+  const labelsSorted = pairedSorted.map((r) => r.label);
 
   const xs = Array.from({ length: n }, (_, i) =>
     padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW),
@@ -479,7 +516,7 @@ function ActivityTrendSvg({
             fontSize={9}
           // textAnchor={anchor}
           >
-            {format(ts, 'MMM d')}
+            {labelsSorted[i] || ''}
           </SvgText>
         );
       })}
@@ -493,6 +530,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [activityPeriod, setActivityPeriod] = useState('Weekly'); // Daily | Weekly (matches API range)
   const [walletTransactions, setWalletTransactions] = useState(0);
   const [activityTimestamps, setActivityTimestamps] = useState([]);
+  const [activityBucketLabels, setActivityBucketLabels] = useState([]);
   const [activityFollowersSeries, setActivityFollowersSeries] = useState([]);
   const [activityUnfollowersSeries, setActivityUnfollowersSeries] = useState([]);
   const [activitySupportSeries, setActivitySupportSeries] = useState([]);
@@ -934,18 +972,21 @@ export const WalletDashboardScreen = ({ navigation }) => {
         userId ? getTotalFollowers({ userId, range }) : Promise.resolve(null),
         subscriptionEarningGraph({ interval: range }),
       ]);
-
-      const { followers: fp, unfollowers: up } = parseFollowersGraphSeries(followersRes);
-      const sp = mapSubscriptionGraphPoints(supportRes);
-      const aligned = alignThreeActivitySeries(fp, up, sp);
+      console.log('Followers API Response:', followersRes);
+      console.log('Subscription Graph Response:', supportRes);
+      const { followers: fp, unfollowers: up } = parseFollowersGraphSeries(followersRes, range);
+      const sp = mapSubscriptionGraphPoints(supportRes, range);
+      const aligned = alignThreeActivitySeries(fp, up, sp, range);
 
       setActivityTimestamps(aligned.timestamps);
+      setActivityBucketLabels(aligned.labels);
       setActivityFollowersSeries(aligned.followers);
       setActivityUnfollowersSeries(aligned.unfollowers);
       setActivitySupportSeries(aligned.support);
     } catch (error) {
       console.error('error in activity overview charts', error);
       setActivityTimestamps([]);
+      setActivityBucketLabels([]);
       setActivityFollowersSeries([]);
       setActivityUnfollowersSeries([]);
       setActivitySupportSeries([]);
@@ -1694,6 +1735,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
                 >
                   <ActivityTrendSvg
                     timestamps={activityTimestamps}
+                    labels={activityBucketLabels}
                     followersValues={activityFollowersSeries.map((p) => p.value)}
                     unfollowersValues={activityUnfollowersSeries.map((p) => p.value)}
                     supportValues={activitySupportSeries.map((p) => p.value)}
@@ -2552,7 +2594,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     justifyContent: 'center',
     alignItems: 'center',
-      right: Platform.OS == "android" ? 0 : 14,
+    right: Platform.OS == "android" ? 0 : 14,
   },
   kpiInfoButton: {
     padding: 4,

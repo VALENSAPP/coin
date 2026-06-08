@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -6,7 +6,6 @@ import {
     SafeAreaView,
     StatusBar,
     TouchableOpacity,
-    Switch,
     Alert,
 } from 'react-native';
 import styles from './Style';
@@ -19,24 +18,61 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import { useRoute } from '@react-navigation/native';
+import { getUserCredentials } from '../../services/post';
 
 const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
+    const route = useRoute();
     const toast = useToast();
     const { bgStyle, textStyle } = useAppTheme();
     const { t } = useLanguage();
+    const hideDeleteAccount = route?.params?.hideDeleteAccount === true;
 
     const [privacySettings, setPrivacySettings] = useState({
         profileVisibility: 'public',
     });
 
+    const getProfileStatus = useCallback(async () => {
+        dispatch(showLoader());
+        try {
+            const userId = await AsyncStorage.getItem('userId');
+            if (!userId) return;
+
+            const resp = await getUserCredentials(String(userId));
+            const profileStatus = String(
+                resp?.data?.user?.profileStatus ||
+                resp?.data?.profileStatus ||
+                resp?.user?.profileStatus ||
+                resp?.profileStatus ||
+                '',
+            ).trim().toLowerCase();
+
+            if (profileStatus === 'public' || profileStatus === 'private') {
+                setPrivacySettings(prev => ({
+                    ...prev,
+                    profileVisibility: profileStatus,
+                }));
+            }
+        } catch (e) {
+            showToastMessage(toast, 'danger', t('privacySettings.updateError'));
+        } finally {
+            dispatch(hideLoader());
+        }
+    }, [dispatch, t, toast]);
+
+    useEffect(() => {
+        getProfileStatus();
+    }, [getProfileStatus]);
+
     const updateProfileStatus = async (status) => {
+        if (privacySettings.profileVisibility === status) return;
         dispatch(showLoader());
         try {
             const dataToSend = { profileStatus: status };
             const resp = await userProfileStatusSet(dataToSend);
             if (resp?.statusCode === 200) {
-                setPrivacySettings({ ...privacySettings, profileVisibility: status });
+                setPrivacySettings(prev => ({ ...prev, profileVisibility: status }));
                 showToastMessage(toast, 'success', t('privacySettings.updateSuccess'));
             } else {
                 showToastMessage(toast, 'danger', resp?.message || t('privacySettings.updateError'));
@@ -47,7 +83,7 @@ const PrivacySettingsScreen = () => {
             dispatch(hideLoader());
         }
     };
-
+    
     const handleProfileVisibilityChange = (visibility) => {
         updateProfileStatus(visibility);
     };
@@ -137,14 +173,16 @@ const PrivacySettingsScreen = () => {
                     </View>
                 </View>
 
-                <View style={styles.section}>
-                    <TouchableOpacity
-                        style={styles.dangerButton}
-                        onPress={handleDeleteAccount}
-                    >
-                        <Text style={styles.dangerButtonText}>{t('privacySettings.deleteAccount')}</Text>
-                    </TouchableOpacity>
-                </View>
+                {!hideDeleteAccount && (
+                    <View style={styles.section}>
+                        <TouchableOpacity
+                            style={styles.dangerButton}
+                            onPress={handleDeleteAccount}
+                        >
+                            <Text style={styles.dangerButtonText}>{t('privacySettings.deleteAccount')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
