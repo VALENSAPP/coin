@@ -665,7 +665,7 @@
     "updateButton": "ATUALIZAR BATALHA",
     "editScreenTitle": "Editar batalha",
     "editHeroTitle": "Atualize a pergunta da sua batalha",
-    "editHeroSubtitle": "Apenas a pergunta pode ser alterada. Os demais detalhes da batalha permanecem os mesmos.",
+    "editHeroSubtitle": "Atualize a pergunta e as opções antes de a batalha entrar ao vivo.",
     "battleUpdatedSuccess": "Batalha atualizada com sucesso",
     "battleUpdatedFail": "Falha ao atualizar a batalha",
     "helpAlertTitle": "Formato da Batalha",

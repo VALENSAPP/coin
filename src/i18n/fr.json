@@ -665,7 +665,7 @@
     "updateButton": "METTRE À JOUR LA BATTLE",
     "editScreenTitle": "Modifier la battle",
     "editHeroTitle": "Mettez à jour la question de votre battle",
-    "editHeroSubtitle": "Seule la question peut être modifiée. Tous les autres détails de la battle restent inchangés.",
+    "editHeroSubtitle": "Mettez à jour la question et les options avant que la battle ne soit en direct.",
     "battleUpdatedSuccess": "Battle mise à jour avec succès",
     "battleUpdatedFail": "Échec de la mise à jour de la battle",
     "helpAlertTitle": "Format de la battle",

@@ -81,6 +81,8 @@ export default function BattleVoteDetails() {
 
   const { profile } = route.params || {};
   const { battle } = route.params || {};
+  const selectedSide = String(route?.params?.selectedSide || '').trim();
+  const selectedSideLabel = String(route?.params?.selectedSideLabel || selectedSide || '').trim();
   const resolvedProfileType = normalizeProfileType(profile);
 
   const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
@@ -93,10 +95,12 @@ export default function BattleVoteDetails() {
     muted: '#9CA3AF',
   };
 
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loading] = useState(false);
+  const [refreshing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('votes');
+  const [activeTab] = useState(
+    route?.params?.mode === 'comments' ? 'comments' : 'votes',
+  );
 
   const battleType = battle?.type || 'PUBLIC';
   const battleFormat = battle?.format || 'HEAD_TO_HEAD';
@@ -248,16 +252,20 @@ export default function BattleVoteDetails() {
         if (title) ensureGroup(title);
       });
 
+      buildHeadToHeadSideChoices(entryType).forEach(choice => {
+        ensureGroup(choice.side).push(choice);
+      });
+
       list.forEach(entry => {
         const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.id, '') || '');
         const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '').trim();
 
         const meta = entry?.user
           ? {
-              displayName: pickFirst(entry.user.displayName, entry.user.name, 'User'),
-              displayHandle: pickFirst(entry.user.userName, entry.user.handle, ''),
-              displayAvatar: pickFirst(entry.user.image, entry.user.avatar, FALLBACK_AVATAR),
-            }
+            displayName: pickFirst(entry.user.displayName, entry.user.name, 'User'),
+            displayHandle: pickFirst(entry.user.userName, entry.user.handle, ''),
+            displayAvatar: pickFirst(entry.user.image, entry.user.avatar, FALLBACK_AVATAR),
+          }
           : resolveUserMeta(userId);
 
         const fallbackName = entryType === 'votes' ? 'Voter' : 'Predictor';
@@ -276,10 +284,33 @@ export default function BattleVoteDetails() {
         ensureGroup(groupTitle).push(row);
       });
 
-      buildHeadToHeadSideChoices(entryType).forEach(choice => {
-        const groupTitle = choice.side || 'Other';
-        ensureGroup(groupTitle).push(choice);
-      });
+      // If API doesn't provide voter meta (only participants are available), still render participants
+      // so users can see each participant and their chosen side under their details.
+      if (entryType === 'votes' && list.length === 0) {
+        const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+        participants.forEach(p => {
+          const userId = String(pickFirst(p?.userId, p?.user?.id, '') || '');
+          const side = String(pickFirst(p?.side, '') || '').trim();
+          const meta = p?.user
+            ? {
+              displayName: pickFirst(p.user.displayName, p.user.name, 'User'),
+              displayHandle: pickFirst(p.user.userName, p.user.handle, ''),
+              displayAvatar: pickFirst(p.user.image, p.user.avatar, FALLBACK_AVATAR),
+            }
+            : resolveUserMeta(userId);
+
+          const matchedOption = resolveOptionForSide(side);
+          const groupTitle = matchedOption?.label || side || 'Participants';
+
+          ensureGroup(groupTitle).push({
+            userId,
+            displayName: pickFirst(meta?.displayName, 'User'),
+            displayHandle: pickFirst(meta?.displayHandle, ''),
+            displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
+            side: matchedOption?.label || side,
+          });
+        });
+      }
 
       return Array.from(grouped.entries()).map(([title, data]) => ({
         title,
@@ -300,15 +331,22 @@ export default function BattleVoteDetails() {
     [battle?.predictions, buildSections],
   );
 
-  const sections = activeTab === 'votes' ? votesSections : predictionsSections;
+  const commentSections = useMemo(() => {
+    const comments = Array.isArray(battle?.comments) ? battle.comments : [];
+    const normalizedSelectedSide = normalizeSideKey(selectedSide);
+    const data = normalizedSelectedSide
+      ? comments.filter(comment => normalizeSideKey(comment?.side) === normalizedSelectedSide)
+      : comments;
 
-  const availableTabs = useMemo(() => {
-    const tabs = ['votes'];
-    if (Array.isArray(battle?.predictions) && battle.predictions.length > 0) {
-      tabs.push('predictions');
-    }
-    return tabs;
-  }, [battle?.predictions]);
+    return [{
+      title: selectedSideLabel || t('battleVoteDetails.commentsTitle', 'Comments'),
+      data,
+    }];
+  }, [battle?.comments, selectedSide, selectedSideLabel, t]);
+
+  const sections = activeTab === 'comments'
+    ? commentSections
+    : activeTab === 'votes' ? votesSections : predictionsSections;
 
   const optionSummaries = useMemo(() => {
     const sideCounts = activeTab === 'votes' ? battle?.voteCounts : battle?.predictionCounts;
@@ -363,18 +401,90 @@ export default function BattleVoteDetails() {
     sections,
   ]);
 
-  const totalCount = useMemo(
-    () => sections.reduce(
-      (acc, item) => acc + (Number.isFinite(item?.countableTotal)
-        ? item.countableTotal
-        : item.data.filter(row => !row.isSideChoice).length),
-      0,
-    ),
-    [sections],
+  const selectedSideVoteCount = useMemo(() => {
+    const normalizedSelectedSide = normalizeSideKey(selectedSide);
+    if (!normalizedSelectedSide) return 0;
+
+    const votes = filterHeadToHeadCountableEntries(battle?.votes, battleFormat, battle);
+    return votes.filter(entry => {
+      const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '');
+      return normalizeSideKey(side) === normalizedSelectedSide;
+    }).length;
+  }, [battle, battle?.votes, battleFormat, selectedSide]);
+
+  const handleOpenUser = useCallback(
+    userId => {
+      const targetUserId = String(userId || '').trim();
+      if (!targetUserId) return;
+
+      navigation.navigate('HomeMain', {
+        screen: 'UsersProfile',
+        params: {
+          userId: targetUserId,
+          returnTo: route?.name || 'BattleVoteDetails',
+          returnParams: route?.params,
+        },
+      });
+    },
+    [navigation, route?.name, route?.params],
   );
 
-  const handleOpenUser = userId => {
-    console.log('OPEN USER =>', userId);
+  const renderCommentRow = ({ item }) => {
+    const authorName = pickFirst(item?.authorName, item?.user?.name, item?.user?.displayName, 'User');
+    const authorHandle = pickFirst(item?.authorHandle, item?.user?.userName, item?.user?.username, '');
+    const avatar = pickFirst(item?.avatar, item?.user?.image, item?.user?.avatar, FALLBACK_AVATAR);
+    const message = pickFirst(item?.message, item?.comment, item?.text, '');
+    const likes = Number(pickFirst(item?.likes, item?.likeCount, item?.likesCount, 0));
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => handleOpenUser(item?.userId)}
+        style={[
+          styles.commentRow,
+          {
+            borderColor: palette.border,
+            backgroundColor: palette.surface,
+          },
+        ]}>
+        <View style={styles.commentHeader}>
+          <HexAvatar
+            uri={avatar || FALLBACK_AVATAR}
+            size={38}
+            borderWidth={1}
+            borderColor={palette.border}
+          />
+          <View style={styles.commentAuthorText}>
+            <Text numberOfLines={1} style={[styles.name, { color: text }]}>
+              {authorName}
+            </Text>
+            {!!authorHandle && (
+              <Text numberOfLines={1} style={[styles.handle, { color: palette.muted }]}>
+                @{authorHandle}
+              </Text>
+            )}
+          </View>
+          {!!item?.side && (
+            <View style={[styles.badge, { borderColor: palette.border, backgroundColor: palette.soft }]}>
+              <Text numberOfLines={1} style={[styles.badgeText, { color: palette.primary }]}>
+                {item.side}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={[styles.commentMessage, { color: text }]}>
+          {message}
+        </Text>
+
+        <View style={styles.commentMetaRow}>
+          <Ionicons name={item?.isLiked ? 'heart' : 'heart-outline'} size={16} color={item?.isLiked ? '#E11D48' : palette.muted} />
+          <Text style={[styles.commentMetaText, { color: item?.isLiked ? '#E11D48' : palette.muted }]}>
+            {Number.isFinite(likes) ? likes : 0}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   const renderRow = ({ item }) => {
@@ -434,11 +544,15 @@ export default function BattleVoteDetails() {
     );
   };
 
-  
+
   const titleText =
-    activeTab === 'votes'
-      ? t('battleVoteDetails.votesTitle', 'Votes')
-      : t('battleVoteDetails.predictionsTitle', 'Predictions');
+    activeTab === 'comments'
+      ? (selectedSideLabel
+        ? `${selectedSideLabel} ${t('battleVoteDetails.commentsTitle', 'Comments')}`
+        : t('battleVoteDetails.commentsTitle', 'Comments'))
+      : activeTab === 'votes'
+        ? t('battleVoteDetails.votesTitle', 'Votes')
+        : t('battleVoteDetails.predictionsTitle', 'Predictions');
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -505,8 +619,8 @@ export default function BattleVoteDetails() {
           }
           contentContainerStyle={styles.listContent}
           refreshing={refreshing}
-          onRefresh={() => {}}
-          renderItem={renderRow}
+          onRefresh={() => { }}
+          renderItem={activeTab === 'comments' ? renderCommentRow : renderRow}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHeader}>
@@ -518,15 +632,15 @@ export default function BattleVoteDetails() {
                 {section.title}
               </Text>
 
-              <Text
-                style={[
-                  styles.sectionCount,
-                  { color: palette.muted },
-                ]}>
-                {Number.isFinite(section?.countableTotal)
-                  ? section.countableTotal
-                  : section.data.filter(row => !row.isSideChoice).length}
-              </Text>
+              {activeTab !== 'comments' && (
+                <Text
+                  style={[
+                    styles.sectionCount,
+                    { color: palette.muted },
+                  ]}>
+                  {section.data.length}
+                </Text>
+              )}
             </View>
           )}
           renderSectionFooter={({ section }) => {
@@ -551,12 +665,17 @@ export default function BattleVoteDetails() {
                     styles.sectionEmptyText,
                     { color: palette.muted },
                   ]}>
-                  {activeTab === 'votes'
+                  {activeTab === 'comments'
                     ? t(
+                      'battleVoteDetails.noCommentsForSide',
+                      'No comments for this side yet',
+                    )
+                    : activeTab === 'votes'
+                      ? t(
                         'battleVoteDetails.noVotesForOption',
                         'No votes for this option',
                       )
-                    : t(
+                      : t(
                         'battleVoteDetails.noPredictionsForOption',
                         'No predictions for this option',
                       )}
@@ -651,7 +770,27 @@ export default function BattleVoteDetails() {
 
               {/* BREAKDOWN */}
 
-              {optionSummaries.length > 0 && (
+              {activeTab === 'comments' && selectedSide ? (
+                <View
+                  style={[
+                    styles.selectedSideCard,
+                    cardStyle,
+                    {
+                      borderColor: palette.border,
+                    },
+                  ]}>
+                  <Text style={[styles.selectedSideTitle, { color: text }]} numberOfLines={1}>
+                    {selectedSideLabel || selectedSide}
+                  </Text>
+                  <View style={[styles.selectedSidePill, { backgroundColor: palette.soft, borderColor: palette.border }]}>
+                    <Text style={[styles.selectedSidePillText, { color: palette.primary }]}>
+                      {selectedSideVoteCount} {t('battleInProgress.votesLabel', 'votes')}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {activeTab !== 'comments' && optionSummaries.length > 0 && (
                 <View
                   style={[
                     styles.breakdownCard,
@@ -874,6 +1013,43 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 
+  commentRow: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  commentAuthorText: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 10,
+  },
+
+  commentMessage: {
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  commentMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 4,
+  },
+
+  commentMetaText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
   name: {
     fontSize: 14,
     fontWeight: '800',
@@ -940,6 +1116,35 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 14,
+  },
+
+  selectedSideCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+
+  selectedSideTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '900',
+    marginRight: 10,
+  },
+
+  selectedSidePill: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+
+  selectedSidePillText: {
+    fontSize: 12,
+    fontWeight: '900',
   },
 
   breakdownTitle: {

@@ -12,7 +12,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { battleByUserId, battlePoint } from '../../services/battle';
+import { battleByUserId, battlePoint, filtterBattle } from '../../services/battle';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import { sortBattlesLiveFirst } from '../../utils/battleCardUtils';
@@ -125,6 +125,26 @@ const getStatusMeta = (battle) => {
   return { labelKey: 'battleHub.statusOpen', tone: '#0F766E' };
 };
 
+const BATTLE_TRACKING_FILTERS = {
+  myBattle: 'battle_live',
+  battleArena: 'battle_arena',
+  pastBattle: 'battle_past',
+};
+
+const getRawBattlesFromResponse = (response, filterKey) => {
+  const payload = response?.data?.data ?? response?.data ?? response ?? {};
+  return Array.isArray(payload)
+    ? payload
+    : payload?.[filterKey] ||
+        payload?.battles ||
+        payload?.data?.battles ||
+        payload?.data?.[filterKey] ||
+        payload?.data ||
+        payload?.items ||
+        response?.battles ||
+        [];
+};
+
 export default function ProfileBattleHub({
   viewedUserId,
   isOwner = false,
@@ -142,22 +162,23 @@ export default function ProfileBattleHub({
   const [battles, setBattles] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [battlePointSummary, setBattlePointSummary] = useState(emptySummary);
+  const [activeTab, setActiveTab] = useState('myBattle');
 
   const PRIMARY_GRADIENT =
     profile === 'user' ? ['#513189bd', '#e54ba0'] : ['#D3B683', '#D3B683'];
 
   const loadBattles = useCallback(async () => {
-    if (!viewedUserId) {
+    if (!isOwner && !viewedUserId) {
       setBattles([]);
       return;
     }
     setLoading(true);
     try {
-      const response = await battleByUserId({ params: { userId: viewedUserId } });
-      const payload = response?.data?.data ?? response?.data ?? response ?? {};
-      const rawBattles = Array.isArray(payload)
-        ? payload
-        : payload?.battles || payload?.data?.battles || payload?.data || response?.battles || [];
+      const filterKey = BATTLE_TRACKING_FILTERS[activeTab] ?? 'battle_live';
+      const response = isOwner
+        ? await filtterBattle({ filter: filterKey })
+        : await battleByUserId({ params: { userId: viewedUserId } });
+      const rawBattles = getRawBattlesFromResponse(response, filterKey);
       const normalized = Array.isArray(rawBattles)
         ? rawBattles.map(normalizeBattleItem).filter((item) => item.id)
         : [];
@@ -167,7 +188,7 @@ export default function ProfileBattleHub({
     } finally {
       setLoading(false);
     }
-  }, [viewedUserId]);
+  }, [activeTab, isOwner, viewedUserId]);
 
   const getBattlePoint = useCallback(async () => {
     if (!viewedUserId) {
@@ -214,12 +235,12 @@ export default function ProfileBattleHub({
 
   const stats = useMemo(
     () => [
-      { key: 'level',      label: t('battleHub.statLevel'),        value: battlePointSummary.level },
-      { key: 'joined',     label: t('battleHub.statJoined'),       value: battlePointSummary.totals.totalBattlesJoined },
-      { key: 'won',        label: t('battleHub.statWon'),          value: battlePointSummary.totals.totalBattlesWon },
-      { key: 'accuracy',   label: t('battleHub.statAccuracy'),     value: `${battlePointSummary.predictionAccuracyPercent}%` },
-      { key: 'points',     label: t('battleHub.statPoints'),       value: battlePointSummary.points },
-      { key: 'credibility',label: t('battleHub.statCredibility'),  value: battlePointSummary.credibilityScore },
+      { key: 'level', label: t('battleHub.statLevel'), value: battlePointSummary.level },
+      { key: 'joined', label: t('battleHub.statJoined'), value: battlePointSummary.totals.totalBattlesJoined },
+      { key: 'won', label: t('battleHub.statWon'), value: battlePointSummary.totals.totalBattlesWon },
+      { key: 'accuracy', label: t('battleHub.statAccuracy'), value: `${battlePointSummary.predictionAccuracyPercent}%` },
+      { key: 'points', label: t('battleHub.statPoints'), value: battlePointSummary.points },
+      { key: 'credibility', label: t('battleHub.statCredibility'), value: battlePointSummary.credibilityScore },
     ],
     [battlePointSummary, t],
   );
@@ -251,8 +272,8 @@ export default function ProfileBattleHub({
     const query = searchText.trim().toLowerCase();
     const matched = query
       ? battles.filter((battle) =>
-          String(battle?.title || '').toLowerCase().includes(query),
-        )
+        String(battle?.title || '').toLowerCase().includes(query),
+      )
       : battles;
     return sortBattlesLiveFirst(matched);
   }, [battles, searchText]);
@@ -341,7 +362,60 @@ export default function ProfileBattleHub({
         </Text>
         <Text style={styles.sectionSubtitle}>{t('battleHub.recentBattlesSubtitle')}</Text>
       </View>
+      {isOwner ? (
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'myBattle' && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab('myBattle')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'myBattle' && styles.activeTabText,
+              ]}
+            >
+              My Battles
+            </Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'battleArena' && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab('battleArena')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'battleArena' && styles.activeTabText,
+              ]}
+            >
+              Battle Arena
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'pastBattle' && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab('pastBattle')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'pastBattle' && styles.activeTabText,
+              ]}
+            >
+              Past Battles
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {/* Battle list */}
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -605,5 +679,33 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+
+  activeTabButton: {
+    backgroundColor: '#5a2d82',
+  },
+
+  tabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+
+  activeTabText: {
+    color: '#FFF',
   },
 });

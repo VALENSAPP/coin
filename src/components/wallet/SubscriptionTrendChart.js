@@ -205,7 +205,9 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
       ) : null}
 
       {labelIndexes.map((i) => {
-        const ts = pairedSorted[i].t;
+        const item = pairedSorted[i];
+        const label = item.label;
+        if (!label) return null;
         return (
           <SvgText
             key={`lb-${ts}-${i}`}

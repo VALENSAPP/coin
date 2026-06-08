@@ -104,3 +104,12 @@ export const voteHeadtoHeadOpponent = async (data ) => {
 export const editBattle = async (data ) => {
     return axiosInstance.post('battle/edit-question',data);
 };
+export const pinComment = async (data ) => {
+    return axiosInstance.post('battle/comment/pin',data);
+};
+export const unpinComment = async (data ) => {
+    return axiosInstance.post('battle/comment/unpin',data);
+};
+export const filtterBattle = async (params) => {
+    return axiosInstance.get('battle/myBattleTracking', { params });
+};

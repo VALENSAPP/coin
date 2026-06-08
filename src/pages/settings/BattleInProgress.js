@@ -43,6 +43,8 @@ import {
   voteHeadtoHeadOpponent,
   acceptBattle,
   declinetBattle,
+  unpinComment,
+  pinComment,
 } from '../../services/battle';
 import { getUserCredentials } from '../../services/post';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -199,6 +201,26 @@ const normalizeCommentLikedState = (comment, currentUserId = '') => {
   return likesList.some((entry) => resolveEntityId(entry) === String(currentUserId));
 };
 
+const normalizeCommentPinnedState = comment => {
+  const parsePinnedValue = value => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    if (typeof value === 'number') return value === 1;
+    return false;
+  };
+
+  return [
+    comment?.pin,
+    comment?.pinned,
+    comment?.isPinned,
+    comment?.isPin,
+    comment?.pinnedComment,
+  ].some(parsePinnedValue);
+};
+
 const getCommentReplyEntries = comment => {
   if (Array.isArray(comment?.replies)) return comment.replies;
   if (Array.isArray(comment?.children)) return comment.children;
@@ -228,6 +250,8 @@ const normalizeComment = (comment, index = 0, currentUserId = '') => ({
   message: pickFirst(comment?.message, comment?.comment, comment?.text, ''),
   likes: normalizeLikeCount(comment),
   isLiked: normalizeCommentLikedState(comment, currentUserId),
+  pinned: normalizeCommentPinnedState(comment),
+  pin: normalizeCommentPinnedState(comment),
   userId: String(pickFirst(
     comment?.userId, comment?.user?.id, comment?.user?._id,
     comment?.author?.id, comment?.author?._id, comment?.authorId, '',
@@ -570,6 +594,7 @@ export default function BattleInProgress() {
   const [creatorSelectionLocked, setCreatorSelectionLocked] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likingCommentId, setLikingCommentId] = useState('');
+  const [pinningCommentId, setPinningCommentId] = useState('');
   const [keepActiveSelectedStyle, setKeepActiveSelectedStyle] = useState(false);
   const [participantUserData, setParticipantUserData] = useState({});
   const [participantBattleStats, setParticipantBattleStats] = useState({});
@@ -744,20 +769,17 @@ export default function BattleInProgress() {
   }, [battle.creatorId, currentUserId, isHeadToHead]);
 
   const isBattleCreator = useMemo(() => {
-    if (!currentUserId || !battle.creatorId) return false;
-    return String(currentUserId) === String(battle.creatorId);
-  }, [battle.creatorId, currentUserId]);
-
+    if (!currentUserId) return false;
+    return String(currentUserId) === String(battle.creatorId || battle.creator?.id || battle.creator?._id || '');
+  }, [battle.creatorId, battle.creator, currentUserId]);
   const [editWindowNow, setEditWindowNow] = useState(() => Date.now());
-
-  useEffect(() => {
+ useEffect(() => {
     if (!battle.createdAt || !isBattleCreator) return undefined;
     const interval = setInterval(() => setEditWindowNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [battle.createdAt, isBattleCreator]);
-
   const canEditBattleQuestion = useMemo(() => {
-    if (!isBattleCreator || isBattleCancelled || canViewResults) return false;
+    if (!isBattleCreator || isBattleCancelled || canViewResults || isLiveStatus) return false;
     if (!battle.createdAt) return false;
 
     const createdMs = new Date(battle.createdAt).getTime();
@@ -770,6 +792,7 @@ export default function BattleInProgress() {
     editWindowNow,
     isBattleCancelled,
     isBattleCreator,
+    isLiveStatus,
   ]);
 
   const handleEditBattleQuestion = useCallback(() => {
@@ -782,7 +805,6 @@ export default function BattleInProgress() {
       profile: resolvedProfileType,
     });
   }, [battle, navigation, resolvedBattleId, resolvedProfileType]);
-
   const userVotedSelection = useMemo(() => {
     if (!currentUserId) return { side: '', optionId: '' };
     const matchByUserId = entry => String(pickFirst(
@@ -972,7 +994,7 @@ export default function BattleInProgress() {
     if (!isSilent && !hasInitialBattleData) setLoading(true);
     try {
       const response = await getbattle({ params: { battleId } });
-      console.log(response, 'dtaa in this batatlke im geting kya a gete krta hu ')
+      console.log(response, 'dtaa in this getbattle im getbattle kya a getbattle krta hu ')
       const storedId = await AsyncStorage.getItem('userId');
       const rawBattle = response?.data?.battle || response?.data?.data || response?.data || response?.battle || routeBattle;
       const enrichedBattle = {
@@ -1349,6 +1371,80 @@ export default function BattleInProgress() {
     }
   };
 
+  const handlePinComment = async (commentId) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId) return;
+    if (pinningCommentId) return;
+    setPinningCommentId(commentId);
+    const previousComment = findCommentInTree(battle.comments, commentId);
+    const wasPinned = normalizeCommentPinnedState(previousComment);
+    // optimistic update
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: true, pin: true })),
+    }));
+    try {
+      const response = await pinComment({ battleId: finalBattleId, commentId });
+            console.log(response,'popin')
+
+      if (!isSuccessfulResponse(response)) {
+        const errorMessage = String(response?.message || response?.data?.message || 'Unable to pin comment.');
+        setBattle(prev => ({
+          ...prev,
+          comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+        }));
+        Alert.alert('Pin failed', errorMessage);
+      } else {
+        await fetchBattle(true);
+      }
+    } catch (error) {
+      const errorMessage = String(error?.response?.data?.message || error?.message || 'Unable to pin comment.');
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+      }));
+      Alert.alert('Pin failed', errorMessage);
+    } finally {
+      setPinningCommentId('');
+    }
+  };
+
+  const handleUnpinComment = async (commentId) => {
+    const finalBattleId = resolvedBattleId || battleId;
+    if (!finalBattleId || !commentId) return;
+    if (pinningCommentId) return;
+    setPinningCommentId(commentId);
+    const previousComment = findCommentInTree(battle.comments, commentId);
+    const wasPinned = normalizeCommentPinnedState(previousComment);
+    // optimistic update
+    setBattle(prev => ({
+      ...prev,
+      comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: false, pin: false })),
+    }));
+    try {
+      const response = await unpinComment({ battleId: finalBattleId, commentId });
+      console.log(response,'unpin')
+      if (!isSuccessfulResponse(response)) {
+        const errorMessage = String(response?.message || response?.data?.message || 'Unable to unpin comment.');
+        setBattle(prev => ({
+          ...prev,
+          comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+        }));
+        Alert.alert('Unpin failed', errorMessage);
+      } else {
+        await fetchBattle(true);
+      }
+    } catch (error) {
+      const errorMessage = String(error?.response?.data?.message || error?.message || 'Unable to unpin comment.');
+      setBattle(prev => ({
+        ...prev,
+        comments: updateCommentTree(prev.comments, commentId, item => ({ ...item, pinned: wasPinned, pin: wasPinned })),
+      }));
+      Alert.alert('Unpin failed', errorMessage);
+    } finally {
+      setPinningCommentId('');
+    }
+  };
   const handleDeclineBattle = async () => {
     const finalBattleId = resolvedBattleId || battleId;
     if (!finalBattleId) {
@@ -1490,6 +1586,109 @@ export default function BattleInProgress() {
     }
   };
 
+  const confirmTogglePin = useCallback((comment) => {
+    if (!comment) return;
+    const pinned = normalizeCommentPinnedState(comment);
+    const title = pinned ? 'Unpin comment' : 'Pin comment';
+    const message = pinned ? 'Unpin this comment?' : 'Pin this comment?';
+    Alert.alert(title, message, [
+      { text: pinned ? 'Unpin' : 'Pin', onPress: () => (pinned ? handleUnpinComment(comment.id) : handlePinComment(comment.id)) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [handlePinComment, handleUnpinComment]);
+
+  const sideCommentActions = useMemo(() => {
+    const options = Array.isArray(battle?.options) ? battle.options : [];
+    const participants = Array.isArray(battle?.participants) ? battle.participants : [];
+    const comments = Array.isArray(battle?.comments) ? battle.comments : [];
+    const sides = battle?.headToHeadSides || {};
+
+    if (!isHeadToHead) return [];
+
+    const openingForUser = (userId, participant) => {
+      const safeUserId = String(userId || '');
+      const fromCreator = safeUserId && String(sides?.creator?.userId || '') === safeUserId
+        ? sides?.creator?.openingArgument
+        : '';
+      const fromInvited = safeUserId && String(sides?.invitedUser?.userId || '') === safeUserId
+        ? sides?.invitedUser?.openingArgument
+        : '';
+      const firstUserComment = comments.find(comment =>
+        String(comment?.userId || '') === safeUserId && String(comment?.message || '').trim(),
+      );
+      return String(pickFirst(
+        fromCreator,
+        fromInvited,
+        participant?.openingArgument,
+        firstUserComment?.message,
+        '',
+      ));
+    };
+
+    const participantActions = participants
+      .slice(0, 2)
+      .map((participant, index) => {
+        const userId = String(pickFirst(participant?.userId, participant?.user?.id, participant?.user?._id, ''));
+        const option = options[index] || {};
+        const isCreatorParticipant = userId && String(userId) === String(battle?.creatorId || '');
+        const isInvitedParticipant = userId && String(userId) === String(battle?.invitedUserId || '');
+        const side = String(pickFirst(
+          participant?.side,
+          isCreatorParticipant ? battle?.creatorChoice : '',
+          isInvitedParticipant ? battle?.invitedUserChoice : '',
+          option?.side,
+          option?.label,
+          '',
+        ));
+        if (!side) return null;
+
+        const displayName = String(pickFirst(
+          participantUserData?.[userId]?.name,
+          participant?.user?.displayName,
+          participant?.user?.name,
+          isCreatorParticipant ? battle?.creator?.name : '',
+          isInvitedParticipant ? battle?.invitedUser?.name : '',
+          side,
+        ));
+        const opening = openingForUser(userId, participant);
+
+        return {
+          key: `${userId || index}-${side}`,
+          label: `${displayName} Says:`,
+          preview: opening,
+          side,
+          sideLabel: displayName,
+        };
+      })
+      .filter(Boolean);
+
+    if (participantActions.length > 0) return participantActions;
+
+    return options.slice(0, 2).map((option, index) => {
+      const side = String(pickFirst(option?.side, option?.label, `Side ${index + 1}`));
+      return {
+        key: `${index}-${side}`,
+        label: `${side} Says:`,
+        preview: '',
+        side,
+        sideLabel: side,
+      };
+    });
+  }, [
+    battle?.creator?.name,
+    battle?.creatorChoice,
+    battle?.creatorId,
+    battle?.comments,
+    battle?.headToHeadSides,
+    battle?.invitedUser?.name,
+    battle?.invitedUserChoice,
+    battle?.invitedUserId,
+    battle?.options,
+    battle?.participants,
+    isHeadToHead,
+    participantUserData,
+  ]);
+
   const handleBackPress = () => {
     const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
@@ -1621,9 +1820,16 @@ export default function BattleInProgress() {
     const isExpanded = !!expandedReplies[comment.id];
     const visibleReplies = hasReplies && isExpanded ? comment.replies : [];
     const repliesCount = hasReplies ? comment.replies.length : 0;
+    const isPinned = normalizeCommentPinnedState(comment);
 
     return (
-      <View key={comment.id} style={[styles.commentCard, { backgroundColor: palette.soft, borderColor: palette.border }]}>
+      <TouchableOpacity
+        key={comment.id}
+        activeOpacity={0.9}
+        onLongPress={isBattleCreator ? () => confirmTogglePin(comment) : undefined}
+        delayLongPress={isBattleCreator ? 500 : undefined}
+        style={[styles.commentCard, { backgroundColor: palette.soft, borderColor: palette.border }]}
+      >
         <View style={styles.commentHeader}>
           <View style={styles.commentAuthorIdentity}>
             <TouchableOpacity activeOpacity={0.75} onPress={() => handleOpenCommentAuthorProfile(comment.userId)}>
@@ -1645,6 +1851,9 @@ export default function BattleInProgress() {
                   <Text style={[styles.commentAuthorName, textStyle, styles.commentAuthorNameFlex]} numberOfLines={1} ellipsizeMode="tail">
                     {comment.authorName}
                   </Text>
+                  {isPinned && (
+                    <Ionicons name="pin" size={14} color={palette.primary} style={{ marginLeft: 8 }} />
+                  )}
                   {!!comment.side && (
                     <View style={[styles.commentVoteSideBadge, {
                       backgroundColor: palette.primary,
@@ -1736,7 +1945,7 @@ export default function BattleInProgress() {
         {Array.isArray(visibleReplies) && visibleReplies.length > 0 && (
           <View style={styles.repliesSection}>{visibleReplies.map(renderReplyItem)}</View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -1926,7 +2135,10 @@ export default function BattleInProgress() {
                     const fromInvited = safeUserId && String(sides?.invitedUser?.userId || '') === safeUserId
                       ? sides?.invitedUser?.openingArgument
                       : '';
-                    return pickFirst(fromCreator, fromInvited, participant?.openingArgument, '');
+                    const firstUserComment = (Array.isArray(battle?.comments) ? battle.comments : []).find(comment =>
+                      String(comment?.userId || '') === safeUserId && String(comment?.message || '').trim(),
+                    );
+                    return pickFirst(fromCreator, fromInvited, participant?.openingArgument, firstUserComment?.message, '');
                   };
                   const opening0 = openingForUser(p0?.userId, p0);
                   const opening1 = openingForUser(p1?.userId, p1);
@@ -2428,7 +2640,34 @@ export default function BattleInProgress() {
               </View>
             </View>
           ) : null}
-
+          {isHeadToHead && isLiveStatus && sideCommentActions.length > 0 ? (
+            <View style={styles.sideCommentActionsRow}>
+              {sideCommentActions.map(action => (
+                <TouchableOpacity
+                  key={action.key}
+                  activeOpacity={0.9}
+                  style={[styles.sideCommentButton, cardStyle, { borderColor: palette.border }]}
+                  onPress={() => navigation.navigate('BattleVoteDetails', {
+                    battleId: resolvedBattleId || battleId,
+                    battle,
+                    profile,
+                    mode: 'comments',
+                    selectedSide: action.side,
+                    selectedSideLabel: action.label,
+                  })}
+                >
+                  <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1}>
+                    {action.label}
+                  </Text>
+                  {!!action.preview && (
+                    <Text style={[styles.sideCommentPreviewText, { color: palette.textMuted }]} numberOfLines={2}>
+                      {action.preview}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
           {/* Comments (hide when resolved) */}
           {!canViewResults ? (
             <View style={[styles.infoCard, cardStyle, { shadowColor: palette.primary,marginBottom:Platform.OS==='android'?'18%':0 }]}>
@@ -2738,6 +2977,10 @@ const styles = StyleSheet.create({
   secondaryButton: { flex: 1, minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
   inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  sideCommentActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'flex-start', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
+  sideCommentButtonText: { fontSize: 13, fontWeight: '900' },
+  sideCommentPreviewText: { fontSize: 11, fontWeight: '700', lineHeight: 15, marginTop: 3 },
 
   // Image preview modal
   optionImagePreviewBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
