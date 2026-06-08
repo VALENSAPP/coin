@@ -149,11 +149,12 @@ const cropImage = (imageUri, index) => {
 
   const openGallery = () => {
     const remainingSlots = 10 - (selectedMedia?.length || 0);
+    const isFlip = postType === 'flip';
     dispatch(showLoader());
     ImagePicker.openPicker({
-      mediaType: 'any',
-      multiple: postType !== 'flip',
-      maxFiles: postType === 'flip' ? 1 : remainingSlots > 0 ? remainingSlots : 1,
+      mediaType: isFlip ? 'video' : 'any',
+      multiple: !isFlip,
+      maxFiles: isFlip ? 1 : remainingSlots > 0 ? remainingSlots : 1,
       includeBase64: false,
       compressImageQuality: 0.6,
       cropping: false,
@@ -169,6 +170,12 @@ const cropImage = (imageUri, index) => {
         let validAssets = assets;
         validAssets = assets.filter((asset) => {
           const isVideo = asset?.mime?.includes('video');
+
+          if (postType === 'flip' && !isVideo) {
+            Alert.alert(t('post.videoOnlyTitle'), t('post.videoOnlyFlipMessage'));
+            return false;
+          }
+
           if (!isVideo) return true;
 
           const durationMs = asset?.duration ?? 0;
@@ -269,25 +276,7 @@ const cropImage = (imageUri, index) => {
       return;
     }
     if (postType === 'flip') {
-      Alert.alert(
-        t('post.cameraOptionsTitle'),
-        t('post.cameraOptionsMessage'),
-        [
-          {
-            text: t('post.cancel'),
-            style: 'cancel',
-          },
-          {
-            text: t('post.photo'),
-            onPress: () => captureMedia('photo'),
-          },
-          {
-            text: t('post.video'),
-            onPress: () => captureMedia('video'),
-          },
-        ],
-        { cancelable: true }
-      );
+      captureMedia('video');
       return;
     }
 
@@ -313,6 +302,11 @@ const cropImage = (imageUri, index) => {
   };
 
   const captureMedia = (mediaType) => {
+    if (postType === 'flip' && mediaType !== 'video') {
+      Alert.alert(t('post.videoOnlyTitle'), t('post.videoOnlyFlipMessage'));
+      return;
+    }
+
     dispatch(showLoader());
     const options = {
       mediaType,
@@ -465,6 +459,12 @@ const cropImage = (imageUri, index) => {
     const isFlip = postType === 'flip';
 
     if (isFlip) {
+      const isVideo = asset?.type?.startsWith('video');
+      if (!isVideo) {
+        Alert.alert(t('post.videoOnlyTitle'), t('post.videoOnlyFlipMessage'));
+        return;
+      }
+
       const newMedia = {
         uri: asset.uri,
         type: asset.type,
@@ -499,7 +499,10 @@ const cropImage = (imageUri, index) => {
   const handleShare = () => {
     const currentSelection = selectedMedia || [];
     if (currentSelection.length === 0) {
-      Alert.alert(t('post.noMediaTitle'), t('post.noMediaMessage'));
+      Alert.alert(
+        t('post.noMediaTitle'),
+        postType === 'flip' ? t('post.flipNoMediaMessage') : t('post.noMediaMessage'),
+      );
       return;
     }
     fromEditPostSelectedRef.current = true;
@@ -641,12 +644,16 @@ const cropImage = (imageUri, index) => {
       <TouchableOpacity style={styles.galleryButton} onPress={openGallery}>
         <Icon name="images" size={60} color={text} />
         <Text style={[styles.galleryButtonText, textStyle]}>{t('post.selectFromGallery')}</Text>
-        <Text style={styles.galleryButtonSubtext}>{t('post.gallerySubtext')}</Text>
+        <Text style={styles.galleryButtonSubtext}>
+          {postType === 'flip' ? t('post.flipGallerySubtext') : t('post.gallerySubtext')}
+        </Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.galleryButton} onPress={openCamera}>
         <Icon name="camera" size={60} color={text} />
         <Text style={[styles.galleryButtonText, textStyle]}>{t('post.captureWithCamera')}</Text>
-        <Text style={styles.galleryButtonSubtext}>{t('post.cameraSubtext')}</Text>
+        <Text style={styles.galleryButtonSubtext}>
+          {postType === 'flip' ? t('post.flipCameraSubtext') : t('post.cameraSubtext')}
+        </Text>
       </TouchableOpacity>
     </View>
   );

@@ -4,6 +4,16 @@ require Pod::Executable.execute_command('node', ['-p',
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
+
+require 'xcodeproj'
+unless Xcodeproj::Constants::COMPATIBILITY_VERSION_BY_OBJECT_VERSION.key?(70)
+  compatibility_versions = Xcodeproj::Constants::COMPATIBILITY_VERSION_BY_OBJECT_VERSION
+  Xcodeproj::Constants.send(:remove_const, :COMPATIBILITY_VERSION_BY_OBJECT_VERSION)
+  Xcodeproj::Constants.const_set(
+    :COMPATIBILITY_VERSION_BY_OBJECT_VERSION,
+    compatibility_versions.merge(70 => 'Xcode 16.0'),
+  )
+end
  
 source 'https://cdn.cocoapods.org/'
 source 'https://github.com/SumSubstance/Specs.git'
@@ -52,6 +62,8 @@ target 'valens' do
         # Some React Native pods include non-modular headers when built as frameworks.
         # This avoids build failures like: non-modular-include-in-framework-module.
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        config.build_settings['HEADER_SEARCH_PATHS'] ||= ['$(inherited)']
+        config.build_settings['HEADER_SEARCH_PATHS'] << '"$(PODS_ROOT)/../../node_modules/react-native/ReactCommon"'
        
         # Fix expo-localization Swift issue
         if target.name == 'ExpoLocalization'

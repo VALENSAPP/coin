@@ -81,6 +81,7 @@ android {
     namespace "com.valens"
     defaultConfig {
         applicationId "com.valens"
+        missingDimensionStrategy "react-native-capture-protection", "base"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -5,7 +5,7 @@ import {
   RefreshControl,
   Keyboard,
   DeviceEventEmitter,
-  Animated,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
@@ -17,6 +17,7 @@ import HighlightStories from '../../components/profile/HighLightStories';
 import ProfileTabs from '../../components/profile/ProfileTabNavigation';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { follow, getPostByUser, getUserCredentials, getUserDashboard, unfollow } from '../../services/post';
+import { followers as getFollowers } from '../../services/profile';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
@@ -28,6 +29,7 @@ import { getFansubscriptionStatus } from '../../services/stirpe';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
 import { isSameUserId, shouldOpenOwnProfile } from '../../utils/navigateToUserProfile';
+import { useProfileHeaderCollapse } from '../../hooks/useProfileHeaderCollapse';
 
 const Usersprofile = () => {
   const route = useRoute();
@@ -45,29 +47,25 @@ const Usersprofile = () => {
   const [userData, setUserData] = useState();
   const [refreshing, setRefreshing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followsMe, setFollowsMe] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
   const [redirectingToOwnProfile, setRedirectingToOwnProfile] = useState(false);
-  const [compactLocked, setCompactLocked] = useState(false);
-  const profileScrollY = useRef(new Animated.Value(0)).current;
-  const compactLockedRef = useRef(false);
-  const lastScrollYRef = useRef(0);
-  const touchStartYRef = useRef(0);
-  const touchLastYRef = useRef(0);
+  const {
+    compactLocked,
+    resetProfileHeader,
+    wrapOnRefresh,
+    scrollViewProps,
+  } = useProfileHeaderCollapse();
 
   const toast = useToast();
   const dispatch = useDispatch();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
   const { bgStyle, textStyle } = useAppTheme(userData?.profile);
-
-  useEffect(() => {
-    compactLockedRef.current = compactLocked;
-  }, [compactLocked]);
-
 
   const fetchLoggedInUserId = useCallback(async () => {
     try {
@@ -138,6 +136,29 @@ const Usersprofile = () => {
     return null;
   }, [targetUserId]);
 
+  const checkFollowsMe = useCallback(async (currentUserId, alreadyFollowing) => {
+    if (!currentUserId || !targetUserId || alreadyFollowing) {
+      setFollowsMe(false);
+      return;
+    }
+
+    try {
+      const followersRes = await getFollowers(currentUserId);
+      const rows = followersRes?.data?.data ?? followersRes?.data ?? [];
+      const followerIds = rows
+        .map(rel => {
+          const user =
+            rel?.follower || rel?.followerUser || rel?.user || rel?.fromUser || rel?.from || null;
+          return user?.id ?? user?._id ?? user?.userId ?? null;
+        })
+        .filter(Boolean)
+        .map(id => String(id));
+      setFollowsMe(followerIds.includes(String(targetUserId)));
+    } catch (_error) {
+      setFollowsMe(false);
+    }
+  }, [targetUserId]);
+
   const fetchProfile = useCallback(async () => {
     try {
       const response = await getUserTokenInfoByBlockChain(targetUserId);
@@ -182,7 +203,17 @@ const Usersprofile = () => {
 
       if (userRes?.statusCode === 200) {
         setUserData(userRes.data?.user || userRes.data);
-        setIsFollowing(userRes.data?.isFollow);
+        const following = !!userRes.data?.isFollow;
+        setIsFollowing(following);
+        const apiFollowsMe =
+          userRes.data?.isFollowedBy ??
+          userRes.data?.followsMe ??
+          userRes.data?.isFollowBack;
+        if (typeof apiFollowsMe === 'boolean') {
+          setFollowsMe(apiFollowsMe);
+        } else {
+          await checkFollowsMe(currentUserId, following);
+        }
       } else {
         showToastMessage(
           toast,
@@ -206,7 +237,7 @@ const Usersprofile = () => {
     } finally {
       dispatch(hideLoader());
     }
-  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus, t]);
+  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus, checkFollowsMe, t]);
 
   const toggleFollow = async () => {
 
@@ -282,6 +313,7 @@ const Usersprofile = () => {
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
+      resetProfileHeader();
 
       const loadData = async () => {
         if (!isActive) return;
@@ -310,61 +342,14 @@ const Usersprofile = () => {
       return () => {
         isActive = false;
       };
-    }, [fetchAllData, fetchLoggedInUserId, navigation, returnTo, screenParams, targetUserId]),
+    }, [fetchAllData, fetchLoggedInUserId, navigation, resetProfileHeader, returnTo, screenParams, targetUserId]),
   );
 
-  const onRefresh = async () => {
-    if (compactLockedRef.current) {
-      expandProfileHeader();
-      return;
-    }
+  const onRefresh = wrapOnRefresh(async () => {
     setRefreshing(true);
     await fetchAllData();
     setRefreshing(false);
-  };
-
-  const expandProfileHeader = useCallback(() => {
-    if (!compactLockedRef.current) return;
-    compactLockedRef.current = false;
-    setCompactLocked(false);
-  }, []);
-
-  const handleProfileScroll = useCallback((event) => {
-    const rawY = event?.nativeEvent?.contentOffset?.y ?? 0;
-    const y = Math.max(0, rawY);
-    profileScrollY.setValue(y);
-
-    const dy = y - lastScrollYRef.current;
-    lastScrollYRef.current = y;
-
-    if (dy > 0 && y > 30 && !compactLockedRef.current) {
-      compactLockedRef.current = true;
-      setCompactLocked(true);
-    }
-
-    if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
-      expandProfileHeader();
-    }
-  }, [expandProfileHeader, profileScrollY]);
-
-  const handleProfileTouchStart = useCallback((event) => {
-    const pageY = event?.nativeEvent?.pageY ?? 0;
-    touchStartYRef.current = pageY;
-    touchLastYRef.current = pageY;
-  }, []);
-
-  const handleProfileTouchMove = useCallback((event) => {
-    if (!compactLockedRef.current) return;
-
-    const pageY = event?.nativeEvent?.pageY ?? 0;
-    const totalDragY = pageY - touchStartYRef.current;
-    const frameDragY = pageY - touchLastYRef.current;
-    touchLastYRef.current = pageY;
-
-    if (totalDragY > 18 || frameDragY > 10) {
-      expandProfileHeader();
-    }
-  }, [expandProfileHeader]);
+  });
 
   const handlePostPinChanged = useCallback(async (postId, pinned) => {
     try {
@@ -404,13 +389,9 @@ const Usersprofile = () => {
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      <Animated.ScrollView
+      <ScrollView
+        {...scrollViewProps}
         contentContainerStyle={styles.scrollContainer}
-        onScroll={handleProfileScroll}
-        onTouchStart={handleProfileTouchStart}
-        onTouchMove={handleProfileTouchMove}
-        scrollEventThrottle={16}
-        nestedScrollEnabled={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -429,6 +410,7 @@ const Usersprofile = () => {
           dashboard={userDashboard}
           fromUsersProfile={true}
           isFollowing={isFollowing}
+          followsMe={followsMe}
           onToggleFollow={toggleFollow}
           followBusy={followBusy}
           targetUserId={targetUserId}
@@ -458,7 +440,7 @@ const Usersprofile = () => {
           scrollEnabled={false}
           initialTab={initialTab}
         />
-      </Animated.ScrollView>
+      </ScrollView>
 
       {/* Token Purchase Modal */}
       <RBSheet
@@ -532,5 +514,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingBottom: 120,
   },
 });

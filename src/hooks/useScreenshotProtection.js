@@ -1,65 +1,58 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  AppState,
-  InteractionManager,
-  NativeEventEmitter,
-  NativeModules,
-  Platform,
-} from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { Alert } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import {
+  CaptureProtection,
+  CaptureEventType,
+} from 'react-native-capture-protection';
 
 const WARNING_DEBOUNCE_MS = 2500;
-const MAX_ENABLE_ATTEMPTS = 8;
-const IOS_BLUR_FLASH_MS = 1200;
+const LOG_TAG = '[ScreenshotProtection]';
 
-const { ScreenSecure } = NativeModules;
-
-const screenSecureEmitter =
-  Platform.OS === 'ios' && ScreenSecure
-    ? new NativeEventEmitter(ScreenSecure)
-    : null;
-
-const setAndroidSecure = enabled =>
-  new Promise(resolve => {
-    if (Platform.OS !== 'android' || !ScreenSecure?.setSecure) {
-      resolve(false);
-      return;
-    }
-
-    ScreenSecure.setSecure(enabled)
-      .then(() => resolve(true))
-      .catch(() => resolve(false));
-  });
-
-const verifyAndroidSecure = () =>
-  new Promise(resolve => {
-    if (Platform.OS !== 'android' || !ScreenSecure?.isSecure) {
-      resolve(false);
-      return;
-    }
-
-    ScreenSecure.isSecure()
-      .then(value => resolve(Boolean(value)))
-      .catch(() => resolve(false));
-  });
-
-const enableAndroidSecureWithRetry = async () => {
-  for (let attempt = 0; attempt < MAX_ENABLE_ATTEMPTS; attempt += 1) {
-    const applied = await setAndroidSecure(true);
-    if (applied) {
-      const isSecure = await verifyAndroidSecure();
-      if (isSecure) return true;
-    }
-    await new Promise(resolve => setTimeout(resolve, 80 * (attempt + 1)));
+const captureEventLabel = eventType => {
+  switch (eventType) {
+    case CaptureEventType.CAPTURED:
+      return 'screenshot';
+    case CaptureEventType.RECORDING:
+      return 'screen recording';
+    case CaptureEventType.END_RECORDING:
+      return 'recording ended';
+    case CaptureEventType.APP_SWITCHING:
+      return 'app switcher';
+    default:
+      return `event(${eventType})`;
   }
-  return false;
+};
+
+let protectionRefCount = 0;
+
+const acquireProtection = async () => {
+  protectionRefCount += 1;
+  if (protectionRefCount === 1) {
+    await CaptureProtection.prevent({
+      screenshot: true,
+      record: true,
+      appSwitcher: true,
+    });
+    console.log(`${LOG_TAG} Restricted screenshot — protection enabled`);
+  } else {
+    console.log(`${LOG_TAG} Restricted screenshot — refCount: ${protectionRefCount}`);
+  }
+};
+
+const releaseProtection = async () => {
+  protectionRefCount = Math.max(0, protectionRefCount - 1);
+  if (protectionRefCount === 0) {
+    await CaptureProtection.allow();
+    console.log(`${LOG_TAG} Screenshot allowed — protection disabled`);
+  } else {
+    console.log(`${LOG_TAG} Screenshot still restricted — refCount: ${protectionRefCount}`);
+  }
 };
 
 /**
- * Protects sensitive screens from capture.
- * - Android: FLAG_SECURE while enabled and focused
- * - iOS: blur overlay when inactive + on screenshot + warning alert
+ * Enables native capture protection via react-native-capture-protection.
+ * No overlay required — iOS and Android handle blocking at the OS level.
  */
 export default function useScreenshotProtection({
   enabled = true,
@@ -68,22 +61,7 @@ export default function useScreenshotProtection({
 } = {}) {
   const isFocused = useIsFocused();
   const lastWarningAtRef = useRef(0);
-  const secureActiveRef = useRef(false);
-  const blurFlashTimeoutRef = useRef(null);
-  const [shouldBlur, setShouldBlur] = useState(false);
-
-  const showBlurFlash = useCallback(() => {
-    setShouldBlur(true);
-    if (blurFlashTimeoutRef.current) {
-      clearTimeout(blurFlashTimeoutRef.current);
-    }
-    blurFlashTimeoutRef.current = setTimeout(() => {
-      blurFlashTimeoutRef.current = null;
-      if (AppState.currentState === 'active') {
-        setShouldBlur(false);
-      }
-    }, IOS_BLUR_FLASH_MS);
-  }, []);
+  const isActiveRef = useRef(false);
 
   const showWarning = useCallback(() => {
     if (!title || !message) return;
@@ -96,21 +74,22 @@ export default function useScreenshotProtection({
   }, [title, message]);
 
   const deactivateProtection = useCallback(() => {
-    secureActiveRef.current = false;
-    if (Platform.OS === 'android') {
-      setAndroidSecure(false);
-    }
-    if (blurFlashTimeoutRef.current) {
-      clearTimeout(blurFlashTimeoutRef.current);
-      blurFlashTimeoutRef.current = null;
-    }
-    setShouldBlur(false);
+    if (!isActiveRef.current) return;
+    isActiveRef.current = false;
+    releaseProtection();
   }, []);
 
-  const activateAndroidProtection = useCallback(async () => {
-    const secured = await enableAndroidSecureWithRetry();
-    secureActiveRef.current = secured;
-    if (!secured) {
+  const activateProtection = useCallback(async () => {
+    if (isActiveRef.current) return;
+
+    try {
+      await acquireProtection();
+      isActiveRef.current = true;
+      const status = await CaptureProtection.protectionStatus();
+      console.log(`${LOG_TAG} Protection status:`, status);
+    } catch (error) {
+      isActiveRef.current = false;
+      console.warn(`${LOG_TAG} Failed to enable protection:`, error);
       showWarning();
     }
   }, [showWarning]);
@@ -123,81 +102,48 @@ export default function useScreenshotProtection({
     }, [deactivateProtection]),
   );
 
-  // Android: FLAG_SECURE
   useEffect(() => {
-    if (Platform.OS !== 'android') return undefined;
+    const shouldProtect = isFocused && enabled;
 
-    if (!isFocused || !enabled) {
+    if (!shouldProtect) {
       deactivateProtection();
       return undefined;
     }
 
     let cancelled = false;
 
-    const interactionTask = InteractionManager.runAfterInteractions(() => {
-      if (!cancelled) {
-        activateAndroidProtection();
-      }
-    });
-
-    const appStateSubscription = AppState.addEventListener('change', nextState => {
-      if (cancelled || nextState !== 'active' || !enabled || !isFocused) return;
-      if (secureActiveRef.current) {
-        activateAndroidProtection();
+    activateProtection().then(() => {
+      if (cancelled) {
+        deactivateProtection();
       }
     });
 
     return () => {
       cancelled = true;
-      interactionTask.cancel();
-      appStateSubscription.remove();
       deactivateProtection();
     };
-  }, [
-    isFocused,
-    enabled,
-    activateAndroidProtection,
-    deactivateProtection,
-  ]);
+  }, [isFocused, enabled, activateProtection, deactivateProtection]);
 
-  // iOS: blur when app goes inactive (screenshot / app switcher) + screenshot alert
   useEffect(() => {
-    if (Platform.OS !== 'ios' || !enabled || !isFocused) {
-      setShouldBlur(false);
-      return undefined;
-    }
+    if (!enabled) return undefined;
 
-    const appStateSubscription = AppState.addEventListener('change', nextState => {
-      if (nextState === 'active') {
-        if (!blurFlashTimeoutRef.current) {
-          setShouldBlur(false);
-        }
-        return;
+    const subscription = CaptureProtection.addListener(eventType => {
+      if (eventType < CaptureEventType.ALLOW) {
+        console.log(
+          `${LOG_TAG} Capture detected: ${captureEventLabel(eventType)}`,
+        );
       }
 
-      if (nextState === 'inactive' || nextState === 'background') {
-        setShouldBlur(true);
+      if (
+        eventType === CaptureEventType.CAPTURED ||
+        eventType === CaptureEventType.RECORDING
+      ) {
+        showWarning();
       }
     });
 
-    const screenshotSubscription = screenSecureEmitter?.addListener(
-      'UserDidTakeScreenshot',
-      () => {
-        showBlurFlash();
-        showWarning();
-      },
-    );
-
     return () => {
-      appStateSubscription.remove();
-      screenshotSubscription?.remove();
-      if (blurFlashTimeoutRef.current) {
-        clearTimeout(blurFlashTimeoutRef.current);
-        blurFlashTimeoutRef.current = null;
-      }
-      setShouldBlur(false);
+      subscription?.remove?.();
     };
-  }, [isFocused, enabled, showBlurFlash, showWarning]);
-
-  return { shouldBlur };
+  }, [enabled, showWarning]);
 }

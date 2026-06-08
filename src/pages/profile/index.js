@@ -1,9 +1,9 @@
-import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   RefreshControl,
-  Animated,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +21,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import WelcomeValensModal from '../../components/modals/WelcomeValensModal';
 import { useLanguage } from '../../i18n';
 import { setPostPinnedState, sortPostsByPinned } from '../../utils/postPinning';
+import { useProfileHeaderCollapse } from '../../hooks/useProfileHeaderCollapse';
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -33,23 +34,17 @@ const ProfileScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const profileScrollY = useRef(new Animated.Value(0)).current;
-  const [compactLocked, setCompactLocked] = useState(false);
-  const compactLockedRef = useRef(false);
-  const lastScrollYRef = useRef(0);
-  const relockMinYRef = useRef(0);
-  const touchStartYRef = useRef(0);
-  const touchLastYRef = useRef(0);
-  const compactLockedAnim = useRef(new Animated.Value(0)).current;
+  const {
+    compactLocked,
+    resetProfileHeader,
+    wrapOnRefresh,
+    scrollViewProps,
+  } = useProfileHeaderCollapse();
 
   const toast = useToast();
   const dispatch = useDispatch();
   const { bgStyle, textStyle } = useAppTheme();
   const { t } = useLanguage();
-
-  useEffect(() => {
-    compactLockedRef.current = compactLocked;
-  }, [compactLocked]);
 
   const fetchProfilePosts = useCallback(async (idOverride = '') => {
     const id = idOverride || userId || await AsyncStorage.getItem('userId');
@@ -160,6 +155,7 @@ const ProfileScreen = () => {
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
+      resetProfileHeader();
       (async () => {
         if (!isActive) return;
         await fetchAllData();
@@ -167,30 +163,15 @@ const ProfileScreen = () => {
       return () => {
         isActive = false;
       };
-    }, [fetchAllData])
+    }, [fetchAllData, resetProfileHeader])
   );
 
-const expandProfileHeader = useCallback(() => {
-  if (!compactLockedRef.current) return;
-  compactLockedRef.current = false;
-  Animated.timing(compactLockedAnim, {
-    toValue: 0,
-    duration: 200,
-    useNativeDriver: true,
-  }).start();
-}, [compactLockedAnim]);
-
-  // Pull-to-refresh
-  const onRefresh = async () => {
-    if (compactLockedRef.current) {
-      expandProfileHeader();
-      return;
-    }
+  const onRefresh = wrapOnRefresh(async () => {
     setRefreshing(true);
     await fetchAllData();
     setRefreshKey(prev => prev + 1);
     setRefreshing(false);
-  };
+  });
 
   const handlePostPinChanged = useCallback(async (postId, pinned) => {
     try {
@@ -202,47 +183,6 @@ const expandProfileHeader = useCallback(() => {
       return null;
     }
   }, [fetchProfilePosts]);
-
-const handleProfileScroll = useCallback((event) => {
-  const rawY = event?.nativeEvent?.contentOffset?.y ?? 0;
-  const y = Math.max(0, rawY);
-  profileScrollY.setValue(y);
-
-  const dy = y - lastScrollYRef.current;
-  lastScrollYRef.current = y;
-
-  if (dy > 0 && y > 30 && !compactLockedRef.current) {
-    compactLockedRef.current = true;
-    Animated.timing(compactLockedAnim, {    // 👈 animate instead of setState
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }
-
-  if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
-    expandProfileHeader();
-  }
-}, [expandProfileHeader, profileScrollY, compactLockedAnim]);
-
-const handleProfileTouchStart = useCallback((event) => {
-  const pageY = event?.nativeEvent?.pageY ?? 0;
-  touchStartYRef.current = pageY;
-  touchLastYRef.current = pageY;
-}, []);
-
-const handleProfileTouchMove = useCallback((event) => {
-  if (!compactLockedRef.current) return;
-
-  const pageY = event?.nativeEvent?.pageY ?? 0;
-  const totalDragY = pageY - touchStartYRef.current;
-  const frameDragY = pageY - touchLastYRef.current;
-  touchLastYRef.current = pageY;
-
-  if (totalDragY > 18 || frameDragY > 10) {
-    expandProfileHeader();
-  }
-}, [expandProfileHeader]);
 
 const profileTabsProps = useMemo(() => ({
   post: posts,
@@ -257,13 +197,9 @@ const profileTabsProps = useMemo(() => ({
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
-      <Animated.ScrollView
+      <ScrollView
+        {...scrollViewProps}
         contentContainerStyle={styles.scrollContainer}
-        onScroll={handleProfileScroll}
-        onTouchStart={handleProfileTouchStart}
-        onTouchMove={handleProfileTouchMove}
-        scrollEventThrottle={16}
-        nestedScrollEnabled={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -292,7 +228,7 @@ const profileTabsProps = useMemo(() => ({
           <HighlightStories userData={userData} />
         </View>
         <ProfileTabs {...profileTabsProps} />
-      </Animated.ScrollView>
+      </ScrollView>
       {/* <WelcomeValensModal
         visible={welcomeModalVisible}
         onClose={async () => {

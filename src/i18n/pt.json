@@ -372,8 +372,10 @@
     "selectedMedia": "Mídia Selecionada",
     "selectFromGallery": "Selecionar da Galeria",
     "gallerySubtext": "Escolha fotos e vídeos (até 10)",
+    "flipGallerySubtext": "Escolha um vídeo (15–60 segundos)",
     "captureWithCamera": "Capturar com a Câmera",
     "cameraSubtext": "Tire fotos ou grave vídeos (até 10)",
+    "flipCameraSubtext": "Grave um vídeo (15–60 segundos)",
     "addFromGallery": "Adicionar da Galeria",
     "itemsSelected_one": "{{count}} item selecionado",
     "itemsSelected_other": "{{count}} itens selecionados",
@@ -407,7 +409,10 @@
     "cameraOptionsTitle": "Opções da Câmera",
     "cameraOptionsMessage": "O que você gostaria de capturar?",
     "noMediaTitle": "Nenhuma mídia selecionada",
-    "noMediaMessage": "Selecione pelo menos uma foto ou vídeo para compartilhar."
+    "noMediaMessage": "Selecione pelo menos uma foto ou vídeo para compartilhar.",
+    "flipNoMediaMessage": "Selecione um vídeo para compartilhar.",
+    "videoOnlyTitle": "Vídeo necessário",
+    "videoOnlyFlipMessage": "Flips suportam apenas vídeos. Selecione ou grave um vídeo."
   },
   "camera": {
     "modePhoto": "Foto",
@@ -2944,6 +2949,7 @@
     "invalidImagePath": "Caminho da imagem inválido",
     "follow": "Seguir",
     "following": "Seguindo",
+    "followback": "Seguir de volta",
     "message": "Mensagem",
     "totalSupport": "Suporte total",
     "editProfile": "Editar perfil",

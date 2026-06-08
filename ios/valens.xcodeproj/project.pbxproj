@@ -14,10 +14,7 @@
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		9F10FD7CC7EF436AACCD141E /* FontsFree-Net-Billabong.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3479AD60D3514BB690DFD6F9 /* FontsFree-Net-Billabong.ttf */; };
-		A1B2C3D42E90000100000004 /* UIWindow+Secure.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42E90000100000001 /* UIWindow+Secure.swift */; };
-		A1B2C3D42E90000100000005 /* ScreenSecureModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42E90000100000002 /* ScreenSecureModule.swift */; };
-		A1B2C3D42E90000100000006 /* ScreenSecureModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42E90000100000003 /* ScreenSecureModule.m */; };
-		C8B8082975692B048F4827E6 /* Pods_valens.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7C0556C68AD1FA9BCF11B8 /* Pods_valens.framework */; };
+		A93980E528EADBA6C5DA3D5E /* Pods_valens.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803450ADFAB82EAC606DC6AF /* Pods_valens.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,11 +53,8 @@
 		3479AD60D3514BB690DFD6F9 /* FontsFree-Net-Billabong.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "FontsFree-Net-Billabong.ttf"; path = "../src/assets/fonts/FontsFree-Net-Billabong.ttf"; sourceTree = "<group>"; };
 		6455494E194C2ED0F9B73962 /* Pods-valens.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-valens.debug.xcconfig"; path = "Target Support Files/Pods-valens/Pods-valens.debug.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = valens/AppDelegate.swift; sourceTree = "<group>"; };
+		803450ADFAB82EAC606DC6AF /* Pods_valens.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_valens.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = valens/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		A1B2C3D42E90000100000001 /* UIWindow+Secure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UIWindow+Secure.swift"; path = "valens/UIWindow+Secure.swift"; sourceTree = "<group>"; };
-		A1B2C3D42E90000100000002 /* ScreenSecureModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ScreenSecureModule.swift; path = valens/ScreenSecureModule.swift; sourceTree = "<group>"; };
-		A1B2C3D42E90000100000003 /* ScreenSecureModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = ScreenSecureModule.m; path = valens/ScreenSecureModule.m; sourceTree = "<group>"; };
-		CE7C0556C68AD1FA9BCF11B8 /* Pods_valens.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_valens.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -94,7 +88,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C8B8082975692B048F4827E6 /* Pods_valens.framework in Frameworks */,
+				A93980E528EADBA6C5DA3D5E /* Pods_valens.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,9 +108,6 @@
 				2831010F2E9D119D00879566 /* valens.entitlements */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
-				A1B2C3D42E90000100000001 /* UIWindow+Secure.swift */,
-				A1B2C3D42E90000100000002 /* ScreenSecureModule.swift */,
-				A1B2C3D42E90000100000003 /* ScreenSecureModule.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -136,7 +127,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				CE7C0556C68AD1FA9BCF11B8 /* Pods_valens.framework */,
+				803450ADFAB82EAC606DC6AF /* Pods_valens.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -382,9 +373,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
-				A1B2C3D42E90000100000004 /* UIWindow+Secure.swift in Sources */,
-				A1B2C3D42E90000100000005 /* ScreenSecureModule.swift in Sources */,
-				A1B2C3D42E90000100000006 /* ScreenSecureModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
