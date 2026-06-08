@@ -46,7 +46,6 @@ import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
-import ScreenshotProtectionOverlay from '../ScreenshotProtectionOverlay';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 export default function PostView({ postData = [], userData = {} }) {
@@ -325,7 +324,7 @@ export default function PostView({ postData = [], userData = {} }) {
     }, [])
   );
 
-  const { shouldBlur } = useScreenshotProtection({
+  useScreenshotProtection({
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
@@ -1136,8 +1135,6 @@ export default function PostView({ postData = [], userData = {} }) {
           windowSize={9}
           nestedScrollEnabled
         />
-
-        <ScreenshotProtectionOverlay visible={shouldBlur} />
       </SafeAreaView>
 
       {/* Options Modal */}

@@ -24,7 +24,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
 import useScreenshotProtection from '../../hooks/useScreenshotProtection';
-import ScreenshotProtectionOverlay from '../ScreenshotProtectionOverlay';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -249,7 +248,7 @@ const ProfileTabs = memo(({
   const isPrivateContentTabActive =
     privateContentTabIndex >= 0 && activeTab === privateContentTabIndex;
 
-  const { shouldBlur } = useScreenshotProtection({
+  useScreenshotProtection({
     enabled: isPrivateContentTabActive,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
@@ -284,8 +283,6 @@ const ProfileTabs = memo(({
       <View style={styles.content}>
         {tabs[activeTab]?.screen}
       </View>
-
-      <ScreenshotProtectionOverlay visible={shouldBlur} />
 
       {!isSubscribed && (
         <SubscribeModal

@@ -1,3 +1,9 @@
+jest.mock('react-native-capture-protection', () => ({
+  ...require('react-native-capture-protection/jest/capture-protection-mock'),
+  CaptureEventType: require('react-native-capture-protection/lib/commonjs/type')
+    .CaptureEventType,
+}));
+
 jest.mock('react-native-modal', () => {
   const React = require('react');
   const { View } = require('react-native');
