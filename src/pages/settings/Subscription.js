@@ -17,6 +17,7 @@ import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
 import SubscriptionActivationPopup from '../../components/modals/SubscriptionActivationPopUp';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { createOnboardingLink, getOnboardingStatus } from '../../services/profile';
 
 const PAYMENT_POLL_ATTEMPTS = 8;
 const PAYMENT_POLL_DELAY_MS = 1500;
@@ -188,6 +189,60 @@ const Subscription = () => {
   const handleActivationConfirm = async () => {
     try {
       setActivating(true);
+
+      // 1. Check onboarding status first
+      const onboardingStatus = await getOnboardingStatus();
+      const isReady = onboardingStatus?.data?.canReceivePayments === true
+        && Boolean(onboardingStatus?.data?.accountId);
+
+      if (!isReady) {
+        // 2. Not onboarded — open onboarding flow
+        const onboardingLink = await createOnboardingLink();
+        const onboardingUrl = onboardingLink?.data?.onboardingUrl
+          ?? onboardingLink?.data?.data?.onboardingUrl;
+
+        if (onboardingUrl) {
+          let browserResult;
+          if (await InAppBrowser.isAvailable()) {
+            browserResult = await InAppBrowser.open(onboardingUrl, {
+              dismissButtonStyle: 'close',
+              preferredBarTintColor: '#000',
+              preferredControlTintColor: '#fff',
+              showTitle: true,
+              toolbarColor: '#000',
+              enableUrlBarHiding: true,
+              enableDefaultShare: false,
+            });
+          } else {
+            await Linking.openURL(onboardingUrl);
+          }
+
+          // User cancelled onboarding
+          if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
+            setShowActivationPopup(false);
+            return;
+          }
+
+          // 3. Poll until onboarding completes
+          let onboarded = false;
+          for (let i = 0; i < 10; i++) {
+            const status = await getOnboardingStatus();
+            if (status?.data?.canReceivePayments && status?.data?.accountId) {
+              onboarded = true;
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
+          if (!onboarded) {
+            Alert.alert(t('subscription.error'), t('subventionSetup.stripeIncomplete'));
+            setShowActivationPopup(false);
+            return;
+          }
+        }
+      }
+
+      // 4. Onboarding confirmed — proceed to checkout
       const response = await createCheckoutSession();
       const checkoutUrl = response?.data?.url;
       if (!checkoutUrl) throw new Error('Checkout URL not received');
@@ -203,7 +258,7 @@ const Subscription = () => {
           enableUrlBarHiding: true,
           enableDefaultShare: false,
         });
-        cancelled = isBrowserCancelled(browserResult);
+        cancelled = browserResult?.type === 'cancel' || browserResult?.type === 'dismiss';
       } else {
         await Linking.openURL(checkoutUrl);
       }

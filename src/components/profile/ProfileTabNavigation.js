@@ -40,6 +40,7 @@ const ProfileTabs = memo(({
   refreshKey,
   onPostPinChanged,
   scrollEnabled = false,
+  initialTab,
 }) => {
   const navigation = useNavigation();
   const toast = useToast();
@@ -244,6 +245,25 @@ const ProfileTabs = memo(({
     t,
     handlePrivateCircleStartPress,
   ]);
+
+  useEffect(() => {
+    if (!initialTab) return;
+    const index = tabs.findIndex(tab => tab.key === initialTab);
+    if (index < 0) return;
+
+    setActiveTab(index);
+
+    const timer = setTimeout(async () => {
+      if (!loggedInUserId || isOwnProfile) return;
+      const hasActive = await getSubscriptionStatus(targetProfileId);
+      if (!hasActive && userData?.profile !== 'company') {
+        setPrivatKey(p => p + 1);
+        setShowSubscribeModal(true);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [initialTab, loggedInUserId]);
 
   const privateContentTabIndex = tabs.findIndex(tab => tab.key === 'privateContent');
   const isPrivateContentTabActive =

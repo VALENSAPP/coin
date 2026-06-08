@@ -34,6 +34,7 @@ const Usersprofile = () => {
   const navigation = useNavigation();
   const { t } = useLanguage();
   const targetUserId = route.params?.userId || route.params?.params?.userId;
+  const initialTab = route.params?.initialTab || route.params?.params?.initialTab; 
 
   const screenParams = route?.params?.params || route?.params || {};
   const returnTo = screenParams?.returnTo;
@@ -455,6 +456,7 @@ const Usersprofile = () => {
           loggedInUserId={loggedInUserId}
           onPostPinChanged={handlePostPinChanged}
           scrollEnabled={false}
+          initialTab={initialTab}
         />
       </Animated.ScrollView>
 

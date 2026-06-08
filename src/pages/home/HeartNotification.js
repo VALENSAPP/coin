@@ -23,7 +23,9 @@ import {
   battleNotification,
 } from '../../services/notifications';
 import { acceptBattle, declinetBattle } from '../../services/battle';
+import { getFansubscriptionStatus } from '../../services/stirpe';
 import { useLanguage } from '../../i18n';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -313,6 +315,9 @@ export default function Notifications() {
     action: null,
   });
   const [handledBattleIds, setHandledBattleIds] = useState({});
+  const [subscribeModalVisible, setSubscribeModalVisible] = useState(false);
+  const [subscribeTargetUserId, setSubscribeTargetUserId] = useState(null);
+  const [loggedInUserId, setLoggedInUserId] = useState(null);
 
   const navigation = useNavigation();
 
@@ -406,6 +411,12 @@ export default function Notifications() {
     markAllOnFocusRef.current = false;
     markAllAsRead();
   }, [notifications]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('userId').then(id => {
+      setLoggedInUserId(id);
+    });
+  }, []);
 
   const getNotification = async (showLoader = true) => {
     try {
@@ -911,14 +922,14 @@ export default function Notifications() {
                     <Text
                       suppressHighlighting
                       style={styles.popupMessageHighlight}
-                      onPress={handlePopupNavigateToProfile}
+                    // onPress={handlePopupNavigateToProfile}
                     >
                       {`${usernameText} `}
                     </Text>
                   ) : (
                     <Text>{`${usernameText} `}</Text>
                   ))}
-                <Text>{restText}</Text>
+                <Text style={styles.popupMessageHighlight}>{restText}</Text>
               </Text>
             </View>
 
@@ -1082,6 +1093,19 @@ export default function Notifications() {
       // In renderItem's handlePress:
       const handlePress = () => {
         markAsRead(item.id);
+        console.log(item, 'pressed notification');
+        if (normalizeNotificationType(item.type) === 'private_circle_added') {
+          const targetUserId =
+            item?.raw?.data?.ownerId ||
+            item?.raw?.userId ||
+            item?.raw?.data?.userId ||
+            item?.raw?.data?.addedById ||
+            item?.raw?.data?.fromUserId;
+          if (targetUserId) {
+            navigation.navigate('UsersProfile', { userId: targetUserId });
+            return;
+          }
+        }
 
         if (isBattleNotificationType(item.type)) {
           // Extract battleId from raw data since these come from getAllNotifications
@@ -1096,6 +1120,51 @@ export default function Notifications() {
               },
             });
             return;
+          }
+        }
+
+        if (isPostTagType(item.type)) {
+          const data = item?.raw?.data || {};
+          console.log('POST TAG DATA:', JSON.stringify(data)); // 👈 add this
+          const isPrivatePost = String(data.post_type || '').toLowerCase() === 'private';
+          console.log('IS PRIVATE:', isPrivatePost); // 👈 add this
+          console.log('loggedInUserId:', loggedInUserId); // 👈 add this
+
+          if (isPrivatePost) {
+            const postCreatorId = data.taggerId || data.userId || item?.raw?.userId;
+            const isOwnPost = String(loggedInUserId || '') === String(postCreatorId || '');
+
+            if (!isOwnPost && postCreatorId) {
+              // Check subscription then decide
+              getFansubscriptionStatus(postCreatorId)
+                .then(response => {
+                  const d = response?.data;
+                  const isActive =
+                    response?.status === 'ACTIVE' ||
+                    String(d?.status || '').toUpperCase() === 'ACTIVE' ||
+                    String(d?.subscriptionStatus || '').toUpperCase() === 'ACTIVE' ||
+                    String(d?.subscription?.status || '').toUpperCase() === 'ACTIVE' ||
+                    String(d?.fanSubscription?.status || '').toUpperCase() === 'ACTIVE' ||
+                    d?.isSubscribed === true ||
+                    (Array.isArray(d?.subscriptions) && d.subscriptions.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE')) ||
+                    (Array.isArray(d) && d.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE'));
+                  console.log('IS ACTIVE:', isActive);
+                  if (isActive) {
+                    // Subscribed → open the post normally
+                    navigateToPost(item);
+                  } else {
+                    // Not subscribed → show subscribe modal
+                    setSubscribeTargetUserId(postCreatorId);
+                    setSubscribeModalVisible(true);
+                  }
+                })
+                .catch(() => {
+                  // On error, fall back to showing subscribe modal
+                  setSubscribeTargetUserId(postCreatorId);
+                  setSubscribeModalVisible(true);
+                });
+              return; // stop further handling
+            }
           }
         }
 
@@ -1271,6 +1340,67 @@ export default function Notifications() {
         })}
       </ScrollView>
       {renderPopup()}
+      {/* Subscribe Modal */}
+      <Modal
+        visible={subscribeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSubscribeModalVisible(false)}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupContainer}>
+            <Text style={styles.popupBellIcon}>🔒</Text>
+            <Text style={[styles.popupTitle, textStyle]}>
+              {t('privateContent.lockedTitle')}
+            </Text>
+            <Text style={[styles.popupMessage, { color: text }]}>
+              {t('privateContent.lockedSubtitle')}
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  height: 42,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#5a2d82',
+                }}
+                onPress={() => setSubscribeModalVisible(false)}
+              >
+                <Text style={styles.popupCloseText}>
+                  {t('notifications.popupClose')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  height: 42,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: text,
+                }}
+                onPress={() => {
+                  setSubscribeModalVisible(false);
+                  if (subscribeTargetUserId) {
+                    navigation.navigate('UsersProfile', {
+                      userId: subscribeTargetUserId,
+                      initialTab: 'privateContent',
+                    });
+                  }
+                }}
+              >
+                <Text style={styles.battleAcceptText}>
+                  {t('payment.subscribeButton')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1616,7 +1746,7 @@ const styles = StyleSheet.create({
   popupContainer: {
     width: '80%',
     backgroundColor: '#fff',
-    padding: 20,
+    padding: 15,
     borderRadius: 16,
     alignItems: 'center',
   },
@@ -1624,6 +1754,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 10,
+    textAlign: 'center',
   },
   popupMessage: {
     fontSize: 14,
@@ -1632,10 +1763,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   popupMessageHighlight: {
-    textDecorationLine: 'underline',
-    textDecorationColor: '#3c0fdd',
-    color: '#3c0fdd',
-    fontWeight: '700',
+    // textDecorationLine: 'underline',
+    // textDecorationColor: '#3c0fdd',
+    // color: '#3c0fdd',
+    // fontWeight: '700',
+    fontSize: 14,
+    color: '#555'
   },
   popupCloseButton: {
     backgroundColor: '#5a2d82',
@@ -1650,7 +1783,7 @@ const styles = StyleSheet.create({
   },
   popupTextContainer: {
     alignItems: 'center',
-    marginBottom: 10,
+    // marginBottom: 10,
   },
   loadingContainer: {
     flex: 1,
