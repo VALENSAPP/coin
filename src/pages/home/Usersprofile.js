@@ -52,10 +52,13 @@ const Usersprofile = () => {
   const [redirectingToOwnProfile, setRedirectingToOwnProfile] = useState(false);
   const [compactLocked, setCompactLocked] = useState(false);
   const profileScrollY = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef(null);
   const compactLockedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const touchStartYRef = useRef(0);
   const touchLastYRef = useRef(0);
+  const collapseCooldownRef = useRef(0);
+  const COLLAPSE_COOLDOWN_MS = 400;
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -281,6 +284,9 @@ const Usersprofile = () => {
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
+      compactLockedRef.current = false;
+      lastScrollYRef.current = 0;
+      setCompactLocked(false);
 
       const loadData = async () => {
         if (!isActive) return;
@@ -328,6 +334,17 @@ const Usersprofile = () => {
     setCompactLocked(false);
   }, []);
 
+  const collapseProfileHeader = useCallback(() => {
+    if (compactLockedRef.current) return;
+    compactLockedRef.current = true;
+    collapseCooldownRef.current = Date.now() + COLLAPSE_COOLDOWN_MS;
+    lastScrollYRef.current = 0;
+    setCompactLocked(true);
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [COLLAPSE_COOLDOWN_MS]);
+
   const handleProfileScroll = useCallback((event) => {
     const rawY = event?.nativeEvent?.contentOffset?.y ?? 0;
     const y = Math.max(0, rawY);
@@ -337,14 +354,19 @@ const Usersprofile = () => {
     lastScrollYRef.current = y;
 
     if (dy > 0 && y > 30 && !compactLockedRef.current) {
-      compactLockedRef.current = true;
-      setCompactLocked(true);
+      collapseProfileHeader();
+      return;
     }
 
-    if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
+    // Only expand on intentional pull-down overscroll — not layout-shift scroll jumps.
+    if (
+      rawY < -6 &&
+      compactLockedRef.current &&
+      Date.now() > collapseCooldownRef.current
+    ) {
       expandProfileHeader();
     }
-  }, [expandProfileHeader, profileScrollY]);
+  }, [collapseProfileHeader, expandProfileHeader, profileScrollY]);
 
   const handleProfileTouchStart = useCallback((event) => {
     const pageY = event?.nativeEvent?.pageY ?? 0;
@@ -360,7 +382,10 @@ const Usersprofile = () => {
     const frameDragY = pageY - touchLastYRef.current;
     touchLastYRef.current = pageY;
 
-    if (totalDragY > 18 || frameDragY > 10) {
+    if (
+      (totalDragY > 18 || frameDragY > 10) &&
+      Date.now() > collapseCooldownRef.current
+    ) {
       expandProfileHeader();
     }
   }, [expandProfileHeader]);
@@ -404,6 +429,7 @@ const Usersprofile = () => {
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <Animated.ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContainer}
         onScroll={handleProfileScroll}
         onTouchStart={handleProfileTouchStart}
@@ -530,5 +556,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingBottom: 120,
   },
 });

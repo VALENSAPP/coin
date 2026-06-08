@@ -753,10 +753,10 @@ const SubventionSetupScreen = () => {
                             <Text style={styles.protectionIcon}>🚫</Text>
                             <Text style={styles.protectionText}>{t('subventionSetup.noScreenshots')}</Text>
                         </View>
-                        <View style={styles.protectionItem}>
+                        {/* <View style={styles.protectionItem}>
                             <Text style={styles.protectionIcon}>⚠️</Text>
                             <Text style={styles.protectionText}>{t('subventionSetup.autoBan')}</Text>
-                        </View>
+                        </View> */}
                     </View>
 
                     {/* Demo Button */}

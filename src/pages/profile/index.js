@@ -34,13 +34,14 @@ const ProfileScreen = () => {
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const profileScrollY = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef(null);
   const [compactLocked, setCompactLocked] = useState(false);
   const compactLockedRef = useRef(false);
   const lastScrollYRef = useRef(0);
-  const relockMinYRef = useRef(0);
   const touchStartYRef = useRef(0);
   const touchLastYRef = useRef(0);
-  const compactLockedAnim = useRef(new Animated.Value(0)).current;
+  const collapseCooldownRef = useRef(0);
+  const COLLAPSE_COOLDOWN_MS = 400;
 
   const toast = useToast();
   const dispatch = useDispatch();
@@ -173,12 +174,19 @@ const ProfileScreen = () => {
 const expandProfileHeader = useCallback(() => {
   if (!compactLockedRef.current) return;
   compactLockedRef.current = false;
-  Animated.timing(compactLockedAnim, {
-    toValue: 0,
-    duration: 200,
-    useNativeDriver: true,
-  }).start();
-}, [compactLockedAnim]);
+  setCompactLocked(false);
+}, []);
+
+const collapseProfileHeader = useCallback(() => {
+  if (compactLockedRef.current) return;
+  compactLockedRef.current = true;
+  collapseCooldownRef.current = Date.now() + COLLAPSE_COOLDOWN_MS;
+  lastScrollYRef.current = 0;
+  setCompactLocked(true);
+  requestAnimationFrame(() => {
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  });
+}, [COLLAPSE_COOLDOWN_MS]);
 
   // Pull-to-refresh
   const onRefresh = async () => {
@@ -212,18 +220,19 @@ const handleProfileScroll = useCallback((event) => {
   lastScrollYRef.current = y;
 
   if (dy > 0 && y > 30 && !compactLockedRef.current) {
-    compactLockedRef.current = true;
-    Animated.timing(compactLockedAnim, {    // 👈 animate instead of setState
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    collapseProfileHeader();
+    return;
   }
 
-  if ((dy < -8 || rawY < -6) && compactLockedRef.current) {
+  // Only expand on intentional pull-down overscroll — not layout-shift scroll jumps.
+  if (
+    rawY < -6 &&
+    compactLockedRef.current &&
+    Date.now() > collapseCooldownRef.current
+  ) {
     expandProfileHeader();
   }
-}, [expandProfileHeader, profileScrollY, compactLockedAnim]);
+}, [collapseProfileHeader, expandProfileHeader, profileScrollY]);
 
 const handleProfileTouchStart = useCallback((event) => {
   const pageY = event?.nativeEvent?.pageY ?? 0;
@@ -239,7 +248,10 @@ const handleProfileTouchMove = useCallback((event) => {
   const frameDragY = pageY - touchLastYRef.current;
   touchLastYRef.current = pageY;
 
-  if (totalDragY > 18 || frameDragY > 10) {
+  if (
+    (totalDragY > 18 || frameDragY > 10) &&
+    Date.now() > collapseCooldownRef.current
+  ) {
     expandProfileHeader();
   }
 }, [expandProfileHeader]);
@@ -258,6 +270,7 @@ const profileTabsProps = useMemo(() => ({
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
       <Animated.ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContainer}
         onScroll={handleProfileScroll}
         onTouchStart={handleProfileTouchStart}
