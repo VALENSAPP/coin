@@ -793,15 +793,37 @@ const StoryViewer = ({
     });
   };
 
+  const pauseOverlayAudio = () => {
+    try { youtubeRef.current?.pauseVideo?.(); } catch (_e) { }
+  };
+
+  const resumeOverlayAudio = () => {
+    if (isYoutubeAudio) {
+      (async () => {
+        try {
+          await youtubeRef.current?.setVolume?.(audioVolumePercent);
+          await youtubeRef.current?.unMuteVideo?.();
+          await youtubeRef.current?.playVideo?.();
+        } catch (_e) { }
+      })();
+    }
+  };
+
   const handlePause = () => {
     setPaused(true);
     stopAndResetProgress(false);
+    pauseOverlayAudio();
   };
 
   const handleResume = () => {
     if (!currentStory) return;
     setPaused(false);
-    if (currentStory.type === 'video') { kickPlayback(); return; }
+    if (currentStory.type === 'video') {
+      kickPlayback();
+      resumeOverlayAudio();
+      return;
+    }
+    resumeOverlayAudio();
     const remaining = Math.max(0, 1 - currentProgress);
     const totalDuration = resolveStoryDurationMs(currentStory);
     const remainingDuration = totalDuration * remaining;
@@ -893,12 +915,16 @@ const StoryViewer = ({
   }, [visible]);
 
   useEffect(() => {
-    if (!isYoutubeAudio || !visible || paused) return;
+    if (!isYoutubeAudio || !visible) return;
+    if (paused) {
+      pauseOverlayAudio();
+      return;
+    }
     let cancelled = false;
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     const run = async () => {
       for (const d of [0, 350, 900, 1600]) {
-        if (cancelled) return;
+        if (cancelled || pausedRef.current) return;
         if (d > 0) await wait(d);
         try {
           await youtubeRef.current?.setVolume?.(audioVolumePercent);
@@ -909,7 +935,10 @@ const StoryViewer = ({
       }
     };
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      pauseOverlayAudio();
+    };
   }, [isYoutubeAudio, visible, paused, youtubeVideoId, audioVolumePercent, audioTrimStartSec]);
 
   // ── Pan responder ─────────────────────────────────────────────────────────
@@ -1400,6 +1429,10 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                 forceAndroidAutoplay
                 initialPlayerParams={{ autoplay: true, controls: false, modestbranding: true, rel: false }}
                 onReady={async () => {
+                  if (pausedRef.current || !visibleRef.current) {
+                    pauseOverlayAudio();
+                    return;
+                  }
                   try {
                     await youtubeRef.current?.setVolume?.(audioVolumePercent);
                     await youtubeRef.current?.unMuteVideo?.();
@@ -1408,6 +1441,10 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                   } catch (_e) { }
                 }}
                 onChangeState={state => {
+                  if (pausedRef.current || !visibleRef.current) {
+                    if (state === 'playing') pauseOverlayAudio();
+                    return;
+                  }
                   if (['paused', 'unstarted', 'video cued'].includes(state)) {
                     try { youtubeRef.current?.playVideo?.(); } catch (_e) { }
                   }
