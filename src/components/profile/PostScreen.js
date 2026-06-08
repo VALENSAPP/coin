@@ -112,61 +112,33 @@ const isVideoUrl = (url) => {
 };
 
 const getPreviewMedia = (post) => {
-  const candidates = [
-    ...(Array.isArray(post?.media) ? post.media : []),
-    ...(Array.isArray(post?.images) ? post.images : []),
-    post?.image,
-    post?.video,
-    post?.thumbnail,
-    post?.poster,
-  ].filter(Boolean);
+  const mediaUrl = post?.images?.[0] || post?.image || post?.video;
 
-  const firstCandidate = candidates[0];
-  const normalizedCandidate =
-    typeof firstCandidate === 'string'
-      ? { url: firstCandidate }
-      : firstCandidate;
-
-  const mediaUrl = normalizeImageUrl(
-    normalizedCandidate?.url ||
-    normalizedCandidate?.uri ||
-    normalizedCandidate?.path ||
-    normalizedCandidate?.image ||
-    normalizedCandidate?.video ||
-    post?.image ||
-    post?.video,
-  );
-
-  const posterUrl = normalizeImageUrl(
-    normalizedCandidate?.thumbnail ||
-    normalizedCandidate?.poster ||
-    normalizedCandidate?.previewUri ||
+  const thumbnailUrl = normalizeImageUrl(
+    post?.thumbnails?.[0] ||
     post?.thumbnail ||
-    post?.poster ||
-    post?.previewUri,
+    post?.poster
   );
-
-  const mediaType = String(
-    normalizedCandidate?.type ||
-    normalizedCandidate?.mediaType ||
-    normalizedCandidate?.mime ||
-    post?.mediaType ||
-    post?.type ||
-    '',
-  ).toLowerCase();
 
   const isVideo =
-    mediaType.includes('video') ||
-    normalizedCandidate?.isVideo === true ||
-    isVideoUrl(mediaUrl);
+    post?.type === 'reel' ||
+    /\.(mp4|mov|avi|mkv|webm|m4v|3gp)(\?|$)/i.test(mediaUrl || '');
 
-  return { mediaUrl, posterUrl, isVideo };
+  return {
+    mediaUrl,
+    thumbnailUrl,
+    isVideo,
+  };
 };
 
 const getImagePosts = postList =>
   (Array.isArray(postList) ? postList : []).filter((post) => {
-    const { isVideo } = getPreviewMedia(post);
-    return !isVideo;
+    const type = String(post?.type || '').toLowerCase();
+
+    return (
+      type !== 'private' &&
+      type !== 'reel'
+    );
   });
 
 // Memoized image component for better performance
@@ -174,44 +146,30 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
-  const { mediaUrl, posterUrl, isVideo } = getPreviewMedia(item);
+  const { mediaUrl, thumbnailUrl, isVideo } = getPreviewMedia(item);
 
   if (isVideo) {
     return (
-      <View style={[styles.image, styles.placeholderImage]}>
-        {!!mediaUrl && !videoError && (
-          <Video
-            source={{ uri: mediaUrl }}
-            style={StyleSheet.absoluteFill}
-            paused={true}
-            muted={true}
-            resizeMode="cover"
-            repeat={false}
-            controls={false}
-            playWhenInactive={false}
-            ignoreSilentSwitch="ignore"
-            poster={posterUrl || undefined}
-            posterResizeMode="cover"
-            onLoad={() => setIsVideoLoading(false)}
-            onError={() => {
-              setVideoError(true);
-              setIsVideoLoading(false);
-            }}
-            playInBackground={false}
-          />
-        )}
+      <View style={styles.image}>
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.image}
+          resizeMode="cover"
+        />
 
-        {(isVideoLoading || videoError || !mediaUrl) && (
-          <View style={[StyleSheet.absoluteFill, styles.videoPlaceholderOverlay]}>
-            <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
-          </View>
-        )}
-
-        {!isVideoLoading && !videoError && (
-          <View style={[styles.videoBadge, styles.videoBadgeOverlay]}>
-            <Text style={styles.videoBadgeText}>▶</Text>
-          </View>
-        )}
+        <View
+          style={[
+            styles.videoBadge,
+            {
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: [{ translateX: -15 }, { translateY: -15 }],
+            },
+          ]}
+        >
+          <Text style={styles.videoBadgeText}>▶</Text>
+        </View>
       </View>
     );
   }
@@ -303,13 +261,13 @@ const PostScreen = memo(({ scrollEnabled = true, postCheck, userData: propUserDa
     const selectedPost = posts?.[index];
     if (!selectedPost) return;
     const { isVideo } = getPreviewMedia(selectedPost);
-    if (isVideo) {
-      navigation.getParent().navigate('ProfileMain', {
-        screen: 'FlipsScreen',
-        params: { item: selectedPost, key: Date.now().toString() },
-      });
-      return;
-    }
+    // if (isVideo) {
+    //   navigation.getParent().navigate('ProfileMain', {
+    //     screen: 'FlipsScreen',
+    //     params: { item: selectedPost, key: Date.now().toString() },
+    //   });
+    //   return;
+    // }
     navigation.getParent().navigate('ProfileMain', {
       screen: 'PostView',
       params: { postData: posts, startIndex: index, hideTabBar: true, userData },
@@ -447,26 +405,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-row: {
-  flexDirection: 'row',
-  marginBottom: SPACING,
-  width: screenWidth,   // 👈 ensure row takes full screen width
-},
-grid: {
-  flexDirection: 'column',
-  paddingBottom: 120,
-  width: screenWidth,   // 👈 ensure grid takes full screen width
-},
-imageContainer: {
-  width: IMAGE_SIZE,
-  height: IMAGE_SIZE,
-  overflow: 'hidden',
-  position: 'relative',
-},
-image: {
-  width: IMAGE_SIZE,    // 👈 must match IMAGE_SIZE exactly
-  height: IMAGE_SIZE,   // 👈 must match IMAGE_SIZE exactly
-},
+  row: {
+    flexDirection: 'row',
+    marginBottom: SPACING,
+    width: screenWidth,   // 👈 ensure row takes full screen width
+  },
+  grid: {
+    flexDirection: 'column',
+    paddingBottom: 120,
+    width: screenWidth,   // 👈 ensure grid takes full screen width
+  },
+  imageContainer: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  image: {
+    width: IMAGE_SIZE,    // 👈 must match IMAGE_SIZE exactly
+    height: IMAGE_SIZE,   // 👈 must match IMAGE_SIZE exactly
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(90, 45, 130, 0.08)', // subtle purple tint
@@ -540,7 +498,7 @@ image: {
     fontSize: 7,
     fontWeight: '400',
     color: '#FFFFFF',
-    
+
   },
   placeholderImage: {
     justifyContent: 'center',
@@ -564,9 +522,9 @@ image: {
     includeFontPadding: false,
   },
   videoBadge: {
-    flexDirection:'row',
-    justifyContent:'center',
-    alignSelf:'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,

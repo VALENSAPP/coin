@@ -58,6 +58,7 @@ import {
   resolveFeedMediaHeight,
 } from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
+import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -906,23 +907,20 @@ function PostItem({
   }, [playbackEligible, currentIndex, safeVideoPause]);
 
   const handleUserProfile = useCallback(
-    id => {
-      const targetId = id != null ? String(id) : '';
+    (id) => {
+      const targetId = id != null ? String(id).trim() : '';
       if (!targetId) return;
 
-      if (currentUserIdStr && currentUserIdStr === targetId) {
-        navigation.navigate('ProfileMain', { screen: 'Profile' });
-      } else {
-        const currentRoute = route?.name || 'Home';
-        const returnToPayload =
-          currentRoute === 'PostView'
-            ? { tab: 'ProfileMain', screen: 'PostView', params: route?.params }
-            : currentRoute;
-        navigation.navigate('HomeMain', {
-          screen: 'UsersProfile',
-          params: { userId: id, returnTo: returnToPayload },
-        });
-      }
+      const currentRoute = route?.name || 'Home';
+      const returnToPayload =
+        currentRoute === 'PostView'
+          ? { tab: 'ProfileMain', screen: 'PostView', params: route?.params }
+          : currentRoute;
+
+      void navigateToUserProfile(navigation, targetId, {
+        loggedInUserId: currentUserIdStr,
+        returnTo: returnToPayload,
+      });
     },
     [currentUserIdStr, navigation, route?.name, route?.params],
   );
@@ -1124,17 +1122,17 @@ function PostItem({
 
       // Prefer navigating within the nearest navigator that actually owns `FlipsScreen`
       // so back navigation returns to the current screen automatically.
-      let targetNavigation = navigation;
-      while (targetNavigation) {
-        const routeNames = targetNavigation.getState?.()?.routeNames || [];
-        if (routeNames.includes('FlipsScreen')) {
-          targetNavigation.navigate('FlipsScreen', params);
-          return;
-        }
-        targetNavigation = targetNavigation.getParent?.();
-      }
+      // let targetNavigation = navigation;
+      // while (targetNavigation) {
+      //   const routeNames = targetNavigation.getState?.()?.routeNames || [];
+      //   if (routeNames.includes('FlipsScreen')) {
+      //     targetNavigation.navigate('FlipsScreen', params);
+      //     return;
+      //   }
+      //   targetNavigation = targetNavigation.getParent?.();
+      // }
 
-      navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
+      // navigation.navigate('ProfileMain', { screen: 'FlipsScreen', params });
     },
     [item, navigation, returnTo, route?.name, route?.params, t],
   );
@@ -1768,6 +1766,15 @@ function PostItem({
         showChevron={false}
         emptyTitle={t('postItem.noTaggedPeople')}
         emptyText={t('postItem.noTaggedPeopleText')}
+        onUserPress={(id, item) => {
+          setShowTaggedPeopleModal(false);
+          const resolvedId =
+            item?.id ||
+            item?.userId ||
+            item?._id ||
+            id;
+          handleUserProfile(resolvedId);
+        }}
       />
       <SupportCreatorModal
         visible={modalVisible}

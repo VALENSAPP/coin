@@ -154,6 +154,20 @@ const buildSideMetrics = entries => {
   }, {});
 };
 
+const isHeadToHeadParticipantUserId = (userId, creatorId, invitedUserId) => {
+  const id = String(userId || '');
+  if (!id) return false;
+  return id === String(creatorId || '') || id === String(invitedUserId || '');
+};
+
+const filterHeadToHeadCountableEntries = (entries, format, creatorId, invitedUserId) => {
+  if (format !== 'HEAD_TO_HEAD') return Array.isArray(entries) ? entries : [];
+  return (Array.isArray(entries) ? entries : []).filter(entry => {
+    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '') || '');
+    return !isHeadToHeadParticipantUserId(userId, creatorId, invitedUserId);
+  });
+};
+
 const resolveEntityId = (value) => {
   if (value === undefined || value === null) return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
@@ -333,11 +347,21 @@ const normalizeBattle = (raw, currentUserId = '') => {
   const participantEntries = Array.isArray(raw?.participants) ? raw.participants : [];
   const predictionEntries = Array.isArray(raw?.predictions) ? raw.predictions : [];
   const voteEntries = Array.isArray(raw?.votes) ? raw.votes : [];
-  const sideMetrics = buildSideMetrics(
-    format === 'POLL'
-      ? predictionEntries.length > 0 ? predictionEntries : participantEntries
-      : voteEntries.length > 0 ? voteEntries : participantEntries,
+  const countableVoteEntries = filterHeadToHeadCountableEntries(voteEntries, format, creatorId, invitedUserId);
+  const countablePredictionEntries = filterHeadToHeadCountableEntries(
+    predictionEntries,
+    format,
+    creatorId,
+    invitedUserId,
   );
+  const sideMetricsSource = format === 'POLL'
+    ? (countablePredictionEntries.length > 0
+      ? countablePredictionEntries
+      : format === 'HEAD_TO_HEAD' ? [] : participantEntries)
+    : (countableVoteEntries.length > 0
+      ? countableVoteEntries
+      : format === 'HEAD_TO_HEAD' ? [] : participantEntries);
+  const sideMetrics = buildSideMetrics(sideMetricsSource);
   const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
   const fallbackSides = [
     creatorChoice,
@@ -369,14 +393,29 @@ const normalizeBattle = (raw, currentUserId = '') => {
   });
   const calculatedTotalVotes = options.reduce((sum, option) => sum + Number(option.votes || 0), 0);
   const totalVotes = Number(pickFirst(
-    raw?.totalVotes, raw?.votesCount,
-    format === 'HEAD_TO_HEAD' ? raw?._count?.votes : undefined,
+    format === 'HEAD_TO_HEAD' ? calculatedTotalVotes : undefined,
+    raw?.totalVotes,
+    raw?.votesCount,
     format === 'POLL' ? raw?._count?.participants : undefined,
     format === 'POLL' && participantEntries.length > 0 ? participantEntries.length : undefined,
     format === 'POLL' && predictionEntries.length > 0 ? predictionEntries.length : undefined,
-    format === 'HEAD_TO_HEAD' && voteEntries.length > 0 ? voteEntries.length : undefined,
-    calculatedTotalVotes, 0,
+    calculatedTotalVotes,
+    0,
   ));
+  const normalizedVoteCounts = format === 'HEAD_TO_HEAD'
+    ? options.reduce((acc, option) => {
+        const key = String(pickFirst(option?.side, option?.label, '')).trim();
+        if (key) acc[key] = Number(option.votes || 0);
+        return acc;
+      }, {})
+    : (raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {});
+  const normalizedPredictionCounts = format === 'HEAD_TO_HEAD'
+    ? options.reduce((acc, option) => {
+        const key = String(pickFirst(option?.side, option?.label, '')).trim();
+        if (key) acc[key] = Number(option.votes || 0);
+        return acc;
+      }, {})
+    : (raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {});
   const normalizedOptions = options.map(option => ({
     ...option,
     percentage: totalVotes > 0
@@ -401,6 +440,7 @@ const normalizeBattle = (raw, currentUserId = '') => {
     primaryCountLabel: format === 'HEAD_TO_HEAD' ? 'votes' : 'participants',
     totalComments: Number(pickFirst(raw?.totalComments, raw?._count?.comments, comments.length, 0)),
     stake: Number(pickFirst(raw?.stakeAmount, raw?.stake, raw?.pot, 0)),
+    createdAt: pickFirst(raw?.createdAt, raw?.created_at, raw?.createdDate, ''),
     endTime: pickFirst(raw?.endTime, raw?.endsAt, ''),
     creatorChoice,
     invitedUserChoice: String(pickFirst(invitedUserChoice, '')),
@@ -445,8 +485,8 @@ const normalizeBattle = (raw, currentUserId = '') => {
         '',
       ),
     },
-    predictionCounts: raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {},
-    voteCounts: raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {},
+    predictionCounts: normalizedPredictionCounts,
+    voteCounts: normalizedVoteCounts,
     optionImages: Array.isArray(raw?.optionImages) ? raw.optionImages.filter(Boolean) : [],
     comments,
     headToHeadSides: headToHeadSides || undefined,
@@ -494,6 +534,8 @@ const formatStakeAmount = value => {
     maximumFractionDigits: 2,
   });
 };
+
+const BATTLE_QUESTION_EDIT_WINDOW_MS = 5 * 60 * 1000;
 
 const isSuccessfulResponse = response =>
   (typeof response?.status === 'number' && response.status >= 200 && response.status < 300) ||
@@ -700,6 +742,46 @@ export default function BattleInProgress() {
     if (!currentUserId) return false;
     return String(currentUserId) === String(battle.creatorId);
   }, [battle.creatorId, currentUserId, isHeadToHead]);
+
+  const isBattleCreator = useMemo(() => {
+    if (!currentUserId || !battle.creatorId) return false;
+    return String(currentUserId) === String(battle.creatorId);
+  }, [battle.creatorId, currentUserId]);
+
+  const [editWindowNow, setEditWindowNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!battle.createdAt || !isBattleCreator) return undefined;
+    const interval = setInterval(() => setEditWindowNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [battle.createdAt, isBattleCreator]);
+
+  const canEditBattleQuestion = useMemo(() => {
+    if (!isBattleCreator || isBattleCancelled || canViewResults) return false;
+    if (!battle.createdAt) return false;
+
+    const createdMs = new Date(battle.createdAt).getTime();
+    if (Number.isNaN(createdMs)) return false;
+
+    return editWindowNow - createdMs < BATTLE_QUESTION_EDIT_WINDOW_MS;
+  }, [
+    battle.createdAt,
+    canViewResults,
+    editWindowNow,
+    isBattleCancelled,
+    isBattleCreator,
+  ]);
+
+  const handleEditBattleQuestion = useCallback(() => {
+    if (!resolvedBattleId) return;
+
+    navigation.navigate('OpenBattle', {
+      editMode: true,
+      battleId: resolvedBattleId,
+      battle,
+      profile: resolvedProfileType,
+    });
+  }, [battle, navigation, resolvedBattleId, resolvedProfileType]);
 
   const userVotedSelection = useMemo(() => {
     if (!currentUserId) return { side: '', optionId: '' };
@@ -1036,8 +1118,11 @@ export default function BattleInProgress() {
 
   useFocusEffect(useCallback(() => {
     setExpandedReplies({});
+    if (battleId) {
+      fetchBattle(true);
+    }
     return () => setExpandedReplies({});
-  }, []));
+  }, [battleId, fetchBattle]));
 
   useEffect(() => { setExpandedReplies({}); }, [resolvedBattleId]);
 
@@ -1358,10 +1443,16 @@ export default function BattleInProgress() {
     }
   };
 
+  const isOwnComment = useCallback(
+    (userId) => String(userId || '') === String(currentUserId || ''),
+    [currentUserId],
+  );
+
   const handleCommentLike = async (commentId) => {
     if (!commentId || !battleId) return;
     const targetComment = findCommentInTree(battle.comments, commentId);
     if (!targetComment) return;
+    if (isOwnComment(targetComment.userId)) return;
     setLikingCommentId(commentId);
     const previousCommentState = {
       isLiked: !!targetComment.isLiked,
@@ -1461,18 +1552,20 @@ export default function BattleInProgress() {
                 <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(reply)}>
                   <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
-                  {likingCommentId === reply.id ? (
-                    <ActivityIndicator size="small" color={palette.primary} />
-                  ) : (
-                    <>
-                      <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
-                      <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
-                        {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {!isOwnComment(reply.userId) && (
+                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(reply.id)} disabled={likingCommentId === reply.id}>
+                    {likingCommentId === reply.id ? (
+                      <ActivityIndicator size="small" color={palette.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name={reply.isLiked ? 'heart' : 'heart-outline'} size={18} color={reply.isLiked ? '#E11D48' : '#6B7280'} />
+                        <Text style={[styles.commentLikeText, { color: reply.isLiked ? '#E11D48' : '#6B7280' }]}>
+                          {Number.isFinite(Number(reply.likes)) ? Number(reply.likes) : 0}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
             {!!reply.authorHandle && (
@@ -1565,18 +1658,20 @@ export default function BattleInProgress() {
                   <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
                     <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
-                    {likingCommentId === comment.id ? (
-                      <ActivityIndicator size="small" color={palette.primary} />
-                    ) : (
-                      <>
-                        <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
-                        <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
-                          {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {!isOwnComment(comment.userId) && (
+                    <TouchableOpacity style={styles.commentLikeButton} onPress={() => handleCommentLike(comment.id)} disabled={likingCommentId === comment.id}>
+                      {likingCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name={comment.isLiked ? 'heart' : 'heart-outline'} size={18} color={comment.isLiked ? '#E11D48' : '#6B7280'} />
+                          <Text style={[styles.commentLikeText, { color: comment.isLiked ? '#E11D48' : '#6B7280' }]}>
+                            {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
               {!!comment.authorHandle && (
@@ -1695,6 +1790,18 @@ export default function BattleInProgress() {
               Stakes: {formatStakeAmount(battle.stake)}
             </Text>
           </View>
+          {canEditBattleQuestion ? (
+            <TouchableOpacity
+              style={[styles.editBattleButton, { borderColor: withAlpha(text, '33') }]}
+              onPress={handleEditBattleQuestion}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="create-outline" size={13} color={text} />
+              <Text style={[styles.editBattleButtonText, { color: text }]}>
+                {t('battleInProgress.editQuestion')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
       <TouchableOpacity activeOpacity={0.9} onPressIn={handleHeroCardPressIn} onPressOut={handleHeroCardPressOut}>
@@ -2491,6 +2598,17 @@ const styles = StyleSheet.create({
   heroInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   heroInfoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(107,95,166,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   heroInfoText: { color: "#000", fontSize: 11, fontWeight: '600' },
+  editBattleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  editBattleButtonText: { fontSize: 11, fontWeight: '700' },
   heroMetaRight: { alignItems: 'flex-end' },
 
   // Duel

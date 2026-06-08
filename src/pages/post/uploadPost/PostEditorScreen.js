@@ -27,12 +27,14 @@ import {
   buildPostMetaFromImages,
   buildCreatePostMusicPayload,
 } from '../../../utils/postSoundtracks';
+import { getPostMediaFormat } from '../../../utils/postMediaFormat';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { hideLoader, showLoader } from '../../../redux/actions/LoaderAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
+import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
@@ -250,6 +252,9 @@ const PostEditorScreen = () => {
     }
 
     dispatch(showLoader());
+    const isFlipPost = fromIcon === 'Flips' || postType === 'flip';
+    const primaryMedia = editorImages[0];
+
     const payload = {
       caption: caption.trim(),
       taggedPeople: taggedPeopleIds,
@@ -264,11 +269,13 @@ const PostEditorScreen = () => {
       type:
         postType === 'private'
           ? 'private'
-          : 'normal'
-            || fromIcon === 'Flips'
+          : fromIcon === 'Flips'
             ? 'reel'
             : 'normal',
-      visibleTo: visibleTo
+      visibleTo: visibleTo,
+      ...(isFlipPost && primaryMedia
+        ? { format: getPostMediaFormat(primaryMedia) }
+        : {}),
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
@@ -347,13 +354,9 @@ const PostEditorScreen = () => {
         return;
       }
 
-      navigation.navigate('HomeMain', {
-        screen: 'UsersProfile',
-        params: {
-          userId: String(resolvedUserId),
-          params: {
-            returnTo: { tab: 'Add' },
-          },
+      void navigateToUserProfile(navigation, resolvedUserId, {
+        returnParams: {
+          returnTo: { tab: 'Add' },
         },
       });
     } finally {

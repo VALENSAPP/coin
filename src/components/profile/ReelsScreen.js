@@ -40,40 +40,50 @@ const isVideoUrl = (url) => {
 const getVideoPosts = postList =>
   (Array.isArray(postList) ? postList : []).filter(post => {
     const firstImage = post?.images?.[0];
-    return firstImage && isVideoUrl(firstImage);
+    return post?.type === 'reel' && firstImage && isVideoUrl(firstImage);
   });
 
-const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
+const PostImage = memo(({ item, themeTextStyle }) => {
   const [imageError, setImageError] = useState(false);
+
   const imageUrl = normalizeImageUrl(item?.images?.[0]);
+
+  const thumbnailUrl = normalizeImageUrl(
+    item?.thumbnails?.[0] ||
+    item?.thumbnail ||
+    item?.poster
+  );
+
   const isVideo = isVideoUrl(item?.images?.[0]);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
-  const [videoError, setVideoError] = useState(false);
 
   if (isVideo) {
     return (
-      <View style={[styles.image, styles.placeholderImage]}>
-        <Video
-          source={{ uri: imageUrl }}
-          style={StyleSheet.absoluteFill}
-          paused={true}
-          muted={true}
+      <View style={styles.image}>
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={styles.image}
           resizeMode="cover"
-          onLoad={() => setIsVideoLoading(false)}
-          onError={() => {
-            setVideoError(true);
-            setIsVideoLoading(false);
-          }}
-          playInBackground={false}
+          onError={() => setImageError(true)}
         />
-        {isVideoLoading && (
+
+        <View
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: [{ translateX: -15 }, { translateY: -15 }],
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            borderRadius: 20,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+          }}
+        >
+          <Text style={styles.videoBadgeText}>▶</Text>
+        </View>
+
+        {(imageError || !thumbnailUrl) && (
           <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
             <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
-          </View>
-        )}
-        {!isVideoLoading && (
-          <View style={styles.videoBadge}>
-            <Text style={styles.videoBadgeText}>▶</Text>
           </View>
         )}
       </View>
@@ -81,19 +91,12 @@ const PostImage = memo(({ item, index, onPress, themeTextStyle }) => {
   }
 
   return (
-    <View style={styles.image}>
-      <Image
-        source={{ uri: imageUrl }}
-        style={styles.image}
-        resizeMode="cover"
-        onError={() => setVideoError(true)}
-      />
-      {(videoError || !imageUrl) && (
-        <View style={[StyleSheet.absoluteFill, styles.placeholderImage]}>
-          <Text style={[styles.placeholderText, themeTextStyle]}>🎬</Text>
-        </View>
-      )}
-    </View>
+    <Image
+      source={{ uri: imageUrl }}
+      style={styles.image}
+      resizeMode="cover"
+      onError={() => setImageError(true)}
+    />
   );
 });
 
@@ -105,7 +108,7 @@ const ReelsScreen = memo(({ postCheck, userData, isOwnProfile = false, onPostPin
   const navigation = useNavigation();
   const { bgStyle, textStyle, text } = useAppTheme(userData?.profile);
   const { t } = useLanguage();
-
+  console.log("postCheck------------------>>>>>>>>>>>>>", postCheck)
   useEffect(() => {
     setPosts(sortPostsByPinned(getVideoPosts(postCheck)));
   }, [postCheck]);

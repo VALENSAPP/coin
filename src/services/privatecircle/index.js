@@ -119,9 +119,35 @@ export const parsePrivateCircleDashboard = (response) => {
   const { members, count } = parsePrivateCircleMembers(response);
   const data = root?.privateCircle ?? root?.circle ?? root;
 
+  const isActive = (() => {
+    if (typeof data?.isActive === 'boolean') return data.isActive;
+    if (typeof root?.isActive === 'boolean') return root.isActive;
+    const status = String(
+      data?.status ?? root?.status ?? data?.accessStatus ?? root?.accessStatus ?? '',
+    ).toUpperCase();
+    if (status === 'ACTIVE') return true;
+    if (status === 'INACTIVE') return false;
+    return null;
+  })();
+
+  const postCount = Number(
+    data?.postCount ??
+      data?.postsCount ??
+      data?.totalPosts ??
+      data?.postsAdded ??
+      root?.postCount ??
+      root?.postsCount ??
+      root?.totalPosts ??
+      root?.postsAdded ??
+      (Array.isArray(data?.posts) ? data.posts.length : undefined) ??
+      0,
+  );
+
   return {
     members,
     count,
+    postCount: Number.isFinite(postCount) ? postCount : 0,
+    isActive,
     limits: data?.limits ?? root?.limits ?? null,
     slots: data?.slots ?? root?.slots ?? [],
     dashboardData: root,
@@ -131,3 +157,9 @@ export const parsePrivateCircleDashboard = (response) => {
 export const getPvtCircleMembers = async (userid) => {
   return axiosInstance.get(`/private-circle/users/${userid}/members`);
 };
+
+export const recentActivity = async () => {
+  return axiosInstance.get('/private-circle/owner-post-interactions');
+};
+ 
+ 

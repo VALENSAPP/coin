@@ -521,23 +521,27 @@ const ReelItem = React.memo(
             style={styles.actionButton}
             onPress={() => togglePlaybackSpeed(item.id)}
             accessibilityLabel={tFlips('flips.toggleSpeed')}>
-            <Text style={styles.speedBadge}>
-              {(playbackRateMap[item.id] ?? 1) + '×'}
-            </Text>
+            <View style={styles.actionIconSlot}>
+              <Text style={styles.speedBadge}>
+                {(playbackRateMap[item.id] ?? 1) + '×'}
+              </Text>
+            </View>
             <Text style={styles.actionLabel}>{tFlips('flips.speedLabel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleLike(item.id)}>
-            <Thumbup
-              width={24}
-              height={24}
-              style={[
-                styles.actionSvgIcon,
-                !likedMap[item.id] && styles.actionSvgIconInactive,
-              ]}
-            />
+            <View style={styles.actionIconSlot}>
+              <Thumbup
+                width={24}
+                height={24}
+                style={[
+                  styles.actionSvgIcon,
+                  !likedMap[item.id] && styles.actionSvgIconInactive,
+                ]}
+              />
+            </View>
             <Text style={styles.actionLabel}>
               {formatCount(likesCountMap[item.id] || 0)}
             </Text>
@@ -546,7 +550,9 @@ const ReelItem = React.memo(
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleComment(item.id)}>
-            <Comments width={22} height={22} style={styles.actionSvgIcon} />
+            <View style={styles.actionIconSlot}>
+              <Comments width={22} height={22} style={styles.actionSvgIcon} />
+            </View>
             <Text style={styles.actionLabel}>
               {formatCount(commentsCountMap[item.id] || 0)}
             </Text>
@@ -555,14 +561,19 @@ const ReelItem = React.memo(
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => openShareSheet()}>
-            <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
+            <View style={styles.actionIconSlot}>
+              <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
+            </View>
             <Text style={styles.actionLabel}>{tFlips('flips.shareLabel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, styles.actionButtonLast]}
             onPress={() => handleMoreOptions(item)}>
-            <Icon name="ellipsis-vertical" size={20} color="#fff" />
+            <View style={styles.actionIconSlot}>
+              <Icon name="ellipsis-vertical" size={20} color="#fff" />
+            </View>
+            <Text style={styles.actionLabelSpacer}>{'\u00A0'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -2310,7 +2321,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 2,
+    lineHeight: 16,
+    textAlign: 'center',
   },
   videoContainer: { flex: 1 },
   video: { width: '100%', height: '100%' },
@@ -2361,14 +2373,24 @@ const styles = StyleSheet.create({
     left: 10,
     right: 80,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'flex-start',
     paddingHorizontal: 10,
-    gap: 26,
   },
   actionButton: {
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'flex-end',
+    minWidth: 40,
+    marginRight: Platform.OS === 'android' ? 20 : 26,
+  },
+  actionButtonLast: {
+    marginRight: 0,
+  },
+  actionIconSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionSvgIcon: { opacity: 1 },
   actionSvgIconInactive: { opacity: 0.7 },
@@ -2377,6 +2399,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
+    minHeight: 16,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  actionLabelSpacer: {
+    marginTop: 4,
+    minHeight: 16,
+    lineHeight: 16,
+    opacity: 0,
   },
   musicDisc: { marginTop: 10, marginBottom: '10%' },
   discContainer: {

@@ -151,7 +151,7 @@ const cropImage = (imageUri, index) => {
     const remainingSlots = 10 - (selectedMedia?.length || 0);
     dispatch(showLoader());
     ImagePicker.openPicker({
-      mediaType: postType === 'flip' ? 'video' : 'any',
+      mediaType: 'any',
       multiple: postType !== 'flip',
       maxFiles: postType === 'flip' ? 1 : remainingSlots > 0 ? remainingSlots : 1,
       includeBase64: false,
@@ -269,7 +269,25 @@ const cropImage = (imageUri, index) => {
       return;
     }
     if (postType === 'flip') {
-      captureMedia('video');
+      Alert.alert(
+        t('post.cameraOptionsTitle'),
+        t('post.cameraOptionsMessage'),
+        [
+          {
+            text: t('post.cancel'),
+            style: 'cancel',
+          },
+          {
+            text: t('post.photo'),
+            onPress: () => captureMedia('photo'),
+          },
+          {
+            text: t('post.video'),
+            onPress: () => captureMedia('video'),
+          },
+        ],
+        { cancelable: true }
+      );
       return;
     }
 

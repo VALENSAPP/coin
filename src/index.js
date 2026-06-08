@@ -1,14 +1,12 @@
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import MainStack from './navigations/RootNavigator';
 import { loggedOut, loggedIn } from './redux/actions/LoginAction';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, Linking, AppState, DeviceEventEmitter, View, StyleSheet } from 'react-native';
+import { Linking, AppState, DeviceEventEmitter } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import messaging from '@react-native-firebase/messaging';
-import notifee, { EventType } from '@notifee/react-native';
 import Splash from './pages/splashSceen/Splash';
-import { hideLoader, showLoader } from './redux/actions/LoaderAction';
+import { hideLoader } from './redux/actions/LoaderAction';
 import { showToastMessage } from './components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import { refreshToken } from './services/authentication';
@@ -16,20 +14,22 @@ import { ThemeProvider } from './theme/ThemeContext';
 import { setUserProfile } from './redux/actions/UserProfileAction';
 import { setStripeCustomerId } from './redux/actions/UserAction';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
-import NotificationModal from './components/modals/NotificationModal';
-import { initializeSocket } from './services/socket';
-import { getUserCredentials } from './services/post';
-import { getAllUser } from './services/users';
 import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
 import { updatLoginModal } from './services/kycverification';
 import { useLanguage } from './i18n';
-import { createNotificationChannels, PENDING_NOTIFICATION_MODAL_KEY } from './services/NotificationService';
 import { useNotificationToast } from './utils/useNotificationToast';
-import NotificationToast from './components/notifications/NotificationToast';
-// import { getUserCountry } from './hooks/countryLocation';
+import { initializeSocket } from './services/socket';
+import { getUserCredentials } from './services/post';
+import { getAllUser } from './services/users';
+import useNotificationSetup from './utils/useNotificationSetup';
+import { requestUserPermission } from './services/NotificationService';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
 
 const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
@@ -43,18 +43,15 @@ const linking = {
     'https://valensGoApp.com',
     'com.valens.app://',
     'com.valens://',
-    // 'valens://',
   ],
   config: {
     screens: {
       Home: '',
       CallbackScreen: 'callback',
       Wallet: 'wallet',
-
       Profile: 'profile/:id',
       User: 'u/:id',
       Share: 'share/:id',
-
       Post: 'postshare/:id',
       Reel: 'reelshare/:id',
       Story: 'storyshare/:id',
@@ -62,48 +59,65 @@ const linking = {
   },
 };
 
+// Consumed once across hot-reloads so the initial URL is not replayed
 let _initialUrlConsumed = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// URL helpers (module-level, no closure dependencies)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const normalizeDeepLinkUrl = (incomingUrl = '') =>
+  String(incomingUrl || '')
+    .replace(/^com\.valens\.app:\/\//i, 'https://dummy.com/')
+    .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+    .replace(/^valens:\/\//i, 'https://dummy.com/');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [message, setMessage] = useState('');
+
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
   const dispatch = useDispatch();
   const toast = useToast();
   const { t } = useLanguage();
+
   const navigationRef = useRef(null);
-  const pendingNotificationNavigation = useRef(false);
+  const pendingNotificationNav = useRef(false);
   const isNavigationReadyRef = useRef(false);
   const isLoggedInRef = useRef(false);
   const isLoadingRef = useRef(true);
-  const initialUrlHandled = useRef(false);
   const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
 
-  const { activeNotification, showNotificationToast, dismissNotificationToast } = useNotificationToast();
+  const { activeNotification, showNotificationToast, dismissNotificationToast } =
+    useNotificationToast();
 
+  // ── Keep refs in sync with state ──────────────────────────────────────────
   useEffect(() => {
+    requestUserPermission();
     isNavigationReadyRef.current = isNavigationReady;
     isLoggedInRef.current = isLoggedIn;
     isLoadingRef.current = isLoading;
   }, [isLoading, isLoggedIn, isNavigationReady]);
 
+  // ── Socket ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const setup = async () => {
-      try {
-        await initializeSocket();
-        // const country = await getUserCountry();
-        // console.log(country,'checkWhichCountryuserare........')
-      } catch (e) {
-        console.warn("Socket init failed", e);
-      }
-    };
-    setup();
+    initializeSocket().catch(e => console.warn('Socket init failed', e));
   }, []);
+
+  // ── Notifications (all FCM + Notifee wiring lives in this hook) ───────────
+  useNotificationSetup({ showNotificationToast, setMessage });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // HeartNotification navigation
+  // ─────────────────────────────────────────────────────────────────────────
 
   const navigateToHeartNotification = React.useCallback(() => {
     if (
@@ -112,49 +126,43 @@ export default function Main() {
       !isLoggedInRef.current ||
       isLoadingRef.current
     ) {
-      pendingNotificationNavigation.current = true;
+      pendingNotificationNav.current = true;
       return;
     }
-
-    pendingNotificationNavigation.current = false;
+    pendingNotificationNav.current = false;
     navigationRef.current.navigate('MainApp', {
       screen: 'HomeMain',
-      params: {
-        screen: 'HeartNotification',
-      },
+      params: { screen: 'HeartNotification' },
     });
   }, []);
 
   useEffect(() => {
-    if (pendingNotificationNavigation.current) {
+    if (pendingNotificationNav.current) {
       navigateToHeartNotification();
     }
   }, [isLoading, isLoggedIn, isNavigationReady, navigateToHeartNotification]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // KYC welcome-modal logic
+  // ─────────────────────────────────────────────────────────────────────────
+
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
     try {
-      if (!isLoggedIn) {
-        setWelcomeModalVisible(false);
-        return;
-      }
+      if (!isLoggedIn) { setWelcomeModalVisible(false); return; }
 
       const id = await AsyncStorage.getItem('userId');
-      if (!id) {
-        return;
-      }
+      if (!id) return;
 
-      const hasShownWelcome = await AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY);
-      const hasShownLegacy = await AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY);
-      if (hasShownWelcome || hasShownLegacy) {
-        setWelcomeModalVisible(false);
-        return;
-      }
+      const [hasShownWelcome, hasShownLegacy] = await Promise.all([
+        AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY),
+        AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY),
+      ]);
+      if (hasShownWelcome || hasShownLegacy) { setWelcomeModalVisible(false); return; }
 
       const response = await getUserCredentials(id);
       console.log(response, 'fdATA');
-      if (response?.statusCode !== 200) {
-        return;
-      }
+      if (response?.statusCode !== 200) return;
+
       const userData = response?.data?.user || response?.data || response;
       const kycApproved = userData?.kyc === true || String(userData?.kyc || '').toLowerCase() === 'true';
       const firstLogRaw =
@@ -165,43 +173,38 @@ export default function Main() {
         userData?.firstLoginAfterKyc;
       const firstLog = firstLogRaw === true || String(firstLogRaw || '').toLowerCase() === 'true';
 
-      const isKycApproved = kycApproved && firstLog;
-
-      setWelcomeModalVisible(isKycApproved);
+      setWelcomeModalVisible(kycApproved && firstLog);
     } catch (error) {
       console.log('KYC polling check failed:', error?.message || error);
     }
   }, [isLoggedIn]);
 
- const handleWelcomeModalClose = async () => {
-  if (welcomeModalCloseInFlight.current) return;
+  const handleWelcomeModalClose = async () => {
+    if (welcomeModalCloseInFlight.current) return;
 
-  welcomeModalCloseInFlight.current = true;
+    welcomeModalCloseInFlight.current = true;
 
-  try {
-    const response = await updatLoginModal();
+    try {
+      const response = await updatLoginModal();
 
 
-    // Hide modal after successful API call
-    setWelcomeModalVisible(false);
+      // Hide modal after successful API call
+      setWelcomeModalVisible(false);
 
-    // Re-fetch user data immediately
-    checkKycAndShowWelcomeModal();
-  } catch (error) {
-    console.log(
-      'Failed to update first login after KYC:',
-      error?.message || error,
-    );
-  } finally {
-    welcomeModalCloseInFlight.current = false;
-  }
-};
+      // Re-fetch user data immediately
+      checkKycAndShowWelcomeModal();
+    } catch (error) {
+      console.log(
+        'Failed to update first login after KYC:',
+        error?.message || error,
+      );
+    } finally {
+      welcomeModalCloseInFlight.current = false;
+    }
+  };
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      return;
-    }
-
+    if (!isLoggedIn) return;
     checkKycAndShowWelcomeModal();
     const intervalId = setInterval(() => {
       checkKycAndShowWelcomeModal();
@@ -212,105 +215,140 @@ export default function Main() {
     };
   }, [checkKycAndShowWelcomeModal, isLoggedIn]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bootstrap: session check + deep-link wiring
+  // ─────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     dispatch(setUserProfile('normal'));
-    createNotificationChannels();
+
+    // ── Token refresh ──────────────────────────────────────────────────────
+    const fetchRefreshToken = async () => {
+      const oldToken = await AsyncStorage.getItem('refreshToken');
+      try {
+        const response = await refreshToken({ refreshToken: oldToken });
+        if (response?.statusCode === 200) {
+          console.log('response in refreshtoken:', response);
+          await AsyncStorage.setItem('token', response.data.access_token);
+          await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
+        } else {
+          showToastMessage(toast, 'danger', response.data.message);
+        }
+      } catch {
+        // Silent — token refresh failures are non-fatal
+      }
+    };
     fetchRefreshToken();
-    const unsubscribeNotifications = getNotification();
-    //  setTimeout(() => {
-    //    setIsLoading(false);
-    //  }, 1000);
+
+    // ── Session validation ─────────────────────────────────────────────────
     const checkLogin = async () => {
       try {
-        const loggedI = await AsyncStorage.getItem('isLoggedIn');
-        const deviceId = await AsyncStorage.getItem("device_id");
+        const [loggedI, deviceId] = await Promise.all([
+          AsyncStorage.getItem('isLoggedIn'),
+          AsyncStorage.getItem('device_id'),
+        ]);
 
-        if (loggedI === 'true') {
+        if (loggedI !== 'true') { dispatch(loggedOut()); return; }
 
-          // 🔥 Call API
-          const response = await authSesionHistory();
+        const response = await authSesionHistory();
+        const sessions = response?.data?.sessions || [];
+        const currentSession = sessions.find(s => s.deviceId === deviceId);
 
-          const sessions = response?.data?.sessions || [];
-
-          // ✅ Check if current device exists in sessions
-          const currentSession = sessions.find(
-            (item) => item.deviceId === deviceId
-          );
-          {
-            if (currentSession) {
-              // ✅ Device is valid → stay logged in
-              dispatch(loggedIn());
-
-              await ensureCurrentAccountSaved();
-
-              const storedStripeCustomerId = await AsyncStorage.getItem('stripeCustomerId');
-              if (storedStripeCustomerId) {
-                dispatch(setStripeCustomerId(storedStripeCustomerId));
-              }
-
-            } else {
-              // ❌ Device not found → logout
-              console.log("Session not found, logging out");
-
-              await AsyncStorage.clear();
-              dispatch(loggedOut());
-            }
-          }
+        if (currentSession) {
+          dispatch(loggedIn());
+          await ensureCurrentAccountSaved();
+          requestUserPermission();
+          const storedStripeId = await AsyncStorage.getItem('stripeCustomerId');
+          if (storedStripeId) dispatch(setStripeCustomerId(storedStripeId));
         } else {
+          console.log('Session not found, logging out');
+          await AsyncStorage.clear();
           dispatch(loggedOut());
         }
-
       } catch (error) {
-        console.log("Error in checkLogin:", error);
+        console.log('Error in checkLogin:', error);
         dispatch(loggedOut());
-      } finally {
+      }
+    };
+    checkLogin();
+
+    // ── AppState ───────────────────────────────────────────────────────────
+    const appStateSubscription = AppState.addEventListener('change', nextState => {
+      console.log('AppState changed:', appState.current, '->', nextState);
+      if (nextState === 'active') checkKycAndShowWelcomeModal();
+      appState.current = nextState;
+    });
+
+    // ── Deep-link navigation helpers ───────────────────────────────────────
+    const navigateToUserProfile = async (resolvedUserId) => {
+      if (!resolvedUserId || !navigationRef.current || !isNavigationReadyRef.current) return; // 👈 use ref
+      const loggedInUserId = await AsyncStorage.getItem('userId');
+      const isSelf = String(loggedInUserId || '').trim() === String(resolvedUserId).trim();
+
+      if (isSelf) {
+        navigationRef.current.navigate('MainApp', {
+          screen: 'ProfileMain',
+          params: { screen: 'Profile' },
+        });
+      } else {
+        navigationRef.current.navigate('MainApp', {
+          screen: 'HomeMain',
+          params: { screen: 'UsersProfile', params: { userId: String(resolvedUserId) } },
+        });
       }
     };
 
-    checkLogin();
-
-    // Track app state changes
-    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      console.log('AppState changed:', appState.current, '->', nextAppState);
-      if (nextAppState === 'active') {
-        checkKycAndShowWelcomeModal();
+    const resolveUserIdFromUsername = async (incomingUsername) => {
+      const cleanUsername = decodeURIComponent(
+        String(incomingUsername || '').trim()
+      ).replace(/^@+/, '');
+      if (!cleanUsername) return null;
+      try {
+        const response = await getAllUser({ userName: cleanUsername });
+        const users = response?.data?.users ?? [];
+        const exactMatch = users.find(
+          u => String(u?.userName || u?.username || '').toLowerCase() === cleanUsername.toLowerCase()
+        );
+        const user = exactMatch || users[0];
+        return user?.id || user?._id || user?.userId || null;
+      } catch (error) {
+        console.log('Username resolution failed:', error?.message || error);
+        return null;
       }
-      appState.current = nextAppState;
-    });
+    };
 
-    // Deep Link Handler - FIXED FOR iOS
-    const handleDeepLink = async (event) => {
-      console.log('Deep link received:', event.url);
-      const url = String(event?.url || '').trim();
-
-      if (!url) {
+    /** Waits until navigation is ready, then calls doNavigate(). */
+    const navigateWhenReady = (doNavigate, timeoutMs = 10_000) => {
+      if (navigationRef.current && isNavigationReadyRef.current) {
+        doNavigate();
         return;
       }
+      const interval = setInterval(() => {
+        if (navigationRef.current && isNavigationReadyRef.current) {
+          clearInterval(interval);
+          doNavigate();
+        }
+      }, 100);
+      setTimeout(() => clearInterval(interval), timeoutMs);
+    };
 
-      // At the top of handleDeepLink, after receiving com.valens.app://
+    // ── Deep-link handler ──────────────────────────────────────────────────
+    const handleDeepLink = async (event) => {
+      const url = String(event?.url || '').trim();
+      if (!url) return;
+      console.log('Deep link received:', url);
+
+      // MetaMask return
       const isMetaMaskReturn = url === 'com.valens.app://' || url === 'com.valens.app';
-      console.log("isMetaMaskReturn-------------", isMetaMaskReturn);
       if (isMetaMaskReturn) {
-        const pendingMetamask = await AsyncStorage.getItem('pending_metamask_connect');
-        console.log("pendingMetamask-------------", pendingMetamask);
-
-        if (pendingMetamask === 'true') {
+        const pending = await AsyncStorage.getItem('pending_metamask_connect');
+        if (pending === 'true') {
           await AsyncStorage.removeItem('pending_metamask_connect');
           console.log('🦊 Returned from MetaMask');
-
-          // Handle MetaMask return — trigger your wallet connect completion logic here
           DeviceEventEmitter.emit('METAMASK_RETURN', { timestamp: Date.now() });
-          return;
         }
-
-        // Not from MetaMask, just a bare deep link — ignore or handle as home
         return;
       }
-
-      const normalizeDeepLinkUrl = (incomingUrl = '') => String(incomingUrl || '')
-        .replace(/^com\.valens\.app:\/\//i, 'https://dummy.com/')
-        .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
-        .replace(/^valens:\/\//i, 'https://dummy.com/');
 
       let urlObj;
       try {
@@ -321,301 +359,154 @@ export default function Main() {
       }
 
       const path = urlObj.pathname;
-      const normalizedPath = String(path || '').toLowerCase();
+      const normalizedPath = path.toLowerCase();
 
-      // Check if URL is callback
-      const parsedPath = urlObj.pathname;
-      if (parsedPath === '/callback' || normalizedPath === '/callback') {
-        console.log('🔔 Callback URL detected - closing InAppBrowser');
-
+      // Callback / payment
+      if (normalizedPath === '/callback') {
+        console.log('🔔 Callback URL detected — closing InAppBrowser');
         try {
-          // ✅ CRITICAL: Close InAppBrowser on iOS
-          if (await InAppBrowser.isAvailable()) {
-            await InAppBrowser.close();
-            console.log('✅ InAppBrowser closed successfully');
-          }
+          if (await InAppBrowser.isAvailable()) await InAppBrowser.close();
         } catch (error) {
           console.log('❌ Error closing InAppBrowser:', error);
         }
 
-        // Parse query params to check payment status
         let status = 'success';
         try {
-          const normalizedCallbackUrl = url
-            .replace(/^com\.valens\.app:\/\//i, 'https://dummy.com/')
-            .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
-            .replace(/^valens:\/\//i, 'https://dummy.com/');
-          const urlObj = new URL(normalizedCallbackUrl);
-          status = urlObj.searchParams.get('status') || 'success';
-          console.log('📋 Payment status from URL:', status);
-        } catch (error) {
-          console.log('⚠️ Error parsing callback URL:', error);
-        }
+          status = new URL(normalizeDeepLinkUrl(url)).searchParams.get('status') || 'success';
+        } catch { /* ignore */ }
 
-        // ✅ Emit event FIRST before hiding loader
-        console.log('📢 Emitting PAYMENT_COMPLETED event with status:', status);
-        DeviceEventEmitter.emit('PAYMENT_COMPLETED', {
-          status: status,
-          timestamp: Date.now()
-        });
-
-        // Hide loader after a small delay to ensure event is processed
-        setTimeout(() => {
-          dispatch(hideLoader());
-          console.log('✅ Loader hidden - user back on screen');
-        }, 500);
-
-        // return;
+        console.log('📢 Emitting PAYMENT_COMPLETED with status:', status);
+        DeviceEventEmitter.emit('PAYMENT_COMPLETED', { status, timestamp: Date.now() });
+        setTimeout(() => dispatch(hideLoader()), 500);
+        return;
       }
 
-      const navigateToUserProfile = async (resolvedUserId) => {
-        console.log("navigateToUserProfilenavigateToUserProfile", resolvedUserId);
-        if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
+      // Path-based routing
+      const postMatch = normalizedPath.match(/^\/postshare\/([^/?]+)/i);
+      const reelMatch = normalizedPath.match(/^\/reelshare\/([^/?]+)/i);
+      const storyMatch = normalizedPath.match(/^\/storyshare\/([^/?]+)/i);
+      const profileMatch = normalizedPath.match(/^\/profile\/([^/?]+)/i);
 
-        // Get the logged-in user's ID
-        const loggedInUserId = await AsyncStorage.getItem('userId');
-        const isSelf = String(loggedInUserId || '').trim() === String(resolvedUserId).trim();
-
-        if (isSelf) {
-          // Navigate to own profile
-          navigationRef.current.navigate('MainApp', {
-            screen: 'ProfileMain',
-            params: {
-              screen: 'Profile', // your own profile screen name
-            },
-          });
-        } else {
-          // Navigate to another user's profile (fromUsersProfile = true is implicit here)
-          navigationRef.current.navigate('MainApp', {
-            screen: 'HomeMain',
-            params: {
-              screen: 'UsersProfile',
-              params: {
-                userId: String(resolvedUserId),
-              },
-            },
-          });
-        }
-      };
-
-      const resolveUserIdFromUsername = async (incomingUsername) => {
-        const cleanUsername = decodeURIComponent(String(incomingUsername || '').trim()).replace(/^@+/, '');
-        if (!cleanUsername) return null;
-        try {
-          const response = await getAllUser({ userName: cleanUsername });
-          const users = response?.data?.users ?? [];
-          const exactMatch = users.find((u) =>
-            String(u?.userName || u?.username || '').toLowerCase() === cleanUsername.toLowerCase()
-          );
-          const fallbackUser = exactMatch || users[0];
-          return fallbackUser?.id || fallbackUser?._id || fallbackUser?.userId || null;
-        } catch (error) {
-          console.log('Username resolution failed:', error?.message || error);
-          return null;
-        }
-      };
-
-      // Handle other deep links normally if needed
-      try {
-        const urlObj = new URL(normalizeDeepLinkUrl(url));
-        const path = urlObj.pathname;
-        const normalizedPath = String(path || '').toLowerCase();
-        const postId = urlObj.searchParams.get('postId');
-        const reelId = urlObj.searchParams.get('reelId');
-        const storyId = String(urlObj.searchParams.get('storyId') || '').trim();
-        const fallbackTag = urlObj.searchParams.get('af');
-        const profileMatch = normalizedPath.match(/^\/profile\/([^/?]+)/i);
-
-        const postMatch = normalizedPath.match(/^\/postshare\/([^/?]+)/i);
-        const reelMatch = normalizedPath.match(/^\/reelshare\/([^/?]+)/i);
-        const storyMatch = normalizedPath.match(/^\/storyshare\/([^/?]+)/i);
-
-        if (postMatch?.[1]) {
-          const postId = decodeURIComponent(postMatch[1]);
-
-          navigationRef.current.navigate('MainApp', {
+      if (postMatch?.[1]) {
+        const postId = decodeURIComponent(postMatch[1]);
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
             screen: 'ProfileMain',
             params: {
               screen: 'PostView',
-              params: {
-                userChat: true,
-                fromScreen: 'DeepLink',
-                postData: { id: String(postId) },
-              },
+              params: { userChat: true, fromScreen: 'DeepLink', postData: { id: postId } },
             },
-          });
+          })
+        );
+        return;
+      }
 
-          return;
-        }
-
-        if (reelMatch?.[1]) {
-          const reelId = decodeURIComponent(reelMatch[1]);
-          const doNavigate = () => navigationRef.current?.navigate('MainApp', {
+      if (reelMatch?.[1]) {
+        const reelId = decodeURIComponent(reelMatch[1]);
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
             screen: 'HomeMain',
             params: {
               screen: 'FlipsScreen',
-              params: { item: { id: String(reelId) }, uniqueKey: `deeplink_reel_${String(reelId)}` },
+              params: { item: { id: reelId }, uniqueKey: `deeplink_reel_${reelId}` },
             },
-          });
-          if (navigationRef.current && isNavigationReadyRef.current) {
-            doNavigate();
-          } else {
-            const interval = setInterval(() => {
-              if (navigationRef.current && isNavigationReadyRef.current) {
-                clearInterval(interval);
-                doNavigate();
-              }
-            }, 100);
-            setTimeout(() => clearInterval(interval), 10000);
-          }
-          return;
-        }
+          })
+        );
+        return;
+      }
 
-        if (storyMatch?.[1]) {
-          const storyId = decodeURIComponent(storyMatch[1]);
-          console.log('STORY DEEP LINK storyId:', storyId);
-          console.log('nav ready:', isNavigationReadyRef.current, 'navRef:', !!navigationRef.current);
+      if (storyMatch?.[1]) {
+        const storyId = decodeURIComponent(storyMatch[1]);
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: { screen: 'Home', params: { sharedStoryId: storyId } },
+          })
+        );
+        return;
+      }
 
-          const doNavigate = () => {
-            navigationRef.current?.navigate('MainApp', {
-              screen: 'HomeMain',
-              params: {
-                screen: 'Home',
-                params: {
-                  sharedStoryId: storyId,
-                },
-              },
-            });
-          };
+      if (profileMatch?.[1]) {
+        const profileId = decodeURIComponent(profileMatch[1]);
+        navigateWhenReady(() => navigateToUserProfile(profileId));
+        return;
+      }
 
-          if (navigationRef.current && isNavigationReady) {
-            doNavigate();
-          } else {
-            // Nav not ready yet (cold start), retry until ready
-            const interval = setInterval(() => {
-              if (navigationRef.current && isNavigationReadyRef.current) {
-                clearInterval(interval);
-                doNavigate();
-              }
-            }, 100);
-            // Give up after 10 seconds
-            setTimeout(() => clearInterval(interval), 10000);
-          }
+      // Query-param fallbacks + profile share
+      const postId = urlObj.searchParams.get('postId');
+      const reelId = urlObj.searchParams.get('reelId');
+      const storyId = String(urlObj.searchParams.get('storyId') || '').trim();
+      const fallbackTag = urlObj.searchParams.get('af');
+      const sharedProfile = parseProfileShareUrl(url);
 
-          return;
-        }
-
-        if (postMatch?.[1]) {
-          const postId = decodeURIComponent(postMatch[1]);
-          const doNavigate = () => navigationRef.current?.navigate('MainApp', {
+      if (postId && fallbackTag === 'dd') {
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
             screen: 'ProfileMain',
             params: {
               screen: 'PostView',
               params: { userChat: true, fromScreen: 'DeepLink', postData: { id: String(postId) } },
             },
-          });
-          if (navigationRef.current && isNavigationReadyRef.current) {
-            doNavigate();
-          } else {
-            const interval = setInterval(() => {
-              if (navigationRef.current && isNavigationReadyRef.current) {
-                clearInterval(interval);
-                doNavigate();
-              }
-            }, 100);
-            setTimeout(() => clearInterval(interval), 10000);
-          }
-          return;
-        }
-        const sharedProfileLink = parseProfileShareUrl(url);
-        console.log('sharedProfileLink:', sharedProfileLink);
-        console.log('deepLinkUserId:', sharedProfileLink?.userId);
-        console.log('deepLinkUsername:', sharedProfileLink?.username);
-        if (navigationRef.current && isNavigationReady) {
-          setTimeout(() => {
-            if (postId && fallbackTag === 'dd') {
-              navigationRef.current.navigate('MainApp', {
-                screen: 'ProfileMain',
-                params: {
-                  screen: 'PostView',
-                  params: {
-                    userChat: true,
-                    fromScreen: 'DeepLink',
-                    postData: { id: String(postId) },
-                  },
-                },
-              });
-            } else if (reelId && fallbackTag === 'dd') {
-              navigationRef.current.navigate('MainApp', {
-                screen: 'HomeMain',
-                params: {
-                  screen: 'FlipsScreen',
-                  params: {
-                    item: { id: String(reelId) },
-                    uniqueKey: `deeplink_reel_${String(reelId)}`,
-                  },
-                },
-              });
-            } else if (storyId && fallbackTag === 'dd') {
-              navigationRef.current.navigate('MainApp', {
-                screen: 'HomeMain',
-                params: {
-                  screen: 'Home',
-                  params: {
-                    sharedStoryId: storyId,
-                  },
-                },
-              });
-            } else if (sharedProfileLink) {
-              const deepLinkUserId = String(sharedProfileLink?.userId || '').trim()
-                || (String(sharedProfileLink?.username || '').match(/^[0-9a-f-]{36}$/i)
-                  ? sharedProfileLink.username
-                  : '');
-              const resolvedUsername = String(sharedProfileLink?.username || '').trim();
+          })
+        );
+      } else if (reelId && fallbackTag === 'dd') {
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: {
+              screen: 'FlipsScreen',
+              params: { item: { id: String(reelId) }, uniqueKey: `deeplink_reel_${reelId}` },
+            },
+          })
+        );
+      } else if (storyId && fallbackTag === 'dd') {
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
+            screen: 'HomeMain',
+            params: { screen: 'Home', params: { sharedStoryId: storyId } },
+          })
+        );
+      } else if (sharedProfile) {
+        const userId = String(sharedProfile?.userId || '').trim()
+          || (String(sharedProfile?.username || '').match(/^[0-9a-f-]{36}$/i)
+            ? sharedProfile.username : '');
+        const username = String(sharedProfile?.username || '').trim();
 
-              if (deepLinkUserId) {
-                navigateToUserProfile(deepLinkUserId);
-              } else if (resolvedUsername) {
-                resolveUserIdFromUsername(resolvedUsername).then((resolvedUserId) => {
-                  if (resolvedUserId) {
-                    navigateToUserProfile(resolvedUserId);
-                  } else if (navigationRef.current && isNavigationReady) {
-                    navigationRef.current.navigate('MainApp', {
-                      screen: 'ProfileMain',
-                      params: {
-                        screen: 'Profile',
-                      },
-                    });
-                    // showToastMessage(toast, 'danger', t('main.unableToOpenProfileLink'));
-                  }
-                });
+        if (userId) {
+          navigateWhenReady(() => navigateToUserProfile(userId));
+        } else if (username) {
+          resolveUserIdFromUsername(username).then(resolvedId => {
+            navigateWhenReady(() => {
+              if (resolvedId) {
+                navigateToUserProfile(resolvedId);
               } else {
-                navigationRef.current.navigate('MainApp', {
+                navigationRef.current?.navigate('MainApp', {
                   screen: 'ProfileMain',
-                  params: {
-                    screen: 'Profile',
-                  },
+                  params: { screen: 'Profile' },
                 });
               }
-            } else if (path === '/wallet') {
-              navigationRef.current.navigate('Wallet');
-            } else if (path === '/home' || path === '/') {
-              navigationRef.current.navigate('Home');
-            }
-          }, 100);
+            });
+          });
+        } else {
+          navigateWhenReady(() =>
+            navigationRef.current?.navigate('MainApp', {
+              screen: 'ProfileMain',
+              params: { screen: 'Profile' },
+            })
+          );
         }
-      } catch (error) {
-        console.error('URL parsing error:', error);
+      } else if (path === '/wallet') {
+        navigateWhenReady(() => navigationRef.current?.navigate('Wallet'));
+      } else if (path === '/home' || path === '/') {
+        navigateWhenReady(() => navigationRef.current?.navigate('Home'));
       }
     };
 
-    // Listen for deep links when app is open
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Handle deep link when app was closed
     if (!_initialUrlConsumed) {
       _initialUrlConsumed = true;
-      Linking.getInitialURL().then((url) => {
+      Linking.getInitialURL().then(url => {
         if (url) {
           console.log('Initial URL:', url);
           handleDeepLink({ url });
@@ -624,116 +515,15 @@ export default function Main() {
     }
 
     return () => {
-      if (typeof unsubscribeNotifications === 'function') {
-        unsubscribeNotifications();
-      }
       linkingSubscription.remove();
       appStateSubscription.remove();
     };
-    // Existing startup effect intentionally runs from this dependency set.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, toast, isNavigationReady, checkKycAndShowWelcomeModal]);
 
-  const fetchRefreshToken = async () => {
-    const oldToken = await AsyncStorage.getItem('refreshToken');
-    try {
-      // dispatch(showLoader());
-      const dataToSend = { refreshToken: oldToken };
-      const response = await refreshToken(dataToSend);
-      if (response?.statusCode === 200) {
-        console.log('response in refreshtoken------->>>>>>>>>>>>>>>', response);
-        await AsyncStorage.setItem('token', response.data.access_token);
-        await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
-      } else {
-        showToastMessage(toast, 'danger', response.data.message);
-      }
-    } catch (error) {
-      // Handle error silently or show message
-    } finally {
-      // dispatch(hideLoader());
-    }
-  };
-
-  const getNotification = () => {
-    const showPendingNotifeeNotification = async () => {
-      const pendingNotification = await AsyncStorage.getItem(PENDING_NOTIFICATION_MODAL_KEY);
-      if (!pendingNotification) return;
-
-      await AsyncStorage.removeItem(PENDING_NOTIFICATION_MODAL_KEY);
-      try {
-        showNotificationToast(JSON.parse(pendingNotification));
-      } catch (error) {
-        console.log('Failed to parse pending notification modal payload:', error?.message || error);
-      }
-    };
-
-    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
-      console.log("onMessage data------------------------", remoteMessage);
-      showNotificationToast(remoteMessage);
-    });
-
-    const unsubscribeOnNotificationOpened = messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log("onNotificationOpenedApp------------------------", remoteMessage);
-      setMessage(remoteMessage?.notification?.body || '');
-      showNotificationToast(remoteMessage);
-    });
-
-    messaging().getInitialNotification().then(remoteMessage => {
-      if (remoteMessage) {
-        setMessage(remoteMessage?.notification?.body || '');
-        showNotificationToast(remoteMessage);
-      }
-    });
-
-    showPendingNotifeeNotification();
-
-    const unsubscribeNotifeeForeground = notifee.onForegroundEvent(({ type, detail }) => {
-      if (type === EventType.PRESS && detail?.notification) {
-        showNotificationToast({
-          notification: {
-            title: detail.notification?.title,
-            body: detail.notification?.body,
-          },
-          data: detail.notification?.data || {},
-        });
-      }
-    });
-
-    return () => {
-      unsubscribeOnMessage();
-      unsubscribeOnNotificationOpened();
-      unsubscribeNotifeeForeground();
-    };
-  };
-
-  const handleNotificationAction = (action, data) => {
-    if (!navigationRef.current || !isNavigationReady) return;
-
-    if (action === 'VIEW_PROFILE' && data?.followerId) {
-      navigationRef.current.navigate('MainApp', {
-        screen: 'HomeMain',
-        params: {
-          screen: 'UsersProfile',
-          params: { userId: data.followerId },
-        },
-      });
-    }
-
-    if (action === 'FOLLOW_BACK' && data?.followerId) {
-      // Call your follow API here
-      console.log('Follow back:', data.followerId);
-    }
-  };
-
-  const handleNavigationReady = () => {
-    console.log('Navigation is ready');
-    isNavigationReadyRef.current = true;
-    setIsNavigationReady(true);
-  };
-
-  const closeModal = () => {
-    setModalVisible(false);
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -744,36 +534,22 @@ export default function Main() {
   }
 
   return (
-    <>
-      <ThemeProvider activeProfile={userProfile}>
-        <NavigationContainer
-          ref={navigationRef}
-          linking={linking}
-          onReady={handleNavigationReady}
-        // fallback={<Splash />}
-        >
-          <MainStack />
-        </NavigationContainer>
-        {
-          modalVisible &&
-          <NotificationModal
-            visible={modalVisible}
-            message={message}
-            closeModal={closeModal}
-          />
-        }
-        {/* {activeNotification && (
-          <NotificationToast
-            notification={activeNotification}
-            onDismiss={dismissNotificationToast}
-            onAction={handleNotificationAction}
-          />
-        )} */}
-        <WelcomeValensModal
-          visible={welcomeModalVisible}
-          onClose={handleWelcomeModalClose}
-        />
-      </ThemeProvider>
-    </>
+    <ThemeProvider activeProfile={userProfile}>
+      <NavigationContainer
+        ref={navigationRef}
+        linking={linking}
+        onReady={() => {
+          console.log('Navigation is ready');
+          isNavigationReadyRef.current = true;
+          setIsNavigationReady(true);
+        }}
+      >
+        <MainStack />
+      </NavigationContainer>
+      <WelcomeValensModal
+        visible={welcomeModalVisible}
+        onClose={handleWelcomeModalClose}
+      />
+    </ThemeProvider>
   );
 }
