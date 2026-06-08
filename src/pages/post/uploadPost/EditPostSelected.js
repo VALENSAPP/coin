@@ -1025,11 +1025,24 @@ const InstagramPostCreator = () => {
   };
 
   const pickImages = () => {
-    ImagePicker.openPicker({ multiple: true, mediaType: 'any', maxFiles: 10, quality: 0.8 })
+    ImagePicker.openPicker({
+      multiple: !isFlipPost,
+      mediaType: isFlipPost ? 'video' : 'any',
+      maxFiles: isFlipPost ? 1 : 10,
+      quality: 0.8,
+    })
       .then(images => {
-        setSelectedImages(images); setCurrentImageIndex(0);
+        const items = Array.isArray(images) ? images : [images];
+        const validItems = isFlipPost
+          ? items.filter(item => item?.mime?.includes('video'))
+          : items;
+        if (isFlipPost && validItems.length === 0) {
+          Alert.alert(t('post.videoOnlyTitle'), t('post.videoOnlyFlipMessage'));
+          return;
+        }
+        setSelectedImages(validItems); setCurrentImageIndex(0);
         const initialEdits = {}; const initialVideoPaused = {};
-        images.forEach((_, index) => { initialEdits[index] = createEmptyImageEdits(); initialVideoPaused[index] = true; });
+        validItems.forEach((_, index) => { initialEdits[index] = createEmptyImageEdits(); initialVideoPaused[index] = true; });
         setImageEdits(initialEdits); setVideoPaused(initialVideoPaused);
       })
       .catch(error => console.log('Image picker error:', error));

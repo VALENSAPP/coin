@@ -17,6 +17,7 @@ import HighlightStories from '../../components/profile/HighLightStories';
 import ProfileTabs from '../../components/profile/ProfileTabNavigation';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { follow, getPostByUser, getUserCredentials, getUserDashboard, unfollow } from '../../services/post';
+import { followers as getFollowers } from '../../services/profile';
 import { showLoader, hideLoader } from '../../redux/actions/LoaderAction';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import TokenPurchaseModal from '../../components/modals/TokenPurchaseModal';
@@ -44,6 +45,7 @@ const Usersprofile = () => {
   const [userData, setUserData] = useState();
   const [refreshing, setRefreshing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followsMe, setFollowsMe] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [tokenAddress, setTokenAddress] = useState(null);
   const [purchaseAutoFocus, setPurchaseAutoFocus] = useState(false);
@@ -140,6 +142,29 @@ const Usersprofile = () => {
     return null;
   }, [targetUserId]);
 
+  const checkFollowsMe = useCallback(async (currentUserId, alreadyFollowing) => {
+    if (!currentUserId || !targetUserId || alreadyFollowing) {
+      setFollowsMe(false);
+      return;
+    }
+
+    try {
+      const followersRes = await getFollowers(currentUserId);
+      const rows = followersRes?.data?.data ?? followersRes?.data ?? [];
+      const followerIds = rows
+        .map(rel => {
+          const user =
+            rel?.follower || rel?.followerUser || rel?.user || rel?.fromUser || rel?.from || null;
+          return user?.id ?? user?._id ?? user?.userId ?? null;
+        })
+        .filter(Boolean)
+        .map(id => String(id));
+      setFollowsMe(followerIds.includes(String(targetUserId)));
+    } catch (_error) {
+      setFollowsMe(false);
+    }
+  }, [targetUserId]);
+
   const fetchProfile = useCallback(async () => {
     try {
       const response = await getUserTokenInfoByBlockChain(targetUserId);
@@ -184,7 +209,17 @@ const Usersprofile = () => {
 
       if (userRes?.statusCode === 200) {
         setUserData(userRes.data?.user || userRes.data);
-        setIsFollowing(userRes.data?.isFollow);
+        const following = !!userRes.data?.isFollow;
+        setIsFollowing(following);
+        const apiFollowsMe =
+          userRes.data?.isFollowedBy ??
+          userRes.data?.followsMe ??
+          userRes.data?.isFollowBack;
+        if (typeof apiFollowsMe === 'boolean') {
+          setFollowsMe(apiFollowsMe);
+        } else {
+          await checkFollowsMe(currentUserId, following);
+        }
       } else {
         showToastMessage(
           toast,
@@ -208,7 +243,7 @@ const Usersprofile = () => {
     } finally {
       dispatch(hideLoader());
     }
-  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus, t]);
+  }, [targetUserId, toast, dispatch, fetchProfile, fetchLoggedInUserId, checkSubscriptionStatus, checkFollowsMe, t]);
 
   const toggleFollow = async () => {
 
@@ -454,6 +489,7 @@ const Usersprofile = () => {
           dashboard={userDashboard}
           fromUsersProfile={true}
           isFollowing={isFollowing}
+          followsMe={followsMe}
           onToggleFollow={toggleFollow}
           followBusy={followBusy}
           targetUserId={targetUserId}

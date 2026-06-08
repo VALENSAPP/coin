@@ -106,6 +106,7 @@ const ProfilePersonData = ({
   dashboard,
   fromUsersProfile = false,
   isFollowing = null,
+  followsMe = false,
   onToggleFollow,
   followBusy = false,
   targetUserId,
@@ -1167,7 +1168,9 @@ const ProfilePersonData = ({
                           <Text style={styles.buttonText}>
                             {isFollowing
                               ? t('profilePersonData.following')
-                              : t('profilePersonData.follow')}
+                              : followsMe
+                                ? t('profilePersonData.followback')
+                                : t('profilePersonData.follow')}
                             {followBusy ? '...' : ''}
                           </Text>
                         </LinearGradient>
