@@ -237,7 +237,7 @@ const ProfilePersonData = ({
     Followings: dashboard?.totalFollowing ?? t('profilePersonData.notAvailable'),
     userId: userId,
   };
-  
+
 
   console.log(Userdata.Bio, 'BIOOOO');
 
@@ -643,7 +643,7 @@ const ProfilePersonData = ({
           if (!id) return;
 
           const response = await getProfile(id);
-          console.log(response,'data in this didieeeieiei')
+          console.log(response, 'data in this didieeeieiei')
           if (!isActive) return;
 
           if (response.statusCode === 200 && response.data) {
@@ -1331,6 +1331,7 @@ const ProfilePersonData = ({
           </View>
 
           <Animated.View
+            pointerEvents={compactLocked ? 'auto' : 'none'}
             style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
           >
             <View style={styles.biobox}>
@@ -1361,6 +1362,7 @@ const ProfilePersonData = ({
         </View>
 
         <Animated.View
+          pointerEvents={compactLocked ? 'auto' : 'none'}
           style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
         >
           {/* Battle LIVE — shown above Open Battle when a battle is active */}
