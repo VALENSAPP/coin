@@ -660,6 +660,7 @@ const SearchScreen = () => {
       const response = await getposts();
       if (response?.statusCode === 200) {
         const postsData = response.data || [];
+        console.log(postsData, 'posts data in search screen');
         const flattenedPosts = [];
         postsData.forEach(post => {
           if (post?.images && Array.isArray(post.images) && post.images.length > 0) {
@@ -851,7 +852,7 @@ const SearchScreen = () => {
 
   const handlePostPress = useCallback((item, isVideo) => {
     const uniqueKey = Date.now().toString();
-    if (isVideo) {
+    if (item?.type === 'reel') {
       navigation.navigate('ProfileMain', {
         screen: 'FlipsScreen',
         params: { item, key: uniqueKey, returnTo: route?.name, returnParams: route.params },
