@@ -269,7 +269,7 @@ const PostEditorScreen = () => {
       type:
         postType === 'private'
           ? 'private'
-          : isFlipPost
+          : fromIcon === 'Flips'
             ? 'reel'
             : 'normal',
       visibleTo: visibleTo,

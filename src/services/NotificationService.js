@@ -2,6 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidStyle, AndroidImportance, EventType } from '@notifee/react-native';
+import { Platform } from 'react-native';
 
 export const PENDING_NOTIFICATION_MODAL_KEY = 'pendingNotificationModal';
 
@@ -88,6 +89,18 @@ export const displayExpandableNotification = async ({
 
     let androidStyle = customStyle;
 
+    const iosAttachments = [];
+    if (Platform.OS === 'ios' && imageUrl) {
+        iosAttachments.push({
+            id: 'main-image',
+            url: imageUrl,  // must be HTTPS
+        });
+    }
+
+    const iosSummary = androidStyle?.lines
+        ? androidStyle.lines.join('\n')
+        : (bigText || body);
+
     if (!androidStyle) {
         if (imageUrl) {
             androidStyle = {
@@ -115,8 +128,8 @@ export const displayExpandableNotification = async ({
         await notifee.displayNotification({
             ...(notifId && { id: notifId }),
             title,
-            body,
-            subtitle,
+            body: iosSummary,
+            subtitle: subtitle ?? bigTitle,
             data,
             android: {
                 channelId: 'expandable',
@@ -125,7 +138,9 @@ export const displayExpandableNotification = async ({
                 ...(androidStyle && { style: androidStyle }),
             },
             ios: {
+                sound: 'default',
                 ...(subtitle && { subtitle }),
+                ...(iosAttachments.length > 0 && { attachments: iosAttachments }),
                 threadId: 'expandable-group',
                 foregroundPresentationOptions: {
                     alert: true,
@@ -171,6 +186,19 @@ export const displayFcmAsExpandable = async (remoteMessage) => {
         bigTitle = data?.expandedTitle ?? title;
         imageUrl = data?.followerImage ?? data?.image_url;
         subtitle = data?.followerDisplayName;
+
+        const followerName = data?.followerDisplayName || data?.followerUserName || '';
+        androidStyle = {
+            type: AndroidStyle.INBOX,
+            lines: [
+                ...(followerName ? [`${followerName} is now following you`] : []),
+                ...(data?.followerTotalFollowers ? [`Their followers: ${data.followerTotalFollowers}`] : []),
+                ...(data?.followerAccuracyRate ? [`Accuracy rate: ${data.followerAccuracyRate}%`] : []),
+                `[ View Profile ]`,
+            ],
+            title: data?.expandedTitle ?? 'NEW FOLLOWER',
+            summary: body,
+        };
 
     } else if (type === 'battle_invite') {
         // ── BATTLE INVITE ─────────────────────────────────────────────────
@@ -737,27 +765,23 @@ export const displayFcmAsExpandable = async (remoteMessage) => {
 // BACKGROUND HANDLER
 // Must be called in index.js BEFORE AppRegistry.registerComponent
 // ─────────────────────────────────────────────
-export const registerBackgroundHandler = () => {
-    // ── FCM background handler ────────────────────────────────────────────
-    messaging().setBackgroundMessageHandler(async remoteMessage => {
-        console.log('[NOTIF] ⚫ BACKGROUND HANDLER FIRED');
 
-        // Cancel ALL currently displayed notifications BEFORE showing ours
-        // This wipes the plain OS-auto-delivered one that arrived moments ago
+export const registerBackgroundHandler = () => {
+    messaging().setBackgroundMessageHandler(async remoteMessage => {
+        console.log('[NOTIF] ⚫ BACKGROUND HANDLER FIRED', Platform.OS);
+
+        // ── iOS: cancel any OS-delivered duplicate, then show our rich version
+        // (same as Android — Notifee works in background on iOS too)
         try {
             const displayed = await notifee.getDisplayedNotifications();
             await Promise.all(displayed.map(n => notifee.cancelNotification(n.id)));
-            console.log('[NOTIF] ⚫ Cleared', displayed.length, 'pre-existing notifications');
         } catch (e) {
             console.log('[NOTIF] ⚫ Pre-clear error:', e?.message);
         }
 
-        // Now display our rich version
         await displayFcmAsExpandable(remoteMessage);
-        console.log('[NOTIF] ⚫ Rich notification displayed');
 
-        // Belt-and-suspenders: cancel anything that appeared during our async work
-        // that isn't our rich notification
+        // Clean up duplicates after ours is posted
         if (remoteMessage.messageId) {
             try {
                 await new Promise(resolve => setTimeout(resolve, 800));
@@ -774,11 +798,9 @@ export const registerBackgroundHandler = () => {
         }
     });
 
-    // ── Notifee background event (tap while app is killed / background) ───
     notifee.onBackgroundEvent(async ({ type, detail }) => {
         console.log('[NOTIF] ⚫ NOTIFEE BACKGROUND EVENT type:', type);
         if (type === EventType.PRESS && detail?.notification) {
-            console.log('[NOTIF] ⚫ User tapped background notification — saving to storage');
             await AsyncStorage.setItem(
                 PENDING_NOTIFICATION_MODAL_KEY,
                 JSON.stringify(buildModalNotificationPayload(detail.notification)),

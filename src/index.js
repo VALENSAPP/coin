@@ -31,7 +31,7 @@ import { requestUserPermission } from './services/NotificationService';
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const KYC_WELCOME_SHOWN_KEY        = 'kycWelcomeShownEver';
+const KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShownEver';
 const LEGACY_KYC_WELCOME_SHOWN_KEY = 'kycWelcomeShown';
 
 const linking = {
@@ -46,15 +46,15 @@ const linking = {
   ],
   config: {
     screens: {
-      Home:           '',
+      Home: '',
       CallbackScreen: 'callback',
-      Wallet:         'wallet',
-      Profile:        'profile/:id',
-      User:           'u/:id',
-      Share:          'share/:id',
-      Post:           'postshare/:id',
-      Reel:           'reelshare/:id',
-      Story:          'storyshare/:id',
+      Wallet: 'wallet',
+      Profile: 'profile/:id',
+      User: 'u/:id',
+      Share: 'share/:id',
+      Post: 'postshare/:id',
+      Reel: 'reelshare/:id',
+      Story: 'storyshare/:id',
     },
   },
 };
@@ -69,31 +69,31 @@ let _initialUrlConsumed = false;
 const normalizeDeepLinkUrl = (incomingUrl = '') =>
   String(incomingUrl || '')
     .replace(/^com\.valens\.app:\/\//i, 'https://dummy.com/')
-    .replace(/^com\.valens:\/\//i,      'https://dummy.com/')
-    .replace(/^valens:\/\//i,           'https://dummy.com/');
+    .replace(/^com\.valens:\/\//i, 'https://dummy.com/')
+    .replace(/^valens:\/\//i, 'https://dummy.com/');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Main() {
-  const [isLoading,          setIsLoading]          = useState(true);
-  const [isNavigationReady,  setIsNavigationReady]  = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
-  const [message,            setMessage]            = useState('');
+  const [message, setMessage] = useState('');
 
   const userProfile = useSelector(state => state.userProfile.userProfile);
-  const isLoggedIn  = useSelector(state => state.login.IS_LOGGED_IN);
-  const dispatch    = useDispatch();
-  const toast       = useToast();
-  const { t }       = useLanguage();
+  const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
+  const dispatch = useDispatch();
+  const toast = useToast();
+  const { t } = useLanguage();
 
-  const navigationRef             = useRef(null);
-  const pendingNotificationNav    = useRef(false);
-  const isNavigationReadyRef      = useRef(false);
-  const isLoggedInRef             = useRef(false);
-  const isLoadingRef              = useRef(true);
-  const appState                  = useRef(AppState.currentState);
+  const navigationRef = useRef(null);
+  const pendingNotificationNav = useRef(false);
+  const isNavigationReadyRef = useRef(false);
+  const isLoggedInRef = useRef(false);
+  const isLoadingRef = useRef(true);
+  const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
 
   const { activeNotification, showNotificationToast, dismissNotificationToast } =
@@ -103,8 +103,8 @@ export default function Main() {
   useEffect(() => {
     requestUserPermission();
     isNavigationReadyRef.current = isNavigationReady;
-    isLoggedInRef.current        = isLoggedIn;
-    isLoadingRef.current         = isLoading;
+    isLoggedInRef.current = isLoggedIn;
+    isLoadingRef.current = isLoading;
   }, [isLoading, isLoggedIn, isNavigationReady]);
 
   // ── Socket ────────────────────────────────────────────────────────────────
@@ -121,9 +121,9 @@ export default function Main() {
 
   const navigateToHeartNotification = React.useCallback(() => {
     if (
-      !navigationRef.current   ||
+      !navigationRef.current ||
       !isNavigationReadyRef.current ||
-      !isLoggedInRef.current   ||
+      !isLoggedInRef.current ||
       isLoadingRef.current
     ) {
       pendingNotificationNav.current = true;
@@ -163,11 +163,11 @@ export default function Main() {
       console.log(response, 'fdATA');
       if (response?.statusCode !== 200) return;
 
-      const userData   = response?.data?.user || response?.data || response;
+      const userData = response?.data?.user || response?.data || response;
       const kycApproved = userData?.kyc === true || String(userData?.kyc || '').toLowerCase() === 'true';
       const firstLogRaw =
         userData?.first_log ??
-        userData?.firstLog  ??
+        userData?.firstLog ??
         userData?.first_login ??
         userData?.firstLogin ??
         userData?.firstLoginAfterKyc;
@@ -179,29 +179,29 @@ export default function Main() {
     }
   }, [isLoggedIn]);
 
- const handleWelcomeModalClose = async () => {
-  if (welcomeModalCloseInFlight.current) return;
+  const handleWelcomeModalClose = async () => {
+    if (welcomeModalCloseInFlight.current) return;
 
-  welcomeModalCloseInFlight.current = true;
+    welcomeModalCloseInFlight.current = true;
 
-  try {
-    const response = await updatLoginModal();
+    try {
+      const response = await updatLoginModal();
 
 
-    // Hide modal after successful API call
-    setWelcomeModalVisible(false);
+      // Hide modal after successful API call
+      setWelcomeModalVisible(false);
 
-    // Re-fetch user data immediately
-    checkKycAndShowWelcomeModal();
-  } catch (error) {
-    console.log(
-      'Failed to update first login after KYC:',
-      error?.message || error,
-    );
-  } finally {
-    welcomeModalCloseInFlight.current = false;
-  }
-};
+      // Re-fetch user data immediately
+      checkKycAndShowWelcomeModal();
+    } catch (error) {
+      console.log(
+        'Failed to update first login after KYC:',
+        error?.message || error,
+      );
+    } finally {
+      welcomeModalCloseInFlight.current = false;
+    }
+  };
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -229,7 +229,7 @@ export default function Main() {
         const response = await refreshToken({ refreshToken: oldToken });
         if (response?.statusCode === 200) {
           console.log('response in refreshtoken:', response);
-          await AsyncStorage.setItem('token',        response.data.access_token);
+          await AsyncStorage.setItem('token', response.data.access_token);
           await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
         } else {
           showToastMessage(toast, 'danger', response.data.message);
@@ -257,6 +257,7 @@ export default function Main() {
         if (currentSession) {
           dispatch(loggedIn());
           await ensureCurrentAccountSaved();
+          requestUserPermission();
           const storedStripeId = await AsyncStorage.getItem('stripeCustomerId');
           if (storedStripeId) dispatch(setStripeCustomerId(storedStripeId));
         } else {
@@ -280,7 +281,7 @@ export default function Main() {
 
     // ── Deep-link navigation helpers ───────────────────────────────────────
     const navigateToUserProfile = async (resolvedUserId) => {
-      if (!resolvedUserId || !navigationRef.current || !isNavigationReady) return;
+      if (!resolvedUserId || !navigationRef.current || !isNavigationReadyRef.current) return; // 👈 use ref
       const loggedInUserId = await AsyncStorage.getItem('userId');
       const isSelf = String(loggedInUserId || '').trim() === String(resolvedUserId).trim();
 
@@ -357,7 +358,7 @@ export default function Main() {
         return;
       }
 
-      const path           = urlObj.pathname;
+      const path = urlObj.pathname;
       const normalizedPath = path.toLowerCase();
 
       // Callback / payment
@@ -381,19 +382,22 @@ export default function Main() {
       }
 
       // Path-based routing
-      const postMatch  = normalizedPath.match(/^\/postshare\/([^/?]+)/i);
-      const reelMatch  = normalizedPath.match(/^\/reelshare\/([^/?]+)/i);
+      const postMatch = normalizedPath.match(/^\/postshare\/([^/?]+)/i);
+      const reelMatch = normalizedPath.match(/^\/reelshare\/([^/?]+)/i);
       const storyMatch = normalizedPath.match(/^\/storyshare\/([^/?]+)/i);
+      const profileMatch = normalizedPath.match(/^\/profile\/([^/?]+)/i);
 
       if (postMatch?.[1]) {
         const postId = decodeURIComponent(postMatch[1]);
-        navigationRef.current?.navigate('MainApp', {
-          screen: 'ProfileMain',
-          params: {
-            screen: 'PostView',
-            params: { userChat: true, fromScreen: 'DeepLink', postData: { id: postId } },
-          },
-        });
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
+            screen: 'ProfileMain',
+            params: {
+              screen: 'PostView',
+              params: { userChat: true, fromScreen: 'DeepLink', postData: { id: postId } },
+            },
+          })
+        );
         return;
       }
 
@@ -422,47 +426,57 @@ export default function Main() {
         return;
       }
 
-      // Query-param fallbacks + profile share
-      if (!navigationRef.current || !isNavigationReady) return;
+      if (profileMatch?.[1]) {
+        const profileId = decodeURIComponent(profileMatch[1]);
+        navigateWhenReady(() => navigateToUserProfile(profileId));
+        return;
+      }
 
-      const postId       = urlObj.searchParams.get('postId');
-      const reelId       = urlObj.searchParams.get('reelId');
-      const storyId      = String(urlObj.searchParams.get('storyId') || '').trim();
-      const fallbackTag  = urlObj.searchParams.get('af');
+      // Query-param fallbacks + profile share
+      const postId = urlObj.searchParams.get('postId');
+      const reelId = urlObj.searchParams.get('reelId');
+      const storyId = String(urlObj.searchParams.get('storyId') || '').trim();
+      const fallbackTag = urlObj.searchParams.get('af');
       const sharedProfile = parseProfileShareUrl(url);
 
-      setTimeout(() => {
-        if (postId && fallbackTag === 'dd') {
-          navigationRef.current.navigate('MainApp', {
+      if (postId && fallbackTag === 'dd') {
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
             screen: 'ProfileMain',
             params: {
               screen: 'PostView',
               params: { userChat: true, fromScreen: 'DeepLink', postData: { id: String(postId) } },
             },
-          });
-        } else if (reelId && fallbackTag === 'dd') {
-          navigationRef.current.navigate('MainApp', {
+          })
+        );
+      } else if (reelId && fallbackTag === 'dd') {
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
             screen: 'HomeMain',
             params: {
               screen: 'FlipsScreen',
               params: { item: { id: String(reelId) }, uniqueKey: `deeplink_reel_${reelId}` },
             },
-          });
-        } else if (storyId && fallbackTag === 'dd') {
-          navigationRef.current.navigate('MainApp', {
+          })
+        );
+      } else if (storyId && fallbackTag === 'dd') {
+        navigateWhenReady(() =>
+          navigationRef.current?.navigate('MainApp', {
             screen: 'HomeMain',
             params: { screen: 'Home', params: { sharedStoryId: storyId } },
-          });
-        } else if (sharedProfile) {
-          const userId   = String(sharedProfile?.userId || '').trim()
-            || (String(sharedProfile?.username || '').match(/^[0-9a-f-]{36}$/i)
-              ? sharedProfile.username : '');
-          const username = String(sharedProfile?.username || '').trim();
+          })
+        );
+      } else if (sharedProfile) {
+        const userId = String(sharedProfile?.userId || '').trim()
+          || (String(sharedProfile?.username || '').match(/^[0-9a-f-]{36}$/i)
+            ? sharedProfile.username : '');
+        const username = String(sharedProfile?.username || '').trim();
 
-          if (userId) {
-            navigateToUserProfile(userId);
-          } else if (username) {
-            resolveUserIdFromUsername(username).then(resolvedId => {
+        if (userId) {
+          navigateWhenReady(() => navigateToUserProfile(userId));
+        } else if (username) {
+          resolveUserIdFromUsername(username).then(resolvedId => {
+            navigateWhenReady(() => {
               if (resolvedId) {
                 navigateToUserProfile(resolvedId);
               } else {
@@ -472,18 +486,20 @@ export default function Main() {
                 });
               }
             });
-          } else {
-            navigationRef.current.navigate('MainApp', {
+          });
+        } else {
+          navigateWhenReady(() =>
+            navigationRef.current?.navigate('MainApp', {
               screen: 'ProfileMain',
               params: { screen: 'Profile' },
-            });
-          }
-        } else if (path === '/wallet') {
-          navigationRef.current.navigate('Wallet');
-        } else if (path === '/home' || path === '/') {
-          navigationRef.current.navigate('Home');
+            })
+          );
         }
-      }, 100);
+      } else if (path === '/wallet') {
+        navigateWhenReady(() => navigationRef.current?.navigate('Wallet'));
+      } else if (path === '/home' || path === '/') {
+        navigateWhenReady(() => navigationRef.current?.navigate('Home'));
+      }
     };
 
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
