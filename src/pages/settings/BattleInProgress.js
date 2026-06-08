@@ -778,8 +778,8 @@ export default function BattleInProgress() {
     const interval = setInterval(() => setEditWindowNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [battle.createdAt, isBattleCreator]);
-   const canEditBattleQuestion = useMemo(() => {
-    if (!isBattleCreator || isBattleCancelled || canViewResults) return false;
+  const canEditBattleQuestion = useMemo(() => {
+    if (!isBattleCreator || isBattleCancelled || canViewResults || isLiveStatus) return false;
     if (!battle.createdAt) return false;
 
     const createdMs = new Date(battle.createdAt).getTime();
@@ -792,6 +792,7 @@ export default function BattleInProgress() {
     editWindowNow,
     isBattleCancelled,
     isBattleCreator,
+    isLiveStatus,
   ]);
 
   const handleEditBattleQuestion = useCallback(() => {

@@ -779,10 +779,22 @@ export default function OpenBattleScreen() {
   const handleSubmit = async () => {
     if (isEditMode) {
       const question = form.question.trim();
+      const options = getFilledOptions(form.options);
       const nextErrors = {};
 
       if (!question) {
         nextErrors.question = t('openBattle.questionRequired');
+      }
+
+      if (options.length < 2) {
+        nextErrors.options = isHeadToHead
+          ? t('openBattle.headToHeadSidesRequired')
+          : t('openBattle.optionsMinTwo');
+      }
+
+      const lowerOptions = options.map(opt => opt.toLowerCase());
+      if (new Set(lowerOptions).size !== lowerOptions.length) {
+        nextErrors.options = t('openBattle.optionsDuplicate');
       }
 
       setErrors(nextErrors);
@@ -801,6 +813,7 @@ export default function OpenBattleScreen() {
         const response = await editBattle({
           battleId: editBattleId,
           question,
+          options,
         });
 
         if (isSuccessfulResponse(response)) {
@@ -816,6 +829,7 @@ export default function OpenBattleScreen() {
             id: editBattleId,
             question,
             title: question,
+            options,
           };
 
           navigation.replace('BattleInProgress', {
@@ -900,7 +914,21 @@ export default function OpenBattleScreen() {
             response?.data?.id ||
             response?.data?._id ||
             '',
-          battle: response?.data?.battle || response?.data || payload,
+          battle: {
+            ...(response?.data?.battle || response?.data || payload),
+            createdAt: pickFirst(
+              response?.data?.battle?.createdAt,
+              response?.data?.createdAt,
+              payload.createdAt,
+              new Date().toISOString(),
+            ),
+            status: pickFirst(
+              response?.data?.battle?.status,
+              response?.data?.status,
+              payload.status,
+              'OPEN',
+            ),
+          },
           entryPoint: 'open_battle',
           profile,
         });
@@ -1058,7 +1086,7 @@ export default function OpenBattleScreen() {
           </View>
 
           {(isPoll || isHeadToHead) && (
-            <View style={[styles.section, isEditMode && styles.readOnlySection]} pointerEvents={isEditMode ? 'none' : 'auto'}>
+            <View style={styles.section}>
               <View style={styles.rowBetween}>
                 <Text style={[styles.label, { color: text }]}>
                   {isHeadToHead ? t('openBattle.battleSidesLabel') : t('openBattle.optionsLabel')}
@@ -1081,6 +1109,7 @@ export default function OpenBattleScreen() {
                     <TouchableOpacity
                       style={styles.optionImagePickerBtn}
                       onPress={() => openImagePicker(index)}
+                      disabled={isEditMode}
                     >
                       {option.image ? (
                         <Image

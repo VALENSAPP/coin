@@ -665,7 +665,7 @@
     "updateButton": "UPDATE BATTLE",
     "editScreenTitle": "Edit Battle",
     "editHeroTitle": "Update your battle question",
-    "editHeroSubtitle": "Only the question can be changed. All other battle details stay the same.",
+    "editHeroSubtitle": "Update the question and options before the battle goes live.",
     "battleUpdatedSuccess": "Battle updated successfully",
     "battleUpdatedFail": "Failed to update battle",
     "helpAlertTitle": "Battle Format",
