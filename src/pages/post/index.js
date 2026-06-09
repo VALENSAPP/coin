@@ -723,7 +723,7 @@ const cropImage = (imageUri, index) => {
           <Icon name="close" size={26} color="#222" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, textStyle]}>
-          {mediaType === 'Flips' ? t('post.newFlip') : t('post.newMint')}
+          {mediaType === 'Flips' ? t('post.newFlip') : postType === 'crowdfunding' ? t('post.missionMint') : t('post.newMint')}
         </Text>
         <TouchableOpacity
           onPress={handleShare}

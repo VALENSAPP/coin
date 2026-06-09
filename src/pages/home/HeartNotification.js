@@ -1516,9 +1516,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 10,
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    // shadowOpacity: 0.05,
+    // shadowRadius: 6,
+    // elevation: 2,
   },
   battleCard: {
     backgroundColor: '#ffffff',
