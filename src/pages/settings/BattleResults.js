@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -70,14 +70,29 @@ export default function BattleResults({ navigation }) {
   const { battle = {} } = route.params || {};
   const [winnerData, setWinnerData] = useState(null);
   console.log(battle, 'data in battle from prevois screenen')
-  const predictionCounts =
-    route?.params?.predictionCounts || battle?.predictionCounts || {};
+  const predictionCounts = useMemo(
+    () => route?.params?.predictionCounts || battle?.predictionCounts || {},
+    [battle?.predictionCounts, route?.params?.predictionCounts],
+  );
 
   const winnerUserId =
     route?.params?.winnerUserId || battle?.winnerUserId || '';
   const winningSide =
     route?.params?.winningSide || battle?.winningSide || '';
-  const optionVoteCount = route?.params?.optionVoteCount || battle?.optionVoteCount || {};
+  const optionVoteCount = useMemo(
+    () =>
+      route?.params?.optionVoteCount ||
+      route?.params?.voteCounts ||
+      battle?.optionVoteCount ||
+      battle?.voteCounts ||
+      {},
+    [
+      battle?.optionVoteCount,
+      battle?.voteCounts,
+      route?.params?.optionVoteCount,
+      route?.params?.voteCounts,
+    ],
+  );
   const [winnerProfile, setWinnerProfile] = useState(null);
   const [winnerLoading, setWinnerLoading] = useState(false);
   const livePulseAnim = useState(() => new Animated.Value(1))[0];
@@ -89,7 +104,10 @@ export default function BattleResults({ navigation }) {
 
   const totalComments = battle.totalComments || 0;
   const stake = battle.stake || 0;
-  const options = battle.options || [];
+  const options = useMemo(
+    () => battle.options || [],
+    [battle.options],
+  );
   const comments = battle.comments || [];
   const status = battle.status || 'LIVE';
   const normalizedStatus = String(status || '').trim().toUpperCase();
@@ -157,7 +175,7 @@ export default function BattleResults({ navigation }) {
       return acc;
     }, {});
   }, [optionVoteCount]);
-  const getOptionVotes = item => {
+  const getOptionVotes = useCallback(item => {
     const predictionMappedVotes = findCountByFlexibleKey(
       normalizedPredictionCounts,
       item?.label,
@@ -177,7 +195,7 @@ export default function BattleResults({ navigation }) {
     }
 
     return Number(item?.votes || 0);
-  };
+  }, [normalizedOptionVoteCount, normalizedPredictionCounts]);
   const derivedPredictionTotal = useMemo(
     () =>
       Object.values(predictionCounts || {}).reduce(
@@ -188,7 +206,7 @@ export default function BattleResults({ navigation }) {
   );
   const derivedOptionVoteTotal = useMemo(
     () => options.reduce((sum, item) => sum + getOptionVotes(item), 0),
-    [options, normalizedPredictionCounts, normalizedOptionVoteCount],
+    [options, getOptionVotes],
   );
   const resolvedTotalVotes = Math.max(
     Number(totalVotes) || 0,
@@ -299,7 +317,7 @@ export default function BattleResults({ navigation }) {
       active = false;
     };
   }, [winnerUserId]);
-  const getWinner = async () => {
+  const getWinner = useCallback(async () => {
     if (!battleId) {
       return;
     }
@@ -311,10 +329,10 @@ export default function BattleResults({ navigation }) {
     } catch (err) {
       console.log(err, 'erro here in this api ')
     }
-  }
+  }, [battleId]);
   useEffect(() => {
     getWinner();
-  }, [battleId]);
+  }, [getWinner]);
   useEffect(() => {
     let active = true;
 
@@ -368,7 +386,7 @@ export default function BattleResults({ navigation }) {
     return () => {
       active = false;
     };
-  }, [battleId, winnerUserId]);
+  }, [battleId, winnerUserId, t]);
 
   return (
     <SafeAreaView style={[styles.safeArea, bgStyle]}>

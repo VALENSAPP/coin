@@ -371,6 +371,10 @@ const normalizeBattle = (raw, currentUserId = '') => {
   const participantEntries = Array.isArray(raw?.participants) ? raw.participants : [];
   const predictionEntries = Array.isArray(raw?.predictions) ? raw.predictions : [];
   const voteEntries = Array.isArray(raw?.votes) ? raw.votes : [];
+  const rawVoteCounts =
+    raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {};
+  const rawPredictionCounts =
+    raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {};
   const countableVoteEntries = filterHeadToHeadCountableEntries(voteEntries, format, creatorId, invitedUserId);
   const countablePredictionEntries = filterHeadToHeadCountableEntries(
     predictionEntries,
@@ -409,15 +413,35 @@ const normalizeBattle = (raw, currentUserId = '') => {
     const normalizedOption = normalizeOption(option, index);
     const sideKey = normalizeSideKey(pickFirst(normalizedOption?.side, normalizedOption?.label, ''));
     const metric = sideMetrics[sideKey] || { count: 0, likes: 0 };
+    const sideLabel = pickFirst(normalizedOption?.side, normalizedOption?.label, '');
+    const headToHeadVotes = format === 'HEAD_TO_HEAD'
+      ? pickFirst(
+        getCountFromSideMap(rawVoteCounts, sideLabel),
+        getCountFromSideMap(rawPredictionCounts, sideLabel),
+      )
+      : undefined;
     return {
       ...normalizedOption,
-      votes: Number(pickFirst(normalizedOption?.votes, metric.count, 0)),
+      votes: Number(pickFirst(headToHeadVotes, normalizedOption?.votes, metric.count, 0)),
       likes: Number(pickFirst(normalizedOption?.likes, metric.likes, 0)),
     };
   });
   const calculatedTotalVotes = options.reduce((sum, option) => sum + Number(option.votes || 0), 0);
+  const rawVoteCountsTotal = Object.values(rawVoteCounts).reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0,
+  );
+  const rawPredictionCountsTotal = Object.values(rawPredictionCounts).reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0,
+  );
+  const headToHeadDerivedTotal = Math.max(
+    calculatedTotalVotes,
+    rawVoteCountsTotal,
+    rawPredictionCountsTotal,
+  );
   const totalVotes = Number(pickFirst(
-    format === 'HEAD_TO_HEAD' ? calculatedTotalVotes : undefined,
+    format === 'HEAD_TO_HEAD' && headToHeadDerivedTotal > 0 ? headToHeadDerivedTotal : undefined,
     raw?.totalVotes,
     raw?.votesCount,
     format === 'POLL' ? raw?._count?.participants : undefined,
@@ -427,18 +451,18 @@ const normalizeBattle = (raw, currentUserId = '') => {
     0,
   ));
   const normalizedVoteCounts = format === 'HEAD_TO_HEAD'
-    ? options.reduce((acc, option) => {
+    ? (Object.keys(rawVoteCounts).length > 0 ? rawVoteCounts : options.reduce((acc, option) => {
         const key = String(pickFirst(option?.side, option?.label, '')).trim();
         if (key) acc[key] = Number(option.votes || 0);
         return acc;
-      }, {})
+      }, {}))
     : (raw?.voteCounts && typeof raw.voteCounts === 'object' ? raw.voteCounts : {});
   const normalizedPredictionCounts = format === 'HEAD_TO_HEAD'
-    ? options.reduce((acc, option) => {
+    ? (Object.keys(rawPredictionCounts).length > 0 ? rawPredictionCounts : options.reduce((acc, option) => {
         const key = String(pickFirst(option?.side, option?.label, '')).trim();
         if (key) acc[key] = Number(option.votes || 0);
         return acc;
-      }, {})
+      }, {}))
     : (raw?.predictionCounts && typeof raw.predictionCounts === 'object' ? raw.predictionCounts : {});
   const normalizedOptions = options.map(option => ({
     ...option,
@@ -1864,6 +1888,19 @@ export default function BattleInProgress() {
                   )}
                 </TouchableOpacity>
                 <View style={styles.commentHeaderActions}>
+                  {isBattleCreator && (
+                    <TouchableOpacity
+                      style={styles.commentMenuButton}
+                      onPress={() => confirmTogglePin(comment)}
+                      disabled={pinningCommentId === comment.id}
+                    >
+                      {pinningCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
+                      )}
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
                     <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                   </TouchableOpacity>
@@ -2691,6 +2728,8 @@ export default function BattleInProgress() {
                   battleId: battle.id || battleId,
                   battle,
                   predictionCounts: battle?.predictionCounts || {},
+                  optionVoteCount: battle?.voteCounts || {},
+                  voteCounts: battle?.voteCounts || {},
                   winnerUserId: battle?.winnerUserId || '',
                   winningSide: battle?.winningSide || '',
                   entryPoint: route?.params?.entryPoint || 'battle_progress',
@@ -2942,6 +2981,7 @@ const styles = StyleSheet.create({
   commentAuthorIdentity: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, minWidth: 0 },
   commentAuthorTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 18 },
   commentHeaderActions: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
+  commentMenuButton: { width: 16, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   commentAvatar: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },
   commentAvatarFallback: { backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center' },
   commentAuthorTextWrap: { flex: 1, minWidth: 0 },

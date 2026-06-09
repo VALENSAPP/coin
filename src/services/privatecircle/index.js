@@ -131,7 +131,9 @@ export const parsePrivateCircleDashboard = (response) => {
   })();
 
   const postCount = Number(
-    data?.postCount ??
+    data?.privateCirclePostsCount ??
+      root?.privateCirclePostsCount ??
+      data?.postCount ??
       data?.postsCount ??
       data?.totalPosts ??
       data?.postsAdded ??
