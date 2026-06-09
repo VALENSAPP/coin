@@ -1089,7 +1089,7 @@ export default function Notifications() {
     const renderItem = ({ item, index }) => {
       const message = item.message || '';
       const { usernameText, restText } = splitNotificationMessage(message);
-
+      console.log("itemmmmmmmmmmmm",item)
       // In renderItem's handlePress:
       const handlePress = () => {
         markAsRead(item.id);
@@ -1213,12 +1213,12 @@ export default function Notifications() {
             </View>
 
             <View style={styles.rightSection}>
-              {item.image && (
+              {/* {item.image && (
                 <Image
                   source={{ uri: item.image }}
                   style={[styles.nftImage, bgStyle]}
                 />
-              )}
+              )} */}
               {item.price && (
                 <Text style={[styles.priceText, textStyle]}>{item.price}</Text>
               )}
