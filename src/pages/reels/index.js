@@ -88,6 +88,9 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import useScreenshotProtection, {
+  shouldProtectScreenshot,
+} from '../../hooks/useScreenshotProtection';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_REEL_PINCH = 3.5;
@@ -769,6 +772,21 @@ export default function FlipsScreen() {
 
   const { bgStyle } = useAppTheme();
   const { startSupportPayment } = useWalletConnectSupport();
+
+  const shouldProtectPrivateContent = useMemo(() => {
+    const currentReel = reels[currentIndex] ?? route.params?.item;
+    return shouldProtectScreenshot({
+      posts: currentReel ? [currentReel] : [],
+      routeParams: route.params,
+    });
+  }, [currentIndex, reels, route.params]);
+
+  useScreenshotProtection({
+    enabled: shouldProtectPrivateContent,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
+
   const shareRef = useRef(null);
   const purchaseSheetRef = useRef();
   const sellSheetRef = useRef();

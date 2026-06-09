@@ -804,6 +804,7 @@ const ProfilePersonData = ({
     navigation,
     profileImage,
     targetUserId,
+    t,
     userData?.avatar,
     userData?.displayName,
     userData?.fullName,
@@ -833,7 +834,7 @@ const ProfilePersonData = ({
     });
   }, [
     navigation, targetUserId, userData?.id, userData?.profile, userId,
-    fromUsersProfile, displayName, effectiveProfileType, userProfile, t,
+    fromUsersProfile, displayName, effectiveProfileType, userProfile, t, isCompanyProfile,
   ]);
 
   const redirect = () => {
@@ -1331,7 +1332,7 @@ const ProfilePersonData = ({
           </View>
 
           <Animated.View
-            pointerEvents={compactLocked ? 'auto' : 'none'}
+            pointerEvents={compactLocked ? 'none' : 'auto'}
             style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
           >
             <View style={styles.biobox}>
@@ -1362,7 +1363,7 @@ const ProfilePersonData = ({
         </View>
 
         <Animated.View
-          pointerEvents={compactLocked ? 'auto' : 'none'}
+          pointerEvents={compactLocked ? 'none' : 'auto'}
           style={[styles.collapsibleProfileMiddle, { maxHeight: animatedMaxHeight, opacity: animatedOpacity }]}
         >
           {/* Battle LIVE — shown above Open Battle when a battle is active */}

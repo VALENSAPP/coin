@@ -12,8 +12,9 @@ import {
   DeviceEventEmitter,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
@@ -320,6 +321,8 @@ export default function Notifications() {
   const [loggedInUserId, setLoggedInUserId] = useState(null);
 
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const listBottomPadding = Math.max(insets.bottom + 16, Platform.OS === 'android' ? 24 : 16);
 
   const tabs = useMemo(
     () => [
@@ -1249,7 +1252,12 @@ export default function Notifications() {
             renderItem={tabKey === 'Battle' ? renderBattleItem : renderItem}
             keyExtractor={item => String(item.id)}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
+            style={styles.list}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: listBottomPadding },
+            ]}
+            nestedScrollEnabled
           />
         )}
       </View>
@@ -1501,13 +1509,15 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 15,
   },
+  list: {
+    flex: 1,
+  },
   listContent: {
     flexGrow: 1,
   },
   notificationItem: {
     paddingHorizontal: 16,
     paddingVertical: 0,
-    marginBottom: '-1%',
   },
   notificationContent: {
     flexDirection: 'row',

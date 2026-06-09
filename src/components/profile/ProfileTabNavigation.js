@@ -23,8 +23,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../displaytoastmessage';
-import useScreenshotProtection from '../../hooks/useScreenshotProtection';
-
 const { width: screenWidth } = Dimensions.get('window');
 
 const ProfileTabs = memo(({
@@ -263,16 +261,6 @@ const ProfileTabs = memo(({
 
     return () => clearTimeout(timer);
   }, [initialTab, loggedInUserId]);
-
-  const privateContentTabIndex = tabs.findIndex(tab => tab.key === 'privateContent');
-  const isPrivateContentTabActive =
-    privateContentTabIndex >= 0 && activeTab === privateContentTabIndex;
-
-  useScreenshotProtection({
-    enabled: isPrivateContentTabActive,
-    title: t('postView.screenshotWarningTitle'),
-    message: t('postView.screenshotWarningMessage'),
-  });
 
   return (
     <View style={styles.tabsRoot}>

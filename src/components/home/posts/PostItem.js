@@ -103,30 +103,31 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
     { useNativeDriver: true },
   );
 
-  const resetScale = () => {
+  const resetScale = useCallback(() => {
     setIsModalVisible(false);
     setModalImageLoaded(false);
     onZoomChange?.(false);
+    scale.setValue(1);
+    translateX.setValue(0);
+    translateY.setValue(0);
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
       Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
     ]).start();
-  };
+  }, [onZoomChange, scale, translateX, translateY]);
 
-  const onPinchStateChange = ({ nativeEvent }) => {
-    const { state, oldState } = nativeEvent;
+  const onPinchStateChange = useCallback(({ nativeEvent }) => {
+    const { state } = nativeEvent;
     if (state === State.BEGAN) {
       setIsModalVisible(true);
       onZoomChange?.(true);
+      return;
     }
-    if (
-      oldState === State.ACTIVE &&
-      (state === State.END || state === State.CANCELLED || state === State.FAILED)
-    ) {
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
       resetScale();
     }
-  };
+  }, [onZoomChange, resetScale]);
 
   useEffect(() => {
     if (!uri) return;
@@ -138,7 +139,10 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
 
   return (
     <GestureHandlerRootView style={[styles.mediaContainer, { height: displayHeight }]}>
-      <PinchGestureHandler onGestureEvent={onPinchEvent} onHandlerStateChange={onPinchStateChange}>
+      <PinchGestureHandler
+        onGestureEvent={onPinchEvent}
+        onHandlerStateChange={onPinchStateChange}
+        minPointers={2}>
         <AnimatedFastImage
           source={imageSource}
           resizeMode={FastImage.resizeMode.contain}
@@ -154,12 +158,17 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
         transparent
         animationType="none"
         statusBarTranslucent
-        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+        onRequestClose={resetScale}>
         <GestureHandlerRootView style={styles.gestureModalRoot}>
           <View style={styles.modalBackground}>
+            <TouchableWithoutFeedback onPress={resetScale}>
+              <View style={StyleSheet.absoluteFillObject} />
+            </TouchableWithoutFeedback>
             <PinchGestureHandler
               onGestureEvent={onPinchEvent}
-              onHandlerStateChange={onPinchStateChange}>
+              onHandlerStateChange={onPinchStateChange}
+              minPointers={2}>
               <AnimatedFastImage
                 source={imageSource}
                 resizeMode="contain"
@@ -184,6 +193,14 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
                 shouldRasterizeIOS
               />
             </PinchGestureHandler>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={resetScale}
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close zoomed image">
+              <Icon name="close" size={22} color="#fff" />
+            </TouchableOpacity>
           </View>
         </GestureHandlerRootView>
       </Modal>
@@ -266,6 +283,9 @@ function InstagramZoomableVideo({
     setIsModalVisible(false);
     setModalVideoReady(false);
     onZoomChange?.(false);
+    scale.setValue(1);
+    translateX.setValue(0);
+    translateY.setValue(0);
     Animated.parallel([
       Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 0 }),
       Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
@@ -274,16 +294,14 @@ function InstagramZoomableVideo({
   }, [scale, translateX, translateY, onZoomChange]);
 
   const onPinchStateChange = useCallback(({ nativeEvent }) => {
-    const { state, oldState } = nativeEvent;
+    const { state } = nativeEvent;
     if (state === State.BEGAN) {
       setModalVideoReady(false);
       setIsModalVisible(true);
       onZoomChange?.(true);
+      return;
     }
-    if (
-      oldState === State.ACTIVE &&
-      (state === State.END || state === State.CANCELLED || state === State.FAILED)
-    ) {
+    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
       resetScale();
     }
   }, [resetScale, onZoomChange]);
@@ -382,6 +400,9 @@ function InstagramZoomableVideo({
         onRequestClose={resetScale}>
         <GestureHandlerRootView style={styles.gestureModalRoot}>
           <View style={styles.modalBackground}>
+            <TouchableWithoutFeedback onPress={resetScale}>
+              <View style={StyleSheet.absoluteFillObject} />
+            </TouchableWithoutFeedback>
             <PinchGestureHandler
               onGestureEvent={onPinchEvent}
               onHandlerStateChange={onPinchStateChange}
@@ -413,6 +434,14 @@ function InstagramZoomableVideo({
                 />
               </Animated.View>
             </PinchGestureHandler>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={resetScale}
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close zoomed video">
+              <Icon name="close" size={22} color="#fff" />
+            </TouchableOpacity>
           </View>
         </GestureHandlerRootView>
       </Modal>

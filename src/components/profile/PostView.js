@@ -45,7 +45,9 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { extractPostMusicPayloadFromApi } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 import { isPostPinned, setPostPinnedState } from '../../utils/postPinning';
-import useScreenshotProtection from '../../hooks/useScreenshotProtection';
+import useScreenshotProtection, {
+  shouldProtectScreenshot,
+} from '../../hooks/useScreenshotProtection';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
 export default function PostView({ postData = [], userData = {} }) {
@@ -314,6 +316,11 @@ export default function PostView({ postData = [], userData = {} }) {
     [list, hiddenById],
   );
 
+  const shouldProtectPrivateContent = useMemo(
+    () => shouldProtectScreenshot({ posts: visiblePosts, routeParams }),
+    [visiblePosts, routeParams],
+  );
+
   useFocusEffect(
     useCallback(() => {
       setScreenFocused(true);
@@ -325,6 +332,7 @@ export default function PostView({ postData = [], userData = {} }) {
   );
 
   useScreenshotProtection({
+    enabled: shouldProtectPrivateContent,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
