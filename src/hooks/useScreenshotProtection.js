@@ -103,6 +103,7 @@ export default function useScreenshotProtection({
   const isFocused = useIsFocused();
   const lastWarningAtRef = useRef(0);
   const isActiveRef = useRef(false);
+  const shouldProtect = isFocused && enabled;
 
   const showWarning = useCallback(() => {
     if (!title || !message) return;
@@ -144,8 +145,6 @@ export default function useScreenshotProtection({
   );
 
   useEffect(() => {
-    const shouldProtect = isFocused && enabled;
-
     if (!shouldProtect) {
       deactivateProtection();
       return undefined;
@@ -163,12 +162,14 @@ export default function useScreenshotProtection({
       cancelled = true;
       deactivateProtection();
     };
-  }, [isFocused, enabled, activateProtection, deactivateProtection]);
+  }, [shouldProtect, activateProtection, deactivateProtection]);
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!shouldProtect) return undefined;
 
     const subscription = CaptureProtection.addListener(eventType => {
+      if (!isActiveRef.current) return;
+
       if (eventType < CaptureEventType.ALLOW) {
         console.log(
           `${LOG_TAG} Capture detected: ${captureEventLabel(eventType)}`,
@@ -186,5 +187,5 @@ export default function useScreenshotProtection({
     return () => {
       subscription?.remove?.();
     };
-  }, [enabled, showWarning]);
+  }, [shouldProtect, showWarning]);
 }
