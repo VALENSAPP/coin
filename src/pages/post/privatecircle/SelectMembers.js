@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -38,8 +38,10 @@ export default function PrivateCircleSelectMembers() {
   const toast = useToast();
   const [profileType, setProfileType] = useState('');
 
-  const mode = route.params?.mode === 'mint' ? 'mint' : 'setup';
+  const rawMode = route.params?.mode;
+  const mode = rawMode === 'mint' || rawMode === 'manage' ? rawMode : 'setup';
   const returnToReview = route.params?.returnToReview === true;
+  const returnToWalletPrivateCircle = route.params?.returnToWalletPrivateCircle === true;
   const initialMembers = useMemo(
     () => (Array.isArray(route.params?.members) ? route.params.members : []).map(shapePrivateCircleMember),
     [route.params?.members],
@@ -51,7 +53,7 @@ export default function PrivateCircleSelectMembers() {
     if (Array.isArray(route.params?.selectedIds) && route.params.selectedIds.length > 0) {
       return route.params.selectedIds.map(String);
     }
-    return mode === 'mint' ? initialMembers.map((m) => m.id) : [];
+    return mode === 'mint' || mode === 'manage' ? initialMembers.map((m) => m.id) : [];
   });
   const [search, setSearch] = useState('');
   const [loadingPool, setLoadingPool] = useState(true);
@@ -101,7 +103,7 @@ export default function PrivateCircleSelectMembers() {
     } finally {
       setLoadingPool(false);
     }
-  }, [mode, initialMembers, t, toast]);
+  }, [initialMembers, t, toast]);
 
   useEffect(() => {
     loadPool();
@@ -115,12 +117,23 @@ export default function PrivateCircleSelectMembers() {
 
   const persistedMemberIdSet = useMemo(() => new Set(persistedIds), [persistedIds]);
 
+  const goBackToWalletPrivateCircle = useCallback(() => {
+    const parentNavigation = navigation.getParent?.() || navigation;
+    parentNavigation.navigate('wallet', {
+      screen: 'Privatecircle',
+      params: {
+        skipPrivateCircleApi: true,
+        privateCircleRefreshAt: Date.now(),
+      },
+    });
+  }, [navigation]);
+
   const toggleMember = async (id) => {
     const normalized = String(id);
     const isSelected = selectedIds.includes(normalized);
 
     if (!isSelected) {
-      if (returnToReview && !persistedMemberIdSet.has(normalized)) {
+      if ((returnToReview || returnToWalletPrivateCircle) && !persistedMemberIdSet.has(normalized)) {
         if (addingIds.includes(normalized)) return;
         setAddingIds((prev) => [...prev, normalized]);
         try {
@@ -205,6 +218,11 @@ export default function PrivateCircleSelectMembers() {
       return;
     }
 
+    if (returnToWalletPrivateCircle) {
+      goBackToWalletPrivateCircle();
+      return;
+    }
+
     if (mode === 'setup') {
       setSaving(true);
       dispatch(showLoader());
@@ -277,7 +295,16 @@ export default function PrivateCircleSelectMembers() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            if (returnToWalletPrivateCircle) {
+              goBackToWalletPrivateCircle();
+              return;
+            }
+            navigation.goBack();
+          }}
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={26} color={headingColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: headingColor }]}>

@@ -107,7 +107,7 @@ console.log('qrShareUrl:', qrShareUrl);
     <RBSheet
       ref={sheetRef}
       draggable
-      height={200}
+      height={140}
       onClose={onClose}
       customModalProps={{ statusBarTranslucent: true }}
       customStyles={{
