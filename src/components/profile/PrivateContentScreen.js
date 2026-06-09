@@ -19,6 +19,9 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useLanguage } from '../../i18n';
 import FastImage from 'react-native-fast-image';
+import useScreenshotProtection, {
+  SCREENSHOT_PROTECTED_SOURCES,
+} from '../../hooks/useScreenshotProtection';
 
 const { width: screenWidth } = Dimensions.get('window');
 const numColumns = 3;
@@ -167,6 +170,12 @@ const PrivateContentScreen = ({
   const isOwnProfile = String(loggedInUserId || '') === String(userData?.id || '');
   const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
 
+  useScreenshotProtection({
+    enabled: isFocused && !isCompany && canViewPrivateContent,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
+
   const isActiveStatus = useCallback((value) => {
     if (value === true) return true;
     return String(value || '').toUpperCase() === 'ACTIVE';
@@ -294,10 +303,16 @@ const PrivateContentScreen = ({
       if (isReel) {
         const parent = navigation.getParent?.();
         if (parent?.navigate) {
-          parent.navigate('FlipsScreen', { item });
+          parent.navigate('FlipsScreen', {
+            item,
+            screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
+          });
           return;
         }
-        navigation.navigate('FlipsScreen', { item });
+        navigation.navigate('FlipsScreen', {
+          item,
+          screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
+        });
         return;
       }
       const imagePosts = posts.filter((p) => !isVideoUrl(p?.images?.[0]));
@@ -307,7 +322,12 @@ const PrivateContentScreen = ({
       );
       navigation.getParent().navigate('ProfileMain', {
         screen: 'PostView',
-        params: { postData: imagePosts, startIndex: nextIndex, hideTabBar: true },
+        params: {
+          postData: imagePosts,
+          startIndex: nextIndex,
+          hideTabBar: true,
+          screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
+        },
       });
     },
     [navigation, posts],

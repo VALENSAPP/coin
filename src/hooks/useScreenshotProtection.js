@@ -9,6 +9,47 @@ import {
 const WARNING_DEBOUNCE_MS = 2500;
 const LOG_TAG = '[ScreenshotProtection]';
 
+export const SCREENSHOT_PROTECTED_SOURCES = {
+  PRIVATE_CONTENT: 'private_content',
+  PRIVATE_CIRCLE: 'private_circle',
+};
+
+export const isPrivateCirclePost = post => {
+  if (!post || typeof post !== 'object') return false;
+  const visibleTo = post.visibleTo ?? post.visible_to;
+  return Boolean(visibleTo && String(visibleTo).trim() !== '');
+};
+
+export const isPrivateContentPost = post => {
+  if (!post || typeof post !== 'object') return false;
+  if (isPrivateCirclePost(post)) return false;
+
+  const type = String(
+    post.postType ?? post.post_type ?? post.type ?? '',
+  ).toLowerCase();
+
+  return type === 'private';
+};
+
+export const shouldProtectScreenshot = ({ posts = [], routeParams = {} } = {}) => {
+  const source =
+    routeParams.screenshotProtectionSource ?? routeParams.contentProtection;
+
+  if (
+    source === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT ||
+    source === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE
+  ) {
+    return true;
+  }
+
+  const normalizedPosts = Array.isArray(posts) ? posts.filter(Boolean) : [];
+  if (normalizedPosts.length === 0) return false;
+
+  return normalizedPosts.some(
+    post => isPrivateCirclePost(post) || isPrivateContentPost(post),
+  );
+};
+
 const captureEventLabel = eventType => {
   switch (eventType) {
     case CaptureEventType.CAPTURED:
@@ -62,6 +103,7 @@ export default function useScreenshotProtection({
   const isFocused = useIsFocused();
   const lastWarningAtRef = useRef(0);
   const isActiveRef = useRef(false);
+  const shouldProtect = isFocused && enabled;
 
   const showWarning = useCallback(() => {
     if (!title || !message) return;
@@ -103,8 +145,6 @@ export default function useScreenshotProtection({
   );
 
   useEffect(() => {
-    const shouldProtect = isFocused && enabled;
-
     if (!shouldProtect) {
       deactivateProtection();
       return undefined;
@@ -122,12 +162,14 @@ export default function useScreenshotProtection({
       cancelled = true;
       deactivateProtection();
     };
-  }, [isFocused, enabled, activateProtection, deactivateProtection]);
+  }, [shouldProtect, activateProtection, deactivateProtection]);
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!shouldProtect) return undefined;
 
     const subscription = CaptureProtection.addListener(eventType => {
+      if (!isActiveRef.current) return;
+
       if (eventType < CaptureEventType.ALLOW) {
         console.log(
           `${LOG_TAG} Capture detected: ${captureEventLabel(eventType)}`,
@@ -145,5 +187,5 @@ export default function useScreenshotProtection({
     return () => {
       subscription?.remove?.();
     };
-  }, [enabled, showWarning]);
+  }, [shouldProtect, showWarning]);
 }

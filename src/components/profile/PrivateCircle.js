@@ -17,6 +17,9 @@ import FastImage from 'react-native-fast-image';
 import Svg, { ClipPath, Polygon, Image as SvgImage, Defs } from 'react-native-svg';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import useScreenshotProtection, {
+  SCREENSHOT_PROTECTED_SOURCES,
+} from '../../hooks/useScreenshotProtection';
 import { getPostByUser } from '../../services/post';
 import {
   parsePrivateCircleSetup,
@@ -219,6 +222,12 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const isFocused = useIsFocused();
   const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
 
+  useScreenshotProtection({
+    enabled: isFocused,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
+
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recentActivities, setRecentActivities] = useState([]);
@@ -398,10 +407,16 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
       if (isReel) {
         const parent = navigation.getParent?.();
         if (parent?.navigate) {
-          parent.navigate('FlipsScreen', { item });
+          parent.navigate('FlipsScreen', {
+            item,
+            screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
+          });
           return;
         }
-        navigation.navigate('FlipsScreen', { item });
+        navigation.navigate('FlipsScreen', {
+          item,
+          screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
+        });
         return;
       }
       const imagePosts = posts.filter((p) => !isVideoUrl(p?.images?.[0]));
@@ -411,7 +426,12 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
       );
       navigation.getParent().navigate('ProfileMain', {
         screen: 'PostView',
-        params: { postData: imagePosts, startIndex: nextIndex, hideTabBar: true },
+        params: {
+          postData: imagePosts,
+          startIndex: nextIndex,
+          hideTabBar: true,
+          screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
+        },
       });
     },
     [navigation, posts],
