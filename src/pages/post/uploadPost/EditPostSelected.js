@@ -1140,7 +1140,12 @@ const InstagramPostCreator = () => {
               console.log('Error capturing image with overlays:', captureError);
             }
           }
-          return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
+          const overlayCanvasWidth = IMAGE_SIZE;
+          const overlayCanvasHeight =
+            editorRegionLayoutHeight > 0
+              ? Math.max(200, Math.floor(editorRegionLayoutHeight))
+              : getCanvasHeightForMedia(image);
+          return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
       );
 
@@ -1203,6 +1208,11 @@ const InstagramPostCreator = () => {
                     ...overlay,
                     position: overlay.position || { x: 0, y: 0 }
                   })),
+                  overlayCanvasWidth: IMAGE_SIZE,
+                  overlayCanvasHeight:
+                    editorRegionLayoutHeight > 0
+                      ? Math.max(200, Math.floor(editorRegionLayoutHeight))
+                      : getCanvasHeightForMedia(image),
                   drawings: edits.drawings,
                   uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing,
                   imageIndex: index

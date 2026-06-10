@@ -192,6 +192,124 @@ export function buildCreatePostMusicPayload(images = []) {
 /**
  * Same JSON shape as story `storyMeta` on `story/upload`, built from post slides (for `post/create`).
  */
+function serializePostSlideTexts(textOverlays) {
+  if (!Array.isArray(textOverlays) || textOverlays.length === 0) return null;
+  return sanitizeSerializable(
+    textOverlays.map(overlay => ({
+      id: overlay.id,
+      text: overlay.text,
+      fontSize: overlay.fontSize ?? 28,
+      scale: overlay.scale ?? 1,
+      rotation: overlay.rotation ?? 0,
+      color: overlay.color ?? '#fff',
+      fontFamily: overlay.fontFamily ?? null,
+      textAlign: overlay.textAlign ?? 'center',
+      highlightColor: overlay.highlightColor ?? null,
+      position: overlay.position || { x: 0, y: 0 },
+    })),
+  );
+}
+
+function serializePostSlideOverlayImages(overlayImages) {
+  if (!Array.isArray(overlayImages) || overlayImages.length === 0) return null;
+  return sanitizeSerializable(
+    overlayImages.map(img => ({
+      id: img.id,
+      uri: img.uri,
+      position: img.position || { x: 0, y: 0 },
+      scale: img.scale ?? 1,
+      rotation: img.rotation ?? 0,
+      baseSize: img.baseSize ?? 100,
+    })),
+  );
+}
+
+function normalizeVideoTextColor(color) {
+  const raw = String(color || '#ffffff').trim().toLowerCase();
+  if (raw === '#000' || raw === '#000000' || raw === 'black') return 'black';
+  if (raw === '#fff' || raw === '#ffffff' || raw === 'white') return 'white';
+  if (raw.startsWith('#')) return raw.slice(1);
+  return raw;
+}
+
+function estimateTextOverlayFootprint(overlay) {
+  const fontSize = (Number(overlay?.fontSize) || 28) * (Number(overlay?.scale) || 1);
+  const text = String(overlay?.text || '');
+  const lines = text.split('\n').slice(0, 3);
+  const longestLineLength = lines.reduce(
+    (longest, line) => Math.max(longest, Array.from(line).length),
+    0,
+  ) || 1;
+  const width = Math.min(220, Math.max(fontSize + 24, longestLineLength * fontSize * 0.62 + 24));
+  const height = Math.max(fontSize + 14, lines.length * fontSize * 1.2 + 14);
+  return { width, height, fontSize };
+}
+
+/**
+ * Convert editor text overlays on a video slide to backend `videoTextItems` shape.
+ * @returns {Array<{ text: string, xPercent: number, yPercent: number, fontSize: number, color: string }>}
+ */
+export function buildVideoTextItemsFromImage(img) {
+  const overlays = Array.isArray(img?.textOverlays) ? img.textOverlays : [];
+  if (!overlays.length || !img?.isVideo) return [];
+
+  const canvasWidth = Number(img.overlayCanvasWidth) > 0 ? Number(img.overlayCanvasWidth) : 390;
+  const canvasHeight = Number(img.overlayCanvasHeight) > 0 ? Number(img.overlayCanvasHeight) : 450;
+
+  return overlays
+    .filter(overlay => String(overlay?.text || '').trim().length > 0)
+    .map(overlay => {
+      const { width, height, fontSize } = estimateTextOverlayFootprint(overlay);
+      const pos = overlay.position || { x: 0, y: 0 };
+      const centerX = (Number(pos.x) || 0) + width / 2;
+      const centerY = (Number(pos.y) || 0) + height / 2;
+      const xPercent = Math.min(1, Math.max(0, centerX / canvasWidth));
+      const yPercent = Math.min(1, Math.max(0, centerY / canvasHeight));
+      const exportFontSize = Math.round(fontSize * (canvasWidth / 120));
+
+      return {
+        text: String(overlay.text).trim(),
+        xPercent: Math.round(xPercent * 1000) / 1000,
+        yPercent: Math.round(yPercent * 1000) / 1000,
+        fontSize: Math.max(12, exportFontSize),
+        color: normalizeVideoTextColor(overlay.color),
+      };
+    });
+}
+
+/**
+ * Build `videoText` + `videoTextItems` multipart fields for `post/create`.
+ */
+export function buildVideoTextPayloadFromImages(images = []) {
+  const videoTextItems = (images || [])
+    .filter(img => img?.isVideo)
+    .flatMap(img => buildVideoTextItemsFromImage(img));
+
+  if (!videoTextItems.length) {
+    return { videoText: null, videoTextItems: null };
+  }
+
+  return {
+    videoText: true,
+    videoTextItems,
+  };
+}
+
+export function getPostSlideOverlaysFromMeta(parsedPostMeta, slideIndex, fallbackImage = null) {
+  const slides = parsedPostMeta?.slides;
+  const slide =
+    (Array.isArray(slides)
+      ? slides.find(entry => Number(entry.imageIndex) === Number(slideIndex)) || slides[slideIndex]
+      : null) || {};
+
+  return {
+    textOverlays: slide.texts || fallbackImage?.textOverlays || [],
+    overlayImages: slide.overlayImages || fallbackImage?.overlayImages || [],
+    canvasWidth: slide.overlayCanvasWidth || fallbackImage?.overlayCanvasWidth || null,
+    canvasHeight: slide.overlayCanvasHeight || fallbackImage?.overlayCanvasHeight || null,
+  };
+}
+
 export function buildPostStoryMetaPayload(images = []) {
   const audioClips = postImagesToStoryAudioClips(images);
   return buildStoryMetaPayload(
@@ -203,8 +321,8 @@ export function buildPostStoryMetaPayload(images = []) {
       audioTrim: audioClips[i].audioTrim,
       trim: normalizeTrim({ start: img.trimStart, end: img.trimEnd }),
       volume: img.flipVolume != null ? Number(img.flipVolume) : 1,
-      stickers: null,
-      texts: null,
+      stickers: serializePostSlideOverlayImages(img.overlayImages),
+      texts: serializePostSlideTexts(img.textOverlays),
       lyrics: sanitizeSerializable(img.musicLyrics ?? null),
       musicBadge: sanitizeSerializable(img.musicBadge ?? null),
     })),
@@ -233,6 +351,10 @@ export function buildPostMetaFromImages(images = []) {
       musicArtist: img.musicArtist ?? null,
       lyrics: sanitizeSerializable(img.musicLyrics ?? null),
       musicBadge: sanitizeSerializable(img.musicBadge ?? null),
+      texts: serializePostSlideTexts(img.textOverlays),
+      overlayImages: serializePostSlideOverlayImages(img.overlayImages),
+      overlayCanvasWidth: img.overlayCanvasWidth ?? null,
+      overlayCanvasHeight: img.overlayCanvasHeight ?? null,
     };
   });
   return { version: 1, slides };
