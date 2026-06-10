@@ -27,6 +27,7 @@ import { acceptBattle, declinetBattle } from '../../services/battle';
 import { getFansubscriptionStatus } from '../../services/stirpe';
 import { useLanguage } from '../../i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getPrivateCircleDashboard, getPvtCircleMembers, isPrivateCircleApiSuccess, parsePrivateCircleDashboard, parsePrivateCircleSetup } from '../../services/privatecircle';
 
 const { width } = Dimensions.get('window');
 
@@ -318,6 +319,7 @@ export default function Notifications() {
   const [handledBattleIds, setHandledBattleIds] = useState({});
   const [subscribeModalVisible, setSubscribeModalVisible] = useState(false);
   const [subscribeTargetUserId, setSubscribeTargetUserId] = useState(null);
+  const [circleAccessModalVisible, setCircleAccessModalVisible] = useState(false);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
 
   const navigation = useNavigation();
@@ -1093,7 +1095,7 @@ export default function Notifications() {
       const message = item.message || '';
       const { usernameText, restText } = splitNotificationMessage(message);
       // In renderItem's handlePress:
-      const handlePress = () => {
+      const handlePress = async () => {
         markAsRead(item.id);
         console.log(item, 'pressed notification');
 
@@ -1134,6 +1136,59 @@ export default function Notifications() {
           }
         }
 
+        if (normalizeNotificationType(item.type) === 'private_circle_exclusive_post') {
+          const data = item?.raw?.data || {};
+          const postCreatorId =
+            data.ownerId ||
+            data.userId ||
+            data.creatorId ||
+            data.fromUserId ||
+            item?.raw?.userId;
+
+          // Own post → open directly, no membership check needed
+          if (String(loggedInUserId || '') === String(postCreatorId || '')) {
+            navigateToPost(item);
+            return;
+          }
+
+          if (postCreatorId) {
+            try {
+              const response = await getPvtCircleMembers(postCreatorId);
+              console.log('PrivateCircle membership API response:', response);
+
+              const isMember = isPrivateCircleApiSuccess(response)
+                ? (() => {
+                  const { members } = parsePrivateCircleSetup(response);
+                  console.log('PrivateCircle members:', members);
+                  return Array.isArray(members)
+                    ? members.some(
+                      m =>
+                        String(m?.id || '') === String(loggedInUserId || '') ||
+                        String(m?.userId || '') === String(loggedInUserId || ''),
+                    )
+                    : false;
+                })()
+                : false;
+
+              console.log('Is circle member:', isMember);
+
+              if (isMember) {
+                navigateToPost(item);
+              } else {
+                setCircleAccessModalVisible(true);
+              }
+            } catch (err) {
+              console.log('PrivateCircle membership check error:', err);
+              setCircleAccessModalVisible(true);
+            }
+          } else {
+            // Can't determine creator → deny access safely
+            setCircleAccessModalVisible(true);
+          }
+
+          return;
+        }
+
         if (isPostTagType(item.type)) {
           const data = item?.raw?.data || {};
           console.log('POST TAG DATA:', JSON.stringify(data)); // 👈 add this
@@ -1141,97 +1196,96 @@ export default function Notifications() {
           console.log('IS PRIVATE:', isPrivatePost); // 👈 add this
           console.log('loggedInUserId:', loggedInUserId); // 👈 add this
 
-          if (isPostTagType(item.type)) {
-  const data = item?.raw?.data || {};
-  const isPrivateCirclePost = String(data.visibleTo || '').toUpperCase() === 'PRIVATE_CIRCLE';
-  const isPrivatePost = String(data.post_type || '').toLowerCase() === 'private';
+          if (isPrivatePost && data.visibleTo == "") {
+            const postCreatorId = data.taggerId || data.userId || item?.raw?.userId;
+            const isOwnPost = String(loggedInUserId || '') === String(postCreatorId || '');
 
-  if (isPrivateCirclePost || isPrivatePost) {
-    const postCreatorId = data.taggerId || data.userId || item?.raw?.userId;
-    const isOwnPost = String(loggedInUserId || '') === String(postCreatorId || '');
+            if (!isOwnPost && postCreatorId) {
+              // Check subscription then decide
+              getFansubscriptionStatus(postCreatorId)
+                .then(response => {
+                  const d = response?.data;
+                  const isActive =
+                    response?.status === 'ACTIVE' ||
+                    String(d?.status || '').toUpperCase() === 'ACTIVE' ||
+                    String(d?.subscriptionStatus || '').toUpperCase() === 'ACTIVE' ||
+                    String(d?.subscription?.status || '').toUpperCase() === 'ACTIVE' ||
+                    String(d?.fanSubscription?.status || '').toUpperCase() === 'ACTIVE' ||
+                    d?.isSubscribed === true ||
+                    (Array.isArray(d?.subscriptions) && d.subscriptions.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE')) ||
+                    (Array.isArray(d) && d.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE'));
+                  console.log('IS ACTIVE:', isActive);
+                  if (isActive) {
+                    // Subscribed → open the post normally
+                    navigateToPost(item);
+                  } else {
+                    // Not subscribed → show subscribe modal
+                    setSubscribeTargetUserId(postCreatorId);
+                    setSubscribeModalVisible(true);
+                  }
+                })
+                .catch(() => {
+                  // On error, fall back to showing subscribe modal
+                  setSubscribeTargetUserId(postCreatorId);
+                  setSubscribeModalVisible(true);
+                });
+              return; // stop further handling
+            }
+          }
+          else if (isPrivatePost && data.visibleTo == "PRIVATE_CIRCLE") {
+            console.log('Handling private circle exclusive post notification'); // 👈 add this
+            const postCreatorId =
+              data.ownerId ||
+              data.userId ||
+              data.creatorId ||
+              data.fromUserId ||
+              item?.raw?.userId;
+            console.log('Handling private circle exclusive post notification', postCreatorId); // 👈 add this
 
-    if (!isOwnPost && postCreatorId) {
-      getFansubscriptionStatus(postCreatorId)
-        .then(response => {
-          const d = response?.data;
-          const isActive =
-            response?.status === 'ACTIVE' ||
-            String(d?.status || '').toUpperCase() === 'ACTIVE' ||
-            String(d?.subscriptionStatus || '').toUpperCase() === 'ACTIVE' ||
-            String(d?.subscription?.status || '').toUpperCase() === 'ACTIVE' ||
-            String(d?.fanSubscription?.status || '').toUpperCase() === 'ACTIVE' ||
-            d?.isSubscribed === true ||
-            (Array.isArray(d?.subscriptions) && d.subscriptions.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE')) ||
-            (Array.isArray(d) && d.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE'));
+            // // Own post → open directly, no membership check needed
+            // if (String(loggedInUserId || '') === String(postCreatorId || '')) {
+            //   navigateToPost(item);
+            //   return;
+            // }
 
-          // Check private circle membership separately
-          const isCircleMember =
-            d?.isCircleMember === true ||
-            d?.isMember === true ||
-            d?.inPrivateCircle === true ||
-            d?.privateCircle?.isMember === true;
+            if (postCreatorId) {
+              try {
+                const response = await getPvtCircleMembers(postCreatorId);
+                console.log('PrivateCircle membership API response:', response);
 
-          if (isPrivateCirclePost && !isCircleMember) {
-            // Tagged in post but not in the private circle
-            Alert.alert(
-              t('privateContent.notCircleMemberTitle') || 'Private Circle Post',
-              t('privateContent.notCircleMemberMessage') || "You can't view this post as you are not a member of this user's private circle.",
-              [
-                {
-                  text: t('notifications.popupClose') || 'Close',
-                  style: 'cancel',
-                },
-                // {
-                //   text: t('payment.subscribeButton') || 'Subscribe',
-                //   onPress: () => {
-                //     navigation.navigate('UsersProfile', {
-                //       userId: postCreatorId,
-                //       initialTab: 'privateContent',
-                //     });
-                //   },
-                // },
-              ]
-            );
+                const isMember = isPrivateCircleApiSuccess(response)
+                  ? (() => {
+                    const { members } = parsePrivateCircleSetup(response);
+                    console.log('PrivateCircle members:', members);
+                    return Array.isArray(members)
+                      ? members.some(
+                        m =>
+                          String(m?.id || '') === String(loggedInUserId || '') ||
+                          String(m?.userId || '') === String(loggedInUserId || ''),
+                      )
+                      : false;
+                  })()
+                  : false;
+
+                console.log('Is circle member:', isMember);
+
+                if (isMember) {
+                  navigateToPost(item);
+                } else {
+                  setCircleAccessModalVisible(true);
+                }
+              } catch (err) {
+                console.log('PrivateCircle membership check error:', err);
+                setCircleAccessModalVisible(true);
+              }
+            } else {
+              // Can't determine creator → deny access safely
+              setCircleAccessModalVisible(true);
+            }
+
             return;
           }
-
-          if (isActive) {
-            navigateToPost(item);
-          } else {
-            setSubscribeTargetUserId(postCreatorId);
-            setSubscribeModalVisible(true);
-          }
-        })
-        .catch(() => {
-          // On error — if it's a private circle post, show circle-specific message
-          if (isPrivateCirclePost) {
-            Alert.alert(
-              t('privateContent.notCircleMemberTitle') || 'Private Circle Post',
-              t('privateContent.notCircleMemberMessage') || "You can't view this post as you are not a member of this user's private circle.",
-              [
-                { text: t('notifications.popupClose') || 'Close', style: 'cancel' },
-                // {
-                //   text: t('payment.subscribeButton') || 'Subscribe',
-                //   onPress: () => {
-                //     navigation.navigate('UsersProfile', {
-                //       userId: postCreatorId,
-                //       initialTab: 'privateContent',
-                //     });
-                //   },
-                // },
-              ]
-            );
-          } else {
-            setSubscribeTargetUserId(postCreatorId);
-            setSubscribeModalVisible(true);
-          }
-        });
-      return;
-    }
-  }
-}
         }
-
         if (isFollowType(item.type) && navigateToNotificationProfile(item)) return;
         if (shouldOpenPostForNotification(item)) { navigateToPost(item); return; }
         popupOpen(item);
@@ -1467,6 +1521,42 @@ export default function Notifications() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={circleAccessModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCircleAccessModalVisible(false)}
+      >
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupContainer}>
+            <Text style={styles.popupBellIcon}>🔒</Text>
+            <Text style={[styles.popupTitle, textStyle]}>
+              {t('privateContent.notCircleMemberTitle') || 'Access Restricted'}
+            </Text>
+            <Text style={[styles.popupMessage, { color: text }]}>
+              {t('privateContent.notCircleMemberMessage') ||
+                "You can't access this post as you are not a member of this user's private circle."}
+            </Text>
+
+            <TouchableOpacity
+              style={{
+                height: 42,
+                paddingHorizontal: 24,
+                borderRadius: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: text,
+                marginTop: 12,
+              }}
+              onPress={() => setCircleAccessModalVisible(false)}
+            >
+              <Text style={styles.popupCloseText}>
+                {t('notifications.popupClose')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
