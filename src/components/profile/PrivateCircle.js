@@ -244,7 +244,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   // ── Pure post fetcher ─────────────────────────────────────────────────────
   const fetchPostsOnly = useCallback(async (id) => {
     try {
-      const response = await getPostByUser(id, 'private');
+      const response = await getPostByUser(id, 'private_circle');
       const payload =
         response?.data?.posts ??
         response?.data?.data?.posts ??
@@ -259,13 +259,13 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
-
+      console.log('PrivateCircle raw posts fetched:', { sample: formattedData });
       // Only posts where visibleTo has a non-empty value = Private Circle posts
-      const filteredData = formattedData.filter(
-        (post) => post?.visibleTo && post.visibleTo !== '',
-      );
-
-      setPosts(filteredData);
+      // const filteredData = formattedData.filter(
+      //   (post) => post?.type == "private_circles",
+      // );
+      console.log('PrivateCircle fetched posts:', { total: formattedData.length, filtered: formattedData });
+      setPosts(formattedData);
     } catch (error) {
       console.log('PrivateCircle fetchPosts error:', error);
       setPosts([]);
@@ -738,7 +738,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   if (loading || isMember === null) {
     return (
       <View style={[gridStyles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" color="#5A2D82" />
+        <ActivityIndicator size="large" color={text} />
       </View>
     );
   }

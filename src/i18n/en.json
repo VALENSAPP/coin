@@ -2865,7 +2865,9 @@
     "shopGuestDescription": "Explore the collection, discover new pieces, and experience the brand behind it.",
     "shopNowButton": "Shop now",
     "lockedTitle": "Subscribe to unlock private content",
-    "lockedSubtitle": "Exclusive posts are available only for active subscribers."
+    "lockedSubtitle": "Exclusive posts are available only for active subscribers.",
+    "notCircleMemberTitle": "Private Circle Post",
+    "notCircleMemberMessage": "You can't view this post as you are not a member of this user's private circle."
   },
   "battleHub": {
     "heroEyebrow": "Battle Performance",

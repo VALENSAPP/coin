@@ -2860,8 +2860,10 @@
     "shopGuestDescription": "Explorez la collection, découvrez de nouvelles pièces et vivez l’expérience de la marque qui se cache derrière.",
     "shopNowButton": "Acheter maintenant",
     "lockedTitle": "Abonnez-vous pour débloquer le contenu privé",
-    "lockedSubtitle": "Les publications exclusives sont disponibles uniquement pour les abonnés actifs."
-  },
+    "lockedSubtitle": "Les publications exclusives sont disponibles uniquement pour les abonnés actifs.",
+    "notCircleMemberTitle": "Post du cercle privé",
+    "notCircleMemberMessage": "Vous ne pouvez pas voir ce post car vous n'êtes pas membre du cercle privé de cet utilisateur."
+      },
   "battleHub": {
     "heroEyebrow": "Performance des Batailles",
     "heroTitle": "Affrontez, prédisez et construisez votre réputation Valens.",

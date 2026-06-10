@@ -2865,8 +2865,10 @@
     "shopGuestDescription": "Explora la colección, descubre nuevas piezas y vive la experiencia de la marca detrás de ella.",
     "shopNowButton": "Comprar ahora",
     "lockedTitle": "Suscríbete para desbloquear contenido privado",
-    "lockedSubtitle": "Las publicaciones exclusivas están disponibles solo para suscriptores activos."
-  },
+    "lockedSubtitle": "Las publicaciones exclusivas están disponibles solo para suscriptores activos.",
+    "notCircleMemberTitle": "Publicación del círculo privado",
+    "notCircleMemberMessage": "No puedes ver esta publicación porque no eres miembro del círculo privado de este usuario."
+      },
   "battleHub": {
     "heroEyebrow": "Rendimiento en Batallas",
     "heroTitle": "Compite, predice y construye tu reputación en Valens.",

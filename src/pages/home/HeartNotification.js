@@ -1092,11 +1092,19 @@ export default function Notifications() {
     const renderItem = ({ item, index }) => {
       const message = item.message || '';
       const { usernameText, restText } = splitNotificationMessage(message);
-      console.log("itemmmmmmmmmmmm",item)
       // In renderItem's handlePress:
       const handlePress = () => {
         markAsRead(item.id);
         console.log(item, 'pressed notification');
+
+        if (normalizeNotificationType(item.type) === 'private_circle_growing') {
+          const joinedUserId = item?.raw?.data?.joinedUserId;
+          if (joinedUserId) {
+            navigation.navigate('UsersProfile', { userId: joinedUserId });
+            return;
+          }
+        }
+
         if (normalizeNotificationType(item.type) === 'private_circle_added') {
           const targetUserId =
             item?.raw?.data?.ownerId ||
@@ -1105,7 +1113,7 @@ export default function Notifications() {
             item?.raw?.data?.addedById ||
             item?.raw?.data?.fromUserId;
           if (targetUserId) {
-            navigation.navigate('UsersProfile', { userId: targetUserId });
+            navigation.navigate('UsersProfile', { userId: targetUserId, initialTab: 'privateCircle', });
             return;
           }
         }
@@ -1133,42 +1141,95 @@ export default function Notifications() {
           console.log('IS PRIVATE:', isPrivatePost); // 👈 add this
           console.log('loggedInUserId:', loggedInUserId); // 👈 add this
 
-          if (isPrivatePost) {
-            const postCreatorId = data.taggerId || data.userId || item?.raw?.userId;
-            const isOwnPost = String(loggedInUserId || '') === String(postCreatorId || '');
+          if (isPostTagType(item.type)) {
+  const data = item?.raw?.data || {};
+  const isPrivateCirclePost = String(data.visibleTo || '').toUpperCase() === 'PRIVATE_CIRCLE';
+  const isPrivatePost = String(data.post_type || '').toLowerCase() === 'private';
 
-            if (!isOwnPost && postCreatorId) {
-              // Check subscription then decide
-              getFansubscriptionStatus(postCreatorId)
-                .then(response => {
-                  const d = response?.data;
-                  const isActive =
-                    response?.status === 'ACTIVE' ||
-                    String(d?.status || '').toUpperCase() === 'ACTIVE' ||
-                    String(d?.subscriptionStatus || '').toUpperCase() === 'ACTIVE' ||
-                    String(d?.subscription?.status || '').toUpperCase() === 'ACTIVE' ||
-                    String(d?.fanSubscription?.status || '').toUpperCase() === 'ACTIVE' ||
-                    d?.isSubscribed === true ||
-                    (Array.isArray(d?.subscriptions) && d.subscriptions.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE')) ||
-                    (Array.isArray(d) && d.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE'));
-                  console.log('IS ACTIVE:', isActive);
-                  if (isActive) {
-                    // Subscribed → open the post normally
-                    navigateToPost(item);
-                  } else {
-                    // Not subscribed → show subscribe modal
-                    setSubscribeTargetUserId(postCreatorId);
-                    setSubscribeModalVisible(true);
-                  }
-                })
-                .catch(() => {
-                  // On error, fall back to showing subscribe modal
-                  setSubscribeTargetUserId(postCreatorId);
-                  setSubscribeModalVisible(true);
-                });
-              return; // stop further handling
-            }
+  if (isPrivateCirclePost || isPrivatePost) {
+    const postCreatorId = data.taggerId || data.userId || item?.raw?.userId;
+    const isOwnPost = String(loggedInUserId || '') === String(postCreatorId || '');
+
+    if (!isOwnPost && postCreatorId) {
+      getFansubscriptionStatus(postCreatorId)
+        .then(response => {
+          const d = response?.data;
+          const isActive =
+            response?.status === 'ACTIVE' ||
+            String(d?.status || '').toUpperCase() === 'ACTIVE' ||
+            String(d?.subscriptionStatus || '').toUpperCase() === 'ACTIVE' ||
+            String(d?.subscription?.status || '').toUpperCase() === 'ACTIVE' ||
+            String(d?.fanSubscription?.status || '').toUpperCase() === 'ACTIVE' ||
+            d?.isSubscribed === true ||
+            (Array.isArray(d?.subscriptions) && d.subscriptions.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE')) ||
+            (Array.isArray(d) && d.some(s => String(s?.status || '').toUpperCase() === 'ACTIVE'));
+
+          // Check private circle membership separately
+          const isCircleMember =
+            d?.isCircleMember === true ||
+            d?.isMember === true ||
+            d?.inPrivateCircle === true ||
+            d?.privateCircle?.isMember === true;
+
+          if (isPrivateCirclePost && !isCircleMember) {
+            // Tagged in post but not in the private circle
+            Alert.alert(
+              t('privateContent.notCircleMemberTitle') || 'Private Circle Post',
+              t('privateContent.notCircleMemberMessage') || "You can't view this post as you are not a member of this user's private circle.",
+              [
+                {
+                  text: t('notifications.popupClose') || 'Close',
+                  style: 'cancel',
+                },
+                // {
+                //   text: t('payment.subscribeButton') || 'Subscribe',
+                //   onPress: () => {
+                //     navigation.navigate('UsersProfile', {
+                //       userId: postCreatorId,
+                //       initialTab: 'privateContent',
+                //     });
+                //   },
+                // },
+              ]
+            );
+            return;
           }
+
+          if (isActive) {
+            navigateToPost(item);
+          } else {
+            setSubscribeTargetUserId(postCreatorId);
+            setSubscribeModalVisible(true);
+          }
+        })
+        .catch(() => {
+          // On error — if it's a private circle post, show circle-specific message
+          if (isPrivateCirclePost) {
+            Alert.alert(
+              t('privateContent.notCircleMemberTitle') || 'Private Circle Post',
+              t('privateContent.notCircleMemberMessage') || "You can't view this post as you are not a member of this user's private circle.",
+              [
+                { text: t('notifications.popupClose') || 'Close', style: 'cancel' },
+                // {
+                //   text: t('payment.subscribeButton') || 'Subscribe',
+                //   onPress: () => {
+                //     navigation.navigate('UsersProfile', {
+                //       userId: postCreatorId,
+                //       initialTab: 'privateContent',
+                //     });
+                //   },
+                // },
+              ]
+            );
+          } else {
+            setSubscribeTargetUserId(postCreatorId);
+            setSubscribeModalVisible(true);
+          }
+        });
+      return;
+    }
+  }
+}
         }
 
         if (isFollowType(item.type) && navigateToNotificationProfile(item)) return;
@@ -1373,7 +1434,7 @@ export default function Notifications() {
                   borderRadius: 10,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#5a2d82',
+                  backgroundColor: text,
                 }}
                 onPress={() => setSubscribeModalVisible(false)}
               >
@@ -1789,7 +1850,7 @@ const styles = StyleSheet.create({
   popupCloseText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   popupTextContainer: {
     alignItems: 'center',

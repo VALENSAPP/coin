@@ -173,7 +173,7 @@ const PostTypeModal = ({ visible, onClose, onSelect, setShowTypeModal }) => {
 
       InteractionManager.runAfterInteractions(() => {
         if (count > 0) {
-          onSelect('private');
+          onSelect('private_circle');
           goToPrivateCircleReview(navigation, {
             mode: 'mint',
             members,
