@@ -26,7 +26,10 @@ import { getAllUser } from '../../../services/users';
 import {
   buildPostMetaFromImages,
   buildCreatePostMusicPayload,
+  buildVideoTextPayloadFromImages,
+  getPostSlideOverlaysFromMeta,
 } from '../../../utils/postSoundtracks';
+import PostMediaTextOverlays from '../../../components/post/PostMediaTextOverlays';
 import { getPostMediaFormat } from '../../../utils/postMediaFormat';
 import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useDispatch } from 'react-redux';
@@ -280,6 +283,7 @@ const PostEditorScreen = () => {
 
     const postMeta = buildPostMetaFromImages(editorImages);
     const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(editorImages);
+    const { videoText, videoTextItems } = buildVideoTextPayloadFromImages(editorImages);
 
     try {
       const response = await createPost({
@@ -287,6 +291,7 @@ const PostEditorScreen = () => {
         postMeta,
         ...(music ? { music } : {}),
         ...(youtubeMusicMeta ? { youtubeMusicMeta } : {}),
+        ...(videoText ? { videoText, videoTextItems } : {}),
       });
       console.log('Post creation response:', response);
 
@@ -373,6 +378,10 @@ const PostEditorScreen = () => {
 
   const renderMediaPreviewItem = (img, idx) => {
     const thumbHeight = getThumbHeight(img);
+    const overlayBundle = getPostSlideOverlaysFromMeta(null, idx, img);
+    const hasOverlays =
+      (overlayBundle.textOverlays?.length || 0) > 0 ||
+      (overlayBundle.overlayImages?.length || 0) > 0;
 
     if (isMediaVideo(img)) {
       return (
@@ -389,6 +398,16 @@ const PostEditorScreen = () => {
             controls={false}
             poster={getVideoPosterUri(img) || undefined}
           />
+          {hasOverlays ? (
+            <PostMediaTextOverlays
+              textOverlays={overlayBundle.textOverlays}
+              overlayImages={overlayBundle.overlayImages}
+              width={IMAGE_PREVIEW_WIDTH}
+              height={thumbHeight}
+              canvasWidth={overlayBundle.canvasWidth}
+              canvasHeight={overlayBundle.canvasHeight}
+            />
+          ) : null}
           <View style={styles.videoPlayOverlay}>
             <Icon name="play" size={20} color="#fff" />
           </View>
@@ -412,6 +431,16 @@ const PostEditorScreen = () => {
           style={styles.mediaPreviewFill}
           resizeMode="contain"
         />
+        {hasOverlays ? (
+          <PostMediaTextOverlays
+            textOverlays={overlayBundle.textOverlays}
+            overlayImages={overlayBundle.overlayImages}
+            width={IMAGE_PREVIEW_WIDTH}
+            height={thumbHeight}
+            canvasWidth={overlayBundle.canvasWidth}
+            canvasHeight={overlayBundle.canvasHeight}
+          />
+        ) : null}
         {img.drawings && img.uriBeforeAnyDrawing && (
           <TouchableOpacity
             style={styles.removeDrawingBtn}

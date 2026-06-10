@@ -318,6 +318,24 @@ function resolveStoryAudioPayload(storyLike) {
 
   if (src && typeof src === 'object') {
     const normalizedMode = typeof src.mode === 'string' ? src.mode.trim().toLowerCase() : '';
+
+    if (normalizedMode === 'youtube') {
+      const uploadedUrl =
+        src.audioUrl || src.s3Url || src.fileUrl || src.url ||
+        src.songUrl || src.musicUrl || src.previewUrl || null;
+      const directUrl = looksLikeUrl(uploadedUrl) ? String(uploadedUrl).trim() : null;
+      if (directUrl) return { directUrl, youtubeVideoId: null };
+
+      const youtubeVideoId = src.videoId || src.youtubeVideoId || src.ytVideoId || null;
+      return {
+        directUrl: null,
+        youtubeVideoId:
+          typeof youtubeVideoId === 'string' && youtubeVideoId.trim()
+            ? youtubeVideoId.trim()
+            : null,
+      };
+    }
+
     const libraryTrackId =
       typeof src.trackId === 'string' ? src.trackId :
         typeof src.libraryTrackId === 'string' ? src.libraryTrackId :
@@ -326,7 +344,7 @@ function resolveStoryAudioPayload(storyLike) {
       typeof src.title === 'string' ? src.title :
         typeof src.trackName === 'string' ? src.trackName : null;
 
-    if (normalizedMode === 'library' || libraryTrackId || libraryTitle) {
+    if (normalizedMode === 'library' || libraryTrackId) {
       const builtinUrl = getStoryBuiltinLibraryUrl(libraryTrackId || libraryTitle);
       if (builtinUrl) return { directUrl: builtinUrl, youtubeVideoId: null };
     }
@@ -602,7 +620,7 @@ const StoryViewer = ({
   const insets = useSafeAreaInsets();
   const storyTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 0);
   const storyProgressTop = storyTopInset + 6;
-  const storyHeaderTop = storyTopInset + 18;
+  const storyHeaderTop = storyProgressTop + 10;
   const dispatch = useDispatch();
   const { t } = useLanguage();
   const [paused, setPaused] = useState(false);
@@ -621,6 +639,7 @@ const StoryViewer = ({
   const youtubeRef = useRef(null);
   const directAudioRef = useRef(null);
   const directAudioDurationRef = useRef(0);
+  const overlayAudioTimeRef = useRef(0);
   const shareRef = useRef(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
 
@@ -733,6 +752,7 @@ const StoryViewer = ({
     Number.isFinite(audioTrimEndSecRaw) && audioTrimEndSecRaw > audioTrimStartSec
       ? audioTrimEndSecRaw : null;
   const audioVolumePercent = Math.max(0, Math.min(100, Math.round((Number(currentStory?.volume) || 1) * 100)));
+  const shouldPlayStoryAudio = visible && !paused && hasOverlayAudio;
 
   const currentStoryThumbnail = resolveStoryVideoThumbnailSource(currentStory);
 
@@ -753,7 +773,7 @@ const StoryViewer = ({
   const showVideoLoadModal = () => {
     clearVideoLoadWatchdog();
     if (!visibleRef.current || currentStory?.type !== 'video') return;
-    setPaused(true);
+    setStoryPaused(true);
     stopAndResetProgress(false);
     setVideoLoadModalVisible(true);
   };
@@ -772,6 +792,7 @@ const StoryViewer = ({
     setIsMediaReady(false);
     setIsFirstFrameReady(false);
     setIsBuffering(true);
+    pausedRef.current = false;
     setPaused(false);
     progressAnimation.setValue(0);
     setCurrentProgress(0);
@@ -793,37 +814,47 @@ const StoryViewer = ({
     });
   };
 
-  const pauseOverlayAudio = () => {
-    try { youtubeRef.current?.pauseVideo?.(); } catch (_e) { }
+  const pauseStoryVideo = () => {
+    try { videoRef.current?.pause?.(); } catch (_e) { }
   };
 
-  const resumeOverlayAudio = () => {
-    if (isYoutubeAudio) {
-      (async () => {
-        try {
-          await youtubeRef.current?.setVolume?.(audioVolumePercent);
-          await youtubeRef.current?.unMuteVideo?.();
-          await youtubeRef.current?.playVideo?.();
-        } catch (_e) { }
-      })();
+  const pauseOverlayAudio = () => {
+    try { youtubeRef.current?.pauseVideo?.(); } catch (_e) { }
+    try { youtubeRef.current?.mute?.(); } catch (_e) { }
+    try { directAudioRef.current?.pause?.(); } catch (_e) { }
+  };
+
+  const resolveOverlayAudioResumeSec = () => {
+    const saved = Number(overlayAudioTimeRef.current);
+    if (Number.isFinite(saved) && saved >= audioTrimStartSec) {
+      if (audioTrimEndSec != null && saved >= audioTrimEndSec) return audioTrimStartSec;
+      return saved;
     }
+    return audioTrimStartSec;
+  };
+
+  const setStoryPaused = (nextPaused) => {
+    if (nextPaused) {
+      pauseStoryVideo();
+      pauseOverlayAudio();
+    }
+    pausedRef.current = nextPaused;
+    setPaused(nextPaused);
   };
 
   const handlePause = () => {
-    setPaused(true);
+    setStoryPaused(true);
     stopAndResetProgress(false);
-    pauseOverlayAudio();
   };
 
   const handleResume = () => {
     if (!currentStory) return;
+    pausedRef.current = false;
     setPaused(false);
     if (currentStory.type === 'video') {
       kickPlayback();
-      resumeOverlayAudio();
       return;
     }
-    resumeOverlayAudio();
     const remaining = Math.max(0, 1 - currentProgress);
     const totalDuration = resolveStoryDurationMs(currentStory);
     const remainingDuration = totalDuration * remaining;
@@ -842,9 +873,11 @@ const StoryViewer = ({
     progressAnimation.stopAnimation();
     progressAnimation.setValue(0);
     setCurrentProgress(0);
+    overlayAudioTimeRef.current = audioTrimStartSec || 0;
 
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
 
+    pausedRef.current = false;
     setPaused(false);
     setIsMediaReady(false);
     setIsBuffering(false);
@@ -881,6 +914,8 @@ const StoryViewer = ({
       clearTimeout(fallbackTimer);
       clearVideoLoadWatchdog();
       progressAnimation.stopAnimation();
+      pauseOverlayAudio();
+      pauseStoryVideo();
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     };
   }, [visible, currentUserIndex, currentStoryIndex]);
@@ -894,7 +929,10 @@ const StoryViewer = ({
     if (!visible) {
       if (tapTimerRef.current) { clearTimeout(tapTimerRef.current); tapTimerRef.current = null; }
       stopAndResetProgress(true);
+      pausedRef.current = false;
       setPaused(false);
+      pauseOverlayAudio();
+      pauseStoryVideo();
       dispatch(showLoader());
       setOptionsOpen(false);
       setAnalyticsVisible(false);
@@ -915,31 +953,24 @@ const StoryViewer = ({
   }, [visible]);
 
   useEffect(() => {
-    if (!isYoutubeAudio || !visible) return;
-    if (paused) {
-      pauseOverlayAudio();
-      return;
-    }
-    let cancelled = false;
-    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-    const run = async () => {
-      for (const d of [0, 350, 900, 1600]) {
-        if (cancelled || pausedRef.current) return;
-        if (d > 0) await wait(d);
+    if (!visible || !isDirectAudio || shouldPlayStoryAudio) return;
+    pauseOverlayAudio();
+  }, [visible, isDirectAudio, shouldPlayStoryAudio, directAudioUrl]);
+
+  useEffect(() => {
+    if (!isYoutubeAudio || !shouldPlayStoryAudio) return;
+    const tick = setInterval(() => {
+      (async () => {
         try {
-          await youtubeRef.current?.setVolume?.(audioVolumePercent);
-          await youtubeRef.current?.unMuteVideo?.();
-          await youtubeRef.current?.playVideo?.();
-          if (audioTrimStartSec > 0) await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
+          const cur = await youtubeRef.current?.getCurrentTime?.();
+          if (typeof cur === 'number' && !Number.isNaN(cur)) {
+            overlayAudioTimeRef.current = cur;
+          }
         } catch (_e) { }
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-      pauseOverlayAudio();
-    };
-  }, [isYoutubeAudio, visible, paused, youtubeVideoId, audioVolumePercent, audioTrimStartSec]);
+      })();
+    }, 280);
+    return () => clearInterval(tick);
+  }, [isYoutubeAudio, shouldPlayStoryAudio, youtubeVideoId]);
 
   // ── Pan responder ─────────────────────────────────────────────────────────
   const pan = useRef(new Animated.ValueXY()).current;
@@ -1049,6 +1080,8 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
     const leftZone = SCREEN_WIDTH * 0.3;
     if (tapTimerRef.current) { clearTimeout(tapTimerRef.current); tapTimerRef.current = null; }
     tapTimerRef.current = setTimeout(() => {
+      pauseOverlayAudio();
+      pauseStoryVideo();
       stopAndResetProgress(true);
       tapX < leftZone ? onPrev() : onNext();
       tapTimerRef.current = null;
@@ -1157,7 +1190,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
       return;
     }
     // Image failed — keep the progress bar still; user can tap to skip.
-    setPaused(true);
+    setStoryPaused(true);
     stopAndResetProgress(true);
   };
 
@@ -1247,7 +1280,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                 key={`story_img_${storyKey}`}
                 source={{ uri: currentStory.uri }}
                 style={modalStyles.storyMediaFill}
-                resizeMode="contain"
+                resizeMode="cover"
                 onLoadEnd={onImageLoaded}
                 onError={onMediaError}
               />
@@ -1414,8 +1447,8 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
             </View>
           )}
 
-          {/* YouTube audio (hidden) */}
-          {isYoutubeAudio ? (
+          {/* YouTube audio (hidden) — unmount while paused so playback cannot continue */}
+          {isYoutubeAudio && shouldPlayStoryAudio ? (
             <View style={storyYoutubeAudioStyle} pointerEvents="none" collapsable={false}>
               <YoutubePlayer
                 ref={youtubeRef}
@@ -1423,21 +1456,18 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                 height={200}
                 width={200}
                 videoId={youtubeVideoId}
-                play={visible && !paused}
+                play
                 mute={false}
                 volume={audioVolumePercent}
-                forceAndroidAutoplay
                 initialPlayerParams={{ autoplay: true, controls: false, modestbranding: true, rel: false }}
                 onReady={async () => {
-                  if (pausedRef.current || !visibleRef.current) {
-                    pauseOverlayAudio();
-                    return;
-                  }
+                  if (pausedRef.current || !visibleRef.current) return;
                   try {
+                    const resumeSec = resolveOverlayAudioResumeSec();
                     await youtubeRef.current?.setVolume?.(audioVolumePercent);
                     await youtubeRef.current?.unMuteVideo?.();
+                    if (resumeSec > 0) await youtubeRef.current?.seekTo?.(resumeSec, true);
                     await youtubeRef.current?.playVideo?.();
-                    if (audioTrimStartSec > 0) await youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
                   } catch (_e) { }
                 }}
                 onChangeState={state => {
@@ -1445,13 +1475,10 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                     if (state === 'playing') pauseOverlayAudio();
                     return;
                   }
-                  if (['paused', 'unstarted', 'video cued'].includes(state)) {
-                    try { youtubeRef.current?.playVideo?.(); } catch (_e) { }
-                  }
                   if (state === 'ended') {
                     try {
                       youtubeRef.current?.seekTo?.(audioTrimStartSec, true);
-                      youtubeRef.current?.playVideo?.();
+                      if (!pausedRef.current) youtubeRef.current?.playVideo?.();
                     } catch (_e) { }
                   }
                 }}
@@ -1460,13 +1487,14 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
             </View>
           ) : null}
 
-          {/* Direct audio (hidden) */}
-          {isDirectAudio ? (
+          {/* Direct audio (hidden) — unmount while paused so playback cannot continue */}
+          {isDirectAudio && shouldPlayStoryAudio ? (
             <Video
               ref={directAudioRef}
+              key={`story_audio_${storyId}`}
               source={{ uri: directAudioUrl }}
               style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
-              paused={paused || !visible}
+              paused={false}
               muted={false}
               repeat={false}
               playInBackground={false}
@@ -1475,9 +1503,8 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
               volume={Math.max(0, Math.min(1, Number(currentStory?.volume) || 1))}
               onLoad={data => {
                 directAudioDurationRef.current = Number(data?.duration) || 0;
-                if (audioTrimStartSec > 0) {
-                  try { directAudioRef.current?.seek(audioTrimStartSec); } catch (_e) { }
-                }
+                const resumeSec = resolveOverlayAudioResumeSec();
+                try { directAudioRef.current?.seek(resumeSec); } catch (_e) { }
               }}
               onReadyForDisplay={() => {
                 if (!progressStartedRef.current && visibleRef.current && !pausedRef.current) {
@@ -1489,6 +1516,7 @@ console.log('VIEWER currentUser:', currentUser?.id, currentUser?.username, 'isUs
                 }
               }}
               onProgress={({ currentTime }) => {
+                overlayAudioTimeRef.current = currentTime;
                 const fallbackEnd = directAudioDurationRef.current || 0;
                 const end = audioTrimEndSec != null ? audioTrimEndSec : fallbackEnd;
                 if (end > 0 && currentTime >= end - 0.12) {

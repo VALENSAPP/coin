@@ -82,6 +82,18 @@ export const createPost = async data => {
     });
   }
 
+  if (data.videoText === true || data.videoText === 'true') {
+    formData.append('videoText', 'true');
+  }
+
+  if (data.videoTextItems != null) {
+    const items =
+      typeof data.videoTextItems === 'string'
+        ? data.videoTextItems
+        : JSON.stringify(data.videoTextItems);
+    formData.append('videoTextItems', items);
+  }
+
   if (data.postMeta != null) {
     const meta =
       typeof data.postMeta === 'string' ? data.postMeta : JSON.stringify(data.postMeta);

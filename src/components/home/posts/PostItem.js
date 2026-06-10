@@ -29,7 +29,7 @@ import {
 import { runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
-import Video from 'react-native-video';
+import Video, { ViewType } from 'react-native-video';
 import { WhiteDragonfly, Thumbup, Comments, ShareIcom } from '../../../assets/icons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,7 +51,8 @@ import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { parsePostMeta, getPostMusicForSlide } from '../../../utils/postSoundtracks';
+import { parsePostMeta, getPostMusicForSlide, getPostSlideOverlaysFromMeta } from '../../../utils/postSoundtracks';
+import PostMediaTextOverlays from '../../post/PostMediaTextOverlays';
 import {
   DEFAULT_FEED_MEDIA_HEIGHT,
   measureFeedMediaItemHeight,
@@ -211,6 +212,7 @@ function InstagramZoomableImage({ uri, height, onZoomChange }) {
 /* ─── InstagramZoomableVideo ─────────────────────────────────────────────── */
 function InstagramZoomableVideo({
   uri,
+  thumbnailUri,
   videoHeight,
   paused,
   muted,
@@ -306,17 +308,25 @@ function InstagramZoomableVideo({
     }
   }, [resetScale, onZoomChange]);
 
-  const modalTransformStyle = {
-    width: screenW,
-    height: videoHeight,
-    transform: [
+  const zoomTransform = useMemo(
+    () => [
       { translateX: Animated.subtract(translateX, halfWidth) },
       { translateY: Animated.subtract(translateY, halfHeight) },
       { scale },
       { translateX: Animated.multiply(Animated.subtract(translateX, halfWidth), -1) },
       { translateY: Animated.multiply(Animated.subtract(translateY, halfHeight), -1) },
     ],
+    [halfHeight, halfWidth, scale, translateX, translateY],
+  );
+
+  const modalTransformStyle = {
+    width: screenW,
+    height: videoHeight,
+    transform: zoomTransform,
   };
+
+  const androidTextureViewProps =
+    Platform.OS === 'android' ? { viewType: ViewType.TEXTURE } : {};
 
   const onModalLoad = useCallback(() => {
     const seekTo = currentTimeRef.current || 0;
@@ -367,11 +377,12 @@ function InstagramZoomableVideo({
             bufferConfig={resolvedBufferConfig}
             maxBitRate={maxBitRate}
             preferredForwardBufferDuration={Platform.OS === 'ios' ? 12 : undefined}
+            {...androidTextureViewProps}
           />
         </Animated.View>
       </PinchGestureHandler>
 
-      {uri && hasInlineLoaded && !isModalVisible && (
+      {uri && hasInlineLoaded && (
         <View
           pointerEvents="none"
           collapsable={false}
@@ -387,6 +398,7 @@ function InstagramZoomableVideo({
             playWhenInactive={false}
             bufferConfig={resolvedBufferConfig}
             maxBitRate={maxBitRate}
+            {...androidTextureViewProps}
           />
         </View>
       )}
@@ -410,10 +422,31 @@ function InstagramZoomableVideo({
               <Animated.View
                 collapsable={false}
                 style={[{ width: screenW, height: videoHeight, backgroundColor: '#000' }, modalTransformStyle]}>
+                {!modalVideoReady ? (
+                  thumbnailUri ? (
+                    <FastImage
+                      source={{
+                        uri: thumbnailUri,
+                        priority: FastImage.priority.high,
+                        cache: FastImage.cacheControl.immutable,
+                      }}
+                      resizeMode={FastImage.resizeMode.contain}
+                      fadeDuration={0}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                  ) : (
+                    <View style={styles.zoomVideoLoading}>
+                      <ActivityIndicator size="small" color="#fff" />
+                    </View>
+                  )
+                ) : null}
                 <Video
                   ref={modalVideoRef}
                   source={{ uri }}
-                  style={StyleSheet.absoluteFillObject}
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    { opacity: modalVideoReady ? 1 : 0 },
+                  ]}
                   resizeMode="contain"
                   repeat={repeat}
                   paused={false}
@@ -430,7 +463,7 @@ function InstagramZoomableVideo({
                   onLoad={onModalLoad}
                   onReadyForDisplay={onModalReady}
                   preferredForwardBufferDuration={Platform.OS === 'ios' ? 12 : undefined}
-                  renderToHardwareTextureAndroid
+                  {...androidTextureViewProps}
                 />
               </Animated.View>
             </PinchGestureHandler>
@@ -1195,6 +1228,10 @@ function PostItem({
       const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
       const slideH = getSlideHeight(index);
+      const overlayBundle = getPostSlideOverlaysFromMeta(parsedPostMeta, index, mediaItem);
+      const hasSlideOverlays =
+        (overlayBundle.textOverlays?.length || 0) > 0 ||
+        (overlayBundle.overlayImages?.length || 0) > 0;
 
       return (
         <View style={[styles.mediaContainer, { height: slideH }]}>
@@ -1217,6 +1254,7 @@ function PostItem({
                 <View collapsable={false} style={{ width, height: slideH }}>
                   <InstagramZoomableVideo
                     uri={mediaItem.url}
+                    thumbnailUri={mediaItem.thumbnail}
                     videoHeight={slideH}
                     paused={!shouldPlay}
                     muted={isMuted}
@@ -1238,6 +1276,16 @@ function PostItem({
                     }}
                     simultaneousHandlers={listRef}
                   />
+                  {hasSlideOverlays ? (
+                    <PostMediaTextOverlays
+                      textOverlays={overlayBundle.textOverlays}
+                      overlayImages={overlayBundle.overlayImages}
+                      width={width}
+                      height={slideH}
+                      canvasWidth={overlayBundle.canvasWidth}
+                      canvasHeight={overlayBundle.canvasHeight}
+                    />
+                  ) : null}
                   <View
                     pointerEvents="none"
                     style={[styles.videoOverlay, styles.videoOverlayTransparent]}
@@ -1258,20 +1306,32 @@ function PostItem({
               </TouchableOpacity>
             </View>
           ) : (
-            <InstagramZoomableImage
-              uri={mediaItem.url}
-              height={slideH}
-              onZoomChange={zoomed => {
-                setIsZooming(zoomed);
-                setScrollEnabled(!zoomed);
-              }}
-            />
+            <View style={{ width, height: slideH }}>
+              <InstagramZoomableImage
+                uri={mediaItem.url}
+                height={slideH}
+                onZoomChange={zoomed => {
+                  setIsZooming(zoomed);
+                  setScrollEnabled(!zoomed);
+                }}
+              />
+              {hasSlideOverlays ? (
+                <PostMediaTextOverlays
+                  textOverlays={overlayBundle.textOverlays}
+                  overlayImages={overlayBundle.overlayImages}
+                  width={width}
+                  height={slideH}
+                  canvasWidth={overlayBundle.canvasWidth}
+                  canvasHeight={overlayBundle.canvasHeight}
+                />
+              ) : null}
+            </View>
           )}
         </View>
       );
     },
     [currentIndex, handleOpenReel, isVideoUrl, videoStates, isZooming, isMuted,
-      playbackEligible, getSlideHeight, videoLoaded, width],
+      playbackEligible, getSlideHeight, videoLoaded, width, parsedPostMeta],
   );
 
   const shouldPlayPostFeedMusic =
@@ -1936,6 +1996,12 @@ const styles = StyleSheet.create({
   zoomVideoPrewarmVideo: {
     width: 2,
     height: 2,
+  },
+  zoomVideoLoading: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
   },
   postMedia: {
     width: width,
