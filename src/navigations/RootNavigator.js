@@ -16,6 +16,7 @@ import ForgetPassword from '../pages/authentication/ForgotPassword/ForgotPasswor
 import NewPasswordScreen from '../pages/authentication/createNewPassword/CreateNewPassword';
 import CreateProfile from '../pages/authentication/createProfile';
 import BusinessSetup from '../pages/authentication/BusinessSetup';
+import BlockedVerification from '../pages/authentication/BlockedVerification';
 import WalletScreen from '../pages/authentication/createProfile/wallet';
 import MainTabNavigator from './MainTabNavigator';
 import Splash from '../pages/splashSceen/Splash';
@@ -46,6 +47,7 @@ import SelectAccountType from '../pages/authentication/setAccountType';
 import ValensWallet from '../pages/wallet/ValensWallet';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import { useLanguage } from '../i18n';
+import { lockProfile } from '../services/kycverification';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -56,6 +58,21 @@ const CustomDrawerContent = (props) => {
   const { bgStyle, textStyle, text } = useAppTheme();
   const { t } = useLanguage();
 
+
+  const blockProfile = React.useCallback(async () => {
+  try {
+
+    const response = await lockProfile();
+    console.log(response, 'lock profile response navigationnnnanananaan');
+
+    // Handle success here
+  } catch (err) {
+    console.log(err, 'blockProfile error');
+  }
+}, []);
+useEffect(()=>{
+  blockProfile();
+},[])
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       {/* Drawer Header */}
@@ -408,6 +425,7 @@ export default function MainStack() {
         <Stack.Screen name="CreateProfile" component={CreateProfile} />
         <Stack.Screen name="BusinessSetupAuth" component={BusinessSetup} />
         <Stack.Screen name="KycVerifyAuth" component={KYCVerification} />
+        <Stack.Screen name="BlockedVerification" component={BlockedVerification} />
         <Stack.Screen name="Wallet" component={WalletScreen} />
         <Stack.Screen name="Splash" component={Splash} />
         <Stack.Screen name="TermsCondition" component={TermsCondition} />

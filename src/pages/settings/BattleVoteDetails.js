@@ -17,7 +17,7 @@ import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 
 const FALLBACK_AVATAR =
-  'https://ui-avatars.com/api/?name=User&background=random';
+  'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) return false;
@@ -34,21 +34,12 @@ const isMeaningfulValue = value => {
 
 const pickFirst = (...values) => values.find(isMeaningfulValue);
 const normalizeSideKey = value => String(value || '').trim().toLowerCase();
+const getAvatarUri = (...values) =>
+  String(pickFirst(...values, FALLBACK_AVATAR) || FALLBACK_AVATAR).trim() ||
+  FALLBACK_AVATAR;
 
-const isHeadToHeadParticipantUserId = (userId, creatorId, invitedUserId) => {
-  const id = String(userId || '');
-  if (!id) return false;
-  return id === String(creatorId || '') || id === String(invitedUserId || '');
-};
-
-const filterHeadToHeadCountableEntries = (entries, battleFormat, battle) => {
-  if (battleFormat !== 'HEAD_TO_HEAD') return Array.isArray(entries) ? entries : [];
-  const creatorId = String(battle?.creatorId || '');
-  const invitedUserId = String(battle?.invitedUserId || '');
-  return (Array.isArray(entries) ? entries : []).filter(entry => {
-    const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.user?._id, '') || '');
-    return userId && !isHeadToHeadParticipantUserId(userId, creatorId, invitedUserId);
-  });
+const filterHeadToHeadCountableEntries = entries => {
+  return Array.isArray(entries) ? entries : [];
 };
 
 const normalizeOption = (option, index) => {
@@ -136,7 +127,13 @@ export default function BattleVoteDetails() {
         return {
           displayName: pickFirst(matchedParticipant.user.displayName, matchedParticipant.user.name, 'User'),
           displayHandle: pickFirst(matchedParticipant.user.userName, matchedParticipant.user.handle, ''),
-          displayAvatar: pickFirst(matchedParticipant.user.image, matchedParticipant.user.avatar, FALLBACK_AVATAR),
+          displayAvatar: getAvatarUri(
+            matchedParticipant.user.image,
+            matchedParticipant.user.avatar,
+            matchedParticipant.user.profileImage,
+            matchedParticipant.user.profilePicture,
+            matchedParticipant.user.userImage,
+          ),
         };
       }
 
@@ -146,7 +143,12 @@ export default function BattleVoteDetails() {
         return {
           displayName: pickFirst(matchedCommentAuthor.authorName, matchedCommentAuthor.name, 'User'),
           displayHandle: pickFirst(matchedCommentAuthor.authorHandle, matchedCommentAuthor.handle, ''),
-          displayAvatar: pickFirst(matchedCommentAuthor.avatar, FALLBACK_AVATAR),
+          displayAvatar: getAvatarUri(
+            matchedCommentAuthor.avatar,
+            matchedCommentAuthor.image,
+            matchedCommentAuthor.profileImage,
+            matchedCommentAuthor.profilePicture,
+          ),
         };
       }
 
@@ -154,7 +156,12 @@ export default function BattleVoteDetails() {
         return {
           displayName: pickFirst(battle.creator.name, 'User'),
           displayHandle: pickFirst(battle.creator.handle, ''),
-          displayAvatar: pickFirst(battle.creator.avatar, FALLBACK_AVATAR),
+          displayAvatar: getAvatarUri(
+            battle.creator.avatar,
+            battle.creator.image,
+            battle.creator.profileImage,
+            battle.creator.profilePicture,
+          ),
         };
       }
 
@@ -162,7 +169,12 @@ export default function BattleVoteDetails() {
         return {
           displayName: pickFirst(battle.invitedUser.name, 'User'),
           displayHandle: pickFirst(battle.invitedUser.handle, ''),
-          displayAvatar: FALLBACK_AVATAR,
+          displayAvatar: getAvatarUri(
+            battle.invitedUser.avatar,
+            battle.invitedUser.image,
+            battle.invitedUser.profileImage,
+            battle.invitedUser.profilePicture,
+          ),
         };
       }
 
@@ -185,60 +197,15 @@ export default function BattleVoteDetails() {
     [options],
   );
 
-  const buildHeadToHeadSideChoices = useCallback(
-    (entryType) => {
-      if (battleFormat !== 'HEAD_TO_HEAD' || entryType !== 'votes') return [];
-
-      const creatorId = String(battle?.creatorId || '');
-      const invitedUserId = String(battle?.invitedUserId || '');
-      const sides = battle?.headToHeadSides || {};
-      const choices = [];
-
-      const addChoice = (userId, sideValue, role) => {
-        const side = String(sideValue || '').trim();
-        if (!userId || !side) return;
-        const meta = resolveUserMeta(userId);
-        const matchedOption = resolveOptionForSide(side);
-        choices.push({
-          userId,
-          displayName: pickFirst(meta?.displayName, role === 'creator' ? 'Creator' : 'Opponent'),
-          displayHandle: pickFirst(meta?.displayHandle, ''),
-          displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
-          side: matchedOption?.label || side,
-          isSideChoice: true,
-        });
-      };
-
-      addChoice(
-        creatorId,
-        pickFirst(
-          sides?.creator?.side,
-          sides?.creator?.choice,
-          sides?.creatorSide,
-          battle?.creatorChoice,
-        ),
-        'creator',
-      );
-      addChoice(
-        invitedUserId,
-        pickFirst(
-          sides?.invitedUser?.side,
-          sides?.invitedUser?.choice,
-          sides?.opponent?.side,
-          sides?.invitedUserSide,
-          battle?.invitedUserChoice,
-        ),
-        'opponent',
-      );
-
-      return choices;
-    },
-    [battle, battleFormat, resolveOptionForSide, resolveUserMeta],
-  );
-
   const buildSections = useCallback(
     (entries, entryType) => {
-      const list = filterHeadToHeadCountableEntries(entries, battleFormat, battle);
+      const normalizedSelectedSide = normalizeSideKey(selectedSide);
+      const list = filterHeadToHeadCountableEntries(entries).filter(entry => {
+        if (entryType !== 'votes' || !normalizedSelectedSide) return true;
+
+        const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '');
+        return normalizeSideKey(side) === normalizedSelectedSide;
+      });
       const grouped = new Map();
 
       const ensureGroup = title => {
@@ -247,14 +214,18 @@ export default function BattleVoteDetails() {
         return grouped.get(key);
       };
 
-      options.forEach(opt => {
-        const title = String(opt?.label || '').trim();
-        if (title) ensureGroup(title);
-      });
-
-      buildHeadToHeadSideChoices(entryType).forEach(choice => {
-        ensureGroup(choice.side).push(choice);
-      });
+      options
+        .filter(opt => {
+          if (entryType !== 'votes' || !normalizedSelectedSide) return true;
+          return (
+            normalizeSideKey(opt?.sideKey) === normalizedSelectedSide ||
+            normalizeSideKey(opt?.label) === normalizedSelectedSide
+          );
+        })
+        .forEach(opt => {
+          const title = String(opt?.label || '').trim();
+          if (title) ensureGroup(title);
+        });
 
       list.forEach(entry => {
         const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.id, '') || '');
@@ -264,7 +235,13 @@ export default function BattleVoteDetails() {
           ? {
             displayName: pickFirst(entry.user.displayName, entry.user.name, 'User'),
             displayHandle: pickFirst(entry.user.userName, entry.user.handle, ''),
-            displayAvatar: pickFirst(entry.user.image, entry.user.avatar, FALLBACK_AVATAR),
+            displayAvatar: getAvatarUri(
+              entry.user.image,
+              entry.user.avatar,
+              entry.user.profileImage,
+              entry.user.profilePicture,
+              entry.user.userImage,
+            ),
           }
           : resolveUserMeta(userId);
 
@@ -274,9 +251,8 @@ export default function BattleVoteDetails() {
           userId,
           displayName: pickFirst(meta?.displayName, fallbackName),
           displayHandle: pickFirst(meta?.displayHandle, ''),
-          displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
+          displayAvatar: getAvatarUri(meta?.displayAvatar),
           side: matchedOption?.label || side,
-          isSideChoice: false,
         };
 
         const groupTitle = matchedOption?.label || side || 'Other';
@@ -284,41 +260,13 @@ export default function BattleVoteDetails() {
         ensureGroup(groupTitle).push(row);
       });
 
-      // If API doesn't provide voter meta (only participants are available), still render participants
-      // so users can see each participant and their chosen side under their details.
-      if (entryType === 'votes' && list.length === 0) {
-        const participants = Array.isArray(battle?.participants) ? battle.participants : [];
-        participants.forEach(p => {
-          const userId = String(pickFirst(p?.userId, p?.user?.id, '') || '');
-          const side = String(pickFirst(p?.side, '') || '').trim();
-          const meta = p?.user
-            ? {
-              displayName: pickFirst(p.user.displayName, p.user.name, 'User'),
-              displayHandle: pickFirst(p.user.userName, p.user.handle, ''),
-              displayAvatar: pickFirst(p.user.image, p.user.avatar, FALLBACK_AVATAR),
-            }
-            : resolveUserMeta(userId);
-
-          const matchedOption = resolveOptionForSide(side);
-          const groupTitle = matchedOption?.label || side || 'Participants';
-
-          ensureGroup(groupTitle).push({
-            userId,
-            displayName: pickFirst(meta?.displayName, 'User'),
-            displayHandle: pickFirst(meta?.displayHandle, ''),
-            displayAvatar: pickFirst(meta?.displayAvatar, FALLBACK_AVATAR),
-            side: matchedOption?.label || side,
-          });
-        });
-      }
-
       return Array.from(grouped.entries()).map(([title, data]) => ({
         title,
         data,
-        countableTotal: data.filter(row => !row.isSideChoice).length,
+        countableTotal: data.length,
       }));
     },
-    [battle, battleFormat, buildHeadToHeadSideChoices, options, resolveOptionForSide, resolveUserMeta],
+    [options, resolveOptionForSide, resolveUserMeta, selectedSide],
   );
 
   const votesSections = useMemo(
@@ -353,7 +301,7 @@ export default function BattleVoteDetails() {
     const fallbackCountsFromSections = sections.reduce((acc, section) => {
       const countable = Number.isFinite(section?.countableTotal)
         ? section.countableTotal
-        : section.data.filter(row => !row.isSideChoice).length;
+        : section.data.length;
       acc[section.title] = (acc[section.title] || 0) + countable;
       return acc;
     }, {});
@@ -405,12 +353,12 @@ export default function BattleVoteDetails() {
     const normalizedSelectedSide = normalizeSideKey(selectedSide);
     if (!normalizedSelectedSide) return 0;
 
-    const votes = filterHeadToHeadCountableEntries(battle?.votes, battleFormat, battle);
+    const votes = filterHeadToHeadCountableEntries(battle?.votes);
     return votes.filter(entry => {
       const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '');
       return normalizeSideKey(side) === normalizedSelectedSide;
     }).length;
-  }, [battle, battle?.votes, battleFormat, selectedSide]);
+  }, [battle, selectedSide]);
 
   const handleOpenUser = useCallback(
     userId => {
@@ -432,7 +380,17 @@ export default function BattleVoteDetails() {
   const renderCommentRow = ({ item }) => {
     const authorName = pickFirst(item?.authorName, item?.user?.name, item?.user?.displayName, 'User');
     const authorHandle = pickFirst(item?.authorHandle, item?.user?.userName, item?.user?.username, '');
-    const avatar = pickFirst(item?.avatar, item?.user?.image, item?.user?.avatar, FALLBACK_AVATAR);
+    const avatar = getAvatarUri(
+      item?.avatar,
+      item?.image,
+      item?.profileImage,
+      item?.profilePicture,
+      item?.user?.image,
+      item?.user?.avatar,
+      item?.user?.profileImage,
+      item?.user?.profilePicture,
+      item?.user?.userImage,
+    );
     const message = pickFirst(item?.message, item?.comment, item?.text, '');
     const likes = Number(pickFirst(item?.likes, item?.likeCount, item?.likesCount, 0));
 
@@ -534,9 +492,7 @@ export default function BattleVoteDetails() {
             <Text
               numberOfLines={1}
               style={[styles.badgeText, { color: palette.primary }]}>
-              {item.isSideChoice
-                ? t('battleVoteDetails.sideChoice', 'Side choice')
-                : item.side}
+              {item.side}
             </Text>
           </View>
         )}
@@ -551,7 +507,9 @@ export default function BattleVoteDetails() {
         ? `${selectedSideLabel} ${t('battleVoteDetails.commentsTitle', 'Comments')}`
         : t('battleVoteDetails.commentsTitle', 'Comments'))
       : activeTab === 'votes'
-        ? t('battleVoteDetails.votesTitle', 'Votes')
+        ? (selectedSideLabel
+          ? `${selectedSideLabel} ${t('battleVoteDetails.votesTitle', 'Votes')}`
+          : t('battleVoteDetails.votesTitle', 'Votes'))
         : t('battleVoteDetails.predictionsTitle', 'Predictions');
 
   return (
@@ -644,10 +602,7 @@ export default function BattleVoteDetails() {
             </View>
           )}
           renderSectionFooter={({ section }) => {
-            const countableRows = Array.isArray(section?.data)
-              ? section.data.filter(row => !row.isSideChoice)
-              : [];
-            if (countableRows.length > 0) {
+            if (Array.isArray(section?.data) && section.data.length > 0) {
               return null;
             }
 

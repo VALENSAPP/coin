@@ -32,6 +32,7 @@ import {
   twitterOAuthLogin,
 } from '../socialLogin';
 import { login, handleLoginSuccess } from '../../../services/authentication';
+import { lockProfile } from '../../../services/kycverification';
 import { getProfile } from '../../../services/createProfile';
 import { loggedIn } from '../../../redux/actions/LoginAction';
 import TextGradient from '../../../assets/textgradient/TextGradient';
@@ -268,6 +269,35 @@ export default function LoginScreen() {
         }
         if (response?.data?.user?.email) {
           await AsyncStorage.setItem('email', response?.data?.user?.email);
+        }
+        const loginProfileType = String(response?.data?.user?.profile || 'user').toLowerCase();
+        const normalizedProfileType =
+          loginProfileType === 'company' || loginProfileType === 'business'
+            ? 'company'
+            : 'user';
+        if (response?.data?.user?.profile) {
+          await AsyncStorage.setItem('profile', response.data.user.profile);
+        }
+        try {
+          const lockResponse = await lockProfile();
+          const isLock = String(lockResponse?.data?.isLock ?? '').toLowerCase() === 'true';
+          if (isLock) {
+            await AsyncStorage.clear();
+            dispatch(setUserProfile('normal'));
+            dispatch(setIsAddAccount(false));
+            navigation.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'BlockedVerification',
+                  params: { profile: normalizedProfileType },
+                },
+              ],
+            });
+            return;
+          }
+        } catch (lockError) {
+          console.log('Profile lock check failed after login:', lockError?.message || lockError);
         }
         await persistStripeCustomerId(response.data.user.stripeCustomerId ?? null, dispatch);
         if (

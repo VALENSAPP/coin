@@ -69,7 +69,6 @@ export default function BattleResults({ navigation }) {
   const { bgStyle, text, card } = useAppTheme(resolvedProfileType);
   const { battle = {} } = route.params || {};
   const [winnerData, setWinnerData] = useState(null);
-  console.log(battle, 'data in battle from prevois screenen')
   const predictionCounts = useMemo(
     () => route?.params?.predictionCounts || battle?.predictionCounts || {},
     [battle?.predictionCounts, route?.params?.predictionCounts],
@@ -108,7 +107,6 @@ export default function BattleResults({ navigation }) {
     () => battle.options || [],
     [battle.options],
   );
-  const comments = battle.comments || [];
   const status = battle.status || 'LIVE';
   const normalizedStatus = String(status || '').trim().toUpperCase();
   const isLiveStatus =
@@ -217,6 +215,20 @@ export default function BattleResults({ navigation }) {
     if (!resolvedTotalVotes) return 0;
     return Math.round((votes / resolvedTotalVotes) * 100);
   };
+
+  const openBattleDetails = useCallback(
+    ({ mode = 'votes', selectedSide = '', selectedSideLabel = '' } = {}) => {
+      navigation.navigate('BattleVoteDetails', {
+        battleId,
+        battle,
+        profile: resolvedProfileType,
+        mode,
+        selectedSide,
+        selectedSideLabel,
+      });
+    },
+    [battle, battleId, navigation, resolvedProfileType],
+  );
 
   const palette = useMemo(() => {
     const primary = text || '#5a2d82';
@@ -603,18 +615,26 @@ export default function BattleResults({ navigation }) {
           )}
 
           <View style={styles.statsRow}>
-            <View style={styles.statBox}>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={() => openBattleDetails({ mode: 'votes' })}
+              style={styles.statBox}
+            >
               <Text style={styles.statLabel}>{t('battleResults.statsVotes')}</Text>
               <Text style={styles.statValue}>
                 {resolvedTotalVotes.toLocaleString()}
               </Text>
-            </View>
-            <View style={styles.statBox}>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={() => openBattleDetails({ mode: 'comments' })}
+              style={styles.statBox}
+            >
               <Text style={styles.statLabel}>{t('battleResults.statsComments')}</Text>
               <Text style={styles.statValue}>
                 {Number(totalComments).toLocaleString()}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
@@ -640,8 +660,16 @@ export default function BattleResults({ navigation }) {
           )}
 
           {options.map(item => (
-            <View
+            <TouchableOpacity
+              activeOpacity={0.9}
               key={item.id}
+              onPress={() =>
+                openBattleDetails({
+                  mode: 'votes',
+                  selectedSide: item?.side || item?.label || '',
+                  selectedSideLabel: item?.label || item?.side || '',
+                })
+              }
               style={[
                 styles.option,
                 {
@@ -688,7 +716,7 @@ export default function BattleResults({ navigation }) {
                   </>
                 );
               })()}
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>

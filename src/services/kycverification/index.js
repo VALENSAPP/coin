@@ -23,3 +23,6 @@ export const startKyc = async (userId) => {
 export const updatLoginModal = async () => {
     return axiosInstance.patch(`user/first-log/after-kyc`);
 }
+export const lockProfile = async () => {
+    return axiosInstance.get(`user/profileLock`);
+}
