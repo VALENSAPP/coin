@@ -7,11 +7,22 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
   Stop,
 } from 'react-native-svg';
-import { format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
+import { format, startOfMonth, startOfWeek } from 'date-fns';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export const SUBSCRIPTION_CHART_LINE = '#8b5cf6';
 const CHART_POINT_GAP = 46;
+
+const parseApiTimestamp = (value) => {
+  if (value == null || String(value).length === 0) return NaN;
+  if (typeof value === 'number') return value;
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number);
+    return new Date(year, month - 1, day).getTime();
+  }
+  return new Date(raw).getTime();
+};
 
 /** Bucket daily points into weekly / monthly when the API returns daily data. */
 export const aggregatePointsByInterval = (points, interval) => {
@@ -48,13 +59,14 @@ export const parseSubscriptionGraphResponse = (response, requestedInterval = 'da
   const points = raw
     .map((item, index) => {
       const dateStr =
+        item?.timestamp ??
+        item?.createdAt ??
+        item?.time ??
         item?.date ??
-        item?.label ??
         item?.day ??
         item?.week ??
         item?.month ??
-        item?.time ??
-        item?.createdAt;
+        item?.label;
       const val = Number(
         item?.amount ??
           item?.earning ??
@@ -67,11 +79,7 @@ export const parseSubscriptionGraphResponse = (response, requestedInterval = 'da
 
       let ts;
       if (dateStr != null && String(dateStr).length > 0) {
-        const rawDate = String(dateStr);
-        const parsed = rawDate.length >= 10 ? parseISO(rawDate.slice(0, 10)) : new Date(rawDate);
-        ts = parsed.getTime();
-      } else if (typeof item?.timestamp === 'number') {
-        ts = item.timestamp;
+        ts = parseApiTimestamp(dateStr);
       } else {
         ts = Date.now() - (raw.length - 1 - index) * 86400000;
       }
@@ -125,6 +133,7 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
       .map((p) => ({
         t: Number(p.timestamp),
         v: Number(p.value) || 0,
+        label: p.label,
       }))
       .filter((p) => Number.isFinite(p.t))
       .sort((a, b) => a.t - b.t);
@@ -184,6 +193,7 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
   };
 
   const formatLabel = (ts) => {
+    if (interval === 'daily') return format(ts, 'MMM d, h a');
     if (interval === 'monthly') return format(ts, 'MMM yyyy');
     return format(ts, 'MMM d');
   };
@@ -206,8 +216,7 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
 
       {labelIndexes.map((i) => {
         const item = pairedSorted[i];
-        const label = item.label;
-        if (!label) return null;
+        const ts = item.t;
         return (
           <SvgText
             key={`lb-${ts}-${i}`}
@@ -216,7 +225,7 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
             fill="#888"
             fontSize={9}
           >
-            {formatLabel(ts)}
+            {item.label || formatLabel(ts)}
           </SvgText>
         );
       })}
