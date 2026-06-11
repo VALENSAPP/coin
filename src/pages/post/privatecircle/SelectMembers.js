@@ -13,11 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { following as apiFollowing } from '../../../services/profile';
 import {
   addPrivateCircleMembers,
+  getPrivateCircleDashboard,
+  parsePrivateCircleDashboard,
   privateSetup,
   removePrivateCircleMember,
   shapePrivateCircleMember,
@@ -30,6 +32,15 @@ import { showToastMessage } from '../../../components/displaytoastmessage';
 import { useToast } from 'react-native-toast-notifications';
 import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { buildSelectedMembers } from './privateCircleFlow';
+
+const mergeMembersById = (lists) =>
+  lists.flat().reduce((acc, user) => {
+    if (!user?.id) return acc;
+    if (!acc.some((u) => String(u.id) === String(user.id))) {
+      acc.push(user);
+    }
+    return acc;
+  }, []);
 
 export default function PrivateCircleSelectMembers() {
   const navigation = useNavigation();
@@ -58,7 +69,14 @@ export default function PrivateCircleSelectMembers() {
   const [search, setSearch] = useState('');
   const [loadingPool, setLoadingPool] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [persistedIds, setPersistedIds] = useState(() => initialMembers.map((m) => String(m.id)));
+  const routePersistedIds = useMemo(() => {
+    if (!Array.isArray(route.params?.persistedIds)) return null;
+    return route.params.persistedIds.map(String).filter(Boolean);
+  }, [route.params?.persistedIds]);
+  const [persistedIds, setPersistedIds] = useState(() => {
+    if (routePersistedIds?.length) return routePersistedIds;
+    return initialMembers.map((m) => String(m.id));
+  });
   const [removingIds, setRemovingIds] = useState([]);
   const [addingIds, setAddingIds] = useState([]);
 
@@ -78,6 +96,42 @@ export default function PrivateCircleSelectMembers() {
   const loadPool = useCallback(async () => {
     setLoadingPool(true);
     try {
+      let persistedMembers = initialMembers;
+      const shouldSyncFromApi =
+        (mode === 'manage' || returnToWalletPrivateCircle) && !returnToReview;
+
+      if (shouldSyncFromApi) {
+        const dashRes = await getPrivateCircleDashboard();
+        if (isPrivateCircleApiSuccess(dashRes)) {
+          const { members } = parsePrivateCircleDashboard(dashRes);
+          persistedMembers = (Array.isArray(members) ? members : [])
+            .map(shapePrivateCircleMember)
+            .filter((member) => member.id);
+          const ids = persistedMembers.map((member) => String(member.id));
+          setPersistedIds(ids);
+          setSelectedIds(ids);
+        } else {
+          setPersistedIds([]);
+          setSelectedIds([]);
+          persistedMembers = [];
+        }
+      } else if (returnToReview) {
+        const reviewSelectedIds = Array.isArray(route.params?.selectedIds)
+          ? route.params.selectedIds.map(String).filter(Boolean)
+          : [];
+        if (reviewSelectedIds.length > 0) {
+          setSelectedIds(reviewSelectedIds);
+        }
+        if (routePersistedIds?.length) {
+          setPersistedIds(routePersistedIds);
+        } else {
+          setPersistedIds(initialMembers.map((member) => String(member.id)));
+        }
+        persistedMembers = initialMembers;
+      } else if (routePersistedIds?.length) {
+        setPersistedIds(routePersistedIds);
+      }
+
       const selfUserId = await AsyncStorage.getItem('userId');
       let users = [];
       if (selfUserId) {
@@ -89,25 +143,30 @@ export default function PrivateCircleSelectMembers() {
           .map(shapePrivateCircleMember)
           .filter((u) => u.id);
       }
-      const merged = [...initialMembers, ...users].reduce((acc, user) => {
-        if (!user?.id) return acc;
-        if (!acc.some((u) => String(u.id) === String(user.id))) {
-          acc.push(user);
-        }
-        return acc;
-      }, []);
-      setPoolMembers(merged);
+
+      setPoolMembers(mergeMembersById([persistedMembers, initialMembers, users]));
     } catch {
       showToastMessage(toast, 'danger', t('privateCircleMint.loadMembersError'));
       setPoolMembers(initialMembers);
     } finally {
       setLoadingPool(false);
     }
-  }, [initialMembers, t, toast]);
+  }, [
+    initialMembers,
+    mode,
+    returnToReview,
+    returnToWalletPrivateCircle,
+    route.params?.selectedIds,
+    routePersistedIds,
+    t,
+    toast,
+  ]);
 
-  useEffect(() => {
-    loadPool();
-  }, [loadPool]);
+  useFocusEffect(
+    useCallback(() => {
+      loadPool();
+    }, [loadPool]),
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -13,15 +13,25 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 export const SUBSCRIPTION_CHART_LINE = '#8b5cf6';
 const CHART_POINT_GAP = 46;
 
-const parseApiTimestamp = (value) => {
-  if (value == null || String(value).length === 0) return NaN;
-  if (typeof value === 'number') return value;
-  const raw = String(value).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const [year, month, day] = raw.split('-').map(Number);
-    return new Date(year, month - 1, day).getTime();
+const getChartPointGap = (interval, pointCount) => {
+  if (interval === 'monthly') return pointCount > 10 ? 56 : 64;
+  if (interval === 'weekly') return pointCount > 12 ? 48 : 54;
+  return CHART_POINT_GAP;
+};
+
+/** Show every bucket label for monthly/weekly; sample crowded daily series. */
+const buildLabelIndexes = (count, interval) => {
+  if (count <= 0) return [];
+  if (count === 1) return [0];
+  if (interval === 'monthly' || interval === 'weekly') {
+    return Array.from({ length: count }, (_, i) => i);
   }
-  return new Date(raw).getTime();
+  const maxLabels = Math.min(7, count);
+  const set = new Set([0, count - 1]);
+  for (let k = 1; k < maxLabels - 1; k++) {
+    set.add(Math.round((k / (maxLabels - 1)) * (count - 1)));
+  }
+  return [...set].sort((a, b) => a - b);
 };
 
 /** Bucket daily points into weekly / monthly when the API returns daily data. */
@@ -46,27 +56,99 @@ export const aggregatePointsByInterval = (points, interval) => {
   });
 
   return [...buckets.entries()]
-    .map(([timestamp, value]) => ({ timestamp, value }))
+    .map(([timestamp, value]) => ({
+      timestamp,
+      value,
+      label:
+        interval === 'monthly'
+          ? formatMonthlyChartLabel(timestamp)
+          : format(timestamp, 'MMM d'),
+    }))
     .sort((a, b) => a.timestamp - b.timestamp);
+};
+
+const parseBucketDate = (rawDate) => {
+  const value = String(rawDate).trim();
+  if (!value) return null;
+
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    const parsed = parseISO(`${value}-01`);
+    return isNaN(parsed.getTime()) ? null : parsed.getTime();
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const parsed = parseISO(value.slice(0, 10));
+    return isNaN(parsed.getTime()) ? null : parsed.getTime();
+  }
+
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed.getTime();
+};
+
+const resolveGraphTimestamp = (item, index, raw, interval) => {
+  const dateStr =
+    item?.month ??
+    item?.week ??
+    item?.day ??
+    item?.date ??
+    item?.label ??
+    item?.time ??
+    item?.createdAt ??
+    item?.timestamp;
+
+  if (dateStr != null && String(dateStr).length > 0) {
+    if (typeof dateStr === 'number' && Number.isFinite(dateStr)) {
+      return dateStr;
+    }
+    const ts = parseBucketDate(dateStr);
+    if (ts != null) return ts;
+  }
+
+  if (interval === 'daily' && item?.label && /^\d{1,2}:\d{2}$/.test(String(item.label))) {
+    const [hour, minute] = String(item.label).split(':').map(Number);
+    const fallback = new Date();
+    fallback.setHours(Number(hour) || 0, Number(minute) || 0, 0, 0);
+    return fallback.getTime();
+  }
+
+  return Date.now() - (raw.length - 1 - index) * 86400000;
+};
+
+const formatMonthlyChartLabel = (timestamp) => format(timestamp, 'MMM yy');
+
+const resolveGraphLabel = (item, timestamp, interval) => {
+  const bucket = item?.month ?? item?.week ?? item?.day ?? item?.date ?? item?.label;
+  if (bucket != null && String(bucket).trim()) {
+    const bucketTs = parseBucketDate(bucket);
+    if (bucketTs != null) {
+      if (interval === 'monthly') return formatMonthlyChartLabel(bucketTs);
+      if (interval === 'weekly') return format(bucketTs, 'MMM d');
+      return format(bucketTs, 'MMM d');
+    }
+  }
+
+  if (interval === 'monthly') return formatMonthlyChartLabel(timestamp);
+  if (interval === 'weekly') return format(timestamp, 'MMM d');
+  return format(timestamp, 'MMM d');
 };
 
 /** Parse `billing/subscription-earning/graph` → points + summary */
 export const parseSubscriptionGraphResponse = (response, requestedInterval = 'daily') => {
-  const root = response?.data ?? response;
-  const raw = Array.isArray(root?.points) ? root.points : [];
+  const root = response?.data?.data ?? response?.data ?? response;
+  const raw = Array.isArray(root?.points)
+    ? root.points
+    : Array.isArray(root)
+      ? root
+      : root?.graph ??
+        root?.history ??
+        root?.series ??
+        root?.items ??
+        (Array.isArray(root?.data) ? root.data : []);
   const responseInterval = root?.interval ?? null;
+  const normalizedInterval = requestedInterval || responseInterval || 'daily';
 
-  const points = raw
+  const points = (Array.isArray(raw) ? raw : [])
     .map((item, index) => {
-      const dateStr =
-        item?.timestamp ??
-        item?.createdAt ??
-        item?.time ??
-        item?.date ??
-        item?.day ??
-        item?.week ??
-        item?.month ??
-        item?.label;
       const val = Number(
         item?.amount ??
           item?.earning ??
@@ -77,16 +159,12 @@ export const parseSubscriptionGraphResponse = (response, requestedInterval = 'da
           0,
       );
 
-      let ts;
-      if (dateStr != null && String(dateStr).length > 0) {
-        ts = parseApiTimestamp(dateStr);
-      } else {
-        ts = Date.now() - (raw.length - 1 - index) * 86400000;
-      }
+      const ts = resolveGraphTimestamp(item, index, raw, normalizedInterval);
 
       return {
         timestamp: ts,
         value: Number.isFinite(val) ? val : 0,
+        label: resolveGraphLabel(item, ts, normalizedInterval),
       };
     })
     .filter((p) => !isNaN(p.timestamp) && Number.isFinite(p.value))
@@ -95,7 +173,6 @@ export const parseSubscriptionGraphResponse = (response, requestedInterval = 'da
   const totalAmount = Number(root?.totalAmount);
   const computedTotal = points.reduce((sum, p) => sum + p.value, 0);
 
-  const normalizedInterval = requestedInterval || responseInterval || 'daily';
   const shouldAggregate =
     normalizedInterval !== 'daily' &&
     (responseInterval === 'daily' || responseInterval == null);
@@ -139,10 +216,10 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
       .sort((a, b) => a.t - b.t);
   }, [points]);
 
-  const padL = 32;
-  const padR = 32;
+  const padL = interval === 'monthly' ? 20 : 32;
+  const padR = interval === 'monthly' ? 20 : 32;
   const padT = 8;
-  const padB = 30;
+  const padB = interval === 'monthly' ? 34 : 30;
   const innerW = Math.max(chartWidth - padL - padR, 1);
   const innerH = Math.max(chartHeight - padT - padB, 1);
   const n = pairedSorted.length;
@@ -151,16 +228,10 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
     padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW),
   );
 
-  const labelIndexes = useMemo(() => {
-    if (n <= 0) return [];
-    if (n === 1) return [0];
-    const maxLabels = Math.min(7, n);
-    const set = new Set([0, n - 1]);
-    for (let k = 1; k < maxLabels - 1; k++) {
-      set.add(Math.round((k / (maxLabels - 1)) * (n - 1)));
-    }
-    return [...set].sort((a, b) => a - b);
-  }, [n]);
+  const labelIndexes = useMemo(
+    () => buildLabelIndexes(n, interval),
+    [n, interval],
+  );
 
   const values = pairedSorted.map((r) => r.v);
   let min = Math.min(...values);
@@ -193,10 +264,14 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
   };
 
   const formatLabel = (ts) => {
-    if (interval === 'daily') return format(ts, 'MMM d, h a');
-    if (interval === 'monthly') return format(ts, 'MMM yyyy');
-    return format(ts, 'MMM d');
+    const date = new Date(ts);
+    if (Number.isNaN(date.getTime())) return '';
+    if (interval === 'monthly') return formatMonthlyChartLabel(date);
+    if (interval === 'weekly') return format(date, 'MMM d');
+    return format(date, 'MMM d');
   };
+
+  const labelFontSize = interval === 'monthly' && n > 8 ? 8 : 9;
 
   return (
     <Svg width={chartWidth} height={chartHeight}>
@@ -217,15 +292,19 @@ function SubscriptionTrendSvg({ points, chartWidth, chartHeight, lineColor, inte
       {labelIndexes.map((i) => {
         const item = pairedSorted[i];
         const ts = item.t;
+        const displayLabel = item.label || formatLabel(ts);
+        if (!displayLabel) return null;
+        const anchor = interval === 'monthly' || interval === 'weekly' ? 'middle' : 'middle';
         return (
           <SvgText
             key={`lb-${ts}-${i}`}
             x={xs[i]}
             y={chartHeight - 4}
             fill="#888"
-            fontSize={9}
+            fontSize={labelFontSize}
+            textAnchor={anchor}
           >
-            {item.label || formatLabel(ts)}
+            {displayLabel}
           </SvgText>
         );
       })}
@@ -254,19 +333,21 @@ export default function SubscriptionTrendChart({
   const chartScrollWidth = useMemo(() => {
     const n = points.length;
     if (n <= 1) return chartViewportWidth;
-    return Math.round(Math.max(chartViewportWidth, 16 + (n - 1) * CHART_POINT_GAP));
-  }, [chartViewportWidth, points.length]);
+    const gap = getChartPointGap(interval, n);
+    return Math.round(Math.max(chartViewportWidth, 40 + (n - 1) * gap));
+  }, [chartViewportWidth, interval, points.length]);
 
   useEffect(() => {
     if (!hasData || chartScrollWidth <= chartViewportWidth) return;
     const timer = setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        x: Math.max(chartScrollWidth - chartViewportWidth, 0),
-        animated: false,
-      });
+      const scrollX =
+        interval === 'monthly' || interval === 'weekly'
+          ? 0
+          : Math.max(chartScrollWidth - chartViewportWidth, 0);
+      scrollRef.current?.scrollTo({ x: scrollX, animated: false });
     }, 0);
     return () => clearTimeout(timer);
-  }, [hasData, chartScrollWidth, chartViewportWidth, points]);
+  }, [hasData, chartScrollWidth, chartViewportWidth, interval, points]);
 
   if (loading) {
     return (

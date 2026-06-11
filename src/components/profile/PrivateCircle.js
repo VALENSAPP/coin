@@ -223,9 +223,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const isFocused = useIsFocused();
   const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
   const isWalletPrivateCircle = skipPrivateCircleApi && !userData?.id;
+  const privateCircleRefreshAt = route?.params?.privateCircleRefreshAt;
+  const isOwnContent = isOwnProfile || isWalletPrivateCircle;
 
   useScreenshotProtection({
-    enabled: isFocused,
+    enabled: isFocused && !isOwnContent,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
@@ -259,13 +261,13 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
           : Array.isArray(payload?.data)
             ? payload.data
             : [];
-      console.log('PrivateCircle raw posts fetched:', { sample: formattedData });
+
       // Only posts where visibleTo has a non-empty value = Private Circle posts
-      // const filteredData = formattedData.filter(
-      //   (post) => post?.type == "private_circles",
-      // );
-      console.log('PrivateCircle fetched posts:', { total: formattedData.length, filtered: formattedData });
-      setPosts(formattedData);
+      const filteredData = formattedData.filter(
+        (post) => post?.visibleTo && post.visibleTo !== '',
+      );
+
+      setPosts(filteredData);
     } catch (error) {
       console.log('PrivateCircle fetchPosts error:', error);
       setPosts([]);
@@ -434,6 +436,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  useEffect(() => {
+    if (!privateCircleRefreshAt || !isWalletPrivateCircle) return;
+    fetchDashboardData();
+  }, [privateCircleRefreshAt, isWalletPrivateCircle, fetchDashboardData]);
+
   useFocusEffect(
     useCallback(() => {
       checkMembershipAndFetch();
@@ -460,12 +467,14 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         if (parent?.navigate) {
           parent.navigate('FlipsScreen', {
             item,
+            userId: userData?.id,
             screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
           });
           return;
         }
         navigation.navigate('FlipsScreen', {
           item,
+          userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
         });
         return;
@@ -481,12 +490,14 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
           postData: imagePosts,
           startIndex: nextIndex,
           hideTabBar: true,
+          userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
         },
       });
     },
-    [navigation, posts],
+    [navigation, posts, userData?.id],
   );
+
 
   // ── Grid render ───────────────────────────────────────────────────────────
   const renderItem = useCallback(
@@ -783,6 +794,16 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         <ActivityIndicator size="large" color={text} />
       </View>
     );
+  }
+
+  // ── Not a member → info card ──────────────────────────────────────────────
+  if (!isMember) {
+    return <InfoCard />;
+  }
+
+  // ── Member but no posts → info card ──────────────────────────────────────
+  if (posts.length === 0) {
+    return <InfoCard />;
   }
 
   // ── Member + posts → grid ─────────────────────────────────────────────────

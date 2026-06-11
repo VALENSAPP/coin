@@ -31,23 +31,81 @@ export const isPrivateContentPost = post => {
   return type === 'private';
 };
 
-export const shouldProtectScreenshot = ({ posts = [], routeParams = {} } = {}) => {
+const resolveOwnerId = (...candidates) => {
+  for (const candidate of candidates) {
+    if (candidate == null || candidate === '') continue;
+
+    if (typeof candidate === 'string' || typeof candidate === 'number') {
+      const id = String(candidate).trim();
+      if (id) return id;
+      continue;
+    }
+
+    if (typeof candidate === 'object') {
+      const id =
+        candidate.id ??
+        candidate._id ??
+        candidate.userId ??
+        candidate.UserId;
+      if (id != null && String(id).trim()) return String(id);
+    }
+  }
+
+  return '';
+};
+
+const isSameUser = (leftUserId, rightUserId) => {
+  const left = String(leftUserId || '').trim();
+  const right = String(rightUserId || '').trim();
+  return Boolean(left && right && left === right);
+};
+
+const resolvePostOwnerId = post =>
+  resolveOwnerId(post?.userId, post?.UserId, post?.user);
+
+export const shouldProtectScreenshot = ({
+  posts = [],
+  routeParams = {},
+  currentUserId = '',
+  contentUserId = '',
+} = {}) => {
+  const normalizedCurrentUserId = String(currentUserId || '').trim();
+  const normalizedPosts = Array.isArray(posts) ? posts.filter(Boolean) : [];
+
   const source =
     routeParams.screenshotProtectionSource ?? routeParams.contentProtection;
 
-  if (
+  const isRestrictedSource =
     source === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT ||
-    source === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE
-  ) {
-    return true;
-  }
+    source === SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE;
 
-  const normalizedPosts = Array.isArray(posts) ? posts.filter(Boolean) : [];
-  if (normalizedPosts.length === 0) return false;
-
-  return normalizedPosts.some(
+  const privatePosts = normalizedPosts.filter(
     post => isPrivateCirclePost(post) || isPrivateContentPost(post),
   );
+
+  const hasRestrictedContent = isRestrictedSource || privatePosts.length > 0;
+  if (!hasRestrictedContent) return false;
+
+  const contentOwnerId = resolveOwnerId(
+    contentUserId,
+    routeParams.userId,
+    routeParams.userData?.id,
+    routeParams.userData?.userId,
+  );
+
+  if (isSameUser(normalizedCurrentUserId, contentOwnerId)) {
+    return false;
+  }
+
+  if (privatePosts.length > 0) {
+    if (!normalizedCurrentUserId) return true;
+
+    return privatePosts.some(
+      post => !isSameUser(normalizedCurrentUserId, resolvePostOwnerId(post)),
+    );
+  }
+
+  return isRestrictedSource;
 };
 
 const captureEventLabel = eventType => {
