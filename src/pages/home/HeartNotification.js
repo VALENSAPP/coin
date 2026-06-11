@@ -118,6 +118,7 @@ const isBattleNotificationType = type =>
     'battle_invite_expired',
     'battle_forecast_missed',
     'battle_closed',
+    'battle_new'
   ].includes(normalizeNotificationType(type));
 const isCommentType = type =>
   normalizeNotificationType(type).includes('comment');

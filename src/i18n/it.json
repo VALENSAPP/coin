@@ -627,7 +627,7 @@
     "learnMore": "Scopri di più.",
     "shareYourLink": "Condividi il tuo link",
     "yourInvites": "I tuoi inviti",
-    "yourInvitesSubtitle": "Invita il tuo primo utente per guadagnare 1000 punti.",
+    "yourInvitesSubtitle": "Invita il tuo primo utente per guadagnare 500 punti.",
     "referralCodeLabel": "Codice referral:",
     "deepLinkLabel": "Deep Link:",
     "copiedTitle": "Copiato!",
@@ -3234,5 +3234,11 @@
   },
   "tabNav": {
     "editProfile": "Modifica Profilo"
+  },
+  "blockedVerification": {
+    "accountBlocked": "Il tuo account è bloccato",
+    "blockedMessage": "Il tuo account è stato bloccato perché la verifica del profilo non è stata completata entro 3 giorni.",
+    "completeVerification": "Completa il tuo {{verificationType}} per sbloccare il tuo account e continuare a utilizzare Valens.",
+    "completeButton": "Completa {{verificationType}}"
   }
 }

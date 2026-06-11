@@ -282,9 +282,17 @@ export default function LoginScreen() {
           const lockResponse = await lockProfile();
           const isLock = String(lockResponse?.data?.isLock ?? '').toLowerCase() === 'true';
           if (isLock) {
+            const userId = response.data.user.id;
+
             await AsyncStorage.clear();
+
+            if (userId) {
+              await AsyncStorage.setItem('userId', userId);
+            }
+
             dispatch(setUserProfile('normal'));
             dispatch(setIsAddAccount(false));
+
             navigation.reset({
               index: 0,
               routes: [
@@ -294,6 +302,7 @@ export default function LoginScreen() {
                 },
               ],
             });
+
             return;
           }
         } catch (lockError) {

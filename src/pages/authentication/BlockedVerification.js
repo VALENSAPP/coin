@@ -8,10 +8,12 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 export default function BlockedVerification() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useLanguage();
   const normalizedProfileType = String(route?.params?.profile || 'user').toLowerCase();
   const profileType =
     normalizedProfileType === 'company' || normalizedProfileType === 'business'
@@ -26,7 +28,7 @@ export default function BlockedVerification() {
       return;
     }
 
-    navigation.navigate('KycVerifyAuth', { profile: 'user' });
+    navigation.navigate('KycVerifyAuth', { profile: 'user', fromRoute: 'BlockedVerification' });
   };
 
   return (
@@ -38,15 +40,17 @@ export default function BlockedVerification() {
           </View>
 
           <Text style={[styles.title, { color: text }]}>
-            Your account is blocked
+            {t('blockedVerification.accountBlocked')}
           </Text>
 
           <Text style={styles.message}>
-            Your account is blocked because profile verification was not completed within 3 days.
+            {t('blockedVerification.blockedMessage')}
           </Text>
 
           <Text style={styles.subMessage}>
-            Complete your {verificationType} to unlock your account and continue using Valens.
+            {t('blockedVerification.completeVerification', {
+              verificationType,
+            })}
           </Text>
 
           <TouchableOpacity
@@ -54,7 +58,11 @@ export default function BlockedVerification() {
             onPress={handleCompleteVerification}
             style={[styles.button, { backgroundColor: text }]}
           >
-            <Text style={styles.buttonText}>Complete {verificationType}</Text>
+            <Text style={styles.buttonText}>
+              {t('blockedVerification.completeButton', {
+                verificationType,
+              })}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
