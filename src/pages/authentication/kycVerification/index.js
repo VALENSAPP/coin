@@ -43,6 +43,7 @@ export default function KYCVerification({ route }) {
     const profileData = route?.params?.profileData ?? null;
     const serverProfile = route?.params?.serverProfile ?? null;
     const profileFromRoute = route?.params?.profile || profileData?.profile || serverProfile?.profile || 'user';
+    const getLastRoute = route?.params?.fromRoute || null;
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { t } = useLanguage();
@@ -50,8 +51,8 @@ export default function KYCVerification({ route }) {
     // Build translated document types inside component so t() is in scope
     const DOCUMENT_TYPES = [
         { label: t('kyc.documentTypes.drivingLicense'), value: 'DRIVERS_LICENSE' },
-        { label: t('kyc.documentTypes.passport'),       value: 'PASSPORT' },
-        { label: t('kyc.documentTypes.idCard'),         value: 'ID_CARD' },
+        { label: t('kyc.documentTypes.passport'), value: 'PASSPORT' },
+        { label: t('kyc.documentTypes.idCard'), value: 'ID_CARD' },
     ];
 
     useEffect(() => {
@@ -273,6 +274,9 @@ export default function KYCVerification({ route }) {
 
     const fetchKycStatus = async () => {
         try {
+            if (getLastRoute == 'BlockedVerification') {
+                return;
+            }
             dispatch(showLoader());
             const storedUserId = await AsyncStorage.getItem('userId');
             const effectiveUserId = storedUserId || profileData?.userId || profileData?.id || serverProfile?.userId || serverProfile?.id;

@@ -396,8 +396,8 @@ const Usersprofile = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#007AFF']}
-            tintColor="#007AFF"
+            colors={['#fff']}
+            tintColor="#fff"
           />
         }
       >

@@ -7,7 +7,7 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
   Stop,
 } from 'react-native-svg';
-import { format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
+import { format, startOfMonth, startOfWeek } from 'date-fns';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export const SUBSCRIPTION_CHART_LINE = '#8b5cf6';

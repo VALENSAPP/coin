@@ -124,34 +124,45 @@ const formatActivityBucketLabel = (timestamp, range) => {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '';
   if (range === 'daily') {
-    return `${pad2(date.getUTCHours())}:00`;
+    return `${pad2(date.getHours())}:00`;
   }
-  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 };
 
 const normalizeActivityTimestamp = (timestamp, range) => {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return NaN;
   if (range === 'daily') {
-    date.setUTCMinutes(0, 0, 0);
+    date.setMinutes(0, 0, 0);
   } else {
-    date.setUTCHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
   }
   return date.getTime();
 };
 
+const parseApiTimestamp = (value) => {
+  if (value == null || String(value).length === 0) return NaN;
+  if (typeof value === 'number') return value;
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number);
+    return new Date(year, month - 1, day).getTime();
+  }
+  return new Date(raw).getTime();
+};
+
 const resolveActivityTimestamp = (item, index, raw, range) => {
   const dateStr =
-    item?.date ?? item?.day ?? item?.createdAt ?? item?.timestamp ?? item?.time;
+    item?.timestamp ?? item?.createdAt ?? item?.time ?? item?.date ?? item?.day;
   if (dateStr != null && String(dateStr).length > 0) {
-    const ts = typeof dateStr === 'number' ? dateStr : new Date(dateStr).getTime();
+    const ts = parseApiTimestamp(dateStr);
     if (Number.isFinite(ts)) return normalizeActivityTimestamp(ts, range);
   }
 
   if (range === 'daily' && item?.label && /^\d{1,2}:\d{2}$/.test(String(item.label))) {
     const [hour, minute] = String(item.label).split(':').map(Number);
     const fallback = new Date();
-    fallback.setUTCHours(Number(hour) || 0, Number(minute) || 0, 0, 0);
+    fallback.setHours(Number(hour) || 0, Number(minute) || 0, 0, 0);
     return fallback.getTime();
   }
 
@@ -564,6 +575,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   } = useWalletConnectSupport();
   const purchaseSheetRef = useRef(null);
   const sellSheetRef = useRef(null);
+  const activityChartScrollRef = useRef(null);
   const { bgStyle, textStyle, text } = useAppTheme();
   const [userWalletData, setUserWalletData] = useState({
     stripeCustomerId: '',
@@ -593,6 +605,17 @@ export const WalletDashboardScreen = ({ navigation }) => {
     if (n <= 1) return activityChartW;
     return Math.round(Math.max(activityChartW, 16 + (n - 1) * ACTIVITY_CHART_POINT_GAP));
   }, [activityChartW, activityTimestamps.length]);
+
+  useEffect(() => {
+    if (!hasActivityChartData || activityChartScrollWidth <= activityChartW) return;
+    const timer = setTimeout(() => {
+      activityChartScrollRef.current?.scrollTo({
+        x: Math.max(activityChartScrollWidth - activityChartW, 0),
+        animated: false,
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activityChartScrollWidth, activityChartW, hasActivityChartData, activityTimestamps]);
 
   const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
   const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
@@ -1726,6 +1749,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
             {hasActivityChartData ? (
               <>
                 <ScrollView
+                  ref={activityChartScrollRef}
                   horizontal
                   nestedScrollEnabled
                   keyboardShouldPersistTaps="handled"

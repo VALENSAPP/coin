@@ -104,9 +104,9 @@ const ProfileScreen = () => {
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
             // already a full URL, use as-is
           } else if (formattedImageUrl.startsWith('/')) {
-            formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
+            formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
           } else {
-            formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
+            formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
           }
 
           userDataToSet.image = formattedImageUrl;

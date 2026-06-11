@@ -632,7 +632,7 @@
     "learnMore": "Saiba mais.",
     "shareYourLink": "Compartilhe seu link",
     "yourInvites": "Seus convites",
-    "yourInvitesSubtitle": "Convide seu primeiro usuário para ganhar 1000 pontos.",
+    "yourInvitesSubtitle": "Convide seu primeiro usuário para ganhar 500 pontos.",
     "referralCodeLabel": "Código de indicação:",
     "deepLinkLabel": "Link profundo:",
     "copiedTitle": "Copiado!",
@@ -2865,8 +2865,10 @@
     "shopGuestDescription": "Explore a coleção, descubra novas peças e experimente a marca por trás dela.",
     "shopNowButton": "Comprar agora",
     "lockedTitle": "Assine para desbloquear conteúdo privado",
-    "lockedSubtitle": "As publicações exclusivas estão disponíveis apenas para assinantes ativos."
-  },
+    "lockedSubtitle": "As publicações exclusivas estão disponíveis apenas para assinantes ativos.",
+    "notCircleMemberTitle": "Post do círculo privado",
+    "notCircleMemberMessage": "Você não pode ver esta publicação pois não é membro do círculo privado deste usuário."
+      },
   "battleHub": {
     "heroEyebrow": "Desempenho em Batalhas",
     "heroTitle": "Compita, preveja e construa sua reputação no Valens.",
@@ -3237,5 +3239,11 @@
   },
   "tabNav": {
     "editProfile": "Editar Perfil"
+  },
+  "blockedVerification": {
+    "accountBlocked": "Sua conta está bloqueada",
+    "blockedMessage": "Sua conta foi bloqueada porque a verificação do perfil não foi concluída dentro de 3 dias.",
+    "completeVerification": "Conclua seu {{verificationType}} para desbloquear sua conta e continuar usando o Valens.",
+    "completeButton": "Concluir {{verificationType}}"
   }
 }

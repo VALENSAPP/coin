@@ -18,7 +18,7 @@ import WelcomeValensModal from './components/modals/WelcomeValensModal';
 import { ensureCurrentAccountSaved } from './utils/accountSession';
 import { parseProfileShareUrl } from './utils/profileShare';
 import { authSesionHistory } from './services/wallet';
-import { updatLoginModal } from './services/kycverification';
+import { lockProfile, updatLoginModal } from './services/kycverification';
 import { useLanguage } from './i18n';
 import { useNotificationToast } from './utils/useNotificationToast';
 import { initializeSocket } from './services/socket';
@@ -26,6 +26,7 @@ import { getUserCredentials } from './services/post';
 import { getAllUser } from './services/users';
 import useNotificationSetup from './utils/useNotificationSetup';
 import { requestUserPermission } from './services/NotificationService';
+import ProfileVerificationReminderModal from './components/modals/ProfileVerificationReminderModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -80,6 +81,9 @@ export default function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [lockModal, setlockModal] = useState(false);
+  const [blockedVerificationProfile, setBlockedVerificationProfile] = useState(null);
+  const [verificationProfileType, setVerificationProfileType] = useState('user');
   const [message, setMessage] = useState('');
 
   const userProfile = useSelector(state => state.userProfile.userProfile);
@@ -95,6 +99,7 @@ export default function Main() {
   const isLoadingRef = useRef(true);
   const appState = useRef(AppState.currentState);
   const welcomeModalCloseInFlight = useRef(false);
+  const lockLogoutInFlight = useRef(false);
 
   const { activeNotification, showNotificationToast, dismissNotificationToast } =
     useNotificationToast();
@@ -148,22 +153,28 @@ export default function Main() {
 
   const checkKycAndShowWelcomeModal = React.useCallback(async () => {
     try {
-      if (!isLoggedIn) { setWelcomeModalVisible(false); return; }
+      if (!isLoggedIn) {
+        setWelcomeModalVisible(false);
+        setlockModal(false);
+        return;
+      }
 
       const id = await AsyncStorage.getItem('userId');
       if (!id) return;
 
-      const [hasShownWelcome, hasShownLegacy] = await Promise.all([
+      const [hasShownWelcome, hasShownLegacy, storedProfileType] = await Promise.all([
         AsyncStorage.getItem(KYC_WELCOME_SHOWN_KEY),
         AsyncStorage.getItem(LEGACY_KYC_WELCOME_SHOWN_KEY),
+        AsyncStorage.getItem('profile'),
       ]);
-      if (hasShownWelcome || hasShownLegacy) { setWelcomeModalVisible(false); return; }
 
       const response = await getUserCredentials(id);
-      console.log(response, 'fdATA');
+      console.log(response, 'fdATAresponseresponseresponseresponseresponseresponse');
       if (response?.statusCode !== 200) return;
 
       const userData = response?.data?.user || response?.data || response;
+      const kycStatus = userData?.kycStatus !=='APPROVED' ;
+      const profile = userData?.profile ;
       const kycApproved = userData?.kyc === true || String(userData?.kyc || '').toLowerCase() === 'true';
       const firstLogRaw =
         userData?.first_log ??
@@ -174,10 +185,28 @@ export default function Main() {
       const firstLog = firstLogRaw === true || String(firstLogRaw || '').toLowerCase() === 'true';
 
       setWelcomeModalVisible(kycApproved && firstLog);
+      setlockModal(!kycApproved)
+      setVerificationProfileType(profile)
     } catch (error) {
       console.log('KYC polling check failed:', error?.message || error);
     }
   }, [isLoggedIn]);
+
+  const handleVerificationDoNow = React.useCallback(() => {
+    setlockModal(false);
+    if (!navigationRef.current || !isNavigationReadyRef.current) return;
+
+    if (verificationProfileType === 'company') {
+      navigationRef.current.navigate(isLoggedIn ? 'BusinessSetup' : 'BusinessSetupAuth', {
+        profile: 'company',
+      });
+      return;
+    }
+
+    navigationRef.current.navigate(isLoggedIn ? 'kycverify' : 'KycVerifyAuth', {
+      profile: 'user',
+    });
+  }, [isLoggedIn, verificationProfileType]);
 
   const handleWelcomeModalClose = async () => {
     if (welcomeModalCloseInFlight.current) return;
@@ -203,17 +232,73 @@ export default function Main() {
     }
   };
 
+  const blockProfile = React.useCallback(async () => {
+    try {
+      if (lockLogoutInFlight.current) return;
+
+      const response = await lockProfile();
+      console.log(response, 'llick profilee e reposneenenene')
+      const isLock = String(response?.data?.isLock ?? '').toLowerCase() === 'true';
+      if (!isLock) return;
+
+      lockLogoutInFlight.current = true;
+      const storedProfileType = await AsyncStorage.getItem('profile');
+      const normalizedProfileType = String(storedProfileType || verificationProfileType || '').toLowerCase();
+      setVerificationProfileType(
+        normalizedProfileType === 'company' || normalizedProfileType === 'business'
+          ? 'company'
+          : 'user',
+      );
+      setlockModal(false);
+      setWelcomeModalVisible(false);
+      setBlockedVerificationProfile(
+        normalizedProfileType === 'company' || normalizedProfileType === 'business'
+          ? 'company'
+          : 'user',
+      );
+      dispatch(setUserProfile('normal'));
+      await AsyncStorage.clear();
+      dispatch(loggedOut());
+    } catch (err) {
+      lockLogoutInFlight.current = false;
+      console.log(err)
+    }
+  }, [dispatch, verificationProfileType])
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    blockProfile();
+  }, [blockProfile, isLoggedIn])
+
+  useEffect(() => {
+    if (
+      !blockedVerificationProfile ||
+      isLoggedIn ||
+      isLoading ||
+      !isNavigationReady ||
+      !navigationRef.current
+    ) {
+      return;
+    }
+
+    navigationRef.current.navigate('BlockedVerification', {
+      profile: blockedVerificationProfile,
+    });
+    setBlockedVerificationProfile(null);
+  }, [blockedVerificationProfile, isLoading, isLoggedIn, isNavigationReady]);
+
   useEffect(() => {
     if (!isLoggedIn) return;
     checkKycAndShowWelcomeModal();
     const intervalId = setInterval(() => {
       checkKycAndShowWelcomeModal();
-    }, 60000);
+      blockProfile();
+    }, 90000);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [checkKycAndShowWelcomeModal, isLoggedIn]);
+  }, [blockProfile, checkKycAndShowWelcomeModal, isLoggedIn]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Bootstrap: session check + deep-link wiring
@@ -549,6 +634,12 @@ export default function Main() {
       <WelcomeValensModal
         visible={welcomeModalVisible}
         onClose={handleWelcomeModalClose}
+      />
+      <ProfileVerificationReminderModal
+        visible={lockModal}
+        profileType={verificationProfileType}
+        onDoNow={handleVerificationDoNow}
+        onLater={() => setlockModal(false)}
       />
     </ThemeProvider>
   );

@@ -75,9 +75,9 @@ export const SettingsScreen = ({ navigation }) => {
           if (formattedImageUrl.startsWith('http://') || formattedImageUrl.startsWith('https://')) {
             console.log('Image URL is already absolute:', formattedImageUrl);
           } else if (formattedImageUrl.startsWith('/')) {
-            formattedImageUrl = `http://35.174.167.92:3002${formattedImageUrl}`;
+            formattedImageUrl = `https://api.valens.app${formattedImageUrl}`;
           } else {
-            formattedImageUrl = `http://35.174.167.92:3002/${formattedImageUrl}`;
+            formattedImageUrl = `https://api.valens.app/${formattedImageUrl}`;
           }
 
           userDataToSet.image = formattedImageUrl;

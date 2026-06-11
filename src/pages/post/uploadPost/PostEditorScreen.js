@@ -270,6 +270,7 @@ const PostEditorScreen = () => {
         name: getMediaUri(img).split('/').pop()
       })),
       type:
+        postType === 'private_circle' ? 'private_circle' :
         postType === 'private'
           ? 'private'
           : fromIcon === 'Flips'

@@ -131,6 +131,62 @@ const ProfileTabs = memo(({
     }
   }, [navigation, t, toast]);
 
+  // ── Tab screens — stable identity, only remount when data deps change ────────
+  const tabScreens = useMemo(() => ({
+    posts: (
+      <PostsScreen
+        postCheck={post}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+        onPostPinChanged={onPostPinChanged}
+        scrollEnabled={false}
+      />
+    ),
+    privateCircle: (
+      <PrivateCircle
+        isOwnProfile={isOwnProfile}
+        userData={userData}
+        onStartPress={handlePrivateCircleStartPress}
+        loggedInUserId={loggedInUserId}
+      />
+    ),
+    reels: (
+      <ReelsScreen
+        postCheck={post}
+        userData={userData}
+        isOwnProfile={isOwnProfile}
+        onPostPinChanged={onPostPinChanged}
+        scrollEnabled={false}
+      />
+    ),
+    privateContent: (
+      <PrivateContentScreen
+        postCheck={post}
+        userData={userData}
+        isSubscribed={isSubscribed}
+        loggedInUserId={loggedInUserId}
+        onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
+        isCompany={userData?.profile === 'company'}
+        refreshKey={`${refreshKey ?? 0}-${privateKey}`}
+        scrollEnabled={false}
+      />
+    ),
+    closet: (
+      <Shop isOwnProfile={isOwnProfile} userData={userData} />
+    ),
+  }), [
+    post,
+    userData,
+    isOwnProfile,
+    isSubscribed,
+    loggedInUserId,
+    refreshKey,
+    privateKey,
+    handlePrivateCircleStartPress,
+    onPostPinChanged,
+  ]);
+
+  // ── Tab metadata — icons/labels/onPress only, NO screen elements ─────────────
   const tabs = useMemo(() => {
     const list = [
       {
@@ -138,15 +194,6 @@ const ProfileTabs = memo(({
         label: t('profileTabs.postsTab'),
         icon: (focused) => (
           <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? text : '#6b7280'} />
-        ),
-        screen: (
-          <PostsScreen
-            postCheck={post}
-            userData={userData}
-            isOwnProfile={isOwnProfile}
-            onPostPinChanged={onPostPinChanged}
-            scrollEnabled={false}
-          />
         ),
       },
       {
@@ -158,29 +205,12 @@ const ProfileTabs = memo(({
             style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
           />
         ),
-        screen: (
-          <PrivateCircle
-            isOwnProfile={isOwnProfile}
-            userData={userData}
-            onStartPress={handlePrivateCircleStartPress}
-            loggedInUserId={loggedInUserId}
-          />
-        ),
       },
       {
         key: 'reels',
         label: t('profileTabs.reelsTab'),
         icon: (focused) => (
           <ProfileReelIcon fill={focused ? text : '#6b7280'} height={24} width={24} />
-        ),
-        screen: (
-          <ReelsScreen
-            postCheck={post}
-            userData={userData}
-            isOwnProfile={isOwnProfile}
-            onPostPinChanged={onPostPinChanged}
-            scrollEnabled={false}
-          />
         ),
       },
       {
@@ -192,18 +222,6 @@ const ProfileTabs = memo(({
           ) : (
             <LockKey fill={focused ? text : '#6b7280'} height={24} width={24} />
           ),
-        screen: (
-          <PrivateContentScreen
-            postCheck={post}
-            userData={userData}
-            isSubscribed={isSubscribed}
-            loggedInUserId={loggedInUserId}
-            onSubscribePress={() => userData?.profile !== 'company' && setShowSubscribeModal(true)}
-            isCompany={userData?.profile === 'company'}
-            refreshKey={`${refreshKey ?? 0}-${privateKey}`}
-            scrollEnabled={false}
-          />
-        ),
         onPress: async () => {
           if (!loggedInUserId || isOwnProfile || isSubscribed) return;
           const hasActive = await getSubscriptionStatus(targetProfileId);
@@ -225,22 +243,19 @@ const ProfileTabs = memo(({
             style={{ width: 35, height: 35, tintColor: focused ? text : '#6b7280' }}
           />
         ),
-        screen: <Shop isOwnProfile={isOwnProfile} userData={userData} />,
       });
     }
 
     return list;
   }, [
-    post,
+    text,
+    t,
     userData,
     isOwnProfile,
     isSubscribed,
     loggedInUserId,
-    refreshKey,
-    privateKey,
-    text,
-    t,
-    handlePrivateCircleStartPress,
+    targetProfileId,
+    getSubscriptionStatus,
   ]);
 
   useEffect(() => {
@@ -287,9 +302,17 @@ const ProfileTabs = memo(({
         })}
       </View>
 
-      {/* Active Tab Content — renders directly, no fixed height */}
-      <View style={styles.content}>
-        {tabs[activeTab]?.screen}
+      {/* Tab content — all tabs stay mounted, inactive ones are hidden */}
+      <View style={styles.contentWrapper}>
+        {tabs.map((tab, index) => (
+          <View
+            key={tab.key}
+            style={index === activeTab ? styles.tabVisible : styles.tabHidden}
+            pointerEvents={index === activeTab ? 'auto' : 'none'}
+          >
+            {tabScreens[tab.key]}
+          </View>
+        ))}
       </View>
 
       {!isSubscribed && (
@@ -343,8 +366,18 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 999,
   },
-  content: {
-    // No fixed height — grows with content naturally
+  contentWrapper: {
+    flex: 1,
     width: screenWidth,
+  },
+  tabVisible: {
+    flex: 1,
+    width: screenWidth,
+  },
+  tabHidden: {
+    position: 'absolute',
+    width: screenWidth,
+    opacity: 0,
+    zIndex: -1,
   },
 });
