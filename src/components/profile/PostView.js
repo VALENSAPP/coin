@@ -317,8 +317,14 @@ export default function PostView({ postData = [], userData = {} }) {
   );
 
   const shouldProtectPrivateContent = useMemo(
-    () => shouldProtectScreenshot({ posts: visiblePosts, routeParams }),
-    [visiblePosts, routeParams],
+    () =>
+      shouldProtectScreenshot({
+        posts: visiblePosts,
+        routeParams,
+        currentUserId,
+        contentUserId: routeUserData?.id ?? routeUserData?.userId ?? userData?.id,
+      }),
+    [visiblePosts, routeParams, currentUserId, routeUserData, userData?.id],
   );
 
   useFocusEffect(

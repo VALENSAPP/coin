@@ -778,8 +778,9 @@ export default function FlipsScreen() {
     return shouldProtectScreenshot({
       posts: currentReel ? [currentReel] : [],
       routeParams: route.params,
+      currentUserId,
     });
-  }, [currentIndex, reels, route.params]);
+  }, [currentIndex, reels, route.params, currentUserId]);
 
   useScreenshotProtection({
     enabled: shouldProtectPrivateContent,

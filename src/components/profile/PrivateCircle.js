@@ -224,9 +224,10 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
   const privateCircleRefreshAt = route?.params?.privateCircleRefreshAt;
   const isWalletPrivateCircle = skipPrivateCircleApi && !userData?.id;
+  const isOwnContent = isOwnProfile || isWalletPrivateCircle;
 
   useScreenshotProtection({
-    enabled: isFocused,
+    enabled: isFocused && !isOwnContent,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
@@ -454,12 +455,14 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         if (parent?.navigate) {
           parent.navigate('FlipsScreen', {
             item,
+            userId: userData?.id,
             screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
           });
           return;
         }
         navigation.navigate('FlipsScreen', {
           item,
+          userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
         });
         return;
@@ -475,11 +478,12 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
           postData: imagePosts,
           startIndex: nextIndex,
           hideTabBar: true,
+          userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
         },
       });
     },
-    [navigation, posts],
+    [navigation, posts, userData?.id],
   );
 
   // ── Grid render ───────────────────────────────────────────────────────────

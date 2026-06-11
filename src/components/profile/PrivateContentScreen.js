@@ -171,7 +171,7 @@ const PrivateContentScreen = ({
   const canViewPrivateContent = isOwnProfile || resolvedIsSubscribed;
 
   useScreenshotProtection({
-    enabled: isFocused && !isCompany && canViewPrivateContent,
+    enabled: isFocused && !isCompany && canViewPrivateContent && !isOwnProfile,
     title: t('postView.screenshotWarningTitle'),
     message: t('postView.screenshotWarningMessage'),
   });
@@ -305,12 +305,14 @@ const PrivateContentScreen = ({
         if (parent?.navigate) {
           parent.navigate('FlipsScreen', {
             item,
+            userId: userData?.id,
             screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
           });
           return;
         }
         navigation.navigate('FlipsScreen', {
           item,
+          userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
         });
         return;
@@ -326,11 +328,12 @@ const PrivateContentScreen = ({
           postData: imagePosts,
           startIndex: nextIndex,
           hideTabBar: true,
+          userId: userData?.id,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
         },
       });
     },
-    [navigation, posts],
+    [navigation, posts, userData?.id],
   );
 
   const renderItem = useCallback(
