@@ -69,8 +69,8 @@ const normalizeImageUrl = (url) => {
   ) {
     return trimmed;
   }
-  if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
-  return `http://35.174.167.92:3002/${trimmed}`;
+  if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+  return `https://api.valens.app/${trimmed}`;
 };
 
 const isVideoUrl = (url) => {
@@ -222,8 +222,8 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
-  const privateCircleRefreshAt = route?.params?.privateCircleRefreshAt;
   const isWalletPrivateCircle = skipPrivateCircleApi && !userData?.id;
+  const privateCircleRefreshAt = route?.params?.privateCircleRefreshAt;
   const isOwnContent = isOwnProfile || isWalletPrivateCircle;
 
   useScreenshotProtection({
@@ -246,7 +246,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   // ── Pure post fetcher ─────────────────────────────────────────────────────
   const fetchPostsOnly = useCallback(async (id) => {
     try {
-      const response = await getPostByUser(id, 'private');
+      const response = await getPostByUser(id, 'private_circle');
       const payload =
         response?.data?.posts ??
         response?.data?.data?.posts ??
@@ -389,16 +389,28 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     await Promise.all([fetchRecentActivities(), fetchPrivateCircleDashboard()]);
   }, [isWalletPrivateCircle, fetchRecentActivities, fetchPrivateCircleDashboard]);
 
+  const walletMembersForPicker = useMemo(
+    () => dashboardMembers.map((member) => ({
+      id: member.id,
+      username: member.name,
+      avatar: member.image,
+    })),
+    [dashboardMembers],
+  );
+
   const openAddMemberScreen = useCallback(() => {
     const parentNavigation = navigation.getParent?.() || navigation;
     parentNavigation.navigate('Add', {
       screen: 'PrivateCircleSelectMembers',
       params: {
         mode: 'manage',
+        members: walletMembersForPicker,
+        selectedIds: walletMembersForPicker.map((member) => member.id),
+        selectedMembers: walletMembersForPicker,
         returnToWalletPrivateCircle: true,
       },
     });
-  }, [navigation]);
+  }, [navigation, walletMembersForPicker]);
 
   const handleRemoveMember = useCallback(async (memberId) => {
     const normalized = String(memberId || '');
@@ -486,6 +498,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     [navigation, posts, userData?.id],
   );
 
+
   // ── Grid render ───────────────────────────────────────────────────────────
   const renderItem = useCallback(
     ({ item, index }) => (
@@ -533,14 +546,76 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const isAccessActive = circleAccessActive ?? isMember;
 
   // ── Info card (shown when not a member OR no posts) ───────────────────────
-  const InfoCard = useCallback(
-    () => (
-      <ScrollView
-        style={[styles.container, bgStyle]}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {isOwnProfile ? (
+  // ─── Outside PrivateCircle, at file level ─────────────────────────────────────
+  const InfoCard = memo(({
+    bgStyle,
+    cardStyle,
+    text,
+    textStyle,
+    isOwnProfile,
+    isWalletPrivateCircle,
+    onStartPress,
+    bullets,
+    t,
+    isAccessActive,
+    dashboardMemberCount,
+    dashboardPostCount,
+    previewMembers,
+    recentActivities,
+    openAddMemberScreen,
+    handleRemoveMember,
+    removingMemberIds,
+  }) => (
+    <ScrollView
+      style={[styles.container, bgStyle]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {isOwnProfile ? (
+        <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
+          <LinearGradient
+            colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.leftRail}
+          >
+            <View
+              style={[
+                styles.railIconBubble,
+                { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' },
+              ]}
+            >
+              <Ionicons name="lock-closed" size={34} color={text} />
+            </View>
+          </LinearGradient>
+
+          <View style={styles.cardBody}>
+            <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoon')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownChoose')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownDescription')}</Text>
+
+            <Text style={[styles.sectionTitle, textStyle]}>{t('privateCircle.perfectFor')}</Text>
+            {bullets.map((bullet) => (
+              <Text key={bullet} style={[styles.bullet, textStyle]}>
+                • {bullet}
+              </Text>
+            ))}
+
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownYourSpace')}</Text>
+            <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoonProfile')}</Text>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => typeof onStartPress === 'function' && onStartPress()}
+              style={[styles.ctaButton, { backgroundColor: text }]}
+            >
+              <Text style={styles.ctaText}>{t('privateCircle.startNowButton')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View>
           <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
             <LinearGradient
               colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
@@ -551,7 +626,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               <View
                 style={[
                   styles.railIconBubble,
-                  { backgroundColor: mixWithWhite(text, 0.9), marginTop: '200%' },
+                  { backgroundColor: mixWithWhite(text, 0.9), marginTop: '100%' },
                 ]}
               >
                 <Ionicons name="lock-closed" size={34} color={text} />
@@ -559,184 +634,164 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
             </LinearGradient>
 
             <View style={styles.cardBody}>
-              <Text style={[styles.title, textStyle]}>{t('privateCircle.ownTitle')}</Text>
-              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoon')}</Text>
-              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownChoose')}</Text>
-              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownDescription')}</Text>
-
-              <Text style={[styles.sectionTitle, textStyle]}>{t('privateCircle.perfectFor')}</Text>
-              {bullets.map((bullet) => (
-                <Text key={bullet} style={[styles.bullet, textStyle]}>
-                  • {bullet}
+              <View style={styles.statusHeader}>
+                <Text style={[styles.title, styles.statusTitle, textStyle]}>
+                  {t('privateCircle.guestTitle')}
                 </Text>
-              ))}
-
-              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownYourSpace')}</Text>
-              <Text style={[styles.paragraph, textStyle]}>{t('privateCircle.ownComingSoonProfile')}</Text>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => typeof onStartPress === 'function' && onStartPress()}
-                style={[styles.ctaButton, { backgroundColor: text }]}
-              >
-                <Text style={styles.ctaText}>{t('privateCircle.startNowButton')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View>
-            <View style={[styles.card, cardStyle, { borderColor: withAlpha(text, 0.12) }]}>
-              <LinearGradient
-                colors={[withAlpha(text, 0.16), withAlpha(text, 0.06)]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.leftRail}
-              >
                 <View
                   style={[
-                    styles.railIconBubble,
-                    { backgroundColor: mixWithWhite(text, 0.9), marginTop: '100%' },
+                    styles.statusPill,
+                    {
+                      backgroundColor: isAccessActive ? '#DCFCE7' : '#FEE2E2',
+                      borderColor: isAccessActive ? '#86EFAC' : '#FCA5A5',
+                    },
                   ]}
                 >
-                  <Ionicons name="lock-closed" size={34} color={text} />
-                </View>
-              </LinearGradient>
-
-              <View style={styles.cardBody}>
-                <View style={styles.statusHeader}>
-                  <Text style={[styles.title, styles.statusTitle, textStyle]}>
-                    {t('privateCircle.guestTitle')}
-                  </Text>
                   <View
                     style={[
-                      styles.statusPill,
-                      {
-                        backgroundColor: isAccessActive ? '#DCFCE7' : '#FEE2E2',
-                        borderColor: isAccessActive ? '#86EFAC' : '#FCA5A5',
-                      },
+                      styles.statusDot,
+                      { backgroundColor: isAccessActive ? '#22C55E' : '#EF4444' },
                     ]}
-                  >
-                    <View
-                      style={[
-                        styles.statusDot,
-                        { backgroundColor: isAccessActive ? '#22C55E' : '#EF4444' },
-                      ]}
-                    />
-                    <Text style={[styles.statusPillText, { color: isAccessActive ? '#15803D' : '#B91C1C' }]}>
-                      {isAccessActive ? t('privateCircle.statusActive') : t('privateCircle.statusInactive')}
-                    </Text>
-                  </View>
+                  />
+                  <Text style={[styles.statusPillText, { color: isAccessActive ? '#15803D' : '#B91C1C' }]}>
+                    {isAccessActive ? t('privateCircle.statusActive') : t('privateCircle.statusInactive')}
+                  </Text>
                 </View>
-                <Text style={[styles.paragraph, textStyle]}>
-                  {t('privateCircle.guestNotPublic')}{' '}
-                  {t('privateCircle.guestNeedInvite')}{' '}
-                  {t('privateCircle.guestAudience')}
-                </Text>
-                {!isWalletPrivateCircle && (
-                  <>
-                    <Text style={[styles.paragraph, textStyle]}>
-                      {t('privateCircle.guestInviteOnly')}
-                    </Text>
-
-                    <Text style={[styles.paragraph, textStyle]}>
-                      {t('privateCircle.guestStayConnected')}
-                    </Text>
-                  </>
-                )}
               </View>
+              <Text style={[styles.paragraph, textStyle]}>
+                {t('privateCircle.guestNotPublic')}{' '}
+                {t('privateCircle.guestNeedInvite')}{' '}
+                {t('privateCircle.guestAudience')}
+              </Text>
+              {!isWalletPrivateCircle && (
+                <>
+                  <Text style={[styles.paragraph, textStyle]}>
+                    {t('privateCircle.guestInviteOnly')}
+                  </Text>
+
+                  <Text style={[styles.paragraph, textStyle]}>
+                    {t('privateCircle.guestStayConnected')}
+                  </Text>
+                </>
+              )}
             </View>
-            {isWalletPrivateCircle ? (
-              <View style={styles.dashboardWrap}>
-                <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
-                  <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
-                  <View style={styles.overviewGrid}>
-                    <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
-                      <Ionicons name="people-outline" size={18} color={text} />
-                      <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
-                      <Text style={styles.overviewLabel}>{t('privateCircle.members')}</Text>
-                    </View>
-                    <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
-                      <Ionicons name="document-text-outline" size={18} color={text} />
-                      <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
-                      <Text style={styles.overviewLabel}>{t('privateCircle.posts')}</Text>
-                    </View>
+          </View>
+          {isWalletPrivateCircle ? (
+            <View style={styles.dashboardWrap}>
+              <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
+                <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
+                <View style={styles.overviewGrid}>
+                  <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
+                    <Ionicons name="people-outline" size={18} color={text} />
+                    <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
+                    <Text style={styles.overviewLabel}>{t('privateCircle.members')}</Text>
+                  </View>
+                  <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
+                    <Ionicons name="document-text-outline" size={18} color={text} />
+                    <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
+                    <Text style={styles.overviewLabel}>{t('privateCircle.posts')}</Text>
                   </View>
                 </View>
+              </View>
 
-                <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
-                  <View style={styles.previewSectionHeader}>
-                    <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.recentActivity')}</Text>
-                    {/* <Text style={[styles.previewLink, { color: text }]}>View all</Text> */}
-                  </View>
-                  {recentActivities.map((activity) => (
-                    <View key={activity.id} style={styles.activityRow}>
-                      <View style={[styles.activityDot, { backgroundColor: text }]} />
-                      <View style={styles.activityTextWrap}>
-                        <Text style={[styles.activityName, textStyle]}>{activity.name}</Text>
-                        <Text style={styles.activityMeta}>{activity.body || activity.action}</Text>
-                      </View>
-                      <Text style={styles.activityTime}>{activity.time}</Text>
-                    </View>
-                  ))}
+              <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
+                <View style={styles.previewSectionHeader}>
+                  <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.recentActivity')}</Text>
                 </View>
+                {recentActivities.map((activity) => (
+                  <View key={activity.id} style={styles.activityRow}>
+                    <View style={[styles.activityDot, { backgroundColor: text }]} />
+                    <View style={styles.activityTextWrap}>
+                      <Text style={[styles.activityName, textStyle]}>{activity.name}</Text>
+                      <Text style={styles.activityMeta}>{activity.body || activity.action}</Text>
+                    </View>
+                    <Text style={styles.activityTime}>{activity.time}</Text>
+                  </View>
+                ))}
+              </View>
 
-                <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
-                  <View style={styles.previewSectionHeader}>
-                    <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.members')}</Text>
+              <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
+                <View style={styles.previewSectionHeader}>
+                  <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.members')}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={[styles.inviteButton, { backgroundColor: withAlpha(text, 0.1) }]}
+                    onPress={openAddMemberScreen}
+                  >
+                    <Ionicons name="person-add-outline" size={13} color={text} />
+                    <Text style={[styles.inviteButtonText, { color: text }]}>Add member</Text>
+                  </TouchableOpacity>
+                </View>
+                {previewMembers.map((member) => (
+                  <View key={member.id} style={styles.memberRow}>
+                    <HexagonImage uri={member.image} size={34} borderColor={withAlpha(text, 0.28)} />
+                    <Text style={[styles.memberName, textStyle]} numberOfLines={1}>
+                      {member.name}
+                    </Text>
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      style={[styles.inviteButton, { backgroundColor: withAlpha(text, 0.1) }]}
-                      onPress={openAddMemberScreen}
+                      disabled={removingMemberIds.includes(String(member.id))}
+                      onPress={() => handleRemoveMember(member.id)}
+                      style={[
+                        styles.removeMemberButton,
+                        {
+                          borderColor: withAlpha(text, 0.2),
+                          opacity: removingMemberIds.includes(String(member.id)) ? 0.6 : 1,
+                        },
+                      ]}
                     >
-                      <Ionicons name="person-add-outline" size={13} color={text} />
-                      <Text style={[styles.inviteButtonText, { color: text }]}>Add member</Text>
+                      {removingMemberIds.includes(String(member.id)) ? (
+                        <ActivityIndicator size="small" color={text} />
+                      ) : (
+                        <Ionicons name="close" size={14} color={text} />
+                      )}
                     </TouchableOpacity>
                   </View>
-                  {previewMembers.map((member) => (
-                    <View key={member.id} style={styles.memberRow}>
-                      <HexagonImage uri={member.image} size={34} borderColor={withAlpha(text, 0.28)} />
-                      <Text style={[styles.memberName, textStyle]} numberOfLines={1}>
-                        {member.name}
-                      </Text>
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        disabled={removingMemberIds.includes(String(member.id))}
-                        onPress={() => handleRemoveMember(member.id)}
-                        style={[
-                          styles.removeMemberButton,
-                          {
-                            borderColor: withAlpha(text, 0.2),
-                            opacity: removingMemberIds.includes(String(member.id)) ? 0.6 : 1,
-                          },
-                        ]}
-                      >
-                        {removingMemberIds.includes(String(member.id)) ? (
-                          <ActivityIndicator size="small" color={text} />
-                        ) : (
-                          <Ionicons name="close" size={14} color={text} />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
+                ))}
               </View>
-            ) : null}
-          </View>
-        )}
-      </ScrollView>
-    ),
-    [bgStyle, cardStyle, text, textStyle, isOwnProfile, isWalletPrivateCircle, onStartPress, bullets, t, isAccessActive, dashboardMemberCount, dashboardPostCount, previewMembers, recentActivities, openAddMemberScreen, handleRemoveMember, removingMemberIds],
+            </View>
+          ) : null}
+        </View>
+      )}
+    </ScrollView>
+  ));
+
+  InfoCard.displayName = 'InfoCard';
+  // ── Single shared InfoCard props object ───────────────────────────────────────
+  const infoCardProps = {
+    bgStyle,
+    cardStyle,
+    text,
+    textStyle,
+    isOwnProfile,
+    isWalletPrivateCircle,
+    onStartPress,
+    bullets,
+    t,
+    isAccessActive,
+    dashboardMemberCount,
+    dashboardPostCount,
+    previewMembers,
+    recentActivities,
+    openAddMemberScreen,
+    handleRemoveMember,
+    removingMemberIds,
+  };
+
+  // ── Render sites ──────────────────────────────────────────────────────────────
+  if (skipPrivateCircleApi) return <InfoCard {...infoCardProps} />;
+  if (loading || isMember === null) return (
+    <View style={[gridStyles.loaderContainer, bgStyle]}>
+      <ActivityIndicator size="large" color={text} />
+    </View>
   );
-
-  if (skipPrivateCircleApi) {
-    return <InfoCard />;
-  }
-
+  if (!isMember) return <InfoCard {...infoCardProps} />;
+  if (posts.length === 0) return <InfoCard {...infoCardProps} />;
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading || isMember === null) {
     return (
       <View style={[gridStyles.loaderContainer, bgStyle]}>
-        <ActivityIndicator size="large" color="#5A2D82" />
+        <ActivityIndicator size="large" color={text} />
       </View>
     );
   }
