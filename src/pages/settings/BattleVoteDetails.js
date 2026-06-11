@@ -16,8 +16,7 @@ import { normalizeProfileType } from '../../utils/supportEligibility';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
 
-const FALLBACK_AVATAR =
-  'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const isMeaningfulValue = value => {
   if (value === undefined || value === null) return false;
@@ -33,10 +32,20 @@ const isMeaningfulValue = value => {
 };
 
 const pickFirst = (...values) => values.find(isMeaningfulValue);
-const normalizeSideKey = value => String(value || '').trim().toLowerCase();
+const normalizeSideKey = value =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 const getAvatarUri = (...values) =>
   String(pickFirst(...values, FALLBACK_AVATAR) || FALLBACK_AVATAR).trim() ||
   FALLBACK_AVATAR;
+
+const withAlpha = (hex, alpha) => {
+  if (typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    return `${hex}${alpha}`;
+  }
+  return hex;
+};
 
 const filterHeadToHeadCountableEntries = entries => {
   return Array.isArray(entries) ? entries : [];
@@ -73,18 +82,23 @@ export default function BattleVoteDetails() {
   const { profile } = route.params || {};
   const { battle } = route.params || {};
   const selectedSide = String(route?.params?.selectedSide || '').trim();
-  const selectedSideLabel = String(route?.params?.selectedSideLabel || selectedSide || '').trim();
+  const selectedSideLabel = String(
+    route?.params?.selectedSideLabel || selectedSide || '',
+  ).trim();
   const resolvedProfileType = normalizeProfileType(profile);
 
   const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
 
-  const palette = {
-    primary: '#7B61FF',
-    border: 'rgba(255,255,255,0.08)',
-    surface: 'rgba(255,255,255,0.03)',
-    soft: 'rgba(123,97,255,0.12)',
-    muted: '#9CA3AF',
-  };
+  const palette = useMemo(
+    () => ({
+      primary: text || '#5A2D82',
+      border: withAlpha(text || '#5A2D82', '22'),
+      surface: withAlpha(text || '#5A2D82', '08'),
+      soft: withAlpha(text || '#5A2D82', '10'),
+      muted: withAlpha(text || '#5A2D82', '99'),
+    }),
+    [text],
+  );
 
   const [loading] = useState(false);
   const [refreshing] = useState(false);
@@ -93,17 +107,16 @@ export default function BattleVoteDetails() {
     route?.params?.mode === 'comments' ? 'comments' : 'votes',
   );
 
-  const battleType = battle?.type || 'PUBLIC';
-  const battleFormat = battle?.format || 'HEAD_TO_HEAD';
-  const battleStatus = battle?.status || 'LIVE';
-
   const options = useMemo(() => {
     const rawOptions = Array.isArray(battle?.options) ? battle.options : [];
     const normalized = rawOptions.map((opt, idx) => normalizeOption(opt, idx));
     if (normalized.length > 0) return normalized;
 
     const headToHeadSides = battle?.headToHeadSides;
-    const creatorSide = pickFirst(headToHeadSides?.creatorSide, headToHeadSides?.creator?.side);
+    const creatorSide = pickFirst(
+      headToHeadSides?.creatorSide,
+      headToHeadSides?.creator?.side,
+    );
     const invitedSide = pickFirst(
       headToHeadSides?.invitedUserSide,
       headToHeadSides?.invitedUser?.side,
@@ -121,12 +134,24 @@ export default function BattleVoteDetails() {
     userId => {
       if (!userId) return null;
 
-      const participants = Array.isArray(battle?.participants) ? battle.participants : [];
-      const matchedParticipant = participants.find(p => p?.userId === userId || p?.user?.id === userId);
+      const participants = Array.isArray(battle?.participants)
+        ? battle.participants
+        : [];
+      const matchedParticipant = participants.find(
+        p => p?.userId === userId || p?.user?.id === userId,
+      );
       if (matchedParticipant?.user) {
         return {
-          displayName: pickFirst(matchedParticipant.user.displayName, matchedParticipant.user.name, 'User'),
-          displayHandle: pickFirst(matchedParticipant.user.userName, matchedParticipant.user.handle, ''),
+          displayName: pickFirst(
+            matchedParticipant.user.displayName,
+            matchedParticipant.user.name,
+            'User',
+          ),
+          displayHandle: pickFirst(
+            matchedParticipant.user.userName,
+            matchedParticipant.user.handle,
+            '',
+          ),
           displayAvatar: getAvatarUri(
             matchedParticipant.user.image,
             matchedParticipant.user.avatar,
@@ -141,8 +166,16 @@ export default function BattleVoteDetails() {
       const matchedCommentAuthor = comments.find(c => c?.userId === userId);
       if (matchedCommentAuthor) {
         return {
-          displayName: pickFirst(matchedCommentAuthor.authorName, matchedCommentAuthor.name, 'User'),
-          displayHandle: pickFirst(matchedCommentAuthor.authorHandle, matchedCommentAuthor.handle, ''),
+          displayName: pickFirst(
+            matchedCommentAuthor.authorName,
+            matchedCommentAuthor.name,
+            'User',
+          ),
+          displayHandle: pickFirst(
+            matchedCommentAuthor.authorHandle,
+            matchedCommentAuthor.handle,
+            '',
+          ),
           displayAvatar: getAvatarUri(
             matchedCommentAuthor.avatar,
             matchedCommentAuthor.image,
@@ -165,7 +198,11 @@ export default function BattleVoteDetails() {
         };
       }
 
-      if (battle?.invitedUserId && battle.invitedUserId === userId && battle?.invitedUser) {
+      if (
+        battle?.invitedUserId &&
+        battle.invitedUserId === userId &&
+        battle?.invitedUser
+      ) {
         return {
           displayName: pickFirst(battle.invitedUser.name, 'User'),
           displayHandle: pickFirst(battle.invitedUser.handle, ''),
@@ -184,7 +221,7 @@ export default function BattleVoteDetails() {
   );
 
   const resolveOptionForSide = useCallback(
-    (sideValue) => {
+    sideValue => {
       const raw = String(sideValue || '').trim();
       if (!raw) return null;
       const normalized = normalizeSideKey(raw);
@@ -203,7 +240,15 @@ export default function BattleVoteDetails() {
       const list = filterHeadToHeadCountableEntries(entries).filter(entry => {
         if (entryType !== 'votes' || !normalizedSelectedSide) return true;
 
-        const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '');
+        const side = String(
+          pickFirst(
+            entry?.side,
+            entry?.option,
+            entry?.selection,
+            entry?.choice,
+            '',
+          ) || '',
+        );
         return normalizeSideKey(side) === normalizedSelectedSide;
       });
       const grouped = new Map();
@@ -228,21 +273,39 @@ export default function BattleVoteDetails() {
         });
 
       list.forEach(entry => {
-        const userId = String(pickFirst(entry?.userId, entry?.user?.id, entry?.id, '') || '');
-        const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '').trim();
+        const userId = String(
+          pickFirst(entry?.userId, entry?.user?.id, entry?.id, '') || '',
+        );
+        const side = String(
+          pickFirst(
+            entry?.side,
+            entry?.option,
+            entry?.selection,
+            entry?.choice,
+            '',
+          ) || '',
+        ).trim();
 
         const meta = entry?.user
           ? {
-            displayName: pickFirst(entry.user.displayName, entry.user.name, 'User'),
-            displayHandle: pickFirst(entry.user.userName, entry.user.handle, ''),
-            displayAvatar: getAvatarUri(
-              entry.user.image,
-              entry.user.avatar,
-              entry.user.profileImage,
-              entry.user.profilePicture,
-              entry.user.userImage,
-            ),
-          }
+              displayName: pickFirst(
+                entry.user.displayName,
+                entry.user.name,
+                'User',
+              ),
+              displayHandle: pickFirst(
+                entry.user.userName,
+                entry.user.handle,
+                '',
+              ),
+              displayAvatar: getAvatarUri(
+                entry.user.image,
+                entry.user.avatar,
+                entry.user.profileImage,
+                entry.user.profilePicture,
+                entry.user.userImage,
+              ),
+            }
           : resolveUserMeta(userId);
 
         const fallbackName = entryType === 'votes' ? 'Voter' : 'Predictor';
@@ -283,82 +346,26 @@ export default function BattleVoteDetails() {
     const comments = Array.isArray(battle?.comments) ? battle.comments : [];
     const normalizedSelectedSide = normalizeSideKey(selectedSide);
     const data = normalizedSelectedSide
-      ? comments.filter(comment => normalizeSideKey(comment?.side) === normalizedSelectedSide)
+      ? comments.filter(
+          comment => normalizeSideKey(comment?.side) === normalizedSelectedSide,
+        )
       : comments;
 
-    return [{
-      title: selectedSideLabel || t('battleVoteDetails.commentsTitle', 'Comments'),
-      data,
-    }];
+    return [
+      {
+        title:
+          selectedSideLabel || t('battleVoteDetails.commentsTitle', 'Comments'),
+        data,
+      },
+    ];
   }, [battle?.comments, selectedSide, selectedSideLabel, t]);
 
-  const sections = activeTab === 'comments'
-    ? commentSections
-    : activeTab === 'votes' ? votesSections : predictionsSections;
-
-  const optionSummaries = useMemo(() => {
-    const sideCounts = activeTab === 'votes' ? battle?.voteCounts : battle?.predictionCounts;
-    const fallbackCountsFromSections = sections.reduce((acc, section) => {
-      const countable = Number.isFinite(section?.countableTotal)
-        ? section.countableTotal
-        : section.data.length;
-      acc[section.title] = (acc[section.title] || 0) + countable;
-      return acc;
-    }, {});
-
-    const countForOption = (label, sideKey) => {
-      const candidateKeys = [label, sideKey].filter(Boolean).map(v => String(v));
-      if (candidateKeys.length === 0) return 0;
-
-      if (battleFormat !== 'HEAD_TO_HEAD') {
-        const direct = sideCounts && typeof sideCounts === 'object'
-          ? candidateKeys.map(k => sideCounts[k]).find(v => v !== undefined)
-          : undefined;
-        const directNum = Number(direct);
-        if (Number.isFinite(directNum)) return directNum;
-
-        const normalizedTargets = candidateKeys.map(normalizeSideKey);
-        if (sideCounts && typeof sideCounts === 'object') {
-          const matchKey = Object.keys(sideCounts).find(k =>
-            normalizedTargets.includes(normalizeSideKey(k)),
-          );
-          const matchNum = Number(matchKey ? sideCounts[matchKey] : undefined);
-          if (Number.isFinite(matchNum)) return matchNum;
-        }
-      }
-
-      const normalizedTargets = candidateKeys.map(normalizeSideKey);
-      const fallbackKey = Object.keys(fallbackCountsFromSections).find(
-        k => normalizedTargets.includes(normalizeSideKey(k)),
-      );
-      return fallbackKey ? Number(fallbackCountsFromSections[fallbackKey] || 0) : 0;
-    };
-
-    const base = options.length > 0 ? options : [{ id: '0', label: 'Other', sideKey: 'Other' }];
-    return base.map((opt, idx) => ({
-      sideKey: String(opt.id ?? idx),
-      title: opt.label,
-      count: countForOption(opt.label, opt.sideKey),
-    }));
-  }, [
-    activeTab,
-    battle?.voteCounts,
-    battle?.predictionCounts,
-    battleFormat,
-    options,
-    sections,
-  ]);
-
-  const selectedSideVoteCount = useMemo(() => {
-    const normalizedSelectedSide = normalizeSideKey(selectedSide);
-    if (!normalizedSelectedSide) return 0;
-
-    const votes = filterHeadToHeadCountableEntries(battle?.votes);
-    return votes.filter(entry => {
-      const side = String(pickFirst(entry?.side, entry?.option, entry?.selection, entry?.choice, '') || '');
-      return normalizeSideKey(side) === normalizedSelectedSide;
-    }).length;
-  }, [battle, selectedSide]);
+  const sections =
+    activeTab === 'comments'
+      ? commentSections
+      : activeTab === 'votes'
+      ? votesSections
+      : predictionsSections;
 
   const handleOpenUser = useCallback(
     userId => {
@@ -378,8 +385,15 @@ export default function BattleVoteDetails() {
   );
 
   const renderCommentRow = ({ item }) => {
-    const authorName = pickFirst(item?.authorName, item?.user?.name, item?.user?.displayName, 'User');
-    const authorHandle = pickFirst(item?.authorHandle, item?.user?.userName, item?.user?.username, '');
+    const authorName = pickFirst(
+      item?.authorHandle,
+      item?.user?.userName,
+      item?.user?.username,
+      item?.authorName,
+      item?.user?.name,
+      item?.user?.displayName,
+      'User',
+    );
     const avatar = getAvatarUri(
       item?.avatar,
       item?.image,
@@ -392,7 +406,6 @@ export default function BattleVoteDetails() {
       item?.user?.userImage,
     );
     const message = pickFirst(item?.message, item?.comment, item?.text, '');
-    const likes = Number(pickFirst(item?.likes, item?.likeCount, item?.likesCount, 0));
 
     return (
       <TouchableOpacity
@@ -400,11 +413,12 @@ export default function BattleVoteDetails() {
         onPress={() => handleOpenUser(item?.userId)}
         style={[
           styles.commentRow,
+          cardStyle,
           {
             borderColor: palette.border,
-            backgroundColor: palette.surface,
           },
-        ]}>
+        ]}
+      >
         <View style={styles.commentHeader}>
           <HexAvatar
             uri={avatar || FALLBACK_AVATAR}
@@ -413,34 +427,31 @@ export default function BattleVoteDetails() {
             borderColor={palette.border}
           />
           <View style={styles.commentAuthorText}>
-            <Text numberOfLines={1} style={[styles.name, { color: text }]}>
+            <Text
+              numberOfLines={1}
+              style={[styles.commentName, { color: text }]}
+            >
               {authorName}
             </Text>
-            {!!authorHandle && (
-              <Text numberOfLines={1} style={[styles.handle, { color: palette.muted }]}>
-                @{authorHandle}
-              </Text>
-            )}
           </View>
           {!!item?.side && (
-            <View style={[styles.badge, { borderColor: palette.border, backgroundColor: palette.soft }]}>
-              <Text numberOfLines={1} style={[styles.badgeText, { color: palette.primary }]}>
+            <View
+              style={[
+                styles.sideBadge,
+                { borderColor: palette.border, backgroundColor: palette.soft },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.sideBadgeText, { color: palette.primary }]}
+              >
                 {item.side}
               </Text>
             </View>
           )}
         </View>
 
-        <Text style={[styles.commentMessage, { color: text }]}>
-          {message}
-        </Text>
-
-        <View style={styles.commentMetaRow}>
-          <Ionicons name={item?.isLiked ? 'heart' : 'heart-outline'} size={16} color={item?.isLiked ? '#E11D48' : palette.muted} />
-          <Text style={[styles.commentMetaText, { color: item?.isLiked ? '#E11D48' : palette.muted }]}>
-            {Number.isFinite(likes) ? likes : 0}
-          </Text>
-        </View>
+        <Text style={[styles.commentMessage, { color: text }]}>{message}</Text>
       </TouchableOpacity>
     );
   };
@@ -452,11 +463,12 @@ export default function BattleVoteDetails() {
         onPress={() => handleOpenUser(item.userId)}
         style={[
           styles.row,
+          cardStyle,
           {
             borderColor: palette.border,
-            backgroundColor: palette.surface,
           },
-        ]}>
+        ]}
+      >
         <HexAvatar
           uri={item.displayAvatar || FALLBACK_AVATAR}
           size={44}
@@ -465,16 +477,15 @@ export default function BattleVoteDetails() {
         />
 
         <View style={styles.rowText}>
-          <Text
-            numberOfLines={1}
-            style={[styles.name, { color: text }]}>
+          <Text numberOfLines={1} style={[styles.name, { color: text }]}>
             {item.displayName}
           </Text>
 
           {!!item.displayHandle && (
             <Text
               numberOfLines={1}
-              style={[styles.handle, { color: palette.muted }]}>
+              style={[styles.handle, { color: palette.muted }]}
+            >
               @{item.displayHandle}
             </Text>
           )}
@@ -488,10 +499,12 @@ export default function BattleVoteDetails() {
                 borderColor: palette.border,
                 backgroundColor: palette.soft,
               },
-            ]}>
+            ]}
+          >
             <Text
               numberOfLines={1}
-              style={[styles.badgeText, { color: palette.primary }]}>
+              style={[styles.badgeText, { color: palette.primary }]}
+            >
               {item.side}
             </Text>
           </View>
@@ -500,17 +513,19 @@ export default function BattleVoteDetails() {
     );
   };
 
-
   const titleText =
     activeTab === 'comments'
-      ? (selectedSideLabel
-        ? `${selectedSideLabel} ${t('battleVoteDetails.commentsTitle', 'Comments')}`
-        : t('battleVoteDetails.commentsTitle', 'Comments'))
+      ? selectedSideLabel
+        ? `${selectedSideLabel} ${t(
+            'battleVoteDetails.commentsTitle',
+            'Comments',
+          )}`
+        : t('battleVoteDetails.commentsTitle', 'Comments')
       : activeTab === 'votes'
-        ? (selectedSideLabel
-          ? `${selectedSideLabel} ${t('battleVoteDetails.votesTitle', 'Votes')}`
-          : t('battleVoteDetails.votesTitle', 'Votes'))
-        : t('battleVoteDetails.predictionsTitle', 'Predictions');
+      ? selectedSideLabel
+        ? `${selectedSideLabel} ${t('battleVoteDetails.votesTitle', 'Votes')}`
+        : t('battleVoteDetails.votesTitle', 'Votes')
+      : t('battleVoteDetails.predictionsTitle', 'Predictions');
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -522,22 +537,18 @@ export default function BattleVoteDetails() {
           {
             borderBottomColor: palette.border,
           },
-        ]}>
+        ]}
+      >
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => navigation.goBack()}
-          style={styles.backBtn}>
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={text}
-          />
+          style={styles.backBtn}
+        >
+          <Ionicons name="chevron-back" size={22} color={text} />
         </TouchableOpacity>
 
         <View style={styles.headerText}>
-          <Text
-            numberOfLines={1}
-            style={[styles.headerTitle, { color: text }]}>
+          <Text numberOfLines={1} style={[styles.headerTitle, { color: text }]}>
             {titleText}
           </Text>
 
@@ -556,16 +567,9 @@ export default function BattleVoteDetails() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator
-            size="large"
-            color={palette.primary}
-          />
+          <ActivityIndicator size="large" color={palette.primary} />
 
-          <Text
-            style={[
-              styles.loadingText,
-              { color: palette.muted },
-            ]}>
+          <Text style={[styles.loadingText, { color: palette.muted }]}>
             {t('battleVoteDetails.loading', 'Loading...')}
           </Text>
         </View>
@@ -573,29 +577,23 @@ export default function BattleVoteDetails() {
         <SectionList
           sections={sections}
           keyExtractor={(item, index) =>
-            `${item.userId}-${index}`
+            `${pickFirst(item?.id, item?._id, item?.userId, 'row')}-${index}`
           }
           contentContainerStyle={styles.listContent}
           refreshing={refreshing}
-          onRefresh={() => { }}
+          onRefresh={() => {}}
           renderItem={activeTab === 'comments' ? renderCommentRow : renderRow}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHeader}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: text },
-                ]}>
-                {section.title}
+              <Text style={[styles.sectionTitle, { color: text }]}>
+                {activeTab === 'comments'
+                  ? t('battleVoteDetails.commentsTitle', 'Comments')
+                  : section.title}
               </Text>
 
               {activeTab !== 'comments' && (
-                <Text
-                  style={[
-                    styles.sectionCount,
-                    { color: palette.muted },
-                  ]}>
+                <Text style={[styles.sectionCount, { color: palette.muted }]}>
                   {section.data.length}
                 </Text>
               )}
@@ -614,23 +612,22 @@ export default function BattleVoteDetails() {
                     borderColor: palette.border,
                     backgroundColor: palette.soft,
                   },
-                ]}>
+                ]}
+              >
                 <Text
-                  style={[
-                    styles.sectionEmptyText,
-                    { color: palette.muted },
-                  ]}>
+                  style={[styles.sectionEmptyText, { color: palette.muted }]}
+                >
                   {activeTab === 'comments'
                     ? t(
-                      'battleVoteDetails.noCommentsForSide',
-                      'No comments for this side yet',
-                    )
+                        'battleVoteDetails.noCommentsForSide',
+                        'No comments for this side yet',
+                      )
                     : activeTab === 'votes'
-                      ? t(
+                    ? t(
                         'battleVoteDetails.noVotesForOption',
                         'No votes for this option',
                       )
-                      : t(
+                    : t(
                         'battleVoteDetails.noPredictionsForOption',
                         'No predictions for this option',
                       )}
@@ -649,166 +646,14 @@ export default function BattleVoteDetails() {
                   {
                     borderColor: palette.border,
                   },
-                ]}>
-                <Text
-                  style={[
-                    styles.summaryTitle,
-                    { color: text },
-                  ]}>
-                  {battle.question}
-                </Text>
-
-                <View style={styles.chipsRow}>
-                  <View
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: palette.border,
-                        backgroundColor: palette.soft,
-                      },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: palette.primary },
-                      ]}>
-                      {battleType}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: palette.border,
-                        backgroundColor: palette.soft,
-                      },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: palette.primary },
-                      ]}>
-                      {battleFormat}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: palette.border,
-                        backgroundColor: palette.soft,
-                      },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: palette.primary },
-                      ]}>
-                      {battleStatus}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text
-                  style={[
-                    styles.summaryHint,
-                    { color: palette.muted },
-                  ]}>
-                  {t(
-                    'battleVoteDetails.tapUserHint',
-                    'Tap a user to open profile.',
-                  )}
+                ]}
+              >
+                <Text style={[styles.summaryTitle, { color: text }]}>
+                  {battle?.question ||
+                    battle?.title ||
+                    t('battleVoteDetails.untitledBattle', 'Untitled battle')}
                 </Text>
               </View>
-
-              {/* BREAKDOWN */}
-
-              {activeTab === 'comments' && selectedSide ? (
-                <View
-                  style={[
-                    styles.selectedSideCard,
-                    cardStyle,
-                    {
-                      borderColor: palette.border,
-                    },
-                  ]}>
-                  <Text style={[styles.selectedSideTitle, { color: text }]} numberOfLines={1}>
-                    {selectedSideLabel || selectedSide}
-                  </Text>
-                  <View style={[styles.selectedSidePill, { backgroundColor: palette.soft, borderColor: palette.border }]}>
-                    <Text style={[styles.selectedSidePillText, { color: palette.primary }]}>
-                      {selectedSideVoteCount} {t('battleInProgress.votesLabel', 'votes')}
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-
-              {activeTab !== 'comments' && optionSummaries.length > 0 && (
-                <View
-                  style={[
-                    styles.breakdownCard,
-                    cardStyle,
-                    {
-                      borderColor: palette.border,
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.breakdownTitle,
-                      { color: text },
-                    ]}>
-                    {t('battleVoteDetails.breakdownTitle', 'Breakdown')}
-                  </Text>
-
-                  <View style={styles.breakdownList}>
-                    {optionSummaries.map(opt => (
-                      <View
-                        key={opt.sideKey}
-                        style={[
-                          styles.breakdownRow,
-                          {
-                            borderColor: palette.border,
-                          },
-                        ]}>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.breakdownLabel,
-                            {
-                              color: palette.muted,
-                            },
-                          ]}>
-                          {opt.title}
-                        </Text>
-
-                        <View
-                          style={[
-                            styles.breakdownPill,
-                            {
-                              backgroundColor:
-                                palette.soft,
-                              borderColor:
-                                palette.border,
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.breakdownCount,
-                              {
-                                color:
-                                  palette.primary,
-                              },
-                            ]}>
-                            {opt.count}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
             </View>
           )}
           ListEmptyComponent={() => (
@@ -819,17 +664,13 @@ export default function BattleVoteDetails() {
                   borderColor: palette.border,
                   backgroundColor: palette.surface,
                 },
-              ]}>
-              <Text
-                style={[styles.emptyTitle, { color: text }]}>
+              ]}
+            >
+              <Text style={[styles.emptyTitle, { color: text }]}>
                 {t('battleVoteDetails.emptyTitle', 'No data yet')}
               </Text>
 
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: palette.muted },
-                ]}>
+              <Text style={[styles.emptyText, { color: palette.muted }]}>
                 {t(
                   'battleVoteDetails.emptySubtitle',
                   'Come back later to check activity.',
@@ -846,6 +687,7 @@ export default function BattleVoteDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop:'5%',
   },
 
   header: {
@@ -918,28 +760,24 @@ const styles = StyleSheet.create({
   },
 
   summaryCard: {
-    padding: 14,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: 12,
   },
 
   summaryTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-  },
-
-  summaryHint: {
-    marginTop: 8,
-    fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 22,
   },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 8,
     paddingHorizontal: 2,
   },
@@ -958,7 +796,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 10,
   },
@@ -970,8 +808,8 @@ const styles = StyleSheet.create({
 
   commentRow: {
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     marginBottom: 10,
   },
 
@@ -984,30 +822,24 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     marginLeft: 10,
+    marginRight: 8,
   },
 
   commentMessage: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-
-  commentMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    gap: 4,
-  },
-
-  commentMetaText: {
-    fontSize: 12,
-    fontWeight: '800',
+    lineHeight: 21,
+    fontWeight: '600',
   },
 
   name: {
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  commentName: {
+    fontSize: 14,
+    fontWeight: '900',
   },
 
   handle: {
@@ -1029,6 +861,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  sideBadge: {
+    maxWidth: 116,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    flexShrink: 0,
+  },
+
+  sideBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
   empty: {
     marginTop: 18,
     borderWidth: 1,
@@ -1045,100 +891,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     lineHeight: 16,
-  },
-
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-
-  chip: {
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-
-  chipText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-
-  breakdownCard: {
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-
-  selectedSideCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-
-  selectedSideTitle: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '900',
-    marginRight: 10,
-  },
-
-  selectedSidePill: {
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-
-  selectedSidePillText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
-  breakdownTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-  },
-
-  breakdownList: {
-    marginTop: 10,
-    gap: 10,
-  },
-
-  breakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-
-  breakdownLabel: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    marginRight: 10,
-  },
-
-  breakdownPill: {
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-
-  breakdownCount: {
-    fontSize: 12,
-    fontWeight: '900',
   },
 
   sectionEmpty: {

@@ -1888,19 +1888,6 @@ export default function BattleInProgress() {
                   )}
                 </TouchableOpacity>
                 <View style={styles.commentHeaderActions}>
-                  {isBattleCreator && (
-                    <TouchableOpacity
-                      style={styles.commentMenuButton}
-                      onPress={() => confirmTogglePin(comment)}
-                      disabled={pinningCommentId === comment.id}
-                    >
-                      {pinningCommentId === comment.id ? (
-                        <ActivityIndicator size="small" color={palette.primary} />
-                      ) : (
-                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
-                      )}
-                    </TouchableOpacity>
-                  )}
                   <TouchableOpacity style={styles.replyTrigger} onPress={() => handleOpenReply(comment)}>
                     <Text style={[styles.replyTriggerText, { color: palette.primary }]}>{t('battleInProgress.replyTrigger')}</Text>
                   </TouchableOpacity>
@@ -1915,6 +1902,19 @@ export default function BattleInProgress() {
                             {Number.isFinite(Number(comment.likes)) ? Number(comment.likes) : 0}
                           </Text>
                         </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {isBattleCreator && (
+                    <TouchableOpacity
+                      style={styles.commentMenuButton}
+                      onPress={() => confirmTogglePin(comment)}
+                      disabled={pinningCommentId === comment.id}
+                    >
+                      {pinningCommentId === comment.id ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons name="ellipsis-vertical" size={18} color={palette.primary} />
                       )}
                     </TouchableOpacity>
                   )}
@@ -2691,6 +2691,7 @@ export default function BattleInProgress() {
                     mode: 'comments',
                     selectedSide: action.side,
                     selectedSideLabel: action.label,
+                    selectedSpeakerLabel: action.sideLabel,
                   })}
                 >
                   <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1}>
@@ -2981,7 +2982,7 @@ const styles = StyleSheet.create({
   commentAuthorIdentity: { flexDirection: 'row', alignItems: 'flex-start', flex: 1, minWidth: 0 },
   commentAuthorTopRow: { flexDirection: 'row', alignItems: 'center', minHeight: 18 },
   commentHeaderActions: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
-  commentMenuButton: { width: 16, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  commentMenuButton: { width: 16, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14,marginLeft:8 },
   commentAvatar: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },
   commentAvatarFallback: { backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center' },
   commentAuthorTextWrap: { flex: 1, minWidth: 0 },
