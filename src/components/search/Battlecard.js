@@ -27,8 +27,8 @@ const normalizeImageUrl = url => {
     if (!url || typeof url !== 'string') return null;
     const t = url.trim();
     if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('data:') || t.startsWith('file://')) return t;
-    if (t.startsWith('/')) return `http://35.174.167.92:3002${t}`;
-    return `http://35.174.167.92:3002/${t}`;
+    if (t.startsWith('/')) return `https://api.valens.app${t}`;
+    return `https://api.valens.app/${t}`;
 };
 
 const formatAmount = value => {

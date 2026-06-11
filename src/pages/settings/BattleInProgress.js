@@ -1067,8 +1067,8 @@ export default function BattleInProgress() {
           if (!image) return '';
           let url = String(image).trim();
           if (url.startsWith('http://') || url.startsWith('https://')) return url;
-          else if (url.startsWith('/')) return `http://35.174.167.92:3002${url}`;
-          else return `http://35.174.167.92:3002/${url}`;
+          else if (url.startsWith('/')) return `https://api.valens.app/${url}`;
+          else return `https://api.valens.app/${url}`;
         };
 
         const normalizePointPayload = (response) => {

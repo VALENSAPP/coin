@@ -114,8 +114,8 @@ export default function WalletComponent() {
                     let formattedImageUrl = userDataToSet.image.trim();
                     if (!formattedImageUrl.startsWith('http://') && !formattedImageUrl.startsWith('https://')) {
                         formattedImageUrl = formattedImageUrl.startsWith('/')
-                            ? `http://35.174.167.92:3002${formattedImageUrl}`
-                            : `http://35.174.167.92:3002/${formattedImageUrl}`;
+                            ? `https://api.valens.app${formattedImageUrl}`
+                            : `https://api.valens.app/${formattedImageUrl}`;
                     }
                     userDataToSet.image = formattedImageUrl;
                 }

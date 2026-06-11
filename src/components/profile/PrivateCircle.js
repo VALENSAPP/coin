@@ -69,8 +69,8 @@ const normalizeImageUrl = (url) => {
   ) {
     return trimmed;
   }
-  if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
-  return `http://35.174.167.92:3002/${trimmed}`;
+  if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+  return `https://api.valens.app/${trimmed}`;
 };
 
 const isVideoUrl = (url) => {

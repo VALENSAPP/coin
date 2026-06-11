@@ -271,8 +271,8 @@ export default function PostView({ postData = [], userData = {} }) {
     if (!url || typeof url !== 'string') return url;
     const trimmed = url.trim();
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
-    if (trimmed.startsWith('/')) return `http://35.174.167.92:3002${trimmed}`;
-    return `http://35.174.167.92:3002/${trimmed}`;
+    if (trimmed.startsWith('/')) return `https://api.valens.app${trimmed}`;
+    return `https://api.valens.app/${trimmed}`;
   };
 
   // ─── Seed maps from posts ──────────────────────────────────
