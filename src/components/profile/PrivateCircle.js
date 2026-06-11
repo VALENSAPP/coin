@@ -222,6 +222,7 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const skipPrivateCircleApi = route?.params?.skipPrivateCircleApi === true;
+  const privateCircleRefreshAt = route?.params?.privateCircleRefreshAt;
   const isWalletPrivateCircle = skipPrivateCircleApi && !userData?.id;
 
   useScreenshotProtection({
@@ -387,28 +388,16 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     await Promise.all([fetchRecentActivities(), fetchPrivateCircleDashboard()]);
   }, [isWalletPrivateCircle, fetchRecentActivities, fetchPrivateCircleDashboard]);
 
-  const walletMembersForPicker = useMemo(
-    () => dashboardMembers.map((member) => ({
-      id: member.id,
-      username: member.name,
-      avatar: member.image,
-    })),
-    [dashboardMembers],
-  );
-
   const openAddMemberScreen = useCallback(() => {
     const parentNavigation = navigation.getParent?.() || navigation;
     parentNavigation.navigate('Add', {
       screen: 'PrivateCircleSelectMembers',
       params: {
         mode: 'manage',
-        members: walletMembersForPicker,
-        selectedIds: walletMembersForPicker.map((member) => member.id),
-        selectedMembers: walletMembersForPicker,
         returnToWalletPrivateCircle: true,
       },
     });
-  }, [navigation, walletMembersForPicker]);
+  }, [navigation]);
 
   const handleRemoveMember = useCallback(async (memberId) => {
     const normalized = String(memberId || '');
@@ -433,6 +422,11 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (!privateCircleRefreshAt || !isWalletPrivateCircle) return;
+    fetchDashboardData();
+  }, [privateCircleRefreshAt, isWalletPrivateCircle, fetchDashboardData]);
 
   useFocusEffect(
     useCallback(() => {

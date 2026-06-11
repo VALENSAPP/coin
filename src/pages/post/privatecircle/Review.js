@@ -70,6 +70,7 @@ export default function PrivateCircleReview() {
       members: circleMembers,
       selectedIds,
       selectedMembers,
+      persistedIds,
       returnToReview: true,
     });
   };
