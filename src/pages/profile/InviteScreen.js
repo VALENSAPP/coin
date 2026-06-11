@@ -144,7 +144,7 @@ const onCopyLink = () => {
               <Ionicons name="copy-outline" size={18} color="#333" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.debugText}>{t('invite.deepLinkLabel')} {deepLinkUrl}</Text>
+          {/* <Text style={styles.debugText}>{t('invite.deepLinkLabel')} {deepLinkUrl}</Text> */}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -187,7 +187,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 6,
     },
     qrGradient: {
         justifyContent: 'center',
