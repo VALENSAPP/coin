@@ -153,7 +153,13 @@ const parseApiTimestamp = (value) => {
 
 const resolveActivityTimestamp = (item, index, raw, range) => {
   const dateStr =
-    item?.timestamp ?? item?.createdAt ?? item?.time ?? item?.date ?? item?.day;
+    item?.timestamp ??
+    item?.createdAt ??
+    item?.time ??
+    item?.date ??
+    item?.day ??
+    item?.weekStart ??
+    item?.month;
   if (dateStr != null && String(dateStr).length > 0) {
     const ts = parseApiTimestamp(dateStr);
     if (Number.isFinite(ts)) return normalizeActivityTimestamp(ts, range);
@@ -426,7 +432,7 @@ function ActivityTrendSvg({
   }, [timestamps, labels, followersValues, unfollowersValues, supportValues]);
 
   const padL = 32;
-  const padR = 32;
+  const padR = 8;
   const padT = 8;
   const padB = 30;
   const innerW = Math.max(chartWidth - padL - padR, 1);
@@ -525,7 +531,7 @@ function ActivityTrendSvg({
             y={chartHeight - 4}
             fill="#888"
             fontSize={9}
-          // textAnchor={anchor}
+            textAnchor={anchor}
           >
             {labelsSorted[i] || ''}
           </SvgText>
@@ -588,7 +594,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [followersCount, setFollowersCount] = useState(0);
   const [connectedWalletType, setConnectedWalletType] = useState(null);
 
-  const activityChartW = width - 80;
+  const activityChartW = width - 64;
   const activityChartH = 200;
   const activityPeriodDeltaLabel =
     activityPeriod === 'Weekly' ? 'vs last week' : 'vs prior day';
@@ -603,19 +609,23 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const activityChartScrollWidth = useMemo(() => {
     const n = activityTimestamps.length;
     if (n <= 1) return activityChartW;
-    return Math.round(Math.max(activityChartW, 16 + (n - 1) * ACTIVITY_CHART_POINT_GAP));
+    const contentWidth = 40 + (n - 1) * ACTIVITY_CHART_POINT_GAP;
+    return Math.round(Math.max(activityChartW, contentWidth));
   }, [activityChartW, activityTimestamps.length]);
+
+  const scrollActivityChartToEnd = useCallback(() => {
+    if (!hasActivityChartData || activityChartScrollWidth <= activityChartW) return;
+    activityChartScrollRef.current?.scrollTo({
+      x: Math.max(activityChartScrollWidth - activityChartW, 0),
+      animated: false,
+    });
+  }, [activityChartScrollWidth, activityChartW, hasActivityChartData]);
 
   useEffect(() => {
     if (!hasActivityChartData || activityChartScrollWidth <= activityChartW) return;
-    const timer = setTimeout(() => {
-      activityChartScrollRef.current?.scrollTo({
-        x: Math.max(activityChartScrollWidth - activityChartW, 0),
-        animated: false,
-      });
-    }, 0);
+    const timer = setTimeout(scrollActivityChartToEnd, 0);
     return () => clearTimeout(timer);
-  }, [activityChartScrollWidth, activityChartW, hasActivityChartData, activityTimestamps]);
+  }, [scrollActivityChartToEnd, activityChartScrollWidth, activityChartW, hasActivityChartData, activityTimestamps]);
 
   const [dragonflyModalVisible, setDragonflyModalVisible] = useState(false);
   const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
@@ -1754,8 +1764,16 @@ export const WalletDashboardScreen = ({ navigation }) => {
                   nestedScrollEnabled
                   keyboardShouldPersistTaps="handled"
                   showsHorizontalScrollIndicator
-                  style={styles.activityChartScrollViewport}
+                  style={[styles.activityChartScrollViewport, { width: activityChartW }]}
                   contentContainerStyle={styles.activityChartScrollContent}
+                  onContentSizeChange={(contentWidth) => {
+                    if (contentWidth > activityChartW) {
+                      activityChartScrollRef.current?.scrollTo({
+                        x: contentWidth - activityChartW,
+                        animated: false,
+                      });
+                    }
+                  }}
                 >
                   <ActivityTrendSvg
                     timestamps={activityTimestamps}
@@ -3148,8 +3166,6 @@ const styles = StyleSheet.create({
   },
   activityChartScrollContent: {
     alignItems: 'flex-start',
-    paddingLeft: 8,
-    paddingRight: 8,
   },
   // Chart Container
   chartContainer: {

@@ -9,13 +9,18 @@ import {
   Modal,
   StatusBar,
   Platform,
-  PermissionsAndroid,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
+import {
+  checkDeviceNotificationPermission,
+  disableNotifications,
+  enableNotifications,
+  getNotificationEnabledState,
+  openNotificationSettings,
+} from '../../utils/notificationPreference';
 
 // Fallback icon component to mirror ChatMessages UI reliability
 const FallbackIcon = ({ name, size = 24, color = '#000', style }) => {
@@ -62,27 +67,9 @@ const Notification = () => {
 
   const checkNotificationPermission = async () => {
     try {
-      if (Platform.OS === 'android') {
-        if (Platform.Version >= 33) {
-          const hasPermission = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-          );
-
-          if (hasPermission) {
-            setPermissionStatus('granted');
-            setNotificationEnabled(true);
-          } else {
-            setPermissionStatus('denied');
-            setNotificationEnabled(false);
-          }
-        } else {
-          setPermissionStatus('granted');
-          setNotificationEnabled(true);
-        }
-      } else if (Platform.OS === 'ios') {
-        setPermissionStatus('undetermined');
-        setNotificationEnabled(false);
-      }
+      const { enabled, permissionStatus } = await getNotificationEnabledState();
+      setPermissionStatus(permissionStatus);
+      setNotificationEnabled(enabled);
     } catch (error) {
       setPermissionStatus('denied');
       setNotificationEnabled(false);
@@ -91,41 +78,28 @@ const Notification = () => {
 
   const requestNotificationPermission = async () => {
     try {
-      if (Platform.OS === 'android') {
-        if (Platform.Version >= 33) {
-          const result = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-            {
-              title: t('notificationEnable.permissionTitle'),
-              message: t('notificationEnable.permissionMessage'),
-              buttonNeutral: t('notificationEnable.buttonNeutral'),
-              buttonNegative: t('notificationEnable.buttonNegative'),
-              buttonPositive: t('notificationEnable.buttonPositive'),
-            }
-          );
-
-          if (result === PermissionsAndroid.RESULTS.GRANTED) {
-            setPermissionStatus('granted');
-            setNotificationEnabled(true);
-            showSuccessAlert();
-          } else if (result === PermissionsAndroid.RESULTS.DENIED) {
-            setPermissionStatus('denied');
-            setNotificationEnabled(false);
-            handlePermissionDenied();
-          } else if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-            setPermissionStatus('blocked');
-            setNotificationEnabled(false);
-            handlePermissionBlocked();
-          }
-        } else {
-          setPermissionStatus('granted');
-          setNotificationEnabled(true);
-          showSuccessAlert();
-        }
-      } else if (Platform.OS === 'ios') {
+      const result = await enableNotifications(t);
+      if (result.success) {
         setPermissionStatus('granted');
         setNotificationEnabled(true);
         showSuccessAlert();
+        return;
+      }
+
+      if (result.reason === 'blocked') {
+        setPermissionStatus('blocked');
+        setNotificationEnabled(false);
+        handlePermissionBlocked();
+        return;
+      }
+
+      const permission = await checkDeviceNotificationPermission();
+      setPermissionStatus(permission);
+      setNotificationEnabled(false);
+      if (permission === 'denied') {
+        handlePermissionDenied();
+      } else {
+        Alert.alert(t('notificationEnable.error'), t('notificationEnable.failedToRequest'));
       }
     } catch (error) {
       Alert.alert(t('notificationEnable.error'), t('notificationEnable.failedToRequest'));
@@ -170,11 +144,7 @@ const Notification = () => {
   };
 
   const openAppSettings = () => {
-    if (Platform.OS === 'ios') {
-      Linking.openURL('app-settings:');
-    } else {
-      Linking.openSettings();
-    }
+    openNotificationSettings();
   };
 
   const handleEnableNotifications = async () => {
@@ -198,8 +168,11 @@ const Notification = () => {
     }
 
     if (permissionStatus === 'granted' && !notificationEnabled) {
-      setNotificationEnabled(true);
-      showSuccessAlert();
+      const result = await enableNotifications(t);
+      if (result.success) {
+        setNotificationEnabled(true);
+        showSuccessAlert();
+      }
     }
   };
 
@@ -210,8 +183,9 @@ const Notification = () => {
     }, 300);
   };
 
-  const handleDenyPermission = () => {
+  const handleDenyPermission = async () => {
     setShowPermissionModal(false);
+    await disableNotifications();
     setNotificationEnabled(false);
     setPermissionStatus('denied');
   };
