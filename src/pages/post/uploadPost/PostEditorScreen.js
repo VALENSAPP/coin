@@ -13,6 +13,7 @@ import {
   Keyboard,
   findNodeHandle,
   DeviceEventEmitter,
+  Switch,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -107,7 +108,7 @@ const PostEditorScreen = () => {
     // }
 
     navigation.navigate('HomeMain');
-  }, [navigation, returnTo]);
+  }, [navigation]);
   const {
     images = [],
     currentFilter = 'none',
@@ -123,6 +124,7 @@ const PostEditorScreen = () => {
   const [editorImages, setEditorImages] = useState(images);
   const [caption, setCaption] = useState('');
   const [link, setLink] = useState('');
+  const [isCommunityTrustPost, setIsCommunityTrustPost] = useState(false);
   const [profile, setProfile] = useState(null);
   const [openingTaggedProfile, setOpeningTaggedProfile] = useState(false);
   const [iosKeyboardInset, setIosKeyboardInset] = useState(0);
@@ -130,7 +132,7 @@ const PostEditorScreen = () => {
   const captionInputRef = useRef(null);
   const linkInputRef = useRef(null);
   const iosFocusedFieldRef = useRef(null);
-  const { bgStyle, textStyle, text } = useAppTheme();
+  const { bgStyle, textStyle, text, card } = useAppTheme();
   const { t } = useLanguage();
 
   const toast = useToast();
@@ -271,12 +273,13 @@ const PostEditorScreen = () => {
       })),
       type:
         postType === 'private_circle' ? 'private_circle' :
-        postType === 'private'
-          ? 'private'
-          : fromIcon === 'Flips'
-            ? 'reel'
-            : 'normal',
+          postType === 'private'
+            ? 'private'
+            : fromIcon === 'Flips'
+              ? 'reel'
+              : 'normal',
       visibleTo: visibleTo,
+      isTrustPost: isCommunityTrustPost,
       ...(isFlipPost && primaryMedia
         ? { format: getPostMediaFormat(primaryMedia) }
         : {}),
@@ -495,7 +498,7 @@ const PostEditorScreen = () => {
 
       {Array.isArray(taggedPeople) && taggedPeople.length > 0 && (
         <View style={styles.captionSection}>
-              <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
+          <Text style={styles.captionLabel}>{t('postEditor.taggedPeople')}</Text>
           <Text style={styles.taggedPeopleText}>
             {taggedPeople.map((user, idx) => {
               const clean = String(user).replace(/^@+/, '');
@@ -518,7 +521,7 @@ const PostEditorScreen = () => {
         </View>
       )}
       <View style={styles.captionSection}>
-            <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
+        <Text style={styles.captionLabel}>{t('postEditor.captionLabel')}</Text>
         <TextInput
           ref={captionInputRef}
           style={[styles.captionInput, bgStyle]}
@@ -539,7 +542,7 @@ const PostEditorScreen = () => {
 
       {postType == 'crowdfunding' && (
         <View style={[styles.captionSection, { marginTop: -5 }]}>
-              <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
+          <Text style={styles.captionLabel}>{t('postEditor.linkLabel')}</Text>
           <TextInput
             ref={linkInputRef}
             style={[styles.linkInput, bgStyle]}
@@ -559,7 +562,40 @@ const PostEditorScreen = () => {
           />
         </View>
       )}
+      {fromIcon !== 'Flips' && (
 
+        <View style={styles.communityTrustSection}>
+          <View style={[styles.communityTrustCard, { backgroundColor: card }]}>
+            <View style={[styles.communityTrustIconWrap, { backgroundColor: `${text}18` }]}>
+              <Icon name="shield-checkmark" size={22} color={text} />
+            </View>
+            <View style={styles.communityTrustCopy}>
+              <View style={styles.communityTrustTitleRow}>
+                <Text style={styles.communityTrustTitle}>
+                  {t('postEditor.communityTrustTitle')}
+                </Text>
+                {/* <Icon name="information-circle-outline" size={14} color="#6b7280" /> */}
+              </View>
+              <Text style={styles.communityTrustSubtitle}>
+                {t('postEditor.communityTrustSubtitle')}
+              </Text>
+              {/* <TouchableOpacity activeOpacity={0.75} style={styles.communityTrustLink}>
+              <Text style={[styles.communityTrustLinkText, { color: text }]}>
+                {t('postEditor.communityTrustLearnMore')}
+              </Text>
+              <Icon name="chevron-forward" size={11} color={text} />
+            </TouchableOpacity> */}
+            </View>
+            <Switch
+              value={isCommunityTrustPost}
+              onValueChange={setIsCommunityTrustPost}
+              trackColor={{ false: '#d1d5db', true: `${text}66` }}
+              thumbColor={isCommunityTrustPost ? text : '#f8fafc'}
+              ios_backgroundColor="#d1d5db"
+            />
+          </View>
+        </View>
+      )}
       <View style={styles.footer}>
         <CustomButton
           title={t('postEditor.continueButton')}
@@ -763,6 +799,64 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: '#000'
+  },
+  communityTrustSection: {
+    paddingHorizontal: 16,
+    // marginTop: -6,
+    marginBottom: '5%',
+  },
+  communityTrustCard: {
+    minHeight: 85,
+    borderWidth: 1,
+    borderColor: '#eadff2',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  communityTrustIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  communityTrustCopy: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  communityTrustTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  communityTrustTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginRight: 6,
+  },
+  communityTrustSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 13,
+    color: '#6b7280',
+  },
+  communityTrustLink: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  communityTrustLinkText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   footer: {
     paddingTop: 6,

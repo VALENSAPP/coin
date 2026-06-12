@@ -47,6 +47,8 @@ import { log } from 'console';
 import { extractPostMusicPayloadFromApi } from '../../../utils/postSoundtracks';
 import { useLanguage } from '../../../i18n';
 
+const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
+
 const Posts = forwardRef(function Posts(
   { postData = [], onRefresh, isBusinessProfile, refreshing = false },
   ref,
@@ -309,6 +311,7 @@ const Posts = forwardRef(function Posts(
           end_time: item.end_time || null,
           tokenBalance: item.tokenBalance || 0,
           shareCount: item.shareCount || 0,
+          isTrustPost: isTruthyTrustPost(item.isTrustPost),
           taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
           ...extractPostMusicPayloadFromApi(item),
         };
@@ -1024,6 +1027,7 @@ const Posts = forwardRef(function Posts(
           screenFocused={screenFocused}
           playingPostId={playingPostId}
           shareCount={item.shareCount}
+          isTrustPost={item.isTrustPost}
           taggedPeople={item.taggedPeople}
         />
       );

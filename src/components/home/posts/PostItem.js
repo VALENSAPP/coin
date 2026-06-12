@@ -38,7 +38,13 @@ import { getDragonflyIcon } from '../../profile/ProfilePersonalData';
 import { showToastMessage } from '../../displaytoastmessage';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
-import { getUserCredentials, getUserDashboard } from '../../../services/post';
+import {
+  getUserCredentials,
+  getUserDashboard,
+  getTrustScrore,
+  unVote,
+  voteTrust,
+} from '../../../services/post';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { getTotalDonationAmount } from '../../../services/tokens';
 import BuyersListModal from '../../modals/BuyerList';
@@ -63,6 +69,19 @@ import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
+const TRUST_OPTIONS = [
+  { type: 'agree', labelKey: 'postItem.trustAgree', detailKey: 'postItem.trustAgreeDetail', icon: 'thumbs-up', color: '#059669' },
+  { type: 'not_sure', labelKey: 'postItem.trustNotSure', detailKey: 'postItem.trustNotSureDetail', icon: 'help-circle', color: '#F59E0B' },
+  { type: 'disagree', labelKey: 'postItem.trustDisagree', detailKey: 'postItem.trustDisagreeDetail', icon: 'thumbs-down', color: '#DC2626' },
+];
+
+const TRUST_SCORE_KEYS = {
+  agree: ['agree', 'approve', 'approved', 'trust', 'credible'],
+  not_sure: ['not_sure', 'notSure', 'unsure', 'neutral', 'notSurePercent'],
+  disagree: ['disagree', 'reject', 'rejected', 'untrust', 'notCredible'],
+};
+
+const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
 
 function getFeedMusicPlaybackWindow(trim, durationSec) {
   const prev = Math.max(0.1, Number(durationSec) || 30);
@@ -504,6 +523,7 @@ function PostItem({
   shareCount,
   taggedPeople,
   hideDonationButton = false,
+  isTrustPost = false,
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -538,8 +558,15 @@ function PostItem({
   });
   const [totalDonation, setTotalDonation] = useState(0);
   const [isLoadingDonation, setIsLoadingDonation] = useState(false);
+  const [trustPanelVisible, setTrustPanelVisible] = useState(false);
+  const [trustScoreVisible, setTrustScoreVisible] = useState(false);
+  const [trustLoading, setTrustLoading] = useState(false);
+  const [trustScoreLoading, setTrustScoreLoading] = useState(false);
+  const [trustVote, setTrustVote] = useState(null);
+  const [trustScore, setTrustScore] = useState(null);
 
   const { t } = useLanguage();
+  const showTrustControls = isTruthyTrustPost(isTrustPost) || isTruthyTrustPost(item?.isTrustPost);
 
   const currentUserIdStr = useMemo(() => (userId != null ? String(userId) : ''), [userId]);
   const itemUserIdStr = useMemo(() => {
@@ -579,6 +606,10 @@ function PostItem({
 
   useEffect(() => {
     setExpanded(false);
+    setTrustPanelVisible(false);
+    setTrustScoreVisible(false);
+    setTrustVote(null);
+    setTrustScore(null);
   }, [item?.caption, item?.id, item?.UserId]);
 
   const navigation = useNavigation();
@@ -1070,6 +1101,146 @@ function PostItem({
     onToggleLike?.(item.id);
     animateHeart();
   }, [onToggleLike, item.id, animateHeart]);
+
+  const unwrapTrustPayload = useCallback(response => {
+    const payload = response?.data ?? response;
+    return payload?.data ?? payload?.result ?? payload?.trustScore ?? payload?.score ?? payload;
+  }, []);
+
+  const getTrustVoteId = useCallback(vote => (
+    vote?.id ??
+    vote?._id ??
+    vote?.voteId ??
+    vote?.trustVoteId ??
+    vote?.PostTrustVoteId ??
+    null
+  ), []);
+
+  const pickTrustPercent = useCallback((source, keys) => {
+    if (!source || typeof source !== 'object') return 0;
+    for (const key of keys) {
+      const candidates = [
+        source[key],
+        source[`${key}Percent`],
+        source[`${key}Percentage`],
+        source[`${key}_percent`],
+        source[`${key}_percentage`],
+      ];
+      for (const value of candidates) {
+        const numberValue = Number(value);
+        if (Number.isFinite(numberValue)) return Math.max(0, Math.min(100, numberValue));
+      }
+    }
+    return 0;
+  }, []);
+
+  const normalizedTrustScore = useMemo(() => {
+    const source = trustScore || {};
+    const percentages = source.percentages || {};
+    const counts = source.counts || {};
+    const agree = pickTrustPercent(
+      { ...source, ...percentages },
+      [...TRUST_SCORE_KEYS.agree, 'agreeVote', 'agreeVotePercentage'],
+    );
+    const notSure = pickTrustPercent(
+      { ...source, ...percentages },
+      [...TRUST_SCORE_KEYS.not_sure, 'notSureVote', 'notSureVotePercentage'],
+    );
+    const disagree = pickTrustPercent(
+      { ...source, ...percentages },
+      [...TRUST_SCORE_KEYS.disagree, 'disagreeVote', 'disagreeVotePercentage'],
+    );
+    const total = agree + notSure + disagree;
+    const overallCandidates = [
+      source.score,
+      source.trustScore,
+      source.percentage,
+      source.percent,
+      source.communityTrustScore,
+      source.overall,
+      percentages.agreeVotePercentage,
+    ];
+    const overallRaw = overallCandidates.find(value => Number.isFinite(Number(value)));
+    const overall = Number.isFinite(Number(overallRaw))
+      ? Math.max(0, Math.min(100, Number(overallRaw)))
+      : (total > 0 ? agree : 0);
+
+    return {
+      agree,
+      notSure,
+      disagree,
+      overall,
+      totalVotes: Number(source.total) || 0,
+      agreeVotes: Number(counts.agreeVoteCount) || 0,
+      notSureVotes: Number(counts.notSureVoteCount) || 0,
+      disagreeVotes: Number(counts.disagreeVoteCount) || 0,
+    };
+  }, [pickTrustPercent, trustScore]);
+
+  const refreshTrustScore = useCallback(async () => {
+    if (!item?.id) return;
+    setTrustScoreLoading(true);
+    try {
+      const response = await getTrustScrore({ postId: item.id });
+      console.log(response,'getTrustScroregetTrustScroregetTrustScroregetTrustScroregetTrustScrore')
+      setTrustScore(unwrapTrustPayload(response));
+    } catch (error) {
+      console.log('Failed to fetch trust score:', error);
+      showToastMessage(toast, 'danger', t('postItem.trustLoadError'));
+    } finally {
+      setTrustScoreLoading(false);
+    }
+  }, [item?.id, toast, unwrapTrustPayload]);
+
+  const handleTrustIconPress = useCallback(() => {
+    setTrustScoreVisible(false);
+    setTrustPanelVisible(prev => !prev);
+  }, []);
+
+  const handleTrustScorePress = useCallback(async () => {
+    const nextVisible = !trustScoreVisible;
+    setTrustPanelVisible(false);
+    setTrustScoreVisible(nextVisible);
+    if (nextVisible) {
+      await refreshTrustScore();
+    }
+  }, [refreshTrustScore, trustScoreVisible]);
+
+  const handleTrustVote = useCallback(async type => {
+    if (!item?.id || trustLoading) return;
+    setTrustLoading(true);
+    try {
+      const response = await voteTrust({ postId: item.id, voteType: type });
+      console.log(response,'votes trustsssss')
+      const payload = unwrapTrustPayload(response);
+      console.log(payload,'dtatataatatain [ay;oaddd')
+      setTrustVote({ ...(payload || {}), type });
+      setTrustPanelVisible(false);
+      setTrustScoreVisible(true);
+      await refreshTrustScore();
+    } catch (error) {
+      console.log('Failed to vote trust:', error);
+      showToastMessage(toast, 'danger', t('postItem.trustSubmitError'));
+    } finally {
+      setTrustLoading(false);
+    }
+  }, [item?.id, refreshTrustScore, toast, trustLoading, unwrapTrustPayload]);
+
+  const handleTrustUndo = useCallback(async () => {
+    const voteId = getTrustVoteId(trustVote);
+    if (!voteId || trustLoading) return;
+    setTrustLoading(true);
+    try {
+      await unVote({ voteId });
+      setTrustVote(null);
+      await refreshTrustScore();
+    } catch (error) {
+      console.log('Failed to remove trust vote:', error);
+      showToastMessage(toast, 'danger', t('postItem.trustUndoError'));
+    } finally {
+      setTrustLoading(false);
+    }
+  }, [getTrustVoteId, refreshTrustScore, toast, trustLoading, trustVote]);
 
   const playDoubleTapHeartBurst = useCallback(() => {
     setShowDoubleTapHeart(true);
@@ -1615,6 +1786,19 @@ function PostItem({
               <Text style={styles.actionCount}>{commentsCount || 0}</Text>
             </TouchableOpacity>
 
+            {showTrustControls && (
+              <TouchableOpacity
+                onPress={handleTrustIconPress}
+                style={styles.actionButton}
+                activeOpacity={0.85}
+                accessibilityLabel="Open trust vote">
+                <View style={styles.trustActionIcon}>
+                  <Icon name="shield-checkmark" size={18} color="#FFFFFF" />
+                </View>
+                <Text style={styles.actionCount}>{t('postItem.trust')}</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               onPress={() => {
                 setSelectedPostId(item);
@@ -1624,6 +1808,26 @@ function PostItem({
               <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
               <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
             </TouchableOpacity>
+
+
+            {/* {showTrustControls && (
+              <TouchableOpacity
+                onPress={handleTrustScorePress}
+                style={styles.trustScoreActionButton}
+                activeOpacity={0.85}>
+                <View style={styles.trustScoreActionIcon}>
+                  <Icon name="shield-checkmark" size={14} color="#FFFFFF" />
+                </View>
+                <View style={styles.trustScoreActionTextWrap}>
+                  <View style={styles.trustScoreActionTitleRow}>
+                    <Text style={styles.trustScoreActionTitle} numberOfLines={1}>{t('postItem.trustScore')}</Text>
+                    <Icon name="information-circle-outline" size={10} color="#6B7280" />
+                    <Text style={styles.trustScoreValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
+                  </View>
+                  <Text style={styles.trustScoreActionSub} numberOfLines={1}>{t('postItem.communityTrustScore')}</Text>
+                </View>
+              </TouchableOpacity>
+            )} */}
           </View>
 
           {itemUserIdStr && currentUserIdStr && itemUserIdStr !== currentUserIdStr && (
@@ -1645,6 +1849,108 @@ function PostItem({
             </TouchableOpacity>
           )}
         </View>
+
+        {showTrustControls && trustPanelVisible && (
+          <View style={styles.trustVotePanel}>
+            <View style={styles.trustIntro}>
+              <View style={styles.trustIntroIcon}>
+                <Icon name="shield-checkmark" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.trustIntroTextWrap}>
+                <Text style={styles.trustTitle}>{t('postItem.communityTrustScore')}</Text>
+                <Text style={styles.trustBodyText}>{t('postItem.trustBodyText')}</Text>
+                <Text style={styles.trustMutedText}>{t('postItem.trustMutedText')}</Text>
+              </View>
+            </View>
+            <View style={styles.trustOptionsRow}>
+              {TRUST_OPTIONS.map(option => {
+                const selected = trustVote?.type === option.type;
+                return (
+                  <TouchableOpacity
+                    key={option.type}
+                    style={[styles.trustOptionButton, selected && styles.trustOptionSelected]}
+                    onPress={() => handleTrustVote(option.type)}
+                    disabled={trustLoading}
+                    activeOpacity={0.85}>
+                    <Feather name={option.icon} size={17} color={option.color} />
+                    <Text style={styles.trustOptionLabel}>{t(option.labelKey)}</Text>
+                    <Text style={styles.trustOptionDetail} numberOfLines={1}>{t(option.detailKey)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {trustLoading ? <ActivityIndicator size="small" color="#059669" /> : null}
+          </View>
+        )}
+
+        {showTrustControls && trustScoreVisible && (
+          <View style={styles.trustScorePanel}>
+            {trustScoreLoading ? (
+              <ActivityIndicator size="small" color="#059669" />
+            ) : (
+              <>
+                <View style={styles.trustProgressTrack}>
+                  <View
+                    style={[
+                      styles.trustProgressFill,
+                      {
+                        width: `${
+                          normalizedTrustScore.overall > 0
+                            ? Math.max(2, normalizedTrustScore.overall)
+                            : 0
+                        }%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.trustProgressValue}>{Math.round(normalizedTrustScore.overall)}%</Text>
+                <View style={styles.trustMetricRow}>
+                  <View style={styles.trustMetricItem}>
+                    <Feather name="check-circle" size={15} color="#059669" />
+                    <Text style={styles.trustMetricLabel}>{t('postItem.trustApprove')}</Text>
+                    <Text style={[styles.trustMetricPercent, { color: '#059669' }]}>
+                      {Math.round(normalizedTrustScore.agree)}%
+                    </Text>
+                    <Text style={styles.trustMetricSub}>
+                      {t('postItem.trustVotes', { count: normalizedTrustScore.agreeVotes })}
+                    </Text>
+                  </View>
+                  <View style={styles.trustMetricDivider} />
+                  <View style={styles.trustMetricItem}>
+                    <Feather name="help-circle" size={15} color="#F59E0B" />
+                    <Text style={styles.trustMetricLabel}>{t('postItem.trustUnsure')}</Text>
+                    <Text style={[styles.trustMetricPercent, { color: '#F59E0B' }]}>
+                      {Math.round(normalizedTrustScore.notSure)}%
+                    </Text>
+                    <Text style={styles.trustMetricSub}>
+                      {t('postItem.trustVotes', { count: normalizedTrustScore.notSureVotes })}
+                    </Text>
+                  </View>
+                  <View style={styles.trustMetricDivider} />
+                  <View style={styles.trustMetricItem}>
+                    <Feather name="x-circle" size={15} color="#DC2626" />
+                    <Text style={styles.trustMetricLabel}>{t('postItem.trustDisagree')}</Text>
+                    <Text style={[styles.trustMetricPercent, { color: '#DC2626' }]}>
+                      {Math.round(normalizedTrustScore.disagree)}%
+                    </Text>
+                    <Text style={styles.trustMetricSub}>
+                      {t('postItem.trustVotes', { count: normalizedTrustScore.disagreeVotes })}
+                    </Text>
+                  </View>
+                </View>
+                {getTrustVoteId(trustVote) ? (
+                  <TouchableOpacity
+                    style={styles.trustUndoButton}
+                    onPress={handleTrustUndo}
+                    disabled={trustLoading}
+                    activeOpacity={0.85}>
+                    <Text style={styles.trustUndoText}>{t('postItem.trustUndoVote')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            )}
+          </View>
+        )}
 
         {/* Buyers / followers row */}
         {(() => {
@@ -1894,6 +2200,8 @@ export default React.memo(PostItem, (prev, next) => {
   if (prev.screenFocused !== next.screenFocused) return false;
   if (prev.playingPostId !== next.playingPostId) return false;
   if (prev.item?.follow !== next.item?.follow) return false;
+  if (prev.isTrustPost !== next.isTrustPost) return false;
+  if (prev.item?.isTrustPost !== next.item?.isTrustPost) return false;
   if (prev.shareCount !== next.shareCount) return false;
   return true;
 });
@@ -2058,11 +2366,100 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     zIndex: 10,
   },
+  trustActionIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#059669',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     marginHorizontal: 3,
+  },
+  trustVotePanel: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 2,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  trustIntro: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  trustIntroIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#059669',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  trustIntroTextWrap: {
+    flex: 1,
+  },
+  trustTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  trustBodyText: {
+    marginTop: 3,
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#374151',
+  },
+  trustMutedText: {
+    marginTop: 2,
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#6B7280',
+  },
+  trustOptionsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  trustOptionButton: {
+    flex: 1,
+    minHeight: 62,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 7,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    marginHorizontal: 3,
+  },
+  trustOptionSelected: {
+    borderColor: '#10B981',
+    backgroundColor: '#ECFDF5',
+  },
+  trustOptionLabel: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  trustOptionDetail: {
+    marginTop: 2,
+    fontSize: 9,
+    color: '#6B7280',
   },
   actionsSection: {
     flexDirection: 'row',
@@ -2075,9 +2472,11 @@ const styles = StyleSheet.create({
   leftActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    flexShrink: 1,
   },
   actionButton: {
-    marginRight: 20,
+    marginRight: 14,
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2090,8 +2489,125 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  trustScoreActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: 104,
+  },
+  trustScoreActionIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#059669',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  trustScoreActionTextWrap: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  trustScoreActionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trustScoreActionTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#111827',
+    marginRight: 2,
+    flexShrink: 1,
+  },
+  trustScoreValue: {
+    marginLeft: 2,
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#10B981',
+  },
+  trustScoreActionSub: {
+    marginTop: 1,
+    fontSize: 8,
+    color: '#6B7280',
+  },
+  trustScorePanel: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  trustProgressTrack: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+    marginRight: 42,
+  },
+  trustProgressFill: {
+    height: '100%',
+    borderRadius: 5,
+    backgroundColor: '#059669',
+  },
+  trustProgressValue: {
+    position: 'absolute',
+    top: 7,
+    right: 12,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#10B981',
+  },
+  trustMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginTop: 12,
+  },
+  trustMetricItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  trustMetricLabel: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#374151',
+  },
+  trustMetricPercent: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  trustMetricSub: {
+    marginTop: 2,
+    fontSize: 8,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  trustMetricDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 4,
+  },
+  trustUndoButton: {
+    alignSelf: 'center',
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 7,
+    backgroundColor: '#F3F4F6',
+  },
+  trustUndoText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#374151',
+  },
   followButton: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -2099,6 +2615,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     backgroundColor: '#5a2d82',
+    marginLeft: 8,
   },
   followingButtonText: {
     color: '#fff',

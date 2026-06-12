@@ -47,6 +47,11 @@ export const createPost = async data => {
     formData.append("visibleTo", data.visibleTo);
   }
 
+  const isTrustPost = data.isTrustPost ?? data.communityTrustPost;
+  if (isTrustPost != null) {
+    formData.append("isTrustPost", isTrustPost ? "true" : "false");
+  }
+
   if (data.raiseAmount) {
     formData.append("raiseAmount", data.raiseAmount);
   }
@@ -264,3 +269,25 @@ export async function pinPost(data) {
 export async function unpinPost(data) {
   return axiosInstance.post('post/unpin', data);
 }
+export async function voteTrust(data) {
+  const voteTypeMap = {
+    agree: 'AGREE',
+    not_sure: 'NOT_SURE',
+    disagree: 'DISAGREE',
+  };
+  const rawVoteType = data?.voteType ?? data?.type;
+  const voteType = voteTypeMap[rawVoteType] ?? rawVoteType;
+
+  return axiosInstance.post('post/postTrustVote', {
+    postId: data?.postId,
+    voteType,
+  });
+}
+export async function getTrustScrore(data) {
+  return axiosInstance.post('post/getPostTrustScore', data);
+}
+export async function unVote(data) {
+  return axiosInstance.post('post/removePostTrustVote', data);
+}
+
+
