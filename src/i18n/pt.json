@@ -638,7 +638,7 @@
     "copiedTitle": "Copiado!",
     "copiedReferralMessage": "Código de indicação copiado com sucesso",
     "copiedLinkMessage": "Link de indicação copiado para a área de transferência",
-    "shareMessage": "Entre no Valens e ganhe recompensas! Use meu código de indicação:",
+    "shareMessage": "✨ Junte-se a mim no Valens\nGanhe recompensas, participe de batalhas, apoie missões e construa uma reputação real.\n\nUse meu link de convite abaixo.",
     "shareTitle": "Entre no Valens"
   },
   "openBattle": {
@@ -720,7 +720,7 @@
     "profileNotAvailableMessage": "Não é possível compartilhar o perfil agora.",
     "linkUnavailable": "Link indisponível",
     "noLinkToCopy": "Nenhum link disponível para copiar",
-    "shareMessageTemplate": "✨ Siga-me no Valens\n Junte-se às minhas batalhas, apoie minhas missões e faça parte do meu mundo. Onde a reputação é conquistada, não comprada.",
+    "shareMessageTemplate": "✨ Siga-me no Valens\n Junte-se às minhas batalhas, apoie minhas missões e faça parte do meu mundo. \n\nOnde a reputação é conquistada, não comprada.\n\n",
     "shareOtherMessageTemplate": "✨ Siga {{username}} no Valens\nOnde a reputação é conquistada, não comprada.\nJunte-se ao mundo dele abaixo.\n{{profileLink}}",
     "brandName": "Valens"
   },

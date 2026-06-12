@@ -638,7 +638,7 @@
     "copiedTitle": "Copied!",
     "copiedReferralMessage": "Referral code copied successfully",
     "copiedLinkMessage": "Referral link copied to clipboard",
-    "shareMessage": "Join Valens and earn rewards! Use my referral code:",
+    "shareMessage": "✨ Join me on Valens\nEarn rewards, join battles, support missions, and build real reputation.\n\nUse my invite link below.",
     "shareTitle": "Join Valens"
   },
   "openBattle": {
@@ -720,7 +720,7 @@
     "profileNotAvailableMessage": "Unable to share profile right now.",
     "linkUnavailable": "Link unavailable",
     "noLinkToCopy": "No link available to copy",
-    "shareMessageTemplate": "✨ Follow me on Valens \nJoin my battles, support my missions, and be part of my world. Where reputation is earned, not bought.",
+    "shareMessageTemplate": "✨ Follow me on Valens \nJoin my battles, support my missions, and be part of my world. \n\nWhere reputation is earned, not bought.\n\n",
     "shareOtherMessageTemplate": "✨ Follow {{username}} on Valens\nWhere reputation is earned, not bought.\nJoin their world below.\n{{profileLink}}",
     "brandName": "Valens"
   },

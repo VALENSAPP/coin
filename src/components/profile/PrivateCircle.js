@@ -78,6 +78,18 @@ const isVideoUrl = (url) => {
   return /\.(mp4|mov|avi|mkv|webm|m4v)(\?|$)/i.test(url);
 };
 
+const getPreviewMedia = (post) => {
+  const mediaUrl = normalizeImageUrl(post?.images?.[0] || post?.image || post?.video);
+  const thumbnailUrl = normalizeImageUrl(
+    post?.thumbnails?.[0] || post?.thumbnail || post?.poster
+  );
+  const isVideo =
+    post?.type === 'reel' ||
+    /\.(mp4|mov|avi|mkv|webm|m4v|3gp)(\?|$)/i.test(post?.images?.[0] || post?.image || post?.video || '');
+  return { mediaUrl, thumbnailUrl, isVideo };
+};
+
+
 const formatActivityTime = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
@@ -138,53 +150,39 @@ const HexagonImage = ({ uri, size = 34, borderColor = 'rgba(124,58,237,0.28)' })
 };
 
 const PostImage = memo(({ item, themeTextStyle }) => {
-  const mediaUrl = normalizeImageUrl(item?.images?.[0]);
-  const isVideo = isVideoUrl(item?.images?.[0]);
+  const { mediaUrl, thumbnailUrl, isVideo } = getPreviewMedia(item);
   const [imageError, setImageError] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
-  const [videoError, setVideoError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const { text } = useAppTheme();
 
-  if (!mediaUrl) {
-    return (
-      <View style={[gridStyles.image, gridStyles.placeholderImage]}>
-        <Text style={[gridStyles.placeholderText, themeTextStyle]}>📷</Text>
-      </View>
-    );
-  }
-
+  // ── Video: show thumbnail + play badge (same as PostScreen) ──────────────
   if (isVideo) {
     return (
-      <View style={[gridStyles.image, gridStyles.placeholderImage]}>
-        <Video
-          source={{ uri: mediaUrl }}
-          style={StyleSheet.absoluteFill}
-          paused={true}
-          muted={true}
+      <View style={gridStyles.image}>
+        <FastImage
+          source={{ uri: thumbnailUrl || mediaUrl }}
+          style={gridStyles.image}
           resizeMode="cover"
-          onLoad={() => setIsVideoLoading(false)}
-          onError={() => {
-            setVideoError(true);
-            setIsVideoLoading(false);
-          }}
-          playInBackground={false}
         />
-        {(isVideoLoading || videoError) && (
-          <View style={[StyleSheet.absoluteFill, gridStyles.videoPlaceholderOverlay]}>
-            <ActivityIndicator size="large" color="#5A2D82" />
-          </View>
-        )}
-        {!isVideoLoading && !videoError && (
-          <View style={gridStyles.videoBadge}>
-            <Text style={gridStyles.videoBadgeText}>▶</Text>
-          </View>
-        )}
+        <View
+          style={[
+            gridStyles.videoBadge,
+            {
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: [{ translateX: -15 }, { translateY: -15 }],
+            },
+          ]}
+        >
+          <Text style={gridStyles.videoBadgeText}>▶</Text>
+        </View>
       </View>
     );
   }
 
-  if (imageError) {
+  // ── No URL or broken ─────────────────────────────────────────────────────
+  if (!mediaUrl || imageError) {
     return (
       <View style={[gridStyles.image, gridStyles.placeholderImage]}>
         <Text style={[gridStyles.placeholderText, themeTextStyle]}>📷</Text>
@@ -192,6 +190,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
     );
   }
 
+  // ── Regular image ────────────────────────────────────────────────────────
   return (
     <View style={gridStyles.image}>
       {isImageLoading && (
@@ -203,10 +202,7 @@ const PostImage = memo(({ item, themeTextStyle }) => {
         source={{ uri: mediaUrl }}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
-        onError={() => {
-          setImageError(true);
-          setIsImageLoading(false);
-        }}
+        onError={() => { setImageError(true); setIsImageLoading(false); }}
         onLoad={() => setIsImageLoading(false)}
       />
     </View>
@@ -461,43 +457,20 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
     (index) => {
       const item = posts[index];
       if (!item) return;
-      const isReel = isVideoUrl(item?.images?.[0]);
-      if (isReel) {
-        const parent = navigation.getParent?.();
-        if (parent?.navigate) {
-          parent.navigate('FlipsScreen', {
-            item,
-            userId: userData?.id,
-            screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
-          });
-          return;
-        }
-        navigation.navigate('FlipsScreen', {
-          item,
-          userId: userData?.id,
-          screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
-        });
-        return;
-      }
-      const imagePosts = posts.filter((p) => !isVideoUrl(p?.images?.[0]));
-      const nextIndex = Math.max(
-        0,
-        imagePosts.findIndex((p) => String(p?.id) === String(item?.id)),
-      );
+
       navigation.getParent().navigate('ProfileMain', {
         screen: 'PostView',
         params: {
-          postData: imagePosts,
-          startIndex: nextIndex,
+          postData: posts,
+          startIndex: index,
           hideTabBar: true,
-          userId: userData?.id,
+          userData,
           screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CIRCLE,
         },
       });
     },
-    [navigation, posts, userData?.id],
+    [navigation, posts, userData],
   );
-
 
   // ── Grid render ───────────────────────────────────────────────────────────
   const renderItem = useCallback(
@@ -1013,15 +986,16 @@ const gridStyles = StyleSheet.create({
   placeholderText: { fontSize: 28 },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   videoBadge: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  videoBadgeText: { color: '#fff', fontSize: 10 },
+  videoBadgeText: { color: '#fff', fontSize: 14 },
   videoPlaceholderOverlay: {
     backgroundColor: 'rgba(0,0,0,0.25)',
     justifyContent: 'center',

@@ -47,8 +47,13 @@ export default function InviteScreen() {
 
   const onShare = async () => {
     try {
+      const inviteMessage = `${t('invite.shareMessage')}
+${deepLinkUrl}
+
+Referral Code: ${userReferralCode}`;
+
       await Share.share({
-        message: `${t('invite.shareMessage')} ${userReferralCode}\n\n${deepLinkUrl}`,
+        message: inviteMessage,
         title: t('invite.shareTitle'),
       });
     } catch (e) {
@@ -56,16 +61,19 @@ export default function InviteScreen() {
     }
   };
 
-const onCopyLink = () => {
-  const inviteMessage = `${t('invite.shareMessage')} ${userReferralCode}\n\n${deepLinkUrl}`;
+  const onCopyLink = () => {
+    const inviteMessage = `${t('invite.shareMessage')}
+${deepLinkUrl}
 
-  Clipboard.setString(inviteMessage);
+Referral Code: ${userReferralCode}`;
 
-  Alert.alert(
-    t('invite.copiedTitle'),
-    t('invite.copiedReferralMessage')
-  );
-};
+    Clipboard.setString(inviteMessage);
+
+    Alert.alert(
+      t('invite.copiedTitle'),
+      t('invite.copiedReferralMessage')
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.safe, bgStyle]}>
@@ -152,115 +160,115 @@ const onCopyLink = () => {
 }
 
 const styles = StyleSheet.create({
-    safe: { flex: 1, marginTop: 20 },
-    container: {
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 40,
-    },
+  safe: { flex: 1, marginTop: 20 },
+  container: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
 
-    backBtn: {
-        position: 'absolute',
-        // left: 16,
-        // top: 27,
-        zIndex: 10,
-    },
+  backBtn: {
+    position: 'absolute',
+    // left: 16,
+    // top: 27,
+    zIndex: 10,
+  },
 
-    title: {
-        // marginTop: 6,
-        fontSize: 26,
-        fontWeight: '700',
-        textAlign: 'center',
-        width: '85%',
-        left: 10,
-        color: '#111',
-    },
-    subtitle: {
-        marginTop: 10,
-        textAlign: 'center',
-        color: '#666',
-        lineHeight: 22,
-        paddingHorizontal: 6,
-    },
-    referralRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    qrGradient: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    qrInner: {
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 7,
-    },
+  title: {
+    // marginTop: 6,
+    fontSize: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+    width: '85%',
+    left: 10,
+    color: '#111',
+  },
+  subtitle: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#666',
+    lineHeight: 22,
+    paddingHorizontal: 6,
+  },
+  referralRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  qrGradient: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  qrInner: {
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 7,
+  },
 
-    avatarWrapper: {
-        position: 'absolute',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    shareRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        width: '100%',
-        paddingHorizontal: 2,
-    },
-    shareButton: {
-        flex: 1,
-        backgroundColor: '#111',
-        paddingVertical: 14,
-        borderRadius: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    shareText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  avatarWrapper: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 2,
+  },
+  shareButton: {
+    flex: 1,
+    backgroundColor: '#111',
+    paddingVertical: 14,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  shareText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 
-    iconButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        alignItems: 'center',
-        justifyContent: 'center',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-    },
+  iconButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+  },
 
-    sectionTitle: {
-        alignSelf: 'flex-start',
-        fontSize: 20,
-        fontWeight: '700',
-        marginTop: 4,
-        color: '#111',
-    },
-    sectionSubtitle: {
-        alignSelf: 'flex-start',
-        color: '#777',
-        marginTop: 6,
-        lineHeight: 22,
-    },
+  sectionTitle: {
+    alignSelf: 'flex-start',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 4,
+    color: '#111',
+  },
+  sectionSubtitle: {
+    alignSelf: 'flex-start',
+    color: '#777',
+    marginTop: 6,
+    lineHeight: 22,
+  },
 
-    debugBox: {
-        marginTop: 20,
-        padding: 12,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        width: '100%',
-    },
-    debugText: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 4,
-    },
+  debugBox: {
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    width: '100%',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
 });

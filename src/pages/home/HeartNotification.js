@@ -903,9 +903,13 @@ export default function Notifications() {
   };
 
   const renderPopup = () => {
-    const targetUserId = getNotificationTargetUserId(SelectedNotification);
+    const rawData = SelectedNotification?.raw?.data || {};
     const message = SelectedNotification?.message ?? '';
-    const { usernameText, restText } = splitNotificationMessage(message);
+
+    // Split message on @mentions
+    const mentionRegex = /(@\S+)/g;
+    const parts = message.split(mentionRegex);
+
     return (
       <Modal
         visible={popupVisible}
@@ -923,19 +927,27 @@ export default function Notifications() {
                 {SelectedNotification?.title}
               </Text>
               <Text style={[styles.popupMessage, { color: text }]}>
-                {!!usernameText &&
-                  (targetUserId ? (
-                    <Text
-                      suppressHighlighting
-                      style={styles.popupMessageHighlight}
-                    // onPress={handlePopupNavigateToProfile}
-                    >
-                      {`${usernameText} `}
-                    </Text>
-                  ) : (
-                    <Text>{`${usernameText} `}</Text>
-                  ))}
-                <Text style={styles.popupMessageHighlight}>{restText}</Text>
+                {parts.map((part, index) => {
+                  if (mentionRegex.test(part)) {
+                    mentionRegex.lastIndex = 0; // reset after .test()
+                    const userId = rawData?.ownerId || rawData?.actorId || rawData?.userId || null;
+                    return (
+                      <Text
+                        key={index}
+                        suppressHighlighting
+                        style={{ color: '#3c0fdd', fontWeight: '700' }}
+                        onPress={() => {
+                          if (!userId) return;
+                          setPopupVisible(false);
+                          navigation.navigate('UsersProfile', { userId });
+                        }}
+                      >
+                        {part}
+                      </Text>
+                    );
+                  }
+                  return <Text key={index}>{part}</Text>;
+                })}
               </Text>
             </View>
 
@@ -1236,6 +1248,7 @@ export default function Notifications() {
           else if (isPrivatePost && data.visibleTo == "PRIVATE_CIRCLE") {
             console.log('Handling private circle exclusive post notification'); // 👈 add this
             const postCreatorId =
+              data.taggerId ||
               data.ownerId ||
               data.userId ||
               data.creatorId ||
