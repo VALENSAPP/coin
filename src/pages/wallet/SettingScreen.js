@@ -8,6 +8,7 @@ import {
   FlatList,
   SafeAreaView,
   Platform,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -21,10 +22,15 @@ import { getProfile } from '../../services/createProfile';
 import { useAppTheme } from '../../theme/useApptheme';
 import HexAvatar from '../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../i18n';
+import {
+  disableNotifications,
+  enableNotifications,
+  getNotificationEnabledState,
+  openNotificationSettings,
+} from '../../utils/notificationPreference';
 
 export const SettingsScreen = ({ navigation }) => {
-  const [autoInvest, setAutoInvest] = useState(true);
-  const [priceAlerts, setPriceAlerts] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [userData, setUserData] = useState();
   const [profileData, setProfileData] = useState();
   const profileImage = useSelector(state => state.profileImage?.profileImg);
@@ -38,6 +44,11 @@ export const SettingsScreen = ({ navigation }) => {
     userData?.image ||
     'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+  const loadNotificationPreference = React.useCallback(async () => {
+    const { enabled } = await getNotificationEnabledState();
+    setNotificationsEnabled(enabled);
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
       const fetchData = async () => {
@@ -47,12 +58,58 @@ export const SettingsScreen = ({ navigation }) => {
         await Promise.all([
           fetchUserCreds(id),
           fetchProfile(id),
+          loadNotificationPreference(),
         ]);
       };
 
       fetchData();
-    }, [])
+    }, [loadNotificationPreference]),
   );
+
+  const handleNotificationToggle = async (value) => {
+    if (value) {
+      const result = await enableNotifications(t);
+      if (result.success) {
+        setNotificationsEnabled(true);
+        showToastMessage(toast, 'success', t('walletSettings.notificationsEnabled'));
+        return;
+      }
+
+      setNotificationsEnabled(false);
+
+      if (result.reason === 'blocked') {
+        Alert.alert(
+          t('notificationEnable.permissionBlockedTitle'),
+          t('notificationEnable.permissionBlockedMessage'),
+          [
+            { text: t('notificationEnable.cancel'), style: 'cancel' },
+            {
+              text: t('notificationEnable.openSettings'),
+              onPress: openNotificationSettings,
+            },
+          ],
+        );
+        return;
+      }
+
+      Alert.alert(
+        t('notificationEnable.permissionDeniedTitle'),
+        t('notificationEnable.permissionDeniedMessage'),
+        [
+          { text: t('notificationEnable.cancel'), style: 'cancel' },
+          {
+            text: t('notificationEnable.tryAgain'),
+            onPress: () => handleNotificationToggle(true),
+          },
+        ],
+      );
+      return;
+    }
+
+    await disableNotifications();
+    setNotificationsEnabled(false);
+    showToastMessage(toast, 'success', t('walletSettings.notificationsDisabled'));
+  };
 
   const fetchUserCreds = async (id) => {
     try {
@@ -132,6 +189,13 @@ export const SettingsScreen = ({ navigation }) => {
           icon: 'shield-checkmark',
           action: () => navigation.navigate('VerificationStatus'),
           status: t('walletSettings.verifiedStatus'),
+        },
+        {
+          label: t('walletSettings.notifications'),
+          icon: 'notifications-outline',
+          toggle: true,
+          value: notificationsEnabled,
+          onToggle: handleNotificationToggle,
         },
         {
           label: t('walletSettings.privacySettings'),

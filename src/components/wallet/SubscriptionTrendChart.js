@@ -72,12 +72,14 @@ const parseBucketDate = (rawDate) => {
   if (!value) return null;
 
   if (/^\d{4}-\d{2}$/.test(value)) {
-    const parsed = parseISO(`${value}-01`);
+    const [year, month] = value.split('-').map(Number);
+    const parsed = new Date(year, month - 1, 1);
     return isNaN(parsed.getTime()) ? null : parsed.getTime();
   }
 
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    const parsed = parseISO(value.slice(0, 10));
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+    const parsed = new Date(year, month - 1, day);
     return isNaN(parsed.getTime()) ? null : parsed.getTime();
   }
 
@@ -88,6 +90,7 @@ const parseBucketDate = (rawDate) => {
 const resolveGraphTimestamp = (item, index, raw, interval) => {
   const dateStr =
     item?.month ??
+    item?.weekStart ??
     item?.week ??
     item?.day ??
     item?.date ??
@@ -117,7 +120,8 @@ const resolveGraphTimestamp = (item, index, raw, interval) => {
 const formatMonthlyChartLabel = (timestamp) => format(timestamp, 'MMM yy');
 
 const resolveGraphLabel = (item, timestamp, interval) => {
-  const bucket = item?.month ?? item?.week ?? item?.day ?? item?.date ?? item?.label;
+  const bucket =
+    item?.month ?? item?.weekStart ?? item?.week ?? item?.day ?? item?.date ?? item?.label;
   if (bucket != null && String(bucket).trim()) {
     const bucketTs = parseBucketDate(bucket);
     if (bucketTs != null) {
