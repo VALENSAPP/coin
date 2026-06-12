@@ -153,7 +153,7 @@ export default StyleSheet.create({
     sectionTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#5B21B6',
+        color: '#c82929ff',
         marginBottom: 12,
         textTransform: 'uppercase',
     },
@@ -334,6 +334,20 @@ export default StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: '#DC2626',
+    },
+    deleteWarningCard: {
+        // borderWidth: 1,
+        borderColor: '#FCA5A5',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        marginBottom: '2%',
+    },
+    deleteWarningText: {
+        fontSize: 15,
+        fontWeight: '600',
+        lineHeight: 21,
+        color: '#0000',
     },
     infoCard: {
         backgroundColor: '#FFFFFF',

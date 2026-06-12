@@ -25,7 +25,7 @@ const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
     const route = useRoute();
     const toast = useToast();
-    const { bgStyle, textStyle } = useAppTheme();
+    const { bgStyle, textStyle, card } = useAppTheme();
     const { t } = useLanguage();
     const hideDeleteAccount = route?.params?.hideDeleteAccount === true;
 
@@ -139,9 +139,9 @@ const PrivacySettingsScreen = () => {
         <SafeAreaView style={[styles.container, bgStyle]}>
             <StatusBar barStyle="dark-content" />
             <ScrollView style={styles.content}>
-                <View style={[styles.section, { marginTop: 20 }]}>
+                {/* <View style={[styles.section, { marginTop: 20 }]}>
                     <Text style={styles.sectionTitle}>{t('privacySettings.profileVisibility')}</Text>
-                    <View style={styles.radioGroup}>
+                    {/* <View style={styles.radioGroup}>
                         <TouchableOpacity
                             style={styles.radioItem}
                             onPress={() => handleProfileVisibilityChange('public')}
@@ -170,10 +170,15 @@ const PrivacySettingsScreen = () => {
                                 <Text style={styles.radioSubtitle}>{t('privacySettings.privateSubtitle')}</Text>
                             </View>
                         </TouchableOpacity>
-                    </View>
-                </View>
+                    </View> */}
+                {/* </View>  */}
 
-                {!hideDeleteAccount && (
+                {/* {!hideDeleteAccount && ( */}
+                <View style={[styles.deleteWarningCard, ]}>
+                    <Text style={[styles.deleteWarningText, ]}>
+                        {t('privacySettings.deleteAccountPermanentPrompt')}
+                    </Text>
+                </View>
                     <View style={styles.section}>
                         <TouchableOpacity
                             style={styles.dangerButton}
@@ -182,7 +187,7 @@ const PrivacySettingsScreen = () => {
                             <Text style={styles.dangerButtonText}>{t('privacySettings.deleteAccount')}</Text>
                         </TouchableOpacity>
                     </View>
-                )}
+                {/* )} */}
             </ScrollView>
         </SafeAreaView>
     );

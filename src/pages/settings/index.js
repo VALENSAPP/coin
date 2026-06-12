@@ -768,12 +768,12 @@ const Settings = () => {
         <View style={styles.section}>
           <SectionHeader title={t('settings.whoCanSeeContent')} />
 
-          <SettingsItem
+          {/* <SettingsItem
             icon="privacy-tip"
             title={t('settings.accountPrivacy')}
             rightText={profileStatusLabel}
             onPress={handleAccountPrivacyPress}
-          />
+          /> */}
           <SettingsItem
             icon="visibility-off"
             title={t('settings.hidePosts')}

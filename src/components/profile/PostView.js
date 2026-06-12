@@ -50,6 +50,9 @@ import useScreenshotProtection, {
 } from '../../hooks/useScreenshotProtection';
 import { navigateToUserProfile } from '../../utils/navigateToUserProfile';
 
+const isTruthyTrustPost = value =>
+  value === true || value === 1 || String(value).toLowerCase() === 'true';
+
 export default function PostView({ postData = [], userData = {} }) {
   // ─── All hooks at the very top ───────────────────────────────
   const route = useRoute();
@@ -976,6 +979,7 @@ export default function PostView({ postData = [], userData = {} }) {
         userId: item.userId,
         boughtBy: item.boughtBy || [],
         taggedPeople: Array.isArray(item.taggedPeople) ? item.taggedPeople : [],
+        isTrustPost: isTruthyTrustPost(item.isTrustPost),
         returnTo,
         follow:
           typeof followingByUserId[String(item.userId)] === 'boolean'
@@ -1008,6 +1012,7 @@ export default function PostView({ postData = [], userData = {} }) {
             returnTo={returnTo}
             shareCount={item.shareCount}
             taggedPeople={mapped.taggedPeople}
+            isTrustPost={mapped.isTrustPost}
             isVisible={isPostVisible}
             screenFocused={screenFocused}
             playingPostId={playingPostId}

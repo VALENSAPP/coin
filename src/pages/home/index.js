@@ -423,6 +423,7 @@ export default function HomeScreen({ route }) {
   const fetchData = useCallback(async () => {
     try {
       const response = await getposts();
+      console.log(response,'dtatatatatatatatatatatatatataatt')
       if (response?.statusCode === 200) {
         console.log('✅ HomeScreen: Posts fetched successfully', response);
         setPosts(response.data);
