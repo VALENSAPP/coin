@@ -98,6 +98,7 @@ export default function PostStoryMusicTrimModal({
   audioSel,
   initialTrim,
   lyricsBundle = null,
+  lyricsLoading = false,
   onCancel,
   onDone,
   onDelete,
@@ -319,6 +320,9 @@ export default function PostStoryMusicTrimModal({
       : 0;
 
   const clipLyricsTrimPreview = useMemo(() => {
+    if (lyricsLoading) {
+      return t('postStoryMusicTrim.lyricsLoading');
+    }
     if (!lyricsBundle) {
       return t('postStoryMusicTrim.lyricsOpenHint');
     }
@@ -338,7 +342,7 @@ export default function PostStoryMusicTrimModal({
       return `${short}\n\n${t('postStoryMusicTrim.plainLyricsNote')}`;
     }
     return t('postStoryMusicTrim.noLyricsText');
-  }, [t, lyricsBundle, musicTimelineDurationSec, audioTrimStartDraft, audioTrimEndDraft]);
+  }, [t, lyricsBundle, lyricsLoading, musicTimelineDurationSec, audioTrimStartDraft, audioTrimEndDraft]);
 
   const trackArtworkUri =
     typeof audioSel === 'object' &&
