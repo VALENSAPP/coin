@@ -301,7 +301,30 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
         return;
       }
 
-      const { members } = parsePrivateCircleSetup(response);
+      const { members, count, setupData } = parsePrivateCircleSetup(response);
+
+      // Populate dashboard values for the viewed user's private circle
+      setDashboardMembers(
+        members.map((member) => ({
+          id: member.id,
+          name: member.username,
+          image: normalizeImageUrl(member.avatar) || member.avatar,
+        })),
+      );
+      setDashboardMemberCount(Number.isFinite(Number(count)) ? Number(count) : 0);
+      // setupData may include postCount or similar fields
+      const remotePostCount = Number(
+        setupData?.postCount ?? setupData?.privateCirclePostsCount ?? 0,
+      );
+      setDashboardPostCount(Number.isFinite(remotePostCount) ? remotePostCount : 0);
+      const accessStatus = (() => {
+        if (typeof setupData?.isActive === 'boolean') return setupData.isActive;
+        const status = String(setupData?.status || '').toUpperCase();
+        if (status === 'ACTIVE') return true;
+        if (status === 'INACTIVE') return false;
+        return null;
+      })();
+      setCircleAccessActive(accessStatus);
 
       // Check if the logged-in user is in the members list
       const found = Array.isArray(members)
@@ -649,24 +672,25 @@ const PrivateCircle = memo(({ isOwnProfile = false, onStartPress, route, userDat
               )}
             </View>
           </View>
-          {isWalletPrivateCircle ? (
-            <View style={styles.dashboardWrap}>
-              <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
-                <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
-                <View style={styles.overviewGrid}>
-                  <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
-                    <Ionicons name="people-outline" size={18} color={text} />
-                    <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
-                    <Text style={styles.overviewLabel}>{t('privateCircle.members')}</Text>
-                  </View>
-                  <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
-                    <Ionicons name="document-text-outline" size={18} color={text} />
-                    <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
-                    <Text style={styles.overviewLabel}>{t('privateCircle.posts')}</Text>
-                  </View>
+          <View style={styles.dashboardWrap}>
+            <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
+              <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.overview')}</Text>
+              <View style={styles.overviewGrid}>
+                <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
+                  <Ionicons name="people-outline" size={18} color={text} />
+                  <Text style={[styles.overviewNumber, textStyle]}>{dashboardMemberCount}</Text>
+                  <Text style={styles.overviewLabel}>{t('privateCircle.members')}</Text>
+                </View>
+                <View style={[styles.overviewTile, { borderColor: withAlpha(text, 0.12) }]}>
+                  <Ionicons name="document-text-outline" size={18} color={text} />
+                  <Text style={[styles.overviewNumber, textStyle]}>{dashboardPostCount}</Text>
+                  <Text style={styles.overviewLabel}>{t('privateCircle.posts')}</Text>
                 </View>
               </View>
-
+            </View>
+          </View>
+          {isWalletPrivateCircle ? (
+            <View >
               <View style={[styles.dashboardPanel, cardStyle, { borderColor: withAlpha(text, 0.1) }]}>
                 <View style={styles.previewSectionHeader}>
                   <Text style={[styles.miniSectionTitle, textStyle]}>{t('privateCircle.recentActivity')}</Text>

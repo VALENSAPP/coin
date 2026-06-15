@@ -1649,6 +1649,15 @@ export default function BattleInProgress() {
       ));
     };
 
+    const likesForSide = side => {
+      const normalizedSide = normalizeSideKey(side);
+      if (!normalizedSide) return 0;
+      return comments.reduce((total, comment) => {
+        if (normalizeSideKey(comment?.side) !== normalizedSide) return total;
+        return total + normalizeLikeCount(comment);
+      }, 0);
+    };
+
     const participantActions = participants
       .slice(0, 2)
       .map((participant, index) => {
@@ -1680,8 +1689,11 @@ export default function BattleInProgress() {
           key: `${userId || index}-${side}`,
           label: `${displayName} Says:`,
           preview: opening,
+          selectedUserComment: opening,
+          userId,
           side,
           sideLabel: displayName,
+          likesCount: likesForSide(side),
         };
       })
       .filter(Boolean);
@@ -1696,6 +1708,7 @@ export default function BattleInProgress() {
         preview: '',
         side,
         sideLabel: side,
+        likesCount: likesForSide(side),
       };
     });
   }, [
@@ -2692,11 +2705,21 @@ export default function BattleInProgress() {
                     selectedSide: action.side,
                     selectedSideLabel: action.label,
                     selectedSpeakerLabel: action.sideLabel,
+                    selectedUserId: action.userId,
+                    selectedUserComment: action.selectedUserComment,
                   })}
                 >
-                  <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1}>
-                    {action.label}
-                  </Text>
+                  <View style={styles.sideCommentButtonTopRow}>
+                    <Text style={[styles.sideCommentButtonText, { color: palette.primary }]} numberOfLines={1}>
+                      {action.label}
+                    </Text>
+                    <View style={styles.sideCommentLikeButton}>
+                      <Ionicons name="heart" size={16} color="#E11D48" />
+                      <Text style={styles.sideCommentLikeText}>
+                        {Number.isFinite(Number(action.likesCount)) ? Number(action.likesCount) : 0}
+                      </Text>
+                    </View>
+                  </View>
                   {!!action.preview && (
                     <Text style={[styles.sideCommentPreviewText, { color: palette.textMuted }]} numberOfLines={2}>
                       {action.preview}
@@ -3019,8 +3042,11 @@ const styles = StyleSheet.create({
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
   inviteSecondaryButton: { minHeight: 46, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   sideCommentActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'flex-start', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
-  sideCommentButtonText: { fontSize: 13, fontWeight: '900' },
+  sideCommentButton: { flex: 1, minHeight: 62, borderRadius: 14, borderWidth: 1.5, alignItems: 'stretch', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8 },
+  sideCommentButtonTopRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  sideCommentButtonText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '900' },
+  sideCommentLikeButton: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: 6 },
+  sideCommentLikeText: { color: '#E11D48', fontSize: 12, fontWeight: '700', marginLeft: 4, lineHeight: 16 },
   sideCommentPreviewText: { fontSize: 11, fontWeight: '700', lineHeight: 15, marginTop: 3 },
 
   // Image preview modal

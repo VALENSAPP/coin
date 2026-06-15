@@ -469,6 +469,31 @@ export default function WalletComponent() {
                             </View>
                         </View>
                     </View>
+
+                    <View style={styles.infoBoxesRow}>
+                        <View style={[styles.infoCard, { borderColor: text }]}> 
+                            <View style={styles.infoCardHeader}>
+                                <Text style={styles.infoCardTitle}>
+                                    {t('walletScreen.missionPostTitle')}
+                                </Text>
+                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={text} /> */}
+                            </View>
+                            <Text style={[styles.infoCardText,{color:text}]}>
+                                {t('walletScreen.missionPostDescription')}
+                            </Text>
+                        </View>
+                        <View style={[styles.infoCard, styles.infoCardSpacing, { borderColor: text }]}> 
+                            <View style={styles.infoCardHeader}>
+                                <Text style={styles.infoCardTitle}>
+                                    {t('walletScreen.missionPriceTitle')}
+                                </Text>
+                                {/* <MaterialCommunityIcons name="dots-horizontal" size={16} color={text} /> */}
+                            </View>
+                            <Text style={[styles.infoCardText,{color:text}]}>
+                                {t('walletScreen.missionPriceDescription')}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
             </ScrollView>
 
@@ -645,6 +670,54 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
         fontSize: 14,
+    },
+    infoBoxesRow: {
+        flexDirection: 'column',
+        marginTop: 12,
+    },
+    infoCard: {
+        width: '100%',
+        backgroundColor:'#ffffff',
+        // borderWidth: 1,
+        borderRadius: 14,
+        padding: 14,
+        minHeight: 90,
+        elevation:10
+
+    },
+    infoCardSpacing: {
+        marginTop: 12,
+    },
+    referralBox: {
+        backgroundColor: '#ffffff',
+        padding: 10,
+        borderRadius: 16,
+        marginHorizontal: 8,
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 2,
+    },
+    infoCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    infoCardTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111',
+    },
+    infoCardText: {
+        fontSize: 13,
+        color: '#555',
+        lineHeight: 18,
+        fontWeight:'500'
+    },
+    referralUsageText: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 10,
     },
     actions: {
         flexDirection: "row",

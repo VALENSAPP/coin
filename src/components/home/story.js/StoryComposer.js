@@ -48,6 +48,7 @@ import {
   OVERLAY_MAX_SCALE,
 } from './storyOverlayConstants';
 import { useLanguage } from '../../../i18n';
+import { getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
 
 const WAVE_BAR_STEP = 4;
 const deviceWidth = Dimensions.get('window').width;
@@ -138,23 +139,6 @@ function getMusicTimelineDurationSec(audioSel, previewDur) {
     if (Number.isFinite(f) && f > 0) return Math.max(f, prev);
   }
   return prev;
-}
-
-/** Intersection of song trim [start, end] with [0, previewDur] for preview playback. */
-function getPlaybackWindowInPreview(at, previewDur) {
-  const prev = Math.max(0.1, Number(previewDur) || 30);
-  const a = Math.max(0, Number(at?.start) || 0);
-  const rawEnd = at?.end;
-  const b =
-    rawEnd == null || rawEnd === '' || !Number.isFinite(Number(rawEnd))
-      ? Infinity
-      : Number(rawEnd);
-  const ovStart = Math.max(0, a);
-  const ovEnd = Math.min(b, prev);
-  if (ovEnd <= ovStart || ovStart >= prev) {
-    return { start: 0, end: prev, hasOverlap: false };
-  }
-  return { start: ovStart, end: ovEnd, hasOverlap: true };
 }
 
 const isYoutubeSelection = (a, videoId) =>
@@ -740,10 +724,11 @@ export default function StoryComposer({
   };
 
   const setTextTransform = (id, x, y, scaleVal, rotationVal = 0) => {
+    const rotation = Math.abs(rotationVal) < 0.06 ? 0 : rotationVal;
     setTextsPerIndex(prev => {
       const next = { ...prev };
       next[index] = (next[index] || []).map(tx =>
-        tx.id === id ? { ...tx, x, y, scale: scaleVal, rotation: rotationVal } : tx,
+        tx.id === id ? { ...tx, x, y, scale: scaleVal, rotation } : tx,
       );
       return next;
     });
@@ -1091,7 +1076,7 @@ export default function StoryComposer({
             : Number(audioTrimEndDraft),
       };
       const { start: playStart, end: playEnd, hasOverlap } =
-        getPlaybackWindowInPreview(at, previewDur);
+        getMusicTrimPlaybackWindowFromTrim(at, previewDur);
       if (!hasOverlap || playEnd <= playStart) return;
       if (musicPreviewUri) {
         musicPreviewRef.current?.seek(playStart);
@@ -1124,7 +1109,7 @@ export default function StoryComposer({
     if (!musicPreviewUri) return;
     const at = { start: audioTrimStartCur, end: audioTrimEndCur };
     const previewDur = musicPreviewDurationRef.current || 30;
-    const { start: playStart, hasOverlap } = getPlaybackWindowInPreview(at, previewDur);
+    const { start: playStart, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, previewDur);
     const seekTo = hasOverlap ? playStart : 0;
     const timer  = setTimeout(() => {
       musicPreviewRef.current?.seek(seekTo);
@@ -1137,7 +1122,7 @@ export default function StoryComposer({
     if (!isYoutubeAudio) return;
     const at = { start: audioTrimStartCur, end: audioTrimEndCur };
     const previewDur = musicPreviewDurationRef.current || 30;
-    const { start: playStart, hasOverlap } = getPlaybackWindowInPreview(at, previewDur);
+    const { start: playStart, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, previewDur);
     const seekTo = hasOverlap ? playStart : 0;
     const timer  = setTimeout(() => {
       youtubePreviewRef.current?.seekTo?.(seekTo, true);
@@ -1158,7 +1143,7 @@ export default function StoryComposer({
           const dur = musicPreviewDurationRef.current || 180;
           const at  = audioTrimPerIndexRef.current[index] || { start: 0, end: null };
           const { start: playStart, end: playEnd, hasOverlap } =
-            getPlaybackWindowInPreview(at, dur);
+            getMusicTrimPlaybackWindowFromTrim(at, dur);
           const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
           if (hasOverlap && dur > 0 && playEnd > playStart && cur >= playEnd - margin) {
             youtubePreviewRef.current?.seekTo?.(playStart, true);
@@ -1394,7 +1379,7 @@ export default function StoryComposer({
                     const at  = audioTrimPerIndexRef.current[index] || { start: 0, end: null };
                     const dur = musicPreviewDurationRef.current;
                     const { start: playStart, end: playEnd, hasOverlap } =
-                      getPlaybackWindowInPreview(at, dur);
+                      getMusicTrimPlaybackWindowFromTrim(at, dur);
                     if (!hasOverlap) {
                       setTimeout(() => { musicPreviewRef.current?.seek(0); setMusicPreviewSec(0); }, 80);
                       return;
@@ -1410,7 +1395,7 @@ export default function StoryComposer({
                     const dur = musicPreviewDurationRef.current || 30;
                     const at  = audioTrimPerIndexRef.current[index] || { start: 0, end: null };
                     const { start: playStart, end: playEnd, hasOverlap } =
-                      getPlaybackWindowInPreview(at, dur);
+                      getMusicTrimPlaybackWindowFromTrim(at, dur);
                     const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
                     if (hasOverlap && dur > 0 && playEnd > playStart && currentTime >= playEnd - margin) {
                       musicPreviewRef.current?.seek(playStart);
@@ -1420,7 +1405,7 @@ export default function StoryComposer({
                   onEnd={() => {
                     const at  = audioTrimPerIndexRef.current[index] || { start: 0, end: null };
                     const dur = musicPreviewDurationRef.current || 30;
-                    const { start: playStart, hasOverlap } = getPlaybackWindowInPreview(at, dur);
+                    const { start: playStart, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
                     if (hasOverlap) { musicPreviewRef.current?.seek(playStart); setMusicPreviewSec(playStart); }
                   }}
                   onError={e => console.warn('[StoryComposer] music preview failed', e)}
@@ -1456,7 +1441,7 @@ export default function StoryComposer({
                         const at  = audioTrimPerIndexRef.current[index] || { start: 0, end: null };
                         const dur = musicPreviewDurationRef.current || 180;
                         const { start: playStart, end: playEnd, hasOverlap } =
-                          getPlaybackWindowInPreview(at, dur);
+                          getMusicTrimPlaybackWindowFromTrim(at, dur);
                         if (!hasOverlap) {
                           youtubePreviewRef.current?.seekTo?.(0, true);
                           setMusicPreviewSec(0);

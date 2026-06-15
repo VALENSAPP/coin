@@ -57,7 +57,7 @@ import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { parsePostMeta, getPostMusicForSlide, getPostSlideOverlaysFromMeta } from '../../../utils/postSoundtracks';
+import { parsePostMeta, getPostMusicForSlide, getPostSlideOverlaysFromMeta, getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
 import PostMediaTextOverlays from '../../post/PostMediaTextOverlays';
 import {
   DEFAULT_FEED_MEDIA_HEIGHT,
@@ -83,21 +83,6 @@ const TRUST_SCORE_KEYS = {
 
 const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
 
-function getFeedMusicPlaybackWindow(trim, durationSec) {
-  const prev = Math.max(0.1, Number(durationSec) || 30);
-  const a = Math.max(0, Number(trim?.start) || 0);
-  const rawEnd = trim?.end;
-  const b =
-    rawEnd == null || rawEnd === '' || !Number.isFinite(Number(rawEnd))
-      ? Infinity
-      : Number(rawEnd);
-  const ovStart = Math.max(0, a);
-  const ovEnd = Math.min(b, prev);
-  if (ovEnd <= ovStart || ovStart >= prev) {
-    return { start: 0, end: prev, hasOverlap: false };
-  }
-  return { start: ovStart, end: ovEnd, hasOverlap: true };
-}
 
 /* ─── InstagramZoomableImage ─────────────────────────────────────────────── */
 function InstagramZoomableImage({ uri, height, onZoomChange }) {
@@ -1548,7 +1533,7 @@ function PostItem({
           const cur = await postFeedYoutubeRef.current?.getCurrentTime?.();
           if (typeof cur !== 'number' || Number.isNaN(cur)) return;
           const dur = postFeedMusicDurRef.current || 180;
-          const { start: playStart, end: playEnd, hasOverlap } = getFeedMusicPlaybackWindow(trim, dur);
+          const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(trim, dur);
           const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
           if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
             await postFeedYoutubeRef.current?.seekTo?.(playStart, true);
@@ -1625,13 +1610,13 @@ function PostItem({
               onLoad={e => {
                 const d = e?.duration > 0 ? e.duration : 180;
                 postFeedMusicDurRef.current = d;
-                const { start, hasOverlap } = getFeedMusicPlaybackWindow(postMusic.trim, d);
+                const { start, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(postMusic.trim, d);
                 const seekTo = hasOverlap ? start : 0;
                 setTimeout(() => postFeedMp3Ref.current?.seek?.(seekTo), 80);
               }}
               onProgress={({ currentTime }) => {
                 const dur = postFeedMusicDurRef.current || 180;
-                const { start: ps, end: pe, hasOverlap } = getFeedMusicPlaybackWindow(
+                const { start: ps, end: pe, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(
                   postMusic.trim, dur,
                 );
                 const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02));
@@ -1667,7 +1652,7 @@ function PostItem({
                       postFeedMusicDurRef.current = Number(postMusic.durationSec);
                     }
                     const dur = postFeedMusicDurRef.current || 180;
-                    const { start: ps, hasOverlap } = getFeedMusicPlaybackWindow(postMusic.trim, dur);
+                    const { start: ps, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(postMusic.trim, dur);
                     await postFeedYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true);
                   } catch (_) { }
                 }}
