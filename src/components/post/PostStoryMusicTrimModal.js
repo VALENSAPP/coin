@@ -23,6 +23,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { filterSyncedLinesIntersectingTrim } from '../../utils/lyricsLrclib';
+import { getMusicTrimPlaybackWindowFromTrim } from '../../utils/postSoundtracks';
 import { useLanguage } from '../../i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -82,22 +83,6 @@ function getMusicTimelineDurationSec(audioSel, previewDur) {
     if (Number.isFinite(f) && f > 0) return Math.max(f, prev);
   }
   return prev;
-}
-
-function getPlaybackWindowInPreview(at, previewDur) {
-  const prev = Math.max(0.1, Number(previewDur) || 30);
-  const a = Math.max(0, Number(at?.start) || 0);
-  const rawEnd = at?.end;
-  const b =
-    rawEnd == null || rawEnd === '' || !Number.isFinite(Number(rawEnd))
-      ? Infinity
-      : Number(rawEnd);
-  const ovStart = Math.max(0, a);
-  const ovEnd = Math.min(b, prev);
-  if (ovEnd <= ovStart || ovStart >= prev) {
-    return { start: 0, end: prev, hasOverlap: false };
-  }
-  return { start: ovStart, end: ovEnd, hasOverlap: true };
 }
 
 function formatTimeMmSs(seconds) {
@@ -202,7 +187,7 @@ export default function PostStoryMusicTrimModal({
           setMusicPreviewSec(cur);
           const dur = musicPreviewDurationRef.current || 180;
           const at = audioTrimRef.current || { start: 0, end: null };
-          const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
+          const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
           const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
           if (hasOverlap && dur > 0 && playEnd > playStart && cur >= playEnd - margin) {
             youtubePreviewRef.current?.seekTo?.(playStart, true);
@@ -221,6 +206,32 @@ export default function PostStoryMusicTrimModal({
     });
     return () => sub.remove();
   }, [visible]);
+
+  useEffect(() => {
+    if (!visible || musicEditorPaused) return;
+    const timer = setTimeout(() => {
+      const previewDur = musicPreviewDurationRef.current || 30;
+      const at = audioTrimRef.current || { start: 0, end: null };
+      const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, previewDur);
+      if (!hasOverlap || playEnd <= playStart) return;
+      if (musicPreviewUri) {
+        musicPreviewRef.current?.seek(playStart);
+      }
+      if (isYoutubeTrack(audioSel)) {
+        youtubePreviewRef.current?.seekTo?.(playStart, true);
+      }
+      setMusicPreviewSec(playStart);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [
+    visible,
+    musicEditorPaused,
+    audioTrimStartDraft,
+    audioTrimEndDraft,
+    musicPreviewKey,
+    musicPreviewUri,
+    audioSel,
+  ]);
 
   const waveformSegmentSec = Math.min(trimClipWindowSec, Math.max(0.1, musicTimelineDurationSec));
   const waveformContentW = Math.max(1, musicTimelineDurationSec * WAVEFORM_PX_PER_SEC);
@@ -423,7 +434,7 @@ export default function PostStoryMusicTrimModal({
                 setMusicPreviewDur(loaded);
                 const at = audioTrimRef.current;
                 const dur = loaded;
-                const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
+                const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
                 if (!hasOverlap) {
                   setTimeout(() => {
                     musicPreviewRef.current?.seek(0);
@@ -444,7 +455,7 @@ export default function PostStoryMusicTrimModal({
                 setMusicPreviewSec(currentTime);
                 const dur = musicPreviewDurationRef.current || 30;
                 const at = audioTrimRef.current;
-                const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
+                const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
                 const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
                 if (hasOverlap && dur > 0 && playEnd > playStart && currentTime >= playEnd - margin) {
                   musicPreviewRef.current?.seek(playStart);
@@ -481,7 +492,7 @@ export default function PostStoryMusicTrimModal({
                     }
                     const at = audioTrimRef.current;
                     const dur = musicPreviewDurationRef.current || 180;
-                    const { start: playStart, end: playEnd, hasOverlap } = getPlaybackWindowInPreview(at, dur);
+                    const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindowFromTrim(at, dur);
                     if (!hasOverlap) {
                       youtubePreviewRef.current?.seekTo?.(0, true);
                       setMusicPreviewSec(0);

@@ -50,6 +50,7 @@ import {
   POST_SOUNDTRACKS,
   postImageEditsToStoryAudioSel,
   getPostSoundtrackUrl,
+  getMusicTrimPlaybackWindow,
 } from '../../../utils/postSoundtracks';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import PostStoryMusicTrimModal from '../../../components/post/PostStoryMusicTrimModal';
@@ -89,6 +90,28 @@ const TRASH_DROP_RADIUS_PX = 34;
 const TEXT_OVERLAY_TAP_MAX_MOVE = 14;
 const TEXT_OVERLAY_TAP_MAX_MS = 300;
 const TEXT_OVERLAY_LONGPRESS_DELETE_MS = 500;
+/** Pinch distance change below this is treated as twist-only (rotation). */
+const TEXT_PINCH_SCALE_DEADZONE = 0.07;
+/** Min twist (rad) before rotation applies during a two-finger gesture. */
+const TEXT_TWIST_MIN_RAD = 0.02;
+/** Snap to perfectly horizontal when rotation is within this (rad) on release. */
+const TEXT_STRAIGHTEN_SNAP_RAD = 0.06;
+const DEFAULT_STORY_CLIP_SEC = 30;
+
+const snapTextRotation = rad => (Math.abs(rad) < TEXT_STRAIGHTEN_SNAP_RAD ? 0 : rad);
+
+const resolveTextOverlayRotation = (session, angleDelta) => {
+  const startRotation = session.startRotation ?? 0;
+  const scaleRatio = session.startDistance > 0
+    ? (session.lastPinchDistance ?? session.startDistance) / session.startDistance
+    : 1;
+  const scaleChange = Math.abs(scaleRatio - 1);
+  const rotChange = Math.abs(angleDelta);
+  if (rotChange > TEXT_TWIST_MIN_RAD && (scaleChange < TEXT_PINCH_SCALE_DEADZONE || rotChange > scaleChange * 1.5)) {
+    return startRotation + angleDelta;
+  }
+  return startRotation;
+};
 
 const createEmptyImageEdits = () => ({
   textOverlays: [],
@@ -146,18 +169,6 @@ const getAnimatedPositionValue = (animatedPosition, fallback = { x: 0, y: 0 }) =
 
 const slideHasLibraryMusic = edits =>
   !!(edits && edits.musicId && edits.musicId !== 'none' && edits.musicSource && edits.musicSource !== 'none');
-
-function getBgPlaybackWindow(trimStart, trimEnd, previewDur) {
-  const prev = Math.max(0.1, Number(previewDur) || 30);
-  const a = Math.max(0, Number(trimStart) || 0);
-  const rawEnd = trimEnd;
-  const b =
-    rawEnd == null || rawEnd === '' || !Number.isFinite(Number(rawEnd)) ? Infinity : Number(rawEnd);
-  const ovStart = Math.max(0, a);
-  const ovEnd = Math.min(b, prev);
-  if (ovEnd <= ovStart || ovStart >= prev) return { start: 0, end: prev, hasOverlap: false };
-  return { start: ovStart, end: ovEnd, hasOverlap: true };
-}
 
 const FLIP_MUSIC_LIBRARY = [
   { id: 'flip-track-1', title: 'Night Drive', artist: 'Valens Mix' },
@@ -345,7 +356,7 @@ const InstagramPostCreator = () => {
           const cur = await postBgYoutubeRef.current?.getCurrentTime?.();
           if (typeof cur !== 'number' || Number.isNaN(cur)) return;
           const dur = postBgMusicDurRef.current || 180;
-          const { start: playStart, end: playEnd, hasOverlap } = getBgPlaybackWindow(bgTrimStart, bgTrimEnd, dur);
+          const { start: playStart, end: playEnd, hasOverlap } = getMusicTrimPlaybackWindow(bgTrimStart, bgTrimEnd, dur);
           const margin = Math.min(0.35, Math.max(0.08, (playEnd - playStart) * 0.02));
           if (hasOverlap && playEnd > playStart && cur >= playEnd - margin) {
             await postBgYoutubeRef.current?.seekTo?.(playStart, true);
@@ -355,6 +366,24 @@ const InstagramPostCreator = () => {
     }, 320);
     return () => clearInterval(tick);
   }, [bgYoutubeId, bgTrimStart, bgTrimEnd, postStorySoundTrimVisible, selectedImages.length]);
+
+  useEffect(() => {
+    if (postStorySoundTrimVisible || !slideHasLibraryMusic(bgSlideEdits)) return;
+    if (bgSlideEdits.musicSource !== 'builtin') return;
+    const dur = postBgMusicDurRef.current || 30;
+    const { start, hasOverlap } = getMusicTrimPlaybackWindow(bgTrimStart, bgTrimEnd, dur);
+    const timer = setTimeout(() => {
+      postBgBuiltinVideoRef.current?.seek?.(hasOverlap ? start : 0);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [
+    bgTrimStart,
+    bgTrimEnd,
+    postStorySoundTrimVisible,
+    bgSlideEdits.musicId,
+    bgSlideEdits.musicSource,
+    currentImageIndex,
+  ]);
 
   useEffect(() => {
     if (!flipAudioModal) return;
@@ -391,28 +420,65 @@ const InstagramPostCreator = () => {
   const handleSelectPostBuiltinTrack = track => {
     if (track.id === 'none') {
       updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null });
-    } else {
-      updateCurrentImageEdits({ musicSource: 'builtin', musicId: track.id, musicTitle: track.title, musicArtist: track.artist, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null });
+      setFlipAudioModal(false);
+      showToastMessage(toast, 'success', t('selectedPost.originalSound'), 1500);
+      return;
     }
+    updateCurrentImageEdits({
+      musicSource: 'builtin',
+      musicId: track.id,
+      musicTitle: track.title,
+      musicArtist: track.artist,
+      musicYoutubeVideoId: null,
+      musicYoutubeThumbUrl: null,
+      musicYoutubeDurationSec: null,
+      musicTrimStart: 0,
+      musicTrimEnd: DEFAULT_STORY_CLIP_SEC,
+      musicLyrics: null,
+      musicBadge: null,
+    });
     setFlipAudioModal(false);
-    showToastMessage(toast, 'success', track.id === 'none' ? t('selectedPost.originalSound') : `${t('selectedPost.sound')}: ${track.title}`, 1500);
+    setPostStorySoundTrimVisible(true);
   };
 
   const handleSelectPostYoutubeTrack = yt => {
     if (!yt?.videoId) return;
-    updateCurrentImageEdits({ musicSource: 'youtube', musicId: `yt:${yt.videoId}`, musicTitle: yt.title, musicArtist: yt.channelTitle, musicYoutubeVideoId: yt.videoId, musicYoutubeThumbUrl: yt.thumbnailUrl || null, musicYoutubeDurationSec: yt.durationSec != null && Number.isFinite(Number(yt.durationSec)) ? Number(yt.durationSec) : null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null });
-    setFlipAudioModal(false);
-    showToastMessage(toast, 'success', `${t('selectedPost.sound')}: ${yt.title}`, 1500);
-  };
-
-  const openPostMusicTrimModal = () => {
-    const e = getCurrentImageEdits();
-    if (!slideHasLibraryMusic(e)) {
-      showToastMessage(toast, 'info', t('selectedPost.pickTrackFirst'), 1500);
-      return;
-    }
+    const dur =
+      yt.durationSec != null && Number.isFinite(Number(yt.durationSec))
+        ? Number(yt.durationSec)
+        : null;
+    const trimEnd =
+      dur != null && dur > 0 ? Math.min(dur, DEFAULT_STORY_CLIP_SEC) : DEFAULT_STORY_CLIP_SEC;
+    updateCurrentImageEdits({
+      musicSource: 'youtube',
+      musicId: `yt:${yt.videoId}`,
+      musicTitle: yt.title,
+      musicArtist: yt.channelTitle,
+      musicYoutubeVideoId: yt.videoId,
+      musicYoutubeThumbUrl: yt.thumbnailUrl || null,
+      musicYoutubeDurationSec: dur,
+      musicTrimStart: 0,
+      musicTrimEnd: trimEnd,
+      musicLyrics: null,
+      musicBadge: null,
+    });
     setFlipAudioModal(false);
     setPostStorySoundTrimVisible(true);
+  };
+
+  const openPostMusicPicker = () => {
+    setPostStorySoundTrimVisible(false);
+    setFlipAudioModal(true);
+  };
+
+  const openPostMusicFlow = () => {
+    const e = getCurrentImageEdits();
+    if (slideHasLibraryMusic(e)) {
+      setFlipAudioModal(false);
+      setPostStorySoundTrimVisible(true);
+      return;
+    }
+    openPostMusicPicker();
   };
 
   const openTextModal = () => {
@@ -927,9 +993,11 @@ const InstagramPostCreator = () => {
           session.didPinchGesture = true;
           if (!session.pinchBaselineReady) { session.pinchBaselineReady = true; const co = getLatestTextOverlayById(id) || target; session.startDistance = Math.max(getTouchDistance(touches), 1e-4); session.startCenter = getTouchCenter(touches); session.startScale = co?.scale ?? 1; session.startRotation = co?.rotation ?? 0; session.startAngle = getTouchAngle(touches); session.startPosition = getAnimatedPositionValue(animatedPosition, co?.position || fallbackPosition); }
           const distance = getTouchDistance(touches); const center = getTouchCenter(touches); const angle = getTouchAngle(touches);
+          session.lastPinchDistance = distance;
           const scaleRatio = session.startDistance > 0 ? distance / session.startDistance : 1;
           const nextScale = clamp(session.startScale * scaleRatio, 0.3, 4.5);
-          const pendingRotation = session.startRotation + (angle - session.startAngle); session.pendingRotation = pendingRotation;
+          const pendingRotation = resolveTextOverlayRotation(session, angle - session.startAngle);
+          session.pendingRotation = pendingRotation;
           const dx = center.x - session.startCenter.x; const dy = center.y - session.startCenter.y;
           animatedPosition.setValue({ x: dx, y: dy });
           const nextPosition = { x: session.startPosition.x + dx, y: session.startPosition.y + dy };
@@ -959,9 +1027,14 @@ const InstagramPostCreator = () => {
         if (shouldDeleteOnDrop(session)) { textOverlayTransformActiveRef.current = false; removeTextOverlay(id); delete textOverlayGestureState.current[id]; setShowTrashZone(false); setIsOverlayTransforming(false); setIsScrollEnabled(true); return; }
         animatedPosition.flattenOffset();
         const finalPosition = session?.pendingPosition || getAnimatedPositionValue(animatedPosition, getLatestTextOverlayById(id)?.position || fallbackPosition);
-        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({ ...overlay, position: finalPosition, scale: session?.pendingScale ?? overlay.scale, rotation: session?.pendingRotation ?? overlay.rotation }));
+        const finalRotation = snapTextRotation(
+          session?.pendingRotation != null
+            ? session.pendingRotation
+            : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0,
+        );
+        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({ ...overlay, position: finalPosition, scale: session?.pendingScale ?? overlay.scale, rotation: finalRotation }));
         animatedScale.setValue(session?.pendingScale != null ? session.pendingScale : session?.startScale ?? getLatestTextOverlayById(id)?.scale ?? 1);
-        animatedRotation.value.setValue(session?.pendingRotation != null ? session.pendingRotation : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0);
+        animatedRotation.value.setValue(finalRotation);
         if (session?.moved) recentDragTimestamps.current[`text-${id}`] = Date.now();
         const tapToEdit = !session.didPinchGesture && (session.maxPointerMove || 0) < TEXT_OVERLAY_TAP_MAX_MOVE && Date.now() - (session.touchStartTime || 0) < TEXT_OVERLAY_TAP_MAX_MS;
         if (tapToEdit && Date.now() - (recentDragTimestamps.current[`text-${id}`] || 0) > 120) {
@@ -977,9 +1050,14 @@ const InstagramPostCreator = () => {
         if (shouldDeleteOnDrop(session)) { textOverlayTransformActiveRef.current = false; removeTextOverlay(id); delete textOverlayGestureState.current[id]; setShowTrashZone(false); setIsOverlayTransforming(false); setIsScrollEnabled(true); return; }
         animatedPosition.flattenOffset();
         const finalPosition = session?.pendingPosition || getAnimatedPositionValue(animatedPosition, getLatestTextOverlayById(id)?.position || fallbackPosition);
-        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({ ...overlay, position: finalPosition, scale: session?.pendingScale ?? overlay.scale, rotation: session?.pendingRotation ?? overlay.rotation }));
+        const finalRotation = snapTextRotation(
+          session?.pendingRotation != null
+            ? session.pendingRotation
+            : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0,
+        );
+        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({ ...overlay, position: finalPosition, scale: session?.pendingScale ?? overlay.scale, rotation: finalRotation }));
         animatedScale.setValue(session?.pendingScale != null ? session.pendingScale : session?.startScale ?? getLatestTextOverlayById(id)?.scale ?? 1);
-        animatedRotation.value.setValue(session?.pendingRotation != null ? session.pendingRotation : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0);
+        animatedRotation.value.setValue(finalRotation);
         if (session?.moved) recentDragTimestamps.current[`text-${id}`] = Date.now();
         textOverlayTransformActiveRef.current = false; delete textOverlayGestureState.current[id]; setIsOverlayTransforming(false); setIsScrollEnabled(true); setShowTrashZone(false);
       },
@@ -1543,8 +1621,8 @@ const InstagramPostCreator = () => {
               const trimEnd = currentEdits.musicTrimEnd;
               return (
                 <View style={styles.postEditorMusicBgHost} pointerEvents="none" collapsable={false}>
-                  {builtinUrl ? <View style={styles.hiddenPostMusicPlayer}><Video ref={postBgBuiltinVideoRef} key={`post_bg_builtin_${currentEdits.musicId}_${currentImageIndex}`} source={{ uri: builtinUrl }} paused={false} repeat={false} muted={false} volume={1} ignoreSilentSwitch="ignore" resizeMode="contain" style={{ width: 2, height: 2 }} onLoad={d => { const dur = d?.duration || 30; postBgMusicDurRef.current = dur; const { start, hasOverlap } = getBgPlaybackWindow(trimStart, trimEnd, dur); setTimeout(() => postBgBuiltinVideoRef.current?.seek?.(hasOverlap ? start : 0), 80); }} onProgress={({ currentTime }) => { const dur = postBgMusicDurRef.current || 30; const { start: ps, end: pe, hasOverlap } = getBgPlaybackWindow(trimStart, trimEnd, dur); const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02)); if (hasOverlap && pe > ps && currentTime >= pe - margin) postBgBuiltinVideoRef.current?.seek?.(ps); }} /></View> : null}
-                  {ytId ? <View style={styles.hiddenPostYoutubePlayer} pointerEvents="none"><YoutubePlayer ref={postBgYoutubeRef} key={`post_bg_yt_${ytId}_${currentImageIndex}`} height={200} width={200} videoId={ytId} play mute={false} volume={100} forceAndroidAutoplay initialPlayerParams={{ controls: false, modestbranding: true, rel: false }} onReady={async () => { try { const d = await postBgYoutubeRef.current?.getDuration?.(); if (typeof d === 'number' && d > 0) postBgMusicDurRef.current = d; else if (currentEdits.musicYoutubeDurationSec != null && Number.isFinite(Number(currentEdits.musicYoutubeDurationSec))) postBgMusicDurRef.current = Number(currentEdits.musicYoutubeDurationSec); const dur = postBgMusicDurRef.current || 180; const { start: ps, hasOverlap } = getBgPlaybackWindow(trimStart, trimEnd, dur); await postBgYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true); } catch (_) {} }} onChangeState={state => { if (state === 'ended') { const dur = postBgMusicDurRef.current || 180; const { start: ps, hasOverlap } = getBgPlaybackWindow(trimStart, trimEnd, dur); postBgYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true); postBgYoutubeRef.current?.playVideo?.(); } }} /></View> : null}
+                  {builtinUrl ? <View style={styles.hiddenPostMusicPlayer}><Video ref={postBgBuiltinVideoRef} key={`post_bg_builtin_${currentEdits.musicId}_${currentImageIndex}_${trimStart}_${trimEnd ?? 'e'}`} source={{ uri: builtinUrl }} paused={false} repeat={false} muted={false} volume={1} ignoreSilentSwitch="ignore" resizeMode="contain" style={{ width: 2, height: 2 }} onLoad={d => { const dur = d?.duration || 30; postBgMusicDurRef.current = dur; const { start, hasOverlap } = getMusicTrimPlaybackWindow(trimStart, trimEnd, dur); setTimeout(() => postBgBuiltinVideoRef.current?.seek?.(hasOverlap ? start : 0), 80); }} onProgress={({ currentTime }) => { const dur = postBgMusicDurRef.current || 30; const { start: ps, end: pe, hasOverlap } = getMusicTrimPlaybackWindow(trimStart, trimEnd, dur); const margin = Math.min(0.35, Math.max(0.08, (pe - ps) * 0.02)); if (hasOverlap && pe > ps && currentTime >= pe - margin) postBgBuiltinVideoRef.current?.seek?.(ps); }} /></View> : null}
+                  {ytId ? <View style={styles.hiddenPostYoutubePlayer} pointerEvents="none"><YoutubePlayer ref={postBgYoutubeRef} key={`post_bg_yt_${ytId}_${currentImageIndex}_${trimStart}_${trimEnd ?? 'e'}`} height={200} width={200} videoId={ytId} play mute={false} volume={100} forceAndroidAutoplay initialPlayerParams={{ controls: false, modestbranding: true, rel: false }} onReady={async () => { try { const d = await postBgYoutubeRef.current?.getDuration?.(); if (typeof d === 'number' && d > 0) postBgMusicDurRef.current = d; else if (currentEdits.musicYoutubeDurationSec != null && Number.isFinite(Number(currentEdits.musicYoutubeDurationSec))) postBgMusicDurRef.current = Number(currentEdits.musicYoutubeDurationSec); const dur = postBgMusicDurRef.current || 180; const { start: ps, hasOverlap } = getMusicTrimPlaybackWindow(trimStart, trimEnd, dur); await postBgYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true); } catch (_) {} }} onChangeState={state => { if (state === 'ended') { const dur = postBgMusicDurRef.current || 180; const { start: ps, hasOverlap } = getMusicTrimPlaybackWindow(trimStart, trimEnd, dur); postBgYoutubeRef.current?.seekTo?.(hasOverlap ? ps : 0, true); postBgYoutubeRef.current?.playVideo?.(); } }} /></View> : null}
                 </View>
               );
             })()}
@@ -1574,8 +1652,7 @@ const InstagramPostCreator = () => {
     switch (key) {
       case 'Text': setModalVisible2(true); openTextModal(); break;
       case 'Sticker': setFlipStickerModal(true); break;
-      case 'Audio': setFlipAudioModal(true); break;
-      case 'Sound': openPostMusicTrimModal(); break;
+      case 'Audio': openPostMusicFlow(); break;
       case 'Overlay': setActiveTab('Overlay'); addOverlayImage(); break;
       case 'Effects': setShowFilters(prev => !prev); break;
       case 'Edit':
@@ -1607,8 +1684,7 @@ const InstagramPostCreator = () => {
   const flipToolbarItems = [
     { key: 'Text', icon: 'text-outline', label: t('selectedPost.toolText') },
     { key: 'Sticker', icon: 'happy-outline', label: t('selectedPost.toolSticker') },
-    { key: 'Audio', icon: 'musical-notes-outline', label: t('selectedPost.toolAudio') },
-    { key: 'Sound', icon: 'timer-outline', label: t('selectedPost.toolSound') },
+    { key: 'Audio', icon: 'musical-notes-outline', label: t('selectedPost.tabMusic') },
     { key: 'Overlay', icon: 'layers-outline', label: t('selectedPost.toolOverlay') },
     { key: 'Effects', icon: 'color-filter-outline', label: t('selectedPost.toolEffects') },
     { key: 'Edit', icon: 'crop-outline', label: t('selectedPost.toolEdit') },
@@ -1621,7 +1697,6 @@ const InstagramPostCreator = () => {
     { title: t('selectedPost.toolText'), icon: 'text-outline' },
     { title: t('selectedPost.toolOverlay'), icon: 'layers-outline' },
     { title: t('selectedPost.tabMusic'), icon: 'musical-notes-outline' },
-    { title: t('selectedPost.toolSound'), icon: 'timer-outline' },
     { title: t('selectedPost.tabFilter'), icon: 'color-filter-outline' },
     { title: t('selectedPost.toolTag'), icon: 'pricetag-outline' },
     { title: t('selectedPost.toolDownload'), icon: 'download-outline' },
@@ -1650,8 +1725,7 @@ const InstagramPostCreator = () => {
               } else if (tab.title === t('selectedPost.tabFilter')) { setShowFilters(prev => !prev); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } }
               else if (tab.title === t('selectedPost.toolText')) { setModalVisible2(true); openTextModal(); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } }
               else if (tab.title === t('selectedPost.toolOverlay')) { setActiveTab(t('selectedPost.toolOverlay')); addOverlayImage(); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } return; }
-              else if (tab.title === t('selectedPost.tabMusic')) { setFlipAudioModal(true); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } return; }
-              else if (tab.title === t('selectedPost.toolSound')) { openPostMusicTrimModal(); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } return; }
+              else if (tab.title === t('selectedPost.tabMusic')) { openPostMusicFlow(); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } return; }
               else if (tab.title === t('selectedPost.toolTag')) { setActiveTab(t('selectedPost.toolTag')); bottomSheetRef.current?.open(); if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } return; }
               else if (tab.title === t('selectedPost.toolDownload')) { if (isDrawing) { setIsDrawing(false); setIsScrollEnabled(true); setCanvasKey(prev => prev + 1); } handleDownload(); }
               setActiveTab(tab.title);
@@ -1790,6 +1864,12 @@ const InstagramPostCreator = () => {
           <View style={[styles.flipModalSheet, { backgroundColor: cardStyle?.backgroundColor || '#fff' }]}>
             <Text style={[styles.flipModalTitle, textStyle]}>{t('selectedPost.musicTitle')}</Text>
             <Text style={[styles.flipModalHint, textStyle]}>{t('selectedPost.musicHint')}</Text>
+            {slideHasLibraryMusic(getCurrentImageEdits()) ? (
+              <TouchableOpacity style={styles.postMusicEditClipBtn} onPress={() => { setFlipAudioModal(false); setPostStorySoundTrimVisible(true); }} activeOpacity={0.8}>
+                <Icon name="cut-outline" size={18} color={themeText} />
+                <Text style={[styles.postMusicEditClipText, textStyle]}>{t('selectedPost.editMusicClip')}</Text>
+              </TouchableOpacity>
+            ) : null}
             {!getYoutubeSearchApiKey() ? <Text style={[styles.postMusicApiHint, textStyle]}>{t('selectedPost.musicApiUnavailable')}</Text> : null}
             <TextInput placeholder={t('selectedPost.musicSearchPlaceholder')} placeholderTextColor="#999" style={[styles.postMusicSearchInput, textStyle, { borderColor: `${themeText}33`, color: themeText }]} value={postMusicQuery} onChangeText={setPostMusicQuery} autoCorrect={false} autoCapitalize="none" />
             <FlatList
@@ -1852,7 +1932,10 @@ const InstagramPostCreator = () => {
         audioSel={postImageEditsToStoryAudioSel(getCurrentImageEdits())}
         lyricsBundle={getCurrentImageEdits().musicLyrics}
         initialTrim={{ start: getCurrentImageEdits().musicTrimStart ?? 0, end: getCurrentImageEdits().musicTrimEnd }}
-        onCancel={() => setPostStorySoundTrimVisible(false)}
+        onCancel={() => {
+          setPostStorySoundTrimVisible(false);
+          if (!slideHasLibraryMusic(getCurrentImageEdits())) openPostMusicPicker();
+        }}
         onDone={({ start, end }) => { updateCurrentImageEdits({ musicTrimStart: start, musicTrimEnd: end != null && Number.isFinite(end) ? end : null }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicTrimSaved'), 1500); }}
         onDelete={() => { updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500); }}
       />
@@ -2385,6 +2468,21 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     marginBottom: 10,
     lineHeight: 17,
+  },
+  postMusicEditClipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(90,45,130,0.12)',
+  },
+  postMusicEditClipText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   postMusicSearchInput: {
     borderWidth: 1,
