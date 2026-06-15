@@ -52,6 +52,8 @@ export default function StoryInteractiveOverlay({
   onTrashHoverChange,
   /** If true, shrinks the overlay when the finger is over the trash. */
   shrinkOnTrashHover = false,
+  /** If true, text stays horizontal — pinch only resizes, no rotation gesture. */
+  lockRotation = false,
   bounds,
   boundsBleed,
   children,
@@ -127,9 +129,10 @@ export default function StoryInteractiveOverlay({
   }, [initialScale, pinchStartScale, scale, deletePreviewScale]);
 
   useEffect(() => {
-    rotation.value = initialRotation;
-    rotateStart.value = initialRotation;
-  }, [initialRotation, rotateStart, rotation]);
+    const rot = lockRotation ? 0 : initialRotation;
+    rotation.value = rot;
+    rotateStart.value = rot;
+  }, [initialRotation, lockRotation, rotateStart, rotation]);
 
   // ─── Interaction helpers ───────────────────────────────────────────────────
   const setInteractionActive = useCallback(
@@ -230,13 +233,14 @@ export default function StoryInteractiveOverlay({
     .onEnd(e => {
       'worklet';
       runOnJS(endInteraction)();
+      const rot = lockRotation ? 0 : rotation.value;
       runOnJS(handlePanEnd)(
         e.absoluteX,
         e.absoluteY,
         translateX.value,
         translateY.value,
         scale.value,
-        rotation.value,
+        rot,
       );
     });
 
@@ -278,7 +282,8 @@ export default function StoryInteractiveOverlay({
     })
     .onEnd(() => {
       runOnJS(endInteraction)();
-      runOnJS(commitPinchOnly)(translateX.value, translateY.value, scale.value, rotation.value);
+      const rot = lockRotation ? 0 : rotation.value;
+      runOnJS(commitPinchOnly)(translateX.value, translateY.value, scale.value, rot);
     });
 
   const rotateGesture = Gesture.Rotation()
@@ -301,10 +306,12 @@ export default function StoryInteractiveOverlay({
     .maxDistance(tapPanNudge)
     .onEnd(() => { runOnJS(emitSingleTap)(); });
 
-  const dragPinchRotate = Gesture.Simultaneous(pinch, rotateGesture, pan);
+  const dragPinch = lockRotation
+    ? Gesture.Simultaneous(pinch, pan)
+    : Gesture.Simultaneous(pinch, rotateGesture, pan);
   const composed = onSingleTap
-    ? Gesture.Exclusive(textTap, dragPinchRotate)
-    : dragPinchRotate;
+    ? Gesture.Exclusive(textTap, dragPinch)
+    : dragPinch;
 
   // ─── Animated style ────────────────────────────────────────────────────────
   const animatedStyle = useAnimatedStyle(() => ({
@@ -313,7 +320,7 @@ export default function StoryInteractiveOverlay({
     top: translateY.value,
     zIndex,
     transform: [
-      { rotateZ: `${rotation.value}rad` },
+      ...(lockRotation ? [] : [{ rotateZ: `${rotation.value}rad` }]),
       { scale: scale.value * deletePreviewScale.value },
     ],
   }));

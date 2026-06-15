@@ -46,6 +46,51 @@ export function getPostSoundtrackUrl(musicId) {
   return t?.sourceUrl || null;
 }
 
+const DEFAULT_MUSIC_CLIP_SEC = 30;
+
+/**
+ * Absolute [start, end] window (seconds) for trimmed music playback.
+ * Expands a stale short loaded duration when trim points further into the track.
+ */
+export function getMusicTrimPlaybackWindow(trimStart, trimEnd, fullDurationSec) {
+  const start = Math.max(0, Number(trimStart) || 0);
+  const parsedEnd =
+    trimEnd != null && trimEnd !== '' && Number.isFinite(Number(trimEnd))
+      ? Number(trimEnd)
+      : null;
+
+  let dur =
+    fullDurationSec != null && Number.isFinite(Number(fullDurationSec)) && Number(fullDurationSec) > 0
+      ? Number(fullDurationSec)
+      : null;
+
+  if (parsedEnd != null) {
+    dur = dur != null ? Math.max(dur, parsedEnd) : parsedEnd;
+  }
+  if (dur != null) {
+    dur = Math.max(dur, start + 0.001);
+  }
+
+  let end = parsedEnd ?? (dur != null ? dur : start + DEFAULT_MUSIC_CLIP_SEC);
+  if (dur != null) {
+    end = Math.min(end, dur);
+  }
+
+  if (end <= start) {
+    const fallbackEnd =
+      dur != null
+        ? Math.min(Math.max(dur, start + 1), start + DEFAULT_MUSIC_CLIP_SEC)
+        : start + DEFAULT_MUSIC_CLIP_SEC;
+    return { start: 0, end: fallbackEnd, valid: false, hasOverlap: false };
+  }
+
+  return { start, end, valid: true, hasOverlap: true };
+}
+
+export function getMusicTrimPlaybackWindowFromTrim(trim, fullDurationSec) {
+  return getMusicTrimPlaybackWindow(trim?.start, trim?.end, fullDurationSec);
+}
+
 /**
  * Map editor image → same `audio` shape StoryComposer passes in `handleExport` (before serialize).
  * YouTube objects and library strings `chill` | `energy` | `vibe` match story upload resolution.
