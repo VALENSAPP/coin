@@ -723,7 +723,7 @@
     "profileNotAvailableMessage": "Não é possível compartilhar o perfil agora.",
     "linkUnavailable": "Link indisponível",
     "noLinkToCopy": "Nenhum link disponível para copiar",
-    "shareMessageTemplate": "✨ Siga-me no Valens\n Junte-se às minhas batalhas, apoie minhas missões e faça parte do meu mundo. \n\nOnde a reputação é conquistada, não comprada.\n\n",
+    "shareMessageTemplate": "✨ Siga-me no Valens\n Junte-se às minhas batalhas, apoie minhas missões e faça parte do meu mundo. \n\nOnde a reputação é conquistada, não comprada.\n",
     "shareOtherMessageTemplate": "✨ Siga {{username}} no Valens\nOnde a reputação é conquistada, não comprada.\nJunte-se ao mundo dele abaixo.\n{{profileLink}}",
     "brandName": "Valens"
   },

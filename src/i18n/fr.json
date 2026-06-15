@@ -723,7 +723,7 @@
     "profileNotAvailableMessage": "Impossible de partager le profil pour le moment.",
     "linkUnavailable": "Lien indisponible",
     "noLinkToCopy": "Aucun lien disponible à copier",
-    "shareMessageTemplate": "✨ Suivez-moi sur Valens\n Rejoignez mes batailles, soutenez mes missions et faites partie de mon univers. \n\nLà où la réputation se mérite, elle ne s’achète pas.\n\n",
+    "shareMessageTemplate": "✨ Suivez-moi sur Valens\n Rejoignez mes batailles, soutenez mes missions et faites partie de mon univers. \n\nLà où la réputation se mérite, elle ne s’achète pas.\n",
     "shareOtherMessageTemplate": "✨ Suivez {{username}} sur Valens\nLà où la réputation se mérite, elle ne s’achète pas.\nRejoignez son univers ci-dessous.\n{{profileLink}}",
     "brandName": "Valens"
   },

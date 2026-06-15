@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -322,6 +323,7 @@ export default function Notifications() {
   const [subscribeTargetUserId, setSubscribeTargetUserId] = useState(null);
   const [circleAccessModalVisible, setCircleAccessModalVisible] = useState(false);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -422,6 +424,12 @@ export default function Notifications() {
     AsyncStorage.getItem('userId').then(id => {
       setLoggedInUserId(id);
     });
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([getNotification(false), getBattleNotifications()]);
+    setRefreshing(false);
   }, []);
 
   const getNotification = async (showLoader = true) => {
@@ -1387,6 +1395,14 @@ export default function Notifications() {
               { paddingBottom: listBottomPadding },
             ]}
             nestedScrollEnabled
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={text}
+                colors={[text]}
+              />
+            }
           />
         )}
       </View>

@@ -299,29 +299,47 @@ const PrivateContentScreen = ({
     async (index) => {
       const item = posts[index];
       if (!item) return;
-      const isReel = isVideoUrl(item?.images?.[0]);
+
+      const isReel = item?.format === 'reel';
+
       if (isReel) {
+        const params = {
+          item,
+          profileUserId: userData?.id,
+          profileReels: posts,
+          key: Date.now().toString(),
+        };
+
+        let targetNavigation = navigation;
+        while (targetNavigation) {
+          const routeNames = targetNavigation.getState?.()?.routeNames || [];
+          if (routeNames.includes('FlipsScreen')) {
+            targetNavigation.navigate('FlipsScreen', params);
+            return;
+          }
+          targetNavigation = targetNavigation.getParent?.();
+        }
+
         const parent = navigation.getParent?.();
         if (parent?.navigate) {
-          parent.navigate('FlipsScreen', {
-            item,
-            userId: userData?.id,
-            screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
+          parent.navigate('ProfileMain', {
+            screen: 'FlipsScreen',
+            params,
           });
           return;
         }
-        navigation.navigate('FlipsScreen', {
-          item,
-          userId: userData?.id,
-          screenshotProtectionSource: SCREENSHOT_PROTECTED_SOURCES.PRIVATE_CONTENT,
-        });
+
+        navigation.navigate('FlipsScreen', params);
         return;
       }
-      const imagePosts = posts.filter((p) => !isVideoUrl(p?.images?.[0]));
+
+      // Image post navigation
+      const imagePosts = posts.filter((p) => p?.format !== 'reel');
       const nextIndex = Math.max(
         0,
         imagePosts.findIndex((p) => String(p?.id) === String(item?.id)),
       );
+
       navigation.getParent().navigate('ProfileMain', {
         screen: 'PostView',
         params: {

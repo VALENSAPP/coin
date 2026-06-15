@@ -280,9 +280,15 @@ const PostEditorScreen = () => {
               : 'normal',
       visibleTo: visibleTo,
       isTrustPost: isCommunityTrustPost,
-      ...(isFlipPost && primaryMedia
-        ? { format: getPostMediaFormat(primaryMedia) }
+      ...(postType === 'private' &&
+        (fromIcon === 'Flips' || fromIcon === 'video')
+        ? {
+          format: fromIcon === 'Flips' ? 'reel' : fromIcon === 'video' ? 'video' : 'normal',
+        }
         : {}),
+      // ...(isFlipPost && primaryMedia
+      //   ? { format: getPostMediaFormat(primaryMedia) }
+      //   : {}),
     };
 
     const postMeta = buildPostMetaFromImages(editorImages);
