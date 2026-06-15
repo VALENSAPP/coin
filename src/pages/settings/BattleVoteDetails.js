@@ -81,12 +81,12 @@ export default function BattleVoteDetails() {
 
   const { profile } = route.params || {};
   const { battle } = route.params || {};
+  const { comments: passedComments, selectedUserComment, selectedUserId, selectedSpeakerLabel } = route.params || {};
   const selectedSide = String(route?.params?.selectedSide || '').trim();
   const selectedSideLabel = String(
     route?.params?.selectedSideLabel || selectedSide || '',
   ).trim();
   const resolvedProfileType = normalizeProfileType(profile);
-
   const { bgStyle, cardStyle, text } = useAppTheme(resolvedProfileType);
 
   const palette = useMemo(
@@ -288,24 +288,24 @@ export default function BattleVoteDetails() {
 
         const meta = entry?.user
           ? {
-              displayName: pickFirst(
-                entry.user.displayName,
-                entry.user.name,
-                'User',
-              ),
-              displayHandle: pickFirst(
-                entry.user.userName,
-                entry.user.handle,
-                '',
-              ),
-              displayAvatar: getAvatarUri(
-                entry.user.image,
-                entry.user.avatar,
-                entry.user.profileImage,
-                entry.user.profilePicture,
-                entry.user.userImage,
-              ),
-            }
+            displayName: pickFirst(
+              entry.user.displayName,
+              entry.user.name,
+              'User',
+            ),
+            displayHandle: pickFirst(
+              entry.user.userName,
+              entry.user.handle,
+              '',
+            ),
+            displayAvatar: getAvatarUri(
+              entry.user.image,
+              entry.user.avatar,
+              entry.user.profileImage,
+              entry.user.profilePicture,
+              entry.user.userImage,
+            ),
+          }
           : resolveUserMeta(userId);
 
         const fallbackName = entryType === 'votes' ? 'Voter' : 'Predictor';
@@ -343,13 +343,25 @@ export default function BattleVoteDetails() {
   );
 
   const commentSections = useMemo(() => {
-    const comments = Array.isArray(battle?.comments) ? battle.comments : [];
+    const allComments = Array.isArray(passedComments)
+      ? passedComments
+      : Array.isArray(battle?.comments)
+        ? battle.comments
+        : [];
     const normalizedSelectedSide = normalizeSideKey(selectedSide);
-    const data = normalizedSelectedSide
-      ? comments.filter(
-          comment => normalizeSideKey(comment?.side) === normalizedSelectedSide,
-        )
-      : comments;
+    let data = normalizedSelectedSide
+      ? allComments.filter(
+        comment => normalizeSideKey(comment?.side) === normalizedSelectedSide,
+      )
+      : allComments;
+
+    if (selectedUserId) {
+      data = [...data].sort((a, b) => {
+        const aIsSelected = String(a?.userId || '') === selectedUserId ? 0 : 1;
+        const bIsSelected = String(b?.userId || '') === selectedUserId ? 0 : 1;
+        return aIsSelected - bIsSelected;
+      });
+    }
 
     return [
       {
@@ -358,14 +370,14 @@ export default function BattleVoteDetails() {
         data,
       },
     ];
-  }, [battle?.comments, selectedSide, selectedSideLabel, t]);
+  }, [battle?.comments, passedComments, selectedSide, selectedSideLabel, selectedUserId, t]);
 
   const sections =
     activeTab === 'comments'
       ? commentSections
       : activeTab === 'votes'
-      ? votesSections
-      : predictionsSections;
+        ? votesSections
+        : predictionsSections;
 
   const handleOpenUser = useCallback(
     userId => {
@@ -517,15 +529,15 @@ export default function BattleVoteDetails() {
     activeTab === 'comments'
       ? selectedSideLabel
         ? `${selectedSideLabel} ${t(
-            'battleVoteDetails.commentsTitle',
-            'Comments',
-          )}`
+          'battleVoteDetails.commentsTitle',
+          'Comments',
+        )}`
         : t('battleVoteDetails.commentsTitle', 'Comments')
       : activeTab === 'votes'
-      ? selectedSideLabel
-        ? `${selectedSideLabel} ${t('battleVoteDetails.votesTitle', 'Votes')}`
-        : t('battleVoteDetails.votesTitle', 'Votes')
-      : t('battleVoteDetails.predictionsTitle', 'Predictions');
+        ? selectedSideLabel
+          ? `${selectedSideLabel} ${t('battleVoteDetails.votesTitle', 'Votes')}`
+          : t('battleVoteDetails.votesTitle', 'Votes')
+        : t('battleVoteDetails.predictionsTitle', 'Predictions');
 
   return (
     <SafeAreaView style={[styles.container, bgStyle]}>
@@ -549,7 +561,9 @@ export default function BattleVoteDetails() {
 
         <View style={styles.headerText}>
           <Text numberOfLines={1} style={[styles.headerTitle, { color: text }]}>
-            {titleText}
+            {battle?.question ||
+              battle?.title ||
+              t('battleVoteDetails.untitledBattle', 'Untitled battle')}
           </Text>
 
           {/* <Text
@@ -581,7 +595,7 @@ export default function BattleVoteDetails() {
           }
           contentContainerStyle={styles.listContent}
           refreshing={refreshing}
-          onRefresh={() => {}}
+          onRefresh={() => { }}
           renderItem={activeTab === 'comments' ? renderCommentRow : renderRow}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
@@ -619,15 +633,15 @@ export default function BattleVoteDetails() {
                 >
                   {activeTab === 'comments'
                     ? t(
-                        'battleVoteDetails.noCommentsForSide',
-                        'No comments for this side yet',
-                      )
+                      'battleVoteDetails.noCommentsForSide',
+                      'No comments for this side yet',
+                    )
                     : activeTab === 'votes'
-                    ? t(
+                      ? t(
                         'battleVoteDetails.noVotesForOption',
                         'No votes for this option',
                       )
-                    : t(
+                      : t(
                         'battleVoteDetails.noPredictionsForOption',
                         'No predictions for this option',
                       )}
@@ -649,10 +663,13 @@ export default function BattleVoteDetails() {
                 ]}
               >
                 <Text style={[styles.summaryTitle, { color: text }]}>
-                  {battle?.question ||
-                    battle?.title ||
-                    t('battleVoteDetails.untitledBattle', 'Untitled battle')}
+                  {titleText}
                 </Text>
+                {!!selectedUserComment && (
+                  <Text style={[styles.sectionEmptyText, { color: palette.muted, marginTop: 8 }]}>
+                    {selectedUserComment}
+                  </Text>
+                )}
               </View>
             </View>
           )}
@@ -687,7 +704,7 @@ export default function BattleVoteDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    marginTop:'5%',
+    marginTop: '5%',
   },
 
   header: {
