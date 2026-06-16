@@ -42,6 +42,8 @@ export default function PostScreen({ navigation }) {
   const isPrivateEntry = String(rawPostTypeParam || '').toLowerCase() === 'private';
   const isFlipEntry = String(rawMediaTypeParam || '').toLowerCase() === 'flips';
   const mediaType = rawMediaTypeParam;
+  console.log('mediaTypemediaType',mediaType)
+  console.log("isFlipEntryisFlipEntry",isFlipEntry)
   const insets = useSafeAreaInsets();
 
   const { bgStyle, textStyle, text } = useAppTheme();
@@ -149,7 +151,7 @@ const cropImage = (imageUri, index) => {
 
   const openGallery = () => {
     const remainingSlots = 10 - (selectedMedia?.length || 0);
-    const isFlip = postType === 'flip';
+    const isFlip = postType === 'flip' || mediaType == 'video' || mediaType == 'Flips';
     dispatch(showLoader());
     ImagePicker.openPicker({
       mediaType: isFlip ? 'video' : 'any',
@@ -275,7 +277,7 @@ const cropImage = (imageUri, index) => {
       Alert.alert(t('post.selectionLimitTitle'), t('post.selectionLimitReachedMessage'));
       return;
     }
-    if (postType === 'flip') {
+    if (postType === 'flip' || mediaType == 'video' || mediaType == 'Flips') {
       captureMedia('video');
       return;
     }

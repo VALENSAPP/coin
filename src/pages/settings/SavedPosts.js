@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,8 @@ import { useToast } from 'react-native-toast-notifications';
 import { useAppTheme } from '../../theme/useApptheme';
 import Video from 'react-native-video';
 import { useLanguage } from '../../i18n';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import useScreenshotProtection, { shouldProtectScreenshot } from '../../hooks/useScreenshotProtection';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_SIZE = (width - 6) / 3;
@@ -76,11 +78,41 @@ const SavedPostsScreen = ({ navigation }) => {
   const [viewerPlayingPostId, setViewerPlayingPostId] = useState(null);
   const [viewerVisiblePostId, setViewerVisiblePostId] = useState(null);
 
+  const [currentUserId, setCurrentUserId] = useState(null);
+
   const toast = useToast();
   const { bgStyle, textStyle, cardStyle, text: themeText } = useAppTheme();
   const insets = useSafeAreaInsets();
   const viewerHeaderPaddingTop = Math.max(insets.top, 12);
   const { t } = useLanguage();
+
+  const activeViewerPost = useMemo(() => {
+    if (!viewerVisible || !viewerVisiblePostId) return null;
+    return posts.find(
+      p => String(p?.id ?? p?._id) === String(viewerVisiblePostId)
+    ) ?? null;
+  }, [viewerVisible, viewerVisiblePostId, posts]);
+
+  const shouldProtectPrivateContent = useMemo(() => {
+    if (!activeViewerPost) return false;
+
+    const post = activeViewerPost;
+
+    // Direct field checks based on your API response shape
+    const isPrivate =
+      post?.type === 'private' ||
+      post?.private_circle === true ||
+      post?.visibleTo === 'PRIVATE_CIRCLE' ||
+      post?.profileStatus === 'private';
+
+    return isPrivate;
+  }, [activeViewerPost]);
+
+  useScreenshotProtection({
+    enabled: shouldProtectPrivateContent,
+    title: t('postView.screenshotWarningTitle'),
+    message: t('postView.screenshotWarningMessage'),
+  });
 
   const formatUrl = useCallback((url) => {
     if (!url || typeof url !== 'string') return '';
@@ -157,6 +189,7 @@ const SavedPostsScreen = ({ navigation }) => {
 
       if (response?.success && response?.statusCode === 200) {
         const raw = Array.isArray(response.data) ? response.data : [];
+        console.log('Fetched saved posts:', raw);
         setPosts(raw);
         seedMapsFromPosts(raw);
       } else {
@@ -174,6 +207,14 @@ const SavedPostsScreen = ({ navigation }) => {
   useEffect(() => {
     fetchSavedPosts();
   }, [fetchSavedPosts]);
+
+  useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem('userId')
+      .then(id => { if (isMounted) setCurrentUserId(id); })
+      .catch(() => { if (isMounted) setCurrentUserId(null); });
+    return () => { isMounted = false; };
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -390,9 +431,50 @@ const SavedPostsScreen = ({ navigation }) => {
 
   // Open full-screen viewer
   const openPostViewer = useCallback((index) => {
+    const post = posts[index];
+    if (!post) return;
+
+    // If it's a reel, navigate to FlipsScreen
+    if (post?.type === 'reel') {
+      const profileUserId = post?.userId || post?.UserId;
+      const params = {
+        item: post,
+        profileUserId,
+        profileReels: posts.filter(p => p?.type === 'reel'),
+        key: Date.now().toString(),
+      };
+
+      let targetNavigation = navigation;
+      while (targetNavigation) {
+        const routeNames = targetNavigation.getState?.()?.routeNames || [];
+        if (routeNames.includes('FlipsScreen')) {
+          targetNavigation.navigate('FlipsScreen', params);
+          return;
+        }
+        targetNavigation = targetNavigation.getParent?.();
+      }
+
+      const parent = navigation.getParent?.();
+      if (parent?.navigate) {
+        parent.navigate('ProfileMain', {
+          screen: 'FlipsScreen',
+          params,
+        });
+        return;
+      }
+
+      navigation.navigate('FlipsScreen', params);
+      return;
+    }
+
+    const filteredIndex = nonReelPosts.findIndex(
+      p => String(p?.id ?? p?._id) === String(post?.id ?? post?._id)
+    );
+
+    // Otherwise open the in-screen viewer modal
     setInitialPostIndex(index);
     setViewerVisible(true);
-  }, []);
+  }, [navigation, posts]);
 
   // Close viewer
   const closePostViewer = useCallback(() => {
@@ -447,6 +529,11 @@ const SavedPostsScreen = ({ navigation }) => {
     };
   }, [initialPostIndex, posts?.length, viewerVisible]);
 
+  const nonReelPosts = useMemo(
+    () => posts.filter(p => p?.type !== 'reel'),
+    [posts],
+  );
+
   // Grid item renderer
   const renderGridItem = useCallback(
     ({ item, index }) => {
@@ -454,20 +541,27 @@ const SavedPostsScreen = ({ navigation }) => {
       const firstMedia = images[0];
       const hasMultiple = images.length > 1;
       const isVideo = firstMedia ? getMediaType(firstMedia) === 'video' : false;
-      const isGridVideoPlaying = String(gridPlayingPostId) === String(item?.id);
-      const isGridMuted =
-        typeof gridMutedByPostId[String(item?.id)] === 'boolean'
-          ? gridMutedByPostId[String(item?.id)]
-          : true;
       const formattedFirstMedia = firstMedia ? formatUrl(firstMedia) : '';
+      const thumbnailUri = item.thumbnails?.[0]
+        ? formatUrl(item.thumbnails[0])
+        : null;
 
       if (!firstMedia) {
         return (
-          <TouchableOpacity style={styles.gridItem} activeOpacity={0.7} onPress={() => openPostViewer(index)}>
-            <View style={[styles.gridImage, { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }]}>
+          <TouchableOpacity
+            style={styles.gridItem}
+            activeOpacity={0.7}
+            onPress={() => openPostViewer(index)}>
+            <View
+              style={[
+                styles.gridImage,
+                { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
+              ]}>
               <Icon name="image-outline" size={40} color="#555" />
             </View>
-            {hasMultiple && <Icon name="copy-outline" size={20} color="#fff" style={styles.multiOverlay} />}
+            {hasMultiple && (
+              <Icon name="copy-outline" size={20} color="#fff" style={styles.multiOverlay} />
+            )}
           </TouchableOpacity>
         );
       }
@@ -476,54 +570,38 @@ const SavedPostsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.gridItem, { marginBottom: 2 }]}
           activeOpacity={0.7}
-          onPress={() => openPostViewer(index)}
-        >
+          onPress={() => openPostViewer(index)}>
           {isVideo ? (
-            <Video
-              source={{ uri: formattedFirstMedia }}
-              style={styles.gridImage}
-              resizeMode="cover"
-              paused={!isGridVideoPlaying}
-              muted={isGridMuted}
-              repeat={true}
-              controls={false}
-              playInBackground={false}
-              playWhenInactive={false}
-              ignoreSilentSwitch="ignore"
-              poster="https://via.placeholder.com/300/1a1a1a/666666?text=Video"
-              onError={(e) => console.log('Video thumbnail error:', e)}
-            />
+            <>
+              {/* Show thumbnail if available, else black bg with play icon */}
+              {thumbnailUri ? (
+                <Image
+                  source={{ uri: thumbnailUri }}
+                  style={styles.gridImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.gridImage,
+                    { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
+                  ]}>
+                  <Icon name="play-circle" size={36} color="#fff" />
+                </View>
+              )}
+              {/* Static play icon overlay — no TouchableOpacity, just visual */}
+              <View
+                style={styles.videoOverlay}
+                pointerEvents="none">
+                <Icon name="play-circle" size={36} color="#fff" />
+              </View>
+            </>
           ) : (
             <Image
               source={{ uri: formattedFirstMedia }}
               style={styles.gridImage}
               resizeMode="cover"
-              defaultSource={{ uri: 'https://via.placeholder.com/300/1a1a1a/666666?text=Loading...' }}
             />
-          )}
-
-          {isVideo && !isGridVideoPlaying && (
-            <TouchableOpacity
-              style={styles.videoOverlay}
-              activeOpacity={0.85}
-              onPress={() => setGridPlayingPostId(item?.id)}
-            >
-              <Icon name="play-circle" size={36} color="#fff" />
-            </TouchableOpacity>
-          )}
-
-          {isVideo && (
-            <TouchableOpacity
-              style={styles.gridMuteButton}
-              activeOpacity={0.85}
-              onPress={() => {
-                const key = String(item?.id);
-                setGridMutedByPostId((prev) => ({ ...prev, [key]: !isGridMuted }));
-                if (!isGridVideoPlaying) setGridPlayingPostId(item?.id);
-              }}
-            >
-              <Icon name={isGridMuted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
-            </TouchableOpacity>
           )}
 
           {hasMultiple && (
@@ -534,7 +612,7 @@ const SavedPostsScreen = ({ navigation }) => {
         </TouchableOpacity>
       );
     },
-    [formatUrl, getMediaType, gridMutedByPostId, gridPlayingPostId, openPostViewer]
+    [formatUrl, getMediaType, openPostViewer],
   );
 
   // Full-screen post renderer
@@ -737,7 +815,7 @@ const SavedPostsScreen = ({ navigation }) => {
           {/* Vertical Scrollable Posts */}
           <FlatList
             ref={flatListRef}
-            data={posts}
+            data={nonReelPosts}
             renderItem={renderFullPost}
             keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
