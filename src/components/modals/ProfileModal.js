@@ -94,6 +94,26 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
     }
   };
 
+  const launchCameraDelayed = (options, callback) => {
+    InteractionManager.runAfterInteractions(() => {
+      launchCamera(options, callback);
+    });
+  };
+
+  const createMediaListFromResponse = response => {
+    const assets = (response?.assets || []).filter(asset => asset?.uri || asset?.path);
+    if (!assets.length) return null;
+    return assets.map(asset => {
+      const type = asset.type?.startsWith('video') ? 'video' : 'image';
+      const uri = asset.uri || asset.path;
+      return {
+        uri,
+        type,
+        duration: type === 'video' ? (asset.duration ? asset.duration * 1000 : 15000) : 5000,
+      };
+    });
+  };
+
   const openCamera = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
@@ -110,8 +130,10 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       maxWidth: 2000,
       includeExtra: true,
       presentationStyle: 'fullScreen',
+      cameraType: 'back',
+      videoQuality: 'high',
     };
-    launchCamera(options, response => {
+    launchCameraDelayed(options, response => {
       if (response?.didCancel) return;
       if (response?.errorCode) {
         Alert.alert(
@@ -132,38 +154,26 @@ const ProfileModal = ({ modalVisible, setModalVisible, onStoryUploaded }) => {
       maxHeight: 2000,
       maxWidth: 2000,
     };
-    launchImageLibrary(options, response => {
-      if (response?.didCancel || response?.errorCode) return;
-      const assets = response?.assets || [];
-      if (!assets.length) return;
-
-      const list = assets.map(a => ({
-        uri: a.uri,
-        type: a.type?.startsWith('video') ? 'video' : 'image',
-        duration: a.duration ? a.duration * 1000 : undefined,
-      }));
-      setComposerList(list);
-      setComposerVisible(true);
+    InteractionManager.runAfterInteractions(() => {
+      launchImageLibrary(options, response => {
+        if (response?.didCancel || response?.errorCode) return;
+        const list = createMediaListFromResponse(response);
+        if (!list) return;
+        setComposerList(list);
+        setComposerVisible(true);
+      });
     });
   };
 
   const handleMediaSelected = response => {
-    const asset = response?.assets?.[0];
-    if (!asset || !asset.uri) {
+    const list = createMediaListFromResponse(response);
+    if (!list) {
       Alert.alert(
         t('profileModal.mediaReadErrorTitle'),
         t('profileModal.mediaReadErrorMessage'),
       );
       return;
     }
-    const type = asset.type?.startsWith('video') ? 'video' : 'image';
-    const list = [{
-      uri: asset.uri,
-      type,
-      duration: type === 'video'
-        ? (asset.duration ? asset.duration * 1000 : 15000)
-        : 5000,
-    }];
     setComposerList(list);
     setComposerVisible(true);
   };

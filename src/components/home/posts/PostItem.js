@@ -2542,7 +2542,7 @@ const styles = StyleSheet.create({
   trustProgressValue: {
     position: 'absolute',
     top: 7,
-    right: 12,
+    right: 15,
     fontSize: 15,
     fontWeight: '900',
     color: '#10B981',

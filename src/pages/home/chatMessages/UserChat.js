@@ -52,7 +52,7 @@ import HexAvatar from '../../../components/home/story.js/HexAvatar';
 import { useLanguage } from '../../../i18n';
 import { viewStory } from '../../../services/stories';
 
-const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
+// const DEFAULT_AVATAR = require('../../../assets/icons/pngicons/user.png');
 const CHAT_LINK_REGEX =
   /((?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/gi;
 
@@ -136,7 +136,7 @@ const SafeIcon = ({ name, size = 24, color = '#000', style }) => {
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const FALLBACK_AVATAR = require('../../../assets/icons/pngicons/user.png');
+const FALLBACK_AVATAR = require('../../../assets/icons/pngicons/blackUser.png');
 const getAvatarSource = avatar =>
   avatar && typeof avatar === 'string' && avatar.trim() !== ''
     ? { uri: avatar }
