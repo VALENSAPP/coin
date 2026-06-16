@@ -198,8 +198,85 @@ export async function editPost(postId, data = {}) {
 
   const formData = new FormData();
 
+  if (data.caption != null) {
+    formData.append('caption', String(data.caption));
+  }
+
+  if (data.location != null) {
+    formData.append('location', String(data.location));
+  }
+
+  if (data.taggedPeople != null) {
+    formData.append('taggedPeople', data.taggedPeople);
+  }
+
+  if (Array.isArray(data.taggedPeopleIds) && data.taggedPeopleIds.length > 0) {
+    formData.append('taggedPeopleIds', JSON.stringify(data.taggedPeopleIds));
+  }
+
+  if (Array.isArray(data.taggedPeopleMeta) && data.taggedPeopleMeta.length > 0) {
+    formData.append('taggedPeopleMeta', JSON.stringify(data.taggedPeopleMeta));
+  }
+
+  if (data.music != null && String(data.music).trim() !== '') {
+    formData.append('music', String(data.music).trim());
+  }
+
+  if (data.youtubeMusicMeta != null && String(data.youtubeMusicMeta).trim() !== '') {
+    const ytm =
+      typeof data.youtubeMusicMeta === 'string'
+        ? data.youtubeMusicMeta
+        : JSON.stringify(data.youtubeMusicMeta);
+    formData.append('youtubeMusicMeta', ytm);
+  }
+
+  if (data.videoText === true || data.videoText === 'true') {
+    formData.append('videoText', 'true');
+  }
+
+  if (data.videoTextItems != null) {
+    const items =
+      typeof data.videoTextItems === 'string'
+        ? data.videoTextItems
+        : JSON.stringify(data.videoTextItems);
+    formData.append('videoTextItems', items);
+  }
+
+  if (data.postMeta != null) {
+    const meta =
+      typeof data.postMeta === 'string' ? data.postMeta : JSON.stringify(data.postMeta);
+    formData.append('postMeta', meta);
+  }
+
+  if (Array.isArray(data.media)) {
+    data.media.forEach(file => {
+      if (!file?.uri) return;
+      formData.append('images', {
+        uri: Platform.OS === 'android' ? file.uri : file.uri.replace('file://', ''),
+        name: file.name || file.uri.split('/').pop(),
+        type: file.type || 'image/jpeg',
+      });
+    });
+  }
+
   Object.entries(data).forEach(([key, value]) => {
-    if (value === undefined || value === null) {
+    if (
+      value === undefined ||
+      value === null ||
+      [
+        'caption',
+        'location',
+        'taggedPeople',
+        'taggedPeopleIds',
+        'taggedPeopleMeta',
+        'music',
+        'youtubeMusicMeta',
+        'videoText',
+        'videoTextItems',
+        'postMeta',
+        'media',
+      ].includes(key)
+    ) {
       return;
     }
 

@@ -16,6 +16,7 @@ import {
   ScrollView,
   Pressable,
   AppState,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Video from 'react-native-video';
@@ -99,6 +100,8 @@ export default function PostStoryMusicTrimModal({
   initialTrim,
   lyricsBundle = null,
   lyricsLoading = false,
+  showMusicCard = true,
+  onShowMusicCardChange,
   onCancel,
   onDone,
   onDelete,
@@ -565,6 +568,25 @@ export default function PostStoryMusicTrimModal({
             </ScrollView>
           </View>
 
+          {typeof onShowMusicCardChange === 'function' ? (
+            <View style={styles.igMusicCardToggleRow}>
+              <View style={styles.igMusicCardToggleTextCol}>
+                <Text style={styles.igMusicCardToggleLabel}>
+                  {t('postStoryMusicTrim.showMusicCard')}
+                </Text>
+                <Text style={styles.igMusicCardToggleHint}>
+                  {t('postStoryMusicTrim.showMusicCardHint')}
+                </Text>
+              </View>
+              <Switch
+                value={showMusicCard !== false}
+                onValueChange={onShowMusicCardChange}
+                trackColor={{ false: '#3f3f46', true: 'rgba(77,163,255,0.45)' }}
+                thumbColor={showMusicCard !== false ? '#4da3ff' : '#a1a1aa'}
+              />
+            </View>
+          ) : null}
+
           <View style={styles.igClipLenRow}>
             <Text style={styles.igClipLenLabel}>{t('postStoryMusicTrim.clipLength')}</Text>
             <View style={styles.igClipSegmentTrack}>
@@ -937,6 +959,35 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.78)',
     fontSize: 13,
     lineHeight: 19,
+  },
+  igMusicCardToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  igMusicCardToggleTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  igMusicCardToggleLabel: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  igMusicCardToggleHint: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
   },
   igClipLenRow: {
     flexDirection: 'row',

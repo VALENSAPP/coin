@@ -516,11 +516,15 @@
     "searchUnavailable": "Search unavailable",
     "noSongsFound": "No songs found",
     "clipAdded": "Clips added",
-    "musicSaved": "Music saved"
+    "musicSaved": "Music saved",
+    "showMusicCard": "Show music card",
+    "showMusicCardHint": "Display the song title card on your post"
   },
   "postEditor": {
     "newFlip": "New Flip",
     "newPost": "New Post",
+    "editPost": "Edit Post",
+    "saveChanges": "Save changes",
     "taggedPeople": "Tagged people",
     "captionLabel": "Write a caption (optional)",
     "captionPlaceholder": "Write a caption (optional)",
@@ -2745,7 +2749,9 @@
     "hideExactTimes": "Hide exact times",
     "showExactTimes": "Exact start / end (seconds)",
     "startPlaceholder": "Start",
-    "endPlaceholder": "End"
+    "endPlaceholder": "End",
+    "showMusicCard": "Show music card",
+    "showMusicCardHint": "Display the song title card on your post"
   },
   "modalHome": {
     "following": "Following",

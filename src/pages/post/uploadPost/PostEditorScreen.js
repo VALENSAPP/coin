@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,13 +22,14 @@ import { StackActions, useNavigation, useRoute } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../../components/customButton/customButton';
 import { useToast } from 'react-native-toast-notifications';
-import { createPost } from '../../../services/post';
+import { createPost, editPost } from '../../../services/post';
 import { getAllUser } from '../../../services/users';
 import {
-  buildPostMetaFromImages,
-  buildCreatePostMusicPayload,
-  buildVideoTextPayloadFromImages,
-  getPostSlideOverlaysFromMeta,
+  buildPostUploadPayloadFromImages,
+  getPostSlidePreviewState,
+  parsePostMeta,
+  cacheClientPostOverlayFields,
+  mergePostOverlayFieldsFromClient,
 } from '../../../utils/postSoundtracks';
 import PostMediaTextOverlays from '../../../components/post/PostMediaTextOverlays';
 import { getPostMediaFormat } from '../../../utils/postMediaFormat';
@@ -39,6 +40,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
+import { isLocalMediaUri } from '../../../utils/hydratePostForEditor';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = 56;
@@ -120,11 +122,25 @@ const PostEditorScreen = () => {
     taggedPeople = [],
     taggedPeopleIds = [],
     taggedPeopleMeta = [],
+    isEditingPost = false,
+    editPostId = null,
+    editSkipMediaEditor = false,
+    initialCaption = '',
+    initialLocation = '',
+    isTrustPost = false,
+    onSave,
+    initialPostMeta = null,
   } = route.params || {};
+  const parsedInitialPostMeta = useMemo(
+    () => (initialPostMeta ? parsePostMeta(initialPostMeta) : null),
+    [initialPostMeta],
+  );
   const [editorImages, setEditorImages] = useState(images);
-  const [caption, setCaption] = useState('');
+  const [caption, setCaption] = useState(isEditingPost ? initialCaption : '');
   const [link, setLink] = useState('');
-  const [isCommunityTrustPost, setIsCommunityTrustPost] = useState(false);
+  const [isCommunityTrustPost, setIsCommunityTrustPost] = useState(
+    isEditingPost ? isTrustPost : false,
+  );
   const [profile, setProfile] = useState(null);
   const [openingTaggedProfile, setOpeningTaggedProfile] = useState(false);
   const [iosKeyboardInset, setIosKeyboardInset] = useState(0);
@@ -238,6 +254,14 @@ const PostEditorScreen = () => {
     return () => sub.remove();
   }, [scrollIosFieldIntoView]);
 
+  const navigateAfterPostUpdated = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.pop(editSkipMediaEditor ? 1 : 2);
+      return;
+    }
+    navigation.navigate('HomeMain');
+  }, [navigation, editSkipMediaEditor]);
+
   const handlePost = async () => {
     if (postType == 'crowdfunding') {
       if (link && !isValidLink(link)) {
@@ -291,9 +315,90 @@ const PostEditorScreen = () => {
       //   : {}),
     };
 
-    const postMeta = buildPostMetaFromImages(editorImages);
-    const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(editorImages);
-    const { videoText, videoTextItems } = buildVideoTextPayloadFromImages(editorImages);
+    const uploadPayload = buildPostUploadPayloadFromImages(editorImages);
+    const { postMeta, music, youtubeMusicMeta, videoText, videoTextItems } = uploadPayload;
+
+    const localMedia = editorImages
+      .map(img => ({
+        uri: getMediaUri(img),
+        type: img.type || (isMediaVideo(img) ? 'video/mp4' : 'image/jpeg'),
+        name: getMediaUri(img).split('/').pop(),
+      }))
+      .filter(file => isLocalMediaUri(file.uri));
+
+    if (isEditingPost && editPostId) {
+      try {
+        const preservedPostMeta = parsedInitialPostMeta || postMeta;
+        const editPayload = editSkipMediaEditor
+          ? {
+              caption: caption.trim(),
+              taggedPeople: taggedPeopleIds,
+              isTrustPost: isCommunityTrustPost,
+              ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
+                ? { taggedPeopleIds, taggedPeopleMeta }
+                : {}),
+            }
+          : {
+              caption: caption.trim(),
+              taggedPeople: taggedPeopleIds,
+              ...(Array.isArray(taggedPeopleIds) && taggedPeopleIds.length
+                ? { taggedPeopleIds, taggedPeopleMeta }
+                : {}),
+              postMeta,
+              ...(music ? { music } : { music: '' }),
+              ...(youtubeMusicMeta ? { youtubeMusicMeta } : { youtubeMusicMeta: '' }),
+              ...(videoText ? { videoText, videoTextItems } : {}),
+              ...(localMedia.length ? { media: localMedia } : {}),
+            };
+
+        const response = await editPost(editPostId, editPayload);
+
+        if (response?.statusCode && response.statusCode >= 400) {
+          throw new Error(response?.message || t('editPost.updateFailed'));
+        }
+
+        const updatedFromApi =
+          response?.data?.data ||
+          response?.data ||
+          response ||
+          {};
+        const updatedPost = {
+          id: editPostId,
+          ...updatedFromApi,
+          caption: updatedFromApi?.caption ?? caption.trim(),
+          postMeta: preservedPostMeta,
+          music: editSkipMediaEditor ? updatedFromApi?.music : music || null,
+          youtubeMusicMeta: editSkipMediaEditor
+            ? updatedFromApi?.youtubeMusicMeta
+            : youtubeMusicMeta || null,
+        };
+
+        onSave?.(updatedPost);
+        if (!editSkipMediaEditor) {
+          cacheClientPostOverlayFields(editPostId, {
+            postMeta,
+            music,
+            youtubeMusicMeta,
+          });
+        }
+        showToastMessage(
+          toast,
+          'success',
+          response?.data?.message || response?.message || t('editPost.postUpdated'),
+        );
+        navigateAfterPostUpdated();
+      } catch (err) {
+        console.error('Post update error:', err);
+        showToastMessage(
+          toast,
+          'danger',
+          err?.response?.data?.message || err?.message || t('editPost.updateFailed'),
+        );
+      } finally {
+        dispatch(hideLoader());
+      }
+      return;
+    }
 
     try {
       const response = await createPost({
@@ -306,6 +411,20 @@ const PostEditorScreen = () => {
       console.log('Post creation response:', response);
 
       if (response.statusCode == 200) {
+        const created =
+          response?.data?.data ||
+          response?.data?.post ||
+          response?.data ||
+          {};
+        const createdPostId = created?.id || created?.postId;
+        const overlayFields = { postMeta, music, youtubeMusicMeta };
+        if (createdPostId) {
+          cacheClientPostOverlayFields(createdPostId, overlayFields);
+          DeviceEventEmitter.emit(
+            'POST_CREATED',
+            mergePostOverlayFieldsFromClient(created, overlayFields),
+          );
+        }
         showToastMessage(toast, 'success', t('postEditor.postSuccess'));
         navigateAfterPostCreated();
       } else {
@@ -388,10 +507,15 @@ const PostEditorScreen = () => {
 
   const renderMediaPreviewItem = (img, idx) => {
     const thumbHeight = getThumbHeight(img);
-    const overlayBundle = getPostSlideOverlaysFromMeta(null, idx, img);
-    const hasOverlays =
-      (overlayBundle.textOverlays?.length || 0) > 0 ||
-      (overlayBundle.overlayImages?.length || 0) > 0;
+    const preview = getPostSlidePreviewState({
+      mediaUri: getMediaUri(img),
+      fallbackImage: img,
+      parsedPostMeta: parsedInitialPostMeta,
+      slideIndex: idx,
+      preferLayerOverlays: isMediaVideo(img),
+      isVideoSlide: isMediaVideo(img),
+    });
+    const { overlayBundle, showOverlays } = preview;
 
     if (isMediaVideo(img)) {
       return (
@@ -400,7 +524,7 @@ const PostEditorScreen = () => {
           style={[styles.mediaPreviewCard, { height: thumbHeight }]}
         >
           <Video
-            source={{ uri: getMediaUri(img) }}
+            source={{ uri: preview.uri }}
             style={{ width: IMAGE_PREVIEW_WIDTH, height: thumbHeight }}
             resizeMode="cover"
             paused={true}
@@ -408,10 +532,11 @@ const PostEditorScreen = () => {
             controls={false}
             poster={getVideoPosterUri(img) || undefined}
           />
-          {hasOverlays ? (
+          {showOverlays ? (
             <PostMediaTextOverlays
               textOverlays={overlayBundle.textOverlays}
               overlayImages={overlayBundle.overlayImages}
+              musicSticker={overlayBundle.musicSticker}
               width={IMAGE_PREVIEW_WIDTH}
               height={thumbHeight}
               canvasWidth={overlayBundle.canvasWidth}
@@ -437,14 +562,15 @@ const PostEditorScreen = () => {
         style={[styles.mediaPreviewCard, { height: thumbHeight }]}
       >
         <Image
-          source={{ uri: getMediaUri(img) }}
+          source={{ uri: preview.uri }}
           style={styles.mediaPreviewFill}
           resizeMode="contain"
         />
-        {hasOverlays ? (
+        {showOverlays ? (
           <PostMediaTextOverlays
             textOverlays={overlayBundle.textOverlays}
             overlayImages={overlayBundle.overlayImages}
+            musicSticker={overlayBundle.musicSticker}
             width={IMAGE_PREVIEW_WIDTH}
             height={thumbHeight}
             canvasWidth={overlayBundle.canvasWidth}
@@ -604,7 +730,11 @@ const PostEditorScreen = () => {
       )}
       <View style={styles.footer}>
         <CustomButton
-          title={t('postEditor.continueButton')}
+          title={
+            isEditingPost
+              ? t('postEditor.saveChanges')
+              : t('postEditor.continueButton')
+          }
           onPress={handlePost}
           style={[
             styles.socialBtn,
@@ -623,7 +753,13 @@ const PostEditorScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.title}>{fromIcon == 'Flips' ? t('postEditor.newFlip') : t('postEditor.newPost')}</Text>
+        <Text style={styles.title}>
+          {isEditingPost
+            ? t('postEditor.editPost')
+            : fromIcon == 'Flips'
+              ? t('postEditor.newFlip')
+              : t('postEditor.newPost')}
+        </Text>
         <Text></Text>
       </View>
 
