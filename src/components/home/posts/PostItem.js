@@ -2549,11 +2549,12 @@ const styles = StyleSheet.create({
   },
   trustProgressValue: {
     position: 'absolute',
-    top: 7,
-    right: 15,
+    top: 8,
+    right: 8,
     fontSize: 15,
     fontWeight: '900',
     color: '#10B981',
+    marginLeft:5
   },
   trustMetricRow: {
     flexDirection: 'row',
