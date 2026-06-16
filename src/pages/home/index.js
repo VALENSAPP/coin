@@ -21,6 +21,7 @@ import Posts from '../../components/home/posts/Posts';
 import { DrawerActions, useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { Chat, LogoIcon } from '../../assets/icons';
 import { getposts } from '../../services/home';
+import { applyClientPostOverlayCacheToList } from '../../utils/postSoundtracks';
 import { useToast } from 'react-native-toast-notifications';
 import { showToastMessage } from '../../components/displaytoastmessage';
 import { hideLoader, showLoader } from '../../redux/actions/LoaderAction';
@@ -426,7 +427,7 @@ export default function HomeScreen({ route }) {
       console.log(response,'dtatatatatatatatatatatatatataatt')
       if (response?.statusCode === 200) {
         console.log('✅ HomeScreen: Posts fetched successfully', response);
-        setPosts(response.data);
+        setPosts(applyClientPostOverlayCacheToList(response.data));
       } else {
         showToastMessage(toast, 'danger', response.data.message);
       }
@@ -733,6 +734,26 @@ const openLinkedStory = useCallback(async (sharedStoryId) => {
 
     return () => subscription.remove();
   }, [onRefresh]);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('POST_CREATED', post => {
+      if (!post?.id) return;
+      setPosts(prev => {
+        const normalized = applyClientPostOverlayCacheToList(prev);
+        const index = normalized.findIndex(
+          item => String(item.id) === String(post.id),
+        );
+        if (index >= 0) {
+          const next = [...normalized];
+          next[index] = { ...next[index], ...post };
+          return next;
+        }
+        return [post, ...normalized];
+      });
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const openGlobalDrawer = useCallback(() => {
     let parentNav = navigation;

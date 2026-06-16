@@ -5,6 +5,8 @@ import {
   sanitizeSerializable,
 } from './buildStoryMeta';
 import { getStoryBuiltinLibraryUrl } from './storyAudioUpload';
+import { defaultMusicBadgePosition } from '../components/home/story.js/storyOverlayConstants';
+import { normalizePostTextOverlayForDisplay } from '../components/post/PostMediaTextOverlays';
 
 /**
  * Built-in post / flip soundtracks (UI labels). URLs match story library ids (chill / energy / vibe).
@@ -179,7 +181,7 @@ export function postImagesToStoryAudioClips(images = []) {
 export function buildCreatePostMusicPayload(images = []) {
   const img = images.find(
     i =>
-      i &&
+      i?.isVideo &&
       i.musicId &&
       i.musicId !== 'none' &&
       i.musicSource &&
@@ -240,18 +242,21 @@ export function buildCreatePostMusicPayload(images = []) {
 function serializePostSlideTexts(textOverlays) {
   if (!Array.isArray(textOverlays) || textOverlays.length === 0) return null;
   return sanitizeSerializable(
-    textOverlays.map(overlay => ({
-      id: overlay.id,
-      text: overlay.text,
-      fontSize: overlay.fontSize ?? 28,
-      scale: overlay.scale ?? 1,
-      rotation: overlay.rotation ?? 0,
-      color: overlay.color ?? '#fff',
-      fontFamily: overlay.fontFamily ?? null,
-      textAlign: overlay.textAlign ?? 'center',
-      highlightColor: overlay.highlightColor ?? null,
-      position: overlay.position || { x: 0, y: 0 },
-    })),
+    textOverlays.map(overlay => {
+      const normalized = normalizePostTextOverlayForDisplay(overlay);
+      return {
+        id: normalized.id,
+        text: normalized.text,
+        fontSize: normalized.fontSize ?? 28,
+        scale: normalized.scale ?? 1,
+        rotation: normalized.rotation ?? 0,
+        color: normalized.color ?? '#fff',
+        fontFamily: normalized.fontFamily ?? null,
+        textAlign: normalized.textAlign ?? 'center',
+        highlightColor: normalized.highlightColor ?? null,
+        position: normalized.position || { x: 0, y: 0 },
+      };
+    }),
   );
 }
 
@@ -277,16 +282,26 @@ function normalizeVideoTextColor(color) {
   return raw;
 }
 
-function estimateTextOverlayFootprint(overlay) {
-  const fontSize = (Number(overlay?.fontSize) || 28) * (Number(overlay?.scale) || 1);
+function estimateTextOverlayFootprint(overlay, canvasWidth = 390) {
+  const scale = Math.max(0.2, Number(overlay?.scale) || 1);
+  const fontSize = (Number(overlay?.fontSize) || 28) * scale;
   const text = String(overlay?.text || '');
-  const lines = text.split('\n').slice(0, 3);
+  const lines = text.split('\n');
   const longestLineLength = lines.reduce(
     (longest, line) => Math.max(longest, Array.from(line).length),
     0,
   ) || 1;
-  const width = Math.min(220, Math.max(fontSize + 24, longestLineLength * fontSize * 0.62 + 24));
-  const height = Math.max(fontSize + 14, lines.length * fontSize * 1.2 + 14);
+  const maxLineWidth = Math.max(80, Number(canvasWidth) - 48) / scale;
+  const width = Math.min(
+    maxLineWidth,
+    Math.max(fontSize + 24, longestLineLength * fontSize * 0.62 + 24),
+  );
+  const wrappedLines = Math.max(
+    1,
+    lines.length,
+    Math.ceil((longestLineLength * fontSize * 0.62 + 24) / maxLineWidth),
+  );
+  const height = Math.max(fontSize + 14, wrappedLines * fontSize * 1.2 + 14);
   return { width, height, fontSize };
 }
 
@@ -304,7 +319,7 @@ export function buildVideoTextItemsFromImage(img) {
   return overlays
     .filter(overlay => String(overlay?.text || '').trim().length > 0)
     .map(overlay => {
-      const { width, height, fontSize } = estimateTextOverlayFootprint(overlay);
+      const { width, height, fontSize } = estimateTextOverlayFootprint(overlay, canvasWidth);
       const pos = overlay.position || { x: 0, y: 0 };
       const centerX = (Number(pos.x) || 0) + width / 2;
       const centerY = (Number(pos.y) || 0) + height / 2;
@@ -340,7 +355,127 @@ export function buildVideoTextPayloadFromImages(images = []) {
   };
 }
 
-export function getPostSlideOverlaysFromMeta(parsedPostMeta, slideIndex, fallbackImage = null) {
+function imageHasPostMusicSticker(img) {
+  return !!(
+    img?.musicId &&
+    img.musicId !== 'none' &&
+    img.musicSource &&
+    img.musicSource !== 'none'
+  );
+}
+
+function slideMetaHasMusicSticker(slide) {
+  if (!slide || typeof slide !== 'object') return false;
+  const mode = slide.audio?.mode;
+  if (mode && mode !== 'original') return true;
+  return !!(slide.musicTitle || slide.musicArtist);
+}
+
+function postMetaSlidesHaveOverlayContent(parsedPostMeta) {
+  const slides = parsedPostMeta?.slides;
+  if (!Array.isArray(slides) || slides.length === 0) return false;
+  return slides.some(
+    slide =>
+      (Array.isArray(slide.texts) && slide.texts.length > 0) ||
+      (Array.isArray(slide.overlayImages) && slide.overlayImages.length > 0) ||
+      slideMetaHasMusicSticker(slide),
+  );
+}
+
+function normalizeParsedPostMeta(parsed) {
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  if (parsed.overlayDisplay) return parsed;
+  if (postMetaSlidesHaveOverlayContent(parsed)) {
+    return { ...parsed, overlayDisplay: 'layer' };
+  }
+  return parsed;
+}
+
+function resolvePostMusicStickerThumbnail(slide, fallbackImage, rootItem) {
+  const ytm = parseRootYoutubeMusicMeta(rootItem);
+  return (
+    slide?.musicThumbnailUrl ||
+    fallbackImage?.musicYoutubeThumbUrl ||
+    ytm?.thumbnailUrl ||
+    null
+  );
+}
+
+function resolvePostMusicStickerCopy(slide, fallbackImage, rootItem, slideIndex) {
+  const ytm = parseRootYoutubeMusicMeta(rootItem);
+  const postMusic =
+    Number(slideIndex) === 0
+      ? getPostMusicForSlide(rootItem, 0, parsePostMeta(rootItem?.postMeta))
+      : null;
+  return {
+    title:
+      slide?.musicTitle ||
+      fallbackImage?.musicTitle ||
+      ytm?.title ||
+      postMusic?.title ||
+      null,
+    artist:
+      slide?.musicArtist ||
+      fallbackImage?.musicArtist ||
+      ytm?.artist ||
+      postMusic?.artist ||
+      null,
+    thumbnailUrl: resolvePostMusicStickerThumbnail(slide, fallbackImage, rootItem),
+  };
+}
+
+export function getPostMusicStickerFromMeta(
+  parsedPostMeta,
+  slideIndex,
+  fallbackImage = null,
+  rootItem = null,
+) {
+  const slides = parsedPostMeta?.slides;
+  const slide =
+    (Array.isArray(slides)
+      ? slides.find(entry => Number(entry.imageIndex) === Number(slideIndex)) || slides[slideIndex]
+      : null) || {};
+
+  let hasMusic =
+    imageHasPostMusicSticker(fallbackImage) || slideMetaHasMusicSticker(slide);
+  if (!hasMusic && Number(slideIndex) === 0 && rootItem) {
+    hasMusic = !!getPostMusicForSlide(rootItem, 0, parsedPostMeta);
+  }
+  if (!hasMusic) return null;
+
+  if (fallbackImage?.showMusicCard === false || slide?.showMusicCard === false) {
+    return null;
+  }
+
+  const canvasWidth =
+    slide.overlayCanvasWidth || fallbackImage?.overlayCanvasWidth || null;
+  const canvasHeight =
+    slide.overlayCanvasHeight || fallbackImage?.overlayCanvasHeight || null;
+  const storedBadge = slide.musicBadge || fallbackImage?.musicBadge || null;
+  const layout =
+    canvasWidth && canvasHeight
+      ? { width: canvasWidth, height: canvasHeight }
+      : null;
+  const defaultBadge = layout ? defaultMusicBadgePosition(layout) : null;
+  const badge = storedBadge || (defaultBadge
+    ? { x: defaultBadge.x, y: defaultBadge.y, scale: 1, rotation: 0 }
+    : { x: null, y: null, scale: 1, rotation: 0 });
+
+  const copy = resolvePostMusicStickerCopy(slide, fallbackImage, rootItem, slideIndex);
+  return {
+    badge,
+    title: copy.title,
+    artist: copy.artist,
+    thumbnailUrl: copy.thumbnailUrl,
+  };
+}
+
+export function getPostSlideOverlaysFromMeta(
+  parsedPostMeta,
+  slideIndex,
+  fallbackImage = null,
+  rootItem = null,
+) {
   const slides = parsedPostMeta?.slides;
   const slide =
     (Array.isArray(slides)
@@ -352,7 +487,108 @@ export function getPostSlideOverlaysFromMeta(parsedPostMeta, slideIndex, fallbac
     overlayImages: slide.overlayImages || fallbackImage?.overlayImages || [],
     canvasWidth: slide.overlayCanvasWidth || fallbackImage?.overlayCanvasWidth || null,
     canvasHeight: slide.overlayCanvasHeight || fallbackImage?.overlayCanvasHeight || null,
+    musicSticker: getPostMusicStickerFromMeta(
+      parsedPostMeta,
+      slideIndex,
+      fallbackImage,
+      rootItem,
+    ),
   };
+}
+
+export function overlayBundleHasLayers(overlayBundle) {
+  return (
+    (overlayBundle?.textOverlays?.length || 0) > 0 ||
+    (overlayBundle?.overlayImages?.length || 0) > 0 ||
+    !!overlayBundle?.musicSticker
+  );
+}
+
+function normalizeUriPath(uri) {
+  if (!uri || typeof uri !== 'string') return '';
+  return uri.replace(/\?.*$/, '').replace(/^file:\/\//, '');
+}
+
+export function isBakedMediaCapture(image = null) {
+  const processed = image?.processedUri;
+  const original = image?.originalUri || image?.uri || image?.path;
+  if (!processed || !original) return false;
+  return normalizeUriPath(processed) !== normalizeUriPath(original);
+}
+
+/**
+ * Picks the base image URI and whether metadata overlays should render on top.
+ * Avoids double music cards / text when capture already baked overlays into processedUri.
+ */
+export function getPostSlidePreviewState({
+  mediaUri,
+  fallbackImage = null,
+  parsedPostMeta = null,
+  slideIndex = 0,
+  rootItem = null,
+  preferLayerOverlays = false,
+  isVideoSlide = null,
+}) {
+  const slideFromMeta = Array.isArray(parsedPostMeta?.slides)
+    ? parsedPostMeta.slides.find(entry => Number(entry.imageIndex) === Number(slideIndex)) ||
+      parsedPostMeta.slides[slideIndex]
+    : null;
+  const slideIsVideo =
+    isVideoSlide ??
+    fallbackImage?.isVideo ??
+    slideFromMeta?.isVideo ??
+    false;
+
+  const overlayBundle = getPostSlideOverlaysFromMeta(
+    parsedPostMeta,
+    slideIndex,
+    fallbackImage,
+    rootItem,
+  );
+  const hasLayers = overlayBundleHasLayers(overlayBundle);
+
+  if (!slideIsVideo && !preferLayerOverlays) {
+    const uri = isBakedMediaCapture(fallbackImage)
+      ? fallbackImage?.processedUri || mediaUri
+      : mediaUri;
+    return { uri, overlayBundle, showOverlays: false };
+  }
+  const overlayDisplay = parsedPostMeta?.overlayDisplay;
+  const explicitBurned = overlayDisplay === 'burned';
+  const explicitLayer = overlayDisplay === 'layer';
+  const inferredLayer = postMetaSlidesHaveOverlayContent(parsedPostMeta);
+  const layerMode =
+    preferLayerOverlays ||
+    explicitLayer ||
+    (inferredLayer && !explicitBurned) ||
+    (!parsedPostMeta && hasLayers);
+  const baseUri =
+    fallbackImage?.originalUri ||
+    fallbackImage?.uri ||
+    fallbackImage?.path ||
+    mediaUri;
+
+  if (!hasLayers) {
+    return { uri: mediaUri, overlayBundle, showOverlays: false };
+  }
+
+  if (isBakedMediaCapture(fallbackImage)) {
+    return {
+      uri: fallbackImage?.processedUri || mediaUri,
+      overlayBundle,
+      showOverlays: false,
+    };
+  }
+
+  if (explicitBurned) {
+    return { uri: mediaUri, overlayBundle, showOverlays: false };
+  }
+
+  if (layerMode) {
+    return { uri: baseUri, overlayBundle, showOverlays: true };
+  }
+
+  return { uri: mediaUri, overlayBundle, showOverlays: false };
 }
 
 export function buildPostStoryMetaPayload(images = []) {
@@ -374,44 +610,125 @@ export function buildPostStoryMetaPayload(images = []) {
   );
 }
 
+function buildSlideMetaForUpload(img, imageIndex) {
+  const videoTrim = normalizeTrim({ start: img.trimStart, end: img.trimEnd });
+  const base = {
+    imageIndex,
+    isVideo: !!img.isVideo,
+    trim: videoTrim,
+    volume: img.flipVolume != null ? Number(img.flipVolume) : 1,
+  };
+
+  if (!img.isVideo) {
+    return base;
+  }
+
+  const raw = postImageToStoryAudioRaw(img);
+  const audioTrim = normalizeTrim({
+    start: img.musicTrimStart,
+    end: img.musicTrimEnd,
+  });
+
+  return {
+    ...base,
+    audio: serializeAudioForStoryMeta(raw),
+    audioTrim,
+    musicTitle: img.musicTitle ?? null,
+    musicArtist: img.musicArtist ?? null,
+    musicThumbnailUrl: img.musicYoutubeThumbUrl ?? null,
+    lyrics: sanitizeSerializable(img.musicLyrics ?? null),
+    musicBadge: sanitizeSerializable(img.musicBadge ?? null),
+    showMusicCard: img.showMusicCard !== false,
+    texts: serializePostSlideTexts(img.textOverlays),
+    overlayImages: serializePostSlideOverlayImages(img.overlayImages),
+    overlayCanvasWidth: img.overlayCanvasWidth ?? null,
+    overlayCanvasHeight: img.overlayCanvasHeight ?? null,
+  };
+}
+
 /**
- * Per-slide meta persisted on the post (echoed by API). Uses same `audio` serialization as stories.
+ * Per-slide meta persisted on the post (echoed by API).
+ * Image slides bake text/music stickers into the uploaded file; only video slides carry layer metadata.
  */
 export function buildPostMetaFromImages(images = []) {
-  const slides = images.map((img, imageIndex) => {
-    const raw = postImageToStoryAudioRaw(img);
-    const audioTrim = normalizeTrim({
-      start: img.musicTrimStart,
-      end: img.musicTrimEnd,
-    });
-    const videoTrim = normalizeTrim({ start: img.trimStart, end: img.trimEnd });
-    return {
-      imageIndex,
-      isVideo: !!img.isVideo,
-      audio: serializeAudioForStoryMeta(raw),
-      audioTrim,
-      trim: videoTrim,
-      volume: img.flipVolume != null ? Number(img.flipVolume) : 1,
-      musicTitle: img.musicTitle ?? null,
-      musicArtist: img.musicArtist ?? null,
-      lyrics: sanitizeSerializable(img.musicLyrics ?? null),
-      musicBadge: sanitizeSerializable(img.musicBadge ?? null),
-      texts: serializePostSlideTexts(img.textOverlays),
-      overlayImages: serializePostSlideOverlayImages(img.overlayImages),
-      overlayCanvasWidth: img.overlayCanvasWidth ?? null,
-      overlayCanvasHeight: img.overlayCanvasHeight ?? null,
-    };
-  });
-  return { version: 1, slides };
+  const slides = images.map((img, imageIndex) => buildSlideMetaForUpload(img, imageIndex));
+  const hasVideoLayerContent = slides.some(
+    slide =>
+      slide.isVideo &&
+      ((Array.isArray(slide.texts) && slide.texts.length > 0) ||
+        (Array.isArray(slide.overlayImages) && slide.overlayImages.length > 0) ||
+        slideMetaHasMusicSticker(slide)),
+  );
+  return {
+    version: 1,
+    overlayDisplay: hasVideoLayerContent ? 'layer' : 'burned',
+    slides,
+  };
+}
+
+/**
+ * Fields sent to `post/create` and `post/edit`.
+ * Music, text overlays, and music-card layout are only included for video slides.
+ */
+export function buildPostUploadPayloadFromImages(images = []) {
+  const postMeta = buildPostMetaFromImages(images);
+  const { music, youtubeMusicMeta } = buildCreatePostMusicPayload(images);
+  const { videoText, videoTextItems } = buildVideoTextPayloadFromImages(images);
+  return {
+    postMeta,
+    ...(music ? { music } : {}),
+    ...(youtubeMusicMeta ? { youtubeMusicMeta } : {}),
+    ...(videoText ? { videoText, videoTextItems } : {}),
+  };
 }
 
 export function parsePostMeta(raw) {
   if (raw == null) return null;
   try {
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return normalizeParsedPostMeta(parsed);
   } catch {
     return null;
   }
+}
+
+export function mergePostOverlayFieldsFromClient(apiPost, clientFields = {}) {
+  if (!apiPost || typeof apiPost !== 'object') return apiPost;
+  const postMeta =
+    apiPost.postMeta ??
+    apiPost.post_meta ??
+    apiPost.PostMeta ??
+    clientFields.postMeta ??
+    null;
+  const music = apiPost.music ?? apiPost.Music ?? clientFields.music ?? null;
+  const youtubeMusicMeta =
+    apiPost.youtubeMusicMeta ??
+    apiPost.youtube_music_meta ??
+    apiPost.YoutubeMusicMeta ??
+    clientFields.youtubeMusicMeta ??
+    null;
+  return { ...apiPost, postMeta, music, youtubeMusicMeta };
+}
+
+const clientPostOverlayCache = new Map();
+
+export function cacheClientPostOverlayFields(postId, fields = {}) {
+  if (postId == null || postId === '') return;
+  clientPostOverlayCache.set(String(postId), {
+    postMeta: fields.postMeta ?? null,
+    music: fields.music ?? null,
+    youtubeMusicMeta: fields.youtubeMusicMeta ?? null,
+  });
+}
+
+export function applyClientPostOverlayCache(post) {
+  const cached = clientPostOverlayCache.get(String(post?.id));
+  if (!cached) return post;
+  return mergePostOverlayFieldsFromClient(post, cached);
+}
+
+export function applyClientPostOverlayCacheToList(posts) {
+  return (Array.isArray(posts) ? posts : []).map(applyClientPostOverlayCache);
 }
 
 function audioMetaPlayableUrl(audioMeta) {

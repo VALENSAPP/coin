@@ -57,7 +57,7 @@ import { getProgressBarColor } from '../../../utils/progressBarUtils';
 import { isSupportAllowed, normalizeProfileType } from '../../../utils/supportEligibility';
 import HexAvatar from '../story.js/HexAvatar';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { parsePostMeta, getPostMusicForSlide, getPostSlideOverlaysFromMeta, getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
+import { parsePostMeta, getPostMusicForSlide, getPostSlidePreviewState, getMusicTrimPlaybackWindowFromTrim } from '../../../utils/postSoundtracks';
 import PostMediaTextOverlays from '../../post/PostMediaTextOverlays';
 import {
   DEFAULT_FEED_MEDIA_HEIGHT,
@@ -1384,10 +1384,15 @@ function PostItem({
       const shouldPlay = index === currentIndex && playbackEligible && !isZooming;
 
       const slideH = getSlideHeight(index);
-      const overlayBundle = getPostSlideOverlaysFromMeta(parsedPostMeta, index, mediaItem);
-      const hasSlideOverlays =
-        (overlayBundle.textOverlays?.length || 0) > 0 ||
-        (overlayBundle.overlayImages?.length || 0) > 0;
+      const preview = getPostSlidePreviewState({
+        mediaUri: mediaItem.url,
+        fallbackImage: mediaItem,
+        parsedPostMeta,
+        slideIndex: index,
+        rootItem: item,
+        isVideoSlide: isVideo,
+      });
+      const { overlayBundle, showOverlays: hasSlideOverlays } = preview;
 
       return (
         <View style={[styles.mediaContainer, { height: slideH }]}>
@@ -1436,6 +1441,7 @@ function PostItem({
                     <PostMediaTextOverlays
                       textOverlays={overlayBundle.textOverlays}
                       overlayImages={overlayBundle.overlayImages}
+                      musicSticker={overlayBundle.musicSticker}
                       width={width}
                       height={slideH}
                       canvasWidth={overlayBundle.canvasWidth}
@@ -1475,6 +1481,7 @@ function PostItem({
                 <PostMediaTextOverlays
                   textOverlays={overlayBundle.textOverlays}
                   overlayImages={overlayBundle.overlayImages}
+                  musicSticker={overlayBundle.musicSticker}
                   width={width}
                   height={slideH}
                   canvasWidth={overlayBundle.canvasWidth}
@@ -2543,7 +2550,7 @@ const styles = StyleSheet.create({
   trustProgressValue: {
     position: 'absolute',
     top: 7,
-    right: 12,
+    right: 15,
     fontSize: 15,
     fontWeight: '900',
     color: '#10B981',

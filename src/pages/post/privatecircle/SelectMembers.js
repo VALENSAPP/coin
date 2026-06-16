@@ -187,6 +187,31 @@ export default function PrivateCircleSelectMembers() {
     });
   }, [navigation]);
 
+  const goBackToReview = useCallback(() => {
+    navigation.replace('PrivateCircleReview', {
+      mode,
+      members: circleMembers,
+      selectedIds,
+      selectedMembers: buildSelectedMembers(selectedIds, poolMembers),
+      persistedIds,
+      returnToReview: true,
+    });
+  }, [navigation, mode, circleMembers, selectedIds, poolMembers, persistedIds]);
+
+  useEffect(() => {
+    if (!returnToReview) return;
+
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      const actionType = event.data.action?.type;
+      if (actionType === 'POP' || actionType === 'GO_BACK') {
+        event.preventDefault();
+        goBackToReview();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, returnToReview, goBackToReview]);
+
   const toggleMember = async (id) => {
     const normalized = String(id);
     const isSelected = selectedIds.includes(normalized);

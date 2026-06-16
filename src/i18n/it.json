@@ -515,11 +515,15 @@
     "searchUnavailable": "Ricerca non disponibile",
     "noSongsFound": "Nessuna canzone trovata",
     "clipAdded": "Clip aggiunte",
-    "musicSaved": "Musica salvata"
+    "musicSaved": "Musica salvata",
+    "showMusicCard": "Mostra scheda musica",
+    "showMusicCardHint": "Mostra la scheda con il titolo del brano sul tuo post"
   },
   "postEditor": {
     "newFlip": "Nuovo Flip",
     "newPost": "Nuovo Post",
+    "editPost": "Modifica post",
+    "saveChanges": "Salva modifiche",
     "taggedPeople": "Persone taggate",
     "captionLabel": "Scrivi una didascalia (opzionale)",
     "captionPlaceholder": "Scrivi una didascalia (opzionale)",
@@ -2744,7 +2748,9 @@
     "hideExactTimes": "Nascondi tempi esatti",
     "showExactTimes": "Inizio / fine esatti (secondi)",
     "startPlaceholder": "Inizio",
-    "endPlaceholder": "Fine"
+    "endPlaceholder": "Fine",
+    "showMusicCard": "Mostra scheda musica",
+    "showMusicCardHint": "Mostra la scheda con il titolo del brano sul tuo post"
   },
   "modalHome": {
     "following": "Seguiti",
