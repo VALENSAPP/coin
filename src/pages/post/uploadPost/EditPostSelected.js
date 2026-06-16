@@ -16,6 +16,7 @@ import {
   FlatList,
   ActivityIndicator,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -54,6 +55,15 @@ import {
 } from '../../../utils/postSoundtracks';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import PostStoryMusicTrimModal from '../../../components/post/PostStoryMusicTrimModal';
+import {
+  buildPostTextOverlayTextStyle,
+  getPostTextOverlayCanvasMaxWidth,
+  getPostTextOverlayDragBounds,
+  clampPostTextOverlayPosition,
+  estimatePostTextOverlayFootprint,
+  normalizePostTextOverlayForDisplay,
+  postTextOverlayBubbleStyle,
+} from '../../../components/post/PostMediaTextOverlays';
 import { searchYoutubeMusicTracks, getYoutubeSearchApiKey } from '../../../services/youtubeMusic';
 import { useLanguage } from '../../../i18n';
 import StoryInteractiveOverlay from '../../../components/home/story.js/StoryInteractiveOverlay';
@@ -141,6 +151,7 @@ const createEmptyImageEdits = () => ({
   musicTrimEnd: null,
   musicLyrics: null,
   musicBadge: null,
+  showMusicCard: true,
 });
 
 const ensureMediaDisplayUri = value => {
@@ -180,6 +191,9 @@ const getAnimatedPositionValue = (animatedPosition, fallback = { x: 0, y: 0 }) =
 const slideHasLibraryMusic = edits =>
   !!(edits && edits.musicId && edits.musicId !== 'none' && edits.musicSource && edits.musicSource !== 'none');
 
+const shouldShowPostMusicCard = edits =>
+  slideHasLibraryMusic(edits) && edits.showMusicCard !== false;
+
 const FLIP_MUSIC_LIBRARY = [
   { id: 'flip-track-1', title: 'Night Drive', artist: 'Valens Mix' },
   { id: 'flip-track-2', title: 'City Lights', artist: 'Valens Mix' },
@@ -201,6 +215,14 @@ const InstagramPostCreator = () => {
     },
     [route.params?.selectedMedia, route.params?.images],
   );
+
+  const isEditingPost = Boolean(route.params?.isEditingPost && route.params?.editPostId);
+  const editPostId = route.params?.editPostId || null;
+  const editOnSave = route.params?.onSave;
+  const initialPostMeta =
+    route.params?.originalPost?.postMeta ||
+    route.params?.originalPost?.post_meta ||
+    null;
 
   useFocusEffect(
     useCallback(() => {
@@ -236,7 +258,7 @@ const InstagramPostCreator = () => {
   const [highlightColor, setHighlightColor] = useState('transparent');
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState('red');
-  const [imageEdits, setImageEdits] = useState({});
+  const [imageEdits, setImageEdits] = useState(route.params?.initialImageEdits || {});
   const imageEditsRef = useRef(imageEdits);
   const currentImageIndexRef = useRef(currentImageIndex);
   imageEditsRef.current = imageEdits;
@@ -250,9 +272,13 @@ const InstagramPostCreator = () => {
   const [isOverlayTransforming, setIsOverlayTransforming] = useState(false);
   const [editorRegionLayoutHeight, setEditorRegionLayoutHeight] = useState(0);
   const [tagSearch, setTagSearch] = useState('');
-  const [selectedTaggedPeople, setSelectedTaggedPeople] = useState([]);
+  const [selectedTaggedPeople, setSelectedTaggedPeople] = useState(
+    Array.isArray(route.params?.taggedPeople) ? route.params.taggedPeople : [],
+  );
   // username -> userId (so backend can notify tagged users)
-  const [selectedTaggedPeopleIds, setSelectedTaggedPeopleIds] = useState({});
+  const [selectedTaggedPeopleIds, setSelectedTaggedPeopleIds] = useState(
+    route.params?.taggedPeopleIds || {},
+  );
   const [userSuggestions, setUserSuggestions] = useState([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const userSearchTimeoutRef = useRef(null);
@@ -263,7 +289,16 @@ const InstagramPostCreator = () => {
   const videoRefs = useRef({});
   const profileAvatarUri = useSelector(state => state.profileImage?.profileImg);
   const [flipUserName, setFlipUserName] = useState('');
-  const [flipVolumeByIndex, setFlipVolumeByIndex] = useState({});
+  const [flipVolumeByIndex, setFlipVolumeByIndex] = useState(() => {
+    const initial = route.params?.initialImageEdits || {};
+    const volumes = {};
+    Object.entries(initial).forEach(([idx, edits]) => {
+      if (edits?.flipVolume != null) {
+        volumes[idx] = edits.flipVolume;
+      }
+    });
+    return volumes;
+  });
   const [flipStickerModal, setFlipStickerModal] = useState(false);
   const [flipAudioModal, setFlipAudioModal] = useState(false);
   const [postMusicQuery, setPostMusicQuery] = useState('');
@@ -432,7 +467,7 @@ const InstagramPostCreator = () => {
 
   const handleSelectPostBuiltinTrack = track => {
     if (track.id === 'none') {
-      updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null });
+      updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true });
       setFlipAudioModal(false);
       showToastMessage(toast, 'success', t('selectedPost.originalSound'), 1500);
       return;
@@ -449,6 +484,7 @@ const InstagramPostCreator = () => {
       musicTrimEnd: DEFAULT_STORY_CLIP_SEC,
       musicLyrics: null,
       musicBadge: null,
+      showMusicCard: true,
     });
     setFlipAudioModal(false);
     setPostStorySoundTrimVisible(true);
@@ -476,6 +512,7 @@ const InstagramPostCreator = () => {
       musicTrimEnd: trimEnd,
       musicLyrics: null,
       musicBadge: null,
+      showMusicCard: true,
     });
     setFlipAudioModal(false);
     setPostStorySoundTrimVisible(true);
@@ -499,12 +536,17 @@ const InstagramPostCreator = () => {
   };
 
   const openTextModal = () => {
-    const centerX = IMAGE_SIZE / 2 - 80;
     const centerY = (editorCanvasHeight || IMAGE_SIZE) / 2 - 20;
+    const centerX = IMAGE_SIZE / 2 - 80;
     pan.setValue({ x: centerX, y: centerY });
     pan.setOffset({ x: 0, y: 0 });
     setModalVisible2(true);
   };
+
+  const clampPositionToBounds = (position, bounds) => ({
+    x: clamp(position.x, bounds.minX, bounds.maxX),
+    y: clamp(position.y, bounds.minY, bounds.maxY),
+  });
 
   const handleSelectTagUser = user => {
     const username = String(user?._username || user?.userName || user?.username || '').trim().replace(/^@+/, '');
@@ -585,34 +627,60 @@ const InstagramPostCreator = () => {
 
   const getTextOverlayLayoutKey = (imageIndex, overlayId) => `${imageIndex}:${overlayId}`;
 
-  const estimateTextOverlaySize = overlay => {
-    const fontSize = Number(overlay?.fontSize) || 28;
-    const scale = Number(overlay?.scale ?? 1) || 1;
-    const lines = String(overlay?.text || '').split('\n').slice(0, 3);
-    const longestLineLength = lines.reduce((longest, line) => Math.max(longest, Array.from(line).length), 0) || 1;
-    const emojiHeavy = containsEmoji(overlay?.text) && longestLineLength <= 4;
-    const baseWidth = emojiHeavy ? fontSize * Math.max(1.15, longestLineLength * 0.95) + 18 : Math.min(220, Math.max(fontSize + 24, longestLineLength * fontSize * 0.62 + 24));
-    const baseHeight = Math.max(fontSize + 14, lines.length * fontSize * 1.2 + 14);
-    return { width: baseWidth * scale, height: baseHeight * scale };
-  };
+  const estimateTextOverlaySize = overlay =>
+    estimatePostTextOverlayFootprint(overlay, IMAGE_SIZE);
 
-  const getTextOverlayFootprint = (imageIndex, overlay) => {
+  const getTextOverlayLayoutFootprint = (imageIndex, overlay) => {
     const layoutKey = getTextOverlayLayoutKey(imageIndex, overlay?.id || 'draft');
     const measured = textOverlayLayoutRefs.current[layoutKey];
-    const scale = Number(overlay?.scale ?? 1) || 1;
-    if (measured?.width && measured?.height) return { width: measured.width * scale, height: measured.height * scale };
-    return estimateTextOverlaySize(overlay);
+    if (measured?.width && measured?.height) {
+      return { width: measured.width, height: measured.height };
+    }
+    const estimated = estimatePostTextOverlayFootprint(
+      { ...overlay, scale: 1 },
+      IMAGE_SIZE,
+    );
+    return { width: estimated.width, height: estimated.height };
   };
 
-  const getTextOverlayBounds = (imageIndex, overlay) => {
-    const footprint = getTextOverlayFootprint(imageIndex, overlay);
+  const getTextOverlayBounds = (imageIndex, overlay) =>
+    getPostTextOverlayDragBounds(
+      IMAGE_SIZE,
+      editorCanvasHeight,
+      getTextOverlayLayoutFootprint(imageIndex, overlay),
+      overlay?.scale ?? 1,
+    );
+
+  const clampTextOverlayPosition = (imageIndex, overlay, position) =>
+    clampPostTextOverlayPosition(position, getTextOverlayBounds(imageIndex, overlay));
+
+  const finalizeTextOverlayGesture = (overlay, { position, scale, rotation }) => {
+    const baked = normalizePostTextOverlayForDisplay({ ...overlay, scale });
     return {
-      minX: Math.min(0, -footprint.width * 0.5), minY: Math.min(0, -footprint.height * 0.5),
-      maxX: Math.max(0, IMAGE_SIZE - footprint.width * 0.5), maxY: Math.max(0, editorCanvasHeight - footprint.height * 0.5),
+      ...overlay,
+      position,
+      fontSize: baked.fontSize,
+      scale: 1,
+      rotation,
     };
   };
 
-  const clampPositionToBounds = (position, bounds) => ({ x: clamp(position.x, bounds.minX, bounds.maxX), y: clamp(position.y, bounds.minY, bounds.maxY) });
+  const rebaselineTextOverlayDrag = (session, animatedPosition, position, scale) => {
+    const nextPosition = position || session.startPosition;
+    session.startPosition = { x: nextPosition.x, y: nextPosition.y };
+    session.startScale = scale ?? session.startScale ?? 1;
+    session.singleFingerRebased = true;
+    animatedPosition.setOffset(nextPosition);
+    animatedPosition.setValue({ x: 0, y: 0 });
+  };
+
+  const syncTextOverlayAnimatedPosition = (animatedPosition, position) => {
+    animatedPosition.setOffset({ x: 0, y: 0 });
+    animatedPosition.setValue({
+      x: Number(position?.x) || 0,
+      y: Number(position?.y) || 0,
+    });
+  };
 
   const getAnimatedValue = (imageIndex, overlayId, initialX = 0, initialY = 0) => {
     const key = `${imageIndex}:${overlayId}`;
@@ -716,13 +784,29 @@ const InstagramPostCreator = () => {
     if (routeImages && routeImages.length > 0) {
       setSelectedImages(routeImages);
       setCurrentImageIndex(0);
+      const hydratedEdits = route.params?.initialImageEdits;
       const initialEdits = {};
       const initialVideoPaused = {};
-      routeImages.forEach((media, index) => { initialEdits[index] = createEmptyImageEdits(); initialVideoPaused[index] = true; });
+      routeImages.forEach((media, index) => {
+        initialEdits[index] = hydratedEdits?.[index] || createEmptyImageEdits();
+        initialVideoPaused[index] = true;
+      });
       setImageEdits(initialEdits);
       setVideoPaused(initialVideoPaused);
+
+      if (hydratedEdits) {
+        const volumes = {};
+        Object.entries(hydratedEdits).forEach(([idx, slideEdits]) => {
+          if (slideEdits?.flipVolume != null) {
+            volumes[idx] = slideEdits.flipVolume;
+          }
+        });
+        if (Object.keys(volumes).length) {
+          setFlipVolumeByIndex(volumes);
+        }
+      }
     }
-  }, [routeImages]);
+  }, [routeImages, route.params?.initialImageEdits]);
 
   useEffect(() => {
     if (isOverlayTransforming) return;
@@ -839,6 +923,7 @@ const InstagramPostCreator = () => {
         musicTrimEnd: null,
         musicLyrics: null,
         musicBadge: null,
+        showMusicCard: true,
       },
     }));
     showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500);
@@ -1106,7 +1191,7 @@ const InstagramPostCreator = () => {
         const safePosition = getAnimatedPositionValue(animatedPosition, currentOverlay.position || fallbackPosition);
         animatedPosition.setOffset(safePosition); animatedPosition.setValue({ x: 0, y: 0 });
         const startDist = getTouchDistance(touches); const startCenter = getTouchCenter(touches); const touchT0 = Date.now();
-        textOverlayGestureState.current[id] = { mode: touches.length >= 2 ? 'transform' : 'drag', startPosition: safePosition, startScale: currentOverlay.scale ?? 1, startRotation: currentOverlay.rotation ?? 0, startDistance: startDist, startCenter, startAngle: getTouchAngle(touches), pinchBaselineReady: touches.length >= 2 && startDist > 1e-4, didPinchGesture: false, moved: false, maxPointerMove: 0, touchStartTime: touchT0, enteredTrashZone: false, longPressDeleteTimer: null };
+        textOverlayGestureState.current[id] = { mode: touches.length >= 2 ? 'transform' : 'drag', startPosition: safePosition, startScale: currentOverlay.scale ?? 1, startRotation: currentOverlay.rotation ?? 0, startDistance: startDist, startCenter, startAngle: getTouchAngle(touches), pinchBaselineReady: touches.length >= 2 && startDist > 1e-4, didPinchGesture: false, singleFingerRebased: false, moved: false, maxPointerMove: 0, touchStartTime: touchT0, enteredTrashZone: false, longPressDeleteTimer: null };
         const nextS = currentOverlay.scale ?? 1; if (Math.abs(getAnimatedNumericValue(animatedScale, nextS) - nextS) > 1e-4) animatedScale.setValue(nextS);
         const nextR = currentOverlay.rotation ?? 0; if (Math.abs(getAnimatedNumericValue(animatedRotation.value, nextR) - nextR) > 1e-4) animatedRotation.value.setValue(nextR);
         textOverlayGestureState.current[id].longPressDeleteTimer = setTimeout(() => {
@@ -1122,6 +1207,7 @@ const InstagramPostCreator = () => {
         if (touches.length >= 2) {
           if (session.longPressDeleteTimer) { clearTimeout(session.longPressDeleteTimer); session.longPressDeleteTimer = null; }
           session.didPinchGesture = true;
+          session.singleFingerRebased = false;
           if (!session.pinchBaselineReady) { session.pinchBaselineReady = true; const co = getLatestTextOverlayById(id) || target; session.startDistance = Math.max(getTouchDistance(touches), 1e-4); session.startCenter = getTouchCenter(touches); session.startScale = co?.scale ?? 1; session.startRotation = co?.rotation ?? 0; session.startAngle = getTouchAngle(touches); session.startPosition = getAnimatedPositionValue(animatedPosition, co?.position || fallbackPosition); }
           const distance = getTouchDistance(touches); const center = getTouchCenter(touches); const angle = getTouchAngle(touches);
           session.lastPinchDistance = distance;
@@ -1140,16 +1226,33 @@ const InstagramPostCreator = () => {
           session.pendingPosition = nextPosition; session.pendingScale = nextScale; session.pendingTrashPoint = dragPoint; session.moved = true;
           return;
         }
+        if (session.didPinchGesture && !session.singleFingerRebased) {
+          rebaselineTextOverlayDrag(
+            session,
+            animatedPosition,
+            session.pendingPosition || session.startPosition,
+            session.pendingScale ?? session.startScale,
+          );
+        }
         const m = Math.hypot(gestureState.dx, gestureState.dy); session.maxPointerMove = Math.max(session.maxPointerMove || 0, m);
         if (session.longPressDeleteTimer && (Math.abs(gestureState.dx) > 1.5 || Math.abs(gestureState.dy) > 1.5)) { clearTimeout(session.longPressDeleteTimer); session.longPressDeleteTimer = null; }
-        animatedPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
         const nextPosition = { x: session.startPosition.x + gestureState.dx, y: session.startPosition.y + gestureState.dy };
+        const activeScale = session.pendingScale ?? session.startScale ?? 1;
+        const overlayForBounds = {
+          ...(getLatestTextOverlayById(id) || target),
+          scale: activeScale,
+        };
+        const clampedPosition = clampTextOverlayPosition(imageIndex, overlayForBounds, nextPosition);
+        animatedPosition.setValue({
+          x: clampedPosition.x - session.startPosition.x,
+          y: clampedPosition.y - session.startPosition.y,
+        });
         const dragPoint = { x: gestureState.moveX, y: gestureState.moveY }; const isTouchOverTrash = isPointInTrashZone(dragPoint);
         if (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2 || isTouchOverTrash || session.enteredTrashZone) session.moved = true;
         session.enteredTrashZone = session.enteredTrashZone || isTouchOverTrash;
         setShowTrashZone(prev => prev === isTouchOverTrash ? prev : isTouchOverTrash);
-        session.pendingPosition = nextPosition; session.pendingTrashPoint = dragPoint;
-        animatedScale.setValue(isTouchOverTrash ? (session.startScale ?? 1) * OVERLAY_TRASH_PREVIEW_SCALE : (session.startScale ?? 1));
+        session.pendingPosition = clampedPosition; session.pendingTrashPoint = dragPoint;
+        animatedScale.setValue(isTouchOverTrash ? activeScale * OVERLAY_TRASH_PREVIEW_SCALE : activeScale);
       },
       onPanResponderRelease: () => {
         const session = textOverlayGestureState.current[id];
@@ -1157,14 +1260,29 @@ const InstagramPostCreator = () => {
         if (!session) { textOverlayTransformActiveRef.current = false; return; }
         if (shouldDeleteOnDrop(session)) { textOverlayTransformActiveRef.current = false; removeTextOverlay(id); delete textOverlayGestureState.current[id]; setShowTrashZone(false); setIsOverlayTransforming(false); setIsScrollEnabled(true); return; }
         animatedPosition.flattenOffset();
-        const finalPosition = session?.pendingPosition || getAnimatedPositionValue(animatedPosition, getLatestTextOverlayById(id)?.position || fallbackPosition);
+        const latestOverlay = getLatestTextOverlayById(id) || target;
+        const finalScale = session?.pendingScale ?? latestOverlay?.scale ?? session?.startScale ?? 1;
+        const rawPosition =
+          session?.pendingPosition ||
+          getAnimatedPositionValue(animatedPosition, latestOverlay?.position || fallbackPosition);
+        const finalPosition = clampTextOverlayPosition(
+          currentImageIndexRef.current,
+          { ...latestOverlay, scale: finalScale },
+          rawPosition,
+        );
         const finalRotation = snapTextRotation(
           session?.pendingRotation != null
             ? session.pendingRotation
-            : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0,
+            : latestOverlay?.rotation ?? session?.startRotation ?? 0,
         );
-        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({ ...overlay, position: finalPosition, scale: session?.pendingScale ?? overlay.scale, rotation: finalRotation }));
-        animatedScale.setValue(session?.pendingScale != null ? session.pendingScale : session?.startScale ?? getLatestTextOverlayById(id)?.scale ?? 1);
+        const mergedOverlay = finalizeTextOverlayGesture(latestOverlay, {
+          position: finalPosition,
+          scale: finalScale,
+          rotation: finalRotation,
+        });
+        updateTextOverlayById(currentImageIndexRef.current, id, () => mergedOverlay);
+        syncTextOverlayAnimatedPosition(animatedPosition, finalPosition);
+        animatedScale.setValue(1);
         animatedRotation.value.setValue(finalRotation);
         if (session?.moved) recentDragTimestamps.current[`text-${id}`] = Date.now();
         const tapToEdit = !session.didPinchGesture && (session.maxPointerMove || 0) < TEXT_OVERLAY_TAP_MAX_MOVE && Date.now() - (session.touchStartTime || 0) < TEXT_OVERLAY_TAP_MAX_MS;
@@ -1180,14 +1298,29 @@ const InstagramPostCreator = () => {
         if (!session) { textOverlayTransformActiveRef.current = false; return; }
         if (shouldDeleteOnDrop(session)) { textOverlayTransformActiveRef.current = false; removeTextOverlay(id); delete textOverlayGestureState.current[id]; setShowTrashZone(false); setIsOverlayTransforming(false); setIsScrollEnabled(true); return; }
         animatedPosition.flattenOffset();
-        const finalPosition = session?.pendingPosition || getAnimatedPositionValue(animatedPosition, getLatestTextOverlayById(id)?.position || fallbackPosition);
+        const latestOverlay = getLatestTextOverlayById(id) || target;
+        const finalScale = session?.pendingScale ?? latestOverlay?.scale ?? session?.startScale ?? 1;
+        const rawPosition =
+          session?.pendingPosition ||
+          getAnimatedPositionValue(animatedPosition, latestOverlay?.position || fallbackPosition);
+        const finalPosition = clampTextOverlayPosition(
+          currentImageIndexRef.current,
+          { ...latestOverlay, scale: finalScale },
+          rawPosition,
+        );
         const finalRotation = snapTextRotation(
           session?.pendingRotation != null
             ? session.pendingRotation
-            : getLatestTextOverlayById(id)?.rotation ?? session?.startRotation ?? 0,
+            : latestOverlay?.rotation ?? session?.startRotation ?? 0,
         );
-        updateTextOverlayById(currentImageIndexRef.current, id, overlay => ({ ...overlay, position: finalPosition, scale: session?.pendingScale ?? overlay.scale, rotation: finalRotation }));
-        animatedScale.setValue(session?.pendingScale != null ? session.pendingScale : session?.startScale ?? getLatestTextOverlayById(id)?.scale ?? 1);
+        const mergedOverlay = finalizeTextOverlayGesture(latestOverlay, {
+          position: finalPosition,
+          scale: finalScale,
+          rotation: finalRotation,
+        });
+        updateTextOverlayById(currentImageIndexRef.current, id, () => mergedOverlay);
+        syncTextOverlayAnimatedPosition(animatedPosition, finalPosition);
+        animatedScale.setValue(1);
         animatedRotation.value.setValue(finalRotation);
         if (session?.moved) recentDragTimestamps.current[`text-${id}`] = Date.now();
         textOverlayTransformActiveRef.current = false; delete textOverlayGestureState.current[id]; setIsOverlayTransforming(false); setIsScrollEnabled(true); setShowTrashZone(false);
@@ -1222,13 +1355,52 @@ const InstagramPostCreator = () => {
     }
     const currentEdits = getCurrentImageEdits();
     if (editingOverlayId) {
-      updateCurrentImageEdits({ textOverlays: currentEdits.textOverlays.map(o => o.id === editingOverlayId ? { ...o, text, color: textColor, fontFamily: resolveOverlayFontFamily(text, selectedFont.fontFamily || selectedFont), textAlign, highlightColor } : o) });
+      updateCurrentImageEdits({
+        textOverlays: currentEdits.textOverlays.map(o => {
+          if (o.id !== editingOverlayId) return o;
+          const updated = {
+            ...o,
+            text,
+            color: textColor,
+            fontFamily: resolveOverlayFontFamily(text, selectedFont.fontFamily || selectedFont),
+            textAlign,
+            highlightColor,
+          };
+          return {
+            ...updated,
+            position: clampTextOverlayPosition(currentImageIndex, updated, updated.position || { x: 0, y: 0 }),
+          };
+        }),
+      });
       setEditingOverlayId(null);
     } else {
-      const { x, y } = pan.__getValue();
+      const { x: panX, y: panY } = pan.__getValue();
       const newId = Date.now().toString() + Math.random();
-      const boundedPosition = clampPositionToBounds({ x, y }, getTextOverlayBounds(currentImageIndex, { id: newId, text, fontSize: 28, scale: 1 }));
-      updateCurrentImageEdits({ textOverlays: [...currentEdits.textOverlays, { id: newId, text, fontSize: 28, scale: 1, rotation: 0, color: textColor, fontFamily: resolveOverlayFontFamily(text, selectedFont.fontFamily || selectedFont), textAlign, highlightColor, position: boundedPosition }] });
+      const draftOverlay = {
+        id: newId,
+        text,
+        fontSize: 28,
+        scale: 1,
+        rotation: 0,
+        color: textColor,
+        fontFamily: resolveOverlayFontFamily(text, selectedFont.fontFamily || selectedFont),
+        textAlign,
+        highlightColor,
+        position: { x: panX, y: panY },
+      };
+      const footprint = estimateTextOverlaySize(draftOverlay);
+      const centeredPosition = {
+        x: (IMAGE_SIZE - footprint.width) / 2,
+        y: (editorCanvasHeight - footprint.height) / 2,
+      };
+      const boundedPosition = clampTextOverlayPosition(
+        currentImageIndex,
+        { ...draftOverlay, position: centeredPosition },
+        centeredPosition,
+      );
+      updateCurrentImageEdits({
+        textOverlays: [...currentEdits.textOverlays, { ...draftOverlay, position: boundedPosition }],
+      });
     }
     pan.setValue({ x: 0, y: 0 }); pan.setOffset({ x: 0, y: 0 }); setText(''); setModalVisible2(false);
   };
@@ -1332,14 +1504,15 @@ const InstagramPostCreator = () => {
           const edits = imageEdits[index] || createEmptyImageEdits();
           let processedUri = edits.processedImageUri || getMediaDisplayUri(image);
           const isVideo = isMediaVideo(image);
-          const hasEdits =
-            edits.textOverlays.length > 0 ||
-            edits.overlayImages.length > 0 ||
+          const hasBurnableImageEdits =
+            (edits.textOverlays?.length || 0) > 0 ||
+            (edits.overlayImages?.length || 0) > 0 ||
+            shouldShowPostMusicCard(edits) ||
             edits.drawings ||
             edits.processedImageUri ||
             (edits.filter && edits.filter !== 'none');
 
-          if (!isVideo && hasEdits) {
+          if (!isVideo && hasBurnableImageEdits) {
             try {
               const uri = await captureFilteredImage(index);
               if (uri) {
@@ -1354,7 +1527,7 @@ const InstagramPostCreator = () => {
             editorRegionLayoutHeight > 0
               ? Math.max(200, Math.floor(editorRegionLayoutHeight))
               : getCanvasHeightForMedia(image);
-          return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
+          return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, showMusicCard: edits.showMusicCard !== false, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
       );
 
@@ -1374,6 +1547,17 @@ const InstagramPostCreator = () => {
           userId: selectedTaggedPeopleIds?.[username] || null,
         })),
         visibleTo: visibleTo,
+        ...(isEditingPost
+          ? {
+              isEditingPost: true,
+              editPostId,
+              initialCaption: route.params?.caption || '',
+              initialLocation: route.params?.location || '',
+              isTrustPost: route.params?.isTrustPost === true,
+              onSave: editOnSave,
+              initialPostMeta,
+            }
+          : {}),
       });
 
     } catch (error) {
@@ -1408,6 +1592,7 @@ const InstagramPostCreator = () => {
                   musicTrimEnd: edits.musicTrimEnd ?? null,
                   musicLyrics: edits.musicLyrics ?? null,
                   musicBadge: edits.musicBadge ?? null,
+                  showMusicCard: edits.showMusicCard !== false,
                   flipVolume: flipVolumeByIndex[index] ?? 1,
                   textOverlays: edits.textOverlays.map(overlay => ({
                     ...overlay,
@@ -1442,8 +1627,18 @@ const InstagramPostCreator = () => {
                   userId: selectedTaggedPeopleIds?.[username] || null,
                 })),
                 visibleTo: visibleTo,
+                ...(isEditingPost
+                  ? {
+                      isEditingPost: true,
+                      editPostId,
+                      initialCaption: route.params?.caption || '',
+                      initialLocation: route.params?.location || '',
+                      isTrustPost: route.params?.isTrustPost === true,
+                      onSave: editOnSave,
+                      initialPostMeta,
+                    }
+                  : {}),
               });
-              navigation.navigate('PostEditor', { images: fallbackImages, imageEdits, postType, fromIcon, taggedPeople: selectedTaggedPeople, visibleTo: visibleTo });
             }
           }
         ]
@@ -1676,22 +1871,25 @@ const InstagramPostCreator = () => {
                             {currentEdits.textOverlays.map(overlay => {
                               const responder = getOrCreateTextPanResponder(overlay.id);
                               const animatedPosition = getAnimatedValue(currentImageIndex, overlay.id, overlay.position?.x ?? 0, overlay.position?.y ?? 0);
-                              const textScaleAnim = getAnimatedTextOverlayScale(currentImageIndex, overlay.id, overlay.scale ?? 1);
+                              const displayOverlay = normalizePostTextOverlayForDisplay(overlay);
+                              const textScaleAnim = getAnimatedTextOverlayScale(currentImageIndex, overlay.id, 1);
                               const textRotationAnim = getAnimatedTextOverlayRotation(currentImageIndex, overlay.id, overlay.rotation ?? 0);
                               return (
                                 <Animated.View key={overlay.id} {...responder.panHandlers} testID="overlay-element" onLayout={event => { const layoutKey = getTextOverlayLayoutKey(currentImageIndex, overlay.id); const { width, height } = event.nativeEvent.layout; const prev = textOverlayLayoutRefs.current[layoutKey]; if (!prev || Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) textOverlayLayoutRefs.current[layoutKey] = { width, height }; }} style={{ position: 'absolute', zIndex: 1000, transform: [...animatedPosition.getTranslateTransform(), { scale: textScaleAnim }, { rotate: textRotationAnim.rotate }] }}>
-                                  <View style={{ padding: 4, borderRadius: 4, backgroundColor: overlay.highlightColor || 'transparent' }} collapsable={false}>
-                                    <Text style={[getTextStyleWithFont(overlay.text, overlay.fontFamily), { fontSize: overlay.fontSize, color: overlay.color, textAlign: overlay.textAlign, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3, maxWidth: 200 }]} numberOfLines={3}>{overlay.text}</Text>
+                                  <View style={styles.textOverlayHitArea} collapsable={false}>
+                                    <View style={[postTextOverlayBubbleStyle, { backgroundColor: displayOverlay.highlightColor || 'transparent' }]}>
+                                      <Text style={buildPostTextOverlayTextStyle(displayOverlay, { canvasWidth: IMAGE_SIZE })}>{displayOverlay.text}</Text>
+                                    </View>
                                   </View>
                                 </Animated.View>
                               );
                             })}
                             {modalVisible2 && (
                               <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { position: 'absolute', zIndex: 1001, padding: 4, borderRadius: 4 }]}>
-                                <Text style={[{ fontSize: 28 }, getTextStyleWithFont(text, selectedFont.fontFamily || selectedFont), { color: textColor, textAlign, backgroundColor: highlightColor, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3, minWidth: 50 }]}>{text || t('selectedPost.typeText')}</Text>
+                                <Text style={[{ fontSize: 28 }, getTextStyleWithFont(text, selectedFont.fontFamily || selectedFont), { color: textColor, textAlign, backgroundColor: highlightColor, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3, minWidth: 50, maxWidth: getPostTextOverlayCanvasMaxWidth(IMAGE_SIZE) }]}>{text || t('selectedPost.typeText')}</Text>
                               </Animated.View>
                             )}
-                            {slideHasLibraryMusic(currentEdits) && !postStorySoundTrimVisible ? (() => {
+                            {shouldShowPostMusicCard(currentEdits) && !postStorySoundTrimVisible ? (() => {
                               const postCanvasLayout = { width: IMAGE_SIZE, height: currentCanvasHeight };
                               const defaultBadge = defaultMusicBadgePosition(postCanvasLayout);
                               const badge = currentEdits.musicBadge;
@@ -1738,12 +1936,17 @@ const InstagramPostCreator = () => {
                                 <Image source={{ uri: img.uri }} style={styles.savedOverlayImage} />
                               </View>
                             ))}
-                            {imageEdits[index].textOverlays?.map(overlay => (
-                              <View key={`saved-text-${overlay.id}`} style={{ position: 'absolute', left: overlay.position?.x || 0, top: overlay.position?.y || 0, zIndex: 1000, padding: 4, borderRadius: 4, backgroundColor: overlay.highlightColor || 'transparent', transform: [{ scale: overlay.scale ?? 1 }, { rotate: `${overlay.rotation || 0}rad` }] }}>
-                                <Text style={[getTextStyleWithFont(overlay.text, overlay.fontFamily), { fontSize: overlay.fontSize, color: overlay.color, textAlign: overlay.textAlign, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3, maxWidth: 200 }]} numberOfLines={3}>{overlay.text}</Text>
+                            {imageEdits[index].textOverlays?.map(overlay => {
+                              const displayOverlay = normalizePostTextOverlayForDisplay(overlay);
+                              return (
+                              <View key={`saved-text-${overlay.id}`} style={{ position: 'absolute', left: overlay.position?.x || 0, top: overlay.position?.y || 0, zIndex: 1000, transform: [{ rotate: `${overlay.rotation || 0}rad` }] }}>
+                                <View style={[postTextOverlayBubbleStyle, { backgroundColor: displayOverlay.highlightColor || 'transparent' }]}>
+                                  <Text style={buildPostTextOverlayTextStyle(displayOverlay, { canvasWidth: IMAGE_SIZE })}>{displayOverlay.text}</Text>
+                                </View>
                               </View>
-                            ))}
-                            {slideHasLibraryMusic(imageEdits[index]) && !postStorySoundTrimVisible ? (() => {
+                              );
+                            })}
+                            {shouldShowPostMusicCard(imageEdits[index]) && !postStorySoundTrimVisible ? (() => {
                               const slideEdits = imageEdits[index];
                               const slideCanvasLayout = { width: IMAGE_SIZE, height: currentCanvasHeight };
                               const defaultBadge = defaultMusicBadgePosition(slideCanvasLayout);
@@ -2058,10 +2261,28 @@ const InstagramPostCreator = () => {
             <Text style={[styles.flipModalTitle, textStyle]}>{t('selectedPost.musicTitle')}</Text>
             <Text style={[styles.flipModalHint, textStyle]}>{t('selectedPost.musicHint')}</Text>
             {slideHasLibraryMusic(getCurrentImageEdits()) ? (
-              <TouchableOpacity style={styles.postMusicEditClipBtn} onPress={() => { setFlipAudioModal(false); setPostStorySoundTrimVisible(true); }} activeOpacity={0.8}>
-                <Icon name="cut-outline" size={18} color={themeText} />
-                <Text style={[styles.postMusicEditClipText, textStyle]}>{t('selectedPost.editMusicClip')}</Text>
-              </TouchableOpacity>
+              <>
+                <View style={styles.postMusicCardToggleRow}>
+                  <View style={styles.postMusicCardToggleTextCol}>
+                    <Text style={[styles.postMusicCardToggleLabel, textStyle]}>
+                      {t('selectedPost.showMusicCard')}
+                    </Text>
+                    <Text style={[styles.postMusicCardToggleHint, textStyle]}>
+                      {t('selectedPost.showMusicCardHint')}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={getCurrentImageEdits().showMusicCard !== false}
+                    onValueChange={value => updateCurrentImageEdits({ showMusicCard: value })}
+                    trackColor={{ false: '#d1d5db', true: `${themeText}88` }}
+                    thumbColor={getCurrentImageEdits().showMusicCard !== false ? themeText : '#f4f4f5'}
+                  />
+                </View>
+                <TouchableOpacity style={styles.postMusicEditClipBtn} onPress={() => { setFlipAudioModal(false); setPostStorySoundTrimVisible(true); }} activeOpacity={0.8}>
+                  <Icon name="cut-outline" size={18} color={themeText} />
+                  <Text style={[styles.postMusicEditClipText, textStyle]}>{t('selectedPost.editMusicClip')}</Text>
+                </TouchableOpacity>
+              </>
             ) : null}
             {!getYoutubeSearchApiKey() ? <Text style={[styles.postMusicApiHint, textStyle]}>{t('selectedPost.musicApiUnavailable')}</Text> : null}
             <TextInput placeholder={t('selectedPost.musicSearchPlaceholder')} placeholderTextColor="#999" style={[styles.postMusicSearchInput, textStyle, { borderColor: `${themeText}33`, color: themeText }]} value={postMusicQuery} onChangeText={setPostMusicQuery} autoCorrect={false} autoCapitalize="none" />
@@ -2126,6 +2347,8 @@ const InstagramPostCreator = () => {
         lyricsBundle={getCurrentImageEdits().musicLyrics}
         lyricsLoading={postMusicLyricsLoading}
         initialTrim={{ start: getCurrentImageEdits().musicTrimStart ?? 0, end: getCurrentImageEdits().musicTrimEnd }}
+        showMusicCard={getCurrentImageEdits().showMusicCard !== false}
+        onShowMusicCardChange={value => updateCurrentImageEdits({ showMusicCard: value })}
         onCancel={() => {
           setPostStorySoundTrimVisible(false);
           if (!slideHasLibraryMusic(getCurrentImageEdits())) openPostMusicPicker();
@@ -2141,7 +2364,7 @@ const InstagramPostCreator = () => {
           setPostStorySoundTrimVisible(false);
           showToastMessage(toast, 'success', t('selectedPost.musicTrimSaved'), 1500);
         }}
-        onDelete={() => { updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500); }}
+        onDelete={() => { updateCurrentImageEdits({ musicSource: 'none', musicId: 'none', musicTitle: null, musicArtist: null, musicYoutubeVideoId: null, musicYoutubeThumbUrl: null, musicYoutubeDurationSec: null, musicTrimStart: 0, musicTrimEnd: null, musicLyrics: null, musicBadge: null, showMusicCard: true }); setPostStorySoundTrimVisible(false); showToastMessage(toast, 'success', t('selectedPost.musicRemoved'), 1500); }}
       />
 
       <Modal visible={flipTrimModal} transparent animationType="fade" onRequestClose={() => setFlipTrimModal(false)}>
@@ -2187,6 +2410,21 @@ const InstagramPostCreator = () => {
       </Modal>
 
       <View style={[styles.NextButtonView, isFlipPost && styles.NextButtonViewFlip]}>
+        {slideHasLibraryMusic(getCurrentImageEdits()) ? (
+          <View style={[styles.postMusicCardToggleBar, isFlipPost && styles.postMusicCardToggleBarFlip]}>
+            <View style={styles.postMusicCardToggleTextCol}>
+              <Text style={[styles.postMusicCardToggleLabel, { color: isFlipPost ? '#fff' : themeText }]}>
+                {t('selectedPost.showMusicCard')}
+              </Text>
+            </View>
+            <Switch
+              value={getCurrentImageEdits().showMusicCard !== false}
+              onValueChange={value => updateCurrentImageEdits({ showMusicCard: value })}
+              trackColor={{ false: '#4b5563', true: isFlipPost ? '#2d7ff988' : `${themeText}88` }}
+              thumbColor={getCurrentImageEdits().showMusicCard !== false ? (isFlipPost ? '#2d7ff9' : themeText) : '#9ca3af'}
+            />
+          </View>
+        ) : null}
         {isFlipPost && isCurrentMediaVideo() && (
           <TouchableOpacity style={styles.flipEditVideoPill} onPress={() => handleFlipToolPress('Edit')} activeOpacity={0.85}>
             <Text style={styles.flipEditVideoPillText}>{t('selectedPost.editVideoTitle')}</Text>
@@ -2404,6 +2642,12 @@ const styles = StyleSheet.create({
   },
   overlayTouchTarget: {
     flex: 1,
+  },
+  textOverlayHitArea: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 22,
   },
   overlayImage: {
     width: '100%',
@@ -2683,6 +2927,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
     backgroundColor: 'rgba(90,45,130,0.12)',
+  },
+  postMusicCardToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  postMusicCardToggleBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    width: '100%',
+  },
+  postMusicCardToggleBarFlip: {
+    paddingHorizontal: 8,
+  },
+  postMusicCardToggleTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  postMusicCardToggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  postMusicCardToggleHint: {
+    fontSize: 12,
+    opacity: 0.65,
+    marginTop: 2,
+    lineHeight: 16,
   },
   postMusicEditClipText: {
     fontSize: 13,
@@ -3024,6 +3306,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     minHeight: 50,
+    maxWidth: SCREEN_WIDTH - 48,
+    alignSelf: 'center',
     borderWidth: 1,
     borderColor: '#333',
     borderRadius: 8,

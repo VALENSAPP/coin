@@ -44,7 +44,7 @@ import { getUserTokenInfoByBlockChain } from '../../../services/tokens';
 import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
-import { extractPostMusicPayloadFromApi } from '../../../utils/postSoundtracks';
+import { extractPostMusicPayloadFromApi, applyClientPostOverlayCache } from '../../../utils/postSoundtracks';
 import { useLanguage } from '../../../i18n';
 
 const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
@@ -274,7 +274,8 @@ const Posts = forwardRef(function Posts(
   const mappedPosts = useMemo(() => {
     return (list || [])
       .filter(item => !hiddenById[item.id])
-      .map(item => {
+      .map(rawItem => {
+        const item = applyClientPostOverlayCache(rawItem);
         const userIdKey = String(item.userId);
         const followStatus = userFollowStatus[item.userId] || {};
         const hasLocalFollowState = Object.prototype.hasOwnProperty.call(

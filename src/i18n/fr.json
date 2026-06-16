@@ -515,11 +515,15 @@
     "searchUnavailable": "Recherche indisponible",
     "noSongsFound": "Aucune chanson trouvée",
     "clipAdded": "Clips ajoutés",
-    "musicSaved": "Musique enregistrée"
+    "musicSaved": "Musique enregistrée",
+    "showMusicCard": "Afficher la carte musique",
+    "showMusicCardHint": "Afficher la carte avec le titre du morceau sur votre publication"
   },
   "postEditor": {
     "newFlip": "Nouveau Flip",
     "newPost": "Nouvelle publication",
+    "editPost": "Modifier la publication",
+    "saveChanges": "Enregistrer les modifications",
     "taggedPeople": "Personnes identifiées",
     "captionLabel": "Écrire une légende (optionnel)",
     "captionPlaceholder": "Écrire une légende (optionnel)",
@@ -2744,7 +2748,9 @@
     "hideExactTimes": "Masquer les temps exacts",
     "showExactTimes": "Début / fin exacts (secondes)",
     "startPlaceholder": "Début",
-    "endPlaceholder": "Fin"
+    "endPlaceholder": "Fin",
+    "showMusicCard": "Afficher la carte musique",
+    "showMusicCardHint": "Afficher la carte avec le titre du morceau sur votre publication"
   },
   "modalHome": {
     "following": "Abonnements",

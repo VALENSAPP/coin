@@ -180,6 +180,16 @@ export default function MainTabNavigator() {
         <Stack.Screen name="EditPost" component={EditPostScreen} options={{
           gestureEnabled: false,
         }} />
+        <Stack.Screen
+          name="SelectedPost"
+          component={InstagramPostCreator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PostEditor"
+          component={PostEditorScreen}
+          options={{ headerShown: false }}
+        />
         {/* <Stack.Screen name="OpenBattle" component={OpenBattleScreen} options={{ headerShown: false }} /> */}
       </Stack.Navigator>
     );
