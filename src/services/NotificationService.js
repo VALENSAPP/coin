@@ -193,7 +193,7 @@ export const displayFcmAsExpandable = async (remoteMessage) => {
             lines: [
                 ...(followerName ? [`${followerName} is now following you`] : []),
                 ...(data?.followerTotalFollowers ? [`Their followers: ${data.followerTotalFollowers}`] : []),
-                ...(data?.followerAccuracyRate ? [`Accuracy rate: ${data.followerAccuracyRate}%`] : []),
+                ...(data?.followerAccuracyRate ? [`Credibility rate: ${data.followerAccuracyRate}%`] : []),
                 `[ View Profile ]`,
             ],
             title: data?.expandedTitle ?? 'NEW FOLLOWER',

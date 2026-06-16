@@ -1195,7 +1195,7 @@ const UserChat = ({ route, navigation }) => {
                   style={[styles.sharedPostContainer, isUser && styles.userSharedPost]}
                   onPress={() => {
                     if (postData.id) {
-                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true } });
+                      navigation.navigate('ProfileMain', { screen: 'PostView', params: { postData: [postData], startIndex: 0, userChat: true, fromScreen: 'UserChat', userId: targetUserId } });
                     } else {
                       Alert.alert(t('userChat.errorTitle'), t('userChat.postNotFound'));
                     }

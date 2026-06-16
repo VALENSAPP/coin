@@ -1791,15 +1791,17 @@ function PostItem({
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedPostId(item);
-                requestAnimationFrame(() => shareRef.current?.open?.());
-              }}
-              style={styles.actionButton}>
-              <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
-              <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
-            </TouchableOpacity>
+            {item.visibleTo !== "PRIVATE_CIRCLE" &&
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedPostId(item);
+                  requestAnimationFrame(() => shareRef.current?.open?.());
+                }}
+                style={styles.actionButton}>
+                <ShareIcom width={22} height={22} style={styles.actionSvgIcon} />
+                <Text style={styles.actionCount}>{t('flips.shareLabel')}</Text>
+              </TouchableOpacity>
+            }
 
 
             {/* {showTrustControls && (
@@ -1886,11 +1888,10 @@ function PostItem({
                     style={[
                       styles.trustProgressFill,
                       {
-                        width: `${
-                          normalizedTrustScore.overall > 0
+                        width: `${normalizedTrustScore.overall > 0
                             ? Math.max(2, normalizedTrustScore.overall)
                             : 0
-                        }%`,
+                          }%`,
                       },
                     ]}
                   />

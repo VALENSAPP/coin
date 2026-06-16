@@ -216,6 +216,7 @@ export default function PostView({ postData = [], userData = {} }) {
     const backTarget = route.params?.returnTo;
     const returnParams = route.params?.returnParams;
     const fromScreen = route.params?.fromScreen;
+    const userId = route.params?.userId;
 
     if (backTarget) {
       if (returnParams?.screen) {
@@ -230,6 +231,17 @@ export default function PostView({ postData = [], userData = {} }) {
       navigation.dispatch(StackActions.pop(1));
       navigation.getParent()?.navigate('HomeMain', {
         screen: 'HeartNotification',
+      });
+      return;
+    }
+
+    if (fromScreen === 'UserChat') {
+      navigation.dispatch(StackActions.pop(1));
+      navigation.getParent()?.navigate('HomeMain', {
+        screen: 'UserChat',
+        params: {
+          userId: userId,
+        },
       });
       return;
     }
@@ -986,9 +998,9 @@ export default function PostView({ postData = [], userData = {} }) {
             ? followingByUserId[String(item.userId)]
             : !!item.isFollow,
         ...extractPostMusicPayloadFromApi(item),
+        visibleTo: item.visibleTo,
       };
       const isPostVisible = String(item.id) === String(currentlyVisiblePostId);
-      console.log('Rendering post', mapped);
       return (
         <View
           style={[
