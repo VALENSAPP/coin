@@ -181,8 +181,7 @@ export function postImagesToStoryAudioClips(images = []) {
 export function buildCreatePostMusicPayload(images = []) {
   const img = images.find(
     i =>
-      i?.isVideo &&
-      i.musicId &&
+      i?.musicId &&
       i.musicId !== 'none' &&
       i.musicSource &&
       i.musicSource !== 'none',
@@ -620,7 +619,26 @@ function buildSlideMetaForUpload(img, imageIndex) {
   };
 
   if (!img.isVideo) {
-    return base;
+    if (!imageHasPostMusicSticker(img)) {
+      return base;
+    }
+    const raw = postImageToStoryAudioRaw(img);
+    const audioTrim = normalizeTrim({
+      start: img.musicTrimStart,
+      end: img.musicTrimEnd,
+    });
+    return {
+      ...base,
+      audio: serializeAudioForStoryMeta(raw),
+      audioTrim,
+      musicTitle: img.musicTitle ?? null,
+      musicArtist: img.musicArtist ?? null,
+      musicThumbnailUrl: img.musicYoutubeThumbUrl ?? null,
+      musicBadge: sanitizeSerializable(img.musicBadge ?? null),
+      showMusicCard: img.showMusicCard !== false,
+      overlayCanvasWidth: img.overlayCanvasWidth ?? null,
+      overlayCanvasHeight: img.overlayCanvasHeight ?? null,
+    };
   }
 
   const raw = postImageToStoryAudioRaw(img);
@@ -668,7 +686,7 @@ export function buildPostMetaFromImages(images = []) {
 
 /**
  * Fields sent to `post/create` and `post/edit`.
- * Music, text overlays, and music-card layout are only included for video slides.
+ * Image slides bake text/music stickers into the file; soundtrack fields apply to any slide with music.
  */
 export function buildPostUploadPayloadFromImages(images = []) {
   const postMeta = buildPostMetaFromImages(images);

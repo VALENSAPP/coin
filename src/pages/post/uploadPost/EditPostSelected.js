@@ -607,13 +607,33 @@ const InstagramPostCreator = () => {
     const mediaWidth = Number(media?.width) || IMAGE_SIZE;
     const mediaHeight = Number(media?.height) || IMAGE_SIZE;
     if (!mediaWidth || !mediaHeight) return IMAGE_SIZE;
-    return Math.min(450, Math.max(220, (IMAGE_SIZE * mediaHeight) / mediaWidth));
+    return (IMAGE_SIZE * mediaHeight) / mediaWidth;
+  };
+
+  const isMediaVideo = (media) => {
+    if (!media) return false;
+    if (media.type && media.type.includes('video')) return true;
+    const uri = media.uri || media.path;
+    if (uri) {
+      const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
+      return videoExtensions.some(ext => uri.toLowerCase().includes(ext));
+    }
+    if (media.duration && media.duration > 0) return true;
+    return false;
+  };
+
+  const getSlideCanvasHeight = (media) => {
+    if (isMediaVideo(media)) {
+      if (editorRegionLayoutHeight > 0) {
+        return Math.max(200, Math.floor(editorRegionLayoutHeight));
+      }
+    }
+    return getCanvasHeightForMedia(media);
   };
 
   const editorCanvasHeight = useMemo(() => {
-    if (editorRegionLayoutHeight > 0) return Math.max(200, Math.floor(editorRegionLayoutHeight));
     const currentMedia = selectedImages[currentImageIndex];
-    return getCanvasHeightForMedia(currentMedia);
+    return getSlideCanvasHeight(currentMedia);
   }, [editorRegionLayoutHeight, currentImageIndex, selectedImages]);
 
   const getOverlayBounds = (size = 100) => ({ minX: 0, minY: 0, maxX: Math.max(0, IMAGE_SIZE - size), maxY: Math.max(0, editorCanvasHeight - size) });
@@ -760,15 +780,6 @@ const InstagramPostCreator = () => {
   };
 
   const isCurrentMediaVideo = () => isMediaVideo(selectedImages[currentImageIndex]);
-
-  const isMediaVideo = (media) => {
-    if (!media) return false;
-    if (media.type && media.type.includes('video')) return true;
-    const uri = media.uri || media.path;
-    if (uri) { const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v']; return videoExtensions.some(ext => uri.toLowerCase().includes(ext)); }
-    if (media.duration && media.duration > 0) return true;
-    return false;
-  };
 
   const pan = useRef(new Animated.ValueXY()).current;
   const panResponder = useRef(
@@ -1006,13 +1017,27 @@ const InstagramPostCreator = () => {
     if (isDrawing) { setCanvasKey(prev => prev + 1); setIsDrawing(true); setIsScrollEnabled(false); }
   };
 
-  const captureFilteredImage = async (imageIndex) => {
+  const captureFilteredImage = async (imageIndex, image) => {
     try {
+      if (currentImageIndexRef.current !== imageIndex) {
+        setCurrentImageIndex(imageIndex);
+        mainScrollViewRef.current?.scrollTo({ x: imageIndex * IMAGE_SIZE, animated: false });
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
       const viewRef = imageViewRefs.current[imageIndex];
       if (!viewRef) return null;
-      await new Promise(resolve => setTimeout(resolve, 100));
-      return await captureRef(viewRef, { format: 'png', quality: 0.8, result: 'tmpfile' });
-    } catch (error) { return null; }
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const slideHeight = Math.round(getCanvasHeightForMedia(image));
+      return await captureRef(viewRef, {
+        format: 'jpg',
+        quality: 0.92,
+        result: 'tmpfile',
+        width: IMAGE_SIZE,
+        height: slideHeight,
+      });
+    } catch (error) {
+      return null;
+    }
   };
 
   const renderFilters = () => {
@@ -1514,7 +1539,7 @@ const InstagramPostCreator = () => {
 
           if (!isVideo && hasBurnableImageEdits) {
             try {
-              const uri = await captureFilteredImage(index);
+              const uri = await captureFilteredImage(index, image);
               if (uri) {
                 processedUri = uri;
               }
@@ -1523,10 +1548,7 @@ const InstagramPostCreator = () => {
             }
           }
           const overlayCanvasWidth = IMAGE_SIZE;
-          const overlayCanvasHeight =
-            editorRegionLayoutHeight > 0
-              ? Math.max(200, Math.floor(editorRegionLayoutHeight))
-              : getCanvasHeightForMedia(image);
+          const overlayCanvasHeight = getCanvasHeightForMedia(image);
           return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, showMusicCard: edits.showMusicCard !== false, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
       );
@@ -1691,9 +1713,10 @@ const InstagramPostCreator = () => {
                 {selectedImages.map((image, index) => {
                   const slideEditsForMute = imageEdits[index] || {};
                   const hasLibMusicOnSlide = slideHasLibraryMusic(slideEditsForMute);
+                  const slideCanvasHeight = getSlideCanvasHeight(image);
                   return (
-                    <View key={getMediaKey(image, index)} style={[styles.imageSlide, { width: IMAGE_SIZE, height: currentCanvasHeight }]}>
-                      <View ref={ref => { if (ref) imageViewRefs.current[index] = ref; }} style={{ width: IMAGE_SIZE, height: currentCanvasHeight, position: 'relative' }} collapsable={false}>
+                    <View key={getMediaKey(image, index)} style={[styles.imageSlide, { width: IMAGE_SIZE, height: slideCanvasHeight }]}>
+                      <View ref={ref => { if (ref) imageViewRefs.current[index] = ref; }} style={{ width: IMAGE_SIZE, height: slideCanvasHeight, position: 'relative', overflow: 'hidden' }} collapsable={false}>
                         {isMediaVideo(image) ? (
                           <View style={styles.videoContainer}>
                             <Video ref={ref => { if (ref) videoRefs.current[index] = ref; }} source={{ uri: getMediaDisplayUri(image) }} style={styles.mainImage} resizeMode='cover' paused={videoPaused[index] !== false} muted={isFlipPost ? (flipVolumeByIndex[index] ?? 1) === 0 || (hasLibMusicOnSlide && index === currentImageIndex) : videoMuted || (hasLibMusicOnSlide && index === currentImageIndex)} volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1} repeat={true} ignoreSilentSwitch="ignore" playWhenInactive={false} onError={(error) => console.log('Video error:', error)} poster={image.thumbnail || undefined} />
@@ -1721,13 +1744,13 @@ const InstagramPostCreator = () => {
                             collapsable={false}
                             style={[
                               styles.drawingSurface,
-                              { width: IMAGE_SIZE, height: currentCanvasHeight },
+                              { width: IMAGE_SIZE, height: slideCanvasHeight },
                             ]}
                           >
                             <View
                               style={[
                                 styles.staticImageCanvas,
-                                { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                { width: IMAGE_SIZE, height: slideCanvasHeight },
                                 isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
                               ]}
                             >
@@ -1741,7 +1764,7 @@ const InstagramPostCreator = () => {
                                     source={{ uri: currentImageUri }}
                                     style={[
                                       styles.mainImage,
-                                      { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                      { width: IMAGE_SIZE, height: slideCanvasHeight },
                                       isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
                                     resizeMode='contain'
@@ -1776,9 +1799,9 @@ const InstagramPostCreator = () => {
                           <ImageZoom
                             {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})}
                             cropWidth={IMAGE_SIZE}
-                            cropHeight={currentCanvasHeight}
+                            cropHeight={slideCanvasHeight}
                             imageWidth={IMAGE_SIZE}
-                            imageHeight={currentCanvasHeight}
+                            imageHeight={slideCanvasHeight}
                             panToMove={!isDrawing && !isOverlayTransforming}
                             minScale={0.5}
                             maxScale={4}
@@ -1787,7 +1810,7 @@ const InstagramPostCreator = () => {
                             doubleClickInterval={175}
                             style={[
                               styles.imageZoomContainer,
-                              { width: IMAGE_SIZE, height: currentCanvasHeight },
+                              { width: IMAGE_SIZE, height: slideCanvasHeight },
                             ]}
                             onStartShouldSetPanResponder={evt => {
                               if (isDrawing) return false;
@@ -1808,7 +1831,7 @@ const InstagramPostCreator = () => {
                             <View
                               style={[
                                 styles.staticImageCanvas,
-                                { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                { width: IMAGE_SIZE, height: slideCanvasHeight },
                                 isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
                               ]}
                             >
@@ -1823,7 +1846,7 @@ const InstagramPostCreator = () => {
                                     source={{ uri: currentImageUri }}
                                     style={[
                                       styles.mainImage,
-                                      { width: IMAGE_SIZE, height: currentCanvasHeight },
+                                      { width: IMAGE_SIZE, height: slideCanvasHeight },
                                       isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
                                     resizeMode='contain'
@@ -1890,7 +1913,7 @@ const InstagramPostCreator = () => {
                               </Animated.View>
                             )}
                             {shouldShowPostMusicCard(currentEdits) && !postStorySoundTrimVisible ? (() => {
-                              const postCanvasLayout = { width: IMAGE_SIZE, height: currentCanvasHeight };
+                              const postCanvasLayout = { width: IMAGE_SIZE, height: slideCanvasHeight };
                               const defaultBadge = defaultMusicBadgePosition(postCanvasLayout);
                               const badge = currentEdits.musicBadge;
                               const badgeX = badge?.x ?? defaultBadge.x;
@@ -1948,7 +1971,7 @@ const InstagramPostCreator = () => {
                             })}
                             {shouldShowPostMusicCard(imageEdits[index]) && !postStorySoundTrimVisible ? (() => {
                               const slideEdits = imageEdits[index];
-                              const slideCanvasLayout = { width: IMAGE_SIZE, height: currentCanvasHeight };
+                              const slideCanvasLayout = { width: IMAGE_SIZE, height: slideCanvasHeight };
                               const defaultBadge = defaultMusicBadgePosition(slideCanvasLayout);
                               const badge = slideEdits.musicBadge;
                               const badgeX = badge?.x ?? defaultBadge.x;
