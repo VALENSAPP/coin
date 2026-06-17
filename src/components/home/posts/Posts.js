@@ -45,10 +45,18 @@ import { getSuggestedUsers } from '../../../services/home';
 import { useAppTheme } from '../../../theme/useApptheme';
 import { log } from 'console';
 import { extractPostMusicPayloadFromApi, applyClientPostOverlayCache } from '../../../utils/postSoundtracks';
-import { logApiPostsMedia, logMappedPostMedia } from '../../../utils/postItemMediaDebug';
 import { useLanguage } from '../../../i18n';
 
 const isTruthyTrustPost = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
+
+const isVideoMediaUrl = (url, postType) => {
+  if (String(postType || '').toLowerCase() === 'reel') return true;
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.toLowerCase().split('?')[0];
+  return ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v'].some(ext =>
+    lower.endsWith(`.${ext}`),
+  );
+};
 
 const Posts = forwardRef(function Posts(
   { postData = [], onRefresh, isBusinessProfile, refreshing = false },
@@ -301,7 +309,14 @@ const Posts = forwardRef(function Posts(
             followingImage ||
             item.userImage ||
             'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-          media: (item.images || []).map(url => ({ type: 'image', url })),
+          media: (item.images || []).map((url, index) => ({
+            type: isVideoMediaUrl(url, item.type) ? 'video' : 'image',
+            url,
+            thumbnail:
+              item.thumbnails?.[index] ??
+              item.thumbnails?.[0] ??
+              null,
+          })),
           caption: item.caption || '***',
           boughtBy: finalBoughtBy,
           follow: isFollowing,
@@ -319,11 +334,6 @@ const Posts = forwardRef(function Posts(
         };
       });
   }, [list, hiddenById, userFollowStatus, postFollowers, followingByUserId, t]);
-
-  useEffect(() => {
-    logApiPostsMedia('Posts.js raw list from Home (images/media fields)', list);
-    logMappedPostMedia('Posts.js mappedPosts → passed to PostItem', mappedPosts);
-  }, [list, mappedPosts]);
 
   // Optimize canDelete calculation
   const canDelete = useMemo(() => {

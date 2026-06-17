@@ -66,7 +66,6 @@ import {
 } from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
-import { logPostItemMedia } from '../../../utils/postItemMediaDebug';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -428,22 +427,27 @@ function InstagramZoomableVideo({
                 collapsable={false}
                 style={[{ width: screenW, height: videoHeight, backgroundColor: '#000' }, modalTransformStyle]}>
                 {!modalVideoReady ? (
-                  thumbnailUri ? (
-                    <FastImage
-                      source={{
-                        uri: thumbnailUri,
-                        priority: FastImage.priority.high,
-                        cache: FastImage.cacheControl.immutable,
-                      }}
-                      resizeMode={FastImage.resizeMode.contain}
-                      fadeDuration={0}
-                      style={StyleSheet.absoluteFillObject}
-                    />
-                  ) : (
-                    <View style={styles.zoomVideoLoading}>
-                      <ActivityIndicator size="small" color="#fff" />
+                  <>
+                    {thumbnailUri ? (
+                      <FastImage
+                        source={{
+                          uri: thumbnailUri,
+                          priority: FastImage.priority.high,
+                          cache: FastImage.cacheControl.immutable,
+                        }}
+                        resizeMode={FastImage.resizeMode.cover}
+                        fadeDuration={0}
+                        style={StyleSheet.absoluteFillObject}
+                      />
+                    ) : (
+                      <View
+                        style={[StyleSheet.absoluteFillObject, styles.zoomVideoLoadingBackdrop]}
+                      />
+                    )}
+                    <View style={styles.zoomVideoLoading} pointerEvents="none">
+                      <ActivityIndicator size="large" color="#fff" />
                     </View>
-                  )
+                  </>
                 ) : null}
                 <Video
                   ref={modalVideoRef}
@@ -559,10 +563,6 @@ function PostItem({
     const raw = item?.UserId ?? item?.userId ?? item?.UserID ?? '';
     return raw != null ? String(raw) : '';
   }, [item?.UserID, item?.UserId, item?.userId]);
-
-  useEffect(() => {
-    logPostItemMedia('PostItem screen — item.media for render', item?.id, item?.media);
-  }, [item?.id, item?.media]);
 
   const getDaysLeftFromEndTime = endTime => {
     if (!endTime) return 0;
@@ -2305,8 +2305,12 @@ const styles = StyleSheet.create({
   },
   zoomVideoLoading: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  zoomVideoLoadingBackdrop: {
     backgroundColor: '#000',
   },
   postMedia: {
