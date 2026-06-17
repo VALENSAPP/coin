@@ -342,6 +342,35 @@ export default function BattleVoteDetails() {
     [battle?.predictions, buildSections],
   );
 
+  const selectedUserHighlight = useMemo(() => {
+    if (activeTab !== 'comments') return null;
+    if (!selectedUserId && !selectedUserComment) return null;
+
+    const meta = selectedUserId ? resolveUserMeta(selectedUserId) : null;
+    const authorName = String(
+      pickFirst(selectedSpeakerLabel, meta?.displayName, 'User'),
+    );
+    const sideLabel = String(
+      pickFirst(resolveOptionForSide(selectedSide)?.label, selectedSide, ''),
+    );
+
+    return {
+      userId: selectedUserId,
+      authorName,
+      avatar: getAvatarUri(meta?.displayAvatar),
+      message: String(selectedUserComment || ''),
+      side: sideLabel,
+    };
+  }, [
+    activeTab,
+    resolveOptionForSide,
+    resolveUserMeta,
+    selectedSide,
+    selectedSpeakerLabel,
+    selectedUserComment,
+    selectedUserId,
+  ]);
+
   const commentSections = useMemo(() => {
     const allComments = Array.isArray(passedComments)
       ? passedComments
@@ -356,21 +385,18 @@ export default function BattleVoteDetails() {
       : allComments;
 
     if (selectedUserId) {
-      data = [...data].sort((a, b) => {
-        const aIsSelected = String(a?.userId || '') === selectedUserId ? 0 : 1;
-        const bIsSelected = String(b?.userId || '') === selectedUserId ? 0 : 1;
-        return aIsSelected - bIsSelected;
-      });
+      data = data.filter(
+        comment => String(comment?.userId || '') !== String(selectedUserId),
+      );
     }
 
     return [
       {
-        title:
-          selectedSideLabel || t('battleVoteDetails.commentsTitle', 'Comments'),
+        title: t('battleVoteDetails.commentsTitle', 'Comments'),
         data,
       },
     ];
-  }, [battle?.comments, passedComments, selectedSide, selectedSideLabel, selectedUserId, t]);
+  }, [battle?.comments, passedComments, selectedSide, selectedUserId, t]);
 
   const sections =
     activeTab === 'comments'
@@ -396,8 +422,9 @@ export default function BattleVoteDetails() {
     [navigation, route?.name, route?.params],
   );
 
-  const renderCommentRow = ({ item }) => {
+  const renderCommentCard = (item, { onPress = true } = {}) => {
     const authorName = pickFirst(
+      item?.authorName,
       item?.authorHandle,
       item?.user?.userName,
       item?.user?.username,
@@ -419,10 +446,8 @@ export default function BattleVoteDetails() {
     );
     const message = pickFirst(item?.message, item?.comment, item?.text, '');
 
-    return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => handleOpenUser(item?.userId)}
+    const card = (
+      <View
         style={[
           styles.commentRow,
           cardStyle,
@@ -463,10 +488,27 @@ export default function BattleVoteDetails() {
           )}
         </View>
 
-        <Text style={[styles.commentMessage, { color: text }]}>{message}</Text>
+        {!!message && (
+          <Text style={[styles.commentMessage, { color: text }]}>{message}</Text>
+        )}
+      </View>
+    );
+
+    if (!onPress || !item?.userId) {
+      return card;
+    }
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => handleOpenUser(item?.userId)}
+      >
+        {card}
       </TouchableOpacity>
     );
   };
+
+  const renderCommentRow = ({ item }) => renderCommentCard(item);
 
   const renderRow = ({ item }) => {
     return (
@@ -527,12 +569,7 @@ export default function BattleVoteDetails() {
 
   const titleText =
     activeTab === 'comments'
-      ? selectedSideLabel
-        ? `${selectedSideLabel} ${t(
-          'battleVoteDetails.commentsTitle',
-          'Comments',
-        )}`
-        : t('battleVoteDetails.commentsTitle', 'Comments')
+      ? t('battleVoteDetails.commentsTitle', 'Comments')
       : activeTab === 'votes'
         ? selectedSideLabel
           ? `${selectedSideLabel} ${t('battleVoteDetails.votesTitle', 'Votes')}`
@@ -546,9 +583,9 @@ export default function BattleVoteDetails() {
       <View
         style={[
           styles.header,
-          {
-            borderBottomColor: palette.border,
-          },
+          // {
+          //   borderBottomColor: palette.border,
+          // },
         ]}
       >
         <TouchableOpacity
@@ -559,20 +596,7 @@ export default function BattleVoteDetails() {
           <Ionicons name="chevron-back" size={22} color={text} />
         </TouchableOpacity>
 
-        <View style={styles.headerText}>
-          <Text numberOfLines={1} style={[styles.headerTitle, { color: text }]}>
-            {battle?.question ||
-              battle?.title ||
-              t('battleVoteDetails.untitledBattle', 'Untitled battle')}
-          </Text>
 
-          {/* <Text
-            numberOfLines={1}
-            style={[styles.headerSub, { color: palette.muted }]}>
-            {totalCount}{' '}
-            {activeTab === 'votes' ? 'votes' : 'predictions'}
-          </Text> */}
-        </View>
 
         <View style={styles.headerRight} />
       </View>
@@ -651,26 +675,77 @@ export default function BattleVoteDetails() {
           }}
           ListHeaderComponent={() => (
             <View>
-              {/* SUMMARY */}
-
               <View
                 style={[
-                  styles.summaryCard,
+                  styles.headerText,
                   cardStyle,
                   {
                     borderColor: palette.border,
                   },
                 ]}
               >
-                <Text style={[styles.summaryTitle, { color: text }]}>
-                  {titleText}
+                <Text numberOfLines={1} style={[styles.headerTitle, { color: text }]}>
+                  {battle?.question ||
+                    battle?.title ||
+                    t('battleVoteDetails.untitledBattle', 'Untitled battle')}
                 </Text>
-                {!!selectedUserComment && (
-                  <Text style={[styles.sectionEmptyText, { color: palette.muted, marginTop: 8 }]}>
-                    {selectedUserComment}
-                  </Text>
-                )}
               </View>
+
+              {options.length > 0 && (
+                <View style={styles.optionCardsRow}>
+                  {options.slice(0, 2).map((option, index) => {
+                    const normalizedSelectedSide = normalizeSideKey(selectedSide);
+                    const isSelected =
+                      !!normalizedSelectedSide &&
+                      (normalizeSideKey(option.sideKey) === normalizedSelectedSide ||
+                        normalizeSideKey(option.label) === normalizedSelectedSide);
+
+                    return (
+                      <View
+                        key={option.id || `option-${index}`}
+                        style={[
+                          styles.optionCard,
+                          cardStyle,
+                          { borderColor: palette.border },
+                          isSelected && {
+                            borderColor: palette.primary,
+                            backgroundColor: palette.soft,
+                          },
+                        ]}
+                      >
+                        <Text
+                          numberOfLines={3}
+                          style={[styles.optionCardText, { color: text }]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {!!selectedUserHighlight && (
+                <View style={styles.featuredCommentWrap}>
+                  {renderCommentCard(selectedUserHighlight, { onPress: true })}
+                </View>
+              )}
+
+              {activeTab !== 'comments' && (
+                <View
+                  style={[
+                    styles.summaryCard,
+                    cardStyle,
+                    {
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.summaryTitle, { color: text }]}>
+                    {titleText}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           ListEmptyComponent={() => (
@@ -712,7 +787,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    // borderBottomWidth: 1,
   },
 
   backBtn: {
@@ -721,7 +796,34 @@ const styles = StyleSheet.create({
   },
 
   headerText: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+
+  optionCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+
+  optionCard: {
     flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    minHeight: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  optionCardText: {
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   headerRight: {
@@ -788,6 +890,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 22,
+  },
+
+  featuredCommentWrap: {
+    marginBottom: 12,
   },
 
   sectionHeader: {

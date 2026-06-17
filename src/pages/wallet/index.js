@@ -565,7 +565,7 @@ export const WalletDashboardScreen = ({ navigation }) => {
   const [rewardSummary, setRewardSummary] = useState(DEFAULT_REWARD_POINTS);
   const [kpiData, setKpiData] = useState([
     { id: 'Total Earning', title: t('walletDashboard.kpi.totalEarning'), value: '-', icon: 'wallet' },
-    { id: 'support', title: t('walletDashboard.kpi.subscriptionEarning'), value: '-', icon: 'pie-chart' },
+    { id: 'support', title: t('walletDashboard.kpi.subscriptionEarning').replace(' ', '\n'), value: '-', icon: 'pie-chart' },
     { id: 'followers', title: t('walletDashboard.kpi.followers'), value: '-', icon: 'people' },
     { id: 'credits', title: t('walletDashboard.kpi.creditsLeft'), value: '-', icon: 'flash', currentCredits: 5 },
     { id: 'Mission Post', title: t('walletDashboard.kpi.missionPost'), value: '-', icon: 'ribbon' },
@@ -2653,6 +2653,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textTransform: 'capitalize',
     lineHeight: 16,
+    height: 32,
   },
   kpiValue: {
     fontSize: 20,

@@ -48,6 +48,7 @@ import ValensWallet from '../pages/wallet/ValensWallet';
 import PrivateCircle from '../components/profile/PrivateCircle';
 import { useLanguage } from '../i18n';
 import { lockProfile } from '../services/kycverification';
+import WhiteScreen from '../pages/authentication/WhiteScreen';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -60,19 +61,19 @@ const CustomDrawerContent = (props) => {
 
 
   const blockProfile = React.useCallback(async () => {
-  try {
+    try {
 
-    const response = await lockProfile();
-    console.log(response, 'lock profile response navigationnnnanananaan');
+      const response = await lockProfile();
+      console.log(response, 'lock profile response navigationnnnanananaan');
 
-    // Handle success here
-  } catch (err) {
-    console.log(err, 'blockProfile error');
-  }
-}, []);
-useEffect(()=>{
-  blockProfile();
-},[])
+      // Handle success here
+    } catch (err) {
+      console.log(err, 'blockProfile error');
+    }
+  }, []);
+  useEffect(() => {
+    blockProfile();
+  }, [])
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       {/* Drawer Header */}
@@ -416,7 +417,8 @@ export default function MainStack() {
 
   if (!isLogin || isAddAccount) {
     return (
-      <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'} screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'} initialRouteName={isLogin ? "WhiteScreen" : "Login"} screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="WhiteScreen" component={WhiteScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="OTPScreen" component={OTPScreen} />
