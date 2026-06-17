@@ -1,7 +1,10 @@
 import axiosInstance from "../../services";
+import { logApiPostsMedia } from "../../utils/postItemMediaDebug";
 
 export const getposts = async () => {
-    return axiosInstance.get('post/all');
+    const response = await axiosInstance.get('post/all');
+    logApiPostsMedia('API GET post/all → response.data', response?.data);
+    return response;
 }
 
 export const getSuggestedUsers = async (limit) => {

@@ -7,7 +7,9 @@ import {
     StatusBar,
     TouchableOpacity,
     Alert,
+    Linking,
 } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import styles from './Style';
 import { useDispatch } from 'react-redux';
 import { useToast } from 'react-native-toast-notifications';
@@ -18,16 +20,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loggedOut } from '../../redux/actions/LoginAction';
 import { useAppTheme } from '../../theme/useApptheme';
 import { useLanguage } from '../../i18n';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { getUserCredentials } from '../../services/post';
+
+const LOSS_ITEMS = [
+    { icon: 'shield-check-outline', titleKey: 'lossReputationTitle', descKey: 'lossReputationDesc' },
+    { icon: 'sword-cross', titleKey: 'lossBattlesTitle', descKey: 'lossBattlesDesc' },
+    { icon: 'account-group-outline', titleKey: 'lossFollowersTitle', descKey: 'lossFollowersDesc' },
+    { icon: 'circle-multiple-outline', titleKey: 'lossCoinsTitle', descKey: 'lossCoinsDesc' },
+    { icon: 'lock-outline', titleKey: 'lossCirclesTitle', descKey: 'lossCirclesDesc' },
+    { icon: 'file-document-outline', titleKey: 'lossContentTitle', descKey: 'lossContentDesc' },
+];
 
 const PrivacySettingsScreen = () => {
     const dispatch = useDispatch();
-    const route = useRoute();
+    const navigation = useNavigation();
     const toast = useToast();
-    const { bgStyle, textStyle, card } = useAppTheme();
+    const { bgStyle, textStyle, cardStyle, text } = useAppTheme();
     const { t } = useLanguage();
-    const hideDeleteAccount = route?.params?.hideDeleteAccount === true;
 
     const [privacySettings, setPrivacySettings] = useState({
         profileVisibility: 'public',
@@ -88,6 +98,17 @@ const PrivacySettingsScreen = () => {
         updateProfileStatus(visibility);
     };
 
+    const handleContactSupport = () => {
+        const email = 'Support@valens.app';
+        const subject = t('settings.helpEmailSubject');
+        const body = t('settings.helpEmailBody');
+        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        Linking.openURL(url).catch(() => {
+            Alert.alert(t('settings.error'), t('settings.noMailApp'));
+        });
+    };
+
     const handleDeleteAccount = () => {
         Alert.alert(
             t('privacySettings.deleteAccountTitle'),
@@ -138,56 +159,108 @@ const PrivacySettingsScreen = () => {
     return (
         <SafeAreaView style={[styles.container, bgStyle]}>
             <StatusBar barStyle="dark-content" />
-            <ScrollView style={styles.content}>
-                {/* <View style={[styles.section, { marginTop: 20 }]}>
-                    <Text style={styles.sectionTitle}>{t('privacySettings.profileVisibility')}</Text>
-                    {/* <View style={styles.radioGroup}>
-                        <TouchableOpacity
-                            style={styles.radioItem}
-                            onPress={() => handleProfileVisibilityChange('public')}
-                        >
-                            <View style={styles.radio}>
-                                {privacySettings.profileVisibility === 'public' && (
-                                    <View style={styles.radioSelected} />
-                                )}
-                            </View>
-                            <View>
-                                <Text style={styles.radioTitle}>{t('privacySettings.public')}</Text>
-                                <Text style={styles.radioSubtitle}>{t('privacySettings.publicSubtitle')}</Text>
-                            </View>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.radioItem}
-                            onPress={() => handleProfileVisibilityChange('private')}
-                        >
-                            <View style={styles.radio}>
-                                {privacySettings.profileVisibility === 'private' && (
-                                    <View style={styles.radioSelected} />
-                                )}
-                            </View>
-                            <View>
-                                <Text style={styles.radioTitle}>{t('privacySettings.private')}</Text>
-                                <Text style={styles.radioSubtitle}>{t('privacySettings.privateSubtitle')}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    </View> */}
-                {/* </View>  */}
-
-                {/* {!hideDeleteAccount && ( */}
-                <View style={[styles.deleteWarningCard, ]}>
-                    <Text style={[styles.deleteWarningText, ]}>
-                        {t('privacySettings.deleteAccountPermanentPrompt')}
+            <ScrollView
+                style={styles.content}
+                contentContainerStyle={styles.deleteScrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.deleteHeroSection}>
+                    <MaterialCommunityIcons
+                        name="alert-outline"
+                        size={36}
+                        color="#DC2626"
+                        style={styles.deleteWarningIcon}
+                    />
+                    <Text style={[styles.deleteHeroTitle, textStyle]}>
+                        {t('privacySettings.beforeYouGo')}
+                    </Text>
+                    <Text style={styles.deleteHeroSubtitle}>
+                        {t('privacySettings.deletePermanentWarning')}
                     </Text>
                 </View>
-                    <View style={styles.section}>
-                        <TouchableOpacity
-                            style={styles.dangerButton}
-                            onPress={handleDeleteAccount}
+
+                <Text style={[styles.deleteLossSectionTitle, textStyle]}>
+                    {t('privacySettings.youWillLose')}
+                </Text>
+
+                <View style={[styles.deleteLossCard, cardStyle]}>
+                    {LOSS_ITEMS.map((item, index) => (
+                        <View
+                            key={item.titleKey}
+                            style={[
+                                styles.deleteLossItem,
+                                index < LOSS_ITEMS.length - 1 && styles.deleteLossItemBorder,
+                            ]}
                         >
-                            <Text style={styles.dangerButtonText}>{t('privacySettings.deleteAccount')}</Text>
-                        </TouchableOpacity>
+                            <View style={styles.deleteLossIconWrap}>
+                                <MaterialCommunityIcons
+                                    name={item.icon}
+                                    size={22}
+                                    color={text}
+                                />
+                            </View>
+                            <View style={styles.deleteLossItemContent}>
+                                <Text style={[styles.deleteLossItemTitle, textStyle]}>
+                                    {t(`privacySettings.${item.titleKey}`)}
+                                </Text>
+                                <Text style={styles.deleteLossItemDesc}>
+                                    {t(`privacySettings.${item.descKey}`)}
+                                </Text>
+                            </View>
+                        </View>
+                    ))}
+                </View>
+
+                <View style={[styles.deleteSupportCard, cardStyle]}>
+                    <View style={styles.deleteSupportRow}>
+                        <MaterialCommunityIcons
+                            name="headset"
+                            size={28}
+                            color={text}
+                            style={styles.deleteSupportIcon}
+                        />
+                        <View style={styles.deleteSupportTextWrap}>
+                            <Text style={[styles.deleteSupportTitle, textStyle]}>
+                                {t('privacySettings.supportTitle')}
+                            </Text>
+                            <Text style={styles.deleteSupportDesc}>
+                                {t('privacySettings.supportDesc')}
+                            </Text>
+                        </View>
                     </View>
-                {/* )} */}
+                    <TouchableOpacity
+                        style={[styles.deleteSupportButton, { borderColor: text }]}
+                        onPress={handleContactSupport}
+                    >
+                        <Text style={[styles.deleteSupportButtonText, { color: text }]}>
+                            {t('privacySettings.contactSupport')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                    style={[styles.keepAccountButton, { borderColor: text }]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={[styles.keepAccountButtonText, { color: text }]}>
+                        {t('privacySettings.keepMyAccount')}
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.deletePermanentButton}
+                    onPress={handleDeleteAccount}
+                >
+                    <MaterialCommunityIcons
+                        name="delete-outline"
+                        size={20}
+                        color="#FFFFFF"
+                        style={styles.deletePermanentIcon}
+                    />
+                    <Text style={styles.deletePermanentButtonText}>
+                        {t('privacySettings.deleteAccountPermanently')}
+                    </Text>
+                </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );

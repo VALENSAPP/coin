@@ -292,10 +292,10 @@ const LoginHistoryScreen = () => {
                                             login.status === 'failed' && styles.loginStatusFailed,
                                         ]}
                                     />
-                                    <View>
+                                    <View style={styles.loginTextContent}>
                                         <Text style={styles.loginDevice}>{login.device}</Text>
                                         {!!(login.locationName || login.location) && (
-                                            <Text style={[styles.loginLocation, { paddingRight: 12 }]}>
+                                            <Text style={styles.loginLocation}>
                                                 {login.locationName || login.location}
                                             </Text>
                                         )}

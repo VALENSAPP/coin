@@ -66,6 +66,7 @@ import {
 } from '../../../utils/feedMediaDimensions';
 import { useLanguage } from '../../../i18n';
 import { navigateToUserProfile } from '../../../utils/navigateToUserProfile';
+import { logPostItemMedia } from '../../../utils/postItemMediaDebug';
 
 const { width } = Dimensions.get('window');
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage);
@@ -558,6 +559,10 @@ function PostItem({
     const raw = item?.UserId ?? item?.userId ?? item?.UserID ?? '';
     return raw != null ? String(raw) : '';
   }, [item?.UserID, item?.UserId, item?.userId]);
+
+  useEffect(() => {
+    logPostItemMedia('PostItem screen — item.media for render', item?.id, item?.media);
+  }, [item?.id, item?.media]);
 
   const getDaysLeftFromEndTime = endTime => {
     if (!endTime) return 0;
