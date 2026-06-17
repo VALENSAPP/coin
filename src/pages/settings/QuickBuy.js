@@ -50,6 +50,7 @@ export default function QuickBuy({ navigation }) {
         title={t('quickBuy.headerTitle')}
         subtitle={t('quickBuy.headerSubtitle')}
         onBackPress={() => navigation?.goBack?.()}
+        isFirstLaunch={true}
       />
 
       {/* Card wrapper */}

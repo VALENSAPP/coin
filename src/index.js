@@ -85,6 +85,7 @@ export default function Main() {
   const [blockedVerificationProfile, setBlockedVerificationProfile] = useState(null);
   const [verificationProfileType, setVerificationProfileType] = useState('user');
   const [message, setMessage] = useState('');
+  const [isFirstLaunch, setIsFirstLaunch] = useState(null);
 
   const userProfile = useSelector(state => state.userProfile.userProfile);
   const isLoggedIn = useSelector(state => state.login.IS_LOGGED_IN);
@@ -173,8 +174,8 @@ export default function Main() {
       if (response?.statusCode !== 200) return;
 
       const userData = response?.data?.user || response?.data || response;
-      const kycStatus = userData?.kycStatus !=='APPROVED' ;
-      const profile = userData?.profile ;
+      const kycStatus = userData?.kycStatus !== 'APPROVED';
+      const profile = userData?.profile;
       const kycApproved = userData?.kyc === true || String(userData?.kyc || '').toLowerCase() === 'true';
       const firstLogRaw =
         userData?.first_log ??
@@ -328,6 +329,15 @@ export default function Main() {
     // ── Session validation ─────────────────────────────────────────────────
     const checkLogin = async () => {
       try {
+        // ── First-launch detection
+        const hasLaunchedBefore = await AsyncStorage.getItem('hasLaunchedBefore');
+        if (!hasLaunchedBefore) {
+          await AsyncStorage.setItem('hasLaunchedBefore', 'true');
+          setIsFirstLaunch(true);
+        } else {
+          setIsFirstLaunch(false);
+        }
+
         const [loggedI, deviceId] = await Promise.all([
           AsyncStorage.getItem('isLoggedIn'),
           AsyncStorage.getItem('device_id'),
@@ -629,7 +639,7 @@ export default function Main() {
           setIsNavigationReady(true);
         }}
       >
-        <MainStack />
+        <MainStack isFirstLaunch={isFirstLaunch} />
       </NavigationContainer>
       <WelcomeValensModal
         visible={welcomeModalVisible}

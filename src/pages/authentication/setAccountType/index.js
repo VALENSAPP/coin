@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -19,6 +19,7 @@ import Animated, {
 import createStyles from "./Style";
 import { AuthHeader } from "../../../components/auth";
 import { useLanguage } from '../../../i18n';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -202,10 +203,25 @@ const AccountCard = ({ isPurple, onPress }) => {
 
 // Main Screen
 const SelectAccountType = () => {
+    const [isFirstLaunch, setIsFirstLaunch] = useState(null);
     const styles = createStyles();
     const { height } = Dimensions.get("window");
     const navigation = useNavigation();
     const { t } = useLanguage();
+
+    useEffect(() => {
+
+        const checkFirstLaunch = async () => {
+            const hasLaunchedBefore = await AsyncStorage.getItem('hasLaunchedBefore');
+            if (!hasLaunchedBefore) {
+                setIsFirstLaunch(true);
+            } else {
+                setIsFirstLaunch(false);
+            }
+        };
+        checkFirstLaunch();
+
+    }, []);
 
     const handleCardPress = (accountType) => {
         const profile = accountType === "business" ? "company" : "user";
@@ -229,10 +245,11 @@ const SelectAccountType = () => {
                 <View style={styles.contentContainer}>
                     <AuthHeader
                         subtitle={t('selectAccountType.subtitle')}
-                        showBackButton={true}
+                        // showBackButton={true}
                         headerHeight={height * 0.28}
                         fromsetAccountType={true}
                         onBackPress={() => navigation.goBack()}
+                        isFirstLaunch={isFirstLaunch}
                     />
 
                     <View style={styles.cardsContainer}>

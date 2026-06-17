@@ -60,6 +60,8 @@
   },
   "selectAccountType": {
     "subtitle": "As redes sociais acabaram de evoluir",
+    "alreadyHaveAccount": "Já tem uma conta? ",
+    "login": "Entrar",
     "personaTitle": "Sou um Usuário",
     "personaDesc": "Conecte-se, apoie, participe de batalhas e missões",
     "businessTitle": "Sou uma Empresa",
@@ -3127,7 +3129,7 @@
     "uploading": "Enviando...",
     "sending": "Enviando...",
     "startConversation": "Iniciar uma conversa",
-    "contentUnavailable": "❌ Este conteúdo não está mais disponível",
+    "contentUnavailable": "❌ Este conteúdo não está disponível",
     "postUnavailable": "❌ Esta postagem não está mais disponível",
     "reelUnavailable": "❌ Este reel não está mais disponível",
     "storyUnavailable": "❌ Este story não está mais disponível",
@@ -3145,7 +3147,9 @@
     "document": "Documento",
     "documentSubtext": "Arquivos PDF, DOC, TXT",
     "cancel": "Cancelar",
-    "views": "{{count}} visualizações"
+    "views": "{{count}} visualizações",
+    "subscribeToView": "Assine para visualizar este conteúdo",
+    "buySubscription": "Comprar assinatura"
   },
   "socialLogin": {
     "cancelled": "Cancelado",

@@ -60,6 +60,8 @@
   },
   "selectAccountType": {
     "subtitle": "Las redes sociales acaban de mejorar",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta? ",
+    "login": "Inicia sesión",
     "personaTitle": "Soy Persona",
     "personaDesc": "Conecta, apoya, únete a batallas y misiones",
     "businessTitle": "Soy Empresa",
@@ -3127,7 +3129,7 @@
     "uploading": "Subiendo...",
     "sending": "Enviando...",
     "startConversation": "Iniciar una conversación",
-    "contentUnavailable": "❌ Este contenido ya no está disponible",
+    "contentUnavailable": "❌ Este contenido no está disponible",
     "postUnavailable": "❌ Esta publicación ya no está disponible",
     "reelUnavailable": "❌ Este reel ya no está disponible",
     "storyUnavailable": "❌ Esta historia ya no está disponible",
@@ -3145,7 +3147,9 @@
     "document": "Documento",
     "documentSubtext": "Archivos PDF, DOC, TXT",
     "cancel": "Cancelar",
-    "views": "{{count}} vistas"
+    "views": "{{count}} vistas",
+    "subscribeToView": "Suscríbete para ver este contenido",
+    "buySubscription": "Comprar suscripción"
   },
   "socialLogin": {
     "cancelled": "Cancelado",

@@ -53,9 +53,9 @@ export const initializeSocket = async (userId) => {
       console.log('⚠️ Socket disconnected. Reason:', reason);
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('❌ Socket connection error:', error.message);
-    });
+    // socket.on('connect_error', (error) => {
+    //   console.error('❌ Socket connection error:', error.message);
+    // });
 
     socket.on('reconnect', (attemptNumber) => {
       console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');

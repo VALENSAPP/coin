@@ -202,6 +202,7 @@ export default function SignupScreen() {
           subtitle={t('signup.headerSubtitle')}
           profileType={profile}
           onBackPress={handleBackPress}
+          isFirstLaunch={true}
         />
 
         {/* Form Card */}

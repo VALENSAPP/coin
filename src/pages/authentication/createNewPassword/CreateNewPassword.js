@@ -109,6 +109,7 @@ const NewPasswordScreen = () => {
         <AuthHeader
           subtitle={t('newPassword.screenTitle')}
           onBackPress={() => navigation.goBack()}
+          isFirstLaunch={true}
         />
 
         {/* Enhanced Form Card */}

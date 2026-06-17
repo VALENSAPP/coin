@@ -385,6 +385,7 @@ export default function LoginScreen() {
           subtitle={t('login.socialMediaUpgrade')}
           showBackButton={false}
           headerHeight={height * 0.28}
+          isFirstLaunch={false}
         />
 
 

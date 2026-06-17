@@ -103,7 +103,7 @@ if let b = data["expandedBody"] as? String, !b.isEmpty {
             let followers = str("followerTotalFollowers")
             if !followers.isEmpty { lines.append("Their followers: \(followers)") }
             let accuracy = str("followerAccuracyRate")
-            if !accuracy.isEmpty { lines.append("Accuracy rate: \(accuracy)%") }
+            if !accuracy.isEmpty { lines.append("Credibility rate: \(accuracy)%") }
             lines.append("[ View Profile ]")
             return lines
 

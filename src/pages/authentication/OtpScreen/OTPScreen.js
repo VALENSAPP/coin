@@ -244,6 +244,7 @@ export default function OTPScreen() {
             subtitle={t('otp.headerSubtitle')}
             profileType={profile}
             onBackPress={() => navigation.goBack()}
+            isFirstLaunch={true}
           />
 
           <View style={styles.formWrapper}>

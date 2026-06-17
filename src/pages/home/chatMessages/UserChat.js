@@ -19,6 +19,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -190,10 +191,10 @@ const UserChat = ({ route, navigation }) => {
   const initialShared = post
     ? { type: 'post', post, postId: postId || post?.id }
     : reel
-    ? { type: 'reel', reel, reelId: reelId || reel?.id }
-    : story
-    ? { type: 'story', story, storyId: cleanStoryId(storyId || story?.storyId || story?.id) }
-    : null;
+      ? { type: 'reel', reel, reelId: reelId || reel?.id }
+      : story
+        ? { type: 'story', story, storyId: cleanStoryId(storyId || story?.storyId || story?.id) }
+        : null;
 
   const [sharedItem, setSharedItem] = useState(initialShared);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -213,7 +214,20 @@ const UserChat = ({ route, navigation }) => {
   const scrollTimeoutRef = useRef(null);
   const [storyViewerVisible, setStoryViewerVisible] = useState(false);
   const [selectedStory, setSelectedStory] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const seenEmitRef = useRef(new Set());
+  const isNavigatingToSubscribeRef = useRef(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchConversation(currentUserId, targetUserId);
+    } catch (e) {
+      console.error('[UserChat] Refresh error:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentUserId, targetUserId]);
 
   useEffect(() => { seenEmitRef.current = new Set(); }, [targetUserId]);
 
@@ -272,9 +286,9 @@ const UserChat = ({ route, navigation }) => {
           id: tempId,
           type:
             initialShared.type === 'post' ? 'post_share'
-            : initialShared.type === 'reel' ? 'reel_share'
-            : initialShared.type === 'story' ? 'story_share'
-            : 'text',
+              : initialShared.type === 'reel' ? 'reel_share'
+                : initialShared.type === 'story' ? 'story_share'
+                  : 'text',
           sender: 'user',
           content: '',
           timestamp: new Date(),
@@ -314,9 +328,9 @@ const UserChat = ({ route, navigation }) => {
           message: '',
           type:
             initialShared.type === 'post' ? 'POST_SHARE'
-            : initialShared.type === 'reel' ? 'REEL_SHARE'
-            : initialShared.type === 'story' ? 'STORY_SHARE'
-            : 'MEDIA',
+              : initialShared.type === 'reel' ? 'REEL_SHARE'
+                : initialShared.type === 'story' ? 'STORY_SHARE'
+                  : 'MEDIA',
         };
         if (initialShared.type === 'post') messageData.postId = initialShared.postId;
         else if (initialShared.type === 'reel') messageData.reelId = initialShared.reelId;
@@ -432,6 +446,15 @@ const UserChat = ({ route, navigation }) => {
   // Re-emit on screen focus
   useFocusEffect(
     useCallback(() => {
+      if (currentUserId && targetUserId) {
+        fetchConversation(currentUserId, targetUserId);
+      }
+      // 👇 skip reload if returning from subscription screen
+      if (isNavigatingToSubscribeRef.current) {
+        isNavigatingToSubscribeRef.current = false; // reset for next time
+        return;
+      }
+
       const socket = getSocket();
       if (socket?.connected && socketReady && currentUserId && targetUserId) {
         try { getConversation(currentUserId, targetUserId); } catch (e) { }
@@ -623,6 +646,7 @@ const UserChat = ({ route, navigation }) => {
           formattedMsg.type = 'text';
           formattedMsg.content = t('userChat.contentUnavailable');
           formattedMsg.isDeletedContent = true;
+          formattedMsg.subscribeTargetUserId = String(msg.sender?.id ?? msg.senderId ?? '')
         }
       } else if (messageType === 'REEL_SHARE') {
         formattedMsg.type = 'reel_share';
@@ -775,9 +799,9 @@ const UserChat = ({ route, navigation }) => {
         message: messageContent,
         type:
           sharedItem?.type === 'post' ? 'POST_SHARE'
-          : sharedItem?.type === 'reel' ? 'REEL_SHARE'
-          : sharedItem?.type === 'story' ? 'STORY_SHARE'
-          : 'CHAT',
+            : sharedItem?.type === 'reel' ? 'REEL_SHARE'
+              : sharedItem?.type === 'story' ? 'STORY_SHARE'
+                : 'CHAT',
       };
       if (sharedItem?.type === 'post') messageData.postId = sharedItem.postId;
       else if (sharedItem?.type === 'reel') messageData.reelId = sharedItem.reelId;
@@ -795,7 +819,7 @@ const UserChat = ({ route, navigation }) => {
         messageData.storyId = storyIdToShare;
         // Track share action via view API (non-blocking)
         if (storyIdToShare) {
-          viewStory({ storyId: storyIdToShare }).catch(() => {});
+          viewStory({ storyId: storyIdToShare }).catch(() => { });
         }
       }
       console.log('[UserChat] Sending message. Socket ready?', socketReady);
@@ -1090,9 +1114,33 @@ const UserChat = ({ route, navigation }) => {
             {/* TEXT */}
             {item.type === 'text' && (
               <View>
-                <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.isTemp && styles.tempMessage, { backgroundColor: text }]}>
-                  {renderMessageText(item.content, isUser)}
-                </View>
+                {item.isDeletedContent ? (
+                  // Subscription prompt for deleted/locked content
+                  <View style={[styles.sharedPostContainer, isUser && styles.userSharedPost, styles.deletedContent]}>
+                    <Text style={styles.deletedContentText}>{item.content}</Text>
+                    <Text style={[styles.deletedContentText, { fontSize: 12, marginTop: 4, opacity: 0.7 }]}>
+                      {t('userChat.subscribeToView') ?? 'Subscribe to view this content'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.subscribeButton}
+                      onPress={() =>
+                        navigation.navigate('UsersProfile', {
+                          userId: item.subscribeTargetUserId || (isUser ? targetUserId : item.senderInfo?.id),
+                          initialTab: 'privateContent',
+                        })
+                      }
+                    >
+                      <Text style={styles.subscribeButtonText}>
+                        {t('userChat.buySubscription') ?? 'Buy Subscription'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  // Normal message bubble
+                  <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.isTemp && styles.tempMessage, { backgroundColor: text }]}>
+                    {renderMessageText(item.content, isUser)}
+                  </View>
+                )}
                 {item.shared && (
                   <TouchableOpacity style={styles.messageSharedContainer}>
                     {item.shared.type === 'post' && (
@@ -1115,8 +1163,8 @@ const UserChat = ({ route, navigation }) => {
                       {item.shared.type === 'post'
                         ? (item.shared.post?.text || item.shared.post?.caption || t('userChat.sharedPost'))
                         : item.shared.type === 'reel'
-                        ? (item.shared.reel?.caption || t('userChat.sharedReel'))
-                        : (item.shared.story?.caption || item.shared.story?.text || t('userChat.sharedStory'))}
+                          ? (item.shared.reel?.caption || t('userChat.sharedReel'))
+                          : (item.shared.story?.caption || item.shared.story?.text || t('userChat.sharedStory'))}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1183,9 +1231,30 @@ const UserChat = ({ route, navigation }) => {
               const postExists = postData && (postData.id || postData.text || postData.caption || images.length > 0);
 
               if (!postExists) {
+                const subscribeUserId = item.subscribeTargetUserId || (isUser ? targetUserId : item.senderInfo?.id);
                 return (
                   <View style={[styles.sharedPostContainer, isUser && styles.userSharedPost, styles.deletedContent]}>
-                    <Text style={styles.deletedContentText}>{t('userChat.postUnavailable')}</Text>
+                    <Text style={styles.deletedContentText}>
+                      🔒 {t('userChat.postUnavailable')}
+                    </Text>
+                    <Text style={[styles.deletedContentText, { fontSize: 12, marginTop: 4, opacity: 0.7 }]}>
+                      {t('userChat.subscribeToView') ?? 'Subscribe to view this content'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.subscribeButton}
+                      onPress={() => {
+                        isNavigatingToSubscribeRef.current = true;
+                        navigation.navigate('UsersProfile', {
+                          userId: subscribeUserId,
+                          initialTab: 'privateContent',
+                        })
+                      }
+                      }
+                    >
+                      <Text style={styles.subscribeButtonText}>
+                        {t('userChat.buySubscription') ?? 'Buy Subscription'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 );
               }
@@ -1523,9 +1592,9 @@ const UserChat = ({ route, navigation }) => {
 
   const inputPlaceholder = sharedItem
     ? sharedItem.type === 'post' ? t('userChat.addMessageToPost')
-    : sharedItem.type === 'reel' ? t('userChat.addMessageToReel')
-    : sharedItem.type === 'story' ? t('userChat.addMessageToStory')
-    : t('userChat.typeMessage')
+      : sharedItem.type === 'reel' ? t('userChat.addMessageToReel')
+        : sharedItem.type === 'story' ? t('userChat.addMessageToStory')
+          : t('userChat.typeMessage')
     : t('userChat.typeMessage');
 
   return (
@@ -1578,6 +1647,14 @@ const UserChat = ({ route, navigation }) => {
                         <Text style={styles.emptyText}>{t('userChat.startConversation')}</Text>
                       </View>
                     )}
+                    refreshControl={  
+                      <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={text}
+                        colors={[text]}
+                      />
+                    }
                   />
                 </View>
 
@@ -2326,6 +2403,7 @@ const createStyles = () => ({
     marginVertical: 4,
     overflow: 'hidden',
     maxWidth: 280,
+    paddingHorizontal: 10
   },
   userSharedPost: {
     backgroundColor: '#E8F4F8',
@@ -2701,5 +2779,18 @@ const createStyles = () => ({
     color: '#fff',
     fontSize: 11,
     fontWeight: '600',
+  },
+  subscribeButton: {
+    marginTop: 10,
+    backgroundColor: '#991B1B',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  subscribeButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 13,
   },
 });

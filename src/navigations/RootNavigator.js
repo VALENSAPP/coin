@@ -60,19 +60,19 @@ const CustomDrawerContent = (props) => {
 
 
   const blockProfile = React.useCallback(async () => {
-  try {
+    try {
 
-    const response = await lockProfile();
-    console.log(response, 'lock profile response navigationnnnanananaan');
+      const response = await lockProfile();
+      console.log(response, 'lock profile response navigationnnnanananaan');
 
-    // Handle success here
-  } catch (err) {
-    console.log(err, 'blockProfile error');
-  }
-}, []);
-useEffect(()=>{
-  blockProfile();
-},[])
+      // Handle success here
+    } catch (err) {
+      console.log(err, 'blockProfile error');
+    }
+  }, []);
+  useEffect(() => {
+    blockProfile();
+  }, [])
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
       {/* Drawer Header */}
@@ -410,13 +410,16 @@ const GlobalDrawerNavigator = () => {
   );
 };
 
-export default function MainStack() {
+export default function MainStack({ isFirstLaunch }) {
   const isLogin = useSelector(state => state.login.IS_LOGGED_IN);
   const isAddAccount = useSelector(state => state.addAccount.isAddAccount);
 
   if (!isLogin || isAddAccount) {
     return (
-      <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'} screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <Stack.Navigator key={isAddAccount ? 'authStack' : 'unauthStack'}
+        initialRouteName={isFirstLaunch ? 'SelectAccountType' : 'Login'}
+        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="SelectAccountType" component={SelectAccountType} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="OTPScreen" component={OTPScreen} />
@@ -430,7 +433,6 @@ export default function MainStack() {
         <Stack.Screen name="Splash" component={Splash} />
         <Stack.Screen name="TermsCondition" component={TermsCondition} />
         <Stack.Screen name="ManageSubscription" component={PaymentScreen} />
-        <Stack.Screen name="SelectAccountType" component={SelectAccountType} />
       </Stack.Navigator>
     );
   }

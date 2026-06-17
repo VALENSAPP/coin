@@ -60,6 +60,8 @@
   },
   "selectAccountType": {
     "subtitle": "Les réseaux sociaux évoluent",
+    "alreadyHaveAccount": "Vous avez déjà un compte ? ",
+    "login": "Connectez-vous",
     "personaTitle": "Je suis un utilisateur",
     "personaDesc": "Connectez-vous, soutenez, participez aux batailles et missions",
     "businessTitle": "Je suis une entreprise",
@@ -3127,7 +3129,7 @@
     "uploading": "Caricamento...",
     "sending": "Invio...",
     "startConversation": "Inizia una conversazione",
-    "contentUnavailable": "❌ Questo contenuto non è più disponibile",
+    "contentUnavailable": "❌ Ce contenu n'est pas disponible",
     "postUnavailable": "❌ Questo post non è più disponibile",
     "reelUnavailable": "❌ Questo reel non è più disponibile",
     "storyUnavailable": "❌ Questa storia non è più disponibile",
@@ -3145,7 +3147,9 @@
     "document": "Documento",
     "documentSubtext": "File PDF, DOC, TXT",
     "cancel": "Annulla",
-    "views": "{{count}} visualizzazioni"
+    "views": "{{count}} visualizzazioni",
+    "subscribeToView": "Abonnez-vous pour voir ce contenu",
+    "buySubscription": "Acheter un abonnement"
   },
   "socialLogin": {
     "cancelled": "Annulé",

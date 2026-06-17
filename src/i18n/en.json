@@ -60,6 +60,8 @@
   },
   "selectAccountType": {
     "subtitle": "Social media just got an upgrade",
+    "alreadyHaveAccount": "Already have an account? ",
+    "login": "Log in",
     "personaTitle": "I'm a Persona",
     "personaDesc": "Connect, support, join battles & missions",
     "businessTitle": "I'm a Business",
@@ -3128,7 +3130,7 @@
     "uploading": "Uploading...",
     "sending": "Sending...",
     "startConversation": "Start a conversation",
-    "contentUnavailable": "❌ This content is no longer available",
+    "contentUnavailable": "❌ This content is not available",
     "postUnavailable": "❌ This post is no longer available",
     "reelUnavailable": "❌ This reel is no longer available",
     "storyUnavailable": "❌ This story is no longer available",
@@ -3146,7 +3148,9 @@
     "document": "Document",
     "documentSubtext": "PDF, DOC, TXT files",
     "cancel": "Cancel",
-    "views": "{{count}} views"
+    "views": "{{count}} views",
+    "subscribeToView": "Subscribe to view this content",
+    "buySubscription": "Buy Subscription"
   },
   "socialLogin": {
     "cancelled": "Cancelled",
@@ -3277,7 +3281,7 @@
   "tabNav": {
     "editProfile": "Edit Profile"
   },
-   "blockedVerification": {
+  "blockedVerification": {
     "accountBlocked": "Your account is blocked",
     "blockedMessage": "Your account is blocked because profile verification was not completed within 3 days.",
     "completeVerification": "Complete your {{verificationType}} to unlock your account and continue using Valens.",

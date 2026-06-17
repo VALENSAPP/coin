@@ -1,30 +1,40 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { useNavigation } from "@react-navigation/native";
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LogoIcon } from '../../assets/icons';
 import { useAppTheme } from '../../theme/useApptheme';
+import { useLanguage } from '../../i18n';
 
 const { height } = Dimensions.get('window');
 
-const AuthHeader = ({ 
-  title = 'VALENS', 
-  subtitle, 
-  showBackButton = true, 
-  onBackPress, 
+const AuthHeader = ({
+  title = 'VALENS',
+  subtitle,
+  showBackButton = true,
+  onBackPress,
   headerHeight = height * 0.3,
   logoSize = 80,
   titleSize = 30,
   subtitleSize = 14,
   fromsetAccountType = false,
   profileType,
+  isFirstLaunch
 }) => {
   const { bgStyle, textStyle, bg, text } = useAppTheme(profileType);
+  const { t } = useLanguage();
+  const navigation = useNavigation();
+
+  const onPress = () => {
+    navigation.navigate('Login');
+  }
+
   return (
     <View style={[styles.headerGradient, { height: headerHeight }, !fromsetAccountType && bgStyle]}>
       <View style={styles.headerContent}>
-        {showBackButton && (
+        {isFirstLaunch && (
           <TouchableOpacity
-            style={[styles.backButton, {shadowColor: text}]}
+            style={[styles.backButton, { shadowColor: text }]}
             onPress={onBackPress}
           >
             <Icon name="arrow-back" size={24} color={text} />
@@ -40,9 +50,34 @@ const AuthHeader = ({
               {title}
             </Text>
             {subtitle && (
-              <Text style={[styles.tagline, { fontSize: subtitleSize }, textStyle]}>
-                {subtitle}
-              </Text>
+              <>
+                <Text style={[styles.tagline, { fontSize: subtitleSize }, textStyle]}>
+                  {subtitle}
+                </Text>
+                {(!isFirstLaunch && fromsetAccountType) && (
+                  <View style={styles.loginContainer}>
+                    <Text
+                      style={[
+                        styles.tagline,
+                        {
+                          fontSize: subtitleSize,
+                          color: '#000',
+                          marginBottom: 0,
+                        },
+                      ]}>
+                      {t('selectAccountType.alreadyHaveAccount')}
+                    </Text>
+
+                    <TouchableOpacity
+                      onPress={onPress}
+                      style={styles.loginBtn}>
+                      <Text style={styles.loginBtnText}>
+                        {t('selectAccountType.login')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
           </View>
         </View>
@@ -104,7 +139,7 @@ const styles = {
     fontWeight: '500',
     opacity: 0.8,
     marginTop: 0,
-    marginBottom:7,
+    marginBottom: 7,
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -113,6 +148,29 @@ const styles = {
     width: '100%',
     height: '100%',
     zIndex: 1,
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap', // optional for smaller screens
+  },
+  loginBtn: {
+    marginLeft: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "rgba(90, 45, 130, 0.12)",
+    borderWidth: 2,
+    borderColor: "#5a2d82",
+    overflow: "hidden",
+  },
+  loginBtnText: {
+    color: "#5a2d82",
+    fontWeight: "700",
+    textAlign: "center",
+    fontSize: 14,
   },
 };
 

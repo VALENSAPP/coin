@@ -60,6 +60,8 @@
   },
   "selectAccountType": {
     "subtitle": "I social media si sono evoluti",
+    "alreadyHaveAccount": "Hai già un account? ",
+    "login": "Accedi",
     "personaTitle": "Sono un Utente",
     "personaDesc": "Connettiti, supporta, partecipa a battaglie e missioni",
     "businessTitle": "Sono un'Azienda",
@@ -3127,7 +3129,7 @@
     "uploading": "Caricamento...",
     "sending": "Invio...",
     "startConversation": "Inizia una conversazione",
-    "contentUnavailable": "❌ Questo contenuto non è più disponibile",
+    "contentUnavailable": "❌ Questo contenuto non è disponibile",
     "postUnavailable": "❌ Questo post non è più disponibile",
     "reelUnavailable": "❌ Questo reel non è più disponibile",
     "storyUnavailable": "❌ Questa storia non è più disponibile",
@@ -3145,7 +3147,9 @@
     "document": "Documento",
     "documentSubtext": "File PDF, DOC, TXT",
     "cancel": "Annulla",
-    "views": "{{count}} visualizzazioni"
+    "views": "{{count}} visualizzazioni",
+    "subscribeToView": "Abbonati per visualizzare questo contenuto",
+    "buySubscription": "Acquista abbonamento"
   },
   "socialLogin": {
     "cancelled": "Annullato",

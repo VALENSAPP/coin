@@ -55,6 +55,7 @@ export default function CashOutScreen({ navigation }) {
         title={t('cashOut.headerTitle')}
         subtitle={t('cashOut.headerSubtitle')}
         onBackPress={() => navigation?.goBack?.()}
+        isFirstLaunch={true}
       />
 
       {/* Card wrapper */}

@@ -68,6 +68,7 @@ const ForgetPassword = () => {
         title={t('forgotPassword.headerTitle')}
         subtitle={t('forgotPassword.headerSubtitle')}
         onBackPress={() => navigation.goBack()}
+        isFirstLaunch={true}
       />
 
       {/* Form Card */}

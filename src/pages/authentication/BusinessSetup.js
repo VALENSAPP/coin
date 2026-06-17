@@ -568,6 +568,7 @@ const BusinessProfileForm = () => {
             subtitle={t('businessProfile.headerSubtitle')}
             profileType={profileFromRoute}
             onBackPress={() => navigation.goBack()}
+            isFirstLaunch={true}
           />
 
           <View style={styles.formWrapper}>
