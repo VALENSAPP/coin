@@ -97,7 +97,45 @@ const colors = [
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IMAGE_SIZE = SCREEN_WIDTH;
+const MAX_EDITOR_HEIGHT = SCREEN_HEIGHT * 0.65;
 const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+
+const getImageContentLayout = (media, canvasWidth, canvasHeight, isVideo = false) => {
+  if (isVideo) {
+    return {
+      width: canvasWidth,
+      height: canvasHeight,
+      offsetX: 0,
+      offsetY: 0,
+    };
+  }
+
+  const mediaWidth = Math.max(1, Number(media?.width) || canvasWidth);
+  const mediaHeight = Math.max(1, Number(media?.height) || canvasHeight);
+  const imageRatio = mediaWidth / mediaHeight;
+  const canvasRatio = canvasWidth / canvasHeight;
+
+  let width;
+  let height;
+
+  if (imageRatio >= canvasRatio) {
+    width = canvasWidth;
+    height = canvasWidth / imageRatio;
+  } else {
+    height = canvasHeight;
+    width = canvasHeight * imageRatio;
+  }
+
+  width = Math.round(width);
+  height = Math.round(height);
+
+  return {
+    width,
+    height,
+    offsetX: Math.round((canvasWidth - width) / 2),
+    offsetY: Math.round((canvasHeight - height) / 2),
+  };
+};
 
 const FLIP_EMOJI_STICKERS = [
   '👏', '🔥', '❤️', '😂', '😍', '✨', '💯', '🎉', '👍', '🙌',
@@ -265,6 +303,7 @@ const InstagramPostCreator = () => {
   currentImageIndexRef.current = currentImageIndex;
 
   const canvasRef = useRef(null);
+  const textInputRef = useRef(null);
   const mainScrollViewRef = useRef(null);
   const [editingOverlayId, setEditingOverlayId] = useState(null);
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
@@ -536,12 +575,21 @@ const InstagramPostCreator = () => {
   };
 
   const openTextModal = () => {
-    const centerY = (editorCanvasHeight || IMAGE_SIZE) / 2 - 20;
-    const centerX = IMAGE_SIZE / 2 - 80;
+    const cw = currentContentLayout.width || IMAGE_SIZE;
+    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
+    const centerY = ch / 2 - 20;
+    const centerX = cw / 2 - 80;
     pan.setValue({ x: centerX, y: centerY });
     pan.setOffset({ x: 0, y: 0 });
+    setIsScrollEnabled(false);
     setModalVisible2(true);
   };
+
+  useEffect(() => {
+    if (!modalVisible2) return undefined;
+    const timer = setTimeout(() => textInputRef.current?.focus(), 120);
+    return () => clearTimeout(timer);
+  }, [modalVisible2, currentImageIndex]);
 
   const clampPositionToBounds = (position, bounds) => ({
     x: clamp(position.x, bounds.minX, bounds.maxX),
@@ -606,9 +654,17 @@ const InstagramPostCreator = () => {
   const getCanvasHeightForMedia = (media) => {
     const mediaWidth = Number(media?.width) || IMAGE_SIZE;
     const mediaHeight = Number(media?.height) || IMAGE_SIZE;
-    if (!mediaWidth || !mediaHeight) return IMAGE_SIZE;
-    return (IMAGE_SIZE * mediaHeight) / mediaWidth;
+    const ratio = mediaHeight / mediaWidth;
+    const calculatedHeight = IMAGE_SIZE * ratio;
+    return Math.min(calculatedHeight, MAX_EDITOR_HEIGHT);
   };
+
+  const getEditorSlideHeight = useCallback(() => {
+    if (editorRegionLayoutHeight > 0) {
+      return Math.max(200, Math.floor(editorRegionLayoutHeight));
+    }
+    return MAX_EDITOR_HEIGHT;
+  }, [editorRegionLayoutHeight]);
 
   const isMediaVideo = (media) => {
     if (!media) return false;
@@ -622,21 +678,32 @@ const InstagramPostCreator = () => {
     return false;
   };
 
-  const getSlideCanvasHeight = (media) => {
-    if (isMediaVideo(media)) {
-      if (editorRegionLayoutHeight > 0) {
-        return Math.max(200, Math.floor(editorRegionLayoutHeight));
-      }
-    }
-    return getCanvasHeightForMedia(media);
+  const getContentLayoutForMedia = useCallback((media) => {
+    const canvasHeight = getEditorSlideHeight();
+    return getImageContentLayout(media, IMAGE_SIZE, canvasHeight, isMediaVideo(media));
+  }, [getEditorSlideHeight]);
+
+  const getSlideCanvasHeight = () => getEditorSlideHeight();
+
+  const editorCanvasHeight = useMemo(
+    () => getEditorSlideHeight(),
+    [getEditorSlideHeight],
+  );
+
+  const currentContentLayout = useMemo(
+    () => getContentLayoutForMedia(selectedImages[currentImageIndex]),
+    [currentImageIndex, getContentLayoutForMedia, selectedImages],
+  );
+
+  const getOverlayBounds = (imageIndex, size = 100) => {
+    const layout = getContentLayoutForMedia(selectedImages[imageIndex] || {});
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: Math.max(0, layout.width - size),
+      maxY: Math.max(0, layout.height - size),
+    };
   };
-
-  const editorCanvasHeight = useMemo(() => {
-    const currentMedia = selectedImages[currentImageIndex];
-    return getSlideCanvasHeight(currentMedia);
-  }, [editorRegionLayoutHeight, currentImageIndex, selectedImages]);
-
-  const getOverlayBounds = (size = 100) => ({ minX: 0, minY: 0, maxX: Math.max(0, IMAGE_SIZE - size), maxY: Math.max(0, editorCanvasHeight - size) });
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
   const containsEmoji = value => EMOJI_REGEX.test(String(value || ''));
   const resolveOverlayFontFamily = (value, requestedFontFamily) => containsEmoji(value) ? undefined : (requestedFontFamily || undefined);
@@ -648,7 +715,7 @@ const InstagramPostCreator = () => {
   const getTextOverlayLayoutKey = (imageIndex, overlayId) => `${imageIndex}:${overlayId}`;
 
   const estimateTextOverlaySize = overlay =>
-    estimatePostTextOverlayFootprint(overlay, IMAGE_SIZE);
+    estimatePostTextOverlayFootprint(overlay, currentContentLayout.width || IMAGE_SIZE);
 
   const getTextOverlayLayoutFootprint = (imageIndex, overlay) => {
     const layoutKey = getTextOverlayLayoutKey(imageIndex, overlay?.id || 'draft');
@@ -656,20 +723,23 @@ const InstagramPostCreator = () => {
     if (measured?.width && measured?.height) {
       return { width: measured.width, height: measured.height };
     }
+    const contentWidth = getContentLayoutForMedia(selectedImages[imageIndex] || {}).width || IMAGE_SIZE;
     const estimated = estimatePostTextOverlayFootprint(
       { ...overlay, scale: 1 },
-      IMAGE_SIZE,
+      contentWidth,
     );
     return { width: estimated.width, height: estimated.height };
   };
 
-  const getTextOverlayBounds = (imageIndex, overlay) =>
-    getPostTextOverlayDragBounds(
-      IMAGE_SIZE,
-      editorCanvasHeight,
+  const getTextOverlayBounds = (imageIndex, overlay) => {
+    const layout = getContentLayoutForMedia(selectedImages[imageIndex] || {});
+    return getPostTextOverlayDragBounds(
+      layout.width,
+      layout.height,
       getTextOverlayLayoutFootprint(imageIndex, overlay),
       overlay?.scale ?? 1,
     );
+  };
 
   const clampTextOverlayPosition = (imageIndex, overlay, position) =>
     clampPostTextOverlayPosition(position, getTextOverlayBounds(imageIndex, overlay));
@@ -1027,13 +1097,19 @@ const InstagramPostCreator = () => {
       const viewRef = imageViewRefs.current[imageIndex];
       if (!viewRef) return null;
       await new Promise(resolve => setTimeout(resolve, 150));
-      const slideHeight = Math.round(getCanvasHeightForMedia(image));
+      const slideHeight = Math.round(getEditorSlideHeight());
+      const contentLayout = getImageContentLayout(
+        image,
+        IMAGE_SIZE,
+        slideHeight,
+        isMediaVideo(image),
+      );
       return await captureRef(viewRef, {
         format: 'jpg',
         quality: 0.92,
         result: 'tmpfile',
-        width: IMAGE_SIZE,
-        height: slideHeight,
+        width: contentLayout.width,
+        height: contentLayout.height,
       });
     } catch (error) {
       return null;
@@ -1313,7 +1389,23 @@ const InstagramPostCreator = () => {
         const tapToEdit = !session.didPinchGesture && (session.maxPointerMove || 0) < TEXT_OVERLAY_TAP_MAX_MOVE && Date.now() - (session.touchStartTime || 0) < TEXT_OVERLAY_TAP_MAX_MS;
         if (tapToEdit && Date.now() - (recentDragTimestamps.current[`text-${id}`] || 0) > 120) {
           const o = getLatestTextOverlayById(id);
-          if (o) { setEditingOverlayId(o.id); setText(o.text); setTextColor(o.color); setHighlightColor(o.highlightColor); setTextAlign(o.textAlign); setSelectedFont({ fontFamily: o.fontFamily }); setModalVisible2(true); }
+          if (o) {
+            setEditingOverlayId(o.id);
+            setText(o.text);
+            setTextColor(o.color);
+            setHighlightColor(o.highlightColor);
+            setTextAlign(o.textAlign);
+            setSelectedFont({ fontFamily: o.fontFamily });
+            pan.setValue({ x: o.position?.x ?? 0, y: o.position?.y ?? 0 });
+            pan.setOffset({ x: 0, y: 0 });
+            setIsScrollEnabled(false);
+            setModalVisible2(true);
+            textOverlayTransformActiveRef.current = false;
+            delete textOverlayGestureState.current[id];
+            setIsOverlayTransforming(false);
+            setShowTrashZone(false);
+            return;
+          }
         }
         textOverlayTransformActiveRef.current = false; delete textOverlayGestureState.current[id]; setIsOverlayTransforming(false); setIsScrollEnabled(true); setShowTrashZone(false);
       },
@@ -1376,7 +1468,7 @@ const InstagramPostCreator = () => {
   const addTextOverlay = () => {
     if (!text || text.trim() === '') {
       if (editingOverlayId) { const currentEdits = getCurrentImageEdits(); updateCurrentImageEdits({ textOverlays: currentEdits.textOverlays.filter(o => o.id !== editingOverlayId) }); setEditingOverlayId(null); }
-      setText(''); setModalVisible2(false); return;
+      setText(''); setModalVisible2(false); setIsScrollEnabled(true); return;
     }
     const currentEdits = getCurrentImageEdits();
     if (editingOverlayId) {
@@ -1414,9 +1506,10 @@ const InstagramPostCreator = () => {
         position: { x: panX, y: panY },
       };
       const footprint = estimateTextOverlaySize(draftOverlay);
+      const contentLayout = getContentLayoutForMedia(selectedImages[currentImageIndex]);
       const centeredPosition = {
-        x: (IMAGE_SIZE - footprint.width) / 2,
-        y: (editorCanvasHeight - footprint.height) / 2,
+        x: (contentLayout.width - footprint.width) / 2,
+        y: (contentLayout.height - footprint.height) / 2,
       };
       const boundedPosition = clampTextOverlayPosition(
         currentImageIndex,
@@ -1427,7 +1520,7 @@ const InstagramPostCreator = () => {
         textOverlays: [...currentEdits.textOverlays, { ...draftOverlay, position: boundedPosition }],
       });
     }
-    pan.setValue({ x: 0, y: 0 }); pan.setOffset({ x: 0, y: 0 }); setText(''); setModalVisible2(false);
+    pan.setValue({ x: 0, y: 0 }); pan.setOffset({ x: 0, y: 0 }); setText(''); setModalVisible2(false); setIsScrollEnabled(true);
   };
 
   const pickImages = () => {
@@ -1472,8 +1565,9 @@ const InstagramPostCreator = () => {
 
   const addStickerEmoji = emoji => {
     const id = `${Date.now()}_${Math.random()}`;
-    const ch = editorCanvasHeight || IMAGE_SIZE;
-    const newOverlay = { id, text: emoji, fontSize: 52, scale: 1, rotation: 0, color: '#fff', fontFamily: 'System', textAlign: 'center', position: { x: Math.max(16, IMAGE_SIZE / 2 - 28), y: Math.max(16, ch / 2 - 28) }, highlightColor: 'transparent' };
+    const ch = currentContentLayout.height || editorCanvasHeight || IMAGE_SIZE;
+    const cw = currentContentLayout.width || IMAGE_SIZE;
+    const newOverlay = { id, text: emoji, fontSize: 52, scale: 1, rotation: 0, color: '#fff', fontFamily: 'System', textAlign: 'center', position: { x: Math.max(16, cw / 2 - 28), y: Math.max(16, ch / 2 - 28) }, highlightColor: 'transparent' };
     const cur = getCurrentImageEdits();
     updateCurrentImageEdits({ textOverlays: [...(cur.textOverlays || []), newOverlay] });
     setFlipStickerModal(false);
@@ -1547,8 +1641,9 @@ const InstagramPostCreator = () => {
               console.log('Error capturing image with overlays:', captureError);
             }
           }
-          const overlayCanvasWidth = IMAGE_SIZE;
-          const overlayCanvasHeight = getCanvasHeightForMedia(image);
+          const captureLayout = getContentLayoutForMedia(image);
+          const overlayCanvasWidth = captureLayout.width;
+          const overlayCanvasHeight = captureLayout.height;
           return { ...image, originalUri: getMediaDisplayUri(image), processedUri, filter: edits.filter, isVideo, trimStart: edits.trimStart, trimEnd: edits.trimEnd, musicId: edits.musicId, musicTitle: edits.musicTitle, musicArtist: edits.musicArtist, musicSource: edits.musicSource, musicYoutubeVideoId: edits.musicYoutubeVideoId, musicYoutubeThumbUrl: edits.musicYoutubeThumbUrl, musicYoutubeDurationSec: edits.musicYoutubeDurationSec, musicTrimStart: edits.musicTrimStart ?? 0, musicTrimEnd: edits.musicTrimEnd ?? null, musicLyrics: edits.musicLyrics ?? null, musicBadge: edits.musicBadge ?? null, showMusicCard: edits.showMusicCard !== false, flipVolume: flipVolumeByIndex[index] ?? 1, textOverlays: edits.textOverlays.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayImages: edits.overlayImages.map(overlay => ({ ...overlay, position: overlay.position || { x: 0, y: 0 } })), overlayCanvasWidth, overlayCanvasHeight, drawings: edits.drawings, uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing, imageIndex: index };
         })
       );
@@ -1624,11 +1719,8 @@ const InstagramPostCreator = () => {
                     ...overlay,
                     position: overlay.position || { x: 0, y: 0 }
                   })),
-                  overlayCanvasWidth: IMAGE_SIZE,
-                  overlayCanvasHeight:
-                    editorRegionLayoutHeight > 0
-                      ? Math.max(200, Math.floor(editorRegionLayoutHeight))
-                      : getCanvasHeightForMedia(image),
+                  overlayCanvasWidth: getContentLayoutForMedia(image).width,
+                  overlayCanvasHeight: getContentLayoutForMedia(image).height,
                   drawings: edits.drawings,
                   uriBeforeAnyDrawing: edits.uriBeforeAnyDrawing,
                   imageIndex: index
@@ -1668,7 +1760,17 @@ const InstagramPostCreator = () => {
     }
   };
 
-  const handleBack = () => { if (isDrawing) { exitDrawMode({ clearUnsavedStrokes: true }); return; } navigation.goBack(); };
+  const handleBack = () => {
+    if (modalVisible2) {
+      if (editingOverlayId) setEditingOverlayId(null);
+      setText('');
+      setModalVisible2(false);
+      setIsScrollEnabled(true);
+      return;
+    }
+    if (isDrawing) { exitDrawMode({ clearUnsavedStrokes: true }); return; }
+    navigation.goBack();
+  };
 
   const TabButton = ({ title, isActive, icon, onPress, disabled = false }) => (
     <TouchableOpacity style={[styles.tabButton, disabled && styles.disabledTabButton]} onPress={onPress} disabled={disabled}>
@@ -1713,10 +1815,31 @@ const InstagramPostCreator = () => {
                 {selectedImages.map((image, index) => {
                   const slideEditsForMute = imageEdits[index] || {};
                   const hasLibMusicOnSlide = slideHasLibraryMusic(slideEditsForMute);
-                  const slideCanvasHeight = getSlideCanvasHeight(image);
+                  const slideCanvasHeight = getSlideCanvasHeight();
+                  const contentLayout = getContentLayoutForMedia(image);
                   return (
-                    <View key={getMediaKey(image, index)} style={[styles.imageSlide, { width: IMAGE_SIZE, height: slideCanvasHeight }]}>
-                      <View ref={ref => { if (ref) imageViewRefs.current[index] = ref; }} style={{ width: IMAGE_SIZE, height: slideCanvasHeight, position: 'relative', overflow: 'hidden' }} collapsable={false}>
+                    <View
+                      key={getMediaKey(image, index)}
+                      style={[
+                        styles.imageSlide,
+                        {
+                          width: IMAGE_SIZE,
+                          height: slideCanvasHeight,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        },
+                      ]}
+                    >
+                      <View
+                        ref={ref => { if (ref) imageViewRefs.current[index] = ref; }}
+                        style={{
+                          width: contentLayout.width,
+                          height: contentLayout.height,
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                        collapsable={false}
+                      >
                         {isMediaVideo(image) ? (
                           <View style={styles.videoContainer}>
                             <Video ref={ref => { if (ref) videoRefs.current[index] = ref; }} source={{ uri: getMediaDisplayUri(image) }} style={styles.mainImage} resizeMode='cover' paused={videoPaused[index] !== false} muted={isFlipPost ? (flipVolumeByIndex[index] ?? 1) === 0 || (hasLibMusicOnSlide && index === currentImageIndex) : videoMuted || (hasLibMusicOnSlide && index === currentImageIndex)} volume={isFlipPost ? (flipVolumeByIndex[index] ?? 1) : 1} repeat={true} ignoreSilentSwitch="ignore" playWhenInactive={false} onError={(error) => console.log('Video error:', error)} poster={image.thumbnail || undefined} />
@@ -1744,13 +1867,13 @@ const InstagramPostCreator = () => {
                             collapsable={false}
                             style={[
                               styles.drawingSurface,
-                              { width: IMAGE_SIZE, height: slideCanvasHeight },
+                              { width: contentLayout.width, height: contentLayout.height },
                             ]}
                           >
                             <View
                               style={[
                                 styles.staticImageCanvas,
-                                { width: IMAGE_SIZE, height: slideCanvasHeight },
+                                { width: contentLayout.width, height: contentLayout.height },
                                 isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
                               ]}
                             >
@@ -1764,10 +1887,10 @@ const InstagramPostCreator = () => {
                                     source={{ uri: currentImageUri }}
                                     style={[
                                       styles.mainImage,
-                                      { width: IMAGE_SIZE, height: slideCanvasHeight },
+                                      { width: contentLayout.width, height: '100%' },
                                       isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
-                                    resizeMode='contain'
+                                    resizeMode="contain"
                                   />
                                 );
                               })()}
@@ -1797,20 +1920,20 @@ const InstagramPostCreator = () => {
                         ) : (
                           // Image with zoom functionality
                           <ImageZoom
-                            {...(!isDrawing && !isOverlayTransforming ? panResponder.panHandlers : {})}
-                            cropWidth={IMAGE_SIZE}
-                            cropHeight={slideCanvasHeight}
-                            imageWidth={IMAGE_SIZE}
-                            imageHeight={slideCanvasHeight}
-                            panToMove={!isDrawing && !isOverlayTransforming}
+                            {...(!isDrawing && !isOverlayTransforming && !modalVisible2 ? panResponder.panHandlers : {})}
+                            cropWidth={contentLayout.width}
+                            cropHeight={contentLayout.height}
+                            imageWidth={contentLayout.width}
+                            imageHeight={contentLayout.height}
+                            panToMove={!isDrawing && !isOverlayTransforming && !modalVisible2}
                             minScale={0.5}
                             maxScale={4}
-                            pinchToZoom={!isDrawing && !isOverlayTransforming}
-                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming}
+                            pinchToZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
+                            enableDoubleClickZoom={!isDrawing && !isOverlayTransforming && !modalVisible2}
                             doubleClickInterval={175}
                             style={[
                               styles.imageZoomContainer,
-                              { width: IMAGE_SIZE, height: slideCanvasHeight },
+                              { width: contentLayout.width, height: contentLayout.height },
                             ]}
                             onStartShouldSetPanResponder={evt => {
                               if (isDrawing) return false;
@@ -1831,7 +1954,7 @@ const InstagramPostCreator = () => {
                             <View
                               style={[
                                 styles.staticImageCanvas,
-                                { width: IMAGE_SIZE, height: slideCanvasHeight },
+                                { width: contentLayout.width, height: contentLayout.height },
                                 isSquareDrawingSurface && styles.staticImageCanvasSquareDrawing,
                               ]}
                             >
@@ -1846,10 +1969,10 @@ const InstagramPostCreator = () => {
                                     source={{ uri: currentImageUri }}
                                     style={[
                                       styles.mainImage,
-                                      { width: IMAGE_SIZE, height: slideCanvasHeight },
+                                      { width: contentLayout.width, height: '100%' },
                                       isSquareDrawingSurface && styles.mainImageSquareDrawing,
                                     ]}
-                                    resizeMode='contain'
+                                    resizeMode="contain"
                                   />
                                 );
                               })()}
@@ -1891,7 +2014,9 @@ const InstagramPostCreator = () => {
                                 </Animated.View>
                               );
                             })}
-                            {currentEdits.textOverlays.map(overlay => {
+                            {currentEdits.textOverlays
+                              .filter(overlay => !(modalVisible2 && editingOverlayId === overlay.id))
+                              .map(overlay => {
                               const responder = getOrCreateTextPanResponder(overlay.id);
                               const animatedPosition = getAnimatedValue(currentImageIndex, overlay.id, overlay.position?.x ?? 0, overlay.position?.y ?? 0);
                               const displayOverlay = normalizePostTextOverlayForDisplay(overlay);
@@ -1901,19 +2026,44 @@ const InstagramPostCreator = () => {
                                 <Animated.View key={overlay.id} {...responder.panHandlers} testID="overlay-element" onLayout={event => { const layoutKey = getTextOverlayLayoutKey(currentImageIndex, overlay.id); const { width, height } = event.nativeEvent.layout; const prev = textOverlayLayoutRefs.current[layoutKey]; if (!prev || Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) textOverlayLayoutRefs.current[layoutKey] = { width, height }; }} style={{ position: 'absolute', zIndex: 1000, transform: [...animatedPosition.getTranslateTransform(), { scale: textScaleAnim }, { rotate: textRotationAnim.rotate }] }}>
                                   <View style={styles.textOverlayHitArea} collapsable={false}>
                                     <View style={[postTextOverlayBubbleStyle, { backgroundColor: displayOverlay.highlightColor || 'transparent' }]}>
-                                      <Text style={buildPostTextOverlayTextStyle(displayOverlay, { canvasWidth: IMAGE_SIZE })}>{displayOverlay.text}</Text>
+                                      <Text style={buildPostTextOverlayTextStyle(displayOverlay, { canvasWidth: contentLayout.width })}>{displayOverlay.text}</Text>
                                     </View>
                                   </View>
                                 </Animated.View>
                               );
                             })}
-                            {modalVisible2 && (
-                              <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { position: 'absolute', zIndex: 1001, padding: 4, borderRadius: 4 }]}>
-                                <Text style={[{ fontSize: 28 }, getTextStyleWithFont(text, selectedFont.fontFamily || selectedFont), { color: textColor, textAlign, backgroundColor: highlightColor, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3, minWidth: 50, maxWidth: getPostTextOverlayCanvasMaxWidth(IMAGE_SIZE) }]}>{text || t('selectedPost.typeText')}</Text>
+                            {modalVisible2 && index === currentImageIndex && (
+                              <Animated.View
+                                style={[
+                                  pan.getLayout(),
+                                  styles.draftTextOverlay,
+                                  { maxWidth: getPostTextOverlayCanvasMaxWidth(contentLayout.width) },
+                                ]}
+                              >
+                                <TextInput
+                                  ref={textInputRef}
+                                  value={text}
+                                  onChangeText={setText}
+                                  placeholder={t('selectedPost.typeText')}
+                                  placeholderTextColor="rgba(255,255,255,0.5)"
+                                  multiline
+                                  autoFocus
+                                  scrollEnabled={false}
+                                  textAlign={textAlign}
+                                  style={[
+                                    styles.draftTextInput,
+                                    getTextStyleWithFont(text, selectedFont.fontFamily || selectedFont),
+                                    {
+                                      color: textColor,
+                                      textAlign,
+                                      backgroundColor: highlightColor,
+                                    },
+                                  ]}
+                                />
                               </Animated.View>
                             )}
                             {shouldShowPostMusicCard(currentEdits) && !postStorySoundTrimVisible ? (() => {
-                              const postCanvasLayout = { width: IMAGE_SIZE, height: slideCanvasHeight };
+                              const postCanvasLayout = { width: contentLayout.width, height: contentLayout.height };
                               const defaultBadge = defaultMusicBadgePosition(postCanvasLayout);
                               const badge = currentEdits.musicBadge;
                               const badgeX = badge?.x ?? defaultBadge.x;
@@ -1964,14 +2114,14 @@ const InstagramPostCreator = () => {
                               return (
                               <View key={`saved-text-${overlay.id}`} style={{ position: 'absolute', left: overlay.position?.x || 0, top: overlay.position?.y || 0, zIndex: 1000, transform: [{ rotate: `${overlay.rotation || 0}rad` }] }}>
                                 <View style={[postTextOverlayBubbleStyle, { backgroundColor: displayOverlay.highlightColor || 'transparent' }]}>
-                                  <Text style={buildPostTextOverlayTextStyle(displayOverlay, { canvasWidth: IMAGE_SIZE })}>{displayOverlay.text}</Text>
+                                  <Text style={buildPostTextOverlayTextStyle(displayOverlay, { canvasWidth: contentLayout.width })}>{displayOverlay.text}</Text>
                                 </View>
                               </View>
                               );
                             })}
                             {shouldShowPostMusicCard(imageEdits[index]) && !postStorySoundTrimVisible ? (() => {
                               const slideEdits = imageEdits[index];
-                              const slideCanvasLayout = { width: IMAGE_SIZE, height: slideCanvasHeight };
+                              const slideCanvasLayout = { width: contentLayout.width, height: contentLayout.height };
                               const defaultBadge = defaultMusicBadgePosition(slideCanvasLayout);
                               const badge = slideEdits.musicBadge;
                               const badgeX = badge?.x ?? defaultBadge.x;
@@ -2122,9 +2272,67 @@ const InstagramPostCreator = () => {
     ...(!isCurrentMediaVideo() ? [{ title: t('selectedPost.tabDraw'), icon: 'create-outline' }] : []),
   ];
 
+  const renderTextEditorToolbar = () => (
+    <View style={[styles.textEditorToolbar, bgStyle]}>
+      <View style={styles.textEditorToolbarHeader}>
+        <Text style={[styles.textEditorToolbarTitle, textStyle]}>{t('selectedPost.toolText')}</Text>
+        <TouchableOpacity style={styles.doneBtn} onPress={addTextOverlay}>
+          <Text style={styles.doneText}>{t('selectedPost.done')}</Text>
+        </TouchableOpacity>
+      </View>
+      {showFonts && (
+        <FlatList
+          data={fonts}
+          horizontal
+          keyExtractor={item => item.name}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => setSelectedFont(item.style)} style={[styles.fontBtn, { backgroundColor: `${themeText}14` }]}>
+              <Text style={[{ fontSize: 18, color: themeText }, item.style]}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
+          style={styles.textEditorOptionList}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+      )}
+      {showColors && (
+        <FlatList
+          data={colors}
+          horizontal
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => setTextColor(item)}
+              style={[styles.colorCircle, { backgroundColor: item, borderColor: themeText }]}
+            />
+          )}
+          style={styles.textEditorOptionList}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+      )}
+      <View style={styles.actionRow}>
+        <TouchableOpacity onPress={() => { setShowFonts(!showFonts); setShowColors(false); }} style={[styles.iconBtn, { backgroundColor: `${themeText}12` }]}>
+          <Feather name="type" size={26} color={themeText} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setShowColors(!showColors); setShowFonts(false); }} style={[styles.iconBtn, { backgroundColor: `${themeText}12` }]}>
+          <Feather name="circle" size={26} color={textColor === '#fff' ? themeText : textColor} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setTextAlign(textAlign === 'center' ? 'left' : textAlign === 'left' ? 'right' : 'center')} style={[styles.iconBtn, { backgroundColor: `${themeText}12` }]}>
+          <Feather name={textAlign === 'center' ? 'align-center' : textAlign === 'left' ? 'align-left' : 'align-right'} size={26} color={themeText} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setHighlightColor(highlightColor === 'transparent' ? 'black' : highlightColor === 'black' ? 'white' : 'transparent')} style={[styles.iconBtn, { backgroundColor: `${themeText}12` }]}>
+          <MaterialCommunityIcons name="format-color-highlight" size={26} color={highlightColor === 'transparent' ? themeText : highlightColor === 'white' ? themeText : '#fff'} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const renderEditingTabs = () => (
     <View style={[styles.editingSection, bgStyle, isFlipPost && styles.editingSectionFlip]}>
-      {isFlipPost ? (
+      {modalVisible2 ? (
+        renderTextEditorToolbar()
+      ) : isFlipPost ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flipTabScroll} contentContainerStyle={styles.flipTabScrollContent}>
           {flipToolbarItems.map(t_item => (
             <TouchableOpacity key={t_item.key} style={styles.flipTabButton} onPress={() => handleFlipToolPress(t_item.key)} activeOpacity={0.75}>
@@ -2238,29 +2446,6 @@ const InstagramPostCreator = () => {
           )}
         </View>
       </RBSheet>
-
-      {modalVisible2 && (
-        <Modal visible={modalVisible2} animationType="fade" transparent>
-          <View style={styles.fullScreenOverlay}>
-            <View style={styles.doneView}>
-              <TouchableOpacity style={styles.doneBtn} onPress={addTextOverlay}>
-                <Text style={styles.doneText}>{t('selectedPost.done')}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.editorBox}>
-              <TextInput value={text} onChangeText={setText} placeholder="" placeholderTextColor="#ccc" style={[styles.textInput, getTextStyleWithFont(text, selectedFont.fontFamily || selectedFont), { color: textColor, textAlign, backgroundColor: highlightColor }]} multiline />
-              {showFonts && <FlatList data={fonts} horizontal keyExtractor={item => item.name} renderItem={({ item }) => <TouchableOpacity onPress={() => setSelectedFont(item.style)} style={styles.fontBtn}><Text style={[{ fontSize: 18, color: '#fff' }, item.style]}>{item.name}</Text></TouchableOpacity>} style={{ marginTop: 20 }} showsHorizontalScrollIndicator={false} />}
-              {showColors && <FlatList data={colors} horizontal keyExtractor={(item, index) => index.toString()} renderItem={({ item }) => <TouchableOpacity onPress={() => setTextColor(item)} style={[styles.colorCircle, { backgroundColor: item, borderColor: '#fff' }]} />} style={{ marginTop: 15 }} showsHorizontalScrollIndicator={false} />}
-              <View style={styles.actionRow}>
-                <TouchableOpacity onPress={() => { setShowFonts(!showFonts); setShowColors(false); }} style={styles.iconBtn}><Feather name="type" size={26} color="#fff" /></TouchableOpacity>
-                <TouchableOpacity onPress={() => { setShowColors(!showColors); setShowFonts(false); }} style={styles.iconBtn}><Feather name="circle" size={26} color={textColor} /></TouchableOpacity>
-                <TouchableOpacity onPress={() => setTextAlign(textAlign === 'center' ? 'left' : textAlign === 'left' ? 'right' : 'center')} style={styles.iconBtn}><Feather name={textAlign === 'center' ? 'align-center' : textAlign === 'left' ? 'align-left' : 'align-right'} size={26} color="#fff" /></TouchableOpacity>
-                <TouchableOpacity onPress={() => setHighlightColor(highlightColor === 'transparent' ? 'black' : highlightColor === 'black' ? 'white' : 'transparent')} style={styles.iconBtn}><MaterialCommunityIcons name="format-color-highlight" size={26} color={highlightColor === 'transparent' ? 'white' : 'black'} /></TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
 
       <Modal visible={flipStickerModal} transparent animationType="fade" onRequestClose={() => setFlipStickerModal(false)}>
         <View style={styles.flipStickerModalRoot}>
@@ -2377,7 +2562,7 @@ const InstagramPostCreator = () => {
           if (!slideHasLibraryMusic(getCurrentImageEdits())) openPostMusicPicker();
         }}
         onDone={({ start, end }) => {
-          const layout = { width: IMAGE_SIZE, height: editorCanvasHeight || IMAGE_SIZE };
+          const layout = { width: currentContentLayout.width, height: currentContentLayout.height };
           const cur = getCurrentImageEdits();
           updateCurrentImageEdits({
             musicTrimStart: start,
@@ -3328,18 +3513,51 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#fff',
     textAlign: 'center',
-    minHeight: 50,
-    maxWidth: SCREEN_WIDTH - 48,
-    alignSelf: 'center',
+    width: '100%',
+    minHeight: 80,
     borderWidth: 1,
     borderColor: '#333',
     borderRadius: 8,
     padding: 12,
   },
+  draftTextOverlay: {
+    position: 'absolute',
+    zIndex: 1001,
+    minWidth: 200,
+    alignSelf: 'flex-start',
+  },
+  draftTextInput: {
+    fontSize: 28,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 48,
+    minWidth: 200,
+    width: '100%',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  textEditorToolbar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 8 : 12,
+  },
+  textEditorToolbarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  textEditorToolbarTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textEditorOptionList: {
+    marginBottom: 12,
+  },
   fontBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#333',
     marginRight: 8,
     borderRadius: 6,
   },
@@ -3357,7 +3575,6 @@ const styles = StyleSheet.create({
   },
   iconBtn: {
     padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 8,
   },
   NextButtonView: {

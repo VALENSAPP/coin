@@ -349,6 +349,135 @@ export default StyleSheet.create({
         lineHeight: 21,
         color: '#0000',
     },
+    deleteScrollContent: {
+        paddingTop: 8,
+        paddingBottom: 32,
+    },
+    deleteHeroSection: {
+        alignItems: 'center',
+        marginBottom: 24,
+        paddingHorizontal: 8,
+    },
+    deleteWarningIcon: {
+        marginBottom: 12,
+    },
+    deleteHeroTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    deleteHeroSubtitle: {
+        fontSize: 15,
+        color: '#6B7280',
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    deleteLossSectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 12,
+    },
+    deleteLossCard: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 20,
+    },
+    deleteLossItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        padding: 16,
+    },
+    deleteLossItemBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    deleteLossIconWrap: {
+        width: 36,
+        alignItems: 'center',
+        marginRight: 12,
+        paddingTop: 2,
+    },
+    deleteLossItemContent: {
+        flex: 1,
+    },
+    deleteLossItemTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    deleteLossItemDesc: {
+        fontSize: 13,
+        color: '#6B7280',
+        lineHeight: 18,
+    },
+    deleteSupportCard: {
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+    },
+    deleteSupportRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 14,
+    },
+    deleteSupportIcon: {
+        marginRight: 12,
+        marginTop: 2,
+    },
+    deleteSupportTextWrap: {
+        flex: 1,
+    },
+    deleteSupportTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        marginBottom: 6,
+    },
+    deleteSupportDesc: {
+        fontSize: 13,
+        color: '#6B7280',
+        lineHeight: 18,
+    },
+    deleteSupportButton: {
+        alignSelf: 'flex-end',
+        borderWidth: 1.5,
+        borderRadius: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    deleteSupportButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    keepAccountButton: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+        borderWidth: 2,
+        marginBottom: 12,
+    },
+    keepAccountButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    deletePermanentButton: {
+        backgroundColor: '#DC2626',
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    deletePermanentIcon: {
+        marginRight: 8,
+    },
+    deletePermanentButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFFFFF',
+    },
     infoCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
@@ -402,7 +531,6 @@ export default StyleSheet.create({
     loginItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         backgroundColor: '#FFFFFF',
         borderRadius: 12,
         padding: 16,
@@ -410,14 +538,21 @@ export default StyleSheet.create({
     },
     loginLeft: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         flex: 1,
+        minWidth: 0,
+        paddingRight: 12,
+    },
+    loginTextContent: {
+        flex: 1,
+        minWidth: 0,
     },
     loginStatusDot: {
         width: 10,
         height: 10,
         borderRadius: 5,
         marginRight: 12,
+        marginTop: 6,
     },
     loginStatusCurrent: {
         backgroundColor: '#10B981',
@@ -457,6 +592,8 @@ export default StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 12,
+        flexShrink: 0,
+        alignSelf: 'center',
     },
     currentText: {
         fontSize: 12,
@@ -493,6 +630,8 @@ export default StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 10,
         backgroundColor: '#FEE2E2',
+        flexShrink: 0,
+        alignSelf: 'center',
     },
     sessionLogoutText: {
         fontSize: 12,
